@@ -3,83 +3,73 @@
 #include <optional>
 #include "graph_algorithm.cpp"
 
+//visit program: entry of the language
+//We go over all the functions first and store the main function if it exists. We only store the function name, their input and their return type.
+//We then go over all the statements that are outside the functions in order. 
+// if main function exist we execute it after the global statements execution is completed. 
 antlrcpp::Any MyVisitor::visitProgram(BaseParser::ProgramContext *ctx)
 {
-    std::cout << "Visiting program" << std::endl;
-
+    //std::cout << "Visiting program" << std::endl;
     BaseParser::FunctionContext *mainFunction = nullptr;
-
-    for (auto function : ctx->function())
+    for (auto function : ctx->function()) // we iterate over the functions and store the main function only inorder to execute it later.
     {
         auto functionName = function->ID()->getText();
         if (functionName == "main")
         {
-            mainFunction = function; // Remember the main function
+            mainFunction = function; 
         }
-        visitFunction(function); // Visit other functions to define them (but not execute)
+        visitFunction(function); 
     }
-    for (auto statement : ctx->statement())
+    for (auto statement : ctx->statement()) //we visit all the statements that are outside functions including main function.
     {
-        
-            visitStatement(statement); // Execute other statements (not part of functions)
-        
+            visitStatement(statement);    
     }
-    // First pass: Process all global graph definitions and other global statements (before any functions)
-   
-
-    // Second pass: Process all functions and check if 'main' function exists
-    
-
-    // Third pass: Execute the main function if it exists
-    if (mainFunction)
+    if (mainFunction)  //if the main function exists we execute it
     {
-        std::cout << "Main function found. Executing main..." << std::endl;
-        visitBlock(mainFunction->block()); // Execute the main function
+        //std::cout << "Main function found. Executing main..." << std::endl;
+        visitBlock(mainFunction->block()); 
     }
-
-    // Fourth pass: Execute other statements if main was not found
-    
-
     return nullptr;
 }
+
 
 // Visit individual statements
 antlrcpp::Any MyVisitor::visitStatement(BaseParser::StatementContext *ctx)
 {
-    std::cout << "Visiting statement" << std::endl;
+    //std::cout << "Visiting statement" << std::endl;
 
-    if (ctx->graphDef())
+    if (ctx->graphDef()) 
     {
-        std::cout << "Visiting graph definition" << std::endl;
+        //std::cout << "Visiting graph definition" << std::endl;
         return visitGraphDef(ctx->graphDef());
     }
     else if (ctx->conditionalStatement())
     {
-        std::cout << "Visiting conditional statement" << std::endl;
+        //std::cout << "Visiting conditional statement" << std::endl;
         return visitConditionalStatement(ctx->conditionalStatement());
     }
     else if (ctx->printStatement())
     {
-        std::cout << "Visiting print statement" << std::endl;
+        //std::cout << "Visiting print statement" << std::endl;
         return visitPrintStatement(ctx->printStatement());
     }
     else if (ctx->loopStatement())
     {
-        std::cout << "Visiting loop statement" << std::endl;
+        //std::cout << "Visiting loop statement" << std::endl;
         return visitLoopStatement(ctx->loopStatement());
     }
     else if (ctx->varDecl())
     {
-        std::cout << " visting assignment " << "\n";
+        //std::cout << " visting assignment " << "\n";
         return visitVarDecl(ctx->varDecl());
     }
     else if (ctx->functionCall())
     {
-        std::cout << "visiting functions " << "\n";
+        //std::cout << "visiting functions " << "\n";
         return visitFunctionCall(ctx->functionCall());
     }
     else if(ctx->graphComprehension()){
-        std::cout<<"visitng compre";
+        //std::cout<<"visitng compre";
         return visitGraphComprehension(ctx->graphComprehension());
     }
     else if(ctx->queryStatement()){
@@ -89,14 +79,25 @@ antlrcpp::Any MyVisitor::visitStatement(BaseParser::StatementContext *ctx)
         return visitShowgraph(ctx->showgraph());
     }
 
-    return visitChildren(ctx);
+    return visitChildren(ctx); //
 }
+
+/* graph strucuture- 
+graph graph_manual {
+    nodes:1,2,3,4;
+    edges:1->2, 2->3;
+}
+
+graph graph_file{
+    edges: file "edgelist.txt";
+}
+*/
 
 // Visit Graph Definition
 antlrcpp::Any MyVisitor::visitGraphDef(BaseParser::GraphDefContext *ctx)
 {
-    graphName = ctx->graphID()->getText();
-    std::cout << "Graph Name: " << graphName << std::endl;
+    graphName = ctx->graphID()->getText(); //this is our graph name 
+    // std::cout << "Graph Name: " << graphName << std::endl;
 
     visit(ctx->nodes());
     visit(ctx->edges());
@@ -106,16 +107,16 @@ antlrcpp::Any MyVisitor::visitGraphDef(BaseParser::GraphDefContext *ctx)
 // Visit Nodes
 antlrcpp::Any MyVisitor::visitNodes(BaseParser::NodesContext *ctx)
 {
-    auto parentCtx = dynamic_cast<BaseParser::GraphDefContext *>(ctx->parent);
+    auto parentCtx = dynamic_cast<BaseParser::GraphDefContext *>(ctx->parent); //we need this in order to find which graph we will fill up
     std::string gName = parentCtx->graphID()->getText();
-    std::cout << "Graph Name: " << gName << std::endl;
+    //std::cout << "Graph Name: " << gName << std::endl;
 
     for (auto node : ctx->nodeList()->nodeID())
     {
         addNode(gName, std::stoi(node->getText())); // Store node IDs
     }
 
-    return nullptr;
+    return nullptr; 
 }
 
 // Visit Edges
@@ -123,13 +124,12 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
 {
     auto parentCtx = dynamic_cast<BaseParser::GraphDefContext *>(ctx->parent);
     std::string gName = parentCtx->graphID()->getText();
-    if (ctx->fileEdgeList())
+    if (ctx->fileEdgeList()) //if file exists we go through the file and fill up the graph
     {
         // Extract the filename
-        std::string filename = ctx->fileEdgeList()->STRING()->getText();
-
-        // Remove surrounding quotes
-        if (!filename.empty() && (filename.front() == '"' || filename.front() == '\''))
+        std::string filename = ctx->fileEdgeList()->STRING()->getText(); //we get the file name 
+        
+        if (!filename.empty() && (filename.front() == '"' || filename.front() == '\'')) // Remove surrounding quotes of the file name ("edgelist.txt") -> (edgelist.txt)
         {
             filename = filename.substr(1, filename.size() - 2);
         }
@@ -170,7 +170,7 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
 
         file.close();
     }
-    else
+    else //if there is no file then we check the manual graph type.
     {
         for (auto edge : ctx->edgeList()->edge())
         {
@@ -186,13 +186,24 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
 
 
 // Visit conditional statement
+/*
+    if(false){
+    }
+    else 
+    now we can call the if block again then it will be 
+    if(false){
+    }
+    else if(){
+    }
+    we can keep calling recursively like this 
+*/
 antlrcpp::Any MyVisitor::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx)
 {
-    std::cout << "h1\n";
+    // std::cout << "h1\n";
     auto conditionResult = visitCondition(ctx->condition());
-    std::cout << "Condition result type1: " << conditionResult.type().name() << "\n";
+    // std::cout << "Condition result type1: " << conditionResult.type().name() << "\n";
     bool condition = std::any_cast<bool>(conditionResult);
-    std::cout << "condition = " << condition;
+    // std::cout << "condition = " << condition;
     // exit(0);
     // bool condition = std::any_cast<bool>(visit(ctx->condition()));
     //  bool condition1 = false;
@@ -236,7 +247,7 @@ antlrcpp::Any MyVisitor::visitGraphComprehension(BaseParser::GraphComprehensionC
     // Store the new graph
     graph[newGraphName] = newGraph;
 
-    return nullptr; // No specific return required
+    return nullptr; 
 }
 
 
@@ -302,8 +313,11 @@ bool MyVisitor::evaluateConnectedCondition(const std::string& gName ,int node, i
 
 
 //query
+/*
+query var_name: "bfs" of graph_name
+*/
 antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *ctx) {
-    // Extract the query variable name, function name (e.g., "dfs"), and graph ID
+    
     std::string queryVariable = ctx->ID()->getText();
     std::string queryType = ctx->STRING()->getText();
     queryType = queryType.substr(1, queryType.size() - 2); // Remove quotes
@@ -353,7 +367,7 @@ antlrcpp::Any MyVisitor::visitShowgraph(BaseParser::ShowgraphContext *ctx) {
     // Get the graph from the symbol table
     auto mm = graph[graphID];
 
-    // Generate DOT file and visualize the graph
+    
     generateDotFile(mm, graphID + ".dot");
     showGraph(graphID);
 
@@ -373,7 +387,7 @@ void MyVisitor::generateDotFile(const std::unordered_map<int, std::unordered_set
 
     outFile << "}\n";
     outFile.close();
-    std::cout << "DOT file generated: " << filename << std::endl;
+    //std::cout << "DOT file generated: " << filename << std::endl;
 }
 
 void MyVisitor::showGraph(const std::string& graphID) {
@@ -389,13 +403,13 @@ void MyVisitor::showGraph(const std::string& graphID) {
 
 
 // function
-
+//we store the function name, parameters, and return type. The parameter stays as a type of list 
 antlrcpp::Any MyVisitor::visitFunction(BaseParser::FunctionContext *ctx)
 {
     
     std::string functionName = ctx->ID()->getText();
     std::string returnType = ctx->returnType()->getText();
-    // Corrected to use visitParamList correctly
+    
     std::vector<std::pair<std::string, std::string>> paramList =
         std::any_cast<std::vector<std::pair<std::string, std::string>>>(visitParamList(ctx->paramList()));
 
@@ -407,7 +421,7 @@ antlrcpp::Any MyVisitor::visitFunction(BaseParser::FunctionContext *ctx)
     FunctionDefinition funcDef{returnType, paramList, ctx->block()};
     functions[functionName] = funcDef;
 
-    std::cout << "Function " << functionName << " with return type " << returnType << " defined.\n";
+    //std::cout << "Function " << functionName << " with return type " << returnType << " defined.\n";
     return nullptr;
 }
 
@@ -415,8 +429,8 @@ antlrcpp::Any MyVisitor::visitParamList(BaseParser::ParamListContext *ctx)
 {
     std::vector<std::pair<std::string, std::string>> params;
 
-    // Check if there are any parameters
-    if (ctx->param().empty()) {
+
+    if (ctx->param().empty()) { // check to find if the function parameters exist or empty function.
         return params;  // Return empty parameter list if no parameters exist
     }
 
@@ -429,10 +443,10 @@ antlrcpp::Any MyVisitor::visitParamList(BaseParser::ParamListContext *ctx)
 
     return params;
 }
-
+// returning the type of the variable and the variable name 
 antlrcpp::Any MyVisitor::visitParam(BaseParser::ParamContext *ctx)
 {
-    std::string type = ctx->type()->getText();
+    std::string type = ctx->type()->getText(); 
     std::string name = ctx->ID()->getText();
     return std::make_pair(type, name);
 }
@@ -440,12 +454,12 @@ antlrcpp::Any MyVisitor::visitParam(BaseParser::ParamContext *ctx)
 //33
 antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    std::cout << "Visiting function call: \n";
+    //std::cout << "Visiting function call: \n";
 
     std::string functionName;
     if (ctx->ID() != nullptr) {
         functionName = ctx->ID()->getText();
-        std::cout << "Function name: " << functionName << std::endl;
+        //std::cout << "Function name: " << functionName << std::endl;
     } else {
         std::cerr << "Error: Function call ID is missing!" << std::endl;
         throw std::runtime_error("Function call ID is missing!");
@@ -474,17 +488,17 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
         }
 
         for (size_t i = 0; i < arguments.size(); ++i) {
-            std::cout << "Processing argument " << i << std::endl;
+            // std::cout << "Processing argument " << i << std::endl;
             auto argumentValue = visitExpr(arguments[i]);
             args.push_back(argumentValue);
 
             // Debugging the argument value and type
             if (argumentValue.type() == typeid(int)) {
-                std::cout << "Argument " << i << " is of type int with value: " << std::any_cast<int>(argumentValue) << std::endl;
+                //std::cout << "Argument " << i << " is of type int with value: " << std::any_cast<int>(argumentValue) << std::endl;
             } else if (argumentValue.type() == typeid(std::string)) {
-                std::cout << "Argument " << i << " is of type string with value: " << std::any_cast<std::string>(argumentValue) << std::endl;
+                // std::cout << "Argument " << i << " is of type string with value: " << std::any_cast<std::string>(argumentValue) << std::endl;
             } else {
-                std::cout << "Argument " << i << " has an unknown type!" << std::endl;
+                // std::cout << "Argument " << i << " has an unknown type!" << std::endl;
             }
         }
     }
@@ -497,21 +511,21 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
         for (size_t i = 0; i < paramList.size(); ++i) {
             const auto &param = paramList[i];
             const std::string &paramName = param.second;
-            std::cout << "Mapping argument " << i << " of type " << param.first << " to parameter " << paramName << std::endl;
+            // std::cout << "Mapping argument " << i << " of type " << param.first << " to parameter " << paramName << std::endl;
 
             // Cast arguments based on the parameter type
             try {
                 if (param.first == "int") {
                     if (args[i].type() == typeid(int)) {
                         symbolTable[paramName] = std::any_cast<int>(args[i]);
-                        std::cout << "Mapped int argument: " << std::any_cast<int>(args[i]) << std::endl;
+                        // std::cout << "Mapped int argument: " << std::any_cast<int>(args[i]) << std::endl;
                     } else {
                         throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type int.");
                     }
                 } else if (param.first == "string") {
                     if (args[i].type() == typeid(std::string)) {
                         symbolTable[paramName] = std::any_cast<std::string>(args[i]);
-                        std::cout << "Mapped string argument: " << std::any_cast<std::string>(args[i]) << std::endl;
+                        // std::cout << "Mapped string argument: " << std::any_cast<std::string>(args[i]) << std::endl;
                     } else {
                         throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type string.");
                     }

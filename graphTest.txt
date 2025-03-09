@@ -1,0 +1,75 @@
+graph g{
+    nodes:2,3,4,5;
+    edges: 2->3,3->4,2->4,5->2,5->3;
+};
+graph h{
+    nodes: 1,2;
+    edges: file "g.txt";
+};
+
+/*
+fn int main(){
+    //statements
+}
+*/
+
+h = [g where degree > 2 && connected with 3];
+print graph of h;
+
+query j : "detectCycle" of g;
+
+
+print j;
+
+
+
+
+graph g{
+    nodes: 3,4,5;
+    edges: file "g.txt"; 
+};
+
+
+fn int add(int a,int b) {
+    print a + b;
+    return a + b;
+}
+fn int mm(){
+    return 5+4;
+}
+
+int c = 3 + 5 * 4;
+int d = 4;
+print c;
+int m = mm();
+print m;
+
+int j2 = add ( c , d ) ;
+print j2;
+
+for each neighbor n of 3 in g {
+    print n;
+}
+
+
+for each edge i,j in g{
+    print i + "->" + j;
+}
+
+
+for each vertex i in g{
+    print i;
+}
+/*
+while ( 3 == 3 ){
+    print 5;
+}
+*/
+
+
+if(3 in g){
+  print nodes of g;
+}
+
+
+show g;

@@ -1,78 +1,48 @@
-#include "algorithms.h"
-#include <unordered_map>
-#include <unordered_set>
-#include <fstream>
 #include <iostream>
-#include <sstream>
-#include <chrono>  // For measuring execution time
+#include <fstream>
+#include <string>
+#include "antlr4-runtime.h"
+#include "generated/BaseLexer.h"
+#include "generated/BaseParser.h"
+#include "MyVisitor.h"
+#include "MyVisitor.cpp"
 
-using namespace std;
-using namespace chrono;
 
-// Load graph from .mtx file
-unordered_map<int, unordered_set<int>> loadGraphFromMTX(const string& filename) {
-    unordered_map<int, unordered_set<int>> graph;
-    ifstream file(filename);
+using namespace antlr4;
 
-    if (!file.is_open()) {
-        cerr << "Error: Could not open file " << filename << endl;
-        exit(1);
+int main(int argc, const char* argv[]) {
+    std::cout << "Press ENTER to exit...";
+    std::cin.get();
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <input-file>" << std::endl;
+        return 1;
     }
 
-    string line;
-    bool headerSkipped = false;
-
-    while (getline(file, line)) {
-        // Skip comments and metadata
-        if (line[0] == '%' || line.empty()) {
-            continue;
-        }
-
-        // Skip the header (matrix size line)
-        if (!headerSkipped) {
-            headerSkipped = true;
-            continue;
-        }
-
-        // Parse edge (Node1 Node2)
-        istringstream iss(line);
-        int node1, node2;
-        if (!(iss >> node1 >> node2)) {
-            cerr << "Error: Invalid line format: " << line << endl;
-            continue;
-        }
-
-        // Build adjacency list (undirected graph)
-        graph[node1].insert(node2);
-        graph[node2].insert(node1);
+    // Read the input file
+    std::ifstream stream(argv[1]);
+    if (!stream) {
+        std::cerr << "Cannot open file: " << argv[1] << std::endl;
+        return 1;
     }
 
-    file.close();
-    return graph;
-}
+    // Create an input stream and lexer
+    ANTLRInputStream input(stream);
+    BaseLexer lexer(&input);
+    CommonTokenStream tokens(&lexer);
 
-int main() {
-    string filename = "144.mtx"; // Replace with your .mtx file name
-    unordered_map<int, unordered_set<int>> graph = loadGraphFromMTX(filename);
+    // Create a parser
+    BaseParser parser(&tokens);
 
-    cout << "Graph loaded successfully!" << endl;
-    cout << "Number of Nodes: " << graph.size() << endl;
+    // Get the parse tree
+    tree::ParseTree *tree = parser.program();
 
-    // Measure time taken for BFS
-    auto start = high_resolution_clock::now(); // Start time
+    // Create a custom visitor
+    MyVisitor visitor;
 
-    cout << "Starting BFS from the first node..." << endl;
-    if (!graph.empty()) {
-        // Capture and print the output of BFS
-        cout << BFS(graph) << endl;
-    } else {
-        cout << "Graph is empty. Please check the input file." << endl;
-    }
-
-    auto stop = high_resolution_clock::now(); // End time
-    auto duration = duration_cast<milliseconds>(stop - start); // Duration in milliseconds
-
-    cout << "BFS completed in " << duration.count() << " milliseconds." << endl;
+    // Visit the parse tree
+    visitor.visit(tree);
+    // visitor.addEdge("g",8,9);
+    // visitor.printGraph("g");
 
     return 0;
 }

@@ -85,7 +85,7 @@ function: 'fn' returnType ID paramList block;
 returnType: 'graph' | 'vertex' | 'edge' | 'int' | 'void' |'string';
 paramList: '(' (param (',' param)*)? ')';
 param: type ID;
-type: 'graph' | 'vertex' | 'edge' | 'int' | 'string';
+type: 'graph' | 'vertex' | 'edge' | 'int' | 'string' | 'real';
 
 functionCall: ID '(' argumentList? ')' ;
 argumentList: expr (',' expr)*;
@@ -112,6 +112,7 @@ expr: expr (TIMES | DIVIDE) expr # MulDivExpr
     | INT                   # IntExpr
     | ID                    # IdExpr
     | '(' expr ')'          # ParenExpr
+    | REAL                  # RealExpr
     ;
 
 
@@ -142,6 +143,7 @@ GREATEREQUAL: '>=';
 
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 INT: [0-9]+;
+REAL: [0-9]+ '.' [0-9]+;
 //STRING: '"' (~["\r\n])* '"';
 STRING
  : ["] ( ~["\r\n\\] | '\\' ~[\r\n] )* ["]

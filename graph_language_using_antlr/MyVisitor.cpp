@@ -976,6 +976,36 @@ bool MyVisitor::nodeExists(const std::string &gName, int node) const
     return false;
 }
 
+// Visit addOperation
+antlrcpp::Any MyVisitor::visitAddOperation(BaseParser::AddOperationContext *ctx) {
+    std::string gName = ctx->graphID()->getText();
+    if (ctx->addTargets()->nodeID()) {
+        int node = std::stoi(ctx->addTargets()->nodeID()->getText());
+        addNode(gName, node);
+    } else if (ctx->addTargets()->edge()) {
+        int from = std::stoi(ctx->addTargets()->edge()->nodeID(0)->getText());
+        int to = std::stoi(ctx->addTargets()->edge()->nodeID(1)->getText());
+        addEdge(gName, from, to);
+    }
+    // Handle nodeList and edgeList if needed
+    return nullptr;
+}
+
+// Visit removeOperation
+antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) {
+    std::string gName = ctx->graphID()->getText();
+    if (ctx->removeTargets()->nodeID()) {
+        int node = std::stoi(ctx->removeTargets()->nodeID()->getText());
+        removeNode(gName, node);
+    } else if (ctx->removeTargets()->edge()) {
+        int from = std::stoi(ctx->removeTargets()->edge()->nodeID(0)->getText());
+        int to = std::stoi(ctx->removeTargets()->edge()->nodeID(1)->getText());
+        removeEdge(gName, from, to);
+    }
+    // Handle nodeList and edgeList if needed
+    return nullptr;
+}
+
 bool MyVisitor::edgeExists(const std::string &gName, int from, int to) const
 {
     bool final = false;

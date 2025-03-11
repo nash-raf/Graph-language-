@@ -550,6 +550,7 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
     return returnValue;
 }
 
+
 antlrcpp::Any MyVisitor::visitBlock(BaseParser::BlockContext *ctx)
 {
     for (auto stmt : ctx->statement())
@@ -665,6 +666,7 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
 
     return 0;
 }
+
 // Check if node exists
 
 antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
@@ -942,6 +944,17 @@ void MyVisitor::addNode(const std::string &gName, int node)
     graph[gName][node];
 }
 
+void MyVisitor::removeNode(const std::string &gName, int node) {
+    if (graph[gName].count(node)) {
+        for (int neighbor : graph[gName][node]) {
+            graph[gName][neighbor].erase(node);
+        }
+        graph[gName].erase(node);
+    } else {
+        throw std::runtime_error("Node does not exist in the graph.");
+    }
+}
+
 void MyVisitor::addEdge(const std::string &gName, int from, int to)
 {
     // if (graph.find(gName) == graph.end())
@@ -1004,6 +1017,16 @@ antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext
     }
     // Handle nodeList and edgeList if needed
     return nullptr;
+}
+
+// Remove an edge from the graph
+void MyVisitor::removeEdge(const std::string &gName, int from, int to) {
+    if (graph[gName][from].count(to)) {
+        graph[gName][from].erase(to);
+        graph[gName][to].erase(from); // Since the graph is undirected
+    } else {
+        throw std::runtime_error("Edge does not exist in the graph.");
+    }
 }
 
 bool MyVisitor::edgeExists(const std::string &gName, int from, int to) const

@@ -482,6 +482,8 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
                 // std::cout << "Argument " << i << " is of type int with value: " << std::any_cast<int>(argumentValue) << std::endl;
             } else if (argumentValue.type() == typeid(std::string)) {
                 // std::cout << "Argument " << i << " is of type string with value: " << std::any_cast<std::string>(argumentValue) << std::endl;
+            } else if (argumentValue.type() == typeid(double)) {
+                // std::cout << "Argument " << i << " is of type int with value: " << std::any_cast<int>(argumentValue) << std::endl;
             } else {
                 std::cout << "Argument " << i << " has an unknown type!" << std::endl;
             }
@@ -514,6 +516,13 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
                     } else {
                         throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type string.");
                     }
+                } else if (param.first == "real") {
+                    if (args[i].type() == typeid(double)) {
+                        symbolTable[paramName] = std::any_cast<double>(args[i]);
+                        std::cout << "Mapped real argument: " << std::any_cast<double>(args[i]) << std::endl;
+                    } else {
+                        throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type real.");
+                    } 
                 } else {
                     throw std::runtime_error("Unsupported parameter type: " + param.first);
                 }
@@ -541,7 +550,6 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
     return returnValue;
 }
 
-
 antlrcpp::Any MyVisitor::visitBlock(BaseParser::BlockContext *ctx)
 {
     for (auto stmt : ctx->statement())
@@ -566,21 +574,45 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
 
     if (auto mulDivContext = dynamic_cast<BaseParser::MulDivExprContext *>(ctx))
     {
-        int left = std::any_cast<int>(visitExpr(mulDivContext->expr(0)));
-        int right = std::any_cast<int>(visitExpr(mulDivContext->expr(1)));
-        if (mulDivContext->TIMES())
-            return left * right;
-        if (mulDivContext->DIVIDE())
-            return left / right;
+        auto leftAny = visitExpr(mulDivContext->expr(0));
+        auto rightAny = visitExpr(mulDivContext->expr(1));
+        if(leftAny.type() == typeid(double) || rightAny.type() == typeid(double)){
+            double left = std::any_cast<double>(leftAny);
+            double right = std::any_cast<double>(rightAny);
+            if (mulDivContext->TIMES())
+                return left * right;
+            if (mulDivContext->DIVIDE())
+                return left / right;
+        }   
+        else if(leftAny.type() == typeid(int) || rightAny.type() == typeid(int)){
+            int left = std::any_cast<int>(leftAny);
+            int right = std::any_cast<int>(rightAny);
+            if (mulDivContext->TIMES())
+                return left * right;
+            if (mulDivContext->DIVIDE())
+                return left / right;
+        }
     }
     else if (auto addSubContext = dynamic_cast<BaseParser::AddSubExprContext *>(ctx))
     {
-        int left = std::any_cast<int>(visitExpr(addSubContext->expr(0)));
-        int right = std::any_cast<int>(visitExpr(addSubContext->expr(1)));
-        if (addSubContext->PLUS())
-            return left + right;
-        if (addSubContext->MINUS())
-            return left - right;
+        auto leftAny = visitExpr(addSubContext->expr(0));
+        auto rightAny = visitExpr(addSubContext->expr(1));
+        if(leftAny.type() == typeid(double) || rightAny.type() == typeid(double)){
+            double left = std::any_cast<double>(leftAny);
+            double right = std::any_cast<double>(rightAny);
+            if (addSubContext->PLUS())
+                return left + right;
+            if (addSubContext->MINUS())
+                return left - right;
+        }   
+        else if(leftAny.type() == typeid(int) || rightAny.type() == typeid(int)){
+            int left = std::any_cast<int>(leftAny);
+            int right = std::any_cast<int>(rightAny);
+            if (addSubContext->PLUS())
+                return left + right;
+            if (addSubContext->MINUS())
+                return left - right;
+        }
     }
     //33
     else if (auto funcExprContext = dynamic_cast<BaseParser::FuncExprContext *>(ctx)) {
@@ -590,6 +622,10 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     else if (auto intExprContext = dynamic_cast<BaseParser::IntExprContext *>(ctx))
     {
         return std::stoi(intExprContext->getText());
+    }
+    else if (auto realExprContext = dynamic_cast<BaseParser::RealExprContext *>(ctx))
+    {
+        return std::stod(realExprContext->getText());
     }
     else if (auto idExprContext = dynamic_cast<BaseParser::IdExprContext *>(ctx))
     {
@@ -609,6 +645,10 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             {
                 return std::any_cast<std::string>(value);
             }
+            else if (value.type() == typeid(double))
+            {
+                return std::any_cast<double>(value);
+            }
             else
             {
                 throw std::runtime_error("Unsupported variable type for '" + id + "'.");
@@ -625,7 +665,6 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
 
     return 0;
 }
-
 // Check if node exists
 
 antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
@@ -655,6 +694,10 @@ antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
         {
             throw std::runtime_error("Type mismatch: Expected 'string' initializer for variable '" + name + "'.");
         }
+        else if (type == "real" && value.type() != typeid(double))
+        {
+            throw std::runtime_error("Type mismatch: Expected 'real' initializer for variable '" + name + "'.");
+        }
     }
     else
     {
@@ -666,6 +709,10 @@ antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
         else if (type == "string")
         {
             value = std::string("");
+        }
+        else if (type == "real")
+        {
+            value = 0.0;
         }
         else
         {
@@ -968,6 +1015,10 @@ antlrcpp::Any MyVisitor::visitPrintStatement(BaseParser::PrintStatementContext *
             {
                 std::cout << std::any_cast<int>(result) << std::endl;
             }
+            else if (result.type() == typeid(double))
+            {
+                std::cout << std::any_cast<double>(result) << std::endl;
+            }
             else if (result.type() == typeid(std::string))
             {
                 std::cout << std::any_cast<std::string>(result) << std::endl;
@@ -1015,6 +1066,10 @@ antlrcpp::Any MyVisitor::visitPrintExpr(BaseParser::PrintExprContext *ctx)
         {
             leftStr = std::any_cast<std::string>(left);
         }
+        else if (left.type() == typeid(double))
+        {
+            leftStr = std::to_string(std::any_cast<double>(left));
+        }
 
         if (right.type() == typeid(int))
         {
@@ -1023,6 +1078,10 @@ antlrcpp::Any MyVisitor::visitPrintExpr(BaseParser::PrintExprContext *ctx)
         else if (right.type() == typeid(std::string))
         {
             rightStr = std::any_cast<std::string>(right);
+        }
+        else if (right.type() == typeid(double))
+        {
+            rightStr = std::to_string(std::any_cast<double>(right));
         }
 
         return leftStr + rightStr;

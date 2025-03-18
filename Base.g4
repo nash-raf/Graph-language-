@@ -22,11 +22,12 @@ statement: graphDef
          ;
 
 // Graph Definition
-graphDef: GRAPH graphID '{' nodes? edges? '}' ';';
+graphDef: GRAPH graphID '{' nodes? edges? weights? '}' ';';
 
 //in graphDef
 nodes: 'nodes:' nodeList ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
+weights: 'weights:' BOOL ';';
 nodeList: nodeID (',' nodeID)*;
 edgeList: edge (',' edge)* ;
 graphID: ID;
@@ -85,7 +86,7 @@ function: 'fn' returnType ID paramList block;
 returnType: 'graph' | 'vertex' | 'edge' | 'int' | 'void' |'string';
 paramList: '(' (param (',' param)*)? ')';
 param: type ID;
-type: 'graph' | 'vertex' | 'edge' | 'int' | 'string' | 'real';
+type: 'graph' | 'vertex' | 'edge' | 'int' | 'string' | 'real' | 'bool';
 
 functionCall: ID '(' argumentList? ')' ;
 argumentList: expr (',' expr)*;
@@ -113,6 +114,7 @@ expr: expr (TIMES | DIVIDE) expr # MulDivExpr
     | ID                    # IdExpr
     | '(' expr ')'          # ParenExpr
     | REAL                  # RealExpr
+    | BOOL                  # BooleanExpr
     ;
 
 
@@ -144,6 +146,7 @@ GREATEREQUAL: '>=';
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 INT: [0-9]+;
 REAL: [0-9]+ '.' [0-9]+;
+BOOL: 'true' | 'false';
 //STRING: '"' (~["\r\n])* '"';
 STRING
  : ["] ( ~["\r\n\\] | '\\' ~[\r\n] )* ["]

@@ -26,13 +26,14 @@ graphDef: GRAPH graphID '{' nodes? edges? weights? '}' ';';
 
 //in graphDef
 nodes: 'nodes:' nodeList ';';
-edges: 'edges:' (edgeList | fileEdgeList) ';';
+edges: 'edges:' (edgeList | fileEdgeList | fileAdjList) ';';
 weights: 'weights:' BOOL ';';
 nodeList: nodeID (',' nodeID)*;
 edgeList: edge (',' edge)* ;
 graphID: ID;
 nodeID: INT;
 fileEdgeList: 'file' STRING;
+fileAdjList: 'fileAdj' STRING;
 edge: nodeID '->' nodeID;
 
 

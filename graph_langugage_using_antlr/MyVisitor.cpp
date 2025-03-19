@@ -1,7 +1,7 @@
 #include "MyVisitor.h"
 #include <iostream>
 #include <optional>
-#include "graph_algorithm.cpp"
+#include "graph_algorithm.h"
 
 antlrcpp::Any MyVisitor::visitProgram(BaseParser::ProgramContext *ctx)
 {
@@ -164,6 +164,50 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
             else
             {
                 std::cerr << "Invalid edge format in file: " << line << std::endl;
+            }
+        }
+
+        file.close();
+    }
+        else if (ctx->fileAdjList())
+    {
+        // Extract the filename
+        std::string filename = ctx->fileAdjList()->STRING()->getText();
+
+        // Remove surrounding quotes
+        if (!filename.empty() && (filename.front() == '"' || filename.front() == '\''))
+        {
+            filename = filename.substr(1, filename.size() - 2);
+        }
+
+        // Open and read the file
+        std::ifstream file(filename);
+        if (!file.is_open())
+        {
+            throw std::runtime_error("Could not open file: " + filename);
+        }
+
+        std::string line;
+        while (std::getline(file, line))
+        {
+            // Trim leading/trailing whitespace
+            line.erase(0, line.find_first_not_of(" \t"));
+            line.erase(line.find_last_not_of(" \t") + 1);
+
+            // Skip empty lines
+            if (line.empty())
+            {
+                continue;
+            }
+
+            std::istringstream iss(line);
+            int from;
+            iss >> from; 
+
+            int to;
+            while (iss >> to)
+            {
+                addEdge(gName, from, to);
             }
         }
 

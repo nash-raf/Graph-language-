@@ -999,7 +999,7 @@ void MyVisitor::removeNode(const std::string &gName, int node) {
     }
 }
 
-void MyVisitor::addEdge(const std::string &gName, int from, int to)
+void MyVisitor::addEdge(const std::string &gName, int from, int to, int weight)
 {
     // if (graph.find(gName) == graph.end())
     // {
@@ -1015,10 +1015,11 @@ void MyVisitor::addEdge(const std::string &gName, int from, int to)
     // {
     //     std::cout << "Node " << node << " already exists in graph " << graphName << std::endl;
     // }
+    
     graph[gName];
     graph[gName][from].insert(to);
     graph[gName][to].insert(from);
-
+    
     // adjacencyList[from].insert(to);
     // adjacencyList[to].insert(from);
 }

@@ -14,8 +14,9 @@ rem compile cpp files
 echo Compiling parser and lexer...
 g++ -std=c++17 -IC:\antlr4-runtime-4.13\antlr4-cpp-runtime-4.13.2-source\runtime\src -Igenerated -I. ^
     -LC:\antlr4-runtime-4.13\antlr4-cpp-runtime-4.13.2-source\build\runtime ^
-    main.cpp generated\*.cpp ^
+    main.cpp graph.cpp edge.cpp node.cpp generated\*.cpp ^
     -lantlr4-runtime -o GraphProgram.exe
+
 
 if %errorlevel% neq 0 (
     echo Compilation failed!

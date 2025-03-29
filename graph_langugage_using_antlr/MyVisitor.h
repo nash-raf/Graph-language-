@@ -3,6 +3,8 @@
 
 #include "generated/BaseBaseVisitor.h"
 #include "generated/BaseParser.h"
+#include "graph.h"
+#include "node.h"
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -11,6 +13,7 @@
 #include <stdexcept>
 #include <any>
 
+class node;
 
 class MyVisitor : public BaseBaseVisitor {
 public:
@@ -30,18 +33,18 @@ public:
     antlrcpp::Any visitCondition(BaseParser::ConditionContext *ctx);
     antlrcpp::Any visitBlock(BaseParser::BlockContext *ctx) override;
     antlrcpp::Any visitReturnStatement(BaseParser::ReturnStatementContext *ctx) override;
-
+    
     // graph condition
     //antlrcpp::Any visitGraphCondition(BaseParser::GraphConditionContext *ctx);
     antlrcpp::Any visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) override;
+    
+    bool evaluateGraphCondition(node Node, const std::string& gName, BaseParser::GraphConditionContext* ctx);
 
-    bool evaluateGraphCondition(int node, const std::string& gName, BaseParser::GraphConditionContext* ctx);
+    bool evaluateDegreeCondition(node node, const std::string& gName, const std::string& operatorStr, int value);
 
-    bool evaluateDegreeCondition(int node, const std::string& gName, const std::string& operatorStr, int value);
+    bool evaluateConnectedCondition(const std::string& gName, node Node, node targetNode);
 
-    bool evaluateConnectedCondition(const std::string& gName, int node, int targetNode);
-
-    //query
+    //queryrr
     antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext *ctx) override;
 
     // printing
@@ -68,7 +71,7 @@ public:
     antlrcpp::Any visitShowgraph(BaseParser::ShowgraphContext *ctx) override;
 
 
-    void generateDotFile(const std::unordered_map<int, std::unordered_set<int>>& graph, const std::string& filename);
+    void generateDotFile(graph& graph, const std::string& filename);
 
 
     void showGraph(const std::string& graphID);
@@ -92,12 +95,12 @@ public:
     antlrcpp::Any visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) override;
 
     // Utility methods for graph management
-    void addNode(const std::string &gName, int node);
-    void addEdge(const std::string &gName, int from, int to);
-    void removeNode(const std::string &gName, int node);
-    void removeEdge(const std::string &gName, int from, int to);
-    bool nodeExists(const std::string &gName,int node) const;
-    bool edgeExists(const std::string &gName,int from, int to) const;
+    void addNode(const std::string &gName, node node);
+    void addEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight = std::nullopt);
+    void removeNode(const std::string &gName, node node);
+    void removeEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight = std::nullopt);
+    bool nodeExists(const std::string &gName,node node) const;
+    bool edgeExists(const std::string &gName,node from, node to) const;
 
     // Get the graph as an adjacency list
     const std::unordered_map<int, std::unordered_set<int>>& getGraph() const;
@@ -110,7 +113,7 @@ public:
 private:
     std::unordered_map<std::string, std::any> symbolTable;
     std::unordered_map<int, std::unordered_set<int>> adjacencyList;
-    std::unordered_map<std::string,std::unordered_map<int, std::unordered_set<int>>> graph;
+    std::unordered_map<std::string, graph> graphs;
 
     struct FunctionDefinition {
         std::string returnType;

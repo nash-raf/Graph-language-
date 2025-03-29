@@ -1,7 +1,7 @@
 #ifndef GRAPH_ALGORITHMS_H
 #define GRAPH_ALGORITHMS_H
 
-
+#include "graph.h"
 #include <vector>
 #include <queue>
 #include <iostream>
@@ -11,20 +11,20 @@
 #include <unordered_set>
 
 // BFS (Breadth-First Search)
-std::string BFS(const std::unordered_map<int, std::unordered_set<int>>& graph);
+std::string BFS(const graph& graph);
 
 // DFS (Depth-First Search)
-std::string DFS(const std::unordered_map<int, std::unordered_set<int>>& graph);
+std::string DFS(const graph& graph);
 
 // Find Connected Components
-std::string findConnectedComponents(const std::unordered_map<int, std::unordered_set<int>>& graph);
+std::string findConnectedComponents(const graph& graph);
 
 // Detect Cycle in Graph
-std::string detectCycle(const std::unordered_map<int, std::unordered_set<int>>& graph);
+//std::string detectCycle(graph& graph);
 
 // Find Articulation Points (Cut Vertices)
-std::string findArticulationPoints(const std::unordered_map<int, std::unordered_set<int>>& graph);
+//std::string findArticulationPoints(graph& graph);
 
 // Find Bridges (Cut Edges)
-std::string findBridges(const std::unordered_map<int, std::unordered_set<int>>& graph);
+//std::string findBridges(graph& graph);
 #endif // GRAPH_ALGORITHMS_H

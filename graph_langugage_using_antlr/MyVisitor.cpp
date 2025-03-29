@@ -109,9 +109,10 @@ antlrcpp::Any MyVisitor::visitNodes(BaseParser::NodesContext *ctx)
     std::string gName = parentCtx->graphID()->getText();
     // std::cout << "Graph Name: " << gName << std::endl;
 
-    for (auto node : ctx->nodeList()->nodeID())
+    for (auto Node : ctx->nodeList()->nodeID())
     {
-        addNode(gName, std::stoi(node->getText())); // Store node IDs
+        node newNode(Node->getText());
+        addNode(gName, newNode); // Store node IDs
     }
 
     return nullptr;
@@ -154,11 +155,13 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
             }
 
             std::istringstream iss(line);
-            int from, to;
+            std::string fromToken, toToken;
 
             // Parse two integers from the line
-            if (iss >> from >> to)
+            if (iss >> fromToken >> toToken)
             {
+                node from(fromToken);
+                node to(toToken);
                 addEdge(gName, from, to);
             }
             else
@@ -173,8 +176,8 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
     {
         for (auto edge : ctx->edgeList()->edge())
         {
-            int from = std::stoi(edge->nodeID(0)->getText());
-            int to = std::stoi(edge->nodeID(1)->getText());
+            node from(edge->nodeID(0)->getText());
+            node to(edge->nodeID(1)->getText());
             addEdge(gName, from, to);
         }
     }
@@ -213,42 +216,61 @@ antlrcpp::Any MyVisitor::visitConditionalStatement(BaseParser::ConditionalStatem
 }
 
 //visit graph comprehension 
-antlrcpp::Any MyVisitor::visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) {    std::string originalGraphName = ctx->graphID()->getText();
+antlrcpp::Any MyVisitor::visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) {    
+    std::string originalGraphName = ctx->graphID()->getText();
     std::string newGraphName = ctx->ID()->getText();
     BaseParser::GraphConditionContext *condition = ctx->graphCondition();
 
     // checking if original graph exists
-    if (graph.find(originalGraphName) == graph.end()) {
+    if (graphs.find(originalGraphName) == graphs.end()) {
         throw std::runtime_error("Graph '" + originalGraphName + "' does not exist.");
+        return nullptr;
     }
 
     // Create a new graph
-    std::unordered_map<int, std::unordered_set<int>> newGraph;
+    graph newGraph;
 
     // Iterate through the original graph's nodes and apply the condition
-    for (const auto &[node, neighbors] : graph[originalGraphName]) {
+    for (const auto &[node, neighbors] : graphs[originalGraphName].adjacencyList) {
         if (evaluateGraphCondition(node, originalGraphName, condition)) {
-            newGraph[node] = neighbors; // Add node and its edges to the new graph
-        }
+            newGraph.nodes = graphs[originalGraphName].nodes; // Add node to the new graph
+            newGraph.edges = graphs[originalGraphName].edges; // Copy edges from the original graph
+            newGraph.adjacencyList[node] = neighbors; // Add node and its edges to the new graph
+            newGraph.nodeId = graphs[originalGraphName].nodeId; // Copy node ID mapping
+            newGraph.nodeIndex = graphs[originalGraphName].nodeIndex; // Copy node index mapping
+            if(graphs[originalGraphName].adjacencyMatrixMode) {
+                newGraph.adjacencyMatrixMode = true;
+                newGraph.adjacencyMatrix = graphs[originalGraphName].adjacencyMatrix; // Copy adjacency matrix
+            }
+            if(graphs[originalGraphName].isDirected()) {
+                newGraph.setDirected(true);
+            }
+            if(graphs[originalGraphName].isWeighted()) {
+                newGraph.setWeighted(true);
+            }
+            if(graphs[originalGraphName].isStochastic()) {
+                newGraph.setStochastic(true);
+            }
     }
 
     // Store the new graph
-    graph[newGraphName] = newGraph;
-
+    
+}
+    graphs[newGraphName] = newGraph;
     return nullptr; // No specific return required
 }
 
-
 // Evaluate GraphCondition
-bool MyVisitor::evaluateGraphCondition(int node, const std::string& gName, BaseParser::GraphConditionContext* ctx) {    if (auto andContext = dynamic_cast<BaseParser::GraphLogicalAndContext *>(ctx)) {
+bool MyVisitor::evaluateGraphCondition(node Node, const std::string& gName, BaseParser::GraphConditionContext* ctx) {    
+    if (auto andContext = dynamic_cast<BaseParser::GraphLogicalAndContext *>(ctx)) {
         // Logical AND condition
-        return evaluateGraphCondition(node, gName, andContext->graphCondition(0)) &&
-               evaluateGraphCondition(node, gName, andContext->graphCondition(1));
+        return evaluateGraphCondition(Node, gName, andContext->graphCondition(0)) &&
+               evaluateGraphCondition(Node, gName, andContext->graphCondition(1));
     }
     if (auto orContext = dynamic_cast<BaseParser::GraphLogicalOrContext *>(ctx)) {
         // Logical OR condition
-        return evaluateGraphCondition(node, gName, orContext->graphCondition(0)) ||
-               evaluateGraphCondition(node, gName, orContext->graphCondition(1));
+        return evaluateGraphCondition(Node, gName, orContext->graphCondition(0)) ||
+               evaluateGraphCondition(Node, gName, orContext->graphCondition(1));
     }
     if (auto degreeCondition = dynamic_cast<BaseParser::DegreeConditionContext *>(ctx)) {
         // Degree condition
@@ -259,16 +281,17 @@ bool MyVisitor::evaluateGraphCondition(int node, const std::string& gName, BaseP
                                   degreeCondition->LESSTHAN() ? degreeCondition->LESSTHAN()->getText() :
                                   degreeCondition->GREATERTHAN()->getText();
         int value = std::stoi(degreeCondition->INT()->getText());
-        return evaluateDegreeCondition(node, gName, operatorStr, value);
+        return evaluateDegreeCondition(Node, gName, operatorStr, value);
     }
     if (auto connectedCondition = dynamic_cast<BaseParser::ConnectedConditionContext *>(ctx)) {
         // Connected condition
-        int targetNode = std::stoi(connectedCondition->nodeID()->getText());
-        return evaluateConnectedCondition(gName, node, targetNode);
+        node targetNode;
+        targetNode.id = connectedCondition->nodeID()->getText();
+        return evaluateConnectedCondition(gName, Node, targetNode);
     }
     if (auto parenCondition = dynamic_cast<BaseParser::ParenGraphConditionContext *>(ctx)) {
         // Parenthesized condition
-        return evaluateGraphCondition(node, gName, parenCondition->graphCondition());
+        return evaluateGraphCondition(Node, gName, parenCondition->graphCondition());
     }
 
     throw std::runtime_error("Invalid graph condition encountered.");
@@ -277,8 +300,9 @@ bool MyVisitor::evaluateGraphCondition(int node, const std::string& gName, BaseP
 
 
 // Evaluate degree condition
-bool MyVisitor::evaluateDegreeCondition(int node, const std::string& gName, const std::string& operatorStr, int value) {    auto &graphNodes = graph[gName];
-    int degree = graphNodes[node].size(); 
+bool MyVisitor::evaluateDegreeCondition(node node, const std::string& gName, const std::string& operatorStr, int value) {    
+    auto &graphNodes = graphs[gName];
+    int degree = graphNodes.adjacencyList[node].size();
 
     if (operatorStr == "==") return degree == value;
     if (operatorStr == "!=") return degree != value;
@@ -292,11 +316,14 @@ bool MyVisitor::evaluateDegreeCondition(int node, const std::string& gName, cons
 
 
 // Evaluate connected condition
-bool MyVisitor::evaluateConnectedCondition(const std::string& gName ,int node, int targetNode) {    auto& graphNodes = graph[gName];
-    if (graphNodes.find(node) == graphNodes.end()) {
+bool MyVisitor::evaluateConnectedCondition(const std::string& gName ,node Node, node targetNode) {    
+    auto& graphNodes = graphs[gName];
+    if (find(graphNodes.nodes.begin(), graphNodes.nodes.end(), Node) == graphNodes.nodes.end()) {
         return false; // Node does not exist.
     }
-    return graphNodes[node].count(targetNode) > 0;
+    else {
+        return edgeExists(gName, Node, targetNode);
+    }
 }
 
 
@@ -309,22 +336,23 @@ antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *
     std::string graphID = ctx->graphID()->getText();
 
     // Ensure the graph exists in the symbol table
-    if (graph.find(graphID) == graph.end()) {
+    if (graphs.find(graphID) == graphs.end()) {
         throw std::runtime_error("Graph '" + graphID + "' not found.");
     }
 
     // Get the adjacency list of the specified graph
-    auto adjList = graph[graphID];
+    auto adjList = graphs[graphID].adjacencyList;
+    const graph& bfsgraph = graphs[graphID];
 
     // Execute the query based on its type
     std::string result;
     // result = "hh";
     if (queryType == "bfs") {
-        result = bfs(adjList); // Assuming bfs returns a string result
+        result = BFS(bfsgraph); // Assuming bfs returns a string result
     } 
-    else if (queryType == "detectCycle"){
-        result = detectCycle(adjList);
-    }
+    // else if (queryType == "detectCycle"){
+    //     result = detectCycle(adjList);
+    // }
     // else if (queryType == "bfs") {
     //     result = dfs(adjList); // Assuming dfs returns a string result
     // }
@@ -344,13 +372,13 @@ antlrcpp::Any MyVisitor::visitShowgraph(BaseParser::ShowgraphContext *ctx) {
     std::string graphID = ctx->graphID()->getText();  // Get the graph ID from the context
 
     // Check if the graph exists in the symbol table
-    if (graph.find(graphID) == graph.end()) {
+    if (graphs.find(graphID) == graphs.end()) {
         std::cerr << "Error: Graph '" << graphID << "' not found." << std::endl;
         return nullptr;
     }
 
     // Get the graph from the symbol table
-    auto mm = graph[graphID];
+    auto mm = graphs[graphID];
 
     // Generate DOT file and visualize the graph
     generateDotFile(mm, graphID + ".dot");
@@ -359,15 +387,30 @@ antlrcpp::Any MyVisitor::visitShowgraph(BaseParser::ShowgraphContext *ctx) {
     return nullptr;
 }
 
-void MyVisitor::generateDotFile(const std::unordered_map<int, std::unordered_set<int>>& graph, const std::string& filename) {
+std::string nodeTypeToString(const NodeType& value) {
+    return std::visit([](auto&& v) -> std::string {
+        using U = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<U, std::string>) {
+            return v;
+        } else if constexpr (std::is_same_v<U, char>) {
+            return std::string(1, v);
+        } else if constexpr (std::is_same_v<U, bool>) {
+            return v ? "true" : "false";
+        } else if constexpr (std::is_arithmetic_v<U>) {
+            return std::to_string(v);
+        } else {
+            return {}; // Fallback for unknown types
+        }
+    }, value);
+}
+
+void MyVisitor::generateDotFile(graph& graph, const std::string& filename) {
     std::ofstream outFile(filename);
     outFile << "graph G {\n";
 
     // Loop over the graph and write the edges to the DOT file
-    for (const auto& node : graph) {
-        for (int neighbor : node.second) {
-            outFile << "    " << node.first << " -- " << neighbor << ";\n";
-        }
+    for (const auto& edge : graph.edges) {
+        outFile << "    " << nodeTypeToString(edge.from.id) << " -- " << nodeTypeToString(edge.to.id) << ";\n";
     }
 
     outFile << "}\n";
@@ -777,15 +820,17 @@ antlrcpp::Any MyVisitor::visitCondition(BaseParser::ConditionContext *ctx)
     else if (auto nodeInGraphContext = dynamic_cast<BaseParser::NodeCheckContext *>(ctx))
     {
         // Handle "nodeID in graphID"
-        int node = std::stoi(nodeInGraphContext->nodeID()->getText());
+        node node;
+        node.id = nodeInGraphContext->nodeID()->getText();
         std::string gName = nodeInGraphContext->graphID()->getText();
         return nodeExists(gName, node);
     }
     else if (auto edgeInGraphContext = dynamic_cast<BaseParser::EdgeCheckContext *>(ctx))
     {
         // Handle "edge in graphID"
-        int from = std::stoi(edgeInGraphContext->edge()->nodeID(0)->getText());
-        int to = std::stoi(edgeInGraphContext->edge()->nodeID(1)->getText());
+        node from, to;
+        from.id = edgeInGraphContext->edge()->nodeID(0)->getText();
+        to.id = edgeInGraphContext->edge()->nodeID(1)->getText();
         std::string gName = edgeInGraphContext->graphID()->getText();
         // if (graph == graphName) return edgeExists(from, to);
         return edgeExists(gName, from, to);
@@ -814,12 +859,12 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
     std::string graphName = ctx->graphID()->getText();
 
     // Check if the graph exists
-    if (graph.find(graphName) == graph.end())
+    if (graphs.find(graphName) == graphs.end())
     {
         throw std::runtime_error("Graph '" + graphName + "' not found.");
     }
 
-    const auto &graphData = graph[graphName];
+    const auto &graphData = graphs[graphName];
     auto loopTarget = ctx->loopTarget();
 
     // Handle "for each vertex"
@@ -828,9 +873,9 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
         std::string vertexVar = vertexContext->ID()->getText();
         std::optional<std::any> previousValue = symbolTable.count(vertexVar) ? std::optional<std::any>(symbolTable[vertexVar]) : std::nullopt;
 
-        for (const auto &node : graphData)
+        for (const auto &node : graphData.nodes)
         {
-            symbolTable[vertexVar] = node.first; // Set vertex variable
+            symbolTable[vertexVar] = node; // Set vertex variable
             visitBlock(ctx->block());            // Execute loop block
         }
 
@@ -854,14 +899,12 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
         std::optional<std::any> previousFrom = symbolTable.count(fromVar) ? std::optional<std::any>(symbolTable[fromVar]) : std::nullopt;
         std::optional<std::any> previousTo = symbolTable.count(toVar) ? std::optional<std::any>(symbolTable[toVar]) : std::nullopt;
 
-        for (const auto &[from, edges] : graphData)
+        for (const auto &edge : graphData.edges)
         {
-            for (const auto &to : edges)
-            {
-                symbolTable[fromVar] = from; // Set source vertex
-                symbolTable[toVar] = to;     // Set target vertex
-                visitBlock(ctx->block());    // Execute loop block
-            }
+            
+            symbolTable[fromVar] = edge.from; // Set source vertex
+            symbolTable[toVar] = edge.to;     // Set target vertex
+            visitBlock(ctx->block());    // Execute loop block
         }
 
         // Restore previous values or remove the variables
@@ -887,17 +930,19 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
     }
     else if (auto adjContext = dynamic_cast<BaseParser::ForEachAdjContext *>(loopTarget))
     {
-        int node = std::stoi(adjContext->nodeID()->getText());
+        //UNDERSTAND THIS!!!!!!!!!!!!!!!!!!!!!!!!
+        node node;
+        node.id = adjContext->nodeID()->getText();
         std::string neighborVar = adjContext->ID()->getText();
 
-        if (graphData.find(node) == graphData.end())
+        if (find(graphData.nodes.begin(), graphData.nodes.end(), node) == graphData.nodes.end())
         {
-            throw std::runtime_error("Node '" + std::to_string(node) + "' not found in graph '" + graphName + "'.");
+            throw std::runtime_error("Node '" + nodeTypeToString(node.id) + "' not found in graph '" + graphName + "'.");
         }
 
         std::optional<std::any> previousNeighbor = symbolTable.count(neighborVar) ? std::optional<std::any>(symbolTable[neighborVar]) : std::nullopt;
 
-        for (const auto &neighbor : graphData.at(node))
+        for (const auto &neighbor : graphData.adjacencyList.at(node))
         {
             symbolTable[neighborVar] = neighbor; // Set neighbor variable
             visitBlock(ctx->block());            // Execute loop block
@@ -931,7 +976,7 @@ antlrcpp::Any MyVisitor::visitWhileStatement(BaseParser::WhileStatementContext *
     return nullptr;
 }
 
-void MyVisitor::addNode(const std::string &gName, int node)
+void MyVisitor::addNode(const std::string &gName, node node)
 {
 
     // adjacencyList[node]; // Ensures the node exists
@@ -940,22 +985,15 @@ void MyVisitor::addNode(const std::string &gName, int node)
     // {
     //     graph[gName] = std::unordered_map<int, std::unordered_set<int>>();
     // }
-    graph[gName];
-    graph[gName][node];
+    graphs[gName];
+    graphs[gName].addNode(node);
 }
 
-void MyVisitor::removeNode(const std::string &gName, int node) {
-    if (graph[gName].count(node)) {
-        for (int neighbor : graph[gName][node]) {
-            graph[gName][neighbor].erase(node);
-        }
-        graph[gName].erase(node);
-    } else {
-        throw std::runtime_error("Node does not exist in the graph.");
-    }
+void MyVisitor::removeNode(const std::string &gName, node node) {
+    graphs[gName].removeNode(node);
 }
 
-void MyVisitor::addEdge(const std::string &gName, int from, int to)
+void MyVisitor::addEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight)
 {
     // if (graph.find(gName) == graph.end())
     // {
@@ -971,20 +1009,28 @@ void MyVisitor::addEdge(const std::string &gName, int from, int to)
     // {
     //     std::cout << "Node " << node << " already exists in graph " << graphName << std::endl;
     // }
-    graph[gName];
-    graph[gName][from].insert(to);
-    graph[gName][to].insert(from);
+    graphs[gName];
+    if(weight.has_value()){
+        edge e(from, to, weight.value());
+        graphs[gName].addEdge(e);
+    }
+    else
+    {
+        edge e(from, to);
+        graphs[gName].addEdge(e);
+    }
+    
 
     // adjacencyList[from].insert(to);
     // adjacencyList[to].insert(from);
 }
 
-bool MyVisitor::nodeExists(const std::string &gName, int node) const
+bool MyVisitor::nodeExists(const std::string &gName, node node) const
 {
-    auto it = graph.find(gName);
-    if (it != graph.end())
+    auto it = graphs.find(gName);
+    if (it != graphs.end())
     {
-        return it->second.find(node) != it->second.end();
+        return find(it->second.nodes.begin(), it->second.nodes.end(), node) != it->second.nodes.end();
     }
     return false;
 }
@@ -993,11 +1039,13 @@ bool MyVisitor::nodeExists(const std::string &gName, int node) const
 antlrcpp::Any MyVisitor::visitAddOperation(BaseParser::AddOperationContext *ctx) {
     std::string gName = ctx->graphID()->getText();
     if (ctx->addTargets()->nodeID()) {
-        int node = std::stoi(ctx->addTargets()->nodeID()->getText());
+        node node;
+        node.id = ctx->addTargets()->nodeID()->getText();
         addNode(gName, node);
     } else if (ctx->addTargets()->edge()) {
-        int from = std::stoi(ctx->addTargets()->edge()->nodeID(0)->getText());
-        int to = std::stoi(ctx->addTargets()->edge()->nodeID(1)->getText());
+        node from, to;
+        from.id = ctx->addTargets()->edge()->nodeID(0)->getText();
+        to.id = ctx->addTargets()->edge()->nodeID(1)->getText();
         addEdge(gName, from, to);
     }
     // Handle nodeList and edgeList if needed
@@ -1008,11 +1056,13 @@ antlrcpp::Any MyVisitor::visitAddOperation(BaseParser::AddOperationContext *ctx)
 antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) {
     std::string gName = ctx->graphID()->getText();
     if (ctx->removeTargets()->nodeID()) {
-        int node = std::stoi(ctx->removeTargets()->nodeID()->getText());
+        node node;
+        node.id = ctx->removeTargets()->nodeID()->getText();
         removeNode(gName, node);
     } else if (ctx->removeTargets()->edge()) {
-        int from = std::stoi(ctx->removeTargets()->edge()->nodeID(0)->getText());
-        int to = std::stoi(ctx->removeTargets()->edge()->nodeID(1)->getText());
+        node from, to;
+        from.id = ctx->removeTargets()->edge()->nodeID(0)->getText();
+        to.id = ctx->removeTargets()->edge()->nodeID(1)->getText();
         removeEdge(gName, from, to);
     }
     // Handle nodeList and edgeList if needed
@@ -1020,37 +1070,33 @@ antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext
 }
 
 // Remove an edge from the graph
-void MyVisitor::removeEdge(const std::string &gName, int from, int to) {
-    if (graph[gName][from].count(to)) {
-        graph[gName][from].erase(to);
-        graph[gName][to].erase(from); // Since the graph is undirected
-    } else {
-        throw std::runtime_error("Edge does not exist in the graph.");
+void MyVisitor::removeEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight) {
+    if(weight.has_value()){
+        edge e(from, to, weight.value());
+        graphs[gName].removeEdge(e);
+    }
+    else
+    {
+        edge e(from, to);
+        graphs[gName].removeEdge(e);
     }
 }
 
-bool MyVisitor::edgeExists(const std::string &gName, int from, int to) const
+bool MyVisitor::edgeExists(const std::string &gName, node from, node to) const
 {
     bool final = false;
-    auto it1 = graph.find(gName);
-    if (it1 != graph.end())
+    auto it1 = graphs.find(gName);
+    if (it1 != graphs.end())
     {
-        auto it2 = it1->second.find(from);
-        if (it2 != it1->second.end())
+        for (const auto &edge : it1->second.edges)
         {
-            final = it2->second.find(to) != it2->second.end();
-            if (final == true)
-                return true;
-            else
+            if (edge.from.id == from.id && edge.to.id == to.id)
             {
-                auto it3 = it1->second.find(to);
-                if (it3 != it1->second.end())
-                {
-                    final = it3->second.find(from) != it3->second.end();
-                    return final;
-                }
+                final = true;
+                break;
             }
         }
+        return final;
     }
     return false;
 }
@@ -1174,47 +1220,31 @@ antlrcpp::Any MyVisitor::visitPrintgraph(BaseParser::PrintgraphContext *ctx)
 
 void MyVisitor::printNodes(const std::string &gName) const
 {
-    auto it = graph.find(gName);
-    if (it != graph.end())
+    if (graphs.find(gName) != graphs.end())
     {
-        for (const auto &[node, _] : it->second)
-        {
-            std::cout << "Nodes:" << node << " ";
-        }
+        graph g = graphs.at(gName);
+        //FIX THIS
+        g.printNodes();
     }
 }
 
 void MyVisitor::printEdges(const std::string &gName) const
 {
-    auto it = graph.find(gName);
-    if (it != graph.end())
+    auto it = graphs.find(gName);
+    if (it != graphs.end())
     {
-        for (const auto &[_, edges] : it->second)
-        {
-
-            for (const auto &edge : edges)
-            {
-                std::cout << edge << " ";
-            }
-            std::cout << "\n";
-        }
+        graph g = it->second;
+        g.printEdges();
     }
 }
 
 void MyVisitor::printGraph(const std::string &gName) const
 {
-    auto it = graph.find(gName);
-    if (it != graph.end())
+    auto it = graphs.find(gName);
+    if (it != graphs.end())
     {
-        for (const auto &[node, edges] : it->second)
-        {
-            std::cout << "Node " << node << " -> { ";
-            for (const auto &edge : edges)
-            {
-                std::cout << edge << " ";
-            }
-            std::cout << "}" << std::endl;
-        }
+        graph g = it->second;
+        g.printGraph();
     }
 }
 

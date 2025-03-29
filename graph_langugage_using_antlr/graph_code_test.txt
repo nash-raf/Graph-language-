@@ -9,9 +9,10 @@ graph h{
 h = [g where degree > 2 && connected with 3];
 print graph of h;
 
-query j : "detectCycle" of g;
+query j : "bfs" of g;
 
-
+int klk = 90;
+print klk;
 print j;
 
 

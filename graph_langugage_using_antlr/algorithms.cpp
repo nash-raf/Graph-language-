@@ -1,176 +1,199 @@
-#include "algorithms.h"
-using namespace std;
+#include "graph_algorithm.h"
+#include "utilities.h"
 
-// BFS Algorithm (Unweighted graph)
-string BFS(const unordered_map<int, unordered_set<int>>& graph) {
-    unordered_map<int, bool> visited;
-    queue<int> q;
-    string result;
+// BFS (Breadth-First Search)
+std::string BFS(const graph& graph) {
+    std::string result;
+    std::unordered_set<node> visited;
+    for (const auto& Node : graph.adjacencyList) {
+        if (visited.count(Node.first)) continue;
+        std::queue<node> q;
+        q.push(Node.first);
+        visited.insert(Node.first);
 
-    if (graph.empty()) return "Graph is empty.";
+        while (!q.empty()) {
+            node current = q.front();
+            q.pop();
+            result += utilities::nodeTypeToString(current.id) + " ";
 
-    int start = graph.begin()->first; // Start from the first node
-    visited[start] = true;
-    q.push(start);
-
-    while (!q.empty()) {
-        int node = q.front();
-        q.pop();
-        result += to_string(node) + " "; // Accumulate visited nodes in the result
-
-        for (const int& neighbor : graph.at(node)) {
-            if (!visited[neighbor]) {
-                visited[neighbor] = true;
-                q.push(neighbor);
+            for (node neighbor : graph.adjacencyList.at(current)) {
+                if (!visited.count(neighbor)) {
+                    q.push(neighbor);
+                    visited.insert(neighbor);
+                }
             }
         }
     }
-
     return result;
 }
 
-// DFS Algorithm (Recursive)
-string DFS(int node, const unordered_map<int, unordered_set<int>>& graph, unordered_set<int>& visited) {
-    visited.insert(node);
-    string result = to_string(node) + " ";
+// DFS (Depth-First Search)
+void DFSHelper(node Node, const graph& graph, 
+               std::unordered_set<node>& visited, std::string& result) {
+    visited.insert(Node);
+    result += utilities::nodeTypeToString(Node.id) + " ";
 
-    for (const int& neighbor : graph.at(node)) {
-        if (visited.find(neighbor) == visited.end()) {
-            result += DFS(neighbor, graph, visited); // Accumulate DFS traversal
+    for (node neighbor : graph.adjacencyList.at(Node)) {
+        if (!visited.count(neighbor)) {
+            DFSHelper(neighbor, graph, visited, result);
         }
     }
+}
 
+std::string DFS(const graph& graph) {
+    std::string result;
+    std::unordered_set<node> visited;
+
+    for (const auto& Node : graph.adjacencyList) {
+        if (!visited.count(Node.first)) {
+            DFSHelper(Node.first, graph, visited, result);
+        }
+    }
     return result;
 }
 
 // Find Connected Components
-string findConnectedComponents(const unordered_map<int, unordered_set<int>>& graph) {
-    unordered_set<int> visited;
-    string result;
+void connectedComponentsHelper(node Node, const graph& graph, 
+                               std::unordered_set<node>& visited, std::string& component) {
+    visited.insert(Node);
+    component += utilities::nodeTypeToString(Node.id) + " ";
 
-    for (const auto& pair : graph) {
-        if (visited.find(pair.first) == visited.end()) {
-            result += DFS(pair.first, graph, visited) + "\n"; // Find connected component and add it to result
+    for (node neighbor : graph.adjacencyList.at(Node)) {
+        if (!visited.count(neighbor)) {
+            connectedComponentsHelper(neighbor, graph, visited, component);
         }
     }
+}
 
+std::string findConnectedComponents(const graph& graph) {
+    std::unordered_set<node> visited;
+    std::string result;
+
+    for (const auto& node : graph.adjacencyList) {
+        if (!visited.count(node.first)) {
+            std::string component;
+            connectedComponentsHelper(node.first, graph, visited, component);
+            result += "{ " + component + "} ";
+        }
+    }
     return result;
 }
 
-// Cycle Detection (DFS-based)
-string detectCycle(int node, unordered_map<int, unordered_set<int>>& graph, unordered_set<int>& visited, unordered_set<int>& inRecursionStack) {
-    string result;
-    
-    if (inRecursionStack.find(node) != inRecursionStack.end()) {
-        return "Cycle detected!";
-    }
-    if (visited.find(node) != visited.end()) {
-        return "";
-    }
+// Detect Cycle in Graph
+bool detectCycleHelper(node Node, node parent, const graph& graph, 
+                       std::unordered_set<node>& visited) {
+    visited.insert(Node);
 
-    visited.insert(node);
-    inRecursionStack.insert(node);
-
-    for (const int& neighbor : graph[node]) {
-        result += detectCycle(neighbor, graph, visited, inRecursionStack);
-        if (!result.empty()) return result;
-    }
-
-    inRecursionStack.erase(node);
-    return "";
-}
-
-// Articulation Points (Cut Vertices)
-string findArticulationPoints(const unordered_map<int, unordered_set<int>>& graph) {
-    unordered_map<int, int> discoveryTime;
-    unordered_map<int, int> lowTime;
-    unordered_set<int> visited;
-    unordered_set<int> articulationPoints;
-    int time = 0;
-    string result;
-
-    function<void(int, int)> dfs = [&](int node, int parent) {
-        visited.insert(node);
-        discoveryTime[node] = lowTime[node] = time++;
-        int children = 0;
-
-        for (const int& neighbor : graph.at(node)) {
-            if (visited.find(neighbor) == visited.end()) {
-                children++;
-                dfs(neighbor, node);
-                lowTime[node] = min(lowTime[node], lowTime[neighbor]);
-
-                if (lowTime[neighbor] >= discoveryTime[node] && parent != -1) {
-                    articulationPoints.insert(node);
-                }
-            } else if (neighbor != parent) {
-                lowTime[node] = min(lowTime[node], discoveryTime[neighbor]);
+    for (node neighbor : graph.adjacencyList.at(Node)) {
+        if (!visited.count(neighbor)) {
+            if (detectCycleHelper(neighbor, Node, graph, visited)) {
+                return true;
             }
-        }
-
-        if (parent == -1 && children > 1) {
-            articulationPoints.insert(node);
-        }
-    };
-
-    for (const auto& pair : graph) {
-        if (visited.find(pair.first) == visited.end()) {
-            dfs(pair.first, -1);
+        } else if (neighbor != parent) {
+            return true;
         }
     }
-
-    for (const int& point : articulationPoints) {
-        result += to_string(point) + " is an articulation point\n";
-    }
-
-    return result;
+    return false;
 }
 
-// Bridges (Cut Edges)
-struct pair_hash {
-    template <typename T1, typename T2>
-    size_t operator()(const pair<T1, T2>& p) const {
-        auto h1 = hash<T1>{}(p.first);
-        auto h2 = hash<T2>{}(p.second);
-        return h1 ^ (h2 << 1);
-    }
-};
+// std::string detectCycle(const graph& graph) {
+//     std::unordered_set<node> visited;
+//     for (const auto& node : graph.adjacencyList) {
+//         if (!visited.count(node.first)) {
+//             if (detectCycleHelper(node.first, -1, graph, visited)) {
+//                 return "Cycle Detected";
+//             }
+//         }
+//     }
+//     return "No Cycle Detected";
+// }
 
-string findBridges(const unordered_map<int, unordered_set<int>>& graph) {
-    unordered_map<int, int> discoveryTime;
-    unordered_map<int, int> lowTime;
-    unordered_set<int> visited;
-    unordered_set<pair<int, int>, pair_hash> bridges;
-    int time = 0;
-    string result;
+// // Find Articulation Points (Cut Vertices)
+// void articulationPointsHelper(int node, int parent, int& time, 
+//                               const std::unordered_map<int, std::unordered_set<int>>& graph, 
+//                               std::unordered_set<int>& visited, std::unordered_map<int, int>& disc, 
+//                               std::unordered_map<int, int>& low, std::unordered_set<int>& articulationPoints) {
+//     visited.insert(node);
+//     disc[node] = low[node] = ++time;
+//     int children = 0;
 
-    function<void(int, int)> dfs = [&](int node, int parent) {
-        visited.insert(node);
-        discoveryTime[node] = lowTime[node] = time++;
+//     for (int neighbor : graph.at(node)) {
+//         if (!visited.count(neighbor)) {
+//             children++;
+//             articulationPointsHelper(neighbor, node, time, graph, visited, disc, low, articulationPoints);
 
-        for (const int& neighbor : graph.at(node)) {
-            if (visited.find(neighbor) == visited.end()) {
-                dfs(neighbor, node);
-                lowTime[node] = min(lowTime[node], lowTime[neighbor]);
+//             low[node] = std::min(low[node], low[neighbor]);
 
-                if (lowTime[neighbor] > discoveryTime[node]) {
-                    bridges.insert({min(node, neighbor), max(node, neighbor)});
-                }
-            } else if (neighbor != parent) {
-                lowTime[node] = min(lowTime[node], discoveryTime[neighbor]);
-            }
-        }
-    };
+//             if (parent != -1 && low[neighbor] >= disc[node]) {
+//                 articulationPoints.insert(node);
+//             }
 
-    for (const auto& pair : graph) {
-        if (visited.find(pair.first) == visited.end()) {
-            dfs(pair.first, -1);
-        }
-    }
+//             if (parent == -1 && children > 1) {
+//                 articulationPoints.insert(node);
+//             }
+//         } else if (neighbor != parent) {
+//             low[node] = std::min(low[node], disc[neighbor]);
+//         }
+//     }
+// }
 
-    for (const auto& bridge : bridges) {
-        result += to_string(bridge.first) + " - " + to_string(bridge.second) + " is a bridge\n";
-    }
+// std::string findArticulationPoints(const std::unordered_map<int, std::unordered_set<int>>& graph) {
+//     std::unordered_set<int> visited;
+//     std::unordered_map<int, int> disc, low;
+//     std::unordered_set<int> articulationPoints;
+//     int time = 0;
 
-    return result;
-}
+//     for (const auto& node : graph) {
+//         if (!visited.count(node.first)) {
+//             articulationPointsHelper(node.first, -1, time, graph, visited, disc, low, articulationPoints);
+//         }
+//     }
+
+//     std::string result;
+//     for (int point : articulationPoints) {
+//         result += std::to_string(point) + " ";
+//     }
+//     return result;
+// }
+
+// // Find Bridges (Cut Edges)
+// void bridgesHelper(int node, int parent, int& time, 
+//                    const std::unordered_map<int, std::unordered_set<int>>& graph, 
+//                    std::unordered_set<int>& visited, std::unordered_map<int, int>& disc, 
+//                    std::unordered_map<int, int>& low, std::vector<std::pair<int, int>>& bridges) {
+//     visited.insert(node);
+//     disc[node] = low[node] = ++time;
+
+//     for (int neighbor : graph.at(node)) {
+//         if (!visited.count(neighbor)) {
+//             bridgesHelper(neighbor, node, time, graph, visited, disc, low, bridges);
+
+//             low[node] = std::min(low[node], low[neighbor]);
+
+//             if (low[neighbor] > disc[node]) {
+//                 bridges.emplace_back(node, neighbor);
+//             }
+//         } else if (neighbor != parent) {
+//             low[node] = std::min(low[node], disc[neighbor]);
+//         }
+//     }
+// }
+
+// std::string findBridges(const std::unordered_map<int, std::unordered_set<int>>& graph) {
+//     std::unordered_set<int> visited;
+//     std::unordered_map<int, int> disc, low;
+//     std::vector<std::pair<int, int>> bridges;
+//     int time = 0;
+
+//     for (const auto& node : graph) {
+//         if (!visited.count(node.first)) {
+//             bridgesHelper(node.first, -1, time, graph, visited, disc, low, bridges);
+//         }
+//     }
+
+//     std::string result;
+//     for (const auto& bridge : bridges) {
+//         result += "(" + std::to_string(bridge.first) + ", " + std::to_string(bridge.second) + ") ";
+//     }
+//     return result;
+// }

@@ -63,7 +63,7 @@ public:
     // antlrcpp::Any visitIdExpr(BaseParser::IdExprContext *ctx) override;
     // antlrcpp::Any visitIntExpr(BaseParser::IntExprContext *ctx) override;
     // antlrcpp::Any visitParenExpr(BaseParser::ParenExprContext *ctx) override;
-    std::string bfs(const std::unordered_map<int, std::unordered_set<int>>& graph);
+    std::string bfs(const graph& g);
     std::string detectCycle(const std::unordered_map<int, std::unordered_set<int>>& graph);
     bool detectCycleHelper(int node, int parent, const std::unordered_map<int, std::unordered_set<int>>& graph, 
                        std::unordered_set<int>& visited);
@@ -88,9 +88,13 @@ public:
     //antlrcpp::Any visitLoopTarget(BaseParser::LoopTargetContext *ctx);
     antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext *ctx) override;
 
+    // varDecl
+    // antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx) override;
+    // antlrcpp::Any visitSimpleDeclaration(BaseParser::SimpleDeclarationContext *ctx) override;
+    antlrcpp::Any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) override;
+    // antlrcpp::Any visitAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) override;
+    
     //assignment
-    antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx) override;
-
     antlrcpp::Any visitAddOperation(BaseParser::AddOperationContext *ctx) override;
     antlrcpp::Any visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) override;
 

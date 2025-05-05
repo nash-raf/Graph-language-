@@ -1,7 +1,8 @@
 #include "MyVisitor.h"
 #include <iostream>
 #include <optional>
-#include "graph_algorithm.cpp"
+#include <queue>
+#include "utilities.h"
 
 antlrcpp::Any MyVisitor::visitProgram(BaseParser::ProgramContext *ctx)
 {
@@ -14,28 +15,22 @@ antlrcpp::Any MyVisitor::visitProgram(BaseParser::ProgramContext *ctx)
         auto functionName = function->ID()->getText();
         if (functionName == "main")
         {
-            mainFunction = function; //hold main function 
+            mainFunction = function; // hold main function
         }
-        visitFunction(function); // Visiting all functions 
+        visitFunction(function); // Visiting all functions
     }
     for (auto statement : ctx->statement())
     {
-        
-            visitStatement(statement); //executing statements which are not part of functions
-        
+        visitStatement(statement); // executing statements which are not part of functions
     }
 
-    //first visit everything and hold main function, then execute (global) statements, finally execute main function
+    // first visit everything and hold main function, then execute (global) statements, finally execute main function
 
-    
     if (mainFunction)
     {
         // std::cout << "Main function found. Executing main..." << std::endl;
         visitBlock(mainFunction->block()); // Execute the main function
     }
-
-    
-    
 
     return nullptr;
 }
@@ -75,15 +70,18 @@ antlrcpp::Any MyVisitor::visitStatement(BaseParser::StatementContext *ctx)
         // std::cout << "visiting functions " << "\n";
         return visitFunctionCall(ctx->functionCall());
     }
-    else if(ctx->graphComprehension()){
+    else if (ctx->graphComprehension())
+    {
         // std::cout<<"visitng compre";
         return visitGraphComprehension(ctx->graphComprehension());
     }
-    else if(ctx->queryStatement()){
+    else if (ctx->queryStatement())
+    {
         // std:: cout<<" visiitng query st";
         return visitQueryStatement(ctx->queryStatement());
     }
-    else if(ctx->showgraph()){
+    else if (ctx->showgraph())
+    {
         // std::cout<<"visiting show graph";
         return visitShowgraph(ctx->showgraph());
     }
@@ -185,8 +183,6 @@ antlrcpp::Any MyVisitor::visitEdges(BaseParser::EdgesContext *ctx)
     return nullptr;
 }
 
-
-
 // Visit conditional statement
 antlrcpp::Any MyVisitor::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx)
 {
@@ -215,14 +211,16 @@ antlrcpp::Any MyVisitor::visitConditionalStatement(BaseParser::ConditionalStatem
     return nullptr; // No action if the condition is false and there's no else block
 }
 
-//visit graph comprehension 
-antlrcpp::Any MyVisitor::visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) {    
+// visit graph comprehension
+antlrcpp::Any MyVisitor::visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx)
+{
     std::string originalGraphName = ctx->graphID()->getText();
     std::string newGraphName = ctx->ID()->getText();
     BaseParser::GraphConditionContext *condition = ctx->graphCondition();
 
     // checking if original graph exists
-    if (graphs.find(originalGraphName) == graphs.end()) {
+    if (graphs.find(originalGraphName) == graphs.end())
+    {
         throw std::runtime_error("Graph '" + originalGraphName + "' does not exist.");
         return nullptr;
     }
@@ -231,65 +229,75 @@ antlrcpp::Any MyVisitor::visitGraphComprehension(BaseParser::GraphComprehensionC
     graph newGraph;
 
     // Iterate through the original graph's nodes and apply the condition
-    for (const auto &[node, neighbors] : graphs[originalGraphName].adjacencyList) {
-        if (evaluateGraphCondition(node, originalGraphName, condition)) {
-            newGraph.nodes = graphs[originalGraphName].nodes; // Add node to the new graph
-            newGraph.edges = graphs[originalGraphName].edges; // Copy edges from the original graph
-            newGraph.adjacencyList[node] = neighbors; // Add node and its edges to the new graph
-            newGraph.nodeId = graphs[originalGraphName].nodeId; // Copy node ID mapping
+    for (const auto &[node, neighbors] : graphs[originalGraphName].adjacencyList)
+    {
+        if (evaluateGraphCondition(node, originalGraphName, condition))
+        {
+            newGraph.nodes = graphs[originalGraphName].nodes;         // Add node to the new graph
+            newGraph.edges = graphs[originalGraphName].edges;         // Copy edges from the original graph
+            newGraph.adjacencyList[node] = neighbors;                 // Add node and its edges to the new graph
+            newGraph.nodeId = graphs[originalGraphName].nodeId;       // Copy node ID mapping
             newGraph.nodeIndex = graphs[originalGraphName].nodeIndex; // Copy node index mapping
-            if(graphs[originalGraphName].adjacencyMatrixMode) {
+            if (graphs[originalGraphName].adjacencyMatrixMode)
+            {
                 newGraph.adjacencyMatrixMode = true;
                 newGraph.adjacencyMatrix = graphs[originalGraphName].adjacencyMatrix; // Copy adjacency matrix
             }
-            if(graphs[originalGraphName].isDirected()) {
+            if (graphs[originalGraphName].isDirected())
+            {
                 newGraph.setDirected(true);
             }
-            if(graphs[originalGraphName].isWeighted()) {
+            if (graphs[originalGraphName].isWeighted())
+            {
                 newGraph.setWeighted(true);
             }
-            if(graphs[originalGraphName].isStochastic()) {
+            if (graphs[originalGraphName].isStochastic())
+            {
                 newGraph.setStochastic(true);
             }
-    }
+        }
 
-    // Store the new graph
-    
-}
+        // Store the new graph
+    }
     graphs[newGraphName] = newGraph;
     return nullptr; // No specific return required
 }
 
 // Evaluate GraphCondition
-bool MyVisitor::evaluateGraphCondition(node Node, const std::string& gName, BaseParser::GraphConditionContext* ctx) {    
-    if (auto andContext = dynamic_cast<BaseParser::GraphLogicalAndContext *>(ctx)) {
+bool MyVisitor::evaluateGraphCondition(node Node, const std::string &gName, BaseParser::GraphConditionContext *ctx)
+{
+    if (auto andContext = dynamic_cast<BaseParser::GraphLogicalAndContext *>(ctx))
+    {
         // Logical AND condition
         return evaluateGraphCondition(Node, gName, andContext->graphCondition(0)) &&
                evaluateGraphCondition(Node, gName, andContext->graphCondition(1));
     }
-    if (auto orContext = dynamic_cast<BaseParser::GraphLogicalOrContext *>(ctx)) {
+    if (auto orContext = dynamic_cast<BaseParser::GraphLogicalOrContext *>(ctx))
+    {
         // Logical OR condition
         return evaluateGraphCondition(Node, gName, orContext->graphCondition(0)) ||
                evaluateGraphCondition(Node, gName, orContext->graphCondition(1));
     }
-    if (auto degreeCondition = dynamic_cast<BaseParser::DegreeConditionContext *>(ctx)) {
+    if (auto degreeCondition = dynamic_cast<BaseParser::DegreeConditionContext *>(ctx))
+    {
         // Degree condition
-        std::string operatorStr = degreeCondition->EQUAL() ? degreeCondition->EQUAL()->getText() :
-                                  degreeCondition->NOTEQUAL() ? degreeCondition->NOTEQUAL()->getText() :
-                                  degreeCondition->LESSEQUAL() ? degreeCondition->LESSEQUAL()->getText() :
-                                  degreeCondition->GREATEREQUAL() ? degreeCondition->GREATEREQUAL()->getText() :
-                                  degreeCondition->LESSTHAN() ? degreeCondition->LESSTHAN()->getText() :
-                                  degreeCondition->GREATERTHAN()->getText();
+        std::string operatorStr = degreeCondition->EQUAL() ? degreeCondition->EQUAL()->getText() : degreeCondition->NOTEQUAL()   ? degreeCondition->NOTEQUAL()->getText()
+                                                                                               : degreeCondition->LESSEQUAL()    ? degreeCondition->LESSEQUAL()->getText()
+                                                                                               : degreeCondition->GREATEREQUAL() ? degreeCondition->GREATEREQUAL()->getText()
+                                                                                               : degreeCondition->LESSTHAN()     ? degreeCondition->LESSTHAN()->getText()
+                                                                                                                                 : degreeCondition->GREATERTHAN()->getText();
         int value = std::stoi(degreeCondition->INT()->getText());
         return evaluateDegreeCondition(Node, gName, operatorStr, value);
     }
-    if (auto connectedCondition = dynamic_cast<BaseParser::ConnectedConditionContext *>(ctx)) {
+    if (auto connectedCondition = dynamic_cast<BaseParser::ConnectedConditionContext *>(ctx))
+    {
         // Connected condition
         node targetNode;
         targetNode.id = connectedCondition->nodeID()->getText();
         return evaluateConnectedCondition(gName, Node, targetNode);
     }
-    if (auto parenCondition = dynamic_cast<BaseParser::ParenGraphConditionContext *>(ctx)) {
+    if (auto parenCondition = dynamic_cast<BaseParser::ParenGraphConditionContext *>(ctx))
+    {
         // Parenthesized condition
         return evaluateGraphCondition(Node, gName, parenCondition->graphCondition());
     }
@@ -297,38 +305,45 @@ bool MyVisitor::evaluateGraphCondition(node Node, const std::string& gName, Base
     throw std::runtime_error("Invalid graph condition encountered.");
 }
 
-
-
 // Evaluate degree condition
-bool MyVisitor::evaluateDegreeCondition(node node, const std::string& gName, const std::string& operatorStr, int value) {    
+bool MyVisitor::evaluateDegreeCondition(node node, const std::string &gName, const std::string &operatorStr, int value)
+{
     auto &graphNodes = graphs[gName];
     int degree = graphNodes.adjacencyList[node].size();
 
-    if (operatorStr == "==") return degree == value;
-    if (operatorStr == "!=") return degree != value;
-    if (operatorStr == "<") return degree < value;
-    if (operatorStr == ">") return degree > value;
-    if (operatorStr == "<=") return degree <= value;
-    if (operatorStr == ">=") return degree >= value;
+    if (operatorStr == "==")
+        return degree == value;
+    if (operatorStr == "!=")
+        return degree != value;
+    if (operatorStr == "<")
+        return degree < value;
+    if (operatorStr == ">")
+        return degree > value;
+    if (operatorStr == "<=")
+        return degree <= value;
+    if (operatorStr == ">=")
+        return degree >= value;
 
     throw std::runtime_error("Unknown comparison operator in degree condition.");
 }
 
-
 // Evaluate connected condition
-bool MyVisitor::evaluateConnectedCondition(const std::string& gName ,node Node, node targetNode) {    
-    auto& graphNodes = graphs[gName];
-    if (find(graphNodes.nodes.begin(), graphNodes.nodes.end(), Node) == graphNodes.nodes.end()) {
+bool MyVisitor::evaluateConnectedCondition(const std::string &gName, node Node, node targetNode)
+{
+    auto &graphNodes = graphs[gName];
+    if (find(graphNodes.nodes.begin(), graphNodes.nodes.end(), Node) == graphNodes.nodes.end())
+    {
         return false; // Node does not exist.
     }
-    else {
+    else
+    {
         return edgeExists(gName, Node, targetNode);
     }
 }
 
-
-//query
-antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *ctx) {
+// query
+antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *ctx)
+{
     // Extract the query variable name, function name (dfs, detect cycle) and graph ID
     std::string queryVariable = ctx->ID()->getText();
     std::string queryType = ctx->STRING()->getText();
@@ -336,20 +351,25 @@ antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *
     std::string graphID = ctx->graphID()->getText();
 
     // Ensure the graph exists in the symbol table
-    if (graphs.find(graphID) == graphs.end()) {
+    if (graphs.find(graphID) == graphs.end())
+    {
         throw std::runtime_error("Graph '" + graphID + "' not found.");
     }
 
     // Get the adjacency list of the specified graph
     auto adjList = graphs[graphID].adjacencyList;
-    const graph& bfsgraph = graphs[graphID];
+    graph &bfsgraph = graphs[graphID];
 
     // Execute the query based on its type
     std::string result;
     // result = "hh";
-    if (queryType == "bfs") {
-        result = BFS(bfsgraph); // Assuming bfs returns a string result
-    } 
+    if (queryType == "bfs")
+    {
+        result = bfs(bfsgraph);
+    }
+    // if (queryType == "bfs") {
+    //     //result = BFS(bfsgraph); // Assuming bfs returns a string result
+    // }
     // else if (queryType == "detectCycle"){
     //     result = detectCycle(adjList);
     // }
@@ -367,12 +387,44 @@ antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *
 
     return nullptr;
 }
+std::string MyVisitor::bfs(const graph &graph)
+{
+    std::string result;
+    std::unordered_set<node> visited;
+    for (const auto &Node : graph.adjacencyList)
+    {
+        if (visited.count(Node.first))
+            continue;
+        std::queue<node> q;
+        q.push(Node.first);
+        visited.insert(Node.first);
 
-antlrcpp::Any MyVisitor::visitShowgraph(BaseParser::ShowgraphContext *ctx) {
-    std::string graphID = ctx->graphID()->getText();  // Get the graph ID from the context
+        while (!q.empty())
+        {
+            node current = q.front();
+            q.pop();
+            result += utilities::nodeTypeToString(current.id) + " ";
+
+            for (node neighbor : graph.adjacencyList.at(current))
+            {
+                if (!visited.count(neighbor))
+                {
+                    q.push(neighbor);
+                    visited.insert(neighbor);
+                }
+            }
+        }
+    }
+    return result;
+}
+
+antlrcpp::Any MyVisitor::visitShowgraph(BaseParser::ShowgraphContext *ctx)
+{
+    std::string graphID = ctx->graphID()->getText(); // Get the graph ID from the context
 
     // Check if the graph exists in the symbol table
-    if (graphs.find(graphID) == graphs.end()) {
+    if (graphs.find(graphID) == graphs.end())
+    {
         std::cerr << "Error: Graph '" << graphID << "' not found." << std::endl;
         return nullptr;
     }
@@ -387,8 +439,10 @@ antlrcpp::Any MyVisitor::visitShowgraph(BaseParser::ShowgraphContext *ctx) {
     return nullptr;
 }
 
-std::string nodeTypeToString(const NodeType& value) {
-    return std::visit([](auto&& v) -> std::string {
+std::string nodeTypeToString(const NodeType &value)
+{
+    return std::visit([](auto &&v) -> std::string
+                      {
         using U = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<U, std::string>) {
             return v;
@@ -400,16 +454,17 @@ std::string nodeTypeToString(const NodeType& value) {
             return std::to_string(v);
         } else {
             return {}; // Fallback for unknown types
-        }
-    }, value);
+        } }, value);
 }
 
-void MyVisitor::generateDotFile(graph& graph, const std::string& filename) {
+void MyVisitor::generateDotFile(graph &graph, const std::string &filename)
+{
     std::ofstream outFile(filename);
     outFile << "graph G {\n";
 
     // Loop over the graph and write the edges to the DOT file
-    for (const auto& edge : graph.edges) {
+    for (const auto &edge : graph.edges)
+    {
         outFile << "    " << nodeTypeToString(edge.from.id) << " -- " << nodeTypeToString(edge.to.id) << ";\n";
     }
 
@@ -418,23 +473,26 @@ void MyVisitor::generateDotFile(graph& graph, const std::string& filename) {
     std::cout << "DOT file generated: " << filename << std::endl;
 }
 
-void MyVisitor::showGraph(const std::string& graphID) {
+void MyVisitor::showGraph(const std::string &graphID)
+{
     // Use Graphviz (dot) to render the DOT file to an image
     std::string command = "dot -Tpng " + graphID + ".dot -o " + graphID + ".png";
-    if (system(command.c_str()) == 0) {
+    if (system(command.c_str()) == 0)
+    {
         std::cout << "Graph visualization saved as " << graphID << ".png" << std::endl;
         system(("open " + graphID + ".png").c_str());
-    } else {
+    }
+    else
+    {
         std::cerr << "Error: Failed to render the graph using Graphviz." << std::endl;
     }
 }
-
 
 // function
 
 antlrcpp::Any MyVisitor::visitFunction(BaseParser::FunctionContext *ctx)
 {
-    
+
     std::string functionName = ctx->ID()->getText();
     std::string returnType = ctx->returnType()->getText();
     // Corrected to use visitParamList correctly
@@ -458,8 +516,9 @@ antlrcpp::Any MyVisitor::visitParamList(BaseParser::ParamListContext *ctx)
     std::vector<std::pair<std::string, std::string>> params;
 
     // Check if there are any parameters
-    if (ctx->param().empty()) {
-        return params;  // Return empty parameter list if no parameters exist
+    if (ctx->param().empty())
+    {
+        return params; // Return empty parameter list if no parameters exist
     }
 
     // Process each parameter if they exist
@@ -479,22 +538,26 @@ antlrcpp::Any MyVisitor::visitParam(BaseParser::ParamContext *ctx)
     return std::make_pair(type, name);
 }
 
-//33
+// 33
 antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
     // std::cout << "Visiting function call: \n";
 
     std::string functionName;
-    if (ctx->ID() != nullptr) {
+    if (ctx->ID() != nullptr)
+    {
         functionName = ctx->ID()->getText();
         std::cout << "Function name: " << functionName << std::endl;
-    } else {
+    }
+    else
+    {
         std::cerr << "Error: Function call ID is missing!" << std::endl;
         throw std::runtime_error("Function call ID is missing!");
     }
 
     // Check if the function exists
-    if (functions.find(functionName) == functions.end()) {
+    if (functions.find(functionName) == functions.end())
+    {
         throw std::runtime_error("Function '" + functionName + "' is not defined.");
     }
 
@@ -505,29 +568,39 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 
     // Evaluate arguments if present
     std::vector<std::any> args;
-    if (ctx->argumentList()) {
+    if (ctx->argumentList())
+    {
         auto arguments = ctx->argumentList()->expr();
         std::cout << "Number of arguments: " << arguments.size() << std::endl;
 
-        if (arguments.size() != paramList.size()) {
+        if (arguments.size() != paramList.size())
+        {
             throw std::runtime_error("Function '" + functionName + "' expects " +
                                      std::to_string(paramList.size()) + " arguments, but got " +
                                      std::to_string(arguments.size()) + ".");
         }
 
-        for (size_t i = 0; i < arguments.size(); ++i) {
+        for (size_t i = 0; i < arguments.size(); ++i)
+        {
             // std::cout << "Processing argument " << i << std::endl;
             auto argumentValue = visitExpr(arguments[i]);
             args.push_back(argumentValue);
 
             // Debugging the argument value and type
-            if (argumentValue.type() == typeid(int)) {
+            if (argumentValue.type() == typeid(int))
+            {
                 // std::cout << "Argument " << i << " is of type int with value: " << std::any_cast<int>(argumentValue) << std::endl;
-            } else if (argumentValue.type() == typeid(std::string)) {
+            }
+            else if (argumentValue.type() == typeid(std::string))
+            {
                 // std::cout << "Argument " << i << " is of type string with value: " << std::any_cast<std::string>(argumentValue) << std::endl;
-            } else if (argumentValue.type() == typeid(double)) {
+            }
+            else if (argumentValue.type() == typeid(double))
+            {
                 // std::cout << "Argument " << i << " is of type int with value: " << std::any_cast<int>(argumentValue) << std::endl;
-            } else {
+            }
+            else
+            {
                 std::cout << "Argument " << i << " has an unknown type!" << std::endl;
             }
         }
@@ -537,52 +610,78 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
     std::unordered_map<std::string, std::any> originalSymbolTable = symbolTable;
 
     // Map parameters to arguments if both exist
-    if (!paramList.empty() && !args.empty()) {
-        for (size_t i = 0; i < paramList.size(); ++i) {
+    if (!paramList.empty() && !args.empty())
+    {
+        for (size_t i = 0; i < paramList.size(); ++i)
+        {
             const auto &param = paramList[i];
             const std::string &paramName = param.second;
             std::cout << "Mapping argument " << i << " of type " << param.first << " to parameter " << paramName << std::endl;
 
             // Cast arguments based on the parameter type
-            try {
-                if (param.first == "int") {
-                    if (args[i].type() == typeid(int)) {
+            try
+            {
+                if (param.first == "int")
+                {
+                    if (args[i].type() == typeid(int))
+                    {
                         symbolTable[paramName] = std::any_cast<int>(args[i]);
                         std::cout << "Mapped int argument: " << std::any_cast<int>(args[i]) << std::endl;
-                    } else {
+                    }
+                    else
+                    {
                         throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type int.");
                     }
-                } else if (param.first == "string") {
-                    if (args[i].type() == typeid(std::string)) {
+                }
+                else if (param.first == "string")
+                {
+                    if (args[i].type() == typeid(std::string))
+                    {
                         symbolTable[paramName] = std::any_cast<std::string>(args[i]);
                         std::cout << "Mapped string argument: " << std::any_cast<std::string>(args[i]) << std::endl;
-                    } else {
+                    }
+                    else
+                    {
                         throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type string.");
                     }
-                } else if (param.first == "real") {
-                    if (args[i].type() == typeid(double)) {
+                }
+                else if (param.first == "real")
+                {
+                    if (args[i].type() == typeid(double))
+                    {
                         symbolTable[paramName] = std::any_cast<double>(args[i]);
                         std::cout << "Mapped real argument: " << std::any_cast<double>(args[i]) << std::endl;
-                    } else {
+                    }
+                    else
+                    {
                         throw std::runtime_error("Argument " + std::to_string(i) + " for parameter " + paramName + " is not of type real.");
-                    } 
-                } else {
+                    }
+                }
+                else
+                {
                     throw std::runtime_error("Unsupported parameter type: " + param.first);
                 }
-            } catch (const std::bad_any_cast &e) {
+            }
+            catch (const std::bad_any_cast &e)
+            {
                 std::cerr << "Error casting argument " << i << " of type " << param.first << ": " << e.what() << std::endl;
                 throw;
             }
         }
-    } else {
+    }
+    else
+    {
         // std::cout << "No parameters or arguments to map for function: " << functionName << std::endl;
     }
 
     // Execute the function body
     antlrcpp::Any returnValue = nullptr;
-    try {
+    try
+    {
         returnValue = visitBlock(functionBody);
-    } catch (const std::string &returnSignal) {
+    }
+    catch (const std::string &returnSignal)
+    {
         // Handle return statement signal
         returnValue = symbolTable["__return"];
     }
@@ -592,7 +691,6 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 
     return returnValue;
 }
-
 
 antlrcpp::Any MyVisitor::visitBlock(BaseParser::BlockContext *ctx)
 {
@@ -620,15 +718,17 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     {
         auto leftAny = visitExpr(mulDivContext->expr(0));
         auto rightAny = visitExpr(mulDivContext->expr(1));
-        if(leftAny.type() == typeid(double) || rightAny.type() == typeid(double)){
+        if (leftAny.type() == typeid(double) || rightAny.type() == typeid(double))
+        {
             double left = std::any_cast<double>(leftAny);
             double right = std::any_cast<double>(rightAny);
             if (mulDivContext->TIMES())
                 return left * right;
             if (mulDivContext->DIVIDE())
                 return left / right;
-        }   
-        else if(leftAny.type() == typeid(int) || rightAny.type() == typeid(int)){
+        }
+        else if (leftAny.type() == typeid(int) || rightAny.type() == typeid(int))
+        {
             int left = std::any_cast<int>(leftAny);
             int right = std::any_cast<int>(rightAny);
             if (mulDivContext->TIMES())
@@ -641,15 +741,17 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     {
         auto leftAny = visitExpr(addSubContext->expr(0));
         auto rightAny = visitExpr(addSubContext->expr(1));
-        if(leftAny.type() == typeid(double) || rightAny.type() == typeid(double)){
+        if (leftAny.type() == typeid(double) || rightAny.type() == typeid(double))
+        {
             double left = std::any_cast<double>(leftAny);
             double right = std::any_cast<double>(rightAny);
             if (addSubContext->PLUS())
                 return left + right;
             if (addSubContext->MINUS())
                 return left - right;
-        }   
-        else if(leftAny.type() == typeid(int) || rightAny.type() == typeid(int)){
+        }
+        else if (leftAny.type() == typeid(int) || rightAny.type() == typeid(int))
+        {
             int left = std::any_cast<int>(leftAny);
             int right = std::any_cast<int>(rightAny);
             if (addSubContext->PLUS())
@@ -658,10 +760,11 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
                 return left - right;
         }
     }
-    //33
-    else if (auto funcExprContext = dynamic_cast<BaseParser::FuncExprContext *>(ctx)) {
-        //std::cout << "Visiting function call expression: "<<funcExprContext->functionCall()->ID()->getText() << std::endl;
-        return visitFunctionCall(funcExprContext->functionCall()); 
+    // 33
+    else if (auto funcExprContext = dynamic_cast<BaseParser::FuncExprContext *>(ctx))
+    {
+        // std::cout << "Visiting function call expression: "<<funcExprContext->functionCall()->ID()->getText() << std::endl;
+        return visitFunctionCall(funcExprContext->functionCall());
     }
     else if (auto intExprContext = dynamic_cast<BaseParser::IntExprContext *>(ctx))
     {
@@ -705,14 +808,13 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     {
         return visitExpr(parenContext->expr());
     }
-    
 
     return 0;
 }
 
 // Check if node exists
-
-antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
+// the below function was visitVarDecl
+antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx)
 {
     // Get type and variable name
     std::string type = ctx->type()->getText();
@@ -876,7 +978,7 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
         for (const auto &node : graphData.nodes)
         {
             symbolTable[vertexVar] = node; // Set vertex variable
-            visitBlock(ctx->block());            // Execute loop block
+            visitBlock(ctx->block());      // Execute loop block
         }
 
         // Restore previous value or remove the variable
@@ -901,10 +1003,10 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
 
         for (const auto &edge : graphData.edges)
         {
-            
+
             symbolTable[fromVar] = edge.from; // Set source vertex
             symbolTable[toVar] = edge.to;     // Set target vertex
-            visitBlock(ctx->block());    // Execute loop block
+            visitBlock(ctx->block());         // Execute loop block
         }
 
         // Restore previous values or remove the variables
@@ -930,7 +1032,7 @@ antlrcpp::Any MyVisitor::visitForeachStatement(BaseParser::ForeachStatementConte
     }
     else if (auto adjContext = dynamic_cast<BaseParser::ForEachAdjContext *>(loopTarget))
     {
-        //UNDERSTAND THIS!!!!!!!!!!!!!!!!!!!!!!!!
+        // UNDERSTAND THIS!!!!!!!!!!!!!!!!!!!!!!!!
         node node;
         node.id = adjContext->nodeID()->getText();
         std::string neighborVar = adjContext->ID()->getText();
@@ -989,7 +1091,8 @@ void MyVisitor::addNode(const std::string &gName, node node)
     graphs[gName].addNode(node);
 }
 
-void MyVisitor::removeNode(const std::string &gName, node node) {
+void MyVisitor::removeNode(const std::string &gName, node node)
+{
     graphs[gName].removeNode(node);
 }
 
@@ -1010,7 +1113,8 @@ void MyVisitor::addEdge(const std::string &gName, node from, node to, std::optio
     //     std::cout << "Node " << node << " already exists in graph " << graphName << std::endl;
     // }
     graphs[gName];
-    if(weight.has_value()){
+    if (weight.has_value())
+    {
         edge e(from, to, weight.value());
         graphs[gName].addEdge(e);
     }
@@ -1019,7 +1123,6 @@ void MyVisitor::addEdge(const std::string &gName, node from, node to, std::optio
         edge e(from, to);
         graphs[gName].addEdge(e);
     }
-    
 
     // adjacencyList[from].insert(to);
     // adjacencyList[to].insert(from);
@@ -1036,13 +1139,17 @@ bool MyVisitor::nodeExists(const std::string &gName, node node) const
 }
 
 // Visit addOperation
-antlrcpp::Any MyVisitor::visitAddOperation(BaseParser::AddOperationContext *ctx) {
+antlrcpp::Any MyVisitor::visitAddOperation(BaseParser::AddOperationContext *ctx)
+{
     std::string gName = ctx->graphID()->getText();
-    if (ctx->addTargets()->nodeID()) {
+    if (ctx->addTargets()->nodeID())
+    {
         node node;
         node.id = ctx->addTargets()->nodeID()->getText();
         addNode(gName, node);
-    } else if (ctx->addTargets()->edge()) {
+    }
+    else if (ctx->addTargets()->edge())
+    {
         node from, to;
         from.id = ctx->addTargets()->edge()->nodeID(0)->getText();
         to.id = ctx->addTargets()->edge()->nodeID(1)->getText();
@@ -1053,13 +1160,17 @@ antlrcpp::Any MyVisitor::visitAddOperation(BaseParser::AddOperationContext *ctx)
 }
 
 // Visit removeOperation
-antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) {
+antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext *ctx)
+{
     std::string gName = ctx->graphID()->getText();
-    if (ctx->removeTargets()->nodeID()) {
+    if (ctx->removeTargets()->nodeID())
+    {
         node node;
         node.id = ctx->removeTargets()->nodeID()->getText();
         removeNode(gName, node);
-    } else if (ctx->removeTargets()->edge()) {
+    }
+    else if (ctx->removeTargets()->edge())
+    {
         node from, to;
         from.id = ctx->removeTargets()->edge()->nodeID(0)->getText();
         to.id = ctx->removeTargets()->edge()->nodeID(1)->getText();
@@ -1070,8 +1181,10 @@ antlrcpp::Any MyVisitor::visitRemoveOperation(BaseParser::RemoveOperationContext
 }
 
 // Remove an edge from the graph
-void MyVisitor::removeEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight) {
-    if(weight.has_value()){
+void MyVisitor::removeEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight)
+{
+    if (weight.has_value())
+    {
         edge e(from, to, weight.value());
         graphs[gName].removeEdge(e);
     }
@@ -1223,7 +1336,7 @@ void MyVisitor::printNodes(const std::string &gName) const
     if (graphs.find(gName) != graphs.end())
     {
         graph g = graphs.at(gName);
-        //FIX THIS
+        // FIX THIS
         g.printNodes();
     }
 }
@@ -1248,59 +1361,34 @@ void MyVisitor::printGraph(const std::string &gName) const
     }
 }
 
-bool MyVisitor::detectCycleHelper(int node, int parent, const std::unordered_map<int, std::unordered_set<int>>& graph, 
-                       std::unordered_set<int>& visited) {
-    visited.insert(node);
-
-    for (int neighbor : graph.at(node)) {
-        if (!visited.count(neighbor)) {
-            if (detectCycleHelper(neighbor, node, graph, visited)) {
-                return true;
-            }
-        } else if (neighbor != parent) {
-            return true;
-        }
-    }
-    return false;
-}
-
-std::string MyVisitor::detectCycle(const std::unordered_map<int, std::unordered_set<int>>& graph) {
-    std::unordered_set<int> visited;
-    for (const auto& node : graph) {
-        if (!visited.count(node.first)) {
-            if (detectCycleHelper(node.first, -1, graph, visited)) {
-                return "Cycle Detected";
-            }
-        }
-    }
-    return "No Cycle Detected";
-}
-
-std::string MyVisitor::bfs(const std::unordered_map<int, std::unordered_set<int>>& graph) {
-    std::string result;
-    std::unordered_set<int> visited;
-    for (const auto& node : graph) {
-        if (visited.count(node.first)) continue;
-        std::queue<int> q;
-        q.push(node.first);
-        visited.insert(node.first);
-
-        while (!q.empty()) {
-            int current = q.front();
-            q.pop();
-            result += std::to_string(current) + " ";
-
-            for (int neighbor : graph.at(current)) {
-                if (!visited.count(neighbor)) {
-                    q.push(neighbor);
-                    visited.insert(neighbor);
-                }
-            }
-        }
-    }
-    return result;
-}
 const std::unordered_map<int, std::unordered_set<int>> &MyVisitor::getGraph() const
 {
     return adjacencyList;
+}
+
+antlrcpp::Any MyVisitor::visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) {
+    std::string type = ctx->type()->getText();
+    std::string name = ctx->arrayDeclarator()->ID()->getText();
+
+    std::cout << "\n\n\n[debug]\n\n\n";
+    int size = -1;
+    if (auto sized = dynamic_cast<BaseParser::SizedArrayContext*>(ctx->arrayDeclarator())) {
+        size = std::stoi(sized->INT()->getText());
+    }
+
+    std::vector<antlrcpp::Any> values;
+    if (ctx->arrayInitializer()) {
+        for (auto exprCtx : ctx->arrayInitializer()->expr()) {
+            values.push_back(visit(exprCtx));
+        }
+    }
+
+    std::cout << "Declared array: " << name << "[" << (size == -1 ? "" : std::to_string(size)) << "] = [";
+    for (size_t i = 0; i < values.size(); ++i) {
+        std::cout << values[i].as<std::string>();
+        if (i != values.size() - 1) std::cout << ", ";
+    }
+    std::cout << "]" << std::endl;
+
+    return nullptr;
 }

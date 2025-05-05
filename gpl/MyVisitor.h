@@ -89,7 +89,7 @@ public:
     antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext *ctx) override;
 
     // varDecl
-    // antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx) override;
+    antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx) override;
     // antlrcpp::Any visitSimpleDeclaration(BaseParser::SimpleDeclarationContext *ctx) override;
     antlrcpp::Any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) override;
     // antlrcpp::Any visitAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) override;

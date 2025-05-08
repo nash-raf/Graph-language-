@@ -11,8 +11,8 @@
 using namespace antlr4;
 
 int main(int argc, const char* argv[]) {
-    std::cout << "Press ENTER to exit...";
-    std::cin.get();
+    // std::cout << "Press ENTER to exit...";
+    // std::cin.get();
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <input-file>" << std::endl;
         return 1;

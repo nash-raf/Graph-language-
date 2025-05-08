@@ -45,8 +45,6 @@ public:
 
     virtual std::any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *context) = 0;
 
-    virtual std::any visitAssignedDeclaration(BaseParser::AssignedDeclarationContext *context) = 0;
-
     virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
 
     virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *context) = 0;
@@ -125,9 +123,15 @@ public:
 
     virtual std::any visitGraphPrint(BaseParser::GraphPrintContext *context) = 0;
 
+    virtual std::any visitBoolTrueExpr(BaseParser::BoolTrueExprContext *context) = 0;
+
     virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
 
     virtual std::any visitIdExpr(BaseParser::IdExprContext *context) = 0;
+
+    virtual std::any visitBoolFalseExpr(BaseParser::BoolFalseExprContext *context) = 0;
+
+    virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *context) = 0;
 
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
 
@@ -144,6 +148,10 @@ public:
     virtual std::any visitUnsizedArray(BaseParser::UnsizedArrayContext *context) = 0;
 
     virtual std::any visitArrayInitializer(BaseParser::ArrayInitializerContext *context) = 0;
+
+    virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *context) = 0;
+
+    virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *context) = 0;
 
 
 };

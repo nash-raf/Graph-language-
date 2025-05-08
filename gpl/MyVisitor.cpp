@@ -387,6 +387,7 @@ antlrcpp::Any MyVisitor::visitQueryStatement(BaseParser::QueryStatementContext *
 
     return nullptr;
 }
+
 std::string MyVisitor::bfs(const graph &graph)
 {
     std::string result;
@@ -763,7 +764,6 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     // 33
     else if (auto funcExprContext = dynamic_cast<BaseParser::FuncExprContext *>(ctx))
     {
-        // std::cout << "Visiting function call expression: "<<funcExprContext->functionCall()->ID()->getText() << std::endl;
         return visitFunctionCall(funcExprContext->functionCall());
     }
     else if (auto intExprContext = dynamic_cast<BaseParser::IntExprContext *>(ctx))
@@ -773,6 +773,14 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     else if (auto realExprContext = dynamic_cast<BaseParser::RealExprContext *>(ctx))
     {
         return std::stod(realExprContext->getText());
+    }
+    else if (auto boolTrue = dynamic_cast<BaseParser::BoolTrueExprContext *>(ctx))
+    {
+        return true;
+    }
+    else if (auto boolFalse = dynamic_cast<BaseParser::BoolFalseExprContext *>(ctx))
+    {
+        return false;
     }
     else if (auto idExprContext = dynamic_cast<BaseParser::IdExprContext *>(ctx))
     {
@@ -796,6 +804,10 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             {
                 return std::any_cast<double>(value);
             }
+            else if (value.type() == typeid(bool))
+            {
+                return std::any_cast<bool>(value);
+            }
             else
             {
                 throw std::runtime_error("Unsupported variable type for '" + id + "'.");
@@ -803,72 +815,240 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
         }
         throw std::runtime_error("Undefined variable: " + id);
     }
-
     else if (auto parenContext = dynamic_cast<BaseParser::ParenExprContext *>(ctx))
     {
         return visitExpr(parenContext->expr());
+    }
+    else if (auto access = dynamic_cast<BaseParser::ArrayAccessExprContext *>(ctx))
+    {
+        std::string arrayName = access->ID()->getText();
+        int index = std::any_cast<int>(visitExpr(access->expr()));
+
+        if (symbolTable.find(arrayName) == symbolTable.end())
+            throw std::runtime_error("Undefined array: " + arrayName);
+
+        auto &arr = symbolTable[arrayName];
+
+        if (arr.type() == typeid(std::vector<int>))
+        {
+            auto &vec = std::any_cast<std::vector<int> &>(arr);
+            if (index < 0 || index >= vec.size())
+                throw std::runtime_error("Array index out of bounds: " + std::to_string(index));
+            return vec[index];
+        }
+        else if (arr.type() == typeid(std::vector<double>))
+        {
+            auto &vec = std::any_cast<std::vector<double> &>(arr);
+            if (index < 0 || index >= vec.size())
+                throw std::runtime_error("Array index out of bounds: " + std::to_string(index));
+            return vec[index];
+        }
+        else
+        {
+            throw std::runtime_error("Variable is not an array");
+        }
     }
 
     return 0;
 }
 
 // Check if node exists
-// the below function was visitVarDecl
-antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx)
+antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
 {
-    // Get type and variable name
-    std::string type = ctx->type()->getText();
-    std::string name = ctx->ID()->getText();
 
-    // Check if variable is already declared
-    if (symbolTable.find(name) != symbolTable.end())
-    {
-        throw std::runtime_error("Variable '" + name + "' is already declared.");
-    }
+    if (auto simpleDeclarationContext = dynamic_cast<BaseParser::SimpleDeclarationContext *>(ctx))
+    { // Get type and variable name
+        std::string type = simpleDeclarationContext->type()->getText();
+        std::string name = simpleDeclarationContext->ID()->getText();
 
-    // Evaluate the expression if an initializer is provided
-    std::any value;
-    if (ctx->expr())
-    {
-        value = visitExpr(ctx->expr());
+        // Check if variable is already declared
+        if (symbolTable.find(name) != symbolTable.end())
+        {
+            throw std::runtime_error("Variable '" + name + "' is already declared.");
+        }
 
-        // Type checking directly with typeid
-        if (type == "int" && value.type() != typeid(int))
+        // Evaluate the expression if an initializer is provided
+        std::any value;
+        if (simpleDeclarationContext->expr())
         {
-            throw std::runtime_error("Type mismatch: Expected 'int' initializer for variable '" + name + "'.");
-        }
-        else if (type == "string" && value.type() != typeid(std::string))
-        {
-            throw std::runtime_error("Type mismatch: Expected 'string' initializer for variable '" + name + "'.");
-        }
-        else if (type == "real" && value.type() != typeid(double))
-        {
-            throw std::runtime_error("Type mismatch: Expected 'real' initializer for variable '" + name + "'.");
-        }
-    }
-    else
-    {
-        // Default initialization based on type
-        if (type == "int")
-        {
-            value = 0;
-        }
-        else if (type == "string")
-        {
-            value = std::string("");
-        }
-        else if (type == "real")
-        {
-            value = 0.0;
+            value = visitExpr(simpleDeclarationContext->expr());
+
+            // Type checking directly with typeid
+            if (type == "int" && value.type() != typeid(int))
+            {
+                throw std::runtime_error("Type mismatch: Expected 'int' initializer for variable '" + name + "'.");
+            }
+            else if (type == "string" && value.type() != typeid(std::string))
+            {
+                throw std::runtime_error("Type mismatch: Expected 'string' initializer for variable '" + name + "'.");
+            }
+            else if (type == "real" && value.type() != typeid(double))
+            {
+                throw std::runtime_error("Type mismatch: Expected 'real' initializer for variable '" + name + "'.");
+            }
+            else if (type == "bool" && value.type() != typeid(bool))
+            {
+                throw std::runtime_error("Type mismatch: Expected 'bool' initializer for variable '" + name + "'.");
+            }
         }
         else
         {
-            throw std::runtime_error("Unsupported type: " + type);
+            // Default initialization based on type
+            if (type == "int")
+            {
+                value = 0;
+            }
+            else if (type == "string")
+            {
+                value = std::string("");
+            }
+            else if (type == "real")
+            {
+                value = 0.0;
+            }
+            else if (type == "bool")
+            {
+                value = false;
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported type: " + type);
+            }
         }
+
+        // Add to symbol table
+        symbolTable[name] = value;
+        return nullptr;
+    }
+    else if (auto arrayDeclarationContext = dynamic_cast<BaseParser::ArrayDeclarationContext *>(ctx))
+    {
+        std::string type = arrayDeclarationContext->type()->getText();
+        auto declarator = arrayDeclarationContext->arrayDeclarator();
+        std::string name;
+        int size = -1;
+
+        // Handling sized and unsized arrays
+        if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
+        {
+            name = sized->ID()->getText();
+            size = std::stoi(sized->INT()->getText());
+        }
+        else if (auto unsized = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
+        {
+            name = unsized->ID()->getText();
+        }
+
+        std::vector<antlrcpp::Any> values;
+
+        if (arrayDeclarationContext->arrayInitializer())
+        {
+            for (auto exprCtx : arrayDeclarationContext->arrayInitializer()->expr())
+            {
+                antlrcpp::Any val = visitExpr(exprCtx);
+
+                // Handle different array types
+                if (type == "int")
+                {
+                    if (val.type() == typeid(int))
+                    {
+                        values.push_back(val);
+                    }
+                    else if (val.type() == typeid(double))
+                    {
+                        int truncated = static_cast<int>(std::any_cast<double>(val));
+                        values.push_back(truncated);
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Type mismatch in int array initializer");
+                    }
+                }
+                else if (type == "real" || type == "float" || type == "double")
+                {
+                    if (val.type() == typeid(double))
+                    {
+                        values.push_back(val);
+                    }
+                    else if (val.type() == typeid(int))
+                    {
+                        double promoted = static_cast<double>(std::any_cast<int>(val));
+                        values.push_back(promoted);
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Type mismatch in real array initializer");
+                    }
+                }
+                else
+                {
+                    throw std::runtime_error("Unsupported array type: " + type);
+                }
+            }
+        }
+
+        // Print the initialized array
+        std::cout << "Declared array: " << name << "[" << (size == -1 ? "" : std::to_string(size)) << "] = [";
+        for (size_t i = 0; i < values.size(); ++i)
+        {
+            if (values[i].type() == typeid(int))
+                std::cout << std::any_cast<int>(values[i]);
+            else if (values[i].type() == typeid(double))
+                std::cout << std::any_cast<double>(values[i]) << "d";
+            else
+                std::cout << "[unknown_type]";
+
+            if (i != values.size() - 1)
+                std::cout << ", ";
+        }
+        std::cout << "]" << std::endl;
+
+        // Store the array in the symbol table
+        if (type == "int")
+        {
+            // Convert 'values' from antlrcpp::Any to int and store in symbol table
+            std::vector<int> intValues;
+            for (auto &val : values)
+            {
+                if (val.type() == typeid(int))
+                {
+                    intValues.push_back(std::any_cast<int>(val));
+                }
+                else if (val.type() == typeid(double))
+                {
+                    intValues.push_back(static_cast<int>(std::any_cast<double>(val)));
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid type in int array initializer");
+                }
+            }
+            symbolTable[name] = intValues;
+        }
+        else if (type == "real" || type == "float" || type == "double")
+        {
+            // Convert 'values' from antlrcpp::Any to double and store in symbol table
+            std::vector<double> doubleValues;
+            for (auto &val : values)
+            {
+                if (val.type() == typeid(double))
+                {
+                    doubleValues.push_back(std::any_cast<double>(val));
+                }
+                else if (val.type() == typeid(int))
+                {
+                    doubleValues.push_back(static_cast<double>(std::any_cast<int>(val)));
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid type in real array initializer");
+                }
+            }
+            symbolTable[name] = doubleValues;
+        }
+
+        return nullptr;
     }
 
-    // Add to symbol table
-    symbolTable[name] = value;
     return nullptr;
 }
 
@@ -1235,6 +1415,10 @@ antlrcpp::Any MyVisitor::visitPrintStatement(BaseParser::PrintStatementContext *
             {
                 std::cout << std::any_cast<std::string>(result) << std::endl;
             }
+            if (result.type() == typeid(bool))
+            {
+                std::cout << (std::any_cast<bool>(result) ? "TRUE" : "FALSE") << std::endl;
+            }
         }
         return nullptr;
     }
@@ -1300,6 +1484,7 @@ antlrcpp::Any MyVisitor::visitPrintExpr(BaseParser::PrintExprContext *ctx)
     }
     return nullptr;
 }
+
 antlrcpp::Any MyVisitor::visitPrintgraph(BaseParser::PrintgraphContext *ctx)
 {
     // std::cout << "hee";
@@ -1366,29 +1551,121 @@ const std::unordered_map<int, std::unordered_set<int>> &MyVisitor::getGraph() co
     return adjacencyList;
 }
 
-antlrcpp::Any MyVisitor::visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) {
-    std::string type = ctx->type()->getText();
-    std::string name = ctx->arrayDeclarator()->ID()->getText();
+antlrcpp::Any MyVisitor::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx)
+{
+    std::string arrayName = ctx->ID()->getText();
+    int index = std::stoi(ctx->INT()->getText());
+    antlrcpp::Any value = visit(ctx->expr()); // handle expr evaluation
 
-    std::cout << "\n\n\n[debug]\n\n\n";
-    int size = -1;
-    if (auto sized = dynamic_cast<BaseParser::SizedArrayContext*>(ctx->arrayDeclarator())) {
-        size = std::stoi(sized->INT()->getText());
+    if (auto assign = dynamic_cast<BaseParser::ArrayAssignStmtContext *>(ctx))
+    {
+        std::string arrayName = assign->ID()->getText();
+        // int index = std::any_cast<std::string>(visitExpr(assign->INT()->getText())); // Index
+        int index = std::stoi(assign->INT()->getText());
+
+        antlrcpp::Any value = visitExpr(assign->expr()); // New value to assign
+
+        if (symbolTable.find(arrayName) == symbolTable.end())
+            throw std::runtime_error("Undefined array: " + arrayName);
+
+        auto &arr = symbolTable[arrayName];
+
+        if (arr.type() == typeid(std::vector<int>))
+        {
+            auto &vec = std::any_cast<std::vector<int> &>(arr);
+            if (index < 0 || index >= vec.size())
+                throw std::runtime_error("Array index out of bounds: " + std::to_string(index));
+
+            // Check and set the correct value type
+            if (value.type() == typeid(double))
+            {
+                vec[index] = static_cast<int>(std::any_cast<double>(value));
+            }
+            else if (value.type() == typeid(int))
+            {
+                vec[index] = std::any_cast<int>(value);
+            }
+            else
+            {
+                throw std::runtime_error("Type mismatch in array assignment");
+            }
+
+            // Ensure the symbolTable is updated correctly
+            symbolTable[arrayName] = vec; // Store updated array back to symbolTable
+        }
+        else if (arr.type() == typeid(std::vector<double>))
+        {
+            auto &vec = std::any_cast<std::vector<double> &>(arr);
+
+            if (index < 0 || index >= vec.size())
+                throw std::runtime_error("Array index out of bounds: " + std::to_string(index));
+
+            // Check and set the correct value type
+            if (value.type() == typeid(double))
+            {
+                vec[index] = std::any_cast<double>(value);
+            }
+            else if (value.type() == typeid(int))
+            {
+                vec[index] = static_cast<double>(std::any_cast<int>(value));
+            }
+            else
+            {
+                throw std::runtime_error("Type mismatch in array assignment");
+            }
+
+            // Ensure the symbolTable is updated correctly
+            symbolTable[arrayName] = vec; // Store updated array back to symbolTable
+        }
+        else
+        {
+            throw std::runtime_error("Variable is not an array");
+        }
+
+        return nullptr;
     }
 
-    std::vector<antlrcpp::Any> values;
-    if (ctx->arrayInitializer()) {
-        for (auto exprCtx : ctx->arrayInitializer()->expr()) {
-            values.push_back(visit(exprCtx));
+    return nullptr;
+}
+
+antlrcpp::Any MyVisitor::visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx)
+{
+    std::string varName = ctx->ID()->getText();
+    std::any varType = symbolTable[varName];
+    // antlrcpp::Any v = visit(ctx->expr());
+
+    std::any value;
+    if (ctx->expr())
+    {
+        value = visitExpr(ctx->expr());
+        // std::cout << "Value type: " << value.type().name() << std::endl;
+        // std::cout << "Variable type: " << varType.type().name() << std::endl;
+
+        // Type checking directly with typeid
+        if (varType.type() == typeid(int) && value.type() != typeid(int))
+        {
+            throw std::runtime_error("Type mismatch: Expected 'int' initializer for variable '" + varName + "'.");
+        }
+        else if (varType.type() == typeid(std::string) && value.type() != typeid(std::string))
+        {
+            throw std::runtime_error("Type mismatch: Expected 'string' initializer for variable '" + varName + "'.");
+        }
+        else if (varType.type() == typeid(double) && value.type() != typeid(double))
+        {
+            throw std::runtime_error("Type mismatch: Expected 'real' initializer for variable '" + varName + "'.");
+        }
+        else if (varType.type() == typeid(bool) && value.type() != typeid(bool))
+        {
+            throw std::runtime_error("Type mismatch: Expected 'bool' initializer for variable '" + varName + "'.");
         }
     }
-
-    std::cout << "Declared array: " << name << "[" << (size == -1 ? "" : std::to_string(size)) << "] = [";
-    for (size_t i = 0; i < values.size(); ++i) {
-        std::cout << values[i].as<std::string>();
-        if (i != values.size() - 1) std::cout << ", ";
+    else
+    {
+        value = symbolTable[varName];
     }
-    std::cout << "]" << std::endl;
+
+    // Assuming you have some symbol table like:
+    symbolTable[varName] = value;
 
     return nullptr;
 }

@@ -55,9 +55,6 @@ public:
   virtual void enterArrayDeclaration(BaseParser::ArrayDeclarationContext * /*ctx*/) override { }
   virtual void exitArrayDeclaration(BaseParser::ArrayDeclarationContext * /*ctx*/) override { }
 
-  virtual void enterAssignedDeclaration(BaseParser::AssignedDeclarationContext * /*ctx*/) override { }
-  virtual void exitAssignedDeclaration(BaseParser::AssignedDeclarationContext * /*ctx*/) override { }
-
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
 
@@ -175,11 +172,20 @@ public:
   virtual void enterGraphPrint(BaseParser::GraphPrintContext * /*ctx*/) override { }
   virtual void exitGraphPrint(BaseParser::GraphPrintContext * /*ctx*/) override { }
 
+  virtual void enterBoolTrueExpr(BaseParser::BoolTrueExprContext * /*ctx*/) override { }
+  virtual void exitBoolTrueExpr(BaseParser::BoolTrueExprContext * /*ctx*/) override { }
+
   virtual void enterMulDivExpr(BaseParser::MulDivExprContext * /*ctx*/) override { }
   virtual void exitMulDivExpr(BaseParser::MulDivExprContext * /*ctx*/) override { }
 
   virtual void enterIdExpr(BaseParser::IdExprContext * /*ctx*/) override { }
   virtual void exitIdExpr(BaseParser::IdExprContext * /*ctx*/) override { }
+
+  virtual void enterBoolFalseExpr(BaseParser::BoolFalseExprContext * /*ctx*/) override { }
+  virtual void exitBoolFalseExpr(BaseParser::BoolFalseExprContext * /*ctx*/) override { }
+
+  virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
+  virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
 
   virtual void enterIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
   virtual void exitIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
@@ -204,6 +210,12 @@ public:
 
   virtual void enterArrayInitializer(BaseParser::ArrayInitializerContext * /*ctx*/) override { }
   virtual void exitArrayInitializer(BaseParser::ArrayInitializerContext * /*ctx*/) override { }
+
+  virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext * /*ctx*/) override { }
+  virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext * /*ctx*/) override { }
+
+  virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext * /*ctx*/) override { }
+  virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext * /*ctx*/) override { }
 
 
   virtual void enterEveryRule(antlr4::ParserRuleContext * /*ctx*/) override { }

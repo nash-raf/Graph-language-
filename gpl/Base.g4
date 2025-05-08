@@ -14,6 +14,8 @@ statement:
 	| varDecl
 	| functionCall
 	| graphComprehension
+	| arrayAssignStatement
+	| assignmentStatement // ✅ ADD THIS 
 	| queryStatement
 	| showgraph
 	| nodeEdgeOperation
@@ -34,10 +36,8 @@ edge: nodeID '->' nodeID;
 
 // assignment varDecl: type ID ('=' expr)? ';' | type ID '=' functionCall ';' ;
 varDecl:
-	type ID ('=' expr)? ';'				 			    # SimpleDeclaration
-	| type arrayDeclarator ('=' arrayInitializer)? ';'	# ArrayDeclaration
-	| ID '=' varDecl ';'								# AssignedDeclaration
-    ;
+	type ID ('=' expr)? ';'								# SimpleDeclaration
+	| type arrayDeclarator ('=' arrayInitializer)? ';'	# ArrayDeclaration;
 
 // if-else
 conditionalStatement:
@@ -108,7 +108,14 @@ returnType:
 	| 'string';
 paramList: '(' (param (',' param)*)? ')';
 param: type ID;
-type: 'graph' | 'vertex' | 'edge' | 'int' | 'string' | 'real';
+type:
+	'graph'
+	| 'vertex'
+	| 'edge'
+	| 'int'
+	| 'string'
+	| 'real'
+	| 'bool';
 
 functionCall: ID '(' argumentList? ')';
 argumentList: expr (',' expr)*;
@@ -129,12 +136,15 @@ printgraph:
 expr:
 	expr (TIMES | DIVIDE) expr	# MulDivExpr
 	| expr (PLUS | MINUS) expr	# AddSubExpr
-	//| nodeID                # nodeExpr
-	| functionCall	# FuncExpr
-	| INT			# IntExpr
-	| ID			# IdExpr
-	| '(' expr ')'	# ParenExpr
-	| REAL			# RealExpr;
+	| functionCall				# FuncExpr
+	| INT						# IntExpr
+	| ID						# IdExpr
+	| '(' expr ')'				# ParenExpr
+	| ID '[' expr ']'			# ArrayAccessExpr
+	| TRUE						# BoolTrueExpr
+	| FALSE						# BoolFalseExpr
+	| REAL						# RealExpr;
+// | nodeID                	# nodeExpr
 
 // Array 
 arrayDeclarator:
@@ -143,9 +153,17 @@ arrayDeclarator:
 
 arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
 
+// assignment
+assignmentStatement: ID '=' expr ';' | ID ';';
+
+arrayAssignStatement:
+	ID '[' INT ']' '=' expr ';' # ArrayAssignStmt;
+
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';
 NODE: 'nodes';
+TRUE: 'TRUE';
+FALSE: 'FALSE';
 OF: 'of';
 PLUS: '+';
 MINUS: '-';

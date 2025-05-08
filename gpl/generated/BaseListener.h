@@ -53,9 +53,6 @@ public:
   virtual void enterArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) = 0;
   virtual void exitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) = 0;
 
-  virtual void enterAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) = 0;
-  virtual void exitAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) = 0;
-
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
 
@@ -173,11 +170,20 @@ public:
   virtual void enterGraphPrint(BaseParser::GraphPrintContext *ctx) = 0;
   virtual void exitGraphPrint(BaseParser::GraphPrintContext *ctx) = 0;
 
+  virtual void enterBoolTrueExpr(BaseParser::BoolTrueExprContext *ctx) = 0;
+  virtual void exitBoolTrueExpr(BaseParser::BoolTrueExprContext *ctx) = 0;
+
   virtual void enterMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
   virtual void exitMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
 
   virtual void enterIdExpr(BaseParser::IdExprContext *ctx) = 0;
   virtual void exitIdExpr(BaseParser::IdExprContext *ctx) = 0;
+
+  virtual void enterBoolFalseExpr(BaseParser::BoolFalseExprContext *ctx) = 0;
+  virtual void exitBoolFalseExpr(BaseParser::BoolFalseExprContext *ctx) = 0;
+
+  virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
+  virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
 
   virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
   virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;
@@ -202,6 +208,12 @@ public:
 
   virtual void enterArrayInitializer(BaseParser::ArrayInitializerContext *ctx) = 0;
   virtual void exitArrayInitializer(BaseParser::ArrayInitializerContext *ctx) = 0;
+
+  virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
+  virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
+
+  virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
+  virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
 
 
 };

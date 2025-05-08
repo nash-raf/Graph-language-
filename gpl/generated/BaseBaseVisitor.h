@@ -67,10 +67,6 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
   virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -227,11 +223,23 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitBoolTrueExpr(BaseParser::BoolTrueExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual std::any visitIdExpr(BaseParser::IdExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitBoolFalseExpr(BaseParser::BoolFalseExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -264,6 +272,14 @@ public:
   }
 
   virtual std::any visitArrayInitializer(BaseParser::ArrayInitializerContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override {
     return visitChildren(ctx);
   }
 

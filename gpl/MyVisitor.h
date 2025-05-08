@@ -57,8 +57,14 @@ public:
     // antlrcpp::Any visitNodeCheck(BaseParser::ParenExprContext *ctx) override;
     // antlrcpp::Any visitEdgeCheck(BaseParser::ParenExprContext *ctx) override;
 
+    // assign
+    antlrcpp::Any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override;
+    // virtual antlrcpp::Any visitVariableAssignment(BaseParser::VariableAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) override;
+
     // Expression-related methods
     antlrcpp::Any visitExpr(BaseParser::ExprContext *ctx);
+
     // antlrcpp::Any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override;
     // antlrcpp::Any visitIdExpr(BaseParser::IdExprContext *ctx) override;
     // antlrcpp::Any visitIntExpr(BaseParser::IntExprContext *ctx) override;
@@ -89,9 +95,9 @@ public:
     antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext *ctx) override;
 
     // varDecl
-    antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx) override;
+    antlrcpp::Any visitVarDecl(BaseParser::VarDeclContext *ctx);
     // antlrcpp::Any visitSimpleDeclaration(BaseParser::SimpleDeclarationContext *ctx) override;
-    antlrcpp::Any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) override;
+    // antlrcpp::Any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) override;
     // antlrcpp::Any visitAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) override;
     
     //assignment

@@ -18,10 +18,11 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, GRAPH = 41, EDGE = 42, NODE = 43, OF = 44, PLUS = 45, 
-    MINUS = 46, TIMES = 47, DIVIDE = 48, AND = 49, OR = 50, EQUAL = 51, 
-    NOTEQUAL = 52, LESSTHAN = 53, GREATERTHAN = 54, LESSEQUAL = 55, GREATEREQUAL = 56, 
-    ID = 57, INT = 58, REAL = 59, STRING = 60, Comment = 61, WS = 62
+    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, EDGE = 43, NODE = 44, 
+    TRUE = 45, FALSE = 46, OF = 47, PLUS = 48, MINUS = 49, TIMES = 50, DIVIDE = 51, 
+    AND = 52, OR = 53, EQUAL = 54, NOTEQUAL = 55, LESSTHAN = 56, GREATERTHAN = 57, 
+    LESSEQUAL = 58, GREATEREQUAL = 59, ID = 60, INT = 61, REAL = 62, STRING = 63, 
+    Comment = 64, WS = 65
   };
 
   enum {
@@ -36,7 +37,8 @@ public:
     RuleFunction = 27, RuleReturnType = 28, RuleParamList = 29, RuleParam = 30, 
     RuleType = 31, RuleFunctionCall = 32, RuleArgumentList = 33, RuleBlock = 34, 
     RuleReturnStatement = 35, RulePrintStatement = 36, RulePrintExpr = 37, 
-    RulePrintgraph = 38, RuleExpr = 39, RuleArrayDeclarator = 40, RuleArrayInitializer = 41
+    RulePrintgraph = 38, RuleExpr = 39, RuleArrayDeclarator = 40, RuleArrayInitializer = 41, 
+    RuleAssignmentStatement = 42, RuleArrayAssignStatement = 43
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -97,7 +99,9 @@ public:
   class PrintgraphContext;
   class ExprContext;
   class ArrayDeclaratorContext;
-  class ArrayInitializerContext; 
+  class ArrayInitializerContext;
+  class AssignmentStatementContext;
+  class ArrayAssignStatementContext; 
 
   class  ProgramContext : public antlr4::ParserRuleContext {
   public:
@@ -129,6 +133,8 @@ public:
     VarDeclContext *varDecl();
     FunctionCallContext *functionCall();
     GraphComprehensionContext *graphComprehension();
+    ArrayAssignStatementContext *arrayAssignStatement();
+    AssignmentStatementContext *assignmentStatement();
     QueryStatementContext *queryStatement();
     ShowgraphContext *showgraph();
     NodeEdgeOperationContext *nodeEdgeOperation();
@@ -317,18 +323,6 @@ public:
     TypeContext *type();
     ArrayDeclaratorContext *arrayDeclarator();
     ArrayInitializerContext *arrayInitializer();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  AssignedDeclarationContext : public VarDeclContext {
-  public:
-    AssignedDeclarationContext(VarDeclContext *ctx);
-
-    antlr4::tree::TerminalNode *ID();
-    VarDeclContext *varDecl();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -999,6 +993,17 @@ public:
    
   };
 
+  class  BoolTrueExprContext : public ExprContext {
+  public:
+    BoolTrueExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *TRUE();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  MulDivExprContext : public ExprContext {
   public:
     MulDivExprContext(ExprContext *ctx);
@@ -1018,6 +1023,29 @@ public:
     IdExprContext(ExprContext *ctx);
 
     antlr4::tree::TerminalNode *ID();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  BoolFalseExprContext : public ExprContext {
+  public:
+    BoolFalseExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *FALSE();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  ArrayAccessExprContext : public ExprContext {
+  public:
+    ArrayAccessExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    ExprContext *expr();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -1137,6 +1165,50 @@ public:
   };
 
   ArrayInitializerContext* arrayInitializer();
+
+  class  AssignmentStatementContext : public antlr4::ParserRuleContext {
+  public:
+    AssignmentStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ID();
+    ExprContext *expr();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  AssignmentStatementContext* assignmentStatement();
+
+  class  ArrayAssignStatementContext : public antlr4::ParserRuleContext {
+  public:
+    ArrayAssignStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    ArrayAssignStatementContext() = default;
+    void copyFrom(ArrayAssignStatementContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
+    virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  ArrayAssignStmtContext : public ArrayAssignStatementContext {
+  public:
+    ArrayAssignStmtContext(ArrayAssignStatementContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    antlr4::tree::TerminalNode *INT();
+    ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  ArrayAssignStatementContext* arrayAssignStatement();
 
 
   bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;

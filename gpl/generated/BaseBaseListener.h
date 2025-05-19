@@ -187,6 +187,9 @@ public:
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
 
+  virtual void enterArray2DAccessExpr(BaseParser::Array2DAccessExprContext * /*ctx*/) override { }
+  virtual void exitArray2DAccessExpr(BaseParser::Array2DAccessExprContext * /*ctx*/) override { }
+
   virtual void enterIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
   virtual void exitIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
 
@@ -202,20 +205,35 @@ public:
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext * /*ctx*/) override { }
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext * /*ctx*/) override { }
 
+  virtual void enterSized2DArray(BaseParser::Sized2DArrayContext * /*ctx*/) override { }
+  virtual void exitSized2DArray(BaseParser::Sized2DArrayContext * /*ctx*/) override { }
+
+  virtual void enterUnsized2DArray(BaseParser::Unsized2DArrayContext * /*ctx*/) override { }
+  virtual void exitUnsized2DArray(BaseParser::Unsized2DArrayContext * /*ctx*/) override { }
+
   virtual void enterSizedArray(BaseParser::SizedArrayContext * /*ctx*/) override { }
   virtual void exitSizedArray(BaseParser::SizedArrayContext * /*ctx*/) override { }
 
   virtual void enterUnsizedArray(BaseParser::UnsizedArrayContext * /*ctx*/) override { }
   virtual void exitUnsizedArray(BaseParser::UnsizedArrayContext * /*ctx*/) override { }
 
-  virtual void enterArrayInitializer(BaseParser::ArrayInitializerContext * /*ctx*/) override { }
-  virtual void exitArrayInitializer(BaseParser::ArrayInitializerContext * /*ctx*/) override { }
+  virtual void enterDeclaration(BaseParser::DeclarationContext * /*ctx*/) override { }
+  virtual void exitDeclaration(BaseParser::DeclarationContext * /*ctx*/) override { }
+
+  virtual void enterArrayInit1D(BaseParser::ArrayInit1DContext * /*ctx*/) override { }
+  virtual void exitArrayInit1D(BaseParser::ArrayInit1DContext * /*ctx*/) override { }
+
+  virtual void enterArrayInit2D(BaseParser::ArrayInit2DContext * /*ctx*/) override { }
+  virtual void exitArrayInit2D(BaseParser::ArrayInit2DContext * /*ctx*/) override { }
 
   virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext * /*ctx*/) override { }
   virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext * /*ctx*/) override { }
 
   virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext * /*ctx*/) override { }
   virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext * /*ctx*/) override { }
+
+  virtual void enterArray2DAssignStmt(BaseParser::Array2DAssignStmtContext * /*ctx*/) override { }
+  virtual void exitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext * /*ctx*/) override { }
 
 
   virtual void enterEveryRule(antlr4::ParserRuleContext * /*ctx*/) override { }

@@ -185,6 +185,9 @@ public:
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
 
+  virtual void enterArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) = 0;
+  virtual void exitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) = 0;
+
   virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
   virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;
 
@@ -200,20 +203,35 @@ public:
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
 
+  virtual void enterSized2DArray(BaseParser::Sized2DArrayContext *ctx) = 0;
+  virtual void exitSized2DArray(BaseParser::Sized2DArrayContext *ctx) = 0;
+
+  virtual void enterUnsized2DArray(BaseParser::Unsized2DArrayContext *ctx) = 0;
+  virtual void exitUnsized2DArray(BaseParser::Unsized2DArrayContext *ctx) = 0;
+
   virtual void enterSizedArray(BaseParser::SizedArrayContext *ctx) = 0;
   virtual void exitSizedArray(BaseParser::SizedArrayContext *ctx) = 0;
 
   virtual void enterUnsizedArray(BaseParser::UnsizedArrayContext *ctx) = 0;
   virtual void exitUnsizedArray(BaseParser::UnsizedArrayContext *ctx) = 0;
 
-  virtual void enterArrayInitializer(BaseParser::ArrayInitializerContext *ctx) = 0;
-  virtual void exitArrayInitializer(BaseParser::ArrayInitializerContext *ctx) = 0;
+  virtual void enterDeclaration(BaseParser::DeclarationContext *ctx) = 0;
+  virtual void exitDeclaration(BaseParser::DeclarationContext *ctx) = 0;
+
+  virtual void enterArrayInit1D(BaseParser::ArrayInit1DContext *ctx) = 0;
+  virtual void exitArrayInit1D(BaseParser::ArrayInit1DContext *ctx) = 0;
+
+  virtual void enterArrayInit2D(BaseParser::ArrayInit2DContext *ctx) = 0;
+  virtual void exitArrayInit2D(BaseParser::ArrayInit2DContext *ctx) = 0;
 
   virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
   virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
 
   virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
   virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
+
+  virtual void enterArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) = 0;
+  virtual void exitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) = 0;
 
 
 };

@@ -243,6 +243,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitIntExpr(BaseParser::IntExprContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -263,6 +267,14 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSized2DArray(BaseParser::Sized2DArrayContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUnsized2DArray(BaseParser::Unsized2DArrayContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitSizedArray(BaseParser::SizedArrayContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -271,7 +283,15 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitArrayInitializer(BaseParser::ArrayInitializerContext *ctx) override {
+  virtual std::any visitDeclaration(BaseParser::DeclarationContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArrayInit1D(BaseParser::ArrayInit1DContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArrayInit2D(BaseParser::ArrayInit2DContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -280,6 +300,10 @@ public:
   }
 
   virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) override {
     return visitChildren(ctx);
   }
 

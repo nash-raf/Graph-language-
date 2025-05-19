@@ -134,30 +134,42 @@ printgraph:
 
 // Expressions
 expr:
-	expr (TIMES | DIVIDE) expr	# MulDivExpr
-	| expr (PLUS | MINUS) expr	# AddSubExpr
-	| functionCall				# FuncExpr
-	| INT						# IntExpr
-	| ID						# IdExpr
-	| '(' expr ')'				# ParenExpr
-	| ID '[' expr ']'			# ArrayAccessExpr
-	| TRUE						# BoolTrueExpr
-	| FALSE						# BoolFalseExpr
-	| REAL						# RealExpr;
-// | nodeID                	# nodeExpr
+	expr (TIMES | DIVIDE) expr		# MulDivExpr
+	| expr (PLUS | MINUS) expr		# AddSubExpr
+	| functionCall					# FuncExpr
+	| INT							# IntExpr
+	| ID							# IdExpr
+	| '(' expr ')'					# ParenExpr
+	| ID '[' expr ']'				# ArrayAccessExpr
+	| ID '[' expr ']' '[' expr ']'	# Array2DAccessExpr
+	| TRUE							# BoolTrueExpr
+	| FALSE							# BoolFalseExpr
+	| REAL							# RealExpr;
+// | nodeID                		# nodeExpr
 
 // Array 
 arrayDeclarator:
-	ID '[' INT ']'	# SizedArray
-	| ID '[' ']'	# UnsizedArray;
+	ID '[' INT ']' '[' INT ']'	# Sized2DArray
+	| ID '[' ']' '[' ']'		# Unsized2DArray
+	| ID '[' INT ']'			# SizedArray
+	| ID '[' ']'				# UnsizedArray;
 
-arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
+declaration
+    : type arrayDeclarator ('=' arrayInitializer)? ';'
+    | type ID ('=' expr)? ';'
+    ;
+
+arrayInitializer:
+	'[' expr (',' expr)* ']'								# ArrayInit1D
+	| '[' (arrayInitializer (',' arrayInitializer)*)? ']'	# ArrayInit2D;
+// | '[' arrayInitializer (',' arrayInitializer)* ']'	# ArrayInit2D;
 
 // assignment
 assignmentStatement: ID '=' expr ';' | ID ';';
 
 arrayAssignStatement:
-	ID '[' INT ']' '=' expr ';' # ArrayAssignStmt;
+	ID '[' INT ']' '=' expr ';'					# ArrayAssignStmt
+	| ID '[' INT ']' '[' INT ']' '=' expr ';'	# Array2DAssignStmt;
 
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';

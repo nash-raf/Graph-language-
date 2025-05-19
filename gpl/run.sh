@@ -5,7 +5,7 @@ ANTLR4_RUNTIME_PATH=/usr/local/include/antlr4-runtime
 ANTLR4_LIB_PATH=/usr/local/lib
 
 # Step 1: Generate ANTLR C++ files from grammar
-echo "Generating parser and lexer from Addition.g4..."
+echo "Generating parser and lexer from Base.g4..."
 # java -jar /usr/local/lib/antlr-4.13.0-complete.jar -Dlanguage=Cpp -visitor Base.g4
 java -jar /usr/local/lib/antlr-4.13.0-complete.jar -Dlanguage=Cpp -visitor Base.g4 -o generated
 # antlr4 -Dlanguage=Cpp Addition.g4

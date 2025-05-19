@@ -15,11 +15,9 @@
 
 class node;
 
-class MyVisitor : public BaseBaseVisitor {
+class MyVisitor : public BaseBaseVisitor
+{
 public:
-
-    
-
     antlrcpp::Any visitProgram(BaseParser::ProgramContext *ctx) override;
     antlrcpp::Any visitStatement(BaseParser::StatementContext *ctx) override;
     // Graph-related methods
@@ -28,23 +26,20 @@ public:
     antlrcpp::Any visitEdges(BaseParser::EdgesContext *ctx) override;
 
     // Conditional-related methods
-    
     antlrcpp::Any visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) override;
     antlrcpp::Any visitCondition(BaseParser::ConditionContext *ctx);
     antlrcpp::Any visitBlock(BaseParser::BlockContext *ctx) override;
     antlrcpp::Any visitReturnStatement(BaseParser::ReturnStatementContext *ctx) override;
-    
+
     // graph condition
-    //antlrcpp::Any visitGraphCondition(BaseParser::GraphConditionContext *ctx);
+    // antlrcpp::Any visitGraphCondition(BaseParser::GraphConditionContext *ctx);
     antlrcpp::Any visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) override;
-    
-    bool evaluateGraphCondition(node Node, const std::string& gName, BaseParser::GraphConditionContext* ctx);
 
-    bool evaluateDegreeCondition(node node, const std::string& gName, const std::string& operatorStr, int value);
+    bool evaluateGraphCondition(node Node, const std::string &gName, BaseParser::GraphConditionContext *ctx);
+    bool evaluateDegreeCondition(node node, const std::string &gName, const std::string &operatorStr, int value);
+    bool evaluateConnectedCondition(const std::string &gName, node Node, node targetNode);
 
-    bool evaluateConnectedCondition(const std::string& gName, node Node, node targetNode);
-
-    //queryrr
+    // query
     antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext *ctx) override;
 
     // printing
@@ -62,36 +57,41 @@ public:
     // virtual antlrcpp::Any visitVariableAssignment(BaseParser::VariableAssignmentContext *ctx) override;
     virtual antlrcpp::Any visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) override;
 
+    // ✅ 2D array additions
+    virtual antlrcpp::Any visitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) override;
+    virtual antlrcpp::Any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) override;
+    virtual antlrcpp::Any visitSized2DArray(BaseParser::Sized2DArrayContext *ctx) override;
+    virtual antlrcpp::Any visitUnsized2DArray(BaseParser::Unsized2DArrayContext *ctx) override;
+    virtual antlrcpp::Any visitArrayInit2D(BaseParser::ArrayInit2DContext *ctx) override;
+
+    antlrcpp::Any visitDeclaration(BaseParser::DeclarationContext *ctx) override;
+
     // Expression-related methods
     antlrcpp::Any visitExpr(BaseParser::ExprContext *ctx);
-
     // antlrcpp::Any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override;
     // antlrcpp::Any visitIdExpr(BaseParser::IdExprContext *ctx) override;
     // antlrcpp::Any visitIntExpr(BaseParser::IntExprContext *ctx) override;
     // antlrcpp::Any visitParenExpr(BaseParser::ParenExprContext *ctx) override;
-    std::string bfs(const graph& g);
-    std::string detectCycle(const std::unordered_map<int, std::unordered_set<int>>& graph);
-    bool detectCycleHelper(int node, int parent, const std::unordered_map<int, std::unordered_set<int>>& graph, 
-                       std::unordered_set<int>& visited);
+
+    std::string bfs(const graph &g);
+    std::string detectCycle(const std::unordered_map<int, std::unordered_set<int>> &graph);
+    bool detectCycleHelper(int node, int parent, const std::unordered_map<int, std::unordered_set<int>> &graph,
+                           std::unordered_set<int> &visited);
 
     antlrcpp::Any visitShowgraph(BaseParser::ShowgraphContext *ctx) override;
+    void generateDotFile(graph &graph, const std::string &filename);
+    void showGraph(const std::string &graphID);
 
-
-    void generateDotFile(graph& graph, const std::string& filename);
-
-
-    void showGraph(const std::string& graphID);
     //  funcitons
     antlrcpp::Any visitFunction(BaseParser::FunctionContext *ctx) override;
     antlrcpp::Any visitParamList(BaseParser::ParamListContext *ctx) override;
     antlrcpp::Any visitParam(BaseParser::ParamContext *ctx) override;
     antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
 
-
     // loops
     antlrcpp::Any visitLoopStatement(BaseParser::LoopStatementContext *ctx) override;
     antlrcpp::Any visitForeachStatement(BaseParser::ForeachStatementContext *ctx) override;
-    //antlrcpp::Any visitLoopTarget(BaseParser::LoopTargetContext *ctx);
+    // antlrcpp::Any visitLoopTarget(BaseParser::LoopTargetContext *ctx);
     antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext *ctx) override;
 
     // varDecl
@@ -99,8 +99,8 @@ public:
     // antlrcpp::Any visitSimpleDeclaration(BaseParser::SimpleDeclarationContext *ctx) override;
     // antlrcpp::Any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) override;
     // antlrcpp::Any visitAssignedDeclaration(BaseParser::AssignedDeclarationContext *ctx) override;
-    
-    //assignment
+
+    // assignment
     antlrcpp::Any visitAddOperation(BaseParser::AddOperationContext *ctx) override;
     antlrcpp::Any visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) override;
 
@@ -109,11 +109,10 @@ public:
     void addEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight = std::nullopt);
     void removeNode(const std::string &gName, node node);
     void removeEdge(const std::string &gName, node from, node to, std::optional<EdgeType> weight = std::nullopt);
-    bool nodeExists(const std::string &gName,node node) const;
-    bool edgeExists(const std::string &gName,node from, node to) const;
+    bool nodeExists(const std::string &gName, node node) const;
+    bool edgeExists(const std::string &gName, node from, node to) const;
 
-    // Get the graph as an adjacency list
-    const std::unordered_map<int, std::unordered_set<int>>& getGraph() const;
+    const std::unordered_map<int, std::unordered_set<int>> &getGraph() const;
 
     // Print graph information
     void printNodes(const std::string &gName) const;
@@ -125,15 +124,14 @@ private:
     std::unordered_map<int, std::unordered_set<int>> adjacencyList;
     std::unordered_map<std::string, graph> graphs;
 
-    struct FunctionDefinition {
+    struct FunctionDefinition
+    {
         std::string returnType;
         std::vector<std::pair<std::string, std::string>> parameters; // Pair of type and name
-        BaseParser::BlockContext *block; // AST block for the function body
+        BaseParser::BlockContext *block;                             // AST block for the function body
     };
 
     std::unordered_map<std::string, FunctionDefinition> functions;
-
-
 
     std::string graphName;
 };

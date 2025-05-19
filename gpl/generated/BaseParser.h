@@ -37,8 +37,8 @@ public:
     RuleFunction = 27, RuleReturnType = 28, RuleParamList = 29, RuleParam = 30, 
     RuleType = 31, RuleFunctionCall = 32, RuleArgumentList = 33, RuleBlock = 34, 
     RuleReturnStatement = 35, RulePrintStatement = 36, RulePrintExpr = 37, 
-    RulePrintgraph = 38, RuleExpr = 39, RuleArrayDeclarator = 40, RuleArrayInitializer = 41, 
-    RuleAssignmentStatement = 42, RuleArrayAssignStatement = 43
+    RulePrintgraph = 38, RuleExpr = 39, RuleArrayDeclarator = 40, RuleDeclaration = 41, 
+    RuleArrayInitializer = 42, RuleAssignmentStatement = 43, RuleArrayAssignStatement = 44
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -99,6 +99,7 @@ public:
   class PrintgraphContext;
   class ExprContext;
   class ArrayDeclaratorContext;
+  class DeclarationContext;
   class ArrayInitializerContext;
   class AssignmentStatementContext;
   class ArrayAssignStatementContext; 
@@ -1052,6 +1053,19 @@ public:
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
+  class  Array2DAccessExprContext : public ExprContext {
+  public:
+    Array2DAccessExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    std::vector<ExprContext *> expr();
+    ExprContext* expr(size_t i);
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  IntExprContext : public ExprContext {
   public:
     IntExprContext(ExprContext *ctx);
@@ -1125,12 +1139,36 @@ public:
    
   };
 
+  class  Sized2DArrayContext : public ArrayDeclaratorContext {
+  public:
+    Sized2DArrayContext(ArrayDeclaratorContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    std::vector<antlr4::tree::TerminalNode *> INT();
+    antlr4::tree::TerminalNode* INT(size_t i);
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  SizedArrayContext : public ArrayDeclaratorContext {
   public:
     SizedArrayContext(ArrayDeclaratorContext *ctx);
 
     antlr4::tree::TerminalNode *ID();
     antlr4::tree::TerminalNode *INT();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  Unsized2DArrayContext : public ArrayDeclaratorContext {
+  public:
+    Unsized2DArrayContext(ArrayDeclaratorContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -1150,18 +1188,60 @@ public:
 
   ArrayDeclaratorContext* arrayDeclarator();
 
-  class  ArrayInitializerContext : public antlr4::ParserRuleContext {
+  class  DeclarationContext : public antlr4::ParserRuleContext {
   public:
-    ArrayInitializerContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    DeclarationContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    std::vector<ExprContext *> expr();
-    ExprContext* expr(size_t i);
+    TypeContext *type();
+    ArrayDeclaratorContext *arrayDeclarator();
+    ArrayInitializerContext *arrayInitializer();
+    antlr4::tree::TerminalNode *ID();
+    ExprContext *expr();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
    
+  };
+
+  DeclarationContext* declaration();
+
+  class  ArrayInitializerContext : public antlr4::ParserRuleContext {
+  public:
+    ArrayInitializerContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    ArrayInitializerContext() = default;
+    void copyFrom(ArrayInitializerContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
+    virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  ArrayInit1DContext : public ArrayInitializerContext {
+  public:
+    ArrayInit1DContext(ArrayInitializerContext *ctx);
+
+    std::vector<ExprContext *> expr();
+    ExprContext* expr(size_t i);
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  ArrayInit2DContext : public ArrayInitializerContext {
+  public:
+    ArrayInit2DContext(ArrayInitializerContext *ctx);
+
+    std::vector<ArrayInitializerContext *> arrayInitializer();
+    ArrayInitializerContext* arrayInitializer(size_t i);
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
   ArrayInitializerContext* arrayInitializer();
@@ -1193,6 +1273,20 @@ public:
     virtual size_t getRuleIndex() const override;
 
    
+  };
+
+  class  Array2DAssignStmtContext : public ArrayAssignStatementContext {
+  public:
+    Array2DAssignStmtContext(ArrayAssignStatementContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    std::vector<antlr4::tree::TerminalNode *> INT();
+    antlr4::tree::TerminalNode* INT(size_t i);
+    ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
   class  ArrayAssignStmtContext : public ArrayAssignStatementContext {

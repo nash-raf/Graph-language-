@@ -46,16 +46,64 @@
 //real lfgfo = 8.2 * 2.0 + 4.0 - 2.4;
 //print lfgfo;
 
-int a[4] = [1, 2, 3, 4.5];
-int aa = a[3];
-print aa;
-a[2] = 123;
-int aaa = a[2];
-print aaa;
-aa = 111;
-aa;
-print(aa);
+//int a[4] = [1, 2, 3, 4.5];
+//print(a);
+//int aa = a[3];
+//print aa;
+//a[2] = 123;
+//int aaa = a[2];
+//print aaa;
+//aa = 111;
+//aa;
+//print(aa);
+//
+//bool b = TRUE;
+//b = FALSE;
+//print(b);
 
-bool b = TRUE;
-b = FALSE;
-print(b);
+// Declare and initialize a 2D array with literal
+int matrix[2][3] = [
+    [1, 2, 3],
+    [4, 5, 6]
+];
+print(matrix[0][0]);     // 1
+print(matrix[1][2]);     // 6
+
+// Declare an uninitialized 2D array
+//int empty[2][2];
+//empty[0][0] = 10;
+//empty[0][1] = 20;
+//empty[1][0] = 30;
+//empty[1][1] = 40;
+//
+//// Access and assign to a variable
+//int x = empty[1][0];
+//print(x);                // 30
+//
+//// Reassign an element using an expression
+//matrix[1][1] = 9 * 2;
+//print(matrix[1][1]);     // 18
+//
+//// Reassign an element using a variable
+//matrix[0][2] = x + 7;
+//print(matrix[0][2]);     // 37
+//
+//// Use 2D access in a print expression
+//print(matrix[1][1] + empty[0][0]); // 18 + 10 = 28
+//
+//// Reassign entire variable and test
+//x = matrix[0][2];
+//print(x);                // 37
+//
+//// Simple print to verify last line evaluation
+//x;
+//print(x);
+//
+//// Print all elements of 2D array
+//print(matrix[0][0]);
+//print(matrix[0][1]);
+//print(matrix[0][2]);
+//print(matrix[1][0]);
+//print(matrix[1][1]);
+//print(matrix[1][2]);
+//

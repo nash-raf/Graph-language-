@@ -18,27 +18,28 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, EDGE = 43, NODE = 44, 
-    TRUE = 45, FALSE = 46, OF = 47, PLUS = 48, MINUS = 49, TIMES = 50, DIVIDE = 51, 
-    AND = 52, OR = 53, EQUAL = 54, NOTEQUAL = 55, LESSTHAN = 56, GREATERTHAN = 57, 
-    LESSEQUAL = 58, GREATEREQUAL = 59, ID = 60, INT = 61, REAL = 62, STRING = 63, 
-    Comment = 64, WS = 65
+    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, DIRGRAPH = 43, EDGE = 44, 
+    NODE = 45, TRUE = 46, FALSE = 47, OF = 48, PLUS = 49, MINUS = 50, TIMES = 51, 
+    DIVIDE = 52, AND = 53, OR = 54, EQUAL = 55, NOTEQUAL = 56, LESSTHAN = 57, 
+    GREATERTHAN = 58, LESSEQUAL = 59, GREATEREQUAL = 60, ID = 61, INT = 62, 
+    REAL = 63, STRING = 64, Comment = 65, WS = 66
   };
 
   enum {
-    RuleProgram = 0, RuleStatement = 1, RuleGraphDef = 2, RuleNodes = 3, 
-    RuleEdges = 4, RuleNodeList = 5, RuleEdgeList = 6, RuleGraphID = 7, 
-    RuleNodeID = 8, RuleFileEdgeList = 9, RuleEdge = 10, RuleVarDecl = 11, 
-    RuleConditionalStatement = 12, RuleCondition = 13, RuleGraphComprehension = 14, 
-    RuleGraphCondition = 15, RuleLoopStatement = 16, RuleForeachStatement = 17, 
-    RuleLoopTarget = 18, RuleWhileStatement = 19, RuleNodeEdgeOperation = 20, 
-    RuleAddOperation = 21, RuleRemoveOperation = 22, RuleAddTargets = 23, 
-    RuleRemoveTargets = 24, RuleQueryStatement = 25, RuleShowgraph = 26, 
-    RuleFunction = 27, RuleReturnType = 28, RuleParamList = 29, RuleParam = 30, 
-    RuleType = 31, RuleFunctionCall = 32, RuleArgumentList = 33, RuleBlock = 34, 
-    RuleReturnStatement = 35, RulePrintStatement = 36, RulePrintExpr = 37, 
-    RulePrintgraph = 38, RuleExpr = 39, RuleArrayDeclarator = 40, RuleDeclaration = 41, 
-    RuleArrayInitializer = 42, RuleAssignmentStatement = 43, RuleArrayAssignStatement = 44
+    RuleProgram = 0, RuleStatement = 1, RuleGraphDef = 2, RuleUndirectedEdge = 3, 
+    RuleUndirectedEdgeList = 4, RuleUndirectedGraphDef = 5, RuleUndirectedEdges = 6, 
+    RuleNodes = 7, RuleEdges = 8, RuleNodeList = 9, RuleEdgeList = 10, RuleGraphID = 11, 
+    RuleNodeID = 12, RuleFileEdgeList = 13, RuleEdge = 14, RuleVarDecl = 15, 
+    RuleConditionalStatement = 16, RuleCondition = 17, RuleGraphComprehension = 18, 
+    RuleGraphCondition = 19, RuleLoopStatement = 20, RuleForeachStatement = 21, 
+    RuleLoopTarget = 22, RuleWhileStatement = 23, RuleNodeEdgeOperation = 24, 
+    RuleAddOperation = 25, RuleRemoveOperation = 26, RuleAddTargets = 27, 
+    RuleRemoveTargets = 28, RuleQueryStatement = 29, RuleShowgraph = 30, 
+    RuleFunction = 31, RuleReturnType = 32, RuleParamList = 33, RuleParam = 34, 
+    RuleType = 35, RuleFunctionCall = 36, RuleArgumentList = 37, RuleBlock = 38, 
+    RuleReturnStatement = 39, RulePrintStatement = 40, RulePrintExpr = 41, 
+    RulePrintgraph = 42, RuleExpr = 43, RuleArrayDeclarator = 44, RuleDeclaration = 45, 
+    RuleArrayInitializer = 46, RuleAssignmentStatement = 47, RuleArrayAssignStatement = 48
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -61,6 +62,10 @@ public:
   class ProgramContext;
   class StatementContext;
   class GraphDefContext;
+  class UndirectedEdgeContext;
+  class UndirectedEdgeListContext;
+  class UndirectedGraphDefContext;
+  class UndirectedEdgesContext;
   class NodesContext;
   class EdgesContext;
   class NodeListContext;
@@ -128,6 +133,7 @@ public:
     StatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     GraphDefContext *graphDef();
+    UndirectedGraphDefContext *undirectedGraphDef();
     ConditionalStatementContext *conditionalStatement();
     PrintStatementContext *printStatement();
     LoopStatementContext *loopStatement();
@@ -153,7 +159,7 @@ public:
   public:
     GraphDefContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *GRAPH();
+    antlr4::tree::TerminalNode *DIRGRAPH();
     GraphIDContext *graphID();
     NodesContext *nodes();
     EdgesContext *edges();
@@ -166,6 +172,72 @@ public:
   };
 
   GraphDefContext* graphDef();
+
+  class  UndirectedEdgeContext : public antlr4::ParserRuleContext {
+  public:
+    UndirectedEdgeContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<NodeIDContext *> nodeID();
+    NodeIDContext* nodeID(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  UndirectedEdgeContext* undirectedEdge();
+
+  class  UndirectedEdgeListContext : public antlr4::ParserRuleContext {
+  public:
+    UndirectedEdgeListContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<UndirectedEdgeContext *> undirectedEdge();
+    UndirectedEdgeContext* undirectedEdge(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  UndirectedEdgeListContext* undirectedEdgeList();
+
+  class  UndirectedGraphDefContext : public antlr4::ParserRuleContext {
+  public:
+    UndirectedGraphDefContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *GRAPH();
+    GraphIDContext *graphID();
+    NodesContext *nodes();
+    UndirectedEdgesContext *undirectedEdges();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  UndirectedGraphDefContext* undirectedGraphDef();
+
+  class  UndirectedEdgesContext : public antlr4::ParserRuleContext {
+  public:
+    UndirectedEdgesContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    UndirectedEdgeListContext *undirectedEdgeList();
+    FileEdgeListContext *fileEdgeList();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  UndirectedEdgesContext* undirectedEdges();
 
   class  NodesContext : public antlr4::ParserRuleContext {
   public:
@@ -770,6 +842,7 @@ public:
     ReturnTypeContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *GRAPH();
+    antlr4::tree::TerminalNode *DIRGRAPH();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -817,6 +890,7 @@ public:
     TypeContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *GRAPH();
+    antlr4::tree::TerminalNode *DIRGRAPH();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;

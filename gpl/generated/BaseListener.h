@@ -23,6 +23,18 @@ public:
   virtual void enterGraphDef(BaseParser::GraphDefContext *ctx) = 0;
   virtual void exitGraphDef(BaseParser::GraphDefContext *ctx) = 0;
 
+  virtual void enterUndirectedEdge(BaseParser::UndirectedEdgeContext *ctx) = 0;
+  virtual void exitUndirectedEdge(BaseParser::UndirectedEdgeContext *ctx) = 0;
+
+  virtual void enterUndirectedEdgeList(BaseParser::UndirectedEdgeListContext *ctx) = 0;
+  virtual void exitUndirectedEdgeList(BaseParser::UndirectedEdgeListContext *ctx) = 0;
+
+  virtual void enterUndirectedGraphDef(BaseParser::UndirectedGraphDefContext *ctx) = 0;
+  virtual void exitUndirectedGraphDef(BaseParser::UndirectedGraphDefContext *ctx) = 0;
+
+  virtual void enterUndirectedEdges(BaseParser::UndirectedEdgesContext *ctx) = 0;
+  virtual void exitUndirectedEdges(BaseParser::UndirectedEdgesContext *ctx) = 0;
+
   virtual void enterNodes(BaseParser::NodesContext *ctx) = 0;
   virtual void exitNodes(BaseParser::NodesContext *ctx) = 0;
 

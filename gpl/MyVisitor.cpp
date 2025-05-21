@@ -85,6 +85,10 @@ antlrcpp::Any MyVisitor::visitStatement(BaseParser::StatementContext *ctx)
         // std::cout<<"visiting show graph";
         return visitShowgraph(ctx->showgraph());
     }
+    else if (ctx->assignmentStatement())
+    {
+        return visitAssignmentStatement(ctx->assignmentStatement());
+    }
 
     return visitChildren(ctx);
 }
@@ -691,7 +695,6 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
                     }
                     catch (const std::bad_any_cast &e)
                     {
-                        // std::cout << "3333333\n";
                         std::cerr << "Failed to cast argument " << i << " to int: " << e.what() << "\n";
                         std::cerr << "Actual type was: " << args[i].type().name() << "\n";
                         throw;
@@ -708,7 +711,6 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
                     }
                     catch (const std::bad_any_cast &e)
                     {
-                        // std::cout << "222222\n";
                         std::cerr << "Failed to cast argument " << i << " to string: " << e.what() << "\n";
                         std::cerr << "Actual type was: " << args[i].type().name() << "\n";
                         throw;
@@ -726,7 +728,6 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
                     }
                     catch (const std::bad_any_cast &e)
                     {
-                        // std::cout << "1111111\n";
                         std::cerr << "Failed to cast argument " << i << " to double: " << e.what() << "\n";
                         std::cerr << "Actual type was: " << args[i].type().name() << "\n";
                         throw;
@@ -739,7 +740,6 @@ antlrcpp::Any MyVisitor::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
             }
             catch (const std::bad_any_cast &e)
             {
-                // std::cout << "4444444\n";
                 std::cerr << "Error casting argument " << i << " of type " << param.first << ": " << e.what() << std::endl;
                 throw;
             }
@@ -873,7 +873,11 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
         if (value.type() == typeid(std::vector<int>) ||
             value.type() == typeid(std::vector<double>) ||
             value.type() == typeid(std::vector<bool>) ||
-            value.type() == typeid(std::vector<std::string>))
+            value.type() == typeid(std::vector<std::string>) ||
+            value.type() == typeid(std::vector<std::vector<int>>) ||
+            value.type() == typeid(std::vector<std::vector<double>>) ||
+            value.type() == typeid(std::vector<std::vector<bool>>) ||
+            value.type() == typeid(std::vector<std::vector<std::string>>))
         {
             return value; // Return array reference to be used by print or access
         }
@@ -946,7 +950,7 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             auto &vec2d = std::any_cast<std::vector<std::vector<int>> &>(arr);
             if (row < 0 || row >= vec2d.size() || col < 0 || col >= vec2d[row].size())
                 throw std::runtime_error("2D Index out of bounds");
-            std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
+            // std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
 
             return vec2d[row][col];
         }
@@ -955,7 +959,7 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             auto &vec2d = std::any_cast<std::vector<std::vector<double>> &>(arr);
             if (row < 0 || row >= vec2d.size() || col < 0 || col >= vec2d[row].size())
                 throw std::runtime_error("2D Index out of bounds");
-            std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
+            // std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
 
             return vec2d[row][col];
         }
@@ -964,7 +968,7 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             auto &vec2d = std::any_cast<std::vector<std::vector<std::string>> &>(arr);
             if (row < 0 || row >= vec2d.size() || col < 0 || col >= vec2d[row].size())
                 throw std::runtime_error("2D Index out of bounds");
-            std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
+            // std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
 
             return vec2d[row][col];
         }
@@ -973,7 +977,7 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             auto &vec2d = std::any_cast<std::vector<std::vector<bool>> &>(arr);
             if (row < 0 || row >= vec2d.size() || col < 0 || col >= vec2d[row].size())
                 throw std::runtime_error("2D Index out of bounds");
-            std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
+            // std::cout << "[visitExpr] Returning 2D array element of type: " << typeid(vec2d[row][col]).name() << std::endl;
 
             return vec2d[row][col];
         }
@@ -1007,7 +1011,6 @@ antlrcpp::Any MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
             else
                 throw std::runtime_error("Invalid value for int 2D array assignment: " + arrayName);
         }
-        // Optional: Add support for double, string, bool 2D arrays here
 
         else
         {
@@ -1077,23 +1080,36 @@ antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
         std::string name;
 
         int size1 = -1, size2 = -1;
+        int rows = -1, cols = -1;
         bool is2D = false;
 
-        if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
+        auto arrDec = arrayDeclarationContext->arrayDeclarator();
+        if (auto sized2D = dynamic_cast<BaseParser::Sized2DArrayContext *>(arrDec))
         {
-            name = sized->ID()->getText();
-            size1 = std::stoi(sized->INT()->getText());
-        }
-        else if (auto sized2d = dynamic_cast<BaseParser::Sized2DArrayContext *>(declarator))
-        {
-            name = sized2d->ID()->getText();
-            size1 = std::stoi(sized2d->INT(0)->getText());
-            size2 = std::stoi(sized2d->INT(1)->getText());
+            name = sized2D->ID()->getText();
+            rows = std::stoi(sized2D->INT(0)->getText());
+            cols = std::stoi(sized2D->INT(1)->getText());
+            size1 = std::stoi(sized2D->INT(0)->getText());
+            size2 = std::stoi(sized2D->INT(1)->getText());
             is2D = true;
         }
-        else if (auto unsized = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
+        else if (auto sized1D = dynamic_cast<BaseParser::SizedArrayContext *>(arrDec))
         {
-            name = unsized->ID()->getText();
+            name = sized1D->ID()->getText();
+            rows = std::stoi(sized1D->INT()->getText());
+            size1 = std::stoi(sized1D->INT()->getText());
+            cols = 1;
+            is2D = false;
+        }
+        else if (auto unsized2D = dynamic_cast<BaseParser::Unsized2DArrayContext *>(arrDec))
+        {
+            name = unsized2D->ID()->getText();
+            is2D = true;
+        }
+        else if (auto unsized1D = dynamic_cast<BaseParser::UnsizedArrayContext *>(arrDec))
+        {
+            name = unsized1D->ID()->getText();
+            is2D = false;
         }
 
         if (symbolTable.find(name) != symbolTable.end())
@@ -1177,11 +1193,6 @@ antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
         // 2D array
         else
         {
-            auto info = std::any_cast<std::tuple<std::string, int, int, bool>>(symbolTable[name]);
-            std::string type = std::get<0>(info);
-            int rows = std::get<1>(info);
-            int cols = std::get<2>(info);
-            bool is2D = std::get<3>(info);
             if (initializer == nullptr)
             {
                 // No initializer: create default initialized array based on declared size
@@ -1337,6 +1348,7 @@ antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
                     throw std::runtime_error("Only int, real, string, bool 2D arrays supported for now: " + name);
                 }
             }
+
             else
             {
                 if (auto init1D = dynamic_cast<BaseParser::ArrayInit1DContext *>(initializer))
@@ -1379,16 +1391,15 @@ antlrcpp::Any MyVisitor::visitCondition(BaseParser::ConditionContext *ctx)
         // Handle relational expressions
         // return true;
         auto leftResult = visitExpr(relationalContext->expr(0));
-        std::cout << "left result type: " << leftResult.type().name() << "\n";
+
         // return true;
         auto rightResult = visitExpr(relationalContext->expr(1));
-        std::cout << "right result type: " << rightResult.type().name() << "\n";
+
 
         // return true;
         int left = std::any_cast<int>(leftResult);
         int right = std::any_cast<int>(rightResult);
 
-        std::cout << "left = " << left << " right= " << right << "\n";
 
         if (relationalContext->EQUAL())
             return left == right;
@@ -1704,6 +1715,8 @@ antlrcpp::Any MyVisitor::visitPrintStatement(BaseParser::PrintStatementContext *
     {
         // Visit and handle print expressions
         auto result = visitPrintExpr(ctx->printExpr());
+        // std::cout << "Result type: " << result.type().name() << std::endl;
+        // std::cout << "Result: " << result << std::endl;
         // Print the result if it's not nullptr
         if (result.has_value())
         {
@@ -1767,6 +1780,82 @@ antlrcpp::Any MyVisitor::visitPrintStatement(BaseParser::PrintStatementContext *
                 {
                     std::cout << (vec[i] ? "TRUE" : "FALSE");
                     if (i < vec.size() - 1)
+                        std::cout << ", ";
+                }
+                std::cout << "]" << std::endl;
+            }
+            else if (result.type() == typeid(std::vector<std::vector<int>>))
+            {
+                const auto &vec2d = std::any_cast<const std::vector<std::vector<int>> &>(result);
+                std::cout << "[";
+                for (size_t i = 0; i < vec2d.size(); ++i)
+                {
+                    std::cout << "[";
+                    for (size_t j = 0; j < vec2d[i].size(); ++j)
+                    {
+                        std::cout << vec2d[i][j];
+                        if (j < vec2d[i].size() - 1)
+                            std::cout << ", ";
+                    }
+                    std::cout << "]";
+                    if (i < vec2d.size() - 1)
+                        std::cout << ", ";
+                }
+                std::cout << "]" << std::endl;
+            }
+            else if (result.type() == typeid(std::vector<std::vector<double>>))
+            {
+                const auto &vec2d = std::any_cast<const std::vector<std::vector<double>> &>(result);
+                std::cout << "[";
+                for (size_t i = 0; i < vec2d.size(); ++i)
+                {
+                    std::cout << "[";
+                    for (size_t j = 0; j < vec2d[i].size(); ++j)
+                    {
+                        std::cout << vec2d[i][j];
+                        if (j < vec2d[i].size() - 1)
+                            std::cout << ", ";
+                    }
+                    std::cout << "]";
+                    if (i < vec2d.size() - 1)
+                        std::cout << ", ";
+                }
+                std::cout << "]" << std::endl;
+            }
+            else if (result.type() == typeid(std::vector<std::vector<std::string>>))
+            {
+                const auto &vec2d = std::any_cast<const std::vector<std::vector<std::string>> &>(result);
+                std::cout << "[";
+                for (size_t i = 0; i < vec2d.size(); ++i)
+                {
+                    std::cout << "[";
+                    for (size_t j = 0; j < vec2d[i].size(); ++j)
+                    {
+                        std::cout << vec2d[i][j];
+                        if (j < vec2d[i].size() - 1)
+                            std::cout << ", ";
+                    }
+                    std::cout << "]";
+                    if (i < vec2d.size() - 1)
+                        std::cout << ", ";
+                }
+                std::cout << "]" << std::endl;
+            }
+            else if (result.type() == typeid(std::vector<std::vector<bool>>))
+            {
+                const auto &vec2d = std::any_cast<const std::vector<std::vector<bool>> &>(result);
+                std::cout << "[";
+                for (size_t i = 0; i < vec2d.size(); ++i)
+                {
+                    std::cout << "[";
+                    for (size_t j = 0; j < vec2d[i].size(); ++j)
+                    {
+                        std::cout << (vec2d[i][j] ? "TRUE" : "FALSE");
+                        if (j < vec2d[i].size() - 1)
+                            std::cout << ", ";
+                    }
+                    std::cout << "]";
+                    if (i < vec2d.size() - 1)
                         std::cout << ", ";
                 }
                 std::cout << "]" << std::endl;
@@ -2003,53 +2092,106 @@ antlrcpp::Any MyVisitor::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext
 
 antlrcpp::Any MyVisitor::visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx)
 {
-    std::string name = ctx->ID()->getText();
-
+    std::string arrayName = ctx->ID()->getText();
     int row = std::stoi(ctx->INT(0)->getText());
     int col = std::stoi(ctx->INT(1)->getText());
 
-    std::any value = visit(ctx->expr()); // only one expr — the RHS
+    antlrcpp::Any value = visitExpr(ctx->expr());
 
-    std::string key = name + "[" + std::to_string(row) + "][" + std::to_string(col) + "]";
-    symbolTable[key] = value;
+    if (!value.has_value())
+        throw std::runtime_error("Visit to expr() returned no value");
+
+    if (symbolTable.find(arrayName) == symbolTable.end())
+        throw std::runtime_error("Undefined array: " + arrayName);
+
+    auto &arrAny = symbolTable[arrayName];
+
+    if (arrAny.type() == typeid(std::vector<std::vector<int>>))
+    {
+        auto &mat = std::any_cast<std::vector<std::vector<int>> &>(arrAny);
+
+        if (row < 0 || row >= (int)mat.size())
+            throw std::runtime_error("Row index out of bounds: " + std::to_string(row));
+        if (col < 0 || col >= (int)mat[row].size())
+            throw std::runtime_error("Column index out of bounds: " + std::to_string(col));
+
+        if (value.type() == typeid(int))
+        {
+            mat[row][col] = std::any_cast<int>(value);
+        }
+        else if (value.type() == typeid(double))
+        {
+            mat[row][col] = static_cast<int>(std::any_cast<double>(value));
+        }
+        else
+        {
+            throw std::runtime_error("Type mismatch in 2D int array assignment");
+        }
+    }
+    else if (arrAny.type() == typeid(std::vector<std::vector<double>>))
+    {
+        auto &mat = std::any_cast<std::vector<std::vector<double>> &>(arrAny);
+
+        if (row < 0 || row >= (int)mat.size())
+            throw std::runtime_error("Row index out of bounds: " + std::to_string(row));
+        if (col < 0 || col >= (int)mat[row].size())
+            throw std::runtime_error("Column index out of bounds: " + std::to_string(col));
+
+        if (value.type() == typeid(double))
+        {
+            mat[row][col] = std::any_cast<double>(value);
+        }
+        else if (value.type() == typeid(int))
+        {
+            mat[row][col] = static_cast<double>(std::any_cast<int>(value));
+        }
+        else
+        {
+            throw std::runtime_error("Type mismatch in 2D double array assignment");
+        }
+    }
+    else if (arrAny.type() == typeid(std::vector<std::vector<bool>>))
+    {
+        auto &mat = std::any_cast<std::vector<std::vector<bool>> &>(arrAny);
+
+        if (row < 0 || row >= (int)mat.size())
+            throw std::runtime_error("Row index out of bounds: " + std::to_string(row));
+        if (col < 0 || col >= (int)mat[row].size())
+            throw std::runtime_error("Column index out of bounds: " + std::to_string(col));
+
+        if (value.type() == typeid(bool))
+        {
+            mat[row][col] = std::any_cast<bool>(value);
+        }
+        else
+        {
+            throw std::runtime_error("Type mismatch in 2D bool array assignment");
+        }
+    }
+    else if (arrAny.type() == typeid(std::vector<std::vector<std::string>>))
+    {
+        auto &mat = std::any_cast<std::vector<std::vector<std::string>> &>(arrAny);
+
+        if (row < 0 || row >= (int)mat.size())
+            throw std::runtime_error("Row index out of bounds: " + std::to_string(row));
+        if (col < 0 || col >= (int)mat[row].size())
+            throw std::runtime_error("Column index out of bounds: " + std::to_string(col));
+
+        if (value.type() == typeid(std::string))
+        {
+            mat[row][col] = std::any_cast<std::string>(value);
+        }
+        else
+        {
+            throw std::runtime_error("Type mismatch in 2D string array assignment");
+        }
+    }
+    else
+    {
+        throw std::runtime_error("Variable is not a 2D array: " + arrayName);
+    }
 
     return nullptr;
-}
-
-antlrcpp::Any MyVisitor::visitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx)
-{
-    std::string name = ctx->ID()->getText();
-    auto exprs = ctx->expr(); // Returns std::vector<ExprContext*>
-
-    if (exprs.size() != 2)
-        throw std::runtime_error("2D array access requires exactly two indices.");
-
-    int row = std::any_cast<int>(visit(exprs[0]));
-    int col = std::any_cast<int>(visit(exprs[1]));
-
-    std::string key = name + "[" + std::to_string(row) + "][" + std::to_string(col) + "]";
-    if (symbolTable.count(key))
-        return symbolTable[key];
-
-    throw std::runtime_error("2D array access out of bounds: " + key);
-}
-
-antlrcpp::Any MyVisitor::visitArrayInit2D(BaseParser::ArrayInit2DContext *ctx)
-{
-    // TODO: Implement logic
-    return visitChildren(ctx);
-}
-
-antlrcpp::Any MyVisitor::visitSized2DArray(BaseParser::Sized2DArrayContext *ctx)
-{
-    // TODO: Implement logic
-    return visitChildren(ctx);
-}
-
-antlrcpp::Any MyVisitor::visitUnsized2DArray(BaseParser::Unsized2DArrayContext *ctx)
-{
-    // TODO: Implement logic
-    return visitChildren(ctx);
 }
 
 antlrcpp::Any MyVisitor::visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx)
@@ -2090,92 +2232,6 @@ antlrcpp::Any MyVisitor::visitAssignmentStatement(BaseParser::AssignmentStatemen
 
     // Assuming you have some symbol table like:
     symbolTable[varName] = value;
-
-    return nullptr;
-}
-
-antlrcpp::Any MyVisitor::visitDeclaration(BaseParser::DeclarationContext *ctx)
-{
-    std::string varName;
-    int rows = -1, cols = -1;
-    bool is2D = false;
-    std::string type = ctx->type()->getText();
-
-    if (ctx->arrayDeclarator())
-    {
-        auto arrDec = ctx->arrayDeclarator();
-        if (auto sized2D = dynamic_cast<BaseParser::Sized2DArrayContext *>(arrDec))
-        {
-            varName = sized2D->ID()->getText();
-            rows = std::stoi(sized2D->INT(0)->getText());
-            cols = std::stoi(sized2D->INT(1)->getText());
-            is2D = true;
-        }
-        else if (auto sized1D = dynamic_cast<BaseParser::SizedArrayContext *>(arrDec))
-        {
-            varName = sized1D->ID()->getText();
-            rows = std::stoi(sized1D->INT()->getText());
-            cols = 1;
-            is2D = false;
-        }
-        else if (auto unsized2D = dynamic_cast<BaseParser::Unsized2DArrayContext *>(arrDec))
-        {
-            varName = unsized2D->ID()->getText();
-            is2D = true;
-        }
-        else if (auto unsized1D = dynamic_cast<BaseParser::UnsizedArrayContext *>(arrDec))
-        {
-            varName = unsized1D->ID()->getText();
-            is2D = false;
-        }
-
-        // varName = arrDec->ID()->getText();
-
-        // if (auto sized2D = dynamic_cast<MyParser::Sized2DArrayContext *>(arrDec))
-        // {
-        //     rows = std::stoi(sized2D->INT(0)->getText());
-        //     cols = std::stoi(sized2D->INT(1)->getText());
-        //     is2D = true;
-        // }
-        // else if (auto sized1D = dynamic_cast<MyParser::SizedArrayContext *>(arrDec))
-        // {
-        //     rows = std::stoi(sized1D->INT()->getText());
-        //     // 1D array, cols = -1 or 1
-        //     cols = 1;
-        //     is2D = false;
-        // }
-        // else
-        // {
-        //     // unsized arrays: rows and cols stay -1
-        // }
-
-        // Store in symbol table (example)
-        // symbolTable[varName] = VariableInfo{type, rows, cols, ...};
-        symbolTable[varName] = std::make_any<std::tuple<std::string, int, int, bool>>(type, rows, cols, is2D);
-    }
-    else
-    {
-        varName = ctx->ID()->getText();
-        // scalar variable handling...
-    }
-
-    // Then you can pass these sizes to your initializer handler:
-    // if (ctx->arrayInitializer())
-    // {
-    //     visitArrayInitializer(varName, type, rows, cols, ctx->arrayInitializer());
-    // }
-    // else
-    // {
-    //     // No initializer, can create default array using rows and cols
-    //     if (is2D && rows > 0 && cols > 0)
-    //     {
-    //         createDefault2DArray(varName, type, rows, cols);
-    //     }
-    //     else
-    //     {
-    //         // handle other cases or throw error
-    //     }
-    // }
 
     return nullptr;
 }

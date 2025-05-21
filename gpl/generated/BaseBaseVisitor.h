@@ -27,6 +27,22 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitUndirectedEdge(BaseParser::UndirectedEdgeContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUndirectedEdgeList(BaseParser::UndirectedEdgeListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUndirectedGraphDef(BaseParser::UndirectedGraphDefContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUndirectedEdges(BaseParser::UndirectedEdgesContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitNodes(BaseParser::NodesContext *ctx) override {
     return visitChildren(ctx);
   }

@@ -25,6 +25,14 @@ public:
 
     virtual std::any visitGraphDef(BaseParser::GraphDefContext *context) = 0;
 
+    virtual std::any visitUndirectedEdge(BaseParser::UndirectedEdgeContext *context) = 0;
+
+    virtual std::any visitUndirectedEdgeList(BaseParser::UndirectedEdgeListContext *context) = 0;
+
+    virtual std::any visitUndirectedGraphDef(BaseParser::UndirectedGraphDefContext *context) = 0;
+
+    virtual std::any visitUndirectedEdges(BaseParser::UndirectedEdgesContext *context) = 0;
+
     virtual std::any visitNodes(BaseParser::NodesContext *context) = 0;
 
     virtual std::any visitEdges(BaseParser::EdgesContext *context) = 0;

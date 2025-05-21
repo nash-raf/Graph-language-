@@ -15,6 +15,14 @@
 
 class node;
 
+
+// struct VariableInfo {
+//     std::string type;
+//     int rows;
+//     int cols;
+//     bool is2D;
+// };
+
 class MyVisitor : public BaseBaseVisitor
 {
 public:
@@ -55,17 +63,8 @@ public:
     // assign
     antlrcpp::Any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override;
     // virtual antlrcpp::Any visitVariableAssignment(BaseParser::VariableAssignmentContext *ctx) override;
-    virtual antlrcpp::Any visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) override;
-
-    // ✅ 2D array additions
-    virtual antlrcpp::Any visitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) override;
-    virtual antlrcpp::Any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) override;
-    virtual antlrcpp::Any visitSized2DArray(BaseParser::Sized2DArrayContext *ctx) override;
-    virtual antlrcpp::Any visitUnsized2DArray(BaseParser::Unsized2DArrayContext *ctx) override;
-    virtual antlrcpp::Any visitArrayInit2D(BaseParser::ArrayInit2DContext *ctx) override;
-
-    antlrcpp::Any visitDeclaration(BaseParser::DeclarationContext *ctx) override;
-
+    antlrcpp::Any visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) override;
+    antlrcpp::Any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) override;
     // Expression-related methods
     antlrcpp::Any visitExpr(BaseParser::ExprContext *ctx);
     // antlrcpp::Any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override;

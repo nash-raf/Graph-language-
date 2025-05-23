@@ -9,7 +9,6 @@ DIRGRAPH: 'dirgraph';
 // Statements
 statement:
 	graphDef
-	| undirectedGraphDef
 	| conditionalStatement
 	| printStatement
 	| loopStatement
@@ -17,23 +16,15 @@ statement:
 	| functionCall
 	| graphComprehension
 	| arrayAssignStatement
-	| assignmentStatement
+	| assignmentStatement 
 	| queryStatement
 	| showgraph
 	| nodeEdgeOperation
-	// | declaration
 	| ';';
 
-// directed Graph Definition
-graphDef: DIRGRAPH graphID '{' nodes? edges? '}' ';';
-
-// undirected Graph Definition
-undirectedEdge: nodeID nodeID; // e.g., 1 2
-undirectedEdgeList: undirectedEdge (',' undirectedEdge)*;
-
-undirectedGraphDef: GRAPH graphID '{' nodes? undirectedEdges? '}' ';';
-undirectedEdges: 'edges:' (undirectedEdgeList | fileEdgeList) ';';
-
+// Graph Definition
+graphDef: GRAPH graphID '{' nodes? edges? '}' ';';
+dirgraphDef: DIRGRAPH graphID '{' nodes? edges? '}' ';';
 
 //in graphDef
 nodes: 'nodes:' nodeList ';';
@@ -112,7 +103,6 @@ showgraph: 'show' graphID ';';
 function: 'fn' returnType ID paramList block;
 returnType:
 	'graph'
-	| 'dirgraph'
 	| 'vertex'
 	| 'edge'
 	| 'int'
@@ -122,7 +112,6 @@ paramList: '(' (param (',' param)*)? ')';
 param: type ID;
 type:
 	'graph'
-	| 'dirgraph'
 	| 'vertex'
 	| 'edge'
 	| 'int'
@@ -166,10 +155,6 @@ arrayDeclarator:
 	| ID '[' ']' '[' ']'		# Unsized2DArray
 	| ID '[' INT ']'			# SizedArray
 	| ID '[' ']'				# UnsizedArray;
-
-declaration:
-	type arrayDeclarator ('=' arrayInitializer)? ';'
-	| type ID ('=' expr)? ';';
 
 arrayInitializer:
 	'[' expr (',' expr)* ']'								# ArrayInit1D

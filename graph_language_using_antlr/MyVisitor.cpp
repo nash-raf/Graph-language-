@@ -197,6 +197,191 @@ llvm::Value* MyVisitor::visitExpr(BaseParser::ExprContext *ctx)
     return logError("Unsupported expression type");
 }
 
+antlrcpp::Any MyVisitor::visitBlock(BaseParser::BlockContext *ctx) {
+
+
+    for (auto stmt : ctx->statement()) {
+
+
+        visit(stmt);
+
+
+    }
+
+
+    return nullptr;
+
+
+}
+
+llvm::Value* MyVisitor::visitCondition(BaseParser::ConditionContext *ctx)
+{
+    if (auto andCtx = dynamic_cast<BaseParser::LogicalAndContext*>(ctx)) {
+
+
+
+        llvm::Value *L = std::any_cast<llvm::Value*>(visitCondition(andCtx->condition(0)));
+
+
+        llvm::Value *R = std::any_cast<llvm::Value*>(visitCondition(andCtx->condition(1)));
+
+
+        return builder.CreateAnd(L, R, "andtmp");
+
+
+    }
+
+
+    // Logical OR
+
+
+    if (auto orCtx = dynamic_cast<BaseParser::LogicalOrContext*>(ctx)) {
+
+
+        llvm::Value *L = std::any_cast<llvm::Value*>(visitCondition(orCtx->condition(0)));
+
+
+        llvm::Value *R = std::any_cast<llvm::Value*>(visitCondition(orCtx->condition(1)));
+
+
+        return builder.CreateOr(L, R, "ortmp");
+
+
+    }
+
+
+    // Relational (==, !=, <, >, <=, >=)
+
+
+    if (auto relCtx = dynamic_cast<BaseParser::RelationalContext*>(ctx)) {
+
+
+        llvm::Value *L = std::any_cast<llvm::Value*>(visitExpr(relCtx->expr(0)));
+
+
+        llvm::Value *R = std::any_cast<llvm::Value*>(visitExpr(relCtx->expr(1)));
+
+
+        if (relCtx->EQUAL())        return builder.CreateICmpEQ(L, R, "eqtmp");
+
+
+        if (relCtx->NOTEQUAL())     return builder.CreateICmpNE(L, R, "netmp");
+
+
+        if (relCtx->LESSTHAN())     return builder.CreateICmpSLT(L, R, "lttmp");
+
+
+        if (relCtx->GREATERTHAN())  return builder.CreateICmpSGT(L, R, "gttmp");
+
+
+        if (relCtx->LESSEQUAL())    return builder.CreateICmpSLE(L, R, "letmp");
+
+
+        if (relCtx->GREATEREQUAL()) return builder.CreateICmpSGE(L, R, "getmp");
+
+
+    }
+
+
+    throw std::runtime_error("Invalid condition node.");
+}
+
+antlrcpp::Any MyVisitor::visitWhileStatement(BaseParser::WhileStatementContext *ctx) {
+
+
+
+    // Current function must be `mainFunction`
+
+
+    llvm::Function *F = builder.GetInsertBlock()->getParent();
+
+
+
+
+
+    // Create basic blocks for cond, body, after
+
+
+    llvm::BasicBlock *condBB  = llvm::BasicBlock::Create(context, "loopcond", F);
+
+
+    llvm::BasicBlock *bodyBB  = llvm::BasicBlock::Create(context, "loopbody", F);
+
+
+    llvm::BasicBlock *afterBB = llvm::BasicBlock::Create(context, "afterloop", F);
+
+
+
+
+
+    // Jump into condBB
+
+
+    builder.CreateBr(condBB);
+
+
+
+
+
+    // Fill condBB
+
+
+    builder.SetInsertPoint(condBB);
+
+
+    llvm::Value *condVal = std::any_cast<llvm::Value*>(visitCondition(ctx->condition()));
+
+
+    builder.CreateCondBr(condVal, bodyBB, afterBB);
+
+
+
+
+
+    // Fill bodyBB
+
+
+    builder.SetInsertPoint(bodyBB);
+
+
+    visitBlock(ctx->block());
+
+
+    builder.CreateBr(condBB);
+
+
+
+
+
+    // Continue at afterBB
+
+
+    builder.SetInsertPoint(afterBB);
+
+
+    return nullptr;
+
+
+}
+
+
+antlrcpp::Any MyVisitor::visitLoopStatement(BaseParser::LoopStatementContext *ctx) {
+
+
+    if (ctx->whileStatement()) {
+
+
+        return visitWhileStatement(ctx->whileStatement());
+
+
+    }
+
+
+    return nullptr;
+
+
+}
+
 // Check if node exists
 antlrcpp::Any MyVisitor::visitVarDecl(BaseParser::VarDeclContext *ctx)
 {

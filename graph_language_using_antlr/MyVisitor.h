@@ -46,6 +46,11 @@ public:
     antlrcpp::Any visitPrintStatement(BaseParser::PrintStatementContext *ctx) override;
     llvm::Value* visitPrintExprllvm(BaseParser::PrintExprContext *ctx);
     antlrcpp::Any visitPrintExpr(BaseParser::PrintExprContext *ctx) override;
+    llvm::Value* visitCondition(BaseParser::ConditionContext *ctx);
+    antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext *ctx) override;
+    antlrcpp::Any visitLoopStatement(BaseParser::LoopStatementContext   *ctx) override;
+    antlrcpp::Any visitBlock(BaseParser::BlockContext *ctx) override;
+    
     // antlrcpp::Any visitLogicalAnd(BaseParser::ParenExprContext *ctx) override;
     // antlrcpp::Any visitLogicaLOr(BaseParser::ParenExprContext *ctx) override;
     // antlrcpp::Any visitRelational(BaseParser::ParenExprContext *ctx) override;

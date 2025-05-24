@@ -1,72 +1,138 @@
 #!/usr/bin/env bash
 set -e
 
-# -----------------------------------------------------------------------------
-# 1) Locate ANTLR JARs (Fedora defaults under /usr/share/java) 
-# -----------------------------------------------------------------------------
-# Tool jar (generates parser/lexer)
-: "${ANTLR_TOOL_JAR:=$(ls /usr/share/java/antlr4/antlr4.jar 2>/dev/null)}"
-# Runtime jar (contains runtime classes—used only for Java; C++ runtime is separate)
-: "${ANTLR_RUNTIME_JAR:=$(ls /usr/share/java/antlr4/antlr4-runtime.jar 2>/dev/null)}"
-
-if [[ ! -f "$ANTLR_TOOL_JAR" ]]; then
-  echo "Error: antlr4.jar not found. Install via 'sudo dnf install antlr4' or adjust path."
+# Usage: ./run.sh <input.gpl> <graph-program-input>
+if [[ $# -lt 2 ]]; then
+  echo "Usage: $0 <input.gpl> <graph-program-input>"
   exit 1
 fi
 
-if [[ ! -f "$ANTLR_RUNTIME_JAR" ]]; then
-  echo "Error: antlr4-runtime.jar not found. Install via 'sudo dnf install antlr4-runtime' or adjust path."
-  exit 1
-fi
-
-echo "Using ANTLR tool jar:    $ANTLR_TOOL_JAR"
-echo "Using ANTLR runtime jar: $ANTLR_RUNTIME_JAR"
+GPL_SRC="$1"
+GP_INPUT="$2"
+BASE="${GPL_SRC%.*}"
 
 # -----------------------------------------------------------------------------
-# 2) Generate C++ parser/lexer
+# 1) Generate parser/lexer from Base.g4 (only if generated/ is missing)
 # -----------------------------------------------------------------------------
-GRAMMAR=Base.g4
-GEN_DIR=generated
-
-echo "=== Generating parser/lexer from ${GRAMMAR} ==="
-antlr4 -Dlanguage=Cpp -visitor Base.g4 -o generated
-
-
-# -----------------------------------------------------------------------------
-# 3) Gather build flags (ANTLR4 C++ runtime + LLVM)
-# -----------------------------------------------------------------------------
-# C++ runtime include and link flags (installed via antlr4-cpp-runtime-devel)
-ANTLR_CXXFLAGS="-I/usr/include/antlr4-runtime -I${GEN_DIR}"
-ANTLR_LDFLAGS="-lantlr4-runtime"
-
-# LLVM flags (if llvm-config is present)
-if command -v llvm-config &>/dev/null; then
-  LLVM_CXXFLAGS="$(llvm-config --cxxflags)"
-  LLVM_LDFLAGS="$(llvm-config --ldflags) $(llvm-config --system-libs) $(llvm-config --libs core executionengine mcjit interpreter native)"
-else
-  echo "Warning: llvm-config not found; skipping LLVM integration flags."
-  LLVM_CXXFLAGS=""
-  LLVM_LDFLAGS=""
+if [[ ! -d generated ]]; then
+  echo "=== Generating parser/lexer from Base.g4 ==="
+  antlr4 -Dlanguage=Cpp -visitor Base.g4 -o generated
 fi
 
 # -----------------------------------------------------------------------------
-# 4) Compile and link
+# 2) Compile GraphProgram (your GPL frontend) with LLVM linkage
 # -----------------------------------------------------------------------------
-echo "=== Compiling and linking ==="
+echo "=== Compiling GraphProgram ==="
 gcc -c runtime.c -o runtime.o
-g++ -std=c++17 \
-    ${ANTLR_CXXFLAGS} ${LLVM_CXXFLAGS} \
+c++ -std=c++17 \
+    -I/usr/include/antlr4-runtime -Igenerated \
+    $(llvm-config --cxxflags) \
     -pthread \
-    main.cpp node.cpp edge.cpp graph.cpp graph_algorithm.cpp ${GEN_DIR}/*.cpp runtime.o \
-    -o GraphProgram \
-    ${ANTLR_LDFLAGS} ${LLVM_LDFLAGS}
+    main.cpp node.cpp edge.cpp graph.cpp graph_algorithm.cpp generated/*.cpp runtime.o \
+    -lantlr4-runtime \
+    $(llvm-config --ldflags --system-libs --libs core irreader analysis passes executionengine mcjit native support) \
+    -o GraphProgram
 
 # -----------------------------------------------------------------------------
-# 5) Run the program
+# 3) Build LLVM pass plugin (no CMake)
 # -----------------------------------------------------------------------------
-INPUT_FILE=${1:-graph_code_test.txt}
-echo
-echo "=== Running GraphProgram on ${INPUT_FILE} ==="
-# Ensure the C++ runtime can be found at runtime
+echo "=== Building LLVM pass plugin ==="
+clang++ -fPIC -shared DependencyGraphBuilder.cpp \
+  -o libDepGraphBuilder.so \
+  $(llvm-config --cxxflags --ldflags --system-libs --libs core analysis passes support)
+
+# -----------------------------------------------------------------------------
+# 4) Invoke GraphProgram and extract *only* the LLVM IR block into .ll
+# -----------------------------------------------------------------------------
+echo "=== Generating LLVM IR (.ll) from ${GPL_SRC} ==="
+./GraphProgram "${GPL_SRC}" | awk '
+  /^=== Generated LLVM IR ===/ { p=1; next }
+  /^===/                      { p=0 }
+  p
+' > "${BASE}.ll"
+
+# Ensure the output is text, not bitcode
+if file "${BASE}.ll" | grep -q "bitcode"; then
+  echo "Warning: Generated file is bitcode, not textual IR"
+  llvm-dis "${BASE}.ll" -o "${BASE}.text.ll"
+  mv "${BASE}.text.ll" "${BASE}.ll"
+fi
+
+# -----------------------------------------------------------------------------
+# 5) Run the dependency-graph pass on the clean IR
+# -----------------------------------------------------------------------------
+DOT_OUT="${BASE}-depgraph.dot"
+PASS_LOG="${BASE}-pass.log"
+
+echo "=== Running DepGraphBuilder on ${BASE}.ll ==="
+
+# Create a clean file to capture ONLY the DOT output
+TEMP_DOT_OUT=$(mktemp)
+
+# Run the pass and capture stderr (DOT output)
+opt \
+  -load-pass-plugin=./libDepGraphBuilder.so \
+  -passes="dep-graph-builder" \
+  "${BASE}.ll" -o /dev/null > "${PASS_LOG}" 2> "${TEMP_DOT_OUT}"
+
+# Extract only the DOT content
+awk 'BEGIN {p=0} 
+  /^digraph/ {p=1} 
+  {if(p) print} 
+  /^}/ {if(p) p=0}' "${TEMP_DOT_OUT}" > "${DOT_OUT}"
+
+# Validate the DOT file
+if ! grep -q "^digraph" "${DOT_OUT}"; then
+  echo "Error: Failed to extract valid DOT content"
+  echo "Raw output:"
+  cat "${TEMP_DOT_OUT}"
+  echo "Removing temporary file..."
+  rm "${TEMP_DOT_OUT}"
+  exit 1
+fi
+
+echo "Dependency graph written to: ${DOT_OUT}"
+echo "Pass log written to: ${PASS_LOG}"
+
+# Clean up temp file
+rm "${TEMP_DOT_OUT}"
+
+# -----------------------------------------------------------------------------
+# 6) (Optional) Render graph with Graphviz
+# -----------------------------------------------------------------------------
+if command -v dot &>/dev/null; then
+  PNG_OUT="${BASE}-depgraph.png"
+  echo "=== Rendering PNG ${PNG_OUT} ==="
+  
+  if dot -Tpng "${DOT_OUT}" -o "${PNG_OUT}" 2>/dev/null; then
+    echo "Successfully rendered: ${PNG_OUT}"
+  else
+    echo "Error: Failed to render DOT file. Content of ${DOT_OUT}:"
+    cat "${DOT_OUT}"
+    echo "Trying alternate rendering approach..."
+    
+    # Create a minimal valid DOT file if the current one fails
+    TMP_DOT=$(mktemp)
+    echo "digraph fallback {" > "${TMP_DOT}"
+    grep "node.*\[label=" "${DOT_OUT}" >> "${TMP_DOT}" 2>/dev/null || echo '  node0 [label="No valid data found"];' >> "${TMP_DOT}"
+    grep "->.*\[label=" "${DOT_OUT}" >> "${TMP_DOT}" 2>/dev/null
+    echo "}" >> "${TMP_DOT}"
+    
+    if dot -Tpng "${TMP_DOT}" -o "${PNG_OUT}" 2>/dev/null; then
+      echo "Successfully rendered fallback: ${PNG_OUT}"
+      # If fallback worked, replace the original DOT file
+      cp "${TMP_DOT}" "${DOT_OUT}"
+    else
+      echo "CRITICAL ERROR: Both rendering approaches failed."
+    fi
+    
+    rm "${TMP_DOT}"
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+# 7) Finally, run GraphProgram on its DSL input
+# -----------------------------------------------------------------------------
+echo "=== Running GraphProgram on ${GP_INPUT} ==="
 export LD_LIBRARY_PATH="/usr/lib:${LD_LIBRARY_PATH}"
-./GraphProgram "${INPUT_FILE}"
+./GraphProgram "${GP_INPUT}"

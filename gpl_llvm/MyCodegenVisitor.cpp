@@ -1,6 +1,9 @@
 #include "MyCodegenVisitor.h"
 #include <iostream>
 #include <stdexcept>
+#include "llvm/IR/Verifier.h"
+
+
 
 using namespace llvm;
 
@@ -8,7 +11,7 @@ using namespace llvm;
 MyCodegenVisitor::MyCodegenVisitor()
     : builder(context), mainFunction(nullptr)
 {
-    module = std::make_unique<Module>("graph_module", context);
+    module = std::make_unique<llvm::Module>("graph_module", context);
 }
 
 // visitProgram: create an LLVM function `main`, then lower all top‐level statements into it
@@ -58,6 +61,12 @@ antlrcpp::Any MyCodegenVisitor::visitStatement(BaseParser::StatementContext *ctx
     else if (ctx->assignmentStatement()) {
         return visitAssignmentStatement(ctx->assignmentStatement());
     }
+    else if (ctx->conditionalStatement())
+    {
+        // std::cout << "Visiting conditional statement" << std::endl;
+        return visitConditionalStatement(ctx->conditionalStatement());
+    }
+
     return nullptr;
 }
 
@@ -172,30 +181,45 @@ antlrcpp::Any MyCodegenVisitor::visitExpr(BaseParser::ExprContext *ctx) {
 }
 // visitCondition: produce an i1 (boolean) value
 antlrcpp::Any MyCodegenVisitor::visitCondition(BaseParser::ConditionContext *ctx) {
+    llvm::Value* result = nullptr;
+
     // Logical AND
     if (auto andCtx = dynamic_cast<BaseParser::LogicalAndContext*>(ctx)) {
-        Value *L = std::any_cast<Value*>(visitCondition(andCtx->condition(0)));
-        Value *R = std::any_cast<Value*>(visitCondition(andCtx->condition(1)));
-        return builder.CreateAnd(L, R, "andtmp");
+        llvm::Value* L = std::any_cast<llvm::Value*>(visitCondition(andCtx->condition(0)));
+        llvm::Value* R = std::any_cast<llvm::Value*>(visitCondition(andCtx->condition(1)));
+        result = builder.CreateAnd(L, R, "andtmp");
     }
     // Logical OR
-    if (auto orCtx = dynamic_cast<BaseParser::LogicalOrContext*>(ctx)) {
-        Value *L = std::any_cast<Value*>(visitCondition(orCtx->condition(0)));
-        Value *R = std::any_cast<Value*>(visitCondition(orCtx->condition(1)));
-        return builder.CreateOr(L, R, "ortmp");
+    else if (auto orCtx = dynamic_cast<BaseParser::LogicalOrContext*>(ctx)) {
+        llvm::Value* L = std::any_cast<llvm::Value*>(visitCondition(orCtx->condition(0)));
+        llvm::Value* R = std::any_cast<llvm::Value*>(visitCondition(orCtx->condition(1)));
+        result = builder.CreateOr(L, R, "ortmp");
     }
     // Relational (==, !=, <, >, <=, >=)
-    if (auto relCtx = dynamic_cast<BaseParser::RelationalContext*>(ctx)) {
-        Value *L = std::any_cast<Value*>(visitExpr(relCtx->expr(0)));
-        Value *R = std::any_cast<Value*>(visitExpr(relCtx->expr(1)));
-        if (relCtx->EQUAL())        return builder.CreateICmpEQ(L, R, "eqtmp");
-        if (relCtx->NOTEQUAL())     return builder.CreateICmpNE(L, R, "netmp");
-        if (relCtx->LESSTHAN())     return builder.CreateICmpSLT(L, R, "lttmp");
-        if (relCtx->GREATERTHAN())  return builder.CreateICmpSGT(L, R, "gttmp");
-        if (relCtx->LESSEQUAL())    return builder.CreateICmpSLE(L, R, "letmp");
-        if (relCtx->GREATEREQUAL()) return builder.CreateICmpSGE(L, R, "getmp");
+    else if (auto relCtx = dynamic_cast<BaseParser::RelationalContext*>(ctx)) {
+        llvm::Value* L = std::any_cast<llvm::Value*>(visitExpr(relCtx->expr(0)));
+        llvm::Value* R = std::any_cast<llvm::Value*>(visitExpr(relCtx->expr(1)));
+
+        if (relCtx->EQUAL())        result = builder.CreateICmpEQ(L, R, "eqtmp");
+        else if (relCtx->NOTEQUAL())     result = builder.CreateICmpNE(L, R, "netmp");
+        else if (relCtx->LESSTHAN())     result = builder.CreateICmpSLT(L, R, "lttmp");
+        else if (relCtx->GREATERTHAN())  result = builder.CreateICmpSGT(L, R, "gttmp");
+        else if (relCtx->LESSEQUAL())    result = builder.CreateICmpSLE(L, R, "letmp");
+        else if (relCtx->GREATEREQUAL()) result = builder.CreateICmpSGE(L, R, "getmp");
     }
-    throw std::runtime_error("Invalid condition node.");
+    else {
+        // You might want to support more condition types here or throw
+        llvm::errs() << "[Error] visitCondition: unsupported condition type: " << ctx->getText() << "\n";
+        throw std::runtime_error("Invalid or unsupported condition node.");
+    }
+
+    if (!result) {
+        llvm::errs() << "[Error] visitCondition: failed to produce llvm::Value* for condition: " << ctx->getText() << "\n";
+        throw std::runtime_error("Condition visit failed to produce LLVM value.");
+    }
+
+    llvm::errs() << "[visitCondition] returning llvm::Value* for condition: " << ctx->getText() << "\n";
+    return result;
 }
 
 // visitLoopStatement: delegate to visitWhileStatement
@@ -233,6 +257,54 @@ antlrcpp::Any MyCodegenVisitor::visitWhileStatement(BaseParser::WhileStatementCo
     builder.SetInsertPoint(afterBB);
     return nullptr;
 }
+
+antlrcpp::Any MyCodegenVisitor::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx)
+{
+    llvm::Function *function = builder.GetInsertBlock()->getParent();
+
+    llvm::BasicBlock *thenBB = llvm::BasicBlock::Create(context, "then", function);
+    llvm::BasicBlock *elseBB = nullptr;
+    llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(context, "merge");
+
+    llvm::Value* condValue = std::any_cast<llvm::Value*>(visitCondition(ctx->condition()));
+    condValue = builder.CreateICmpNE(condValue, llvm::ConstantInt::get(condValue->getType(), 0), "ifcond");
+
+    if (ctx->conditionalStatement() != nullptr) {
+        elseBB = llvm::BasicBlock::Create(context, "elseif", function);
+    } else if (ctx->block().size() > 1) {
+        elseBB = llvm::BasicBlock::Create(context, "else", function);
+    } else {
+        elseBB = mergeBB; // no else block
+    }
+
+    builder.CreateCondBr(condValue, thenBB, elseBB);
+
+    // Then block
+    builder.SetInsertPoint(thenBB);
+    visitBlock(ctx->block(0));
+    builder.CreateBr(mergeBB);
+
+    // Else block
+    if (elseBB != mergeBB) {
+        function->getBasicBlockList().push_back(elseBB);
+        builder.SetInsertPoint(elseBB);
+
+        if (ctx->conditionalStatement() != nullptr) {
+            visitConditionalStatement(ctx->conditionalStatement());
+        } else {
+            visitBlock(ctx->block(1));
+        }
+
+        builder.CreateBr(mergeBB);
+    }
+
+    // Now push merge block after all predecessors
+    function->getBasicBlockList().push_back(mergeBB);
+    builder.SetInsertPoint(mergeBB);
+
+    return nullptr;
+}
+
 
 
 // antlrcpp::Any MyCodegenVisitor::visitPrintStatement(BaseParser::PrintStatementContext *ctx) {

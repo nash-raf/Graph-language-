@@ -119,3 +119,197 @@ echo "=== Running GraphProgram on graph_code_test.txt ==="
 ## run graph_code_test.txt
 ## bt
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#!/usr/bin/env bash
+set -e
+
+# Add llvm-config and java to PATH if not already
+export PATH=/usr/bin:/usr/local/bin:$PATH
+
+echo "PATH is: $PATH"
+
+#-------------------------------------
+# 1) Locate ANTLR jar
+#-------------------------------------
+# ANTLR_JAR="/usr/local/lib/antlr-4.13.0-complete.jar"
+# if [ ! -f "$ANTLR_JAR" ]; then
+#   echo "Error: ANTLR JAR not found at $ANTLR_JAR"
+#   echo "Please download it from https://www.antlr.org/download.html"
+#   echo "and place it at $ANTLR_JAR"
+#   exit 1
+# fi
+
+#-------------------------------------
+# 2) Generate ANTLR C++ sources
+#-------------------------------------
+echo "=== Generating ANTLR C++ sources from Base.g4 ==="
+# java -jar "$ANTLR_JAR" -Dlanguage=Cpp -visitor Base.g4 -o generated
+echo "ANTLR sources generated."
+
+#-------------------------------------
+# 3) Locate LLVM using llvm-config
+#-------------------------------------
+echo "=== Locating LLVM via llvm-config ==="
+if ! command -v llvm-config &> /dev/null; then
+  echo "Error: llvm-config not found. Please install LLVM and ensure llvm-config is on PATH."
+  exit 1
+fi
+# antlr4 -Dlanguage=Cpp -visitor -no-listener Base.g4 -o generated
+
+LLVM_CXXFLAGS=$(llvm-config --cxxflags)
+LLVM_LDFLAGS=$(llvm-config --ldflags)
+LLVM_LIBS=$(llvm-config --libs core)
+LLVM_SYSTEM_LIBS=$(llvm-config --system-libs)
+
+echo "llvm-config --cxxflags  => $LLVM_CXXFLAGS"
+echo "llvm-config --ldflags  => $LLVM_LDFLAGS"
+echo "llvm-config --libs     => $LLVM_LIBS"
+echo "llvm-config --sys-libs => $LLVM_SYSTEM_LIBS"
+
+#-------------------------------------
+# 4) Compile everything
+#-------------------------------------
+echo "=== Compiling C++ sources ==="
+ANTLR_INCLUDE="-I/usr/local/include"
+
+# g++ -g -std=c++17 \
+#     -I/usr/local/include/antlr4-runtime \
+#     $LLVM_CXXFLAGS \
+#     -Igenerated \
+#     -I. \
+#     main.cpp \
+#     MyCodegenVisitor.cpp \
+#     generated/*.cpp \
+#     $LLVM_LDFLAGS \
+#     -L/usr/local/lib -lantlr4-runtime \
+#     $LLVM_LIBS \
+#     $LLVM_SYSTEM_LIBS \
+#     -o GraphProgram
+clang++-18 \
+  -I/usr/local/include/antlr4-runtime \
+  -Igenerated \
+  main.cpp MyCodegenVisitor.cpp generated/*.cpp \
+  `llvm-config-14 --cxxflags --ldflags --libs core` \
+  -std=c++17 -fexceptions \
+  -L/usr/local/lib -lantlr4-runtime \
+  -o GraphProgram
+
+
+echo "Compilation successful."
+
+#-------------------------------------
+# 5) Run the binary with given argument
+#-------------------------------------
+if [ -z "$1" ]; then
+  echo "No input file provided. Usage: ./run.sh <inputfile>"
+  exit 1
+fi
+
+echo "=== Running GraphProgram on $1 ==="
+./GraphProgram "$1"
+#!/usr/bin/env bash
+set -e
+
+# Add llvm-config and java to PATH if not already
+export PATH=/usr/bin:/usr/local/bin:$PATH
+
+echo "PATH is: $PATH"
+
+#-------------------------------------
+# 1) Locate ANTLR jar
+#-------------------------------------
+# ANTLR_JAR="/usr/local/lib/antlr-4.13.0-complete.jar"
+# if [ ! -f "$ANTLR_JAR" ]; then
+#   echo "Error: ANTLR JAR not found at $ANTLR_JAR"
+#   echo "Please download it from https://www.antlr.org/download.html"
+#   echo "and place it at $ANTLR_JAR"
+#   exit 1
+# fi
+
+#-------------------------------------
+# 2) Generate ANTLR C++ sources
+#-------------------------------------
+echo "=== Generating ANTLR C++ sources from Base.g4 ==="
+# java -jar "$ANTLR_JAR" -Dlanguage=Cpp -visitor Base.g4 -o generated
+echo "ANTLR sources generated."
+
+#-------------------------------------
+# 3) Locate LLVM using llvm-config
+#-------------------------------------
+echo "=== Locating LLVM via llvm-config ==="
+if ! command -v llvm-config &> /dev/null; then
+  echo "Error: llvm-config not found. Please install LLVM and ensure llvm-config is on PATH."
+  exit 1
+fi
+# antlr4 -Dlanguage=Cpp -visitor -no-listener Base.g4 -o generated
+
+LLVM_CXXFLAGS=$(llvm-config --cxxflags)
+LLVM_LDFLAGS=$(llvm-config --ldflags)
+LLVM_LIBS=$(llvm-config --libs core)
+LLVM_SYSTEM_LIBS=$(llvm-config --system-libs)
+
+echo "llvm-config --cxxflags  => $LLVM_CXXFLAGS"
+echo "llvm-config --ldflags  => $LLVM_LDFLAGS"
+echo "llvm-config --libs     => $LLVM_LIBS"
+echo "llvm-config --sys-libs => $LLVM_SYSTEM_LIBS"
+
+#-------------------------------------
+# 4) Compile everything
+#-------------------------------------
+echo "=== Compiling C++ sources ==="
+ANTLR_INCLUDE="-I/usr/local/include"
+
+# g++ -g -std=c++17 \
+#     -I/usr/local/include/antlr4-runtime \
+#     $LLVM_CXXFLAGS \
+#     -Igenerated \
+#     -I. \
+#     main.cpp \
+#     MyCodegenVisitor.cpp \
+#     generated/*.cpp \
+#     $LLVM_LDFLAGS \
+#     -L/usr/local/lib -lantlr4-runtime \
+#     $LLVM_LIBS \
+#     $LLVM_SYSTEM_LIBS \
+#     -o GraphProgram
+clang++-18 \
+  -I/usr/local/include/antlr4-runtime \
+  -Igenerated \
+  main.cpp MyCodegenVisitor.cpp generated/*.cpp \
+  `llvm-config-14 --cxxflags --ldflags --libs core` \
+  -std=c++17 -fexceptions \
+  -L/usr/local/lib -lantlr4-runtime \
+  -o GraphProgram
+
+
+echo "Compilation successful."
+
+#-------------------------------------
+# 5) Run the binary with given argument
+#-------------------------------------
+if [ -z "$1" ]; then
+  echo "No input file provided. Usage: ./run.sh <inputfile>"
+  exit 1
+fi
+
+echo "=== Running GraphProgram on $1 ==="
+./GraphProgram "$1"
+

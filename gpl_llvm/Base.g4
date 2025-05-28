@@ -11,17 +11,36 @@ statement:
 	//| printStatement
 	| varDecl
     | assignmentStatement
+	| conditionalStatement
+	| graphDef	
 	| ';';
 
 // Graph Definition
 
-// assignment varDecl: type ID ('=' expr)? ';' | type ID '=' functionCall ';' ;
+graphDef: GRAPH graphID '{' nodes? edges? '}' ';';
+nodes: 'nodes:' nodeList ';';
+edges: 'edges:' (edgeList | fileEdgeList) ';';
+nodeList: nodeID (',' nodeID)*;
+edgeList: edge (',' edge)*;
+graphID: ID;
+nodeID: INT;
+fileEdgeList: 'file' STRING;
+edge: nodeID '->' nodeID;
+
 varDecl:
 	type ID ('=' expr)? ';' ;
+
+conditionalStatement:
+	'if' '(' condition ')' block (
+		'else' conditionalStatement
+		| 'else' block
+	)?;
+
 condition:
 	condition AND condition		# LogicalAnd
 	| condition OR condition	# LogicalOr
 	| expr ( EQUAL | NOTEQUAL | LESSEQUAL | GREATEREQUAL | LESSTHAN | GREATERTHAN ) expr # Relational;
+
 
 
 loopStatement : whileStatement;

@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 
 #include "BaseListener.h"
@@ -41,7 +41,7 @@ struct BaseParserStaticData final {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
 static thread_local
 #endif
-BaseParserStaticData *baseParserStaticData = nullptr;
+std::unique_ptr<BaseParserStaticData> baseParserStaticData = nullptr;
 
 void baseParserInitialize() {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
@@ -239,7 +239,7 @@ void baseParserInitialize() {
   	0,0,465,83,1,0,0,0,466,467,5,60,0,0,467,468,5,9,0,0,468,469,3,78,39,0,
   	469,470,5,1,0,0,470,474,1,0,0,0,471,472,5,60,0,0,472,474,5,1,0,0,473,
   	466,1,0,0,0,473,471,1,0,0,0,474,85,1,0,0,0,475,476,5,60,0,0,476,477,5,
-  	15,0,0,477,478,5,61,0,0,478,479,5,17,0,0,479,480,5,9,0,0,480,481,3,78,
+  	15,0,0,477,478,3,78,39,0,478,479,5,17,0,0,479,480,5,9,0,0,480,481,3,78,
   	39,0,481,482,5,1,0,0,482,87,1,0,0,0,40,90,92,110,116,119,131,140,148,
   	166,174,178,189,204,212,214,237,245,247,252,271,281,299,305,333,336,348,
   	357,363,365,371,382,387,394,415,433,441,443,453,461,473
@@ -254,7 +254,7 @@ void baseParserInitialize() {
   for (size_t i = 0; i < count; i++) { 
     staticData->decisionToDFA.emplace_back(staticData->atn->getDecisionState(i), i);
   }
-  baseParserStaticData = staticData.release();
+  baseParserStaticData = std::move(staticData);
 }
 
 }
@@ -5177,48 +5177,43 @@ BaseParser::ArrayAssignStatementContext::ArrayAssignStatementContext(ParserRuleC
   : ParserRuleContext(parent, invokingState) {
 }
 
+tree::TerminalNode* BaseParser::ArrayAssignStatementContext::ID() {
+  return getToken(BaseParser::ID, 0);
+}
+
+std::vector<BaseParser::ExprContext *> BaseParser::ArrayAssignStatementContext::expr() {
+  return getRuleContexts<BaseParser::ExprContext>();
+}
+
+BaseParser::ExprContext* BaseParser::ArrayAssignStatementContext::expr(size_t i) {
+  return getRuleContext<BaseParser::ExprContext>(i);
+}
+
 
 size_t BaseParser::ArrayAssignStatementContext::getRuleIndex() const {
   return BaseParser::RuleArrayAssignStatement;
 }
 
-void BaseParser::ArrayAssignStatementContext::copyFrom(ArrayAssignStatementContext *ctx) {
-  ParserRuleContext::copyFrom(ctx);
-}
-
-//----------------- ArrayAssignStmtContext ------------------------------------------------------------------
-
-tree::TerminalNode* BaseParser::ArrayAssignStmtContext::ID() {
-  return getToken(BaseParser::ID, 0);
-}
-
-tree::TerminalNode* BaseParser::ArrayAssignStmtContext::INT() {
-  return getToken(BaseParser::INT, 0);
-}
-
-BaseParser::ExprContext* BaseParser::ArrayAssignStmtContext::expr() {
-  return getRuleContext<BaseParser::ExprContext>(0);
-}
-
-BaseParser::ArrayAssignStmtContext::ArrayAssignStmtContext(ArrayAssignStatementContext *ctx) { copyFrom(ctx); }
-
-void BaseParser::ArrayAssignStmtContext::enterRule(tree::ParseTreeListener *listener) {
+void BaseParser::ArrayAssignStatementContext::enterRule(tree::ParseTreeListener *listener) {
   auto parserListener = dynamic_cast<BaseListener *>(listener);
   if (parserListener != nullptr)
-    parserListener->enterArrayAssignStmt(this);
-}
-void BaseParser::ArrayAssignStmtContext::exitRule(tree::ParseTreeListener *listener) {
-  auto parserListener = dynamic_cast<BaseListener *>(listener);
-  if (parserListener != nullptr)
-    parserListener->exitArrayAssignStmt(this);
+    parserListener->enterArrayAssignStatement(this);
 }
 
-std::any BaseParser::ArrayAssignStmtContext::accept(tree::ParseTreeVisitor *visitor) {
+void BaseParser::ArrayAssignStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArrayAssignStatement(this);
+}
+
+
+std::any BaseParser::ArrayAssignStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
-    return parserVisitor->visitArrayAssignStmt(this);
+    return parserVisitor->visitArrayAssignStatement(this);
   else
     return visitor->visitChildren(this);
 }
+
 BaseParser::ArrayAssignStatementContext* BaseParser::arrayAssignStatement() {
   ArrayAssignStatementContext *_localctx = _tracker.createInstance<ArrayAssignStatementContext>(_ctx, getState());
   enterRule(_localctx, 86, BaseParser::RuleArrayAssignStatement);
@@ -5231,14 +5226,13 @@ BaseParser::ArrayAssignStatementContext* BaseParser::arrayAssignStatement() {
     exitRule();
   });
   try {
-    _localctx = _tracker.createInstance<BaseParser::ArrayAssignStmtContext>(_localctx);
     enterOuterAlt(_localctx, 1);
     setState(475);
     match(BaseParser::ID);
     setState(476);
     match(BaseParser::T__14);
     setState(477);
-    match(BaseParser::INT);
+    expr(0);
     setState(478);
     match(BaseParser::T__16);
     setState(479);

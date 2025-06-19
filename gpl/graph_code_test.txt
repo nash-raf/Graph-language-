@@ -1,61 +1,16 @@
-//graph g{
-//    nodes:2,3,4,5;
-//    edges: 2->3,3->4,2->4,5->2,5->3;
-//};
-//graph h{
-//    nodes: 1,2;
-//    edges: file "g.txt";
-//};
-//h = [g where degree > 2 && connected with 3];
-//print graph of h;
-//
-//query j : "bfs" of g;
-//
-//int klk = 90;
-//print klk;
-//print j;
-//
-//
-//
-//
-//graph g{
-//    nodes: 3,4,5;
-//    edges: file "g.txt"; 
-//};
-//
-//fn int mm(){
-//    return 5+4;
-//}
-//int c = 3 + 5 * 4;
-//int d = 4;
-//print c;
-//
-//int m = mm();
-//print m;
-//
-//
-//
-//
-//fn int addid(int a, int b) {
-//    print a + b;
-//    return a + b;
-//}
-//int k = addid(3,4);
-//print k;
-//print d;
-//real lfgfo = 8.2 * 2.0 + 4.0 - 2.4;
-//print lfgfo;
-
-int a[4] = [1, 2, 3, 4.5];
-int aa = a[3];
-print aa;
-a[2] = 123;
-int aaa = a[2];
-print aaa;
-aa = 111;
-aa;
-print(aa);
-
-bool b = TRUE;
-b = FALSE;
-print(b);
+int it = 0;
+int arr[100000];
+int arr2[100000];
+int arr3[100000];
+while(it < 100000)
+{
+    arr[it] = it + 1;
+    arr2[it] = it + 100;
+    it = it + 1;
+    
+}
+int i = 0;
+while(i < 100000) {
+    arr3[i] = arr2[i] + arr[i];
+    i = i + 1;
+}

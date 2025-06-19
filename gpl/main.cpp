@@ -43,6 +43,7 @@ int main(int argc, const char* argv[]) {
     visitor.visit(tree);
     // visitor.addEdge("g",8,9);
     // visitor.printGraph("g");
+    visitor.executeProgram();
 
     return 0;
 }

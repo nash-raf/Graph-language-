@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 
 #include "BaseLexer.h"
@@ -45,7 +45,7 @@ struct BaseLexerStaticData final {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
 static thread_local
 #endif
-BaseLexerStaticData *baselexerLexerStaticData = nullptr;
+std::unique_ptr<BaseLexerStaticData> baselexerLexerStaticData = nullptr;
 
 void baselexerLexerInitialize() {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
@@ -255,7 +255,7 @@ void baselexerLexerInitialize() {
   for (size_t i = 0; i < count; i++) { 
     staticData->decisionToDFA.emplace_back(staticData->atn->getDecisionState(i), i);
   }
-  baselexerLexerStaticData = staticData.release();
+  baselexerLexerStaticData = std::move(staticData);
 }
 
 }

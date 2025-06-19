@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -212,8 +212,8 @@ public:
   virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
   virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
 
-  virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
-  virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
+  virtual void enterArrayAssignStatement(BaseParser::ArrayAssignStatementContext *ctx) = 0;
+  virtual void exitArrayAssignStatement(BaseParser::ArrayAssignStatementContext *ctx) = 0;
 
 
 };

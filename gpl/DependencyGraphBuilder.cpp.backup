@@ -1,0 +1,345 @@
+
+
+#include "llvm/Analysis/DependenceAnalysis.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/IR/PassManager.h"
+#include "DependencyGraph.h"
+
+using namespace llvm;
+
+namespace {
+  // --- your in-memory graph types -----------------------------
+  struct depEdge {
+    unsigned source, target;
+    std::string type;
+  };
+
+  struct DependencyGraph {
+    DenseMap<const Instruction*, unsigned> IDMap;
+    SmallVector<depEdge, 256>            Edges;
+
+    unsigned getInstID(const Instruction *I, unsigned &NextID) {
+      if (!I) return 0;
+      auto It = IDMap.find(I);
+      if (It != IDMap.end()) return It->second;
+      unsigned ID = NextID++;
+      IDMap[I] = ID;
+      return ID;
+    }
+
+    Instruction* getInstByID(unsigned ID) const {
+      for (auto &P : IDMap)
+        if (P.second == ID)
+          return const_cast<Instruction*>(P.first);
+      return nullptr;
+    }
+  };
+
+
+  // --- 1) The FunctionAnalysis -------------------------------
+  struct DependencyGraphAnalysis
+    : public AnalysisInfoMixin<DependencyGraphAnalysis> {
+    static AnalysisKey Key;
+    using Result = DependencyGraph;
+
+    // Build the graph for *one* function:
+    DependencyGraph run(Function &F, FunctionAnalysisManager &FAM) {
+      DependencyGraph G;
+      unsigned NextID = 1;
+
+      // grab the analyses you need
+      auto &LI = FAM.getResult<LoopAnalysis>(F);
+      auto &AA = FAM.getResult<AAManager>(F);
+      auto &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
+
+      DependenceInfo DI(&F, &AA, &SE, &LI);
+
+      // Process loops
+      for (Loop *L : LI)
+        analyzeLoopDependencies(L, DI, LI, SE, G, NextID);
+
+      // Non-loop deps
+      analyzeNonLoopDependencies(F, DI, LI, SE, G, NextID);
+
+      // Control deps
+      addControlDependencies(F, G, NextID);
+
+      return G;
+    }
+
+  private:
+    // Nearly verbatim from your old code, but recording into G:
+    void analyzeLoopDependencies(Loop *L, DependenceInfo &DI,
+                                 LoopInfo &LI, ScalarEvolution &SE,
+                                 DependencyGraph &G, unsigned &NextID) {
+      SmallVector<Instruction*, 64> memInsts;
+      Function *F1 = L->getHeader()->getParent();
+
+      for (BasicBlock &BB : *F1) {
+        if (!L->contains(&BB)) continue;
+        for (Instruction &I : BB)
+          if (I.mayReadOrWriteMemory())
+            memInsts.push_back(&I);
+      }
+
+      for (size_t i = 0; i < memInsts.size(); ++i)
+        for (size_t j = i+1; j < memInsts.size(); ++j)
+          if (auto dep = DI.depends(memInsts[i], memInsts[j], false))
+            analyzeDependency(memInsts[i], memInsts[j],
+                              dep.get(), L, LI, SE, G, NextID);
+
+      for (Loop *Sub : L->getSubLoops())
+        analyzeLoopDependencies(Sub, DI, LI, SE, G, NextID);
+    }
+
+    void analyzeNonLoopDependencies(Function &F, DependenceInfo &DI,
+                                    LoopInfo &LI, ScalarEvolution &SE,
+                                    DependencyGraph &G, unsigned &NextID) {
+      for (BasicBlock &BB : F) {
+        if (LI.getLoopFor(&BB)) continue;
+        SmallVector<Instruction*, 32> memInsts;
+        for (Instruction &I : BB)
+          if (I.mayReadOrWriteMemory())
+            memInsts.push_back(&I);
+
+        for (size_t i = 0; i < memInsts.size(); ++i)
+          for (size_t j = i+1; j < memInsts.size(); ++j)
+            if (auto dep = DI.depends(memInsts[i], memInsts[j], false))
+              analyzeDependency(memInsts[i], memInsts[j],
+                                dep.get(), nullptr, LI, SE, G, NextID);
+      }
+    }
+
+    void analyzeDependency(Instruction *I1, Instruction *I2,
+                           Dependence *dep, Loop *curL, LoopInfo &LI,
+                           ScalarEvolution &SE,
+                           DependencyGraph &G, unsigned &NextID) {
+      std::string depType = "UNKNOWN";
+      if      (dep->isFlow())   depType = "RAW";
+      else if (dep->isAnti())   depType = "WAR";
+      else if (dep->isOutput()) depType = "WAW";
+      else if (dep->isInput())  depType = "RAR";
+
+      bool isLoopCarried = false;
+      std::string loopInfo;
+
+      if (curL) {
+        for (unsigned lvl = 1; lvl <= dep->getLevels(); ++lvl) {
+          if (auto dist = dep->getDistance(lvl)) {
+            if (!dist->isZero()) {
+              isLoopCarried = true;
+              std::string ds;
+              raw_string_ostream os(ds);
+              os << *dist;
+              loopInfo = "_loop_carried[L" + std::to_string(lvl)
+                       + ",dist=" + os.str() + "]";
+              break;
+            }
+          } else {
+            unsigned dir = dep->getDirection(lvl);
+            if (dir == Dependence::DVEntry::LT ||
+                dir == Dependence::DVEntry::GT) {
+              isLoopCarried = true;
+              loopInfo = "_loop_carried[L" + std::to_string(lvl)
+                       + ",dir=" + (dir == Dependence::DVEntry::LT
+                                   ? "forward" : "backward") + "]";
+              break;
+            }
+          }
+        }
+
+        if (!isLoopCarried && dep->getLevels() == 0) {
+          if (checkInductionVariableDependency(I1, I2, curL, SE)) {
+            isLoopCarried = true;
+            loopInfo = "_loop_carried[induction_var]";
+          }
+        }
+
+        depType += isLoopCarried ? loopInfo : "_loop_independent";
+      } else {
+        depType += "_sequential";
+      }
+
+      unsigned s = G.getInstID(I1, NextID),
+               d = G.getInstID(I2, NextID);
+      G.Edges.push_back({s,d,depType});
+    }
+
+    bool checkInductionVariableDependency(Instruction *I1,
+                                          Instruction *I2,
+                                          Loop *L,
+                                          ScalarEvolution &SE) {
+      if (!I1 || !I2 || !L) return false;
+            
+            // Check if instructions are memory operations on potentially the same base address
+            llvm::Value *ptr1 = nullptr, *ptr2 = nullptr;
+            const llvm::SCEV *base1 = nullptr, *base2 = nullptr;
+            
+            
+
+            if (auto *load1 = llvm::dyn_cast<llvm::LoadInst>(I1)) {
+                ptr1 = load1->getPointerOperand();
+            } else if (auto *store1 = llvm::dyn_cast<llvm::StoreInst>(I1)) {
+                ptr1 = store1->getPointerOperand();
+            }
+            
+            if (auto *load2 = llvm::dyn_cast<llvm::LoadInst>(I2)) {
+                ptr2 = load2->getPointerOperand();
+            } else if (auto *store2 = llvm::dyn_cast<llvm::StoreInst>(I2)) {
+                ptr2 = store2->getPointerOperand();
+            }
+            
+            if (!ptr1 || !ptr2) return false;
+
+            auto* phi1 = llvm::dyn_cast<llvm::PHINode>(ptr1);
+            auto* phi2 = llvm::dyn_cast<llvm::PHINode>(ptr2);
+            
+            if(!phi1 || phi1->getParent() != L->getHeader()) {
+                if(ptr1) {
+                    base1 = SE.getSCEV(ptr1);
+                    if(auto *ar1 = llvm::dyn_cast<llvm::SCEVAddRecExpr>(base1)) {
+                        if(ar1->getLoop() == L && llvm::isa<llvm::SCEVConstant>(ar1->getStepRecurrence(SE))) {
+                            return false; 
+                        }
+                    }
+                }
+            }
+            
+            if(!phi2 || phi2->getParent() != L->getHeader()) {
+                if(ptr2) {
+                    base2 = SE.getSCEV(ptr2);
+                    if(auto *ar2 = llvm::dyn_cast<llvm::SCEVAddRecExpr>(base2)) {
+                        if ((ar2->getLoop() == L) && llvm::isa<llvm::SCEVConstant>(ar2->getStepRecurrence(SE))) {
+                            return false; 
+                        }
+                    }
+                }
+            }
+            
+            // If both pointers involve GEP instructions with the loop induction variable,
+            // this suggests a potential loop-carried dependency
+            auto *gep1 = llvm::dyn_cast<llvm::GetElementPtrInst>(ptr1);
+            auto *gep2 = llvm::dyn_cast<llvm::GetElementPtrInst>(ptr2);
+            
+            if (gep1 && gep2) {
+                // Check if they access the same base but with different indices
+                // that might involve the loop induction variable
+                if (gep1->getPointerOperand() == gep2->getPointerOperand()) {
+                    // Same base address - could be loop-carried if indices differ
+                    return true;
+                }
+            }
+            
+            return false;
+    }
+
+    void addControlDependencies(Function &F,
+                                DependencyGraph &G,
+                                unsigned &NextID) {
+      for (BasicBlock &BB : F)
+        for (Instruction &I : BB)
+          if (isa<BranchInst>(I) || isa<CallInst>(I))
+            for (User *U : I.users())
+              if (auto *UI = dyn_cast<Instruction>(U)) {
+                unsigned s = G.getInstID(&I, NextID),
+                         d = G.getInstID(UI, NextID);
+                G.Edges.push_back({s,d,"CONTROL"});
+              }
+    }
+  };
+
+  AnalysisKey DependencyGraphAnalysis::Key;
+
+
+  // --- 2) The ModulePass that prints DOT -----------------------
+  struct DependencyGraphPrinter
+    : public PassInfoMixin<DependencyGraphPrinter> {
+    PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
+      // get the FunctionAnalysisManager:
+      auto &FAM = MAM.template getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+      for (Function &F : M) {
+        if (F.isDeclaration()) continue;
+
+        // grab the precomputed graph for this function
+        auto &G = FAM.getResult<DependencyGraphAnalysis>(F);
+
+        // emit one DOT graph per function:
+        raw_ostream &OS = errs();
+        std::string name = F.getName().str();
+        OS << "digraph " << name << "_dep_graph {\n"
+           << "  rankdir=TB;\n"
+           << "  node [shape=box];\n";
+
+        if (G.IDMap.empty()) {
+          OS << "  node0 [label=\"No dependencies found\"];\n";
+        } else {
+          // nodes
+          for (auto &P : G.IDMap) {
+            std::string instStr;
+            raw_string_ostream Ios(instStr);
+            P.first->print(Ios);
+            std::string esc;
+            for (char c : Ios.str()) {
+              switch(c){
+               case '"': esc += "\\\""; break;
+               case '\\': esc += "\\\\"; break;
+               case '\n': esc += "\\n"; break;
+               default: esc += c;
+              }
+            }
+            OS << "  node" << P.second
+               << " [label=\"" << esc << "\"];\n";
+          }
+          // edges
+          for (auto &E : G.Edges) {
+            StringRef t = E.type;
+            StringRef color = t.contains("loop_carried") ? "red"
+                              : t.contains("loop_independent") ? "blue"
+                              : t == "CONTROL"               ? "green"
+                                                              : "black";
+            StringRef style = t == "CONTROL" ? "dashed" : "solid";
+            OS << "  node" << E.source << " -> node" << E.target
+               << " [label=\"" << E.type
+               << "\", color=\"" << color
+               << "\", style=\"" << style << "\"];\n";
+          }
+        }
+        OS << "}\n\n";
+      }
+
+      return PreservedAnalyses::all();
+    }
+  };
+
+} // end anonymous namespace
+
+
+//===----------------------------------------------------------------------===//
+// Plugin registration
+//===----------------------------------------------------------------------===//
+
+
+// Export the printer function for use by the combined plugin
+void addDependencyGraphPrinter(ModulePassManager &MPM) {
+  MPM.addPass(DependencyGraphPrinter());
+}
+
+namespace llvm {
+  AnalysisKey DependencyGraphAnalysis::Key;
+}
+
+// Export the printer function for use by the combined plugin
+void addDependencyGraphPrinter(ModulePassManager &MPM) {
+  MPM.addPass(DependencyGraphPrinter());
+}
+
+namespace llvm {
+  AnalysisKey DependencyGraphAnalysis::Key;
+}

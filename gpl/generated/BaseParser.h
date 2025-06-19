@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -1185,27 +1185,16 @@ public:
   class  ArrayAssignStatementContext : public antlr4::ParserRuleContext {
   public:
     ArrayAssignStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-   
-    ArrayAssignStatementContext() = default;
-    void copyFrom(ArrayAssignStatementContext *context);
-    using antlr4::ParserRuleContext::copyFrom;
-
     virtual size_t getRuleIndex() const override;
-
-   
-  };
-
-  class  ArrayAssignStmtContext : public ArrayAssignStatementContext {
-  public:
-    ArrayAssignStmtContext(ArrayAssignStatementContext *ctx);
-
     antlr4::tree::TerminalNode *ID();
-    antlr4::tree::TerminalNode *INT();
-    ExprContext *expr();
+    std::vector<ExprContext *> expr();
+    ExprContext* expr(size_t i);
+
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
   };
 
   ArrayAssignStatementContext* arrayAssignStatement();

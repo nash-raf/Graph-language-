@@ -15,7 +15,7 @@ statement:
 	| functionCall
 	| graphComprehension
 	| arrayAssignStatement
-	| assignmentStatement // ✅ ADD THIS 
+	| assignmentStatement
 	| queryStatement
 	| showgraph
 	| nodeEdgeOperation
@@ -157,7 +157,7 @@ arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
 assignmentStatement: ID '=' expr ';' | ID ';';
 
 arrayAssignStatement:
-	ID '[' INT ']' '=' expr ';' # ArrayAssignStmt;
+	ID '[' expr ']' '=' expr ';' ;
 
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';

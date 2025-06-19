@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -151,7 +151,7 @@ public:
 
     virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *context) = 0;
 
-    virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *context) = 0;
+    virtual std::any visitArrayAssignStatement(BaseParser::ArrayAssignStatementContext *context) = 0;
 
 
 };

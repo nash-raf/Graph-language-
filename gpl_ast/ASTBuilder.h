@@ -18,6 +18,11 @@ public:
     antlrcpp::Any visitBlock(BaseParser::BlockContext* ctx) override;
     //antlrcpp::Any visitLoopStatement(BaseParser::LoopStatementContext* ctx) override;
     antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext* ctx) override;
+    antlrcpp::Any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext* ctx) override;
+    antlrcpp::Any visitFunction(BaseParser::FunctionContext* ctx) override;
+    antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
+
+
     
 
     antlrcpp::Any visitPrintExpr(BaseParser::PrintExprContext *ctx) override;
@@ -25,6 +30,10 @@ public:
 
 private:
     std::unordered_map<std::string,int> symbolTable;
+    std::unordered_map<std::string, std::vector<ASTNodePtr>> arrayTable;
+    std::unordered_map<std::string,std::shared_ptr<FunctionDeclNode>> functionTable;
+
+
     int evaluate(ASTNodePtr node);
 
 };

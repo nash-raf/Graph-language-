@@ -13,7 +13,7 @@ statement:
 	//| loopStatement
 	| whileStatement
 	| varDecl
-	| functionCall
+	| functionCall ';'
 	| graphComprehension
 	| arrayAssignStatement
 	| assignmentStatement

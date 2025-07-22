@@ -1,0 +1,11 @@
+int x = 5;
+int y = 5 * x;
+int c = 0;
+if(x < 5) {
+  c = x - 1;
+}
+
+while(c < 4) {
+  y = y - 1;
+  c = c + 1;
+}

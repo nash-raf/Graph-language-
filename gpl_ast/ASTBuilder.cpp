@@ -75,26 +75,35 @@ int ASTBuilder::evaluate(ASTNodePtr node)
     throw std::runtime_error("wrongnode");
 }
 
-antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
-{
-    std::cout << "Visited program" << std::endl;
-    // Process functions first
-    for (auto func : ctx->function())
-    {
-        visitFunction(func);
+antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext* ctx) {
+  std::vector<ASTNodePtr> items;
+
+  // 1) collect function declarations
+  for (auto funcCtx : ctx->function()) {
+    auto fnAny  = visitFunction(funcCtx);
+    auto fnNode = safe_any_cast<ASTNodePtr>(fnAny, "visitProgram");
+    items.push_back(fnNode);
+  }
+
+  // 2) collect top‑level statements
+  for (auto stmtCtx : ctx->statement()) {
+    auto stAny  = visitStatement(stmtCtx);
+    // some statements return nullptr (e.g. varDecl returns nullptr after side‑effect),
+    // so guard with has_value & type check if you like.
+    if (stAny.has_value() && stAny.type() == typeid(ASTNodePtr)) {
+      items.push_back(safe_any_cast<ASTNodePtr>(stAny, "visitProgram"));
     }
-    // Then process statements
-    for (auto stmt : ctx->statement())
-    {
-        visitStatement(stmt);
-    }
-    std::cout << "Visited program" << std::endl;
-    return nullptr;
+  }
+
+  // 3) package into your root
+  auto prog = std::make_shared<ProgramNode>(std::move(items));
+  return prog;
 }
+
 
 antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
 {
-    std::cout << " visiting statement " << "\n";
+    std::cerr << " visiting statement " << "\n";
     if (ctx->printStatement())
     {
         // std::cout<<"before entering printxpr\n";
@@ -102,12 +111,12 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     }
     else if (ctx->varDecl())
     {
-        std::cout << "before visting varDeclr " << "\n";
+        std::cerr << "before visting varDeclr " << "\n";
         return visitVarDecl(ctx->varDecl());
     }
     else if (ctx->assignmentStatement())
     {
-        std::cout << " befoe entering assignment " << "\n";
+        std::cerr << " befoe entering assignment " << "\n";
         return visitAssignmentStatement(ctx->assignmentStatement());
     }
     else if (ctx->conditionalStatement())
@@ -127,7 +136,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         return visitFunctionCall(ctx->functionCall());
     }
 
-    std::cout << " ending statement " << "\n";
+    std::cerr << " ending statement " << "\n";
     return nullptr;
 }
 
@@ -156,67 +165,39 @@ antlrcpp::Any ASTBuilder::visitBlock(BaseParser::BlockContext *ctx)
     return std::static_pointer_cast<ASTNode>(blockNode);
 }
 
-antlrcpp::Any ASTBuilder::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx)
-{
-    bool cond = safe_any_cast<bool>(visitCondition(ctx->condition()));
+antlrcpp::Any ASTBuilder::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) {
+    ASTNodePtr condition = safe_any_cast<ASTNodePtr>(visitCondition(ctx->condition()));
+    
+    ASTNodePtr thenBlock = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block(0)));
+    ASTNodePtr elseBlock = nullptr;
+    if (ctx->block().size() > 1) {
+        elseBlock = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block(1)));
+    }
 
-    if (cond)
-    {
-        return visitBlock(ctx->block(0));
-    }
-    // else if (...)
-    if (ctx->conditionalStatement())
-    {
-        return visitConditionalStatement(ctx->conditionalStatement());
-    }
-    // else { … }
-    if (ctx->block(1))
-    {
-        return visitBlock(ctx->block(1));
-    }
-    return nullptr;
+    auto condNode = std::make_shared<ConditionalNode>(condition, thenBlock, elseBlock);
+    return std::static_pointer_cast<ASTNode>(condNode);
 }
 
 // Recursive eval of boolean conditions
-antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
-{
+antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx) {
     using Ctx = BaseParser;
-    if (auto a = dynamic_cast<Ctx::LogicalAndContext *>(ctx))
-    {
-        bool L = safe_any_cast<bool>(visitCondition(a->condition(0)));
-        bool R = safe_any_cast<bool>(visitCondition(a->condition(1)));
-        return L && R;
+    if (auto a = dynamic_cast<Ctx::LogicalAndContext *>(ctx)) {
+        ASTNodePtr left = safe_any_cast<ASTNodePtr>(visitCondition(a->condition(0)));
+        ASTNodePtr right = safe_any_cast<ASTNodePtr>(visitCondition(a->condition(1)));
+        return ASTNodePtr(std::make_shared<BinaryExprNode>("&&", left, right));
     }
-    if (auto o = dynamic_cast<Ctx::LogicalOrContext *>(ctx))
-    {
-        bool L = safe_any_cast<bool>(visitCondition(o->condition(0)));
-        bool R = safe_any_cast<bool>(visitCondition(o->condition(1)));
-        return L || R;
+    if (auto o = dynamic_cast<Ctx::LogicalOrContext *>(ctx)) {
+        ASTNodePtr left = safe_any_cast<ASTNodePtr>(visitCondition(o->condition(0)));
+        ASTNodePtr right = safe_any_cast<ASTNodePtr>(visitCondition(o->condition(1)));
+        return ASTNodePtr(std::make_shared<BinaryExprNode>("||", left, right));
     }
-    if (auto r = dynamic_cast<Ctx::RelationalContext *>(ctx))
-    {
-        ASTNodePtr Lnode = safe_any_cast<ASTNodePtr>(visitExpr(r->expr(0)));
-        ASTNodePtr Rnode = safe_any_cast<ASTNodePtr>(visitExpr(r->expr(1)));
-        int L = evaluate(Lnode);
-        int R = evaluate(Rnode);
-        std::string op = r->EQUAL() ? "==" : r->NOTEQUAL()   ? "!="
-                                         : r->LESSEQUAL()    ? "<="
-                                         : r->GREATEREQUAL() ? ">="
-                                         : r->LESSTHAN()     ? "<"
-                                         : r->GREATERTHAN()  ? ">"
-                                                             : "";
-        if (op == "==")
-            return L == R;
-        if (op == "!=")
-            return L != R;
-        if (op == "<")
-            return L < R;
-        if (op == ">")
-            return L > R;
-        if (op == "<=")
-            return L <= R;
-        if (op == ">=")
-            return L >= R;
+    if (auto r = dynamic_cast<Ctx::RelationalContext *>(ctx)) {
+        ASTNodePtr left = safe_any_cast<ASTNodePtr>(visitExpr(r->expr(0)));
+        ASTNodePtr right = safe_any_cast<ASTNodePtr>(visitExpr(r->expr(1)));
+        std::string op = r->EQUAL() ? "==" : r->NOTEQUAL() ? "!=" :
+                         r->LESSEQUAL() ? "<=" : r->GREATEREQUAL() ? ">=" :
+                         r->LESSTHAN() ? "<" : r->GREATERTHAN() ? ">" : "";
+        return ASTNodePtr(std::make_shared<BinaryExprNode>(op, left, right));
     }
     throw std::runtime_error("Unsupported condition: " + ctx->getText());
 }
@@ -231,15 +212,14 @@ antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitWhileStatement(BaseParser::WhileStatementContext *ctx)
 {
-    while (true)
-    {
-        bool cond = safe_any_cast<bool>(visitCondition(ctx->condition()));
-        if (!cond)
-            break;
-        visitBlock(ctx->block());
-    }
-    return nullptr;
+    // build the sub‐trees
+    ASTNodePtr cond = safe_any_cast<ASTNodePtr>(visitCondition(ctx->condition()));
+    ASTNodePtr blk  = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block()));
+    // return a WhileStmtNode
+    auto whileNode = std::make_shared<WhileStmtNode>(cond, blk);
+    return std::static_pointer_cast<ASTNode>(whileNode);
 }
+
 
 antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
 {
@@ -317,15 +297,13 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
     if (auto sd = dynamic_cast<BaseParser::SimpleDeclarationContext *>(ctx))
     {
         std::string name = sd->ID()->getText();
-        int value = 0;
-        if (sd->expr())
-        {
-            ASTNodePtr exprNode = safe_any_cast<ASTNodePtr>(visitExpr(sd->expr()));
-            value = evaluate(exprNode);
+        ASTNodePtr init = nullptr;
+        if (sd->expr()) {
+            init = safe_any_cast<ASTNodePtr>(visitExpr(sd->expr()));
         }
-        symbolTable[name] = value;
-        std::cout << "[VarDecl] " << name << " = " << value << "\n";
-        return nullptr;
+        auto declNode = std::make_shared<VarDeclNode>(name, init);
+        //std::cout << "[VarDecl] " << name << " = " << value << "\n";
+        return std::static_pointer_cast<ASTNode>(declNode);
     }
     else if (auto arrayDecl = dynamic_cast<BaseParser::ArrayDeclarationContext *>(ctx))
     {
@@ -384,24 +362,11 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
     return nullptr;
 }
 
-antlrcpp::Any ASTBuilder::visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx)
-{
+antlrcpp::Any ASTBuilder::visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) {
     std::string name = ctx->ID()->getText();
-
-    if (symbolTable.find(name) == symbolTable.end())
-    {
-        throw std::runtime_error("Assign to undefined variable: " + name);
-    }
-
-    // Build and evaluate the RHS expression
     ASTNodePtr exprNode = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
-    int value = evaluate(exprNode);
-
-    // Update symbol table
-    symbolTable[name] = value;
-    std::cout << "[Assign] " << name << " = " << value << "\n";
-
-    return nullptr;
+    auto assignNode = std::make_shared<AssignmentStmtNode>(name, exprNode);
+    return std::static_pointer_cast<ASTNode>(assignNode);
 }
 
 antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)

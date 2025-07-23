@@ -2,6 +2,21 @@
 /*
 print (3+4);
 
+
+int a = 10;
+
+fn int printHello() {
+    
+    return 3;
+}
+
+    int x = a + 5;
+    // call another function
+    int j = printHello();
+    
+
+
+
 int x = 8+9;
 print (x);
 print(x+1);

@@ -306,59 +306,45 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
         return std::static_pointer_cast<ASTNode>(declNode);
     }
     else if (auto arrayDecl = dynamic_cast<BaseParser::ArrayDeclarationContext *>(ctx))
-    {
-        // Get arrayDeclarator child first
-        auto declarator = arrayDecl->arrayDeclarator();
-        if (!declarator)
-            throw std::runtime_error("Missing arrayDeclarator in array declaration");
+{
+    // Extract the name and (static) size
+    auto declarator = arrayDecl->arrayDeclarator();
+    if (!declarator)
+        throw std::runtime_error("Missing arrayDeclarator in array declaration");
 
-        // The ID is inside the declarator node
-        std::string name;
-
-        if (auto sizedArray = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
-        {
-            name = sizedArray->ID()->getText();
-            // use INT token if needed: sizedArray->INT()->getText()
-        }
-        else if (auto unsizedArray = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
-        {
-            name = unsizedArray->ID()->getText();
-        }
-        else
-        {
-            throw std::runtime_error("Unknown arrayDeclarator type");
-        }
-
-        // Then get the optional initializer
-        auto initializer = arrayDecl->arrayInitializer();
-
-        std::vector<ASTNodePtr> elements;
-        if (initializer)
-        {
-            // get expressions inside the initializer
-            for (auto elem : initializer->expr())
-            {
-                ASTNodePtr elemNode = safe_any_cast<ASTNodePtr>(visitExpr(elem));
-                elements.push_back(elemNode); // store unevaluated
-            }
-        }
-
-        arrayTable[name] = elements; // store unevaluated nodes
-
-        std::cout << "[ArrayDecl] " << name << " = [";
-        for (const auto &elem : arrayTable[name])
-        {
-            try
-            {
-                std::cout << evaluate(elem) << " "; // print values
-            }
-            catch (...)
-            {
-                std::cout << "? ";
-            }
-        }
-        std::cout << "]\n";
+    std::string name;
+    int size = 0;
+    if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator)) {
+        name = sized->ID()->getText();
+        size = std::stoi(sized->INT()->getText());
+    } else if (auto unsized = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator)) {
+        name = unsized->ID()->getText();
+        // For now, we’ll treat unsized like sized=0 (must have initializer to infer size)
+    } else {
+        throw std::runtime_error("Unknown arrayDeclarator type");
     }
+
+    // Build the vector of initializer AST nodes
+    std::vector<ASTNodePtr> elems;
+    if (auto initCtx = arrayDecl->arrayInitializer()) {
+        for (auto *eCtx : initCtx->expr()) {
+            elems.push_back( safe_any_cast<ASTNodePtr>( visitExpr(eCtx) ) );
+        }
+    }
+
+    // If no explicit size was given, infer it from the initializer list
+    if (size == 0) {
+        size = static_cast<int>(elems.size());
+    }
+
+    // Wrap the element list in an ArrayLiteralNode
+    auto arrayLit = std::make_shared<ArrayLiteralNode>(elems);
+
+    // Finally, return a VarDeclNode carrying that literal
+    return std::static_pointer_cast<ASTNode>(
+        std::make_shared<VarDeclNode>(name, arrayLit)
+    );
+}
     return nullptr;
 }
 

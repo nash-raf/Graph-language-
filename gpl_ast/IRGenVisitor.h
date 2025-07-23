@@ -4,6 +4,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
+#include <unordered_map>
 
 #include "ASTNode.h"
 
@@ -26,14 +27,17 @@ public:
     void visitReturnStmt(ReturnStmtNode* ret);
     void visitStatement(ASTNode* node);
     void visitWhile(WhileStmtNode* ws);
+    void visitFunctionDecl(FunctionDeclNode *funcDecl);
+    
 
 private:
     llvm::LLVMContext &Context;
     llvm::Module &Module;
     llvm::IRBuilder<> &Builder;
 
-    std::unordered_map<std::string, llvm::AllocaInst *> NamedValues;
+    std::unordered_map<std::string, llvm::Function*> FunctionProtos;
 
+    std::unordered_map<std::string, llvm::AllocaInst *> NamedValues;
     llvm::AllocaInst *createEntryBlockAlloca(llvm::Function *function, const std::string &name)
     {
         llvm::IRBuilder<> tmpBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());

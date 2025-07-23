@@ -340,10 +340,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         );
 
         // 4) load the i32 element
-        return Builder.CreateLoad(elemPtr->getType()->getPointerElementType(),
-                                  elemPtr,
-                                  "loadelem");
-      }
+auto *elemTy = llvm::cast<llvm::GetElementPtrInst>(elemPtr)->getSourceElementType();
+return Builder.CreateLoad(elemTy, elemPtr, "loadelem");      }
     default:
         throw std::runtime_error("Unsupported expression type in IRGenVisitor");
     }

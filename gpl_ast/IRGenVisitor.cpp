@@ -166,25 +166,60 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
     Builder.CreateStore(rhsVal, alloca);
 }
 
-llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
-{
-    // Create an alloca for the variable in the entry block of the current function
+llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl) {
     llvm::Function *currentFunction = Builder.GetInsertBlock()->getParent();
-    llvm::AllocaInst *alloca = createEntryBlockAlloca(currentFunction, decl->name);
 
-    if (decl->initializer != nullptr)
+    // --- 1) Handle array-initializers first ---
+    if (decl->initializer
+        && decl->initializer->type == ASTNodeType::ArrayLiteral)
     {
+        auto *arrLit = static_cast<ArrayLiteralNode*>(decl->initializer.get());
+        size_t N = arrLit->elements.size();
+
+        // Build the LLVM array type [N x i32]
+        llvm::ArrayType *arrTy = llvm::ArrayType::get(Builder.getInt32Ty(), N);
+
+        // Create alloca in the entry block manually with arrTy
+        // (we need a small IRBuilder positioned at entry)
+        llvm::IRBuilder<> tmpB(&currentFunction->getEntryBlock(),
+                              currentFunction->getEntryBlock().begin());
+        llvm::AllocaInst *arrAlloca =
+            tmpB.CreateAlloca(arrTy, nullptr, decl->name);
+
+        // Store each initializer element
+        for (size_t i = 0; i < N; ++i) {
+            llvm::Value *val = visitExpr(arrLit->elements[i].get());
+            llvm::Value *gep = Builder.CreateGEP(
+                arrTy, arrAlloca,
+                {
+                  Builder.getInt32(0),
+                  Builder.getInt32(static_cast<int>(i))
+                },
+                decl->name + "_elem");
+            Builder.CreateStore(val, gep);
+        }
+
+        NamedValues[decl->name] = arrAlloca;
+        return arrAlloca;
+    }
+
+    // --- 2) Fallback scalar path ---
+    llvm::AllocaInst *scalarAlloca =
+        createEntryBlockAlloca(currentFunction, decl->name);
+
+    if (decl->initializer) {
         llvm::Value *initVal = visitExpr(decl->initializer.get());
-        Builder.CreateStore(initVal, alloca);
-    }
-    else
-    {
-        Builder.CreateStore(llvm::ConstantInt::get(Builder.getInt32Ty(), 0), alloca);
+        Builder.CreateStore(initVal, scalarAlloca);
+    } else {
+        Builder.CreateStore(llvm::ConstantInt::get(
+                                Builder.getInt32Ty(), 0),
+                            scalarAlloca);
     }
 
-    NamedValues[decl->name] = alloca;
-    return alloca;
+    NamedValues[decl->name] = scalarAlloca;
+    return scalarAlloca;
 }
+
 
 void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 {
@@ -284,6 +319,31 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             throw std::runtime_error("Unsupported binary operator: " + bin->op);
         }
     }
+    case ASTNodeType::ArrayAccess: {
+        auto *A = static_cast<ArrayAccessNode*>(expr);
+        // 1) find the alloca for the base array
+        auto it = NamedValues.find( static_cast<VariableNode*>(A->arrayExpr.get())->name );
+        if (it == NamedValues.end())
+          throw std::runtime_error("Undefined array in access");
+        llvm::AllocaInst *baseAlloca = it->second;
+
+        // 2) compute the index
+        llvm::Value *idxVal = visitExpr(A->indexExpr.get());
+
+        // 3) build GEP: first index=0 (the array), then index=idxVal
+        llvm::ArrayType *arrTy = llvm::cast<llvm::ArrayType>( baseAlloca->getAllocatedType() );
+        llvm::Value *elemPtr = Builder.CreateGEP(
+            arrTy,
+            baseAlloca,
+            { Builder.getInt32(0), idxVal },
+            "elemptr"
+        );
+
+        // 4) load the i32 element
+        return Builder.CreateLoad(elemPtr->getType()->getPointerElementType(),
+                                  elemPtr,
+                                  "loadelem");
+      }
     default:
         throw std::runtime_error("Unsupported expression type in IRGenVisitor");
     }

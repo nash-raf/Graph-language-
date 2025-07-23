@@ -4,6 +4,39 @@
 
 void IRGenVisitor::visitProgram(ProgramNodePtr prog)
 {
+
+    for (auto &node : prog->topLevel) {
+        if (node->type == ASTNodeType::FunctionDecl) {
+            auto *FD = static_cast<FunctionDeclNode*>(node.get());
+
+            // Collect parameter types (all i32 for now)
+            std::vector<llvm::Type*> paramTys;
+            for (size_t i = 0; i < FD->parameters.size(); ++i) {
+                paramTys.push_back(Builder.getInt32Ty());
+            }
+
+            // Determine return type
+            llvm::Type *retTy;
+            if (FD->returnType == "void") {
+                retTy = llvm::Type::getVoidTy(Context);
+            } else {
+                retTy = Builder.getInt32Ty();
+            }
+
+            // Create the function prototype and insert into the module
+            llvm::FunctionType *funcType =
+                llvm::FunctionType::get(retTy, paramTys, /*isVarArg=*/false);
+            llvm::Function *fn =
+                llvm::Function::Create(funcType,
+                                       llvm::Function::ExternalLinkage,
+                                       FD->name,
+                                       &Module);
+
+            // Remember it for later call-site lookups
+            FunctionProtos[FD->name] = fn;
+        }
+    }
+
     //Create: int main()
     auto *intTy = Builder.getInt32Ty();
     auto *mainFT = llvm::FunctionType::get(intTy, /*isVarArg=*/false);
@@ -46,6 +79,65 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
     Builder.CreateRet(llvm::ConstantInt::get(intTy, 0));
 
     llvm::verifyFunction(*mainF, &llvm::errs());
+    for (auto &node : prog->topLevel) {
+        if (node->type == ASTNodeType::FunctionDecl) {
+            visitFunctionDecl(static_cast<FunctionDeclNode*>(node.get()));
+        }
+    }
+}
+
+void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl) {
+    // 1) Grab the LLVM Function* from your prototype map
+    llvm::Function *function = FunctionProtos[funcDecl->name];
+    assert(function && "No prototype for function");
+
+    // 2) Create entry block and set builder
+    llvm::BasicBlock *BB = llvm::BasicBlock::Create(Context, "entry", function);
+    Builder.SetInsertPoint(BB);
+
+    // 3) New scope for locals/params
+    NamedValues.clear();
+
+    // 4) Allocate space for each parameter and store the incoming arg
+    unsigned idx = 0;
+    for (auto &arg : function->args()) {
+        // Name it
+        arg.setName(funcDecl->parameters[idx]->paramName);
+
+        // Create an alloca in entry
+        llvm::AllocaInst *alloca =
+            createEntryBlockAlloca(function, arg.getName().str());
+
+        // Store the initial argument value into our alloca
+        Builder.CreateStore(&arg, alloca);
+
+        // Remember it for lookups in the body
+        NamedValues[arg.getName().str()] = alloca;
+        idx++;
+    }
+
+    // 5) Lower the function body statements
+    auto *bodyBlock = static_cast<BlockStmtNode*>(funcDecl->body.get());
+    for (auto &stmt : bodyBlock->statements) {
+        visitStatement(stmt.get());
+    }
+
+    // 6) If no explicit return (and non-void), insert a default
+    if (!Builder.GetInsertBlock()->getTerminator()) {
+        if (funcDecl->returnType == "void") {
+            Builder.CreateRetVoid();
+        } else {
+            Builder.CreateRet(
+  llvm::ConstantInt::get(
+    Builder.getInt32Ty(),  // <-- no Context here
+    0
+  )
+);
+        }
+    }
+
+    // 7) Verify this function
+    llvm::verifyFunction(*function, &llvm::errs());
 }
 
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
@@ -118,15 +210,21 @@ void IRGenVisitor::visitStatement(ASTNode *node)
     case ASTNodeType::BlockStmt:
         visitBlock(dynamic_cast<BlockStmtNode *>(node));
         break;
+    // case ASTNodeType::ReturnStmt:
+    //     visitReturnStmt(static_cast<ReturnStmtNode*>(node));
+    //     break;
     case ASTNodeType::WhileStmt:
         visitWhile(static_cast<WhileStmtNode *>(node));
         break;
-
+    
     default:
         std::cerr << "Unsupported statement type.\n";
         break;
     }
 }
+
+
+
 
 void IRGenVisitor::visitBlock(BlockStmtNode *block)
 {
@@ -319,6 +417,22 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             throw std::runtime_error("Unsupported binary operator: " + bin->op);
         }
     }
+    case ASTNodeType::FunctionCall: {
+        auto *FC = static_cast<FunctionCallNode*>(expr);
+        // Lookup the prototype
+        llvm::Function *callee = FunctionProtos[FC->name];
+        if (!callee)
+            throw std::runtime_error("Unknown function: " + FC->name);
+
+        // Evaluate arguments
+        std::vector<llvm::Value*> args;
+        for (auto &argNode : FC->arguments) {
+            args.push_back(visitExpr(argNode.get()));
+        }
+
+        return Builder.CreateCall(callee, args, "calltmp");
+    }
+
     case ASTNodeType::ArrayAccess: {
         auto *A = static_cast<ArrayAccessNode*>(expr);
         // 1) find the alloca for the base array

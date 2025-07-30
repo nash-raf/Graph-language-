@@ -12,6 +12,8 @@
 
 // Hash function for Edge_t
 
+
+
 size_t h(const Edge_t& e) {
 
     int s_ = e.s < e.t ? e.s : e.t;

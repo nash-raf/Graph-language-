@@ -94,6 +94,8 @@ removeOperation: 'remove' removeTargets 'from' graphID ';';
 addTargets: nodeID | edge | nodeList | edgeList;
 removeTargets: nodeID | edge | nodeList | edgeList;
 
+
+
 queryStatement: 'query' ID ':' STRING 'of' graphID ';';
 
 showgraph: 'show' graphID ';';

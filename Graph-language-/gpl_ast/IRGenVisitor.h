@@ -39,6 +39,7 @@ public:
     void visitWhile(WhileStmtNode *ws);
     void visitFunctionDecl(FunctionDeclNode *funcDecl);
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
+    void visitQuery(QueryNode *Q);
 
 private:
     llvm::LLVMContext &Context;

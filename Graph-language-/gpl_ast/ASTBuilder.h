@@ -24,6 +24,9 @@ public:
     antlrcpp::Any visitGraphDef(BaseParser::GraphDefContext *ctx) override;
 
 
+
+    antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext* ctx) override;
+
     
 
     antlrcpp::Any visitPrintExpr(BaseParser::PrintExprContext *ctx) override;

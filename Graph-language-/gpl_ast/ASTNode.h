@@ -28,7 +28,8 @@ enum class ASTNodeType
   Param,
   GraphDecl,
   EdgeList,
-  NodeList
+  NodeList,
+  QueryNode
 };
 
 template <typename T>
@@ -340,13 +341,28 @@ public:
   }
 
   // debug
-  std::cerr << "[GraphDeclNode] CSR row_ptr =";
-  for (auto x : row_ptr) std::cerr << " " << x;
-  std::cerr << "\n[GraphDeclNode] CSR col_idx =";
-  for (auto x : col_idx) std::cerr << " " << x;
-  std::cerr << "\n";
+  // std::cerr << "[GraphDeclNode] CSR row_ptr =";
+  // for (auto x : row_ptr) std::cerr << " " << x;
+  // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
+  // for (auto x : col_idx) std::cerr << " " << x;
+  // std::cerr << "\n";
 
   }
 };
+
+
+
+class QueryNode : public ASTNode {
+public:
+  std::string queryName;
+  std::string queryDesc;
+  std::string graphName;
+  QueryNode(const std::string &n, const std::string &d, const std::string &g)
+    : ASTNode(ASTNodeType::QueryNode),
+      queryName(n), queryDesc(d), graphName(g) {}
+};
+
+
+
 
 #endif // ASTNODE_H

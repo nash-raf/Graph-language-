@@ -144,6 +144,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         // produce a GraphDeclNode
         return visitGraphDef(ctx->graphDef());
     }
+    else if (ctx->queryStatement()) {
+        return visitQueryStatement(ctx->queryStatement());
+    }
+
 
     std::cerr << " ending statement " << "\n";
     return nullptr;
@@ -642,9 +646,23 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
         std::move(nd),
         std::move(ed));
 
-    std::cerr << "[visitGraphDef] name=" << nm
-              << " nodes=" << ctx->nodes()->getText()
-              << " edges=" << ctx->edges()->getText() << "\n";
+    // std::cerr << "[visitGraphDef] name=" << nm
+    //           << " nodes=" << ctx->nodes()->getText()
+    //           << " edges=" << ctx->edges()->getText() << "\n";
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
+
+
+
+antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext* ctx) {
+  std::cout<<" entered visit query statement \n ";
+  
+    std::string name     = ctx->ID()->getText();
+  std::string desc     = ctx->STRING()->getText();
+  desc = desc.substr(1, desc.size()-2);      // strip quotes
+  std::string gname    = ctx->graphID()->getText();
+  auto node = std::make_shared<QueryNode>(name, desc, gname);
+  return std::static_pointer_cast<ASTNode>(node);
+}
+

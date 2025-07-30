@@ -71,6 +71,9 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "cinttypes": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "complex": "cpp",
+        "source_location": "cpp",
+        "typeindex": "cpp"
     }
 }

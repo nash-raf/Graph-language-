@@ -2,6 +2,7 @@
 #include <iostream>
 #include "ASTNode.h"
 #include <stdexcept>
+#include <vector>
 
 int ASTBuilder::evaluate(ASTNodePtr node)
 {
@@ -75,31 +76,34 @@ int ASTBuilder::evaluate(ASTNodePtr node)
     throw std::runtime_error("wrongnode");
 }
 
-antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext* ctx) {
-  std::vector<ASTNodePtr> items;
+antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
+{
+    std::vector<ASTNodePtr> items;
 
-  // 1) collect function declarations
-  for (auto funcCtx : ctx->function()) {
-    auto fnAny  = visitFunction(funcCtx);
-    auto fnNode = safe_any_cast<ASTNodePtr>(fnAny, "visitProgram");
-    items.push_back(fnNode);
-  }
-
-  // 2) collect top‑level statements
-  for (auto stmtCtx : ctx->statement()) {
-    auto stAny  = visitStatement(stmtCtx);
-    // some statements return nullptr (e.g. varDecl returns nullptr after side‑effect),
-    // so guard with has_value & type check if you like.
-    if (stAny.has_value() && stAny.type() == typeid(ASTNodePtr)) {
-      items.push_back(safe_any_cast<ASTNodePtr>(stAny, "visitProgram"));
+    // 1) collect function declarations
+    for (auto funcCtx : ctx->function())
+    {
+        auto fnAny = visitFunction(funcCtx);
+        auto fnNode = safe_any_cast<ASTNodePtr>(fnAny, "visitProgram");
+        items.push_back(fnNode);
     }
-  }
 
-  // 3) package into your root
-  auto prog = std::make_shared<ProgramNode>(std::move(items));
-  return prog;
+    // 2) collect top‑level statements
+    for (auto stmtCtx : ctx->statement())
+    {
+        auto stAny = visitStatement(stmtCtx);
+        // some statements return nullptr (e.g. varDecl returns nullptr after side‑effect),
+        // so guard with has_value & type check if you like.
+        if (stAny.has_value() && stAny.type() == typeid(ASTNodePtr))
+        {
+            items.push_back(safe_any_cast<ASTNodePtr>(stAny, "visitProgram"));
+        }
+    }
+
+    // 3) package into your root
+    auto prog = std::make_shared<ProgramNode>(std::move(items));
+    return prog;
 }
-
 
 antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
 {
@@ -135,6 +139,11 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitFunctionCall(ctx->functionCall());
     }
+    else if (ctx->graphDef())
+    {
+        // produce a GraphDeclNode
+        return visitGraphDef(ctx->graphDef());
+    }
 
     std::cerr << " ending statement " << "\n";
     return nullptr;
@@ -165,12 +174,14 @@ antlrcpp::Any ASTBuilder::visitBlock(BaseParser::BlockContext *ctx)
     return std::static_pointer_cast<ASTNode>(blockNode);
 }
 
-antlrcpp::Any ASTBuilder::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) {
+antlrcpp::Any ASTBuilder::visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx)
+{
     ASTNodePtr condition = safe_any_cast<ASTNodePtr>(visitCondition(ctx->condition()));
-    
+
     ASTNodePtr thenBlock = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block(0)));
     ASTNodePtr elseBlock = nullptr;
-    if (ctx->block().size() > 1) {
+    if (ctx->block().size() > 1)
+    {
         elseBlock = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block(1)));
     }
 
@@ -179,24 +190,31 @@ antlrcpp::Any ASTBuilder::visitConditionalStatement(BaseParser::ConditionalState
 }
 
 // Recursive eval of boolean conditions
-antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx) {
+antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
+{
     using Ctx = BaseParser;
-    if (auto a = dynamic_cast<Ctx::LogicalAndContext *>(ctx)) {
+    if (auto a = dynamic_cast<Ctx::LogicalAndContext *>(ctx))
+    {
         ASTNodePtr left = safe_any_cast<ASTNodePtr>(visitCondition(a->condition(0)));
         ASTNodePtr right = safe_any_cast<ASTNodePtr>(visitCondition(a->condition(1)));
         return ASTNodePtr(std::make_shared<BinaryExprNode>("&&", left, right));
     }
-    if (auto o = dynamic_cast<Ctx::LogicalOrContext *>(ctx)) {
+    if (auto o = dynamic_cast<Ctx::LogicalOrContext *>(ctx))
+    {
         ASTNodePtr left = safe_any_cast<ASTNodePtr>(visitCondition(o->condition(0)));
         ASTNodePtr right = safe_any_cast<ASTNodePtr>(visitCondition(o->condition(1)));
         return ASTNodePtr(std::make_shared<BinaryExprNode>("||", left, right));
     }
-    if (auto r = dynamic_cast<Ctx::RelationalContext *>(ctx)) {
+    if (auto r = dynamic_cast<Ctx::RelationalContext *>(ctx))
+    {
         ASTNodePtr left = safe_any_cast<ASTNodePtr>(visitExpr(r->expr(0)));
         ASTNodePtr right = safe_any_cast<ASTNodePtr>(visitExpr(r->expr(1)));
-        std::string op = r->EQUAL() ? "==" : r->NOTEQUAL() ? "!=" :
-                         r->LESSEQUAL() ? "<=" : r->GREATEREQUAL() ? ">=" :
-                         r->LESSTHAN() ? "<" : r->GREATERTHAN() ? ">" : "";
+        std::string op = r->EQUAL() ? "==" : r->NOTEQUAL()   ? "!="
+                                         : r->LESSEQUAL()    ? "<="
+                                         : r->GREATEREQUAL() ? ">="
+                                         : r->LESSTHAN()     ? "<"
+                                         : r->GREATERTHAN()  ? ">"
+                                                             : "";
         return ASTNodePtr(std::make_shared<BinaryExprNode>(op, left, right));
     }
     throw std::runtime_error("Unsupported condition: " + ctx->getText());
@@ -214,12 +232,11 @@ antlrcpp::Any ASTBuilder::visitWhileStatement(BaseParser::WhileStatementContext 
 {
     // build the sub‐trees
     ASTNodePtr cond = safe_any_cast<ASTNodePtr>(visitCondition(ctx->condition()));
-    ASTNodePtr blk  = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block()));
+    ASTNodePtr blk = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block()));
     // return a WhileStmtNode
     auto whileNode = std::make_shared<WhileStmtNode>(cond, blk);
     return std::static_pointer_cast<ASTNode>(whileNode);
 }
-
 
 antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
 {
@@ -298,71 +315,66 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
     {
         std::string name = sd->ID()->getText();
         ASTNodePtr init = nullptr;
-        if (sd->expr()) {
+        if (sd->expr())
+        {
             init = safe_any_cast<ASTNodePtr>(visitExpr(sd->expr()));
         }
         auto declNode = std::make_shared<VarDeclNode>(name, init);
-        //std::cout << "[VarDecl] " << name << " = " << value << "\n";
+        // std::cout << "[VarDecl] " << name << " = " << value << "\n";
         return std::static_pointer_cast<ASTNode>(declNode);
     }
     else if (auto arrayDecl = dynamic_cast<BaseParser::ArrayDeclarationContext *>(ctx))
     {
-        // Get arrayDeclarator child first
+        // Extract the name and (static) size
         auto declarator = arrayDecl->arrayDeclarator();
         if (!declarator)
             throw std::runtime_error("Missing arrayDeclarator in array declaration");
 
-        // The ID is inside the declarator node
         std::string name;
-
-        if (auto sizedArray = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
+        int size = 0;
+        if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
         {
-            name = sizedArray->ID()->getText();
-            // use INT token if needed: sizedArray->INT()->getText()
+            name = sized->ID()->getText();
+            size = std::stoi(sized->INT()->getText());
         }
-        else if (auto unsizedArray = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
+        else if (auto unsized = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
         {
-            name = unsizedArray->ID()->getText();
+            name = unsized->ID()->getText();
+            // For now, we’ll treat unsized like sized=0 (must have initializer to infer size)
         }
         else
         {
             throw std::runtime_error("Unknown arrayDeclarator type");
         }
 
-        // Then get the optional initializer
-        auto initializer = arrayDecl->arrayInitializer();
-
-        std::vector<ASTNodePtr> elements;
-        if (initializer)
+        // Build the vector of initializer AST nodes
+        std::vector<ASTNodePtr> elems;
+        if (auto initCtx = arrayDecl->arrayInitializer())
         {
-            // get expressions inside the initializer
-            for (auto elem : initializer->expr())
+            for (auto *eCtx : initCtx->expr())
             {
-                ASTNodePtr elemNode = safe_any_cast<ASTNodePtr>(visitExpr(elem));
-                elements.push_back(elemNode); // store unevaluated
+                elems.push_back(safe_any_cast<ASTNodePtr>(visitExpr(eCtx)));
             }
         }
 
-        arrayTable[name] = elements; // store unevaluated nodes
-
-        std::cout << "[ArrayDecl] " << name << " = [";
-        for (const auto &elem : arrayTable[name])
+        // If no explicit size was given, infer it from the initializer list
+        if (size == 0)
         {
-            try
-            {
-                std::cout << evaluate(elem) << " "; // print values
-            }
-            catch (...)
-            {
-                std::cout << "? ";
-            }
+            size = static_cast<int>(elems.size());
         }
-        std::cout << "]\n";
+
+        // Wrap the element list in an ArrayLiteralNode
+        auto arrayLit = std::make_shared<ArrayLiteralNode>(elems);
+
+        // Finally, return a VarDeclNode carrying that literal
+        return std::static_pointer_cast<ASTNode>(
+            std::make_shared<VarDeclNode>(name, arrayLit));
     }
     return nullptr;
 }
 
-antlrcpp::Any ASTBuilder::visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) {
+antlrcpp::Any ASTBuilder::visitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx)
+{
     std::string name = ctx->ID()->getText();
     ASTNodePtr exprNode = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
     auto assignNode = std::make_shared<AssignmentStmtNode>(name, exprNode);
@@ -380,16 +392,16 @@ antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)
         std::string paramName = paramCtx->ID()->getText();
         std::string paramType = paramCtx->type()->getText();
         params.push_back(std::make_shared<ParamNode>(paramType, paramName));
-        std::cout << "[Param] " << paramType << " " << paramName << "\n";
+        std::cerr << "[Param] " << paramType << " " << paramName << "\n";
     }
-    std::cout << "[FunctionDecl] " << returnType << " " << name << "(";
+    std::cerr << "[FunctionDecl] " << returnType << " " << name << "(";
     for (const auto &param : params)
     {
-        std::cout << param->typeName << " " << param->paramName;
+        std::cerr << param->typeName << " " << param->paramName;
         if (&param != &params.back())
-            std::cout << ", ";
+            std::cerr << ", ";
     }
-    std::cout << ")\n";
+    std::cerr << ")\n";
 
     ASTNodePtr body = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block()));
 
@@ -400,22 +412,22 @@ antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)
         std::move(body));
 
     // Debug: Verify parameters in funcNode
-    std::cout << "[FunctionNode Parameters] ";
+    std::cerr << "[FunctionNode Parameters] ";
     for (const auto &param : funcNode->parameters)
     {
-        std::cout << param->paramName << " ";
+        std::cerr << param->paramName << " ";
     }
-    std::cout << "\n";
+    std::cerr << "\n";
 
     functionTable[funcNode->name] = funcNode;
 
     // Debug: Verify parameters in functionTable
-    std::cout << "[FunctionTable Entry] " << funcNode->name << " parameters: ";
+    std::cerr << "[FunctionTable Entry] " << funcNode->name << " parameters: ";
     for (const auto &param : functionTable[funcNode->name]->parameters)
     {
-        std::cout << param->paramName << " ";
+        std::cerr << param->paramName << " ";
     }
-    std::cout << "\n";
+    std::cerr << "\n";
 
     return std::static_pointer_cast<ASTNode>(funcNode);
 }
@@ -567,28 +579,72 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
             args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(exprCtx)));
         }
 
-        std::cout << "[FunctionCall] " << callee << "(";
+        std::cerr << "[FunctionCall] " << callee << "(";
         for (size_t i = 0; i < args.size(); ++i)
         {
             ASTNodePtr arg = args[i];
             if (auto lit = dynamic_cast<IntLiteralNode *>(arg.get()))
-                std::cout << lit->value;
+                std::cerr << lit->value;
             else if (auto var = dynamic_cast<VariableNode *>(arg.get()))
-                std::cout << var->name;
+                std::cerr << var->name;
             else if (auto bin = dynamic_cast<BinaryExprNode *>(arg.get()))
-                std::cout << bin->op << " (" << evaluate(bin->lhs)
+                std::cerr << bin->op << " (" << evaluate(bin->lhs)
                           << ", " << evaluate(bin->rhs) << ")";
             else if (auto fc = dynamic_cast<FunctionCallNode *>(arg.get()))
-                std::cout << fc->name << "()";
+                std::cerr << fc->name << "()";
             else
-                std::cout << "UnknownArg";
+                std::cerr << "UnknownArg";
 
             if (i + 1 < args.size())
-                std::cout << ", ";
+                std::cerr << ", ";
         }
-        std::cout << ")\n";
+        std::cerr << ")\n";
     }
 
     return ASTNodePtr{
         std::make_shared<FunctionCallNode>(callee, std::move(args))};
+}
+
+antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
+{
+    std::string nm = ctx->graphID()->getText();
+
+    // nodesChild
+    std::unique_ptr<NodeListNode> nd;
+    if (ctx->nodes())
+    {
+        std::vector<int> ids;
+        for (auto *idT : ctx->nodes()->nodeList()->nodeID())
+            ids.push_back(std::stoi(idT->getText()));
+        nd = std::make_unique<InlineNodeList>(std::move(ids));
+    }
+    else
+    {
+        throw std::runtime_error("graph must have nodes:");
+    }
+
+    // edgesChild
+    std::unique_ptr<EdgeListNode> ed;
+    auto fe = ctx->edges()->fileEdgeList();
+    if (fe)
+    {
+        std::string s = fe->STRING()->getText();
+        s = s.substr(1, s.size() - 2);
+        ed = std::make_unique<FileEdgeList>(std::move(s));
+    }
+    else
+    {
+        throw std::runtime_error("graph must have edges:");
+    }
+
+    auto gnode = std::make_shared<GraphDeclNode>(
+        std::move(nm),
+        std::move(nd),
+        std::move(ed));
+
+    std::cerr << "[visitGraphDef] name=" << nm
+              << " nodes=" << ctx->nodes()->getText()
+              << " edges=" << ctx->edges()->getText() << "\n";
+
+    return std::static_pointer_cast<ASTNode>(gnode);
 }

@@ -21,6 +21,7 @@ public:
     antlrcpp::Any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext* ctx) override;
     antlrcpp::Any visitFunction(BaseParser::FunctionContext* ctx) override;
     antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
+    antlrcpp::Any visitGraphDef(BaseParser::GraphDefContext *ctx) override;
 
 
     

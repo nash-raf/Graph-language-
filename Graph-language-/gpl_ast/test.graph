@@ -1,11 +1,12 @@
-int x = 5;
-int y = 5 * x;
-int c = 0;
-if(x < 5) {
-  c = x - 1;
+
+
+fn int lol() {
+  return 5;
 }
 
-while(c < 4) {
-  y = y - 1;
-  c = c + 1;
-}
+int j  = lol();
+
+graph h{
+    nodes: 0,1,2;
+    edges: file "g.txt";
+};

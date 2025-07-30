@@ -15,35 +15,42 @@
 using namespace antlr4;
 
 int main(int argc, const char* argv[]) {
-    // 1) Read the source
-    std::ifstream stream("test.graph");
-    if (!stream) {
-        std::cerr << "Failed to open test.graph\n";
+    //Read the source
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <input-file>" << std::endl;
         return 1;
     }
 
-    // 2) Lex & parse
+    // Read the input file
+    std::ifstream stream(argv[1]);
+    if (!stream) {
+        std::cerr << "Cannot open file: " << argv[1] << std::endl;
+        return 1;
+    }
+
+
+    //Lex & parse
     ANTLRInputStream input(stream);
     BaseLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     BaseParser parser(&tokens);
     BaseParser::ProgramContext* tree = parser.program();
 
-    // 3) Build the AST
+    //Build the AST
     ASTBuilder builder;
     auto anyRoot  = builder.visitProgram(tree);
     auto progRoot = std::any_cast<ProgramNodePtr>(anyRoot);
 
-    // 4) Set up LLVM
+    //Set up LLVM
     llvm::LLVMContext Context;
     auto TheModule = std::make_unique<llvm::Module>("my_module", Context);
     llvm::IRBuilder<> Builder(Context);
 
-    // 5) Generate IR
+    //Generate IR
     IRGenVisitor irgen(Context, *TheModule, Builder);
     irgen.visitProgram(progRoot);
 
-    // 6) Print the IR to stdout
+    //Print the IR to stdout
     TheModule->print(llvm::outs(), nullptr);
 
     return 0;

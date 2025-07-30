@@ -4,7 +4,46 @@
 
 void IRGenVisitor::visitProgram(ProgramNodePtr prog)
 {
-    //Create: int main()
+
+    for (auto &node : prog->topLevel)
+    {
+        if (node->type == ASTNodeType::FunctionDecl)
+        {
+            auto *FD = static_cast<FunctionDeclNode *>(node.get());
+
+            // Collect parameter types (all i32 for now)
+            std::vector<llvm::Type *> paramTys;
+            for (size_t i = 0; i < FD->parameters.size(); ++i)
+            {
+                paramTys.push_back(Builder.getInt32Ty());
+            }
+
+            // Determine return type
+            llvm::Type *retTy;
+            if (FD->returnType == "void")
+            {
+                retTy = llvm::Type::getVoidTy(Context);
+            }
+            else
+            {
+                retTy = Builder.getInt32Ty();
+            }
+
+            // Create the function prototype and insert into the module
+            llvm::FunctionType *funcType =
+                llvm::FunctionType::get(retTy, paramTys, /*isVarArg=*/false);
+            llvm::Function *fn =
+                llvm::Function::Create(funcType,
+                                       llvm::Function::ExternalLinkage,
+                                       FD->name,
+                                       &Module);
+
+            // Remember it for later call-site lookups
+            FunctionProtos[FD->name] = fn;
+        }
+    }
+
+    // Create: int main()
     auto *intTy = Builder.getInt32Ty();
     auto *mainFT = llvm::FunctionType::get(intTy, /*isVarArg=*/false);
     auto *mainF = llvm::Function::Create(
@@ -13,11 +52,11 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         "main",
         &Module);
 
-    //Entry block
+    // Entry block
     auto *BB = llvm::BasicBlock::Create(Context, "entry", mainF);
     Builder.SetInsertPoint(BB);
 
-    //Lower every top‑level AST node
+    // Lower every top‑level AST node
     for (auto &node : prog->topLevel)
     {
         switch (node->type)
@@ -36,16 +75,87 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::WhileStmt:
             visitWhile(static_cast<WhileStmtNode *>(node.get()));
             break;
+        case ASTNodeType::GraphDecl:
+            // Lower graph h { … }
+            visitGraphDecl(static_cast<GraphDeclNode *>(node.get()));
+            break;
+
         default:
             // ignore or handle other kinds
             break;
         }
     }
 
-    //Return 0
+    // Return 0
     Builder.CreateRet(llvm::ConstantInt::get(intTy, 0));
 
     llvm::verifyFunction(*mainF, &llvm::errs());
+    for (auto &node : prog->topLevel)
+    {
+        if (node->type == ASTNodeType::FunctionDecl)
+        {
+            visitFunctionDecl(static_cast<FunctionDeclNode *>(node.get()));
+        }
+    }
+}
+
+void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
+{
+    // 1) Grab the LLVM Function* from your prototype map
+    llvm::Function *function = FunctionProtos[funcDecl->name];
+    assert(function && "No prototype for function");
+
+    // 2) Create entry block and set builder
+    llvm::BasicBlock *BB = llvm::BasicBlock::Create(Context, "entry", function);
+    Builder.SetInsertPoint(BB);
+
+    // 3) New scope for locals/params
+    NamedValues.clear();
+
+    // 4) Allocate space for each parameter and store the incoming arg
+    unsigned idx = 0;
+    for (auto &arg : function->args())
+    {
+        // Name it
+        arg.setName(funcDecl->parameters[idx]->paramName);
+
+        // Create an alloca in entry
+        llvm::AllocaInst *alloca =
+            createEntryBlockAlloca(function, arg.getName().str());
+
+        // Store the initial argument value into our alloca
+        Builder.CreateStore(&arg, alloca);
+
+        // Remember it for lookups in the body
+        NamedValues[arg.getName().str()] = alloca;
+        idx++;
+    }
+
+    // 5) Lower the function body statements
+    auto *bodyBlock = static_cast<BlockStmtNode *>(funcDecl->body.get());
+    for (auto &stmt : bodyBlock->statements)
+    {
+        visitStatement(stmt.get());
+    }
+
+    // 6) If no explicit return (and non-void), insert a default
+    if (!Builder.GetInsertBlock()->getTerminator())
+    {
+        if (funcDecl->returnType == "void")
+        {
+            Builder.CreateRetVoid();
+        }
+        else
+        {
+            Builder.CreateRet(
+                llvm::ConstantInt::get(
+                    Builder.getInt32Ty(), // <-- no Context here
+                    0));
+        }
+    }
+
+    // 7) Verify this function
+    llvm::verifyFunction(*function, &llvm::errs());
 }
 
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
@@ -118,6 +228,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
     case ASTNodeType::BlockStmt:
         visitBlock(dynamic_cast<BlockStmtNode *>(node));
         break;
+    // case ASTNodeType::ReturnStmt:
+    //     visitReturnStmt(static_cast<ReturnStmtNode*>(node));
+    //     break;
     case ASTNodeType::WhileStmt:
         visitWhile(static_cast<WhileStmtNode *>(node));
         break;
@@ -168,22 +281,58 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
 
 llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
 {
-    // Create an alloca for the variable in the entry block of the current function
     llvm::Function *currentFunction = Builder.GetInsertBlock()->getParent();
-    llvm::AllocaInst *alloca = createEntryBlockAlloca(currentFunction, decl->name);
 
-    if (decl->initializer != nullptr)
+    // --- 1) Handle array-initializers first ---
+    if (decl->initializer && decl->initializer->type == ASTNodeType::ArrayLiteral)
+    {
+        auto *arrLit = static_cast<ArrayLiteralNode *>(decl->initializer.get());
+        size_t N = arrLit->elements.size();
+
+        // Build the LLVM array type [N x i32]
+        llvm::ArrayType *arrTy = llvm::ArrayType::get(Builder.getInt32Ty(), N);
+
+        // Create alloca in the entry block manually with arrTy
+        // (we need a small IRBuilder positioned at entry)
+        llvm::IRBuilder<> tmpB(&currentFunction->getEntryBlock(),
+                               currentFunction->getEntryBlock().begin());
+        llvm::AllocaInst *arrAlloca =
+            tmpB.CreateAlloca(arrTy, nullptr, decl->name);
+
+        // Store each initializer element
+        for (size_t i = 0; i < N; ++i)
+        {
+            llvm::Value *val = visitExpr(arrLit->elements[i].get());
+            llvm::Value *gep = Builder.CreateGEP(
+                arrTy, arrAlloca,
+                {Builder.getInt32(0),
+                 Builder.getInt32(static_cast<int>(i))},
+                decl->name + "_elem");
+            Builder.CreateStore(val, gep);
+        }
+
+        NamedValues[decl->name] = arrAlloca;
+        return arrAlloca;
+    }
+
+    // --- 2) Fallback scalar path ---
+    llvm::AllocaInst *scalarAlloca =
+        createEntryBlockAlloca(currentFunction, decl->name);
+
+    if (decl->initializer)
     {
         llvm::Value *initVal = visitExpr(decl->initializer.get());
-        Builder.CreateStore(initVal, alloca);
+        Builder.CreateStore(initVal, scalarAlloca);
     }
     else
     {
-        Builder.CreateStore(llvm::ConstantInt::get(Builder.getInt32Ty(), 0), alloca);
+        Builder.CreateStore(llvm::ConstantInt::get(
+                                Builder.getInt32Ty(), 0),
+                            scalarAlloca);
     }
 
-    NamedValues[decl->name] = alloca;
-    return alloca;
+    NamedValues[decl->name] = scalarAlloca;
+    return scalarAlloca;
 }
 
 void IRGenVisitor::visitWhile(WhileStmtNode *ws)
@@ -284,7 +433,188 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             throw std::runtime_error("Unsupported binary operator: " + bin->op);
         }
     }
+    case ASTNodeType::FunctionCall:
+    {
+        auto *FC = static_cast<FunctionCallNode *>(expr);
+        // Lookup the prototype
+        llvm::Function *callee = FunctionProtos[FC->name];
+        if (!callee)
+            throw std::runtime_error("Unknown function: " + FC->name);
+
+        // Evaluate arguments
+        std::vector<llvm::Value *> args;
+        for (auto &argNode : FC->arguments)
+        {
+            args.push_back(visitExpr(argNode.get()));
+        }
+
+        return Builder.CreateCall(callee, args, "calltmp");
+    }
+
+    case ASTNodeType::ArrayAccess:
+    {
+        auto *A = static_cast<ArrayAccessNode *>(expr);
+        // 1) find the alloca for the base array
+        auto it = NamedValues.find(static_cast<VariableNode *>(A->arrayExpr.get())->name);
+        if (it == NamedValues.end())
+            throw std::runtime_error("Undefined array in access");
+        llvm::AllocaInst *baseAlloca = it->second;
+
+        // 2) compute the index
+        llvm::Value *idxVal = visitExpr(A->indexExpr.get());
+
+        // 3) build GEP: first index=0 (the array), then index=idxVal
+        llvm::ArrayType *arrTy = llvm::cast<llvm::ArrayType>(baseAlloca->getAllocatedType());
+        llvm::Value *elemPtr = Builder.CreateGEP(
+            arrTy,
+            baseAlloca,
+            {Builder.getInt32(0), idxVal},
+            "elemptr");
+
+        // 4) load the i32 element
+        auto *elemTy = llvm::cast<llvm::GetElementPtrInst>(elemPtr)->getSourceElementType();
+        return Builder.CreateLoad(elemTy, elemPtr, "loadelem");
+    }
     default:
         throw std::runtime_error("Unsupported expression type in IRGenVisitor");
     }
+}
+
+llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
+{
+    auto *I64 = llvm::Type::getInt64Ty(Context);
+    auto *I32 = llvm::Type::getInt32Ty(Context);
+    auto *arrRP = llvm::ArrayType::get(I64, G->row_ptr.size());
+    auto *arrCI = llvm::ArrayType::get(I32, G->col_idx.size());
+
+    llvm::SmallVector<llvm::Constant *, 16> rpConsts;
+    for (auto x : G->row_ptr)
+    {
+        rpConsts.push_back(llvm::ConstantInt::get(I64, x));
+    }
+    auto *RPArray = llvm::ConstantArray::get(arrRP, rpConsts);
+
+    llvm::SmallVector<llvm::Constant *, 16> ciConsts;
+    for (auto x : G->col_idx)
+    {
+        ciConsts.push_back(llvm::ConstantInt::get(I32, x));
+    }
+    auto *CIArray = llvm::ConstantArray::get(arrCI, ciConsts);
+
+    auto *GV_RP = new llvm::GlobalVariable(
+        Module, arrRP, true, llvm::GlobalValue::InternalLinkage,
+        RPArray, G->name + "_csr_row");
+
+    auto *GV_CI = new llvm::GlobalVariable(
+        Module, arrCI, true, llvm::GlobalValue::InternalLinkage,
+        CIArray, G->name + "_csr_col");
+
+    auto *mallocTy = llvm::FunctionType::get(
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+        {llvm::Type::getInt64Ty(Context)},
+        false);
+
+    llvm::FunctionCallee mallocCalle = Module.getOrInsertFunction("malloc", mallocTy);
+    llvm::Function *mallocFn = llvm::cast<llvm::Function>(mallocCalle.getCallee());
+
+    uint64_t rowBytes = G->row_ptr.size() * sizeof(int64_t);
+    uint64_t colBytes = G->col_idx.size() * sizeof(int32_t);
+
+    llvm::Value *rpRaw = Builder.CreateCall(
+        mallocFn, llvm::ConstantInt::get(I64, rowBytes), "rp_raw");
+    llvm::Value *rowPtr = Builder.CreateBitCast(
+        rpRaw, llvm::PointerType::getUnqual(I64), "row_ptr");
+
+    llvm::Value *ciRaw = Builder.CreateCall(
+        mallocFn, llvm::ConstantInt::get(I64, colBytes), "ci_raw");
+    llvm::Value *colPtr = Builder.CreateBitCast(
+        ciRaw, llvm::PointerType::getUnqual(I32), "col_ptr");
+
+    llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr,
+                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr,
+                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *src_rp = Builder.CreateBitCast(GV_RP,
+                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
+                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+
+    // Define the memcpy intrinsic type
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *memcpyTy = llvm::Intrinsic::getDeclaration(
+        &Module, llvm::Intrinsic::memcpy,
+        {i8PtrTy, i8PtrTy, i64Ty});
+
+    // Define the volatility flag as i1
+    auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
+
+    // Perform the memcpy calls with correct argument types
+    Builder.CreateCall(memcpyTy, {rp_i8, src_rp, llvm::ConstantInt::get(I64, rowBytes), volatileFlag}, "");
+    Builder.CreateCall(memcpyTy, {ci_i8, src_ci, llvm::ConstantInt::get(I64, colBytes), volatileFlag}, "");
+
+    //Build the malloc prototype for allocating the Graph struct
+    llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)), // returns i8*
+        {Builder.getInt64Ty()},                                       // takes an i64 size
+        false);
+
+    llvm::FunctionCallee mallocCalleeG =
+        Module.getOrInsertFunction("malloc", mallocFT_graph);
+    llvm::Function *mallocFnG =
+        llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
+
+    //Compute sizeof(struct.Graph)
+    uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
+    llvm::Value *graphSizeC =
+        llvm::ConstantInt::get(Builder.getInt64Ty(), graphSize);
+
+    //Call malloc(graphSize)
+    llvm::Value *rawGraph = Builder.CreateCall(
+        mallocFnG,
+        graphSizeC,
+        "graph_raw");
+
+    //Cast i8* → %struct.Graph*
+    llvm::Value *graphPtr = Builder.CreateBitCast(
+        rawGraph,
+        GraphTy->getPointerTo(),
+        "graph_ptr");
+
+    //GEP + store into field 0: n
+    {
+        // element 0 is the vertex count 'n'
+        llvm::Value *nPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 0, "g_n_ptr");
+        Builder.CreateStore(
+            llvm::ConstantInt::get(Builder.getInt64Ty(), G->n),
+            nPtr);
+    }
+
+    //GEP + store into field 1: m
+    {
+        llvm::Value *mPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 1, "g_m_ptr");
+        Builder.CreateStore(
+            llvm::ConstantInt::get(Builder.getInt64Ty(), G->m),
+            mPtr);
+    }
+
+    //GEP + store into field 2: row_ptr
+    {
+        llvm::Value *rpPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 2, "g_rp_ptr");
+        Builder.CreateStore(rowPtr, rpPtr);
+    }
+
+    //GEP + store into field 3: col_idx
+    {
+        llvm::Value *ciPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 3, "g_ci_ptr");
+        Builder.CreateStore(colPtr, ciPtr);
+    }
+
+    GraphMap[G->name] = graphPtr;
+
+    return graphPtr;
 }

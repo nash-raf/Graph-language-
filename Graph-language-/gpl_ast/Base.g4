@@ -5,6 +5,7 @@ program: (statement | function)* EOF;
 
 GRAPH: 'graph';
 
+
 // Statements
 statement:
 	graphDef

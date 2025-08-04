@@ -8,13 +8,10 @@ source_filename = "my_module"
 
 define i32 @main() {
 entry:
-  %0 = mul i64 %n_val, 1
-  %rawVisited = call ptr @malloc(i64 %0)
-  %1 = mul i64 %n_val, 4
-  %rawQueue = call ptr @malloc(i64 %1)
   %head = alloca i32, align 4
   %tail = alloca i32, align 4
-  %i = alloca i64, align 8
+  %i5 = alloca i64, align 8
+  %i = alloca i32, align 4
   %rp_raw = call ptr @malloc(i64 347784)
   %ci_raw = call ptr @malloc(i64 1296704)
   call void @llvm.memcpy.p0.p0.i64(ptr %rp_raw, ptr @g_csr_row, i64 347784, i1 false)
@@ -28,29 +25,45 @@ entry:
   store ptr %rp_raw, ptr %g_rp_ptr, align 8
   %g_ci_ptr = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 3
   store ptr %ci_raw, ptr %g_ci_ptr, align 8
-  %g_n_ptr1 = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 0
-  %g_rp_ptr2 = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 2
-  %g_ci_ptr3 = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 3
-  %n_val = load i64, ptr %g_n_ptr1, align 4
-  %row_ptr = load ptr, ptr %g_rp_ptr2, align 8
-  %col_idx = load ptr, ptr %g_ci_ptr3, align 8
+  store i32 50000, ptr %i, align 4
+  br label %loopcond
+
+loopcond:                                         ; preds = %bfs.exit, %entry
+  %i1 = load i32, ptr %i, align 4
+  %gttmp = icmp sgt i32 %i1, 0
+  br i1 %gttmp, label %loopbody, label %loopmerge
+
+loopbody:                                         ; preds = %loopcond
+  %g_n_ptr2 = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 0
+  %g_rp_ptr3 = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 2
+  %g_ci_ptr4 = getelementptr inbounds nuw %struct.Graph, ptr %graph_raw, i32 0, i32 3
+  %n_val = load i64, ptr %g_n_ptr2, align 4
+  %row_ptr = load ptr, ptr %g_rp_ptr3, align 8
+  %col_idx = load ptr, ptr %g_ci_ptr4, align 8
+  %0 = mul i64 %n_val, 1
+  %rawVisited = call ptr @malloc(i64 %0)
+  %1 = mul i64 %n_val, 4
+  %rawQueue = call ptr @malloc(i64 %1)
   store i32 0, ptr %head, align 4
   store i32 0, ptr %tail, align 4
-  %q0ptr = getelementptr ptr, ptr %rawQueue, i32 0, i32 0
+  %q0ptr = getelementptr i32, ptr %rawQueue, i32 0
   store i32 0, ptr %q0ptr, align 4
-  %v0ptr = getelementptr ptr, ptr %rawVisited, i32 0, i32 0
+  %v0ptr = getelementptr i1, ptr %rawVisited, i32 0
   store i1 true, ptr %v0ptr, align 1
   store i32 1, ptr %tail, align 4
   br label %bfs.cond
 
-bfs.cond:                                         ; preds = %bfs.for.exit, %entry
+loopmerge:                                        ; preds = %loopcond
+  ret i32 0
+
+bfs.cond:                                         ; preds = %bfs.for.exit, %loopbody
   %h = load i32, ptr %head, align 4
   %t = load i32, ptr %tail, align 4
   %cond = icmp slt i32 %h, %t
   br i1 %cond, label %bfs.body, label %bfs.exit
 
 bfs.body:                                         ; preds = %bfs.cond
-  %uqptr = getelementptr ptr, ptr %rawQueue, i32 0, i32 %h
+  %uqptr = getelementptr i32, ptr %rawQueue, i32 %h
   %u = load i32, ptr %uqptr, align 4
   %2 = add i32 %h, 1
   store i32 %2, ptr %head, align 4
@@ -63,36 +76,26 @@ bfs.body:                                         ; preds = %bfs.cond
   br label %bfs.for.init
 
 bfs.exit:                                         ; preds = %bfs.cond
-  ret i32 0
+  %i6 = load i32, ptr %i, align 4
+  %subtmp = sub i32 %i6, 1
+  store i32 %subtmp, ptr %i, align 4
+  br label %loopcond
 
 bfs.for.init:                                     ; preds = %bfs.body
-  store i64 %rp_u, ptr %i, align 4
+  store i64 %rp_u, ptr %i5, align 4
   br label %bfs.for.body
 
-bfs.for.body:                                     ; preds = %bfs.for.exit, %bfs.for.body, %bfs.for.init
-  %i4 = load i64, ptr %i, align 4
-  %innerCond = icmp slt i64 %i4, %rp_u1
-  br i1 %innerCond, label %bfs.for.body, label %bfs.for.exit
-  %ciPtr = getelementptr ptr, ptr %col_idx, i64 %i4
-  %v = load i32, ptr %ciPtr, align 4
-  %vp = getelementptr ptr, ptr %rawVisited, i32 0, i32 %v
-  %was = load i1, ptr %vp, align 1
-  %7 = xor i1 %was, true
-  br i1 %7, label %bfs.enqueue, label %bfs.for.exit
+bfs.for.body:                                     ; preds = %bfs.for.init
+  %iVal = load i64, ptr %i5, align 4
+  %innerCond = icmp slt i64 %iVal, %rp_u1
+  br i1 %innerCond, label %bfs.enqueue, label %bfs.for.exit
 
-bfs.for.exit:                                     ; preds = %bfs.enqueue, %bfs.for.body, %bfs.for.body
-  %8 = add i64 %i4, 1
-  store i64 %8, ptr %i, align 4
-  br label %bfs.for.body
+bfs.for.exit:                                     ; preds = %bfs.enqueue, %bfs.for.body
+  %7 = add i64 %iVal, 1
+  store i64 %7, ptr %i5, align 4
   br label %bfs.cond
 
 bfs.enqueue:                                      ; preds = %bfs.for.body
-  %t0 = load i32, ptr %tail, align 4
-  %qq = getelementptr ptr, ptr %rawQueue, i32 0, i32 %t0
-  store i32 %v, ptr %qq, align 4
-  %9 = add i32 %t0, 1
-  store i32 %9, ptr %tail, align 4
-  store i1 true, ptr %vp, align 1
   br label %bfs.for.exit
 }
 
@@ -102,5 +105,3 @@ declare ptr @malloc(i64)
 declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
 
 attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
- entered visit query statement 
- 

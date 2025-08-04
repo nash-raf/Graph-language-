@@ -5,4 +5,9 @@ graph g {
   edges: file "g.txt";
 };
 
-query Q : "bfs" of g;
+
+int i = 50000;
+while(i > 0) {
+  query Q : "bfs" of g;
+  i = i-1;
+}

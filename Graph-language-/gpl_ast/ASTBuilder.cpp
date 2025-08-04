@@ -656,7 +656,7 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
 
 
 antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext* ctx) {
-  std::cout<<" entered visit query statement \n ";
+  std::cerr<<" entered visit query statement \n ";
   
     std::string name     = ctx->ID()->getText();
   std::string desc     = ctx->STRING()->getText();

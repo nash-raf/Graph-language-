@@ -107,7 +107,7 @@ antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
 {
-    std::cerr << " visiting statement " << "\n";
+    //std::cerr << " visiting statement " << "\n";
     if (ctx->printStatement())
     {
         // std::cout<<"before entering printxpr\n";
@@ -115,12 +115,12 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     }
     else if (ctx->varDecl())
     {
-        std::cerr << "before visting varDeclr " << "\n";
+        //std::cerr << "before visting varDeclr " << "\n";
         return visitVarDecl(ctx->varDecl());
     }
     else if (ctx->assignmentStatement())
     {
-        std::cerr << " befoe entering assignment " << "\n";
+        //std::cerr << " befoe entering assignment " << "\n";
         return visitAssignmentStatement(ctx->assignmentStatement());
     }
     else if (ctx->conditionalStatement())
@@ -149,7 +149,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         return visitQueryStatement(ctx->queryStatement());
     }
 
-    std::cerr << " ending statement " << "\n";
+    //std::cerr << " ending statement " << "\n";
     return nullptr;
 }
 
@@ -396,16 +396,16 @@ antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)
         std::string paramName = paramCtx->ID()->getText();
         std::string paramType = paramCtx->type()->getText();
         params.push_back(std::make_shared<ParamNode>(paramType, paramName));
-        std::cerr << "[Param] " << paramType << " " << paramName << "\n";
+        //std::cerr << "[Param] " << paramType << " " << paramName << "\n";
     }
-    std::cerr << "[FunctionDecl] " << returnType << " " << name << "(";
-    for (const auto &param : params)
-    {
-        std::cerr << param->typeName << " " << param->paramName;
-        if (&param != &params.back())
-            std::cerr << ", ";
-    }
-    std::cerr << ")\n";
+    //std::cerr << "[FunctionDecl] " << returnType << " " << name << "(";
+    // for (const auto &param : params)
+    // {
+    //     //std::cerr << param->typeName << " " << param->paramName;
+    //     if (&param != &params.back())
+    //         //std::cerr << ", ";
+    // }
+    //std::cerr << ")\n";
 
     ASTNodePtr body = safe_any_cast<ASTNodePtr>(visitBlock(ctx->block()));
 
@@ -416,22 +416,22 @@ antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)
         std::move(body));
 
     // Debug: Verify parameters in funcNode
-    std::cerr << "[FunctionNode Parameters] ";
+    //std::cerr << "[FunctionNode Parameters] ";
     for (const auto &param : funcNode->parameters)
     {
-        std::cerr << param->paramName << " ";
+        //std::cerr << param->paramName << " ";
     }
-    std::cerr << "\n";
+    //std::cerr << "\n";
 
     functionTable[funcNode->name] = funcNode;
 
     // Debug: Verify parameters in functionTable
-    std::cerr << "[FunctionTable Entry] " << funcNode->name << " parameters: ";
-    for (const auto &param : functionTable[funcNode->name]->parameters)
-    {
-        std::cerr << param->paramName << " ";
-    }
-    std::cerr << "\n";
+    //std::cerr << "[FunctionTable Entry] " << funcNode->name << " parameters: ";
+    // for (const auto &param : functionTable[funcNode->name]->parameters)
+    // {
+    //     //std::cerr << param->paramName << " ";
+    // }
+    //std::cerr << "\n";
 
     return std::static_pointer_cast<ASTNode>(funcNode);
 }
@@ -454,7 +454,7 @@ antlrcpp::Any ASTBuilder::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContex
 
     // Update the symbol table with the new value at the specified index
     symbolTable[arrayName + "[" + std::to_string(index) + "]"] = value;
-    std::cout << "[ArrayAssign] " << arrayName << "[" << index << "] = " << value << "\n";
+    //std::cout << "[ArrayAssign] " << arrayName << "[" << index << "] = " << value << "\n";
 
     return nullptr;
 }
@@ -498,20 +498,20 @@ antlrcpp::Any ASTBuilder::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContex
 
 antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 {
-    std::cout << "Entering PrintExpr\n";
+    //std::cout << "Entering PrintExpr\n";
 
     if (ctx->STRING())
     {
         std::string str = ctx->STRING()->getText();
         str = str.substr(1, str.size() - 2);
-        std::cout << "ASTBuilder STRING: " << str << "\n";
+        //std::cout << "ASTBuilder STRING: " << str << "\n";
         return str;
     }
     else if (ctx->expr())
     {
-        std::cout << "ASTBuilder Visiting inner expr\n";
+        //std::cout << "ASTBuilder Visiting inner expr\n";
         auto node = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
-        std::cout << "ASTBuilder exitinng inner expr\n";
+        //std::cout << "ASTBuilder exitinng inner expr\n";
         return node;
     }
     else if (ctx->printExpr(0) && ctx->printExpr(1))
@@ -583,26 +583,26 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
             args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(exprCtx)));
         }
 
-        std::cerr << "[FunctionCall] " << callee << "(";
-        for (size_t i = 0; i < args.size(); ++i)
-        {
-            ASTNodePtr arg = args[i];
-            if (auto lit = dynamic_cast<IntLiteralNode *>(arg.get()))
-                std::cerr << lit->value;
-            else if (auto var = dynamic_cast<VariableNode *>(arg.get()))
-                std::cerr << var->name;
-            else if (auto bin = dynamic_cast<BinaryExprNode *>(arg.get()))
-                std::cerr << bin->op << " (" << evaluate(bin->lhs)
-                          << ", " << evaluate(bin->rhs) << ")";
-            else if (auto fc = dynamic_cast<FunctionCallNode *>(arg.get()))
-                std::cerr << fc->name << "()";
-            else
-                std::cerr << "UnknownArg";
+        //std::cerr << "[FunctionCall] " << callee << "(";
+        // for (size_t i = 0; i < args.size(); ++i)
+        // {
+        //     ASTNodePtr arg = args[i];
+        //     if (auto lit = dynamic_cast<IntLiteralNode *>(arg.get()))
+        //        // std::cerr << lit->value;
+        //     else if (auto var = dynamic_cast<VariableNode *>(arg.get()))
+        //         //std::cerr << var->name;
+        //     else if (auto bin = dynamic_cast<BinaryExprNode *>(arg.get()))
+        //         //std::cerr << bin->op << " (" << evaluate(bin->lhs)
+        //                   << ", " << evaluate(bin->rhs) << ")";
+        //     else if (auto fc = dynamic_cast<FunctionCallNode *>(arg.get()))
+        //        // std::cerr << fc->name << "()";
+        //     else
+        //         //std::cerr << "UnknownArg";
 
-            if (i + 1 < args.size())
-                std::cerr << ", ";
-        }
-        std::cerr << ")\n";
+        //     if (i + 1 < args.size())
+        //         //std::cerr << ", ";
+        // }
+        //std::cerr << ")\n";
     }
 
     return ASTNodePtr{
@@ -655,7 +655,7 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext *ctx)
 {
-    std::cerr << " entered visit query statement \n ";
+    //std::cerr << " entered visit query statement \n ";
 
     std::string name = ctx->ID()->getText();
     std::string desc = ctx->STRING()->getText();

@@ -70,11 +70,7 @@ echo ">>> Plugin CombinedPlugin.so built"
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [4] Generating LLVM IR from ${GPL_SRC} ==="
-  ./GraphProgram "${GPL_SRC}" | awk '
-    /^=== Generated LLVM IR ===/ { p=1; next }
-    /^===/                      { p=0 }
-    p
-  ' > "${IR_SRC}"
+  ./GraphProgram "${GPL_SRC}" > "${IR_SRC}"
 
   file "${IR_SRC}"
   echo ">>> IR written to ${IR_SRC}"

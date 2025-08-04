@@ -1,0 +1,27 @@
+digraph main_dep_graph {
+  rankdir=TB;
+  node [shape=box];
+  node9 [label="  store i32 0, ptr %i, align 4"];
+  node2 [label="  %i9 = load i32, ptr %i, align 4"];
+  node8 [label="  %0 = call i32 (ptr, ...) @printf(ptr @.fmt_int, i32 %it3)"];
+  node4 [label="  %it1 = load i32, ptr %it, align 4"];
+  node3 [label="  store i32 %addtmp10, ptr %i, align 4"];
+  node1 [label="  %i7 = load i32, ptr %i, align 4"];
+  node7 [label="  %it3 = load i32, ptr %it, align 4"];
+  node6 [label="  store i32 %addtmp, ptr %it, align 4"];
+  node5 [label="  %it2 = load i32, ptr %it, align 4"];
+  node1 -> node2 [label="RAR_loop_independent", color="blue", style="solid"];
+  node1 -> node3 [label="WAR_loop_independent", color="blue", style="solid"];
+  node2 -> node3 [label="WAR_loop_independent", color="blue", style="solid"];
+  node4 -> node5 [label="RAR_loop_independent", color="blue", style="solid"];
+  node4 -> node6 [label="WAR_loop_independent", color="blue", style="solid"];
+  node5 -> node6 [label="WAR_loop_independent", color="blue", style="solid"];
+  node7 -> node8 [label="WAR_sequential", color="black", style="solid"];
+  node8 -> node9 [label="WAR_sequential", color="black", style="solid"];
+}
+
+=== Loop classification for function 'main' ===
+  Loop at block 'loopcond': DOALL
+  Loop at block 'loopcond4': DOALL
+=== end ===
+

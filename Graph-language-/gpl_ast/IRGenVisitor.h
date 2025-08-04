@@ -40,6 +40,7 @@ public:
     void visitFunctionDecl(FunctionDeclNode *funcDecl);
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
     void visitQuery(QueryNode *Q);
+    void visitPrintStmt(PrintStmtNode *PS);
 
 private:
     llvm::LLVMContext &Context;

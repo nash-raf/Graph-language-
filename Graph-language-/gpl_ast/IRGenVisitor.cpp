@@ -73,6 +73,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::Conditional:
             visitConditional(static_cast<ConditionalNode *>(node.get()));
             break;
+        case ASTNodeType::PrintStmt:
+            visitPrintStmt(static_cast<PrintStmtNode *>(node.get()));
+            break;
         case ASTNodeType::WhileStmt:
             visitWhile(static_cast<WhileStmtNode *>(node.get()));
             break;
@@ -237,6 +240,10 @@ void IRGenVisitor::visitStatement(ASTNode *node)
     case ASTNodeType::WhileStmt:
         visitWhile(static_cast<WhileStmtNode *>(node));
         break;
+    case ASTNodeType::PrintStmt:
+        visitPrintStmt(static_cast<PrintStmtNode *>(node));
+        break;
+
     case ASTNodeType::QueryNode:
         std::cerr << "Entered queryNODe\n";
         visitQuery(static_cast<QueryNode *>(node));
@@ -749,4 +756,76 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
 
     // Exit
     Builder.SetInsertPoint(exitBB);
+}
+
+void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
+{
+    // 1) Ensure printf is declared
+    llvm::Function *printfFn = Module.getFunction("printf");
+    if (!printfFn)
+    {
+        // int printf(char*, ...)
+        auto *i8p = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+        auto *printfTy = llvm::FunctionType::get(
+            /*Ret=*/Builder.getInt32Ty(),
+            /*Params=*/{i8p},
+            /*isVarArg=*/true);
+        printfFn = llvm::Function::Create(
+            printfTy,
+            llvm::Function::ExternalLinkage,
+            "printf",
+            &Module);
+    }
+
+    // 2) Prepare format string
+    llvm::Value *fmtPtr = nullptr;
+    llvm::Value *val = nullptr;
+
+    if (auto *lit = dynamic_cast<IntLiteralNode *>(PS->expr.get()))
+    {
+        // integer literal: we’ll just embed the value
+        val = llvm::ConstantInt::get(Builder.getInt32Ty(), lit->value);
+        // constant global: "%d\n\0"
+        static llvm::GlobalVariable *fmtInt = nullptr;
+        if (!fmtInt)
+        {
+            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+            fmtInt = new llvm::GlobalVariable(
+                Module, fmtTy, /*isConstant=*/true,
+                llvm::GlobalValue::PrivateLinkage,
+                llvm::ConstantDataArray::getString(Context, "%d\n", true),
+                ".fmt_int");
+        }
+        fmtPtr = Builder.CreateBitCast(fmtInt,
+                                       llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    }
+    else if (auto *var = dynamic_cast<VariableNode *>(PS->expr.get()))
+    {
+        // assume it's an int variable
+        llvm::Value *alloca = NamedValues[var->name];
+        val = Builder.CreateLoad(Builder.getInt32Ty(), alloca, var->name);
+        // same fmtInt as above
+        static llvm::GlobalVariable *fmtInt = nullptr;
+        if (!fmtInt)
+        {
+            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+            fmtInt = new llvm::GlobalVariable(
+                Module, fmtTy, true,
+                llvm::GlobalValue::PrivateLinkage,
+                llvm::ConstantDataArray::getString(Context, "%d\n", true),
+                ".fmt_int");
+        }
+        fmtPtr = Builder.CreateBitCast(fmtInt,
+                                       llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    }
+    else
+    {
+        // for string literals, extend similarly:
+        // extract the const char* from your AST’s StringLiteralNode...
+        // use "%s\n" format.
+        throw std::runtime_error("print: only int literals & vars supported so far");
+    }
+
+    // 3) Call printf(fmtPtr, val)
+    Builder.CreateCall(printfFn, {fmtPtr, val});
 }

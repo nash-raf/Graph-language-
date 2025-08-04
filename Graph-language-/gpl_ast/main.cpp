@@ -1,3 +1,4 @@
+// main.cpp
 #include <iostream>
 #include <fstream>
 
@@ -5,53 +6,73 @@
 #include "BaseLexer.h"
 #include "BaseParser.h"
 #include "ASTBuilder.h"
-#include "ASTNode.h"        // for ProgramNodePtr
-#include "IRGenVisitor.h"   // your LLVM‐backend visitor
+#include "ASTNode.h"
+#include "IRGenVisitor.h"
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/InitLLVM.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 
 using namespace antlr4;
+using namespace llvm;
+using namespace llvm::orc;
 
-int main(int argc, const char* argv[]) {
-    //Read the source
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <input-file>" << std::endl;
-        return 1;
-    }
+static cl::opt<bool> RunJIT("run", cl::desc("JIT-execute instead of just emit IR"));
+static cl::opt<std::string> InputFilename(
+    cl::Positional,
+    cl::desc("<input-file>"),
+    cl::Required);
+int main(int argc, char** argv) {
+  InitLLVM X(argc, argv);
+  cl::ParseCommandLineOptions(argc, argv);
+  std::ifstream in(InputFilename);
 
-    // Read the input file
-    std::ifstream stream(argv[1]);
-    if (!stream) {
-        std::cerr << "Cannot open file: " << argv[1] << std::endl;
-        return 1;
-    }
+  ANTLRInputStream input(in);
+  BaseLexer lexer(&input);
+  CommonTokenStream tokens(&lexer);
+  BaseParser parser(&tokens);
+  auto tree = parser.program();
 
+  // 2) Build AST
+  ASTBuilder astB;
+  auto progAny = astB.visitProgram(tree);
+  auto prog = std::any_cast<ProgramNodePtr>(progAny);
 
-    //Lex & parse
-    ANTLRInputStream input(stream);
-    BaseLexer lexer(&input);
-    CommonTokenStream tokens(&lexer);
-    BaseParser parser(&tokens);
-    BaseParser::ProgramContext* tree = parser.program();
+  // 3) Build LLVM IR
+  LLVMContext Ctx;
+  auto M = std::make_unique<Module>("my_module", Ctx);
+  IRBuilder<> IRB(Ctx);
+  IRGenVisitor irgen(Ctx, *M, IRB);
+  irgen.visitProgram(prog);
 
-    //Build the AST
-    ASTBuilder builder;
-    auto anyRoot  = builder.visitProgram(tree);
-    auto progRoot = std::any_cast<ProgramNodePtr>(anyRoot);
-
-    //Set up LLVM
-    llvm::LLVMContext Context;
-    auto TheModule = std::make_unique<llvm::Module>("my_module", Context);
-    llvm::IRBuilder<> Builder(Context);
-
-    //Generate IR
-    IRGenVisitor irgen(Context, *TheModule, Builder);
-    irgen.visitProgram(progRoot);
-
-    //Print the IR to stdout
-    TheModule->print(llvm::outs(), nullptr);
-
+  if (!RunJIT) {
+    // just dump IR
+    M->print(outs(), nullptr);
     return 0;
+  }
+
+  // 4) Initialize targets & build the JIT
+  InitializeNativeTarget();
+  InitializeNativeTargetAsmPrinter();
+  InitializeNativeTargetAsmParser();
+
+  auto J = cantFail(LLJITBuilder().create());
+
+  // ThreadSafeModule wants its own context
+  auto ExecCtx = std::make_unique<LLVMContext>();
+  cantFail(J->addIRModule(
+    ThreadSafeModule(std::move(M), std::move(ExecCtx))));
+
+  // Look up main() in the JIT
+  auto Sym = cantFail(J->lookup("main"));
+  using MainFn = int (*)();
+  auto *MainPtr = (MainFn)(intptr_t)Sym.getValue();
+  int code = MainPtr();
+  std::cout.flush();
+  return code;
 }

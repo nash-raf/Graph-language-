@@ -29,7 +29,8 @@ enum class ASTNodeType
   GraphDecl,
   EdgeList,
   NodeList,
-  QueryNode
+  QueryNode,
+  PrintStmt
 };
 
 template <typename T>
@@ -360,6 +361,14 @@ public:
   QueryNode(const std::string &n, const std::string &d, const std::string &g)
     : ASTNode(ASTNodeType::QueryNode),
       queryName(n), queryDesc(d), graphName(g) {}
+};
+
+class PrintStmtNode : public ASTNode {
+public:
+  ASTNodePtr expr;
+
+  PrintStmtNode(ASTNodePtr e)
+    : ASTNode(ASTNodeType::PrintStmt), expr(std::move(e)) {}
 };
 
 

@@ -144,10 +144,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         // produce a GraphDeclNode
         return visitGraphDef(ctx->graphDef());
     }
-    else if (ctx->queryStatement()) {
+    else if (ctx->queryStatement())
+    {
         return visitQueryStatement(ctx->queryStatement());
     }
-
 
     std::cerr << " ending statement " << "\n";
     return nullptr;
@@ -459,42 +459,42 @@ antlrcpp::Any ASTBuilder::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContex
     return nullptr;
 }
 
-antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
-{
-    auto result = visitPrintExpr(ctx->printExpr());
-    if (!result.has_value())
-        return nullptr;
+// antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
+// {
+//     auto result = visitPrintExpr(ctx->printExpr());
+//     if (!result.has_value())
+//         return nullptr;
 
-    // integer
-    if (result.type() == typeid(int))
-    {
-        std::cout << safe_any_cast<int>(result) << "\n";
-    }
-    // string literal
-    else if (result.type() == typeid(std::string))
-    {
-        std::cout << safe_any_cast<std::string>(result) << "\n";
-    }
-    // ASTNodePtr: variable or expression node
-    else if (result.type() == typeid(ASTNodePtr))
-    {
-        ASTNodePtr node = safe_any_cast<ASTNodePtr>(result);
-        // variable lookup
-        if (auto var = dynamic_cast<VariableNode *>(node.get()))
-        {
-            auto it = symbolTable.find(var->name);
-            if (it == symbolTable.end())
-                throw std::runtime_error("Undefined var: " + var->name);
-            std::cout << it->second << "\n";
-        }
-        else
-        {
-            // evaluate any other expr node
-            std::cout << evaluate(node) << "\n";
-        }
-    }
-    return nullptr;
-}
+//     // integer
+//     if (result.type() == typeid(int))
+//     {
+//         std::cout << safe_any_cast<int>(result) << "\n";
+//     }
+//     // string literal
+//     else if (result.type() == typeid(std::string))
+//     {
+//         std::cout << safe_any_cast<std::string>(result) << "\n";
+//     }
+//     // ASTNodePtr: variable or expression node
+//     else if (result.type() == typeid(ASTNodePtr))
+//     {
+//         ASTNodePtr node = safe_any_cast<ASTNodePtr>(result);
+//         // variable lookup
+//         if (auto var = dynamic_cast<VariableNode *>(node.get()))
+//         {
+//             auto it = symbolTable.find(var->name);
+//             if (it == symbolTable.end())
+//                 throw std::runtime_error("Undefined var: " + var->name);
+//             std::cout << it->second << "\n";
+//         }
+//         else
+//         {
+//             // evaluate any other expr node
+//             std::cout << evaluate(node) << "\n";
+//         }
+//     }
+//     return nullptr;
+// }
 
 antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 {
@@ -653,16 +653,32 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
     return std::static_pointer_cast<ASTNode>(gnode);
 }
 
+antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext *ctx)
+{
+    std::cerr << " entered visit query statement \n ";
 
-
-antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext* ctx) {
-  std::cerr<<" entered visit query statement \n ";
-  
-    std::string name     = ctx->ID()->getText();
-  std::string desc     = ctx->STRING()->getText();
-  desc = desc.substr(1, desc.size()-2);      // strip quotes
-  std::string gname    = ctx->graphID()->getText();
-  auto node = std::make_shared<QueryNode>(name, desc, gname);
-  return std::static_pointer_cast<ASTNode>(node);
+    std::string name = ctx->ID()->getText();
+    std::string desc = ctx->STRING()->getText();
+    desc = desc.substr(1, desc.size() - 2); // strip quotes
+    std::string gname = ctx->graphID()->getText();
+    auto node = std::make_shared<QueryNode>(name, desc, gname);
+    return std::static_pointer_cast<ASTNode>(node);
 }
 
+antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
+{
+    // 1) build the ASTNode for whatever was inside the print
+    ASTNodePtr inner;
+    if (ctx->printExpr())
+    {
+        inner = safe_any_cast<ASTNodePtr>(visitPrintExpr(ctx->printExpr()));
+    }
+    else
+    {
+        // handle printgraph / edge/node cases if you want…
+        throw std::runtime_error("printgraph not yet supported in ASTBuilder");
+    }
+
+    // 2) wrap in a PrintStmtNode
+    return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
+}

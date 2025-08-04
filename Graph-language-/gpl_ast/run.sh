@@ -149,9 +149,8 @@ fi
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [8] Running GraphProgram on ${GP_INPUT} ==="
   export LD_LIBRARY_PATH="/usr/lib:${LD_LIBRARY_PATH:-}"
-  ./GraphProgram "${GP_INPUT}"
+  ./GraphProgram --run "${GP_INPUT}"
 else
   echo "=== [8] Skipping DSL run (IR override provided) ==="
 fi
 
-echo ">>> run.sh completed successfully"

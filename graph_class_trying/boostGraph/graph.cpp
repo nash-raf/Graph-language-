@@ -1,6 +1,7 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/breadth_first_search.hpp>
-#include <boost/graph/visitors.hpp> // for default_bfs_visitor
+#include <boost/graph/visitors.hpp> 
+#include <boost/graph/depth_first_search.hpp>// for default_bfs_visitor
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -33,11 +34,11 @@ int main(int argc, char* argv[]) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    breadth_first_search(g, vertex(1, g), visitor(default_bfs_visitor()));
+    depth_first_search(g, visitor(default_dfs_visitor()));
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Boost BFS took "
+    std::cout << "Boost DFS took "
               << std::chrono::duration<double, std::milli>(end - start).count()
               << " ms\n";
 

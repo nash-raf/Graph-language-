@@ -1,0 +1,28 @@
+julia 
+
+kazisahib@fedora:~/gpl_ast/Graph-language-/graph_benchmark$ time ./bfs_julia.jl 
+1
+
+real    0m2.439s
+user    0m2.772s
+sys     0m0.178s
+kazisahib@fedora:~/gpl_ast/Graph-language-/graph_benchmark$ time ./bfs_julia.jl 
+
+real    0m2.124s
+user    0m2.491s
+sys     0m0.151s
+
+
+
+matlab
+
+>> bfs_test
+BFS completed in 0.000176 seconds
+>> bfs_test
+BFS completed in 0.000136 seconds
+
+
+my graph language 
+
+Execution time: 0.006463 seconds
+Execution time: 0.005314 seconds

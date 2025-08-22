@@ -1,0 +1,16 @@
+fn int main() {
+  int x = 10;
+  int y = 3;
+
+  // Outer loop depends on x, inner loop increments y until 30.
+  while (x > 0) {
+    while (y < 30) {
+      y = y + 1;
+      print y;     // observable side-effect -> prevents compile-time evaluation/folding
+    }
+    x = x - 1;
+  }
+
+  // return something that depends on the loops so the function's behaviour is visible
+  return x + y;
+}

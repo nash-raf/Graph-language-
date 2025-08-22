@@ -1,27 +1,63 @@
 digraph main_dep_graph {
   rankdir=TB;
   node [shape=box];
-  node9 [label="  store i32 0, ptr %i, align 4"];
-  node2 [label="  %i9 = load i32, ptr %i, align 4"];
-  node8 [label="  %0 = call i32 (ptr, ...) @printf(ptr @.fmt_int, i32 %it3)"];
-  node4 [label="  %it1 = load i32, ptr %it, align 4"];
-  node3 [label="  store i32 %addtmp10, ptr %i, align 4"];
-  node1 [label="  %i7 = load i32, ptr %i, align 4"];
-  node7 [label="  %it3 = load i32, ptr %it, align 4"];
-  node6 [label="  store i32 %addtmp, ptr %it, align 4"];
-  node5 [label="  %it2 = load i32, ptr %it, align 4"];
+  node5 [label="  %0 = call i32 (ptr, ...) @printf(ptr @.fmt_int, i32 %x3)"];
+  node2 [label="  %x2 = load i32, ptr %x, align 4"];
+  node1 [label="  %x1 = load i32, ptr %x, align 4"];
+  node3 [label="  store i32 %subtmp, ptr %x, align 4"];
+  node4 [label="  %x3 = load i32, ptr %x, align 4"];
   node1 -> node2 [label="RAR_loop_independent", color="blue", style="solid"];
   node1 -> node3 [label="WAR_loop_independent", color="blue", style="solid"];
+  node1 -> node4 [label="RAR_loop_independent", color="blue", style="solid"];
+  node1 -> node5 [label="WAR_loop_independent", color="blue", style="solid"];
   node2 -> node3 [label="WAR_loop_independent", color="blue", style="solid"];
-  node4 -> node5 [label="RAR_loop_independent", color="blue", style="solid"];
-  node4 -> node6 [label="WAR_loop_independent", color="blue", style="solid"];
-  node5 -> node6 [label="WAR_loop_independent", color="blue", style="solid"];
-  node7 -> node8 [label="WAR_sequential", color="black", style="solid"];
-  node8 -> node9 [label="WAR_sequential", color="black", style="solid"];
+  node2 -> node4 [label="RAR_loop_independent", color="blue", style="solid"];
+  node2 -> node5 [label="WAR_loop_independent", color="blue", style="solid"];
+  node3 -> node4 [label="RAW_loop_independent", color="blue", style="solid"];
+  node3 -> node5 [label="RAW_loop_independent", color="blue", style="solid"];
+  node4 -> node5 [label="WAR_loop_independent", color="blue", style="solid"];
+}
+
+digraph main.1_dep_graph {
+  rankdir=TB;
+  node [shape=box];
+  node0 [label="No dependencies found"];
 }
 
 === Loop classification for function 'main' ===
   Loop at block 'loopcond': DOALL
-  Loop at block 'loopcond4': DOALL
 === end ===
 
+[meta] injected DOALL metadata for loop header 'loopcond'
+DEBUG: loopParallelisable Operand retrieved0x56396b076f40
+DEBUG: loopParallelisable Operand retrieved0x56396b07edb8
+DEBUG: outlineSimpleLoop Instruction: 0x0
+[bounds] using preheader 'entry' for loop 'loopbody'
+[debug] header=loopbody preheader=entry latch=loopbody
+ [bounds] DOALL loop @ 'loopbody'
+   start=1000000
+   step =-1
+   trip =1000000
+   end  =i64 0
+DEBUG: Struct TrampolineOutliner Operand retrieved0x56396b076f40
+DEBUG: Struct TrampolineOutliner Operand retrieved0x56396b07edb8
+[debug] header=loopbody preheader=entry latch=loopbody
+Outlined function IR (debug):
+; Function Attrs: nounwind
+define internal void @main.outlined(i64 %idx, ptr %env) #0 {
+entry:
+  %idx_trunc = trunc i64 %idx to i32
+  br label %loopbody.out
+
+exit:                                             ; preds = %loopbody.out
+  ret void
+
+loopbody.out:                                     ; preds = %entry, %loopbody.out
+  %0 = sub nuw nsw i32 %idx_trunc, 1
+  %1 = call i32 (ptr, ...) @printf(ptr @.fmt_int, i32 %0)
+  %2 = icmp ugt i32 %0, 0
+  br i1 %2, label %loopbody.out, label %exit
+}
+[trampoline] emitted parallel runtime call for loop @loopbody
+[bounds] no llvm.loop metadata on loop header 'loopbody.out'
+DEBUG: Struct TrampolineOutliner Instruction: 0x56396b066e30

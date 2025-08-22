@@ -1,16 +1,14 @@
-int it = 0;
-int arr[1000000000];
-int arr2[1000000000];
-int arr3[1000000000];
-while(it < 1000000000)
-{
-    arr[it] = it + 1;
-    arr2[it] = it + 100;
-    it = it + 1;
-}
-print it;
-int i = 0;
-while(i < 1000000000) {
-    arr3[i] = arr2[i] + arr[i];
-    i = i + 1;
+fn int main() {
+  int x = 1000000;
+  int y = 3;
+
+
+  // Outer loop depends on x, inner loop increments y until 30.
+  while (x > 0) {
+    x = x - 1;
+    print x;
+  }
+
+  // return something that depends on the loops so the function's behaviour is visible
+  return x + y;
 }

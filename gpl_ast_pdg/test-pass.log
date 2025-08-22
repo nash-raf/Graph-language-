@@ -1,0 +1,66 @@
+digraph main_dep_graph {
+  rankdir=TB;
+  node [shape=box];
+  node5 [label="  %y5 = load i32, ptr %y, align 4"];
+  node8 [label="  %y7 = load i32, ptr %y, align 4"];
+  node7 [label="  store i32 %addtmp, ptr %y, align 4"];
+  node4 [label="  store i32 %subtmp, ptr %x, align 4"];
+  node6 [label="  %y6 = load i32, ptr %y, align 4"];
+  node2 [label="  %0 = call i32 (ptr, ...) @printf(ptr @.fmt_int, i32 %y7)"];
+  node1 [label="  %x1 = load i32, ptr %x, align 4"];
+  node3 [label="  %x8 = load i32, ptr %x, align 4"];
+  node1 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+  node1 -> node3 [label="RAR_loop_independent", color="blue", style="solid"];
+  node1 -> node4 [label="WAR_loop_independent", color="blue", style="solid"];
+  node5 -> node6 [label="RAR_loop_independent", color="blue", style="solid"];
+  node5 -> node7 [label="WAR_loop_independent", color="blue", style="solid"];
+  node5 -> node8 [label="RAR_loop_independent", color="blue", style="solid"];
+  node5 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+  node6 -> node7 [label="WAR_loop_independent", color="blue", style="solid"];
+  node6 -> node8 [label="RAR_loop_independent", color="blue", style="solid"];
+  node6 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+  node7 -> node8 [label="RAW_loop_independent", color="blue", style="solid"];
+  node7 -> node2 [label="RAW_loop_independent", color="blue", style="solid"];
+  node8 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+  node2 -> node3 [label="RAW_loop_independent", color="blue", style="solid"];
+  node2 -> node4 [label="WAR_loop_independent", color="blue", style="solid"];
+  node3 -> node4 [label="WAR_loop_independent", color="blue", style="solid"];
+  node5 -> node6 [label="RAR_loop_independent", color="blue", style="solid"];
+  node5 -> node7 [label="WAR_loop_independent", color="blue", style="solid"];
+  node5 -> node8 [label="RAR_loop_independent", color="blue", style="solid"];
+  node5 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+  node6 -> node7 [label="WAR_loop_independent", color="blue", style="solid"];
+  node6 -> node8 [label="RAR_loop_independent", color="blue", style="solid"];
+  node6 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+  node7 -> node8 [label="RAW_loop_independent", color="blue", style="solid"];
+  node7 -> node2 [label="RAW_loop_independent", color="blue", style="solid"];
+  node8 -> node2 [label="WAR_loop_independent", color="blue", style="solid"];
+}
+
+digraph main.1_dep_graph {
+  rankdir=TB;
+  node [shape=box];
+  node0 [label="No dependencies found"];
+}
+
+=== Loop classification for function 'main' ===
+  Loop at block 'loopcond': DOALL
+  Loop at block 'loopcond2': DOALL
+=== end ===
+
+[meta] injected DOALL metadata for loop header 'loopcond'
+[meta] injected DOALL metadata for loop header 'loopcond2'
+[bounds] using preheader 'entry' for loop 'loopbody'
+[debug] header=loopbody preheader=entry latch=loopmerge4
+ [bounds] DOALL loop @ 'loopbody'
+   start=10
+   step =-1
+   trip =10
+   end  =i64 0
+[bounds] no preheader for loop 'loopbody3', falling back to header insertion at 'addtmp'
+[debug] header=loopbody3 preheader=null latch=loopbody3
+ [bounds] DOALL loop @ 'loopbody3'
+   start=  %y.045 = zext i32 %y.04 to i64
+   step =1
+   trip =  %trip = add i64 %1, 1
+   end  =  %loop_end = add i64 %y.045, %step_mul_trip

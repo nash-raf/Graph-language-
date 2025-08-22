@@ -349,6 +349,74 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
     return scalarAlloca;
 }
 
+// void IRGenVisitor::visitWhile(WhileStmtNode *ws)
+// {
+//     // Save the current insertion point = preheader
+//     llvm::BasicBlock *preheader = Builder.GetInsertBlock();
+//     llvm::Function *parent = preheader->getParent();
+
+//     // ---- NEW: create per-loop temporaries in the function entry and initialize them
+//     // Save original NamedValues so we can restore after the loop
+//     auto savedNamed = NamedValues;
+
+//     // We'll keep a map of original -> temp allocas
+//     std::unordered_map<std::string, llvm::AllocaInst *> tempAllocaMap;
+
+//     // Create entry-block builder for entry-allocas
+//     llvm::IRBuilder<> entryB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
+
+//     for (auto &kv : savedNamed) {
+//         const std::string &varName = kv.first;
+//         llvm::AllocaInst *origAlloca = kv.second;
+
+//         // Create a temp alloca in entry block named varName.loop
+//         llvm::AllocaInst *tempAlloca = entryB.CreateAlloca(
+//             origAlloca->getAllocatedType(), nullptr, varName + ".loop");
+//         // Load current value from original and store into temp (this executes at runtime before loop)
+//         llvm::Value *origVal = Builder.CreateLoad(origAlloca->getAllocatedType(), origAlloca, varName + ".load_pre");
+//         Builder.CreateStore(origVal, tempAlloca);
+
+//         // Replace NamedValues mapping for the duration of lowering the loop
+//         NamedValues[varName] = tempAlloca;
+//         tempAllocaMap[varName] = tempAlloca;
+//     }
+
+//     // ---- Now create canonical loop structure
+//     auto *condBB = llvm::BasicBlock::Create(Context, "loop.cond", parent);
+//     auto *bodyBB = llvm::BasicBlock::Create(Context, "loop.body", parent);
+//     auto *mergeBB = llvm::BasicBlock::Create(Context, "loop.merge", parent);
+
+//     // Branch from preheader into loop condition
+//     Builder.SetInsertPoint(preheader);
+//     Builder.CreateBr(condBB);
+
+//     // cond block: evaluate condition (using remapped NamedValues -> temps)
+//     Builder.SetInsertPoint(condBB);
+//     llvm::Value *condV = visitExpr(ws->condition.get());
+//     Builder.CreateCondBr(condV, bodyBB, mergeBB);
+
+//     // body: lowered with NamedValues pointing at the temps
+//     Builder.SetInsertPoint(bodyBB);
+//     visitBlock(static_cast<BlockStmtNode *>(ws->body.get()));
+//     if (!Builder.GetInsertBlock()->getTerminator())
+//         Builder.CreateBr(condBB);
+
+//     // After loop: copy temps back into original allocas
+//     Builder.SetInsertPoint(mergeBB);
+//     for (auto &kv : tempAllocaMap) {
+//         const std::string &name = kv.first;
+//         llvm::AllocaInst *tempA = kv.second;
+//         llvm::AllocaInst *origA = savedNamed[name]; // original stored earlier
+
+//         // Load from temp and store into original (commits final loop value)
+//         llvm::Value *finalVal = Builder.CreateLoad(tempA->getAllocatedType(), tempA, name + ".final");
+//         Builder.CreateStore(finalVal, origA);
+//     }
+
+//     // Restore NamedValues to original mapping
+//     NamedValues = savedNamed;
+// }
+
 void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 {
     llvm::BasicBlock *preheader = Builder.GetInsertBlock();
@@ -633,18 +701,18 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     return graphPtr;
 }
 
+
 void IRGenVisitor::visitQuery(QueryNode *Q)
 {
     // 1) Grab the Graph* value
     llvm::Value *graphPtr = GraphMap[Q->graphName];
     assert(graphPtr && "Graph not found in IRGenVisitor::visitQuery");
 
-    // 2) Extract fields: n, row_ptr*, col_idx*
+    // 2) Extract n, row_ptr*, col_idx*
     llvm::Value *n_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
     llvm::Value *rp_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
     llvm::Value *ci_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
 
-    // Load n_val using the current Builder
     llvm::Value *n_val = Builder.CreateLoad(Builder.getInt64Ty(), n_ptr, "n_val");
     llvm::Value *row_ptr = Builder.CreateLoad(
         llvm::PointerType::getUnqual(Builder.getInt64Ty()),
@@ -653,24 +721,34 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
         llvm::PointerType::getUnqual(Builder.getInt32Ty()),
         ci_ptr, "col_idx");
 
-    // 3) Prepare malloc signatures
+    // 3) Get malloc/free
     llvm::Type *i8Ty = llvm::Type::getInt8Ty(Context);
     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
     llvm::Type *i8PtrTy = llvm::PointerType::getUnqual(i8Ty);
-    llvm::FunctionCallee mallocFn = Module.getOrInsertFunction(
+    auto mallocFn = Module.getOrInsertFunction(
         "malloc",
         llvm::FunctionType::get(i8PtrTy, {i64Ty}, false));
+    auto freeFn = Module.getOrInsertFunction(
+        "free",
+        llvm::FunctionType::get(Builder.getVoidTy(), {i8PtrTy}, false));
 
-    // 4) Allocate visited array (i1*) via malloc
     llvm::Type *i1Ty = llvm::Type::getInt1Ty(Context);
     llvm::Type *i1PtrTy = llvm::PointerType::getUnqual(i1Ty);
+
+    // 4) malloc + zero-init visited (i1*)
     llvm::Value *bytesVisited = Builder.CreateMul(
         Builder.CreateSExt(n_val, i64Ty),
         llvm::ConstantInt::get(i64Ty, 1));
     llvm::Value *rawVisited = Builder.CreateCall(mallocFn, bytesVisited, "rawVisited");
-    llvm::Value *visited = Builder.CreateBitCast(rawVisited, i1PtrTy, "visited");
+    // memset(rawVisited, 0, bytesVisited, align=1)
+    llvm::Value *raw8Visited = Builder.CreateBitCast(rawVisited, i8PtrTy, "raw8Visited");
+    Builder.CreateMemSet(raw8Visited, Builder.getInt8(0), bytesVisited, llvm::MaybeAlign(1));
+    llvm::Value *visited = Builder.CreateBitCast(
+        rawVisited,
+        i1PtrTy,
+        "visited");
 
-    // 5) Allocate queue array (i32*) via malloc
+    // 5) malloc queue (i32*)
     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
     llvm::Type *i32PtrTy = llvm::PointerType::getUnqual(i32Ty);
     llvm::Value *bytesQueue = Builder.CreateMul(
@@ -679,83 +757,105 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
     llvm::Value *rawQueue = Builder.CreateCall(mallocFn, bytesQueue, "rawQueue");
     llvm::Value *queue = Builder.CreateBitCast(rawQueue, i32PtrTy, "queue");
 
-    // 6) Allocate head and tail on stack (still use entryB for allocas)
+    // 6) alloca head, tail in entry
     llvm::Function *F = Builder.GetInsertBlock()->getParent();
     llvm::IRBuilder<> entryB(&F->getEntryBlock(), F->getEntryBlock().begin());
-    llvm::AllocaInst *headPtr = entryB.CreateAlloca(i32Ty, nullptr, "head");
-    llvm::AllocaInst *tailPtr = entryB.CreateAlloca(i32Ty, nullptr, "tail");
+    auto *headPtr = entryB.CreateAlloca(i32Ty, nullptr, "head");
+    auto *tailPtr = entryB.CreateAlloca(i32Ty, nullptr, "tail");
     Builder.CreateStore(Builder.getInt32(0), headPtr);
     Builder.CreateStore(Builder.getInt32(0), tailPtr);
 
-    // 7) Enqueue start node (0)
-    llvm::Value *start = Builder.getInt32(0);
-    auto *q0ptr = Builder.CreateGEP(i32Ty, queue, Builder.getInt32(0), "q0ptr");
-    Builder.CreateStore(start, q0ptr);
-    auto *v0ptr = Builder.CreateGEP(i1Ty, visited, Builder.getInt32(0), "v0ptr");
-    Builder.CreateStore(Builder.getInt1(true), v0ptr);
+    // 7) enqueue start = 0
+    Builder.CreateStore(Builder.getInt32(0),
+                        Builder.CreateGEP(i32Ty, queue, Builder.getInt32(0)));
+    Builder.CreateStore(Builder.getInt1(true),
+                        Builder.CreateGEP(llvm::PointerType::getUnqual(llvm::Type::getInt1Ty(Context)),
+                                          visited, Builder.getInt32(0)));
     Builder.CreateStore(Builder.getInt32(1), tailPtr);
 
-    // 8) Create BFS loop blocks
+    // 8) BFS outer loop
     auto *condBB = llvm::BasicBlock::Create(Context, "bfs.cond", F);
     auto *bodyBB = llvm::BasicBlock::Create(Context, "bfs.body", F);
     auto *exitBB = llvm::BasicBlock::Create(Context, "bfs.exit", F);
     Builder.CreateBr(condBB);
 
-    // Condition
     Builder.SetInsertPoint(condBB);
-    llvm::Value *h = Builder.CreateLoad(i32Ty, headPtr, "h");
-    llvm::Value *t = Builder.CreateLoad(i32Ty, tailPtr, "t");
-    llvm::Value *cond = Builder.CreateICmpSLT(h, t, "cond");
-    Builder.CreateCondBr(cond, bodyBB, exitBB);
+    auto *h = Builder.CreateLoad(i32Ty, headPtr, "h");
+    auto *t = Builder.CreateLoad(i32Ty, tailPtr, "t");
+    auto *cmp = Builder.CreateICmpSLT(h, t, "cond");
+    Builder.CreateCondBr(cmp, bodyBB, exitBB);
 
-    // Body
     Builder.SetInsertPoint(bodyBB);
+    // dequeue u = queue[h]
     auto *uqptr = Builder.CreateGEP(i32Ty, queue, h, "uqptr");
-    llvm::Value *u = Builder.CreateLoad(i32Ty, uqptr, "u");
+    auto *u = Builder.CreateLoad(i32Ty, uqptr, "u");
     Builder.CreateStore(Builder.CreateAdd(h, Builder.getInt32(1)), headPtr);
 
-    // Range [rp[u], rp[u+1])
-    llvm::Value *u64 = Builder.CreateSExt(u, i64Ty);
-    llvm::Value *rp_u = Builder.CreateLoad(
-        i64Ty,
-        Builder.CreateGEP(llvm::PointerType::getUnqual(i64Ty), row_ptr, {u64}),
-        "rp_u");
-    llvm::Value *rp_u1 = Builder.CreateLoad(
-        i64Ty,
-        Builder.CreateGEP(llvm::PointerType::getUnqual(i64Ty), row_ptr, {Builder.CreateAdd(u64, Builder.getInt64(1))}),
-        "rp_u1");
+    // rp_u = row_ptr[u], rp_u1 = row_ptr[u+1]
+    auto *u64 = Builder.CreateSExt(u, i64Ty);
+    auto *rp_u = Builder.CreateLoad(i64Ty,
+                                    Builder.CreateGEP(llvm::PointerType::getUnqual(i64Ty), row_ptr, {u64}), "rp_u");
+    auto *rp_u1 = Builder.CreateLoad(i64Ty,
+                                     Builder.CreateGEP(llvm::PointerType::getUnqual(i64Ty), row_ptr,
+                                                       {Builder.CreateAdd(u64, Builder.getInt64(1))}),
+                                     "rp_u1");
 
-    // Inner for-loop
-    auto *forInit = llvm::BasicBlock::Create(Context, "bfs.for.init", F);
-    auto *forBody = llvm::BasicBlock::Create(Context, "bfs.for.body", F);
-    auto *forExit = llvm::BasicBlock::Create(Context, "bfs.for.exit", F);
-    Builder.CreateBr(forInit);
+    // inner loop init/body/cont
+    auto *forInitBB = llvm::BasicBlock::Create(Context, "bfs.for.init", F);
+    auto *forBodyBB = llvm::BasicBlock::Create(Context, "bfs.for.body", F);
+    auto *enqueueBB = llvm::BasicBlock::Create(Context, "bfs.enqueue", F);
+    auto *doEnqBB = llvm::BasicBlock::Create(Context, "bfs.doEnqueue", F);
+    auto *contBB = llvm::BasicBlock::Create(Context, "bfs.for.cont", F);
+    auto *exitBB_inner = llvm::BasicBlock::Create(Context, "bfs.for.exit", F);
 
-    // forInit: i = rp_u
-    Builder.SetInsertPoint(forInit);
+    Builder.CreateBr(forInitBB);
+
+    Builder.SetInsertPoint(forInitBB);
     llvm::AllocaInst *iPtr = entryB.CreateAlloca(i64Ty, nullptr, "i");
     Builder.CreateStore(rp_u, iPtr);
-    Builder.CreateBr(forBody);
+    Builder.CreateBr(forBodyBB);
 
-    // forBody: test and branch
-    Builder.SetInsertPoint(forBody);
+    Builder.SetInsertPoint(forBodyBB);
+
     llvm::Value *iVal = Builder.CreateLoad(i64Ty, iPtr, "iVal");
-    llvm::Value *innerCond = Builder.CreateICmpSLT(iVal, rp_u1, "innerCond");
-    auto *enqueueBB = llvm::BasicBlock::Create(Context, "bfs.enqueue", F);
-    Builder.CreateCondBr(innerCond, enqueueBB, forExit);
+    llvm::Value *inner = Builder.CreateICmpSLT(iVal, rp_u1, "innerCond");
+    Builder.CreateCondBr(inner, enqueueBB, exitBB_inner);
 
-    // enqueueBB
     Builder.SetInsertPoint(enqueueBB);
-    // Add enqueue logic here if needed
-    Builder.CreateBr(forExit);
 
-    // forExit: increment and loop back
-    Builder.SetInsertPoint(forExit);
-    Builder.CreateStore(Builder.CreateAdd(iVal, Builder.getInt64(1)), iPtr);
+    llvm::Value *nbr = Builder.CreateLoad(i32Ty,
+                                          Builder.CreateGEP(i32PtrTy, col_idx,
+                                                            Builder.CreateTrunc(iVal, i32Ty)),
+                                          "nbr");
+    llvm::Value *vptr = Builder.CreateGEP(i1PtrTy, visited, nbr, "vptr");
+    llvm::Value *was = Builder.CreateLoad(i1Ty, vptr, "wasVisited");
+    Builder.CreateCondBr(
+        Builder.CreateICmpEQ(was, Builder.getInt1(false)),
+        doEnqBB,
+        contBB);
+
+    Builder.SetInsertPoint(doEnqBB);
+    llvm::Value *tailVal = Builder.CreateLoad(i32Ty, tailPtr, "tailVal");
+    Builder.CreateStore(nbr,
+                        Builder.CreateGEP(i32Ty, queue, tailVal));
+    Builder.CreateStore(Builder.getInt1(true), vptr);
+    Builder.CreateStore(Builder.CreateAdd(tailVal, Builder.getInt32(1)), tailPtr);
+    Builder.CreateBr(contBB);
+
+    Builder.SetInsertPoint(contBB);
+    Builder.CreateStore(
+        Builder.CreateAdd(iVal, Builder.getInt64(1)),
+        iPtr);
+    Builder.CreateBr(forBodyBB);
+
+    // 9) exit: free buffers
+    Builder.SetInsertPoint(exitBB_inner);
     Builder.CreateBr(condBB);
 
-    // Exit
     Builder.SetInsertPoint(exitBB);
+    Builder.CreateCall(freeFn, Builder.CreateBitCast(rawVisited, i8PtrTy));
+    Builder.CreateCall(freeFn, Builder.CreateBitCast(rawQueue, i8PtrTy));
+    // void return
 }
 
 void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)

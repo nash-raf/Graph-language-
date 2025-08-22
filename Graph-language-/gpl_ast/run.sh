@@ -42,12 +42,11 @@ fi
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
-  gcc -c runtime.c -o runtime.o
   c++ -std=c++17 \
       -I/usr/include/antlr4-runtime -Igenerated \
       $(llvm-config --cxxflags) \
       -pthread \
-      main.cpp IRGenVisitor.cpp ASTBuilder.cpp generated/*.cpp runtime.o \
+      main.cpp IRGenVisitor.cpp ASTBuilder.cpp generated/*.cpp \
       -lantlr4-runtime \
       $(llvm-config --ldflags --system-libs --libs core irreader analysis passes executionengine mcjit native support) \
       -o GraphProgram
@@ -64,6 +63,12 @@ clang++ -v -fPIC -shared \
   $(llvm-config --cxxflags) \
   $(llvm-config --ldflags --system-libs --libs core analysis passes support)
 echo ">>> Plugin CombinedPlugin.so built"
+
+clang++ -fPIC -shared \
+  LoopBoundExtractor.cpp \
+  -o CombinedPluginWithTrampoline.so \
+  $(llvm-config --cxxflags --ldflags --system-libs --libs core analysis passes support)
+echo ">>> Plugin CombinedPluginWithTrampoline.so built"
 
 # -----------------------------------------------------------------------------
 # 4) Generate LLVM IR (skip if IR_OVERRIDE)
@@ -99,9 +104,19 @@ which opt; opt --version
 
 # Capture all opt output (stdout+stderr) into PASS_LOG
 opt -load-pass-plugin=./CombinedPlugin.so \
-    -passes="module(dep-graph-builder,function(loop-classify-print,loop-metadata-injector))" \
+    -load-pass-plugin=./CombinedPluginWithTrampoline.so \
+    -passes="module(dep-graph-builder),function(loop-classify-print,loop-metadata-injector),function(mem2reg,loop-simplify,loop-rotate,lcssa,indvars,simplifycfg),function(loop-bound-extractor,trampoline-outliner)" \
     "${IR_SRC}" -S -o "${BASE}-optimized.ll" \
   2>&1 | tee "${PASS_LOG}"
+# opt -load-pass-plugin=./CombinedPlugin.so \
+#     -passes="module(dep-graph-builder),function(loop-classify-print,loop-metadata-injector)" \
+#     "${IR_SRC}" -S -o "${BASE}-meta.ll" 
+
+# opt -S -passes="mem2reg,loop-simplify,loop-rotate,lcssa,indvars,simplifycfg" "${BASE}-meta.ll" -o "${BASE}-canonical.ll"
+
+# opt -load-pass-plugin=./CombinedPluginWithTrampoline.so \
+#     -passes="function(loop-bound-extractor,trampoline-outliner)" \
+#     "${BASE}-canonical.ll" -S -o "${BASE}-optimized.ll" 2>&1 | tee "${PASS_LOG}"
 
 echo ">>> opt finished, return code $?"
 
@@ -142,11 +157,23 @@ fi
 # -----------------------------------------------------------------------------
 # 8) Run GraphProgram on DSL input (if built)
 # -----------------------------------------------------------------------------
-if [[ -z "$IR_OVERRIDE" ]]; then
-  echo "=== [8] Running GraphProgram on ${GP_INPUT} ==="
-  export LD_LIBRARY_PATH="/usr/lib:${LD_LIBRARY_PATH:-}"
-  ./GraphProgram --run "${GP_INPUT}"
-else
-  echo "=== [8] Skipping DSL run (IR override provided) ==="
-fi
+# if [[ -z "$IR_OVERRIDE" ]]; then
+#   echo "=== [8] Running GraphProgram on ${GP_INPUT} ==="
+#   export LD_LIBRARY_PATH="/usr/lib:${LD_LIBRARY_PATH:-}"
+#   ./GraphProgram --run "${GP_INPUT}"
+# else
+#   echo "=== [8] Skipping DSL run (IR override provided) ==="
+# fi
+echo "=== [9] Compiling optimized IR ==="
+gcc -c -pthread parallel_runtime.c -o parallel_for_runtime.o
+clang -O3 "${BASE}-optimized.ll" parallel_runtime.o -o "${BASE}-exec" -pthread
+echo "=== [10] Running executable ==="
+# TIMEFORMAT="Execution time: %3R seconds"
 
+start=$(date +%s.%N)
+perf record -F 99 -g ./"${BASE}-exec"
+end=$(date +%s.%N)
+elapsed=$(echo "$end - $start" | bc)
+printf "Execution time: %.6f seconds\n" "$elapsed"
+
+# time ./"${BASE}-exec"

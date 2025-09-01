@@ -3,6 +3,8 @@
 #include "ASTNode.h"
 #include <stdexcept>
 #include <vector>
+#include <unordered_set>
+#include <algorithm>
 
 int ASTBuilder::evaluate(ASTNodePtr node)
 {
@@ -617,42 +619,63 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
 
-    // nodesChild
+    // nodesChild: optional. Build InlineNodeList only if nodes: present and non-empty.
     std::unique_ptr<NodeListNode> nd;
     if (ctx->nodes())
     {
-        std::vector<int> ids;
-        for (auto *idT : ctx->nodes()->nodeList()->nodeID())
-            ids.push_back(std::stoi(idT->getText()));
-        nd = std::make_unique<InlineNodeList>(std::move(ids));
+        // if nodes: exists, might be empty or contain nodeIDs
+        auto *nl = ctx->nodes()->nodeList();
+        if (nl)
+        {
+            std::vector<int> ids;
+            for (auto *idT : nl->nodeID())
+                ids.push_back(std::stoi(idT->getText()));
+            // We still create InlineNodeList even if ids is empty;
+            // GraphDeclNode constructor will union with edges.
+            nd = std::make_unique<InlineNodeList>(std::move(ids));
+        }
+        else
+        {
+            // nodes: exists but no nodeList (shouldn't happen with grammar), leave nd empty
+            nd = nullptr;
+        }
     }
-    else
-    {
-        throw std::runtime_error("graph must have nodes:");
-    }
+    // else nd remains nullptr -> GraphDeclNode will infer nodes from edges
 
-    // edgesChild
+    // edgesChild: either fileEdgeList or inline edgeList
     std::unique_ptr<EdgeListNode> ed;
-    auto fe = ctx->edges()->fileEdgeList();
-    if (fe)
+    if (ctx->edges())
     {
-        std::string s = fe->STRING()->getText();
-        s = s.substr(1, s.size() - 2);
-        ed = std::make_unique<FileEdgeList>(std::move(s));
-    }
-    else
-    {
-        throw std::runtime_error("graph must have edges:");
+        if (auto *fe = ctx->edges()->fileEdgeList())
+        {
+            std::string s = fe->STRING()->getText();
+            s = s.substr(1, s.size() - 2); // strip quotes
+            ed = std::make_unique<FileEdgeList>(std::move(s));
+        }
+        else if (auto *el = ctx->edges()->edgeList())
+        {
+            std::vector<std::pair<int, int>> edgesVec;
+            for (auto *eCtx : el->edge())
+            {
+                int u = std::stoi(eCtx->nodeID(0)->getText());
+                int v = std::stoi(eCtx->nodeID(1)->getText());
+                edgesVec.emplace_back(u, v);
+            }
+            ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
+        }
     }
 
+    if (!ed)
+    {
+        throw std::runtime_error("graph must have edges (inline list or file):");
+    }
+
+    // Construct GraphDeclNode — its constructor will merge explicit nodes (if any)
+    // with edge endpoints and build CSR.
     auto gnode = std::make_shared<GraphDeclNode>(
         std::move(nm),
         std::move(nd),
         std::move(ed));
-
-    // std::cerr << "[visitGraphDef] name=" << nm
-    //           << " nodes=" << ctx->nodes()->getText()
-    //           << " edges=" << ctx->edges()->getText() << "\n";
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }

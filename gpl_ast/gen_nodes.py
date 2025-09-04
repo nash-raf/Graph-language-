@@ -19,7 +19,7 @@ def write_nodes_line(max_node, output_file):
         f.write(nodes_line + "\n")
 
 if __name__ == "__main__":
-    edge_file = "g.txt"
+    edge_file = "../../sf-20K/scale_free_graph_n20_m_10.txt"
     output_file = "nodes.txt"
     max_node = find_max_node(edge_file)
     if max_node >= 0:

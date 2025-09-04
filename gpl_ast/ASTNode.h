@@ -9,6 +9,9 @@
 #include <fstream>
 #include <cstddef>
 
+#include <unordered_set>
+#include <algorithm>
+
 enum class ASTNodeType
 {
     Program,
@@ -268,6 +271,19 @@ public:
     virtual std::vector<std::pair<int, int>> materializeEdges() const = 0;
 };
 
+class InlineEdgeList : public EdgeListNode
+{
+    std::vector<std::pair<int, int>> _edges;
+
+public:
+    InlineEdgeList(std::vector<std::pair<int, int>> edges)
+        : EdgeListNode(), _edges(std::move(edges)) {}
+    std::vector<std::pair<int, int>> materializeEdges() const override
+    {
+        return _edges;
+    }
+};
+
 class FileEdgeList : public EdgeListNode
 {
     std::string _path;
@@ -297,10 +313,10 @@ class GraphDeclNode : public ASTNode
 {
 public:
     std::string name;
-    std::unique_ptr<NodeListNode> nodes;
-    std::unique_ptr<EdgeListNode> edges;
+    std::unique_ptr<NodeListNode> nodes; 
+    std::unique_ptr<EdgeListNode> edges; 
 
-    size_t n, m; // number of nodes and edges
+    size_t n = 0, m = 0; 
     std::vector<size_t> row_ptr;
     std::vector<int> col_idx;
 
@@ -313,48 +329,79 @@ public:
           nodes(std::move(nList)),
           edges(std::move(eList))
     {
-        auto nodeIds = nodes->materializeNodeIds();
-        n = nodeIds.size();
-
-        // Map arbitrary IDs → contiguous [0..n-1]
-        std::unordered_map<int, int> id2idx;
-        for (int i = 0; i < (int)nodeIds.size(); ++i)
-            id2idx[nodeIds[i]] = i;
+        
+        if (!edges)
+            throw std::runtime_error("GraphDeclNode: edges required");
 
         auto edgeList = edges->materializeEdges();
+
+        std::unordered_set<int> nodeSet;
+        if (nodes)
+        {
+            auto explicitIds = nodes->materializeNodeIds();
+            for (int id : explicitIds)
+                nodeSet.insert(id);
+        }
+
+        for (auto &e : edgeList)
+        {
+            nodeSet.insert(e.first);
+            nodeSet.insert(e.second);
+        }
+
+        std::vector<int> nodeIds;
+        nodeIds.reserve(nodeSet.size());
+        for (int id : nodeSet)
+            nodeIds.push_back(id);
+
+        std::sort(nodeIds.begin(), nodeIds.end());
+
+        nodes = std::make_unique<InlineNodeList>(std::move(nodeIds));
+
+        auto materializedNodes = nodes->materializeNodeIds();
+        n = materializedNodes.size();
+
+        std::unordered_map<int, int> id2idx;
+        for (int i = 0; i < (int)materializedNodes.size(); ++i)
+            id2idx[materializedNodes[i]] = i;
+
         m = 2 * edgeList.size();
 
-        // 1) degree counts go into row_ptr[i+1]
         row_ptr.assign(n + 1, 0);
         for (auto &e : edgeList)
         {
             int u0 = e.first, v0 = e.second;
-            size_t u = id2idx.at(u0);
-            size_t v = id2idx.at(v0);
+            auto it_u = id2idx.find(u0);
+            auto it_v = id2idx.find(v0);
+            if (it_u == id2idx.end() || it_v == id2idx.end())
+            {
+                continue;
+            }
+            size_t u = it_u->second;
+            size_t v = it_v->second;
             row_ptr[u + 1]++;
             row_ptr[v + 1]++;
         }
 
-        // 2) exclusive prefix‑sum
         for (size_t i = 1; i <= n; ++i)
             row_ptr[i] += row_ptr[i - 1];
 
-        // 3) allocate col_idx and scatter
         col_idx.resize(m);
         std::vector<size_t> next = row_ptr;
         for (auto &e : edgeList)
         {
-            size_t u = id2idx[e.first], v = id2idx[e.second];
-            col_idx[next[u]++] = v;
-            col_idx[next[v]++] = u;
+            int u0 = e.first, v0 = e.second;
+            auto it_u = id2idx.find(u0);
+            auto it_v = id2idx.find(v0);
+            if (it_u == id2idx.end() || it_v == id2idx.end())
+            {
+                continue;
+            }
+            size_t u = it_u->second;
+            size_t v = it_v->second;
+            col_idx[next[u]++] = (int)v;
+            col_idx[next[v]++] = (int)u;
         }
-
-        // debug
-        // std::cerr << "[GraphDeclNode] CSR row_ptr =";
-        // for (auto x : row_ptr) std::cerr << " " << x;
-        // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
-        // for (auto x : col_idx) std::cerr << " " << x;
-        // std::cerr << "\n";
     }
 };
 

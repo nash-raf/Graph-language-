@@ -42,6 +42,7 @@ public:
     void visitQuery(QueryNode *Q);
     void emitBFS(QueryNode *Q);
     void emitDFS(QueryNode *Q);
+    void emitBK(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
 
 private:

@@ -1,0 +1,4 @@
+log/*
+log/csv/*
+csv/*
+synth_graphs/*

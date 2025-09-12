@@ -43,7 +43,13 @@ public:
     void emitBFS(QueryNode *Q);
     void emitDFS(QueryNode *Q);
     void emitBK(QueryNode *Q);
+    void emitChromacity(QueryNode *Q);
+    void emitFloydWarshall(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
+    void visitPrintArray(PrintArrayNode *PA);
+    llvm::Value *evaluate(ASTNode *node);
+    llvm::Function* getPrintfFunction();
+
 
 private:
     llvm::LLVMContext &Context;

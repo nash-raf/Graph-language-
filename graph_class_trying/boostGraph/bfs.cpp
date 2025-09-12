@@ -10,6 +10,7 @@
 int main(int argc, char* argv[]) {
     using namespace boost;
 
+    auto start = std::chrono::high_resolution_clock::now();
     typedef adjacency_list<vecS, vecS, undirectedS> Graph;
 
     std::ifstream infile(argv[1]);
@@ -32,7 +33,7 @@ int main(int argc, char* argv[]) {
         add_edge(e.first, e.second, g);
     }
 
-    auto start = std::chrono::high_resolution_clock::now();
+    //auto start = std::chrono::high_resolution_clock::now();
 
     breadth_first_search(g, vertex(1,g) ,visitor(default_bfs_visitor()));
 

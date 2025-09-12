@@ -128,8 +128,11 @@ block: '{' (statement | returnStatement)* '}' | '{' '}';
 returnStatement: 'return' expr ';';
 
 // Print
-printStatement: 'print' printExpr ';' | printgraph;
+printStatement: 'print' printExpr ';' | printArrayStatement | printgraph;
 printExpr: STRING | expr | printExpr '+' printExpr;
+printArrayStatement
+    : 'print' ID '[' expr ']' ';'
+    ;
 
 printgraph:
 	'print' EDGE OF graphID ';'		# edgePrint
@@ -147,6 +150,7 @@ expr:
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
+	| ID '[]'					# ArrayPrint
 	| REAL						# RealExpr;
 // | nodeID                	# nodeExpr
 

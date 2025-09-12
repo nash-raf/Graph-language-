@@ -1,9 +1,10 @@
-// bfs_runtime_single.cpp
+// bfs_runtime.cpp
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 #include <vector>
 #include <queue>
+#include <omp.h>
 
 extern "C"
 {
@@ -26,32 +27,67 @@ extern "C"
 
         std::vector<char> visited(n, 0);
 
+        double start_time = omp_get_wtime();
+
         for (int32_t start = 0; start < (int32_t)n; ++start)
         {
             if (visited[start]) continue;
 
-            std::queue<int32_t> q;
-            q.push(start);
+            std::vector<int32_t> frontier;
+            frontier.push_back(start);
             visited[start] = 1;
 
-            while (!q.empty())
+            while (!frontier.empty())
             {
-                int32_t u = q.front();
-                q.pop();
+                std::vector<int32_t> next_frontier;
 
-
-                int64_t rp  = row[u];
-                int64_t rp1 = row[u + 1];
-
-                for (int64_t i = rp; i < rp1; ++i)
+                // Parallel expansion of the current frontier
+                #pragma omp parallel
                 {
-                    int32_t v = col[i];
-                    if (!visited[v])
+                    std::vector<int32_t> local_next;
+
+                    #pragma omp for nowait
+                    for (size_t idx = 0; idx < frontier.size(); ++idx)
                     {
-                        visited[v] = 1;
-                        q.push(v);
+                        int32_t u = frontier[idx];
+                        int64_t rp  = row[u];
+                        int64_t rp1 = row[u + 1];
+
+                        for (int64_t i = rp; i < rp1; ++i)
+                        {
+                            int32_t v = col[i];
+                            if (!visited[v])
+                            {
+                                // Atomically mark visited
+                                if (!__sync_lock_test_and_set(&visited[v], 1))
+                                {
+                                    local_next.push_back(v);
+                                }
+                            }
+                        }
                     }
-                }
+
+                    // Merge local_next into global next_frontier
+                    #pragma omp critical
+                    next_frontier.insert(next_frontier.end(),
+                                         local_next.begin(),
+                                         local_next.end());
+                } // end parallel
+
+                frontier.swap(next_frontier);
+            }
+        }
+
+        double end_time = omp_get_wtime();
+
+        // Print timing info only once from the master thread
+        #pragma omp parallel
+        {
+            #pragma omp master
+            {
+                printf("[BFS] Completed in %.6f seconds using %d threads\n",
+                       end_time - start_time,
+                       omp_get_max_threads());
             }
         }
     }

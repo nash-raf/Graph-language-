@@ -65,6 +65,16 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "charconv": "cpp",
+        "source_location": "cpp",
+        "format": "cpp",
+        "iomanip": "cpp",
+        "queue": "cpp",
+        "ranges": "cpp",
+        "span": "cpp",
+        "stack": "cpp",
+        "text_encoding": "cpp",
+        "typeindex": "cpp"
     }
 }

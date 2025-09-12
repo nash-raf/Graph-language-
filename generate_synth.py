@@ -28,8 +28,8 @@ def generate_random_graph(n, m, seed=42, filename="edgelist.txt"):
 
 
 if __name__ == "__main__":
-    vertices_list = [50000, 250000, 500000, 750000, 1000000]
-    edges_list = [50000, 200000, 500000, 750000, 1000000]
+    vertices_list = [1000]
+    edges_list = [5000]
     seed = 123
 
     # Make sure output folder exists

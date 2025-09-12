@@ -165,12 +165,10 @@ int main(int argc, char **argv)
 
     irgen.visitProgram(prog);
 
-    writeBitcodeToFile(*M, "myprog.bc"); 
-    writeIRToFile(*M, "myprog.ll");     
+    writeBitcodeToFile(*M, "myprog.bc");     
 
     if (!RunJIT)
-    {
-        
+    {  
         M->print(outs(), nullptr);
         return 0;
     }

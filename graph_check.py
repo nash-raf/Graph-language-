@@ -12,7 +12,6 @@ parser.add_argument('--o', type=str, default=None, help='edgelist output file')
 parser.add_argument('--s', type=str, default="", help='filename containing nodes to output subgraph induced by union of those nodes instead of the whole graph')
 args = parser.parse_args()
 
-
 G = nx.Graph()
 f = open(args.i, 'r')
 i=0

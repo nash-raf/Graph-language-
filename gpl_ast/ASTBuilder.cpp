@@ -3,6 +3,10 @@
 #include "ASTNode.h"
 #include <stdexcept>
 #include <vector>
+#include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/DenseSet.h>
+#include <cstring> // for std::memcpy
+#include "llvm/Support/Allocator.h"
 
 int ASTBuilder::evaluate(ASTNodePtr node)
 {
@@ -72,6 +76,23 @@ int ASTBuilder::evaluate(ASTNodePtr node)
         symbolTable = std::move(oldSymbols);
         return ret;
     }
+    if (auto q = dynamic_cast<QueryNode *>(node.get()))
+    {
+        if (q->type == QueryType::INT)
+        {
+            // Mark INT query result (like chromaticity)
+            symbolTable[q->queryName] = 0; // placeholder
+            return 0;
+        }
+        else if (q->type == QueryType::ARRAY)
+        {
+            // Mark ARRAY query result (like BFS/DFS)
+            arrayTable[q->queryName] = {}; // placeholder
+            return 0;
+        }
+    }
+
+
 
     throw std::runtime_error("wrongnode");
 }
@@ -270,7 +291,6 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
     {
         return visitFunctionCall(fctx->functionCall());
     }
-
     else if (auto addSubContext = dynamic_cast<BaseParser::AddSubExprContext *>(ctx))
     {
         // std::cout<<"we have tone till here\n";
@@ -614,63 +634,144 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
 }
 
 
+// antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
+// {
+//     std::string nm = ctx->graphID()->getText();
+
+//     // nodesChild: optional. Build InlineNodeList only if nodes: present and non-empty.
+//     std::unique_ptr<NodeListNode> nd;
+//     if (ctx->nodes())
+//     {
+//         // if nodes: exists, might be empty or contain nodeIDs
+//         auto *nl = ctx->nodes()->nodeList();
+//         if (nl)
+//         {
+//             std::vector<int> ids;
+//             for (auto *idT : nl->nodeID())
+//                 ids.push_back(std::stoi(idT->getText()));
+//             // We still create InlineNodeList even if ids is empty;
+//             // GraphDeclNode constructor will union with edges.
+//             nd = std::make_unique<InlineNodeList>(std::move(ids));
+//         }
+//         else
+//         {
+//             // nodes: exists but no nodeList (shouldn't happen with grammar), leave nd empty
+//             nd = nullptr;
+//         }
+//     }
+//     // else nd remains nullptr -> GraphDeclNode will infer nodes from edges
+
+//     // edgesChild: either fileEdgeList or inline edgeList
+//     std::unique_ptr<EdgeListNode> ed;
+//     std::string filePath; // non-empty if edges came from a file
+//     if (ctx->edges())
+//     {
+//         if (auto *fe = ctx->edges()->fileEdgeList())
+//         {
+//             std::string s = fe->STRING()->getText();
+//             s = s.substr(1, s.size() - 2); // strip quotes
+//             filePath = s;
+//             ed = std::make_unique<FileEdgeList>(std::move(s));
+//         }
+//         else if (auto *el = ctx->edges()->edgeList())
+//         {
+//             std::vector<std::pair<int, int>> edgesVec;
+//             for (auto *eCtx : el->edge())
+//             {
+//                 int u = std::stoi(eCtx->nodeID(0)->getText());
+//                 int v = std::stoi(eCtx->nodeID(1)->getText());
+//                 edgesVec.emplace_back(u, v);
+//             }
+//             ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
+//         }
+//     }
+
+//     if (!ed)
+//     {
+//         throw std::runtime_error("graph must have edges (inline list or file):");
+//     }
+
+//     // Construct GraphDeclNode — its constructor will (for file-backed graphs)
+//     // materialize (read) the edge list. We measure that operation when filePath is set.
+//     std::shared_ptr<GraphDeclNode> gnode;
+//     if (!filePath.empty())
+//     {
+//         auto t0 = std::chrono::high_resolution_clock::now();
+//         gnode = std::make_shared<GraphDeclNode>(
+//             std::move(nm),
+//             std::move(nd),
+//             std::move(ed));
+//         auto t1 = std::chrono::high_resolution_clock::now();
+//         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
+//         std::cerr << "[ASTBuilder] loaded edge-list file '" << filePath
+//                   << "' in " << dur.count() << " ms\n";
+//     }
+//     else
+//     {
+//         // inline edges: just construct without timing the file read
+//         gnode = std::make_shared<GraphDeclNode>(
+//             std::move(nm),
+//             std::move(nd),
+//             std::move(ed));
+//     }
+
+//     return std::static_pointer_cast<ASTNode>(gnode);
+// }
+
+
 antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
 
-    // nodesChild: optional. Build InlineNodeList only if nodes: present and non-empty.
-    std::unique_ptr<NodeListNode> nd;
+    if (!ctx->edges())
+        throw std::runtime_error("graph must have edges (inline list or file):");
+
+    // Materialize edges exactly once
+    std::vector<std::pair<int, int>> edgesVec;
+    if (auto *fe = ctx->edges()->fileEdgeList())
+    {
+        std::string s = fe->STRING()->getText();
+        s = s.substr(1, s.size() - 2);
+        FileEdgeList tmpFile(std::move(s));
+        edgesVec = tmpFile.materializeEdges(); // file read happens here once
+    }
+    else if (auto *el = ctx->edges()->edgeList())
+    {
+        for (auto *eCtx : el->edge())
+        {
+            int u = std::stoi(eCtx->nodeID(0)->getText());
+            int v = std::stoi(eCtx->nodeID(1)->getText());
+            edgesVec.emplace_back(u, v);
+        }
+    }
+
+    // Build node id set: explicit nodes (if any) U nodes from edges
+    llvm::DenseSet<int> idset;
     if (ctx->nodes())
     {
-        // if nodes: exists, might be empty or contain nodeIDs
         auto *nl = ctx->nodes()->nodeList();
         if (nl)
         {
-            std::vector<int> ids;
             for (auto *idT : nl->nodeID())
-                ids.push_back(std::stoi(idT->getText()));
-            // We still create InlineNodeList even if ids is empty;
-            // GraphDeclNode constructor will union with edges.
-            nd = std::make_unique<InlineNodeList>(std::move(ids));
-        }
-        else
-        {
-            // nodes: exists but no nodeList (shouldn't happen with grammar), leave nd empty
-            nd = nullptr;
+                idset.insert(std::stoi(idT->getText()));
         }
     }
-    // else nd remains nullptr -> GraphDeclNode will infer nodes from edges
-
-    // edgesChild: either fileEdgeList or inline edgeList
-    std::unique_ptr<EdgeListNode> ed;
-    if (ctx->edges())
+    for (auto &e : edgesVec)
     {
-        if (auto *fe = ctx->edges()->fileEdgeList())
-        {
-            std::string s = fe->STRING()->getText();
-            s = s.substr(1, s.size() - 2); // strip quotes
-            ed = std::make_unique<FileEdgeList>(std::move(s));
-        }
-        else if (auto *el = ctx->edges()->edgeList())
-        {
-            std::vector<std::pair<int, int>> edgesVec;
-            for (auto *eCtx : el->edge())
-            {
-                int u = std::stoi(eCtx->nodeID(0)->getText());
-                int v = std::stoi(eCtx->nodeID(1)->getText());
-                edgesVec.emplace_back(u, v);
-            }
-            ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
-        }
+        idset.insert(e.first);
+        idset.insert(e.second);
     }
 
-    if (!ed)
-    {
-        throw std::runtime_error("graph must have edges (inline list or file):");
-    }
+    std::vector<int> nodeIds;
+    nodeIds.reserve(idset.size());
+    for (int x : idset)
+        nodeIds.push_back(x);
+    std::sort(nodeIds.begin(), nodeIds.end());
 
-    // Construct GraphDeclNode — its constructor will merge explicit nodes (if any)
-    // with edge endpoints and build CSR.
+    // Construct InlineNodeList / InlineEdgeList and pass them to GraphDeclNode
+    auto nd = std::make_unique<InlineNodeList>(std::move(nodeIds));
+    auto ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
+
     auto gnode = std::make_shared<GraphDeclNode>(
         std::move(nm),
         std::move(nd),
@@ -688,24 +789,61 @@ antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext 
     std::string desc = ctx->STRING()->getText();
     desc = desc.substr(1, desc.size() - 2); // strip quotes
     std::string gname = ctx->graphID()->getText();
-    auto node = std::make_shared<QueryNode>(name, desc, gname);
+
+    QueryType qtype = QueryType::UNKNOWN;
+    if (desc == "chromaticity") {
+        qtype = QueryType::INT;
+    } else if (desc == "bfs" || desc == "dfs") {
+        qtype = QueryType::ARRAY;
+    }
+
+    auto node = std::make_shared<QueryNode>(name, desc, gname, qtype);
+
+    if (qtype == QueryType::INT) {
+        symbolTable[name] = 0; // int placeholder
+    } else if (qtype == QueryType::ARRAY) {
+        arrayTable[name] = {}; // empty vector placeholder
+    }
+
     return std::static_pointer_cast<ASTNode>(node);
+
+
+
 }
+
+// antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
+// {
+//     // 1) build the ASTNode for whatever was inside the print
+//     ASTNodePtr inner;
+//     if (ctx->printExpr())
+//     {
+//         inner = safe_any_cast<ASTNodePtr>(visitPrintExpr(ctx->printExpr()));
+//     }
+//     else
+//     {
+//         // handle printgraph / edge/node cases if you want…
+//         throw std::runtime_error("printgraph not yet supported in ASTBuilder");
+//     }
+
+//     // 2) wrap in a PrintStmtNode
+//     return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
+// }
 
 antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
 {
-    // 1) build the ASTNode for whatever was inside the print
-    ASTNodePtr inner;
-    if (ctx->printExpr())
-    {
-        inner = safe_any_cast<ASTNodePtr>(visitPrintExpr(ctx->printExpr()));
+    // 1) scalar expression print
+    if (auto exprCtx = ctx->printExpr()) {
+        auto inner = safe_any_cast<ASTNodePtr>(visitPrintExpr(exprCtx));
+        return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
     }
-    else
-    {
-        // handle printgraph / edge/node cases if you want…
+    // 2) array print
+    else if (auto arrCtx = dynamic_cast<BaseParser::PrintArrayStatementContext*>(ctx)) {
+        auto name = arrCtx->ID()->getText();
+        auto index = safe_any_cast<ASTNodePtr>(visitExpr(arrCtx->expr()));
+        return ASTNodePtr(std::make_shared<PrintArrayNode>(name, index));
+    }
+    // 3) graph/node/edge print
+    else {
         throw std::runtime_error("printgraph not yet supported in ASTBuilder");
     }
-
-    // 2) wrap in a PrintStmtNode
-    return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
 }

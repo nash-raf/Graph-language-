@@ -4,4 +4,4 @@ graph g {
 
 };
 
-query k: 'bk' of g; 
+query k: 'bfs' of g;

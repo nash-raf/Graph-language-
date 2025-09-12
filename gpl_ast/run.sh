@@ -59,7 +59,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
 
   g++ \
-    -g -std=c++17 -fexceptions \
+    -g -std=c++17 -fexceptions -fopenmp \
     $ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
@@ -74,7 +74,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
 
   echo ">>> GraphProgram build complete"
 fi
-./GraphProgram test.graph
+./GraphProgram > test.ll test.graph  
 
 # # ----------------------------------------------------------------------------- 
 # # 3) Build LLVM pass plugin

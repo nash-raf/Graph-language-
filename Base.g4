@@ -96,7 +96,7 @@ block: '{' (statement | returnStatement)* '}' | '{' '}' ;
 returnStatement: 'return' expr ';';
 
 // Print
-printStatement: 'print' printExpr ';' | printgraph;
+printStatement: 'print' printExpr ';' | 'print' ID '[' ']' ';' | printgraph;
 printExpr: STRING | expr | printExpr '+' printExpr;
 
 printgraph: 'print' EDGE OF graphID ';' #edgePrint

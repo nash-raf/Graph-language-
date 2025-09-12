@@ -1,0 +1,1 @@
+clang++-18 -fopenmp -O2 -std=c++17 -emit-llvm -c dfs_runtime.cpp -o dfs_runtime.bc -target x86_64-pc-linux-gnu

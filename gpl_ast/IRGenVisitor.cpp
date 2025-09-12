@@ -1099,7 +1099,6 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     return graphPtr;
 }
 
-
 // void IRGenVisitor::emitBFS(QueryNode *Q)
 // {
 //     // Grab the Graph* value
@@ -1166,14 +1165,12 @@ void IRGenVisitor::emitBFS(QueryNode *Q)
     llvm::Value *retVal = Builder.CreateCall(
         bfsDecl,
         {graphPtr, arrAlloca, sizeAlloca},
-        Q->queryName + "_bfs_ret"
-    );
+        Q->queryName + "_bfs_ret");
 
     // Store the alloca (pointer) and size in NamedValues
     NamedValues[Q->queryName + "_ptr"] = arrAlloca;
     NamedValues[Q->queryName + "_size"] = sizeAlloca;
 }
-
 
 void IRGenVisitor::emitDFS(QueryNode *Q)
 {
@@ -1204,22 +1201,24 @@ void IRGenVisitor::emitDFS(QueryNode *Q)
     NamedValues[Q->queryName + "_size"] = sizeAlloca;
 }
 
-llvm::Function* IRGenVisitor::getPrintfFunction() {
+llvm::Function *IRGenVisitor::getPrintfFunction()
+{
     llvm::FunctionType *printfType =
         llvm::FunctionType::get(
             llvm::Type::getInt32Ty(Context),
             llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
-            true
-        );
+            true);
     auto func = Module.getOrInsertFunction("printf", printfType);
     return llvm::cast<llvm::Function>(func.getCallee());
 }
 
-void IRGenVisitor::visitPrintArray(PrintArrayNode *node) {
+void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
+{
     auto arrIt = NamedValues.find(node->arrayName + "_ptr");
     auto sizeIt = NamedValues.find(node->arrayName + "_size");
 
-    if (arrIt == NamedValues.end() || sizeIt == NamedValues.end()) {
+    if (arrIt == NamedValues.end() || sizeIt == NamedValues.end())
+    {
         llvm::errs() << "Array not found: " << node->arrayName << "\n";
         return;
     }
@@ -1257,8 +1256,6 @@ void IRGenVisitor::visitPrintArray(PrintArrayNode *node) {
     Builder.SetInsertPoint(afterBB);
     Builder.CreateCall(printfFunc, {Builder.CreateGlobalStringPtr("\n")});
 }
-
-
 
 void IRGenVisitor::emitFloydWarshall(QueryNode *Q)
 {
@@ -1346,10 +1343,13 @@ void IRGenVisitor::emitChromacity(QueryNode *Q)
     // 4. Allocate space for query result in NamedValues if not already present
     llvm::AllocaInst *varPtr = nullptr;
     auto it = NamedValues.find(Q->queryName);
-    if (it == NamedValues.end()) {
+    if (it == NamedValues.end())
+    {
         varPtr = Builder.CreateAlloca(intTy, nullptr, Q->queryName);
         NamedValues[Q->queryName] = varPtr;
-    } else {
+    }
+    else
+    {
         varPtr = it->second;
     }
 
@@ -1359,27 +1359,35 @@ void IRGenVisitor::emitChromacity(QueryNode *Q)
     // Done
 }
 
-
-
 void IRGenVisitor::visitQuery(QueryNode *Q)
 {
     // Assuming QueryNode has a std::string field named 'queryDesc' for "bfs"/"dfs"
-    if (Q->queryDesc == "bfs") {
+    if (Q->queryDesc == "bfs")
+    {
         emitBFS(Q);
-    } else if (Q->queryDesc == "dfs") {
+    }
+    else if (Q->queryDesc == "dfs")
+    {
         emitDFS(Q);
-    } else if (Q->queryDesc == "bk") {
+    }
+    else if (Q->queryDesc == "bk")
+    {
         emitBK(Q);
-    } else if (Q->queryDesc == "transitive_closure") {
+    }
+    else if (Q->queryDesc == "transitive_closure")
+    {
         emitFloydWarshall(Q);
-    } else if (Q->queryDesc == "chromaticity") {
+    }
+    else if (Q->queryDesc == "chromaticity")
+    {
         emitChromacity(Q);
-    } else {
+    }
+    else
+    {
         llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n";
         assert(false && "Unknown query type in QueryNode");
     }
 }
-
 
 void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
 {

@@ -64,7 +64,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                     {
                         llvm::StringRef S = MDS->getString();
                         // llvm::errs() << "  MDString: " << S << "\n";
-                        if (S.startswith("parallel.type="))
+                        if (S.starts_with("parallel.type="))
                         {
                             llvm::StringRef Val = S.substr(strlen("parallel.type="));
                             if (Val.equals_insensitive("DOALL"))

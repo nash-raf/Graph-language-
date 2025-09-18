@@ -10,6 +10,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h" // <-- Add this include
 #include <string>
 
 #include "llvm/Passes/PassBuilder.h"
@@ -492,7 +493,7 @@ void buildGraph(llvm::Function &F,
             {
                 if (auto *MD = llvm::dyn_cast<llvm::MemoryDef>(Clobber))
                 {
-                    if (auto *SI = llvm::dyn_cast<llvm::StoreInst>(MD->getMemoryInst()))
+                    if (auto *SI = llvm::dyn_cast_or_null<llvm::StoreInst>(MD->getMemoryInst()))
                     {
                         createEdge(SI, LI, G, "RAW");
                     }

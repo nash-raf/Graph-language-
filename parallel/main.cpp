@@ -22,33 +22,23 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
-// New Pass Manager headers
 #include <llvm/IR/PassManager.h>
 #include <llvm/Passes/PassBuilder.h>
 
-// Pass implementations
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 #include <llvm/Transforms/Utils/LoopSimplify.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
-
-// Host/target headers — try common locations
-#if defined(__has_include)
-#if __has_include(<llvm/Support/Host.h>)
-#include <llvm/Support/Host.h>
-#elif __has_include(<llvm/TargetParser/Host.h>)
 #include <llvm/TargetParser/Host.h>
-#else
-#include <llvm/Support/Host.h>
-#endif
-#else
-#include <llvm/Support/Host.h>
-#endif
 
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Support/TargetSelect.h>
-#include <llvm/Support/CodeGen.h> // CGFT_ObjectFile
+#include <llvm/Support/CodeGen.h> // CodeGenFileType, CodeGenOptLevel
 #include <llvm/IR/LegacyPassManager.h>
+
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Linker/Linker.h>
+#include <llvm/Support/SourceMgr.h>
 
 using namespace antlr4;
 using namespace llvm;
@@ -150,6 +140,150 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
+    {
+        llvm::SMDiagnostic Err;
+        // Parse textual IR file into a new Module
+        std::unique_ptr<llvm::Module> BfsMod = llvm::parseIRFile("bfs_runtime.ll", Err, Ctx);
+        if (!BfsMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse bfs_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Bfs_DL = BfsMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Bfs_DL.empty())
+            M->setDataLayout(BfsMod->getDataLayout());
+
+        // TargetTriple check is fine as-is (getTargetTriple().empty()).
+        if (M->getTargetTriple().empty() && !BfsMod->getTargetTriple().empty())
+            M->setTargetTriple(BfsMod->getTargetTriple());
+
+        // Link BfsMod into M (M is the destination)
+        llvm::Linker TheLinker(*M);
+        // linkInModule returns true on error (older/newer APIs may differ — treat non-zero/true as failure)
+        if (TheLinker.linkInModule(std::move(BfsMod)))
+        {
+            llvm::errs() << "Linking bfs_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked bfs_runtime.ll into module\n";
+    }
+
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> DfsMod = llvm::parseIRFile("dfs_runtime.ll", Err, Ctx);
+        if (!DfsMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse dfs_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Dfs_DL = DfsMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Dfs_DL.empty())
+            M->setDataLayout(DfsMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !DfsMod->getTargetTriple().empty())
+            M->setTargetTriple(DfsMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(DfsMod)))
+        {
+            llvm::errs() << "Linking dfs_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked dfs_runtime.ll into module\n";
+    }
+
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> BkMod = llvm::parseIRFile("bk_runtime.ll", Err, Ctx);
+        if (!BkMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse bk_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Bk_DL = BkMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Bk_DL.empty())
+            M->setDataLayout(BkMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !BkMod->getTargetTriple().empty())
+            M->setTargetTriple(BkMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(BkMod)))
+        {
+            llvm::errs() << "Linking bk_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked bk_runtime.ll into module\n";
+    }
+
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> FWMod = llvm::parseIRFile("floyd_runtime.ll", Err, Ctx);
+        if (!FWMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse floyd_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Fw_DL = FWMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Fw_DL.empty())
+            M->setDataLayout(FWMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !FWMod->getTargetTriple().empty())
+            M->setTargetTriple(FWMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(FWMod)))
+        {
+            llvm::errs() << "Linking floyd_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
+    }
+
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> CmMOD = llvm::parseIRFile("chromacity_runtime.ll", Err, Ctx);
+        if (!CmMOD)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse floyd_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Cm_DL = CmMOD->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Cm_DL.empty())
+            M->setDataLayout(CmMOD->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !CmMOD->getTargetTriple().empty())
+            M->setTargetTriple(CmMOD->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(CmMOD)))
+        {
+            llvm::errs() << "Linking floyd_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
+    }
+
     InitializeAllTargetInfos();
     InitializeAllTargets();
     InitializeAllTargetMCs();
@@ -171,17 +305,11 @@ int main(int argc, char **argv)
     std::optional<llvm::Reloc::Model> RM = std::nullopt;
     std::optional<llvm::CodeModel::Model> CM = std::nullopt;
 
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 18
+    // LLVM 20: use CodeGenOptLevel
     auto OptLevel = llvm::CodeGenOptLevel::Default;
-#else
-    auto OptLevel = llvm::CodeGenOpt::Default;
-#endif
 
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 18
+    // Use the full modern signature for createTargetMachine (LLVM 18+ / 20)
     auto TM = Target->createTargetMachine(TargetTriple, "generic", /*Features=*/"", Opts, RM, CM, OptLevel, /*JIT=*/false);
-#else
-    auto TM = Target->createTargetMachine(TargetTriple, "generic", /*Features=*/"", Opts);
-#endif
 
     if (!TM)
     {
@@ -201,17 +329,15 @@ int main(int argc, char **argv)
 
     legacy::PassManager codeGenPass;
 
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 18
+    // LLVM 20: use CodeGenFileType::ObjectFile
     if (TM->addPassesToEmitFile(codeGenPass, dest, nullptr, llvm::CodeGenFileType::ObjectFile))
     {
-#else
-    if (TM->addPassesToEmitFile(codeGenPass, dest, nullptr, llvm::CGFT_ObjectFile))
-    {
-#endif
         errs() << "TargetMachine can't emit a file of this type\n";
         return 1;
     }
 
     codeGenPass.run(*M);
     dest.flush();
+
+    return 0;
 }

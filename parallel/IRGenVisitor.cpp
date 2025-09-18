@@ -352,7 +352,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         // If it's a pointer to dynamically allocated array
         else if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseAlloca->getAllocatedType()))
         {
-            llvm::Type *elemTy = ptrTy->getNonOpaquePointerElementType();
+            llvm::Type *elemTy = ptrTy->getContainedType(0);
 
             llvm::Value *elemPtr = Builder.CreateGEP(
                 elemTy,     // pointee type
@@ -622,7 +622,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Type *baseTy = baseAlloca->getAllocatedType();
             if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseTy))
             {
-                llvm::Type *elemTy = ptrTy->getNonOpaquePointerElementType();
+                llvm::Type *elemTy = ptrTy->getContainedType(0);
 
                 // Compute element pointer with GEP
                 llvm::Value *elemPtr = Builder.CreateGEP(

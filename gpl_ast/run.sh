@@ -2,8 +2,8 @@
 set -euxo pipefail
 
 # ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
-LLVM_CONFIG="llvm-config-18"
-CLANGXX="clang++-18"
+LLVM_CONFIG="llvm-config-20"
+CLANGXX="clang++-20"
 # ────────────────────────────────────────────────────────────────────────────────
 
 # Usage: ./run.sh <input.gpl> <dsl-input> [existing-IR.ll]

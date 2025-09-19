@@ -1,4 +1,0 @@
-Successfully linked bfs_runtime.ll into module
-Successfully linked dfs_runtime.ll into module
-Successfully linked bk_runtime.ll into module
-Successfully linked floyd_runtime.ll into module

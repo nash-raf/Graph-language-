@@ -18,6 +18,12 @@
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/TargetParser/Host.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/CodeGen.h>
+#include <llvm/IR/LegacyPassManager.h>
 
 // New Pass Manager headers
 #include <llvm/IR/PassManager.h>
@@ -373,6 +379,60 @@ int main(int argc, char **argv)
 
     // Then run the constructed ModulePassManager (which may include other passes).
     MPM.run(*M, MAM);
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    std::string TargetTriple = sys::getDefaultTargetTriple();
+    M->setTargetTriple(TargetTriple);
+
+    std::string Error;
+    const Target *Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+    if (!Target)
+    {
+        errs() << "Failed to lookup target for triple '" << TargetTriple << "': " << Error << "\n";
+        return 1;
+    }
+
+    TargetOptions Opts;
+    std::optional<llvm::Reloc::Model> RM = std::nullopt;
+    std::optional<llvm::CodeModel::Model> CM = std::nullopt;
+
+    // LLVM 20: use CodeGenOptLevel
+    auto OptLevel = llvm::CodeGenOptLevel::Default;
+
+    // Use the full modern signature for createTargetMachine (LLVM 18+ / 20)
+    auto TM = Target->createTargetMachine(TargetTriple, "generic", /*Features=*/"", Opts, RM, CM, OptLevel, /*JIT=*/false);
+
+    if (!TM)
+    {
+        errs() << "Failed to create TargetMachine for triple '" << TargetTriple << "'\n";
+        return 1;
+    }
+
+    M->setDataLayout(TM->createDataLayout());
+
+    std::error_code EC;
+    raw_fd_ostream dest("program.o", EC, sys::fs::OF_None);
+    if (EC)
+    {
+        errs() << "Could not open output file 'program.o': " << EC.message() << "\n";
+        return 1;
+    }
+
+    legacy::PassManager codeGenPass;
+
+    // LLVM 20: use CodeGenFileType::ObjectFile
+    if (TM->addPassesToEmitFile(codeGenPass, dest, nullptr, llvm::CodeGenFileType::ObjectFile))
+    {
+        errs() << "TargetMachine can't emit a file of this type\n";
+        return 1;
+    }
+
+    codeGenPass.run(*M);
+    dest.flush();
     // errs() << "=== Named metadata in module ===\n";
     // for (auto &N : M->named_metadata())
     // {

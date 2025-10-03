@@ -2,7 +2,7 @@ import subprocess
 import itertools
 
 # Algorithms
-algos = ["bfs", "dfs", "bk"]
+algos = ["floyd_warshall"]
 
 # Vertex and edge lists
 vertices = [50000,250000,500000,750000,1000000]   
@@ -11,7 +11,7 @@ edges = [50000,200000,500000,750000,1000000]
 def run_experiment(algo, v, e):
 
     # Step 2: Build logfile name
-    log_filename = f"../../log/{algo}_graphskew_synth_v_{v}_e_{e}.txt"
+    log_filename = f"../../log/transitive_closure_graphskew_synth_v_{v}_e_{e}.txt"
 
     commands = [
         f"python {algo}_graph_tool.py ../../synth_graphs/synth_v_{v}_e_{e}.txt"

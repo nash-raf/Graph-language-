@@ -37,6 +37,7 @@ public:
     void visitReturnStmt(ReturnStmtNode *ret);
     void visitStatement(ASTNode *node);
     void visitWhile(WhileStmtNode *ws);
+    void visitForEach(ForEachStmtNode *fs);
     void visitFunctionDecl(FunctionDeclNode *funcDecl);
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
     void visitQuery(QueryNode *Q);

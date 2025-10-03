@@ -79,6 +79,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::WhileStmt:
             visitWhile(static_cast<WhileStmtNode *>(node.get()));
             break;
+        case ASTNodeType::ForEachStmt:
+            visitForEach(static_cast<ForEachStmtNode *>(node.get()));
+            break;
         case ASTNodeType::GraphDecl:
             // Lower graph h { … }
             visitGraphDecl(static_cast<GraphDeclNode *>(node.get()));
@@ -497,6 +500,259 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 
     Builder.SetInsertPoint(mergeBB);
 }
+
+// void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+//     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
+
+//     // Lookup the graph pointer value from the map
+//     llvm::Value *graphPtr = GraphMap[fs->graphName];
+//     if (!graphPtr)
+//         throw std::runtime_error("Graph not allocated in IR: " + fs->graphName);
+
+//     llvm::StructType *graphTy = GraphTy;
+//     if (!graphTy)
+//         throw std::runtime_error("GraphTy is not properly initialized");
+
+//     // --- Load n, row_ptr, col_idx from the graph ---
+//     llvm::Value *nPtr = Builder.CreateStructGEP(graphTy, graphPtr, 0, "g_n_ptr");
+//     llvm::Value *nVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), nPtr, "n_val");
+
+//     llvm::Value *rpPtrGEP = Builder.CreateStructGEP(graphTy, graphPtr, 2, "g_rp_ptr");
+//     llvm::Value *rowPtr = Builder.CreateLoad(
+//         llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(Context)),
+//         rpPtrGEP, "row_ptr");
+
+//     llvm::Value *ciPtrGEP = Builder.CreateStructGEP(graphTy, graphPtr, 3, "g_ci_ptr");
+//     llvm::Value *colPtr = Builder.CreateLoad(
+//         llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context)),
+//         ciPtrGEP, "col_ptr");
+
+//     // --- Allocate loop index ---
+//     llvm::AllocaInst *iAlloca = createEntryBlockAlloca(parent, "i");
+//     Builder.CreateStore(llvm::ConstantInt::get(Context, llvm::APInt(64, 0)), iAlloca);
+
+//     // --- Create basic blocks ---
+//     llvm::BasicBlock *condBB = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+//     llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+//     llvm::BasicBlock *incBB = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+//     llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
+
+//     Builder.CreateBr(condBB);
+
+//     // --- Condition block ---
+//     Builder.SetInsertPoint(condBB);
+//     llvm::Value *iVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), iAlloca, "i_val");
+//     llvm::Value *cond = Builder.CreateICmpSLT(iVal, nVal, "loop_cond");
+//     Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+//     // --- Body block ---
+//     Builder.SetInsertPoint(bodyBB);
+//     NamedValues[fs->var1] = iAlloca;
+
+//     // --- Load row_ptr[i] and col_idx[i] ---
+//     llvm::Value *rpElemPtr = Builder.CreateGEP(
+//         llvm::Type::getInt64Ty(Context), rowPtr, iVal, "rp_elem_ptr");
+//     llvm::Value *rpElem = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), rpElemPtr, "rp_val");
+
+//     llvm::Value *ciElemPtr = Builder.CreateGEP(
+//         llvm::Type::getInt32Ty(Context), colPtr, iVal, "ci_elem_ptr");
+//     llvm::Value *ciElem = Builder.CreateLoad(llvm::Type::getInt32Ty(Context), ciElemPtr, "ci_val");
+
+//     // --- Print the values using printf ---
+//     llvm::FunctionCallee printfFn = Module.getOrInsertFunction(
+//         "printf",
+//         llvm::FunctionType::get(
+//             Builder.getInt32Ty(),
+//             {llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context))},
+//             true));
+
+//     llvm::Value *fmtStr = Builder.CreateGlobalStringPtr("%llu %d\n");
+//     Builder.CreateCall(printfFn, {fmtStr, rpElem, ciElem});
+
+//     // --- Visit the loop body if any ---
+//     visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+
+//     if (!Builder.GetInsertBlock()->getTerminator())
+//         Builder.CreateBr(incBB);
+
+//     // --- Increment block ---
+//     Builder.SetInsertPoint(incBB);
+//     llvm::Value *iNext = Builder.CreateAdd(iVal, llvm::ConstantInt::get(Context, llvm::APInt(64, 1)), "i_next");
+//     Builder.CreateStore(iNext, iAlloca);
+//     Builder.CreateBr(condBB);
+
+//     // --- Merge block ---
+//     Builder.SetInsertPoint(mergeBB);
+// }
+
+// void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+//     // Parent function (needed to create entry-block allocas and basic blocks)
+//     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
+
+//     // Look up the graph pointer value produced by visitGraphDecl
+//     llvm::Value *graphPtr = GraphMap[fs->graphName];
+//     if (!graphPtr)
+//         throw std::runtime_error("Graph not allocated in IR: " + fs->graphName);
+
+//     // Graph struct type (must have been set up in visitGraphDecl)
+//     if (!GraphTy)
+//         throw std::runtime_error("GraphTy not initialized in IRGenVisitor");
+
+//     // Common types
+//     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
+//     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+
+//     // --- Load number of vertices: n (field 0 of graph struct) ---
+//     llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+//     llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "n_val");
+
+//     // --- Prepare entry-block allocas (so they survive across blocks) ---
+//     // Use a temporary IRBuilder positioned at the very start of the function entry.
+//     llvm::IRBuilder<> tmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
+
+//     // Create an alloca for the loop index (64-bit because row_ptr uses i64 offsets)
+//     llvm::AllocaInst *idxAlloca = tmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".idx");
+//     // Create a user-variable alloca (32-bit) so printf("%d") / normal integer ops work.
+//     // If the loop variable is intended to be 64-bit, adapt accordingly and change print formatting.
+//     llvm::AllocaInst *userVarAlloca = tmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
+
+//     // Save any previous mapping for the loop variable so we can restore it afterwards
+//     llvm::AllocaInst *oldVarAlloca = nullptr;
+//     auto itOld = NamedValues.find(fs->var1);
+//     if (itOld != NamedValues.end())
+//         oldVarAlloca = itOld->second;
+
+//     // Register the user variable alloca for loads inside the loop body
+//     NamedValues[fs->var1] = userVarAlloca;
+
+//     // Initialize idx = 0
+//     Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), idxAlloca);
+
+//     // Create blocks: cond / body / inc / merge
+//     llvm::BasicBlock *condBB  = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+//     llvm::BasicBlock *bodyBB  = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+//     llvm::BasicBlock *incBB   = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+//     llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
+
+//     // Jump to cond
+//     Builder.CreateBr(condBB);
+
+//     // --- condBB: check idx < n ---
+//     Builder.SetInsertPoint(condBB);
+//     llvm::Value *idxVal = Builder.CreateLoad(i64Ty, idxAlloca, "idx_val");
+//     llvm::Value *cond = Builder.CreateICmpSLT(idxVal, nVal, "idx_lt_n");
+//     Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+//     // --- bodyBB: write current idx into the user variable (as i32) and execute body ---
+//     Builder.SetInsertPoint(bodyBB);
+//     // truncate or cast idx (i64) -> i32 to store into user variable
+//     llvm::Value *idx_i32 = nullptr;
+//     if (idxVal->getType()->isIntegerTy(64))
+//         idx_i32 = Builder.CreateTrunc(idxVal, i32Ty, "idx_trunc_i32");
+//     else
+//         idx_i32 = Builder.CreateIntCast(idxVal, i32Ty, /*isSigned=*/true, "idx_cast_i32");
+
+//     Builder.CreateStore(idx_i32, userVarAlloca);
+
+//     // Visit body (the user's statements). If the body uses the variable name, NamedValues points to userVarAlloca.
+//     visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+
+//     // After body: if body didn't emit a terminator, branch to inc
+//     if (!Builder.GetInsertBlock()->getTerminator())
+//         Builder.CreateBr(incBB);
+
+//     // --- incBB: idx = idx + 1; branch back to cond ---
+//     Builder.SetInsertPoint(incBB);
+//     llvm::Value *one64 = llvm::ConstantInt::get(i64Ty, 1);
+//     llvm::Value *nextIdx = Builder.CreateAdd(idxVal, one64, "idx_next");
+//     Builder.CreateStore(nextIdx, idxAlloca);
+//     Builder.CreateBr(condBB);
+
+//     // --- mergeBB: restore NamedValues and continue ---
+//     Builder.SetInsertPoint(mergeBB);
+//     if (oldVarAlloca)
+//         NamedValues[fs->var1] = oldVarAlloca;
+//     else
+//         NamedValues.erase(fs->var1);
+
+//     // Done
+// }
+
+void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+    llvm::Function *parent = Builder.GetInsertBlock()->getParent();
+
+    llvm::Value *graphPtr = GraphMap[fs->graphName];
+    if (!graphPtr)
+        throw std::runtime_error("Graph not allocated: " + fs->graphName);
+
+    if (!GraphTy)
+        throw std::runtime_error("GraphTy not initialized");
+
+    llvm::errs() << "Graph field 0 type: " << *GraphTy->getElementType(0) << "\n";
+    llvm::errs() << "Graph field 1 type: " << *GraphTy->getElementType(1) << "\n";
+    llvm::errs() << "Graph field 2 type: " << *GraphTy->getElementType(2) << "\n";
+    llvm::errs() << "Graph field 3 type: " << *GraphTy->getElementType(3) << "\n";
+
+    llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
+    llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+
+    // --- Load n (number of vertices) ---
+    llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+    llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "n_val");
+
+    // Allocate loop index (i64) and user variable (i32)
+    llvm::IRBuilder<> TmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
+    auto *idxAlloca  = TmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".idx64");
+    auto *userAlloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
+
+    NamedValues[fs->var1] = userAlloca;
+
+    // idx = 0
+    Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), idxAlloca);
+
+    // Blocks
+    auto *condBB  = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+    auto *bodyBB  = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+    auto *incBB   = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+    auto *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
+
+    Builder.CreateBr(condBB);
+
+    // --- Condition ---
+    Builder.SetInsertPoint(condBB);
+    llvm::Value *idxVal = Builder.CreateLoad(i64Ty, idxAlloca, "idx_val");
+    llvm::Value *cond = Builder.CreateICmpSLT(idxVal, nVal, "loop_cond");
+    Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+    // --- Body ---
+    Builder.SetInsertPoint(bodyBB);
+
+    // Cast/truncate idxVal (i64) → i32 safely
+    llvm::Value *idxVal32 = Builder.CreateTrunc(idxVal, i32Ty, "idx32");
+
+    // Store into user variable
+    Builder.CreateStore(idxVal32, userAlloca);
+
+    // Visit loop body
+    visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+    if (!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(incBB);
+
+    // --- Increment ---
+    Builder.SetInsertPoint(incBB);
+    llvm::Value *nextIdx = Builder.CreateAdd(
+        idxVal,
+        llvm::ConstantInt::get(i64Ty, 1),
+        "idx_next"
+    );
+    Builder.CreateStore(nextIdx, idxAlloca);
+    Builder.CreateBr(condBB);
+
+    // --- Merge ---
+    Builder.SetInsertPoint(mergeBB);
+}
+
+
 
 llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
 {
@@ -1095,6 +1351,17 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     }
 
     GraphMap[G->name] = graphPtr;
+
+    llvm::Function *F = Builder.GetInsertBlock()->getParent();
+    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name);
+    Builder.CreateStore(graphPtr, graphAlloca);
+    NamedValues[G->name] = graphAlloca; 
+    // debug
+    llvm::errs() << "[visitGraphDecl] G->n (declared) = " << G->n << "\n";
+    llvm::errs() << "[visitGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
+    if (G->n > 0)
+        llvm::errs() << "[visitGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
+    llvm::errs() << "[visitGraphDecl] G->col_idx entries = " << G->m << "\n";
 
     return graphPtr;
 }

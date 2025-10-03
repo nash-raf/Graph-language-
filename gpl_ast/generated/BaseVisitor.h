@@ -117,6 +117,8 @@ public:
 
     virtual std::any visitPrintExpr(BaseParser::PrintExprContext *context) = 0;
 
+    virtual std::any visitPrintArrayStatement(BaseParser::PrintArrayStatementContext *context) = 0;
+
     virtual std::any visitEdgePrint(BaseParser::EdgePrintContext *context) = 0;
 
     virtual std::any visitNodePrint(BaseParser::NodePrintContext *context) = 0;
@@ -136,6 +138,8 @@ public:
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
 
     virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
+
+    virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *context) = 0;
 
     virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
 

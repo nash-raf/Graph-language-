@@ -211,6 +211,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitPrintArrayStatement(BaseParser::PrintArrayStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitEdgePrint(BaseParser::EdgePrintContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -248,6 +252,10 @@ public:
   }
 
   virtual std::any visitParenExpr(BaseParser::ParenExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *ctx) override {
     return visitChildren(ctx);
   }
 

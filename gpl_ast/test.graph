@@ -1,45 +1,12 @@
+graph g {
 
+    edges: file '../synth_graphs/synth_v_250000_e_200000.txt';
 
-fn int main()
-{
-    int A[10];
-    int B[10];
-    int C[10];
-    int i = 0;
-    int j = 0;
-
-    // init arrays
-    while (i < 10)
-    {
-        A[i] = i + 1;
-        B[i] = i;
-        C[i] = i + 10;
-        i = i + 1;
-    }
-
-    i = 0;
-    int k = 0;
-
-    // nested loops using only while
-    while (i < 10)
-    {
-        while (j < 10)
-        {
-            int sum = 0;
-            while (k < 10)
-            {
-                // include volatile V so compiler cannot fold whole loop to a constant
-                sum = sum + A[i] + B[j];
-                k = k + 1;
-            }
-            k = 0;
-            C[j] = sum;
-            j = j + 1;
-        }
-        j = 0;
-        i = i + 1;
-    }
-    int a = C[9];
-    print a;
-    return C[9];
 };
+
+
+
+for each vertex v in g {
+    print v;
+}
+

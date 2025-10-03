@@ -2,7 +2,7 @@ import subprocess
 import itertools
 
 # Algorithms
-algos = ["bfs", "dfs", "bk"]
+algos = ["bfs", "dfs", "transitive_closure"]
 
 # Vertex and edge lists
 vertices = [50000,250000,500000,750000,1000000]   
@@ -30,15 +30,11 @@ def run_experiment(algo, v, e):
     print("======================")
 
     # Step 2: Build logfile name
-    log_filename = f"../log/{algo}_grapheasy_synth_v_{v}_e_{e}.txt"
+    log_filename = f"../log/{algo}_p1grapheasy_synth_v_{v}_e_{e}.txt"
 
     # Step 3: Build LLVM pipeline command
     commands = [
-        "./GraphProgram > test.ll test.graph",
-        "/usr/bin/llvm-link-18 myprog.bc dfs_runtime.bc bfs_runtime.bc bk_runtime.bc -o linked.bc",
-        "opt-18 -O3 linked.bc -o linked.opt.bc",
-        "opt -passes=\"function(mem2reg,loop-simplify,loop-rotate,lcssa,indvars,simplifycfg)\" linked.opt.bc -S -o linked-optimized.ll",
-        "lli-18 linked-optimized.ll"
+        "./final_run.sh"
     ]
     cmd = " && ".join(commands)
 

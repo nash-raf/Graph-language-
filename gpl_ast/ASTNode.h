@@ -21,6 +21,7 @@ enum class ASTNodeType
 {
     Program,
     IntLiteral,
+    StringLiteral,
     Variable,
     VarDecl,
     AssignmentStmt,
@@ -38,6 +39,7 @@ enum class ASTNodeType
     EdgeList,
     NodeList,
     QueryNode,
+    ForEachStmt,
     PrintStmt
 };
 
@@ -91,6 +93,14 @@ class IntLiteralNode : public ASTNode
 public:
     int value;
     IntLiteralNode(int val) : ASTNode(ASTNodeType::IntLiteral), value(val) {}
+};
+
+class StringLiteralNode : public ASTNode
+{
+public:
+    std::string value;
+    StringLiteralNode(const std::string &s)
+        : ASTNode(ASTNodeType::StringLiteral), value(s) {}
 };
 
 class ConditionalNode : public ASTNode
@@ -222,6 +232,28 @@ struct WhileStmtNode : ASTNode
         : ASTNode(ASTNodeType::WhileStmt),
           condition(std::move(cond)), body(std::move(bd)) {}
 };
+
+enum class ForEachTargetType {
+    Vertex,
+    Edge,
+    Neighbor
+};
+
+struct ForEachStmtNode : ASTNode
+{
+    ForEachTargetType targetType; // vertex, edge, neighbor
+    std::string var1;             // e.g., vertex or first edge ID or neighbor var
+    std::string var2;             // e.g., second edge ID or neighbor node ID (optional)
+    std::string graphName;        // the graph over which to iterate
+    int adjNodeId = -1;            // add this for neighbor loops
+    ASTNodePtr body;              // loop body
+
+    ForEachStmtNode(ForEachTargetType tgt, const std::string& v1, const std::string& v2,
+                    const std::string& gName, int adjId, ASTNodePtr bd)
+        : ASTNode(ASTNodeType::ForEachStmt),
+          targetType(tgt), var1(v1), var2(v2), graphName(gName), adjNodeId(adjId), body(std::move(bd)) {}
+};
+
 
 class FunctionDeclNode : public ASTNode
 {
@@ -526,6 +558,7 @@ public:
     PrintArrayNode(const std::string &name, ASTNodePtr index)
         : ASTNode(ASTNodeType::PrintStmt), arrayName(name), indexExpr(index) {}
 };
+
 
 
 #endif // ASTNODE_H

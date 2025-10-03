@@ -13,6 +13,7 @@ statement:
 	| printStatement
 	//| loopStatement
 	| whileStatement
+	| foreachStatement
 	| varDecl
 	| functionCall ';'
 	| graphComprehension

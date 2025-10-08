@@ -86,6 +86,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
             // Lower graph h { … }
             visitGraphDecl(static_cast<GraphDeclNode *>(node.get()));
             break;
+        case ASTNodeType::WeightedGraphDecl:
+            visitWeightedGraphDecl(static_cast<WeightedGraphDeclNode *>(node.get()));
+            break;
         case ASTNodeType::QueryNode:
             visitQuery(static_cast<QueryNode *>(node.get()));
             break;
@@ -678,7 +681,8 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 //     // Done
 // }
 
-void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
+{
     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
 
     llvm::Value *graphPtr = GraphMap[fs->graphName];
@@ -702,7 +706,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
 
     // Allocate loop index (i64) and user variable (i32)
     llvm::IRBuilder<> TmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
-    auto *idxAlloca  = TmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".idx64");
+    auto *idxAlloca = TmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".idx64");
     auto *userAlloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
 
     NamedValues[fs->var1] = userAlloca;
@@ -711,9 +715,9 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
     Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), idxAlloca);
 
     // Blocks
-    auto *condBB  = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
-    auto *bodyBB  = llvm::BasicBlock::Create(Context, "foreach.body", parent);
-    auto *incBB   = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+    auto *condBB = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+    auto *bodyBB = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+    auto *incBB = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
     auto *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
 
     Builder.CreateBr(condBB);
@@ -743,16 +747,13 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
     llvm::Value *nextIdx = Builder.CreateAdd(
         idxVal,
         llvm::ConstantInt::get(i64Ty, 1),
-        "idx_next"
-    );
+        "idx_next");
     Builder.CreateStore(nextIdx, idxAlloca);
     Builder.CreateBr(condBB);
 
     // --- Merge ---
     Builder.SetInsertPoint(mergeBB);
 }
-
-
 
 llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
 {
@@ -1355,13 +1356,205 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     llvm::Function *F = Builder.GetInsertBlock()->getParent();
     llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name);
     Builder.CreateStore(graphPtr, graphAlloca);
-    NamedValues[G->name] = graphAlloca; 
+    NamedValues[G->name] = graphAlloca;
     // debug
     llvm::errs() << "[visitGraphDecl] G->n (declared) = " << G->n << "\n";
     llvm::errs() << "[visitGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
     if (G->n > 0)
         llvm::errs() << "[visitGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
     llvm::errs() << "[visitGraphDecl] G->col_idx entries = " << G->m << "\n";
+
+    return graphPtr;
+}
+
+llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
+{
+    auto *I64 = llvm::Type::getInt64Ty(Context);
+    auto *I32 = llvm::Type::getInt32Ty(Context);
+
+    GraphTy = llvm::StructType::create(
+        Context,
+        {
+            llvm::Type::getInt64Ty(Context),                               // n
+            llvm::Type::getInt64Ty(Context),                               // m
+            llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(Context)), // row_ptr
+            llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context)), // col_idx
+            llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context))  // weights
+        },
+        "struct.Graph");
+
+    unsigned rpLen = static_cast<unsigned>(G->n + 1);
+    auto *arrRP = llvm::ArrayType::get(I64, rpLen);
+    llvm::SmallVector<llvm::Constant *, 16> rpConsts;
+    rpConsts.reserve(rpLen);
+    for (size_t i = 0; i < rpLen; i++)
+    {
+        rpConsts.push_back(llvm::ConstantInt::get(I64, (uint64_t)G->row_ptr[i]));
+    }
+    auto *RPArray = llvm::ConstantArray::get(arrRP, rpConsts);
+
+    unsigned ciLen = static_cast<unsigned>(G->m);
+    auto *arrCI = llvm::ArrayType::get(I32, ciLen);
+    auto *arrW = llvm::ArrayType::get(I32, ciLen);
+    llvm::SmallVector<llvm::Constant *, 16> ciConsts;
+    llvm::SmallVector<llvm::Constant *, 16> wConsts;
+    ciConsts.reserve(ciLen);
+    wConsts.reserve(ciLen);
+    for (size_t i = 0; i < ciLen; i++)
+    {
+        ciConsts.push_back(llvm::ConstantInt::get(I32, (int32_t)G->col_idx[i]));
+        wConsts.push_back(llvm::ConstantInt::get(I32, (int32_t)G->weights[i]));
+    }
+    auto *CIArray = llvm::ConstantArray::get(arrCI, ciConsts);
+    auto *WArray = llvm::ConstantArray::get(arrW, wConsts);
+    auto *GV_RP = new llvm::GlobalVariable(
+        Module, arrRP, true, llvm::GlobalValue::InternalLinkage,
+        RPArray, G->name + "_csr_row");
+
+    auto *GV_CI = new llvm::GlobalVariable(
+        Module, arrCI, true, llvm::GlobalValue::InternalLinkage,
+        CIArray, G->name + "_csr_col");
+
+    auto *GV_W = new llvm::GlobalVariable(
+        Module, arrW, true, llvm::GlobalValue::InternalLinkage,
+        WArray, G->name + "_w_col");
+
+    auto *mallocTy = llvm::FunctionType::get(
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+        {llvm::Type::getInt64Ty(Context)},
+        false);
+
+    llvm::FunctionCallee mallocCalle = Module.getOrInsertFunction("malloc", mallocTy);
+    llvm::Function *mallocFn = llvm::cast<llvm::Function>(mallocCalle.getCallee());
+
+    uint64_t rowBytes = (rpLen) * sizeof(int64_t);
+    uint64_t colBytes = ciLen * sizeof(int32_t);
+    uint64_t wBytes = ciLen * sizeof(int32_t);
+
+    llvm::Value *rpRaw = Builder.CreateCall(
+        mallocFn, llvm::ConstantInt::get(I64, rowBytes), "rp_raw");
+    llvm::Value *rowPtr = Builder.CreateBitCast(
+        rpRaw, llvm::PointerType::getUnqual(I64), "row_ptr");
+
+    llvm::Value *ciRaw = Builder.CreateCall(
+        mallocFn, llvm::ConstantInt::get(I64, colBytes), "ci_raw");
+    llvm::Value *colPtr = Builder.CreateBitCast(
+        ciRaw, llvm::PointerType::getUnqual(I32), "col_ptr");
+
+    llvm::Value *wRaw = Builder.CreateCall(
+        mallocFn, llvm::ConstantInt::get(I64, wBytes), "w_raw");
+    llvm::Value *wPtr = Builder.CreateBitCast(
+        wRaw, llvm::PointerType::getUnqual(I32), "w_ptr");
+
+    llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr,
+                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr,
+                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *w_i8 = Builder.CreateBitCast(wPtr,
+                                              llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *src_rp = Builder.CreateBitCast(GV_RP,
+                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
+                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *src_w = Builder.CreateBitCast(GV_W,
+                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+
+    // Define the memcpy intrinsic type
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *memcpyTy = llvm::Intrinsic::getDeclaration(
+        &Module, llvm::Intrinsic::memcpy,
+        {i8PtrTy, i8PtrTy, i64Ty});
+
+    // Define the volatility flag as i1
+    auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
+
+    // Perform the memcpy calls with correct argument types
+    Builder.CreateCall(memcpyTy, {rp_i8, src_rp, llvm::ConstantInt::get(I64, rowBytes), volatileFlag}, "");
+    Builder.CreateCall(memcpyTy, {ci_i8, src_ci, llvm::ConstantInt::get(I64, colBytes), volatileFlag}, "");
+    Builder.CreateCall(memcpyTy, {w_i8, src_w, llvm::ConstantInt::get(I64, wBytes), volatileFlag}, "");
+
+    // Build the malloc prototype for allocating the Graph struct
+    llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)), // returns i8*
+        {Builder.getInt64Ty()},                                       // takes an i64 size
+        false);
+
+    llvm::FunctionCallee mallocCalleeG =
+        Module.getOrInsertFunction("malloc", mallocFT_graph);
+    llvm::Function *mallocFnG =
+        llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
+
+    // Compute sizeof(struct.Graph)
+    uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
+    llvm::Value *graphSizeC =
+        llvm::ConstantInt::get(Builder.getInt64Ty(), graphSize);
+
+    // Call malloc(graphSize)
+    llvm::Value *rawGraph = Builder.CreateCall(
+        mallocFnG,
+        graphSizeC,
+        "graph_raw");
+
+    // Cast i8* → %struct.Graph*
+    llvm::Value *graphPtr = Builder.CreateBitCast(
+        rawGraph,
+        GraphTy->getPointerTo(),
+        "graph_ptr");
+
+    // GEP + store into field 0: n
+    {
+        // element 0 is the vertex count 'n'
+        llvm::Value *nPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 0, "g_n_ptr");
+        Builder.CreateStore(
+            llvm::ConstantInt::get(Builder.getInt64Ty(), G->n),
+            nPtr);
+    }
+
+    // GEP + store into field 1: m
+    {
+        llvm::Value *mPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 1, "g_m_ptr");
+        Builder.CreateStore(
+            llvm::ConstantInt::get(Builder.getInt64Ty(), G->m),
+            mPtr);
+    }
+
+    // GEP + store into field 2: row_ptr
+    {
+        llvm::Value *rpPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 2, "g_rp_ptr");
+        Builder.CreateStore(rowPtr, rpPtr);
+    }
+
+    // GEP + store into field 3: col_idx
+    {
+        llvm::Value *ciPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 3, "g_ci_ptr");
+        Builder.CreateStore(colPtr, ciPtr);
+    }
+
+    // GEP + store into field 4: weights
+    {
+        llvm::Value *wtPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 4, "g_w_ptr");
+        Builder.CreateStore(wPtr, wtPtr);
+    }
+
+    GraphMap[G->name] = graphPtr;
+
+    llvm::Function *F = Builder.GetInsertBlock()->getParent();
+    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name);
+    Builder.CreateStore(graphPtr, graphAlloca);
+    NamedValues[G->name] = graphAlloca;
+    // debug
+    llvm::errs() << "[visitGraphDecl] G->n (declared) = " << G->n << "\n";
+    llvm::errs() << "[visitGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
+    if (G->n > 0)
+        llvm::errs() << "[visitGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
+    llvm::errs() << "[visitGraphDecl] G->col_idx entries = " << G->m << "\n";
+    // llvm::errs() << "[visitGraphDecl] G->w_idx entries = " << G->weights << "\n";
 
     return graphPtr;
 }

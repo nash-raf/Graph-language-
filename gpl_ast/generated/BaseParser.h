@@ -18,11 +18,11 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, GRAPH = 43, EDGE = 44, 
-    NODE = 45, TRUE = 46, FALSE = 47, OF = 48, PLUS = 49, MINUS = 50, TIMES = 51, 
-    DIVIDE = 52, AND = 53, OR = 54, EQUAL = 55, NOTEQUAL = 56, LESSTHAN = 57, 
-    GREATERTHAN = 58, LESSEQUAL = 59, GREATEREQUAL = 60, ID = 61, INT = 62, 
-    REAL = 63, STRING = 64, Comment = 65, WS = 66
+    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, GRAPH = 43, WEIGHTS = 44, 
+    EDGE = 45, NODE = 46, TRUE = 47, FALSE = 48, OF = 49, PLUS = 50, MINUS = 51, 
+    TIMES = 52, DIVIDE = 53, AND = 54, OR = 55, EQUAL = 56, NOTEQUAL = 57, 
+    LESSTHAN = 58, GREATERTHAN = 59, LESSEQUAL = 60, GREATEREQUAL = 61, 
+    ID = 62, INT = 63, REAL = 64, STRING = 65, Comment = 66, WS = 67
   };
 
   enum {
@@ -38,7 +38,8 @@ public:
     RuleType = 31, RuleFunctionCall = 32, RuleArgumentList = 33, RuleBlock = 34, 
     RuleReturnStatement = 35, RulePrintStatement = 36, RulePrintExpr = 37, 
     RulePrintArrayStatement = 38, RulePrintgraph = 39, RuleExpr = 40, RuleArrayDeclarator = 41, 
-    RuleArrayInitializer = 42, RuleAssignmentStatement = 43, RuleArrayAssignStatement = 44
+    RuleArrayInitializer = 42, RuleAssignmentStatement = 43, RuleArrayAssignStatement = 44, 
+    RuleWeights = 45
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -102,7 +103,8 @@ public:
   class ArrayDeclaratorContext;
   class ArrayInitializerContext;
   class AssignmentStatementContext;
-  class ArrayAssignStatementContext; 
+  class ArrayAssignStatementContext;
+  class WeightsContext; 
 
   class  ProgramContext : public antlr4::ParserRuleContext {
   public:
@@ -149,15 +151,39 @@ public:
   class  GraphDefContext : public antlr4::ParserRuleContext {
   public:
     GraphDefContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    GraphDefContext() = default;
+    void copyFrom(GraphDefContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
     virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  WeightedGraphDefContext : public GraphDefContext {
+  public:
+    WeightedGraphDefContext(GraphDefContext *ctx);
+
+    antlr4::tree::TerminalNode *GRAPH();
+    GraphIDContext *graphID();
+    antlr4::tree::TerminalNode *TRUE();
+    NodesContext *nodes();
+    EdgesContext *edges();
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  UnweightedGraphDefContext : public GraphDefContext {
+  public:
+    UnweightedGraphDefContext(GraphDefContext *ctx);
+
     antlr4::tree::TerminalNode *GRAPH();
     GraphIDContext *graphID();
     NodesContext *nodes();
     EdgesContext *edges();
 
-
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-   
   };
 
   GraphDefContext* graphDef();
@@ -1101,6 +1127,20 @@ public:
   };
 
   ArrayAssignStatementContext* arrayAssignStatement();
+
+  class  WeightsContext : public antlr4::ParserRuleContext {
+  public:
+    WeightsContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *TRUE();
+    antlr4::tree::TerminalNode *FALSE();
+
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  WeightsContext* weights();
 
 
   bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;

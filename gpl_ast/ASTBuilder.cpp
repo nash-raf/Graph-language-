@@ -8,8 +8,6 @@
 #include <cstring> // for std::memcpy
 #include "llvm/Support/Allocator.h"
 
-
-
 int ASTBuilder::evaluate(ASTNodePtr node)
 {
 
@@ -95,11 +93,8 @@ int ASTBuilder::evaluate(ASTNodePtr node)
         }
     }
 
-
-
     throw std::runtime_error("wrongnode");
 }
-
 
 antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 {
@@ -159,7 +154,8 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitWhileStatement(ctx->whileStatement());
     }
-    else if(ctx->foreachStatement()){
+    else if (ctx->foreachStatement())
+    {
         return visitForeachStatement(ctx->foreachStatement());
     }
     else if (ctx->arrayAssignStatement())
@@ -180,8 +176,14 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     }
     else if (ctx->graphDef())
     {
+        if (auto wg = dynamic_cast<BaseParser::WeightedGraphDefContext *>(ctx->graphDef()))
+            return visitWeightedGraphDef(wg);
+        else if (auto ug = dynamic_cast<BaseParser::UnweightedGraphDefContext *>(ctx->graphDef()))
+            return visitUnweightedGraphDef(ug);
+        else
+            throw std::runtime_error("internal: unknown graphDef alternative");
         // produce a GraphDeclNode
-        return visitGraphDef(ctx->graphDef());
+        // return visitGraphDef(ctx->graphDef());
     }
     else if (ctx->queryStatement())
     {
@@ -640,7 +642,6 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
         std::make_shared<FunctionCallNode>(callee, std::move(args))};
 }
 
-
 // antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
 // {
 //     std::string nm = ctx->graphID()->getText();
@@ -725,8 +726,7 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
 //     return std::static_pointer_cast<ASTNode>(gnode);
 // }
 
-
-antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
+antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
     std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
@@ -784,11 +784,74 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
         std::move(nm),
         std::move(nd),
         std::move(ed));
-    
-    return std::static_pointer_cast<ASTNode>(gnode);
 
+    return std::static_pointer_cast<ASTNode>(gnode);
 }
 
+antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
+{
+    std::string nm = ctx->graphID()->getText();
+    std::cerr << "[ASTBuilder] Declaring Weighted graph: " << nm << std::endl;
+
+    if (!ctx->edges())
+        throw std::runtime_error("graph must have edges (inline list or file):");
+
+    // Materialize edges exactly once
+    std::vector<std::pair<int, int>> edgesVec;
+    llvm::DenseMap<std::pair<int, int>, int> weightMap;
+    if (auto *fe = ctx->edges()->fileEdgeList())
+    {
+        std::string s = fe->STRING()->getText();
+        s = s.substr(1, s.size() - 2);
+        WeightedFileEdgeList tmpFile(std::move(s));
+        tmpFile.materializeEdges(edgesVec, weightMap); // file read happens here once
+    }
+    // for inline !!!!NOT SUPPORTED YET!!!!!!
+    else if (auto *el = ctx->edges()->edgeList())
+    {
+        // for (auto *eCtx : el->edge())
+        // {
+        //     int u = std::stoi(eCtx->nodeID(0)->getText());
+        //     int v = std::stoi(eCtx->nodeID(1)->getText());
+        //     edgesVec.emplace_back(u, v);
+        // }
+        throw std::runtime_error("inline weighted edges not yet supported");
+    }
+
+    // Build node id set: explicit nodes (if any) U nodes from edges
+    llvm::DenseSet<int> idset;
+    if (ctx->nodes())
+    {
+        auto *nl = ctx->nodes()->nodeList();
+        if (nl)
+        {
+            for (auto *idT : nl->nodeID())
+                idset.insert(std::stoi(idT->getText()));
+        }
+    }
+    for (auto &e : edgesVec)
+    {
+        idset.insert(e.first);
+        idset.insert(e.second);
+    }
+
+    std::vector<int> nodeIds;
+    nodeIds.reserve(idset.size());
+    for (int x : idset)
+        nodeIds.push_back(x);
+    std::sort(nodeIds.begin(), nodeIds.end());
+
+    // Construct InlineNodeList / InlineEdgeList and pass them to GraphDeclNode
+    auto nd = std::make_unique<InlineNodeList>(std::move(nodeIds));
+    auto ed = std::make_unique<InlineWeightedEdgeList>(std::move(edgesVec), std::move(weightMap));
+
+    auto gnode = std::make_shared<WeightedGraphDeclNode>(
+        std::move(nm),
+        std::move(nd),
+        std::move(ed));
+
+    return std::static_pointer_cast<ASTNode>(gnode);
+}
 
 antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext *ctx)
 {
@@ -800,24 +863,27 @@ antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext 
     std::string gname = ctx->graphID()->getText();
 
     QueryType qtype = QueryType::UNKNOWN;
-    if (desc == "chromaticity") {
+    if (desc == "chromaticity")
+    {
         qtype = QueryType::INT;
-    } else if (desc == "bfs" || desc == "dfs") {
+    }
+    else if (desc == "bfs" || desc == "dfs")
+    {
         qtype = QueryType::ARRAY;
     }
 
     auto node = std::make_shared<QueryNode>(name, desc, gname, qtype);
 
-    if (qtype == QueryType::INT) {
+    if (qtype == QueryType::INT)
+    {
         symbolTable[name] = 0; // int placeholder
-    } else if (qtype == QueryType::ARRAY) {
+    }
+    else if (qtype == QueryType::ARRAY)
+    {
         arrayTable[name] = {}; // empty vector placeholder
     }
 
     return std::static_pointer_cast<ASTNode>(node);
-
-
-
 }
 
 // antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
@@ -851,7 +917,7 @@ antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext 
 //         auto index = safe_any_cast<ASTNodePtr>(visitExpr(arrCtx->expr()));
 //         return ASTNodePtr(std::make_shared<PrintArrayNode>(name, index));
 //     }
-//     // else if (ctx->ID()) {  
+//     // else if (ctx->ID()) {
 //     //     std::string varName = ctx->ID()->getText();
 //     //     return ASTNodePtr{std::make_shared<PrintStmtNode>(
 //     //         std::make_shared<VarExprNode>(varName))};
@@ -870,18 +936,21 @@ antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext 
 antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext *ctx)
 {
     // 1) print <printExpr>;
-    if (auto exprCtx = ctx->printExpr()) {
+    if (auto exprCtx = ctx->printExpr())
+    {
         antlrcpp::Any any = visitPrintExpr(exprCtx);
 
         // If printExpr returned an AST node (expression), use it directly
-        if (any.type() == typeid(ASTNodePtr)) {
+        if (any.type() == typeid(ASTNodePtr))
+        {
             ASTNodePtr inner = safe_any_cast<ASTNodePtr>(any);
             return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
         }
 
         // If printExpr returned a std::string (string literal or concatenation),
         // wrap it in a StringLiteralNode so PrintStmtNode can carry it.
-        if (any.type() == typeid(std::string)) {
+        if (any.type() == typeid(std::string))
+        {
             std::string s = safe_any_cast<std::string>(any);
             ASTNodePtr strNode = std::make_shared<StringLiteralNode>(s);
             return ASTNodePtr{std::make_shared<PrintStmtNode>(strNode)};
@@ -891,21 +960,21 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
     }
 
     // 2) print array: 'print' ID '[' expr ']' ';'
-    if (auto arrCtx = ctx->printArrayStatement()) {
+    if (auto arrCtx = ctx->printArrayStatement())
+    {
         auto name = arrCtx->ID()->getText();
         auto index = safe_any_cast<ASTNodePtr>(visitExpr(arrCtx->expr()));
         return ASTNodePtr(std::make_shared<PrintArrayNode>(name, index));
     }
 
     // 3) printgraph / node / edge (not implemented)
-    if (ctx->printgraph()) {
+    if (ctx->printgraph())
+    {
         throw std::runtime_error("printgraph not yet supported in ASTBuilder");
     }
 
     throw std::runtime_error("Unsupported print statement form");
 }
-
-
 
 // antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx) {
 //     std::string var1, var2;
@@ -920,7 +989,6 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
 //         throw std::runtime_error("Graph " + graphName + " not declared");
 //     }
 //     auto gnode = it->second; // GraphDeclNode*
-
 
 //     // ====== foreach vertex v in g ======
 //     if (auto vertexCtx = dynamic_cast<BaseParser::ForEachVertexContext*>(loopCtx)) {
@@ -970,27 +1038,34 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
 //     return nullptr;
 // }
 
-
-antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx) {
+antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx)
+{
     ForEachTargetType tgt;
     std::string var1, var2;
     int adjNodeId = -1;
 
     // Determine loop type
     auto *loopCtx = ctx->loopTarget();
-    if (auto vertexCtx = dynamic_cast<BaseParser::ForEachVertexContext*>(loopCtx)) {
+    if (auto vertexCtx = dynamic_cast<BaseParser::ForEachVertexContext *>(loopCtx))
+    {
         tgt = ForEachTargetType::Vertex;
         var1 = vertexCtx->ID()->getText();
-    } else if (auto edgeCtx = dynamic_cast<BaseParser::ForEachEdgeContext*>(loopCtx)) {
+    }
+    else if (auto edgeCtx = dynamic_cast<BaseParser::ForEachEdgeContext *>(loopCtx))
+    {
         tgt = ForEachTargetType::Edge;
         auto ids = edgeCtx->ID();
         var1 = ids[0]->getText();
         var2 = ids[1]->getText();
-    } else if (auto adjCtx = dynamic_cast<BaseParser::ForEachAdjContext*>(loopCtx)) {
+    }
+    else if (auto adjCtx = dynamic_cast<BaseParser::ForEachAdjContext *>(loopCtx))
+    {
         tgt = ForEachTargetType::Neighbor;
         var1 = adjCtx->ID()->getText();
         adjNodeId = std::stoi(adjCtx->nodeID()->getText());
-    } else {
+    }
+    else
+    {
         throw std::runtime_error("Unknown loop target in foreachStatement");
     }
 
@@ -1001,11 +1076,8 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         var2,
         ctx->graphID()->getText(),
         adjNodeId,
-        std::any_cast<ASTNodePtr>(visitBlock(ctx->block()))
-    );
+        std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
 
     // Return as ASTNodePtr
     return std::static_pointer_cast<ASTNode>(fsNode);
 }
-
-

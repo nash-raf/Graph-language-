@@ -231,6 +231,8 @@ int main(int argc, char **argv)
     IRGenVisitor irgen(Ctx, *M, IRB);
     irgen.visitProgram(prog);
 
+    // M->print(outs(), nullptr);
+
     // --- Link in external IR (bfs_runtime.ll) into 'M' ---
     {
         llvm::SMDiagnostic Err;

@@ -4,6 +4,7 @@ grammar Base;
 program: (statement | function)* EOF;
 
 GRAPH: 'graph';
+WEIGHTS : 'weights' ;
 
 
 // Statements
@@ -25,7 +26,10 @@ statement:
 	| ';';
 
 // Graph Definition
-graphDef: GRAPH graphID '{' nodes? edges? '}' ';';
+graphDef
+    : GRAPH graphID '{' nodes? edges? 'TRUE' '}' ';'   # WeightedGraphDef
+    | GRAPH graphID '{' nodes? edges? '}' ';'          # UnweightedGraphDef
+;
 
 //in graphDef
 nodes: 'nodes:' nodeList ';';
@@ -186,7 +190,7 @@ LESSTHAN: '<';
 GREATERTHAN: '>';
 LESSEQUAL: '<=';
 GREATEREQUAL: '>=';
-
+weights: 'TRUE' | 'FALSE';
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 INT: [0-9]+;
 REAL: [0-9]+ '.' [0-9]+;

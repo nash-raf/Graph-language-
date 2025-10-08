@@ -1,6 +1,7 @@
 graph g {
 
-    edges: file '../synth_graphs/synth_v_250000_e_200000.txt';
+    edges: file 'edgelist.txt';
+    TRUE;
 
 };
 

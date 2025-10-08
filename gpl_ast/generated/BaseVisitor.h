@@ -23,7 +23,9 @@ public:
 
     virtual std::any visitStatement(BaseParser::StatementContext *context) = 0;
 
-    virtual std::any visitGraphDef(BaseParser::GraphDefContext *context) = 0;
+    virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *context) = 0;
+
+    virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
 
     virtual std::any visitNodes(BaseParser::NodesContext *context) = 0;
 
@@ -156,6 +158,8 @@ public:
     virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *context) = 0;
 
     virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *context) = 0;
+
+    virtual std::any visitWeights(BaseParser::WeightsContext *context) = 0;
 
 
 };

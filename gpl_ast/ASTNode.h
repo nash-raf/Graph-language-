@@ -13,7 +13,7 @@
 #include <cstring> // for std::memcpy
 #include "llvm/Support/Allocator.h"
 #include <chrono>
-
+#include <tuple>
 #include <unordered_set>
 #include <algorithm>
 
@@ -36,7 +36,9 @@ enum class ASTNodeType
     WhileStmt,
     Param,
     GraphDecl,
+    WeightedGraphDecl,
     EdgeList,
+    WeightedEdgeList,
     NodeList,
     QueryNode,
     ForEachStmt,
@@ -73,7 +75,8 @@ public:
     virtual ~ASTNode() = default;
 
     // Add a virtual dump method for AST pretty-printing
-    virtual void dump(std::ostream &os, int indent = 0) const {
+    virtual void dump(std::ostream &os, int indent = 0) const
+    {
         os << std::string(indent, ' ') << "ASTNode(type=" << static_cast<int>(type) << ")\n";
     }
 };
@@ -233,7 +236,8 @@ struct WhileStmtNode : ASTNode
           condition(std::move(cond)), body(std::move(bd)) {}
 };
 
-enum class ForEachTargetType {
+enum class ForEachTargetType
+{
     Vertex,
     Edge,
     Neighbor
@@ -245,15 +249,14 @@ struct ForEachStmtNode : ASTNode
     std::string var1;             // e.g., vertex or first edge ID or neighbor var
     std::string var2;             // e.g., second edge ID or neighbor node ID (optional)
     std::string graphName;        // the graph over which to iterate
-    int adjNodeId = -1;            // add this for neighbor loops
+    int adjNodeId = -1;           // add this for neighbor loops
     ASTNodePtr body;              // loop body
 
-    ForEachStmtNode(ForEachTargetType tgt, const std::string& v1, const std::string& v2,
-                    const std::string& gName, int adjId, ASTNodePtr bd)
+    ForEachStmtNode(ForEachTargetType tgt, const std::string &v1, const std::string &v2,
+                    const std::string &gName, int adjId, ASTNodePtr bd)
         : ASTNode(ASTNodeType::ForEachStmt),
           targetType(tgt), var1(v1), var2(v2), graphName(gName), adjNodeId(adjId), body(std::move(bd)) {}
 };
-
 
 class FunctionDeclNode : public ASTNode
 {
@@ -306,6 +309,28 @@ public:
     }
 };
 
+class WeightedEdgeListNode : public ASTNode
+{
+public:
+    WeightedEdgeListNode() : ASTNode(ASTNodeType::WeightedEdgeList) {}
+    virtual void materializeEdges(std::vector<std::pair<int, int>> &edgelist, llvm::DenseMap<std::pair<int, int>, int> &weightMap) const = 0;
+};
+
+class InlineWeightedEdgeList : public WeightedEdgeListNode
+{
+    std::vector<std::pair<int, int>> _edges;
+    llvm::DenseMap<std::pair<int, int>, int> _weights;
+
+public:
+    InlineWeightedEdgeList(std::vector<std::pair<int, int>> edges, llvm::DenseMap<std::pair<int, int>, int> weights)
+        : WeightedEdgeListNode(), _edges(std::move(edges)), _weights(std::move(weights)) {}
+    void materializeEdges(std::vector<std::pair<int, int>> &_edges, llvm::DenseMap<std::pair<int, int>, int> &_weights) const override
+    {
+        _edges = this->_edges;
+        _weights = this->_weights;
+    }
+};
+
 class EdgeListNode : public ASTNode
 {
 public:
@@ -351,14 +376,38 @@ public:
     }
 };
 
+class WeightedFileEdgeList : public WeightedEdgeListNode
+{
+    std::string _path;
+
+public:
+    WeightedFileEdgeList(std::string path)
+        : WeightedEdgeListNode(), _path(std::move(path)) {}
+    void materializeEdges(std::vector<std::pair<int, int>> &edges, llvm::DenseMap<std::pair<int, int>, int> &weights) const override
+    {
+        std::ifstream file(_path);
+        if (!file.is_open())
+        {
+            throw std::runtime_error("Could not open edge list file: " + _path);
+        }
+        int u, v, w;
+        while (file >> u >> v >> w)
+        {
+            edges.emplace_back(u, v);
+            weights[{u, v}] = w;
+        }
+        file.close();
+    }
+};
+
 // class GraphDeclNode : public ASTNode
 // {
 // public:
 //     std::string name;
-//     std::unique_ptr<NodeListNode> nodes; 
-//     std::unique_ptr<EdgeListNode> edges; 
+//     std::unique_ptr<NodeListNode> nodes;
+//     std::unique_ptr<EdgeListNode> edges;
 
-//     size_t n = 0, m = 0; 
+//     size_t n = 0, m = 0;
 //     std::vector<size_t> row_ptr;
 //     std::vector<int> col_idx;
 
@@ -371,7 +420,7 @@ public:
 //           nodes(std::move(nList)),
 //           edges(std::move(eList))
 //     {
-        
+
 //         if (!edges)
 //             throw std::runtime_error("GraphDeclNode: edges required");
 
@@ -468,7 +517,6 @@ public:
           nodes(std::move(nList)),
           edges(std::move(eList))
     {
-        auto t0 = std::chrono::high_resolution_clock::now();
 
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
@@ -514,15 +562,100 @@ public:
         // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
         // for (auto x : col_idx) std::cerr << " " << x;
         // std::cerr << "\n";
-        auto t1 = std::chrono::high_resolution_clock::now();
-        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        std::cerr << "[ASTBuilder] fulledge '"
-                  << "' in " << dur.count() << " ms\n";
         // exit(0);
     }
 };
 
-enum class QueryType {
+class WeightedGraphDeclNode : public ASTNode
+{
+public:
+    std::string name;
+    std::unique_ptr<NodeListNode> nodes;
+    std::unique_ptr<WeightedEdgeListNode> edges;
+
+    size_t n, m; // number of nodes and edges
+    size_t *row_ptr = nullptr;
+    int32_t *col_idx = nullptr;
+    int32_t *weights = nullptr;
+    llvm::BumpPtrAllocator arena;
+
+    WeightedGraphDeclNode(
+        std::string nm,
+        std::unique_ptr<NodeListNode> nList,
+        std::unique_ptr<WeightedEdgeListNode> eList)
+        : ASTNode(ASTNodeType::WeightedGraphDecl),
+          name(std::move(nm)),
+          nodes(std::move(nList)),
+          edges(std::move(eList))
+    {
+        auto t0 = std::chrono::high_resolution_clock::now();
+
+        auto nodeIds = nodes->materializeNodeIds();
+        n = nodeIds.size();
+        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
+
+        // Map arbitrary IDs → contiguous [0..n-1]
+        // std::unordered_map<int, int> id2idx;
+        llvm::DenseMap<int, int> id2idx;
+        for (int i = 0; i < (int)nodeIds.size(); ++i)
+            id2idx[nodeIds[i]] = i;
+
+        std::vector<std::pair<int, int>> edgeList;
+        llvm::DenseMap<std::pair<int, int>, int> weightMap;
+        edges->materializeEdges(edgeList, weightMap);
+        m = 2 * edgeList.size();
+        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
+        // 1) degree counts go into row_ptr[i+1]
+        row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
+        for (auto &e : edgeList)
+        {
+            int u0 = e.first, v0 = e.second;
+            size_t u = id2idx.at(u0);
+            size_t v = id2idx.at(v0);
+            row_ptr[u + 1]++;
+            row_ptr[v + 1]++;
+        }
+
+        // 2) exclusive prefix‑sum
+        for (size_t i = 1; i <= n; ++i)
+            row_ptr[i] += row_ptr[i - 1];
+
+        // 3) allocate col_idx and scatter
+        col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
+        weights = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
+        size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        size_t *wnext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
+        std::memcpy(wnext, row_ptr, sizeof(size_t) * (n + 1));
+        for (auto &e : edgeList)
+        {
+            size_t u = id2idx[e.first], v = id2idx[e.second];
+            col_idx[next[u]++] = static_cast<int32_t>(v);
+            col_idx[next[v]++] = static_cast<int32_t>(u);
+            int w = weightMap[{e.first, e.second}];
+            weights[wnext[u]++] = w;
+            weights[wnext[v]++] = w;
+        }
+
+        // debug
+        // std::cerr << "[GraphDeclNode] CSR row_ptr =";
+        // for (auto x : row_ptr) std::cerr << " " << x;
+        // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
+        // for (auto x : col_idx) std::cerr << " " << x;
+        // std::cerr << "\n";
+        auto t1 = std::chrono::high_resolution_clock::now();
+        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
+        std::cerr << "[ASTBuilder] fulledge '"
+                  << "' in " << dur.count() << " ms\n";
+
+        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
+        // exit(0);
+    }
+};
+
+enum class QueryType
+{
     INT,
     ARRAY,
     UNKNOWN
@@ -549,7 +682,8 @@ public:
         : ASTNode(ASTNodeType::PrintStmt), expr(std::move(e)) {}
 };
 
-class PrintArrayNode : public ASTNode {
+class PrintArrayNode : public ASTNode
+{
 public:
     std::string arrayName;
     ASTNodePtr indexExpr;
@@ -558,7 +692,5 @@ public:
     PrintArrayNode(const std::string &name, ASTNodePtr index)
         : ASTNode(ASTNodeType::PrintStmt), arrayName(name), indexExpr(index) {}
 };
-
-
 
 #endif // ASTNODE_H

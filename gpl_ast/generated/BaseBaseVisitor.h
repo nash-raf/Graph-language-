@@ -23,7 +23,11 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitGraphDef(BaseParser::GraphDefContext *ctx) override {
+  virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -288,6 +292,10 @@ public:
   }
 
   virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitWeights(BaseParser::WeightsContext *ctx) override {
     return visitChildren(ctx);
   }
 

@@ -40,6 +40,7 @@ public:
     void visitForEach(ForEachStmtNode *fs);
     void visitFunctionDecl(FunctionDeclNode *funcDecl);
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
+    llvm::Value *visitWeightedGraphDecl(WeightedGraphDeclNode *G);
     void visitQuery(QueryNode *Q);
     void emitBFS(QueryNode *Q);
     void emitDFS(QueryNode *Q);
@@ -49,8 +50,7 @@ public:
     void visitPrintStmt(PrintStmtNode *PS);
     void visitPrintArray(PrintArrayNode *PA);
     llvm::Value *evaluate(ASTNode *node);
-    llvm::Function* getPrintfFunction();
-
+    llvm::Function *getPrintfFunction();
 
 private:
     llvm::LLVMContext &Context;

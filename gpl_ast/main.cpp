@@ -348,6 +348,34 @@ int main(int argc, char **argv)
 
     {
         llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> DIMod = llvm::parseIRFile("dijkstra_runtime.ll", Err, Ctx);
+        if (!DIMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse dijkstra_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string DI_DL = DIMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !DI_DL.empty())
+            M->setDataLayout(DIMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !DIMod->getTargetTriple().empty())
+            M->setTargetTriple(DIMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(DIMod)))
+        {
+            llvm::errs() << "Linking dijkstra_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
+    }
+
+    {
+        llvm::SMDiagnostic Err;
         std::unique_ptr<llvm::Module> CmMOD = llvm::parseIRFile("chromacity_runtime.ll", Err, Ctx);
         if (!CmMOD)
         {

@@ -45,6 +45,7 @@ public:
     void emitBFS(QueryNode *Q);
     void emitDFS(QueryNode *Q);
     void emitBK(QueryNode *Q);
+    void emitDijkstra(QueryNode *Q);
     void emitChromacity(QueryNode *Q);
     void emitFloydWarshall(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);

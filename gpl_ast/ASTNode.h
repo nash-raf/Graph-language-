@@ -650,6 +650,8 @@ public:
                   << "' in " << dur.count() << " ms\n";
 
         std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
+
+        
         // exit(0);
     }
 };

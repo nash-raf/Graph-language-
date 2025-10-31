@@ -16,7 +16,7 @@ G = nx.Graph()
 f = open(args.i, 'r')
 i=0
 for line in f:
-    vertex = line.rstrip().split() 
+    vertex = line.rstrip().split()
     G.add_edge(vertex[0], vertex[1])
     i=i+1
 print('Edges:',i)

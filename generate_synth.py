@@ -1,10 +1,12 @@
-import random,os
+import random
+import os
 
-def generate_random_graph(n, m, seed=42, filename="edgelist.txt"):
+def generate_random_graph(n, m, seed, filename="edgelist.txt", weighted=False, weight_range=(1, 10)):
     """
     Generate an undirected random graph with n nodes and m edges.
     No self-loops, no duplicate edges.
-
+    
+    If weighted=True, assigns a random weight w in weight_range (inclusive).
     Saves the edge list to 'edgelist.txt'
     """
     if m > n * (n - 1) // 2:
@@ -23,20 +25,31 @@ def generate_random_graph(n, m, seed=42, filename="edgelist.txt"):
     # Save to file
     with open(filename, "w") as f:
         for u, v in edge_set:
-            f.write(f"{u} {v}\n")
-    print(f"Graph saved: {filename} ({n} nodes, {m} edges)")
+            if weighted:
+                w = random.randint(*weight_range)
+                f.write(f"{u} {v} {w}\n")
+            else:
+                f.write(f"{u} {v}\n")
+
+    print(f"Graph saved: {filename} ({n} nodes, {m} edges){' with weights' if weighted else ''}")
 
 
 if __name__ == "__main__":
-    vertices_list = [1000]
-    edges_list = [5000]
-    seed = 123
+    vertices_list = [50000]
+    edges_list = [1000000]
+    weighted = True  # Set to True for weighted graphs
+    weight_range = (1, 100)
 
-    # Make sure output folder exists
-    os.makedirs("synth_graphs", exist_ok=True)
+    output_dir = "synth_graphs_weighted" if weighted else "synth_graphs_violin"
+    os.makedirs(output_dir, exist_ok=True)
 
+    # Generate 10 different graphs with seeds 1–10
     for n in vertices_list:
         for m in edges_list:
-            if m <= n * (n - 1) // 2:  # skip invalid combinations
-                filename = f"synth_graphs/synth_v_{n}_e_{m}.txt"
-                generate_random_graph(n, m, seed=seed, filename=filename)
+            for i in range(1, 21):  # 20 different seeds
+                seed = i
+                filename = f"{output_dir}/synth_v_{n}_e_{m}_seed_{seed}{'_w' if weighted else ''}.txt"
+                generate_random_graph(
+                    n, m, seed=seed, filename=filename,
+                    weighted=weighted, weight_range=weight_range
+                )

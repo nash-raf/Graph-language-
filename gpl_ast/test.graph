@@ -1,13 +1,6 @@
 graph g {
-
-    edges: file 'edgelist.txt';
-    TRUE;
-
+    edges: file '../real_graphs/bio-HS-CX.txt';
+    TRUE
 };
 
-
-
-for each vertex v in g {
-    print v;
-}
-
+query k: 'dijkstra' of g;

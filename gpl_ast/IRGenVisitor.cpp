@@ -1761,6 +1761,31 @@ void IRGenVisitor::emitBK(QueryNode *Q)
     return;
 }
 
+void IRGenVisitor::emitDijkstra(QueryNode *Q)
+{
+    // Grab the Graph* value
+    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitDijkstra");
+
+    // Declare the runtime function:
+    // extern "C" void bfs_runtime(struct.Graph* g);
+    llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
+    llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+    llvm::FunctionType *DJFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
+
+    // getOrInsertFunction will add a declaration if not present.
+    auto djDecl = Module.getOrInsertFunction("dijkstra_runtime", DJFT);
+
+    // Call dijkstra_runtime(graphPtr)
+    Builder.CreateCall(djDecl, {graphPtr});
+
+    // done
+    llvm::errs() << "Dijkstra called\n";
+    return;
+}
+
+
+
 // void IRGenVisitor::emitChromacity(QueryNode *Q)
 // {
 //     // Grab the Graph* value
@@ -1841,6 +1866,11 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
     else if (Q->queryDesc == "chromaticity")
     {
         emitChromacity(Q);
+    }
+    else if(Q->queryDesc == "dijkstra")
+    {
+        
+        emitDijkstra(Q);
     }
     else
     {

@@ -22,19 +22,26 @@ extern "C"
         int32_t *weights; // edge weights (size m), must be non-negative
     };
 
-    void dijkstra_runtime(Graph *g, int32_t source, int64_t *out_dist)
+    void dijkstra_runtime(Graph *g)
     {
+        // printf("running00\n");
+        int32_t source = 0;
         if (!g)
             return;
+        printf("running0\n");
+
         if (!g->row_ptr || !g->col_idx || !g->weights)
             return;
-
+        printf("running1\n  ");
         const int64_t n = g->n;
         if (n <= 0)
             return;
+
+        printf("running2\n");
+
         if (source < 0 || source >= (int32_t)n)
             return;
-
+        printf("running3");
         const int64_t *row = g->row_ptr;
         const int32_t *col = g->col_idx;
         const int32_t *w = g->weights;
@@ -81,16 +88,26 @@ extern "C"
             }
         }
 
-        if (out_dist)
+        // if (out_dist)
+        // {
+        //     for (int64_t i = 0; i < n; ++i)
+        //     {
+        //         if (dist[(size_t)i] >= INF / 2)
+        //             out_dist[(size_t)i] = std::numeric_limits<int64_t>::max();
+        //         else
+        //             out_dist[(size_t)i] = (int64_t)dist[(size_t)i];
+        //     }
+        // }
+
+        printf("Shortest distances from source node %d:\n", source);
+        for (int64_t i = 0; i < n; ++i)
         {
-            for (int64_t i = 0; i < n; ++i)
-            {
-                if (dist[(size_t)i] >= INF / 2)
-                    out_dist[(size_t)i] = std::numeric_limits<int64_t>::max();
-                else
-                    out_dist[(size_t)i] = (int64_t)dist[(size_t)i];
-            }
+            if (dist[i] >= INF / 2)
+                printf("Node %ld: INF (unreachable)\n", i);
+            else
+                printf("Node %ld: %lld\n", i, dist[i]);
         }
+        printf("\n");
     }
 
 } // extern "C"

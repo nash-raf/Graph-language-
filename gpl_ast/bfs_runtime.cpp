@@ -1,10 +1,10 @@
-// bfs_runtime.cpp
+// bfs_runtime_seq.cpp
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 #include <vector>
 #include <queue>
-#include <omp.h>
+#include <omp.h> // kept only for timing (you can replace with chrono if desired)
 
 extern "C"
 {
@@ -41,38 +41,22 @@ extern "C"
             {
                 std::vector<int32_t> next_frontier;
 
-                // Parallel expansion of the current frontier
-                #pragma omp parallel
+                for (size_t idx = 0; idx < frontier.size(); ++idx)
                 {
-                    std::vector<int32_t> local_next;
+                    int32_t u = frontier[idx];
+                    int64_t rp  = row[u];
+                    int64_t rp1 = row[u + 1];
 
-                    #pragma omp for nowait
-                    for (size_t idx = 0; idx < frontier.size(); ++idx)
+                    for (int64_t i = rp; i < rp1; ++i)
                     {
-                        int32_t u = frontier[idx];
-                        int64_t rp  = row[u];
-                        int64_t rp1 = row[u + 1];
-
-                        for (int64_t i = rp; i < rp1; ++i)
+                        int32_t v = col[i];
+                        if (!visited[v])
                         {
-                            int32_t v = col[i];
-                            if (!visited[v])
-                            {
-                                // Atomically mark visited
-                                if (!__sync_lock_test_and_set(&visited[v], 1))
-                                {
-                                    local_next.push_back(v);
-                                }
-                            }
+                            visited[v] = 1;
+                            next_frontier.push_back(v);
                         }
                     }
-
-                    // Merge local_next into global next_frontier
-                    #pragma omp critical
-                    next_frontier.insert(next_frontier.end(),
-                                         local_next.begin(),
-                                         local_next.end());
-                } // end parallel
+                }
 
                 frontier.swap(next_frontier);
             }
@@ -80,16 +64,8 @@ extern "C"
 
         double end_time = omp_get_wtime();
 
-        // Print timing info only once from the master thread
-        #pragma omp parallel
-        {
-            #pragma omp master
-            {
-                printf("[BFS] Completed in %.6f seconds using %d threads\n",
-                       end_time - start_time,
-                       omp_get_max_threads());
-            }
-        }
+        printf("[BFS] Completed in %.6f seconds (sequential)\n",
+               end_time - start_time);
     }
 
 } // extern "C"

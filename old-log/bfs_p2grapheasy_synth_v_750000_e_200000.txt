@@ -1,0 +1,4 @@
+[ASTBuilder] loaded edge-list file '' in 36 ms
+real 5.46
+user 58.95
+sys 4.01

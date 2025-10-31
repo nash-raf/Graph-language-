@@ -1,0 +1,10 @@
+[ASTBuilder] loaded edge-list file '' in 49 ms
+[visitGraphDecl] G->n (declared) = 329339
+[visitGraphDecl] G->row_ptr entries = 329340
+[visitGraphDecl] row_ptr[n] = 400000
+[visitGraphDecl] G->col_idx entries = 400000
+Time took 113 ms
+[BFS] Completed in 0.023284 seconds (sequential)
+real 1.22
+user 1.04
+sys 0.16

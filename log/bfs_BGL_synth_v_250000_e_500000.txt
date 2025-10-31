@@ -1,4 +1,0 @@
-Boost BFS took 281.912 ms
-real 1.06
-user 0.98
-sys 0.07

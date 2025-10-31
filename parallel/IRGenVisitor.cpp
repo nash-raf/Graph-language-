@@ -79,6 +79,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::WhileStmt:
             visitWhile(static_cast<WhileStmtNode *>(node.get()));
             break;
+        // case ASTNodeType::ForEachStmt:
+        //     visitForEach(static_cast<ForEachStmtNode *>(node.get()));
+        //     break;
         case ASTNodeType::GraphDecl:
             // Lower graph h { … }
             visitGraphDecl(static_cast<GraphDeclNode *>(node.get()));
@@ -245,12 +248,12 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         break;
 
     case ASTNodeType::QueryNode:
-        // std::cerr << "Entered queryNODe\n";
+        std::cerr << "Entered queryNODe\n";
         visitQuery(static_cast<QueryNode *>(node));
         break;
 
     default:
-        // std::cerr << "Unsupported statement type.\n";
+        std::cerr << "Unsupported statement type.\n";
         break;
     }
 }
@@ -498,6 +501,259 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     Builder.SetInsertPoint(mergeBB);
 }
 
+// void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+//     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
+
+//     // Lookup the graph pointer value from the map
+//     llvm::Value *graphPtr = GraphMap[fs->graphName];
+//     if (!graphPtr)
+//         throw std::runtime_error("Graph not allocated in IR: " + fs->graphName);
+
+//     llvm::StructType *graphTy = GraphTy;
+//     if (!graphTy)
+//         throw std::runtime_error("GraphTy is not properly initialized");
+
+//     // --- Load n, row_ptr, col_idx from the graph ---
+//     llvm::Value *nPtr = Builder.CreateStructGEP(graphTy, graphPtr, 0, "g_n_ptr");
+//     llvm::Value *nVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), nPtr, "n_val");
+
+//     llvm::Value *rpPtrGEP = Builder.CreateStructGEP(graphTy, graphPtr, 2, "g_rp_ptr");
+//     llvm::Value *rowPtr = Builder.CreateLoad(
+//         llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(Context)),
+//         rpPtrGEP, "row_ptr");
+
+//     llvm::Value *ciPtrGEP = Builder.CreateStructGEP(graphTy, graphPtr, 3, "g_ci_ptr");
+//     llvm::Value *colPtr = Builder.CreateLoad(
+//         llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context)),
+//         ciPtrGEP, "col_ptr");
+
+//     // --- Allocate loop index ---
+//     llvm::AllocaInst *iAlloca = createEntryBlockAlloca(parent, "i");
+//     Builder.CreateStore(llvm::ConstantInt::get(Context, llvm::APInt(64, 0)), iAlloca);
+
+//     // --- Create basic blocks ---
+//     llvm::BasicBlock *condBB = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+//     llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+//     llvm::BasicBlock *incBB = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+//     llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
+
+//     Builder.CreateBr(condBB);
+
+//     // --- Condition block ---
+//     Builder.SetInsertPoint(condBB);
+//     llvm::Value *iVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), iAlloca, "i_val");
+//     llvm::Value *cond = Builder.CreateICmpSLT(iVal, nVal, "loop_cond");
+//     Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+//     // --- Body block ---
+//     Builder.SetInsertPoint(bodyBB);
+//     NamedValues[fs->var1] = iAlloca;
+
+//     // --- Load row_ptr[i] and col_idx[i] ---
+//     llvm::Value *rpElemPtr = Builder.CreateGEP(
+//         llvm::Type::getInt64Ty(Context), rowPtr, iVal, "rp_elem_ptr");
+//     llvm::Value *rpElem = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), rpElemPtr, "rp_val");
+
+//     llvm::Value *ciElemPtr = Builder.CreateGEP(
+//         llvm::Type::getInt32Ty(Context), colPtr, iVal, "ci_elem_ptr");
+//     llvm::Value *ciElem = Builder.CreateLoad(llvm::Type::getInt32Ty(Context), ciElemPtr, "ci_val");
+
+//     // --- Print the values using printf ---
+//     llvm::FunctionCallee printfFn = Module.getOrInsertFunction(
+//         "printf",
+//         llvm::FunctionType::get(
+//             Builder.getInt32Ty(),
+//             {llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context))},
+//             true));
+
+//     llvm::Value *fmtStr = Builder.CreateGlobalStringPtr("%llu %d\n");
+//     Builder.CreateCall(printfFn, {fmtStr, rpElem, ciElem});
+
+//     // --- Visit the loop body if any ---
+//     visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+
+//     if (!Builder.GetInsertBlock()->getTerminator())
+//         Builder.CreateBr(incBB);
+
+//     // --- Increment block ---
+//     Builder.SetInsertPoint(incBB);
+//     llvm::Value *iNext = Builder.CreateAdd(iVal, llvm::ConstantInt::get(Context, llvm::APInt(64, 1)), "i_next");
+//     Builder.CreateStore(iNext, iAlloca);
+//     Builder.CreateBr(condBB);
+
+//     // --- Merge block ---
+//     Builder.SetInsertPoint(mergeBB);
+// }
+
+// void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+//     // Parent function (needed to create entry-block allocas and basic blocks)
+//     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
+
+//     // Look up the graph pointer value produced by visitGraphDecl
+//     llvm::Value *graphPtr = GraphMap[fs->graphName];
+//     if (!graphPtr)
+//         throw std::runtime_error("Graph not allocated in IR: " + fs->graphName);
+
+//     // Graph struct type (must have been set up in visitGraphDecl)
+//     if (!GraphTy)
+//         throw std::runtime_error("GraphTy not initialized in IRGenVisitor");
+
+//     // Common types
+//     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
+//     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+
+//     // --- Load number of vertices: n (field 0 of graph struct) ---
+//     llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+//     llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "n_val");
+
+//     // --- Prepare entry-block allocas (so they survive across blocks) ---
+//     // Use a temporary IRBuilder positioned at the very start of the function entry.
+//     llvm::IRBuilder<> tmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
+
+//     // Create an alloca for the loop index (64-bit because row_ptr uses i64 offsets)
+//     llvm::AllocaInst *idxAlloca = tmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".idx");
+//     // Create a user-variable alloca (32-bit) so printf("%d") / normal integer ops work.
+//     // If the loop variable is intended to be 64-bit, adapt accordingly and change print formatting.
+//     llvm::AllocaInst *userVarAlloca = tmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
+
+//     // Save any previous mapping for the loop variable so we can restore it afterwards
+//     llvm::AllocaInst *oldVarAlloca = nullptr;
+//     auto itOld = NamedValues.find(fs->var1);
+//     if (itOld != NamedValues.end())
+//         oldVarAlloca = itOld->second;
+
+//     // Register the user variable alloca for loads inside the loop body
+//     NamedValues[fs->var1] = userVarAlloca;
+
+//     // Initialize idx = 0
+//     Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), idxAlloca);
+
+//     // Create blocks: cond / body / inc / merge
+//     llvm::BasicBlock *condBB  = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+//     llvm::BasicBlock *bodyBB  = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+//     llvm::BasicBlock *incBB   = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+//     llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
+
+//     // Jump to cond
+//     Builder.CreateBr(condBB);
+
+//     // --- condBB: check idx < n ---
+//     Builder.SetInsertPoint(condBB);
+//     llvm::Value *idxVal = Builder.CreateLoad(i64Ty, idxAlloca, "idx_val");
+//     llvm::Value *cond = Builder.CreateICmpSLT(idxVal, nVal, "idx_lt_n");
+//     Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+//     // --- bodyBB: write current idx into the user variable (as i32) and execute body ---
+//     Builder.SetInsertPoint(bodyBB);
+//     // truncate or cast idx (i64) -> i32 to store into user variable
+//     llvm::Value *idx_i32 = nullptr;
+//     if (idxVal->getType()->isIntegerTy(64))
+//         idx_i32 = Builder.CreateTrunc(idxVal, i32Ty, "idx_trunc_i32");
+//     else
+//         idx_i32 = Builder.CreateIntCast(idxVal, i32Ty, /*isSigned=*/true, "idx_cast_i32");
+
+//     Builder.CreateStore(idx_i32, userVarAlloca);
+
+//     // Visit body (the user's statements). If the body uses the variable name, NamedValues points to userVarAlloca.
+//     visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+
+//     // After body: if body didn't emit a terminator, branch to inc
+//     if (!Builder.GetInsertBlock()->getTerminator())
+//         Builder.CreateBr(incBB);
+
+//     // --- incBB: idx = idx + 1; branch back to cond ---
+//     Builder.SetInsertPoint(incBB);
+//     llvm::Value *one64 = llvm::ConstantInt::get(i64Ty, 1);
+//     llvm::Value *nextIdx = Builder.CreateAdd(idxVal, one64, "idx_next");
+//     Builder.CreateStore(nextIdx, idxAlloca);
+//     Builder.CreateBr(condBB);
+
+//     // --- mergeBB: restore NamedValues and continue ---
+//     Builder.SetInsertPoint(mergeBB);
+//     if (oldVarAlloca)
+//         NamedValues[fs->var1] = oldVarAlloca;
+//     else
+//         NamedValues.erase(fs->var1);
+
+//     // Done
+// }
+
+// void IRGenVisitor::visitForEach(ForEachStmtNode *fs) {
+//     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
+
+//     llvm::Value *graphPtr = GraphMap[fs->graphName];
+//     if (!graphPtr)
+//         throw std::runtime_error("Graph not allocated: " + fs->graphName);
+
+//     if (!GraphTy)
+//         throw std::runtime_error("GraphTy not initialized");
+
+//     llvm::errs() << "Graph field 0 type: " << *GraphTy->getElementType(0) << "\n";
+//     llvm::errs() << "Graph field 1 type: " << *GraphTy->getElementType(1) << "\n";
+//     llvm::errs() << "Graph field 2 type: " << *GraphTy->getElementType(2) << "\n";
+//     llvm::errs() << "Graph field 3 type: " << *GraphTy->getElementType(3) << "\n";
+
+//     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
+//     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+
+//     // --- Load n (number of vertices) ---
+//     llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+//     llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "n_val");
+
+//     // Allocate loop index (i64) and user variable (i32)
+//     llvm::IRBuilder<> TmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
+//     auto *idxAlloca  = TmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".idx64");
+//     auto *userAlloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
+
+//     NamedValues[fs->var1] = userAlloca;
+
+//     // idx = 0
+//     Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), idxAlloca);
+
+//     // Blocks
+//     auto *condBB  = llvm::BasicBlock::Create(Context, "foreach.cond", parent);
+//     auto *bodyBB  = llvm::BasicBlock::Create(Context, "foreach.body", parent);
+//     auto *incBB   = llvm::BasicBlock::Create(Context, "foreach.inc", parent);
+//     auto *mergeBB = llvm::BasicBlock::Create(Context, "foreach.merge", parent);
+
+//     Builder.CreateBr(condBB);
+
+//     // --- Condition ---
+//     Builder.SetInsertPoint(condBB);
+//     llvm::Value *idxVal = Builder.CreateLoad(i64Ty, idxAlloca, "idx_val");
+//     llvm::Value *cond = Builder.CreateICmpSLT(idxVal, nVal, "loop_cond");
+//     Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+//     // --- Body ---
+//     Builder.SetInsertPoint(bodyBB);
+
+//     // Cast/truncate idxVal (i64) → i32 safely
+//     llvm::Value *idxVal32 = Builder.CreateTrunc(idxVal, i32Ty, "idx32");
+
+//     // Store into user variable
+//     Builder.CreateStore(idxVal32, userAlloca);
+
+//     // Visit loop body
+//     visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+//     if (!Builder.GetInsertBlock()->getTerminator())
+//         Builder.CreateBr(incBB);
+
+//     // --- Increment ---
+//     Builder.SetInsertPoint(incBB);
+//     llvm::Value *nextIdx = Builder.CreateAdd(
+//         idxVal,
+//         llvm::ConstantInt::get(i64Ty, 1),
+//         "idx_next"
+//     );
+//     Builder.CreateStore(nextIdx, idxAlloca);
+//     Builder.CreateBr(condBB);
+
+//     // --- Merge ---
+//     Builder.SetInsertPoint(mergeBB);
+// }
+
+
+
 llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
 {
     switch (expr->type)
@@ -703,12 +959,14 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
 //     llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
 //                                                 llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
 
+//     // Define the memcpy intrinsic type
 //     auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
 //     auto *i64Ty = llvm::Type::getInt64Ty(Context);
 //     auto *memcpyTy = llvm::Intrinsic::getDeclaration(
 //         &Module, llvm::Intrinsic::memcpy,
 //         {i8PtrTy, i8PtrTy, i64Ty});
 
+//     // Define the volatility flag as i1
 //     auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
 
 //     // Perform the memcpy calls with correct argument types
@@ -777,6 +1035,179 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
 //     }
 
 //     GraphMap[G->name] = graphPtr;
+
+//     return graphPtr;
+// }
+
+// llvm::Value *zero64(llvm::IRBuilder<> &B, llvm::LLVMContext &C)
+// {
+//     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), 0);
+// }
+
+// llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G) {
+//     auto *I64 = llvm::Type::getInt64Ty(Context);
+//     auto *I32 = llvm::Type::getInt32Ty(Context);
+
+//     // ================= TIMING SETUP =================
+//     // struct timespec { i64 tv_sec; i64 tv_nsec; }
+//     auto *timeSpecTy = llvm::StructType::create(
+//         Context, {I64, I64}, "struct.timespec");
+
+//     // int clock_gettime(int, struct timespec*)
+//     auto *clockGettimeTy = llvm::FunctionType::get(
+//         llvm::Type::getInt32Ty(Context),
+//         {llvm::Type::getInt32Ty(Context),
+//          llvm::PointerType::getUnqual(timeSpecTy)},
+//         false);
+//     llvm::FunctionCallee clockGettimeFn =
+//         Module.getOrInsertFunction("clock_gettime", clockGettimeTy);
+
+//     // CLOCK_MONOTONIC = 1
+//     auto *clockMonotonicConst = llvm::ConstantInt::get(
+//         llvm::Type::getInt32Ty(Context), 1);
+
+//     // Allocas for start/end times
+//     llvm::Value *tStart = Builder.CreateAlloca(timeSpecTy, nullptr, "tStart");
+//     llvm::Value *tEnd = Builder.CreateAlloca(timeSpecTy, nullptr, "tEnd");
+
+//     // Call clock_gettime(CLOCK_MONOTONIC, &tStart)
+//     Builder.CreateCall(clockGettimeFn, {clockMonotonicConst, tStart});
+//     // =================================================
+
+//     // ---- your existing graph construction code ----
+//     auto *arrRP = llvm::ArrayType::get(I64, G->row_ptr.size());
+//     auto *arrCI = llvm::ArrayType::get(I32, G->col_idx.size());
+
+//     llvm::SmallVector<llvm::Constant *, 16> rpConsts;
+//     for (auto x : G->row_ptr) {
+//         rpConsts.push_back(llvm::ConstantInt::get(I64, x));
+//     }
+//     auto *RPArray = llvm::ConstantArray::get(arrRP, rpConsts);
+
+//     llvm::SmallVector<llvm::Constant *, 16> ciConsts;
+//     for (auto x : G->col_idx) {
+//         ciConsts.push_back(llvm::ConstantInt::get(I32, x));
+//     }
+//     auto *CIArray = llvm::ConstantArray::get(arrCI, ciConsts);
+
+//     auto *GV_RP = new llvm::GlobalVariable(
+//         Module, arrRP, true, llvm::GlobalValue::InternalLinkage,
+//         RPArray, G->name + "_csr_row");
+
+//     auto *GV_CI = new llvm::GlobalVariable(
+//         Module, arrCI, true, llvm::GlobalValue::InternalLinkage,
+//         CIArray, G->name + "_csr_col");
+
+//     auto *mallocTy = llvm::FunctionType::get(
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+//         {llvm::Type::getInt64Ty(Context)},
+//         false);
+
+//     llvm::FunctionCallee mallocCalle = Module.getOrInsertFunction("malloc", mallocTy);
+//     llvm::Function *mallocFn = llvm::cast<llvm::Function>(mallocCalle.getCallee());
+
+//     uint64_t rowBytes = G->row_ptr.size() * sizeof(int64_t);
+//     uint64_t colBytes = G->col_idx.size() * sizeof(int32_t);
+
+//     llvm::Value *rpRaw = Builder.CreateCall(
+//         mallocFn, llvm::ConstantInt::get(I64, rowBytes), "rp_raw");
+//     llvm::Value *rowPtr = Builder.CreateBitCast(
+//         rpRaw, llvm::PointerType::getUnqual(I64), "row_ptr");
+
+//     llvm::Value *ciRaw = Builder.CreateCall(
+//         mallocFn, llvm::ConstantInt::get(I64, colBytes), "ci_raw");
+//     llvm::Value *colPtr = Builder.CreateBitCast(
+//         ciRaw, llvm::PointerType::getUnqual(I32), "col_ptr");
+
+//     llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr,
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+//     llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr,
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+//     llvm::Value *src_rp = Builder.CreateBitCast(GV_RP,
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+//     llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+
+//     // memcpy intrinsic
+//     auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+//     auto *i64Ty = llvm::Type::getInt64Ty(Context);
+//     auto *memcpyTy = llvm::Intrinsic::getDeclaration(
+//         &Module, llvm::Intrinsic::memcpy,
+//         {i8PtrTy, i8PtrTy, i64Ty});
+
+//     auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
+
+//     Builder.CreateCall(memcpyTy, {rp_i8, src_rp, llvm::ConstantInt::get(I64, rowBytes), volatileFlag});
+//     Builder.CreateCall(memcpyTy, {ci_i8, src_ci, llvm::ConstantInt::get(I64, colBytes), volatileFlag});
+
+//     llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+//         {Builder.getInt64Ty()}, false);
+
+//     llvm::FunctionCallee mallocCalleeG =
+//         Module.getOrInsertFunction("malloc", mallocFT_graph);
+//     llvm::Function *mallocFnG =
+//         llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
+
+//     uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
+//     llvm::Value *graphSizeC =
+//         llvm::ConstantInt::get(Builder.getInt64Ty(), graphSize);
+
+//     llvm::Value *rawGraph = Builder.CreateCall(
+//         mallocFnG, graphSizeC, "graph_raw");
+
+//     llvm::Value *graphPtr = Builder.CreateBitCast(
+//         rawGraph, GraphTy->getPointerTo(), "graph_ptr");
+
+//     { // store n
+//         llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+//         Builder.CreateStore(llvm::ConstantInt::get(Builder.getInt64Ty(), G->n), nPtr);
+//     }
+
+//     { // store m
+//         llvm::Value *mPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr");
+//         Builder.CreateStore(llvm::ConstantInt::get(Builder.getInt64Ty(), G->m), mPtr);
+//     }
+
+//     { // store row_ptr
+//         llvm::Value *rpPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
+//         Builder.CreateStore(rowPtr, rpPtr);
+//     }
+
+//     { // store col_idx
+//         llvm::Value *ciPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
+//         Builder.CreateStore(colPtr, ciPtr);
+//     }
+
+//     GraphMap[G->name] = graphPtr;
+
+//     // ================= TIMING END =================
+//     // Call clock_gettime(CLOCK_MONOTONIC, &tEnd)
+//     Builder.CreateCall(clockGettimeFn, {clockMonotonicConst, tEnd});
+
+//     // Load start/end
+//     llvm::Value *startSec = Builder.CreateLoad(I64, Builder.CreateStructGEP(timeSpecTy, tStart, 0), "start_sec");
+//     llvm::Value *startNSec = Builder.CreateLoad(I64, Builder.CreateStructGEP(timeSpecTy, tStart, 1), "start_nsec");
+//     llvm::Value *endSec = Builder.CreateLoad(I64, Builder.CreateStructGEP(timeSpecTy, tEnd, 0), "end_sec");
+//     llvm::Value *endNSec = Builder.CreateLoad(I64, Builder.CreateStructGEP(timeSpecTy, tEnd, 1), "end_nsec");
+
+//     llvm::Value *secDiff = Builder.CreateSub(endSec, startSec, "secDiff");
+//     llvm::Value *nsecDiff = Builder.CreateSub(endNSec, startNSec, "nsecDiff");
+//     llvm::Value *secToNS = Builder.CreateMul(secDiff, llvm::ConstantInt::get(I64, 1000000000LL), "secToNS");
+//     llvm::Value *elapsedNS = Builder.CreateAdd(secToNS, nsecDiff, "elapsedNS");
+
+//     // printf("Elapsed: %lld ns\n", elapsedNS);
+//     auto *printfTy = llvm::FunctionType::get(
+//         llvm::Type::getInt32Ty(Context),
+//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+//         true);
+//     llvm::FunctionCallee printfFn =
+//         Module.getOrInsertFunction("printf", printfTy);
+
+//     llvm::Value *fmtStr = Builder.CreateGlobalStringPtr("Elapsed: %lld ms\n");
+//     llvm::Value *elapsedMS = Builder.CreateSDiv(elapsedNS, llvm::ConstantInt::get(I64, 1000000LL), "elapsedMS");
+//     Builder.CreateCall(printfFn, {fmtStr, elapsedMS});
+//     // =================================================
 
 //     return graphPtr;
 // }
@@ -921,210 +1352,335 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
 
     GraphMap[G->name] = graphPtr;
 
+    llvm::Function *F = Builder.GetInsertBlock()->getParent();
+    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name);
+    Builder.CreateStore(graphPtr, graphAlloca);
+    NamedValues[G->name] = graphAlloca; 
+    // debug
+    llvm::errs() << "[visitGraphDecl] G->n (declared) = " << G->n << "\n";
+    llvm::errs() << "[visitGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
+    if (G->n > 0)
+        llvm::errs() << "[visitGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
+    llvm::errs() << "[visitGraphDecl] G->col_idx entries = " << G->m << "\n";
+
     return graphPtr;
 }
 
-llvm::Value *zero64(llvm::IRBuilder<> &B, llvm::LLVMContext &C)
-{
-    return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), 0);
-}
-
-// void IRGenVisitor::visitQuery(QueryNode *Q)
+// void IRGenVisitor::emitBFS(QueryNode *Q)
 // {
-//     // 1) Grab the Graph* value
+//     // Grab the Graph* value
 //     llvm::Value *graphPtr = GraphMap[Q->graphName];
-//     assert(graphPtr && "Graph not found in IRGenVisitor::visitQuery");
+//     assert(graphPtr && "Graph not found in IRGenVisitor::emitBFS");
 
-//     // types
-//     auto *I64 = llvm::Type::getInt64Ty(Context);
-//     auto *I32 = llvm::Type::getInt32Ty(Context);
-//     auto *I1 = llvm::Type::getInt1Ty(Context);
-//     auto *I8 = llvm::Type::getInt8Ty(Context);
-//     auto *I8Ptr = llvm::PointerType::getUnqual(I8);
+//     // Declare the runtime function:
+//     // extern "C" void bfs_runtime(struct.Graph* g);
+//     llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
+//     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+//     llvm::FunctionType *bfsFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
 
-//     // 2) Extract fields: n, row_ptr*, col_idx*
-//     llvm::Value *n_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
-//     llvm::Value *rp_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
-//     llvm::Value *ci_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
+//     // getOrInsertFunction will add a declaration if not present.
+//     auto bfsDecl = Module.getOrInsertFunction("bfs_single", bfsFT);
 
-//     llvm::Value *n_val = Builder.CreateLoad(I64, n_ptr, "n_val"); // i64
-//     llvm::Value *row_ptr = Builder.CreateLoad(llvm::PointerType::getUnqual(I64), rp_ptr, "row_ptr");
-//     llvm::Value *col_idx = Builder.CreateLoad(llvm::PointerType::getUnqual(I32), ci_ptr, "col_idx");
-
-//     // 3) malloc/calloc helper for visited and queue
-//     llvm::FunctionCallee mallocFn = Module.getOrInsertFunction(
-//         "malloc",
-//         llvm::FunctionType::get(I8Ptr, {I64}, false));
-//     llvm::FunctionCallee callocFn = Module.getOrInsertFunction(
-//         "calloc",
-//         llvm::FunctionType::get(I8Ptr, {I64, I64}, false));
-
-//     // visited: calloc(n,1) -> i1* after bitcast
-//     llvm::Value *rawVisited = Builder.CreateCall(callocFn, {n_val, llvm::ConstantInt::get(I64, 1)}, "rawVisited");
-//     llvm::Value *visited = Builder.CreateBitCast(rawVisited, llvm::PointerType::getUnqual(I1), "visited");
-
-//     // queue: malloc(n * 4) -> i32* after bitcast
-//     llvm::Value *bytesQueue = Builder.CreateMul(
-//         Builder.CreateSExt(n_val, I64),
-//         llvm::ConstantInt::get(I64, static_cast<uint64_t>(sizeof(int32_t))));
-//     llvm::Value *rawQueue = Builder.CreateCall(mallocFn, {bytesQueue}, "rawQueue");
-//     llvm::Value *queue = Builder.CreateBitCast(rawQueue, llvm::PointerType::getUnqual(I32), "queue");
-
-//     // entry allocas for head/tail and loop index i, scan index
-//     llvm::Function *F = Builder.GetInsertBlock()->getParent();
-//     llvm::IRBuilder<> entryB(&F->getEntryBlock(), F->getEntryBlock().begin());
-
-//     llvm::AllocaInst *headPtr = entryB.CreateAlloca(I32, nullptr, "head");
-//     llvm::AllocaInst *tailPtr = entryB.CreateAlloca(I32, nullptr, "tail");
-//     llvm::AllocaInst *iPtr = entryB.CreateAlloca(I64, nullptr, "i");       // inner-for index
-//     llvm::AllocaInst *scanPtr = entryB.CreateAlloca(I32, nullptr, "scan"); // scan start index
-
-//     // init scan=0
-//     Builder.CreateStore(Builder.getInt32(0), scanPtr);
-
-//     // Create BFS and scan basic blocks
-//     auto *scanInitBB = llvm::BasicBlock::Create(Context, "scan.init", F);
-//     auto *scanCondBB = llvm::BasicBlock::Create(Context, "scan.cond", F);
-//     auto *scanBodyBB = llvm::BasicBlock::Create(Context, "scan.body", F);
-//     auto *scanStartBfs = llvm::BasicBlock::Create(Context, "scan.startbfs", F);
-//     auto *scanIncBB = llvm::BasicBlock::Create(Context, "scan.inc", F);
-//     auto *scanExitBB = llvm::BasicBlock::Create(Context, "scan.exit", F);
-
-//     auto *bfsCondBB = llvm::BasicBlock::Create(Context, "bfs.cond", F);
-//     auto *bfsBodyBB = llvm::BasicBlock::Create(Context, "bfs.body", F);
-//     auto *bfsExitBB = llvm::BasicBlock::Create(Context, "bfs.exit", F);
-
-//     auto *forInitBB = llvm::BasicBlock::Create(Context, "bfs.for.init", F);
-//     auto *forCondBB = llvm::BasicBlock::Create(Context, "bfs.for.cond", F);
-//     auto *forBodyBB = llvm::BasicBlock::Create(Context, "bfs.for.body", F);
-//     auto *forIncBB = llvm::BasicBlock::Create(Context, "bfs.for.inc", F);
-//     auto *forExitBB = llvm::BasicBlock::Create(Context, "bfs.for.exit", F);
-//     auto *enqueueBB = llvm::BasicBlock::Create(Context, "bfs.enqueue", F);
-
-//     // Start: jump into scanInit
-//     Builder.CreateBr(scanInitBB);
-
-//     // scanInit -> cond
-//     Builder.SetInsertPoint(scanInitBB);
-//     Builder.CreateBr(scanCondBB);
-
-//     // scanCond: if (scan < n) -> scanBody else -> scanExit
-//     Builder.SetInsertPoint(scanCondBB);
-//     llvm::Value *scanVal = Builder.CreateLoad(I32, scanPtr, "scanVal");
-//     llvm::Value *scan64 = Builder.CreateSExt(scanVal, I64, "scan64");
-//     llvm::Value *scanCond = Builder.CreateICmpSLT(scan64, n_val, "scanCond");
-//     Builder.CreateCondBr(scanCond, scanBodyBB, scanExitBB);
-
-//     // scanBody: if visited[scan] -> scanInc else -> startBfs
-//     Builder.SetInsertPoint(scanBodyBB);
-//     llvm::Value *visitedPtrScan = Builder.CreateGEP(I1, visited, scanVal, "visitedPtrScan");
-//     llvm::Value *isVisitedScan = Builder.CreateLoad(I1, visitedPtrScan, "isVisitedScan");
-//     Builder.CreateCondBr(isVisitedScan, scanIncBB, scanStartBfs);
-
-//     // scanStartBfs: reset head/tail and enqueue start node
-//     Builder.SetInsertPoint(scanStartBfs);
-//     Builder.CreateStore(Builder.getInt32(0), headPtr);
-//     Builder.CreateStore(Builder.getInt32(0), tailPtr);
-//     llvm::Value *q0ptr = Builder.CreateGEP(I32, queue, scanVal, "q0ptr");
-//     Builder.CreateStore(scanVal, q0ptr);
-//     Builder.CreateStore(Builder.getInt1(true), visitedPtrScan);
-//     Builder.CreateStore(Builder.getInt32(1), tailPtr);
-//     Builder.CreateBr(bfsCondBB);
-
-//     // bfsCond: while (head < tail)
-//     Builder.SetInsertPoint(bfsCondBB);
-//     llvm::Value *h = Builder.CreateLoad(I32, headPtr, "h");
-//     llvm::Value *t = Builder.CreateLoad(I32, tailPtr, "t");
-//     llvm::Value *outerCond = Builder.CreateICmpSLT(h, t, "outerCond");
-//     Builder.CreateCondBr(outerCond, bfsBodyBB, bfsExitBB);
-
-//     // bfsBody: dequeue u
-//     Builder.SetInsertPoint(bfsBodyBB);
-//     llvm::Value *uqptr = Builder.CreateGEP(I32, queue, h, "uqptr");
-//     llvm::Value *u = Builder.CreateLoad(I32, uqptr, "u");
-//     Builder.CreateStore(Builder.CreateAdd(h, Builder.getInt32(1)), headPtr);
-
-//     // compute rp[u] and rp[u+1]
-//     llvm::Value *u64 = Builder.CreateSExt(u, I64);
-//     llvm::Value *rp_u_ptr = Builder.CreateGEP(I64, row_ptr, u64, "rp_u_ptr");
-//     llvm::Value *rp_u = Builder.CreateLoad(I64, rp_u_ptr, "rp_u");
-//     llvm::Value *rp_u1_ptr = Builder.CreateGEP(I64, row_ptr, Builder.CreateAdd(u64, Builder.getInt64(1)), "rp_u1_ptr");
-//     llvm::Value *rp_u1 = Builder.CreateLoad(I64, rp_u1_ptr, "rp_u1");
-
-//     // jump into forInit
-//     Builder.CreateBr(forInitBB);
-
-//     // forInit: i = rp_u
-//     Builder.SetInsertPoint(forInitBB);
-//     Builder.CreateStore(rp_u, iPtr);
-//     Builder.CreateBr(forCondBB);
-
-//     // forCond: if (i < rp_u1) -> forBody else -> forExit
-//     Builder.SetInsertPoint(forCondBB);
-//     llvm::Value *iVal = Builder.CreateLoad(I64, iPtr, "iVal");
-//     llvm::Value *innerCond = Builder.CreateICmpSLT(iVal, rp_u1, "innerCond");
-//     Builder.CreateCondBr(innerCond, forBodyBB, forExitBB);
-
-//     // forBody: v = col_idx[i]; check visited[v]
-//     Builder.SetInsertPoint(forBodyBB);
-//     llvm::Value *colPtr = Builder.CreateGEP(I32, col_idx, iVal, "colPtr");
-//     llvm::Value *v = Builder.CreateLoad(I32, colPtr, "v");
-//     llvm::Value *visitedPtr = Builder.CreateGEP(I1, visited, v, "visitedPtr");
-//     llvm::Value *isVisited = Builder.CreateLoad(I1, visitedPtr, "isVisited");
-//     Builder.CreateCondBr(isVisited, forIncBB, enqueueBB);
-
-//     // enqueueBB: visited[v] = 1; queue[tail] = v; tail = tail + 1
-//     Builder.SetInsertPoint(enqueueBB);
-//     Builder.CreateStore(Builder.getInt1(true), visitedPtr);
-//     llvm::Value *tailVal = Builder.CreateLoad(I32, tailPtr, "tailVal");
-//     llvm::Value *qptr = Builder.CreateGEP(I32, queue, tailVal, "qptr");
-//     Builder.CreateStore(v, qptr);
-//     Builder.CreateStore(Builder.CreateAdd(tailVal, Builder.getInt32(1)), tailPtr);
-//     Builder.CreateBr(forIncBB);
-
-//     // forIncBB: i = i + 1
-//     Builder.SetInsertPoint(forIncBB);
-//     llvm::Value *newI = Builder.CreateAdd(iVal, Builder.getInt64(1), "iNext");
-//     Builder.CreateStore(newI, iPtr);
-//     Builder.CreateBr(forCondBB);
-
-//     // forExitBB -> bfsCond
-//     Builder.SetInsertPoint(forExitBB);
-//     Builder.CreateBr(bfsCondBB);
-
-//     // bfsExitBB -> scanInc
-//     Builder.SetInsertPoint(bfsExitBB);
-//     Builder.CreateBr(scanIncBB);
-
-//     // scanIncBB: scan = scan + 1 -> scanCond
-//     Builder.SetInsertPoint(scanIncBB);
-//     llvm::Value *scanNow = Builder.CreateLoad(I32, scanPtr, "scanNow");
-//     Builder.CreateStore(Builder.CreateAdd(scanNow, Builder.getInt32(1)), scanPtr);
-//     Builder.CreateBr(scanCondBB);
-
-//     // scanExitBB: done scanning all vertices
-//     Builder.SetInsertPoint(scanExitBB);
+//     // Call bfs_single(graphPtr)
+//     Builder.CreateCall(bfsDecl, {graphPtr});
+//     // done
+//     return;
 // }
 
-void IRGenVisitor::visitQuery(QueryNode *Q)
+// void IRGenVisitor::emitDFS(QueryNode *Q)
+// {
+//     // Grab the Graph* value
+//     llvm::Value *graphPtr = GraphMap[Q->graphName];
+//     assert(graphPtr && "Graph not found in IRGenVisitor::emitDFS");
+
+//     // Declare the runtime function:
+//     // extern "C" void bfs_runtime(struct.Graph* g);
+//     llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
+//     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+//     llvm::FunctionType *dfsFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
+
+//     // getOrInsertFunction will add a declaration if not present.
+//     auto dfsDecl = Module.getOrInsertFunction("dfs_runtime", dfsFT);
+
+//     // Call dfs_runtime(graphPtr)
+//     Builder.CreateCall(dfsDecl, {graphPtr});
+
+//     // done
+//     return;
+// }
+
+void IRGenVisitor::emitBFS(QueryNode *Q)
+{
+    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitBFS");
+
+    // types
+    llvm::Type *int32Ty = llvm::Type::getInt32Ty(Context);
+    llvm::Type *int32PtrTy = int32Ty->getPointerTo();
+    llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+
+    // BFS runtime: void bfs_runtime(Graph* g, int** out_array, int* out_size);
+    llvm::FunctionType *bfsFT =
+        llvm::FunctionType::get(int32Ty, {graphPtrTy, int32PtrTy->getPointerTo(), int32Ty->getPointerTo()}, false);
+    auto bfsDecl = Module.getOrInsertFunction("bfs_runtime", bfsFT);
+
+    // Allocate space for array pointer and size
+    llvm::AllocaInst *arrAlloca = Builder.CreateAlloca(int32PtrTy, nullptr, Q->queryName + "_arr");
+    llvm::AllocaInst *sizeAlloca = Builder.CreateAlloca(int32Ty, nullptr, Q->queryName + "_size");
+
+    // Call BFS runtime
+    llvm::Value *retVal = Builder.CreateCall(
+        bfsDecl,
+        {graphPtr, arrAlloca, sizeAlloca},
+        Q->queryName + "_bfs_ret");
+
+    // Store the alloca (pointer) and size in NamedValues
+    NamedValues[Q->queryName + "_ptr"] = arrAlloca;
+    NamedValues[Q->queryName + "_size"] = sizeAlloca;
+}
+
+void IRGenVisitor::emitDFS(QueryNode *Q)
+{
+    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitDFS");
+
+    llvm::Type *int32Ty = llvm::Type::getInt32Ty(Context);
+    llvm::Type *int32PtrTy = int32Ty->getPointerTo();
+    llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+
+    // Declare: extern "C" int dfs_runtime(Graph* g, int** out_order);
+    llvm::FunctionType *dfsFT = llvm::FunctionType::get(
+        int32Ty, {graphPtrTy, int32PtrTy->getPointerTo()}, false);
+
+    auto dfsDecl = Module.getOrInsertFunction("dfs_runtime", dfsFT);
+
+    // Allocate space for int* out_order
+    llvm::Value *dfsArrayPtr = Builder.CreateAlloca(int32PtrTy, nullptr, Q->queryName + "_arr");
+
+    // Call dfs_runtime(graphPtr, &dfsArrayPtr)
+    llvm::Value *sizeVal = Builder.CreateCall(dfsDecl, {graphPtr, dfsArrayPtr}, Q->queryName + "_size");
+
+    // Store array pointer and size in NamedValues
+    NamedValues[Q->queryName + "_ptr"] = llvm::cast<llvm::AllocaInst>(dfsArrayPtr);
+    // Allocate an alloca for the size and store the value
+    llvm::AllocaInst *sizeAlloca = Builder.CreateAlloca(int32Ty, nullptr, Q->queryName + "_size");
+    Builder.CreateStore(sizeVal, sizeAlloca);
+    NamedValues[Q->queryName + "_size"] = sizeAlloca;
+}
+
+llvm::Function *IRGenVisitor::getPrintfFunction()
+{
+    llvm::FunctionType *printfType =
+        llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(Context),
+            llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+            true);
+    auto func = Module.getOrInsertFunction("printf", printfType);
+    return llvm::cast<llvm::Function>(func.getCallee());
+}
+
+// void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
+// {
+//     auto arrIt = NamedValues.find(node->arrayName + "_ptr");
+//     auto sizeIt = NamedValues.find(node->arrayName + "_size");
+
+//     if (arrIt == NamedValues.end() || sizeIt == NamedValues.end())
+//     {
+//         llvm::errs() << "Array not found: " << node->arrayName << "\n";
+//         return;
+//     }
+
+//     llvm::Value *arrPtr = Builder.CreateLoad(llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context)), arrIt->second);
+//     llvm::Value *arrSize = Builder.CreateLoad(llvm::Type::getInt32Ty(Context), sizeIt->second);
+
+//     llvm::Function *printfFunc = getPrintfFunction(); // helper function
+
+//     // Create loop variables
+//     llvm::Value *index = Builder.CreateAlloca(llvm::Type::getInt32Ty(Context));
+//     Builder.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 0), index);
+
+//     llvm::Function *curFunc = Builder.GetInsertBlock()->getParent();
+//     llvm::BasicBlock *loopBB = llvm::BasicBlock::Create(Context, "print_loop", curFunc);
+//     llvm::BasicBlock *afterBB = llvm::BasicBlock::Create(Context, "after_print", curFunc);
+//     Builder.CreateBr(loopBB);
+
+//     Builder.SetInsertPoint(loopBB);
+//     llvm::Value *iVal = Builder.CreateLoad(llvm::Type::getInt32Ty(Context), index);
+//     llvm::Value *cond = Builder.CreateICmpSLT(iVal, arrSize);
+//     Builder.CreateCondBr(cond, loopBB, afterBB);
+
+//     // Load element and call printf
+//     llvm::Value *elemPtr = Builder.CreateGEP(
+//         llvm::Type::getInt32Ty(Context), arrPtr, {iVal});
+//     llvm::Value *elem = Builder.CreateLoad(llvm::Type::getInt32Ty(Context), elemPtr);
+//     Builder.CreateCall(printfFunc, {Builder.CreateGlobalStringPtr("%d "), elem});
+
+//     // Increment index
+//     llvm::Value *nextI = Builder.CreateAdd(iVal, llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1));
+//     Builder.CreateStore(nextI, index);
+
+//     Builder.CreateBr(loopBB);
+//     Builder.SetInsertPoint(afterBB);
+//     Builder.CreateCall(printfFunc, {Builder.CreateGlobalStringPtr("\n")});
+// }
+
+
+void IRGenVisitor::emitFloydWarshall(QueryNode *Q)
 {
     // Grab the Graph* value
     llvm::Value *graphPtr = GraphMap[Q->graphName];
-    assert(graphPtr && "Graph not found in IRGenVisitor::visitQuery");
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitFloydWarshall");
 
     // Declare the runtime function:
     // extern "C" void bfs_runtime(struct.Graph* g);
     llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
-    llvm::FunctionType *bfsFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
+    llvm::FunctionType *fwFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
 
     // getOrInsertFunction will add a declaration if not present.
-    auto bfsDecl = Module.getOrInsertFunction("bfs_runtime", bfsFT);
+    auto fwDecl = Module.getOrInsertFunction("floyd_runtime", fwFT);
 
-    // Call bfs_runtime(graphPtr)
-    Builder.CreateCall(bfsDecl, {graphPtr});
+    // Call floyd_runtime(graphPtr)
+    Builder.CreateCall(fwDecl, {graphPtr});
 
+    // done
     return;
+}
+
+void IRGenVisitor::emitBK(QueryNode *Q)
+{
+    // Grab the Graph* value
+    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitBK");
+
+    // Declare the runtime function:
+    // extern "C" void bfs_runtime(struct.Graph* g);
+    llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
+    llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+    llvm::FunctionType *BKFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
+
+    // getOrInsertFunction will add a declaration if not present.
+    auto bkDecl = Module.getOrInsertFunction("bk_runtime", BKFT);
+
+    // Call bk_runtime(graphPtr)
+    Builder.CreateCall(bkDecl, {graphPtr});
+
+    // done
+    return;
+}
+
+// void IRGenVisitor::emitChromacity(QueryNode *Q)
+// {
+//     // Grab the Graph* value
+//     llvm::Value *graphPtr = GraphMap[Q->graphName];
+//     assert(graphPtr && "Graph not found in IRGenVisitor::emitChromacity");
+
+//     // Declare the runtime function:
+//     // extern "C" void chromacity_runtime(struct.Graph* g);
+//     llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
+//     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+//     llvm::FunctionType *chromacityFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
+
+//     // getOrInsertFunction will add a declaration if not present.
+//     auto chromacityDecl = Module.getOrInsertFunction("chromacity_runtime", chromacityFT);
+
+//     // Call chromacity_runtime(graphPtr)
+//     Builder.CreateCall(chromacityDecl, {graphPtr});
+
+//     // done
+//     return;
+// }
+
+void IRGenVisitor::emitChromacity(QueryNode *Q)
+{
+    // 1. Grab the Graph* value
+    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitChromacity");
+
+    // 2. Declare the runtime function:
+    // extern "C" int chromacity_runtime(struct Graph* g);
+    llvm::Type *intTy = llvm::Type::getInt32Ty(Context);
+    llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+    llvm::FunctionType *chromFT = llvm::FunctionType::get(intTy, {graphPtrTy}, false);
+
+    auto chromDecl = Module.getOrInsertFunction("chromacity_runtime", chromFT);
+
+    // 3. Call the function and get return value
+    llvm::Value *retVal = Builder.CreateCall(chromDecl, {graphPtr}, "chromacity_result");
+
+    // 4. Allocate space for query result in NamedValues if not already present
+    llvm::AllocaInst *varPtr = nullptr;
+    auto it = NamedValues.find(Q->queryName);
+    if (it == NamedValues.end())
+    {
+        varPtr = Builder.CreateAlloca(intTy, nullptr, Q->queryName);
+        NamedValues[Q->queryName] = varPtr;
+    }
+    else
+    {
+        varPtr = it->second;
+    }
+
+    // 5. Store the returned value into the allocated variable
+    Builder.CreateStore(retVal, varPtr);
+
+    // Done
+}
+
+void IRGenVisitor::emitDijkstra(QueryNode *Q)
+{
+    // Grab the Graph* value
+    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    assert(graphPtr && "Graph not found in IRGenVisitor::emitDijkstra");
+
+    // Declare the runtime function:
+    // extern "C" void dijkstra_runtime(struct.Graph* g);
+    llvm::Type *voidTy = llvm::Type::getVoidTy(Context);
+    llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+    llvm::FunctionType *dijkstraFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, /*isVarArg=*/false);
+
+    // getOrInsertFunction will add a declaration if not present.
+    auto dijkstraDecl = Module.getOrInsertFunction("dijkstra_runtime", dijkstraFT);
+
+    // Call dijkstra_runtime(graphPtr)
+    Builder.CreateCall(dijkstraDecl, {graphPtr});
+
+    // done
+    return;
+}
+
+void IRGenVisitor::visitQuery(QueryNode *Q)
+{
+    // Assuming QueryNode has a std::string field named 'queryDesc' for "bfs"/"dfs"
+    if (Q->queryDesc == "bfs")
+    {
+        emitBFS(Q);
+    }
+    else if (Q->queryDesc == "dfs")
+    {
+        emitDFS(Q);
+    }
+    else if (Q->queryDesc == "bk")
+    {
+        emitBK(Q);
+    }
+    else if (Q->queryDesc == "transitive_closure")
+    {
+        emitFloydWarshall(Q);
+    }
+    else if (Q->queryDesc == "chromaticity")
+    {
+        emitChromacity(Q);
+    }
+    else if(Q->queryDesc == "dijkstra")
+    {
+        emitDijkstra(Q);
+    }
+    else
+    {
+        llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n";
+        assert(false && "Unknown query type in QueryNode");
+    }
 }
 
 void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)

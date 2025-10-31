@@ -8,6 +8,8 @@
 #include "ASTBuilder.h"
 #include "ASTNode.h"
 #include "IRGenVisitor.h"
+#include <chrono> //added
+using namespace std::chrono; //a
 
 #include "pdg.h"
 #include "parallel_loop_outline.h"
@@ -87,6 +89,7 @@ int main(int argc, char **argv)
     auto M = std::make_unique<Module>("my_module", Ctx);
     IRBuilder<> IRB(Ctx);
 
+
     IRGenVisitor irgen(Ctx, *M, IRB);
     irgen.visitProgram(prog);
 
@@ -139,6 +142,8 @@ int main(int argc, char **argv)
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
         MPM.run(*M, MAM);
     }
+
+    auto start = high_resolution_clock::now();
 
     {
         llvm::SMDiagnostic Err;
@@ -284,6 +289,38 @@ int main(int argc, char **argv)
         // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
     }
 
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> CmMOD = llvm::parseIRFile("dijkstra_runtime.ll", Err, Ctx);
+        if (!CmMOD)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse dijkstra_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Cm_DL = CmMOD->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Cm_DL.empty())
+            M->setDataLayout(CmMOD->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !CmMOD->getTargetTriple().empty())
+            M->setTargetTriple(CmMOD->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(CmMOD)))
+        {
+            llvm::errs() << "Linking dijkstra_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked dijkstra_runtime.ll into module\n";
+    }
+
+    auto end = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(end - start).count();
+    llvm::outs() << "Time took " << duration << " ms\n";
+
     InitializeAllTargetInfos();
     InitializeAllTargets();
     InitializeAllTargetMCs();
@@ -336,7 +373,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    
+    
     codeGenPass.run(*M);
+
+    
+
     dest.flush();
 
     return 0;

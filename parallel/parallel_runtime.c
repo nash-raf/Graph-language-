@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdio.h>
 
 typedef void (*loop_body_fn)(int64_t i, void *env);
 
@@ -56,7 +57,8 @@ void parallel_for_runtime(int64_t start, int64_t end, int64_t step, loop_body_fn
     if (step == 0 || !body)
         return;
 
-    int nthreads = 4;
+    int nthreads = sysconf(_SC_NPROCESSORS_ONLN);
+    printf("nthreads = %d\n", nthreads);
     if (nthreads <= 0)
         nthreads = 1;
 

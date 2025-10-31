@@ -12,7 +12,8 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h" // <-- Add this include
 #include <string>
-
+#include <chrono> //added
+using namespace std::chrono; //added
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 
@@ -168,6 +169,7 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
 
     // collect loads/stores inside the loop and ensure PDG nodes exist
 
+
     for (BasicBlock *BB : L->blocks())
     {
         for (Instruction &I : *BB)
@@ -181,6 +183,7 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
             }
         }
     }
+
 
     bool sawLoopCarried = false;
     bool allCarriedHaveConstantPositiveDistance = true; // constant and >= 1 required for DOACROSS
@@ -456,6 +459,10 @@ void buildGraph(llvm::Function &F,
             populateNodes(&I, G);
         }
     }
+
+
+    
+
     for (llvm::BasicBlock &BB : F)
     {
         for (llvm::Instruction &I : BB)
@@ -483,7 +490,10 @@ void buildGraph(llvm::Function &F,
         }
     }
 
+
     auto *Walker = MSSA.getWalker();
+
+    //auto start = high_resolution_clock::now();
 
     for (auto LI : loadCollector)
     {
@@ -501,6 +511,10 @@ void buildGraph(llvm::Function &F,
             }
         }
     }
+
+    //auto end = high_resolution_clock::now();
+    //auto duration = duration_cast<milliseconds>(end - start).count();
+    //llvm::outs() << "Loop analysis took " << duration << " ms\n";
 
     for (auto LIIt = LI.begin(), LIE = LI.end(); LIIt != LIE; ++LIIt)
     {

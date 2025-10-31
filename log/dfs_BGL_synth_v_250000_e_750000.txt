@@ -1,4 +1,0 @@
-Boost DFS took 586.455 ms
-real 1.68
-user 1.57
-sys 0.11

@@ -1,0 +1,12 @@
+[ASTBuilder] loaded edge-list file '' in 128 ms
+[visitGraphDecl] G->n (declared) = 365492
+[visitGraphDecl] G->row_ptr entries = 365493
+[visitGraphDecl] row_ptr[n] = 1560264
+[visitGraphDecl] G->col_idx entries = 1560264
+warning: Linking two modules of different target triples: 'dijkstra_runtime.ll' is 'x86_64-pc-linux-gnu' whereas 'my_module' is 'x86_64-redhat-linux-gnu'
+
+Time took 7 ms
+[BFS] Completed in 0.015481 seconds (sequential)
+real 1.82
+user 1.59
+sys 0.19

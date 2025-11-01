@@ -1,5 +1,11 @@
-graph g {
-    edges: file "edgelist.txt";
-};
-
-query k: "bfs" of g;
+int a[5] = [5,2,3,4,5];
+int b[5] = [1,2,3,4,5];
+int c[5] = [1,2,3,4,5];
+int i = 0;
+int out;
+while(i<5)
+{
+    c[i] = a[i] + b[i];
+    out = c[i];
+    i = i + 1;
+}

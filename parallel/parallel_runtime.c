@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdio.h>
 
 typedef void (*loop_body_fn)(int64_t i, void *env);
 
@@ -43,6 +44,8 @@ static void *worker_main(void *_arg)
     {
         for (i = start + (int64_t)tid * step; i < end; i += (int64_t)nthreads * step)
         {
+            // exit(0); // temp
+            printf("Iteration %d by thread %d\n", (int)i, tid);
             if (a->body)
                 a->body(i, a->env);
         }
@@ -81,7 +84,7 @@ void parallel_for_runtime(int64_t start, int64_t end, int64_t step, loop_body_fn
         args[i].ncpus = (int)sysconf(_SC_NPROCESSORS_ONLN);
         if (args[i].ncpus <= 0)
             args[i].ncpus = 1;
-
+        // possible problem
         pthread_create(&threads[i], NULL, worker_main, &args[i]);
     }
 

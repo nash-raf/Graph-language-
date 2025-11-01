@@ -1,7 +1,8 @@
 
-./GraphProgram test.graph
+./GraphProgram > test.ll test.graph
 
-gcc program.o runtime.o -o final_program -lpthread -lm
+clang++ -pthread program.o parallel_runtime.o -o final_program -fopenmp
+
 
 ./final_program
 

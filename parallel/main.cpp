@@ -102,6 +102,8 @@ int main(int argc, char **argv)
         PB.registerFunctionAnalyses(FAM);
         PB.registerLoopAnalyses(LAM);
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+        // after you construct PB and set up analysis managers
+        registerLoopOutlinerPluginWithPassBuilder(PB);
 
         FunctionPassManager FPM;
         FPM.addPass(PromotePass());      // mem2reg
@@ -117,7 +119,9 @@ int main(int argc, char **argv)
     {
         dependencyGraph pdg = runPDGOnModule(*M);
         (void)pdg;
+        runLoopOutlinerOnModule(*M);
     }
+    M->print(outs(), nullptr);
 
     {
         LoopAnalysisManager LAM;

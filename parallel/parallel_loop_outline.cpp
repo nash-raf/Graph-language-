@@ -12,9 +12,11 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/BasicBlock.h"
 #include <cassert>
 #include "parallel_loop_outline.h"
+#include "llvm/Analysis/ValueTracking.h" // for GetUnderlyingObject
 
 static void collectInnermostLoops(llvm::Loop *L, llvm::SmallVectorImpl<llvm::Loop *> &Out)
 {
@@ -133,7 +135,15 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             continue;
         }
 
-        llvm::SmallVector<llvm::BasicBlock *, 8> LoopBody(L->blocks().begin(), L->blocks().end());
+        // llvm::SmallVector<llvm::BasicBlock *, 8> LoopBody(L->blocks().begin(), L->blocks().end());
+
+        llvm::SmallVector<llvm::BasicBlock *, 8> LoopBody;
+        for (llvm::BasicBlock *BB : L->blocks())
+        {
+            if (BB != L->getHeader()) // exclude header so the PHI becomes an input param
+                LoopBody.push_back(BB);
+        }
+
         if (LoopBody.empty())
         {
             // llvm::outs() << "empty";
@@ -181,19 +191,247 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             continue;
         }
 
+        llvm::SetVector<llvm::Value *> Inputs, Outputs;
+        llvm::SetVector<llvm::Value *> SinkCands; // usually empty for loops
+
+        CE.findInputsOutputs(Inputs, Outputs, SinkCands, /*CollectGlobalInputs = */ true);
+
+        // --- store-scan: find memory destinations the loop writes to and add their underlying object
+        for (llvm::BasicBlock *BB : LoopBody)
+        {
+            for (llvm::Instruction &I : *BB)
+            {
+                if (auto *SI = llvm::dyn_cast<llvm::StoreInst>(&I))
+                {
+                    llvm::Value *Ptr = SI->getPointerOperand();
+                    llvm::Value *Base = llvm::getUnderlyingObject(Ptr, /*MaxLookup=*/64);
+                    if (!Base)
+                        continue;
+
+                    // if the base is an instruction, ensure it is defined outside the loop
+                    if (auto *BI = llvm::dyn_cast<llvm::Instruction>(Base))
+                    {
+                        if (L->contains(BI->getParent()))
+                            continue; // base defined inside loop -> skip
+                    }
+
+                    // consider Alloca/Global/Argument or any value defined outside loop
+                    if (!Inputs.count(Base) && !Outputs.count(Base))
+                    {
+                        Outputs.insert(Base);
+                        llvm::errs() << "store-scan: added base to Outputs: " << *Base << "\n";
+                    }
+                }
+            }
+        }
+
+        llvm::outs() << "Captured Inputs:\n";
+        for (llvm::Value *V : Inputs)
+        {
+            llvm::outs() << "  - " << V << "\n";
+        }
+
+        llvm::outs() << "Captured Inputs:\n";
+        for (llvm::Value *V : Inputs)
+        {
+            llvm::outs() << "  - " << *V << "\n";
+        }
+
         if (llvm::Function *Outlined = CE.extractCodeRegion(CEAC))
         {
             // make the outlined function externally visible and give it a friendly name
             Outlined->setLinkage(llvm::GlobalValue::ExternalLinkage);
             Outlined->setName("outlined_main_loopbody");
 
-            // llvm::outs() << "\n\n\n\n\ntriggering";
-            // llvm::outs().flush();
+            llvm::SmallVector<llvm::Value *, 16> Candidates;
+            // Prefer outputs first (so output allocas / results are matched to Outlined's output params)
+            for (llvm::Value *V : Outputs)
+                Candidates.push_back(V);
+            // then inputs as fallback
+            for (llvm::Value *V : Inputs)
+                Candidates.push_back(V);
 
-            // llvm::errs() << "\n\n\n\n\ntriggering\n";
-            // llvm::errs().flush();
-            // fprintf(stderr, "triggering\n");
-            // fflush(stderr);
+            llvm::Value *IndVar = indvar; // your earlier detected canonical PHI (may be nullptr)
+
+            // Map each Outlined arg to a candidate original value (or nullptr)
+            llvm::SmallVector<llvm::Value *, 8> ArgOriginVals;
+            ArgOriginVals.reserve(Outlined->arg_size());
+
+            llvm::SmallPtrSet<llvm::Value *, 8> UsedCandidates;
+            for (auto &Arg : Outlined->args())
+            {
+                llvm::Value *matched = nullptr;
+                llvm::Type *Pty = Arg.getType();
+
+                // Prefer mapping the induction var if types match and it isn't used yet
+                if (IndVar && IndVar->getType() == Pty && !UsedCandidates.count(IndVar))
+                {
+                    matched = IndVar;
+                    UsedCandidates.insert(matched);
+                    ArgOriginVals.push_back(matched);
+                    continue;
+                }
+
+                // Otherwise pick the first compatible candidate not yet used
+                // for (llvm::Value *C : Candidates)
+                // {
+                //     if (UsedCandidates.count(C))
+                //         continue;
+                //     if (C->getType() == Pty)
+                //     {
+                //         matched = C;
+                //         break;
+                //     }
+                //     if (C->getType()->isPointerTy() && Pty->isPointerTy())
+                //     {
+                //         matched = C;
+                //         break;
+                //     }
+                //     if (C->getType()->isIntegerTy() && Pty->isIntegerTy())
+                //     {
+                //         matched = C;
+                //         break;
+                //     }
+                // }
+
+                // Two-pass selection: (1) prefer non-constant/allocation-best matches,
+                // (2) fall back to any compatible candidate (including globals/constants).
+
+                // First pass: prefer non-constant, strong matches (alloca whose allocated
+                // type matches pointer element type, or exact type matches)
+                for (llvm::Value *C : Candidates)
+                {
+                    if (UsedCandidates.count(C))
+                        continue;
+                    // skip constants and globals on first pass
+                    if (llvm::isa<llvm::Constant>(C) || llvm::isa<llvm::GlobalValue>(C))
+                        continue;
+
+                    // exact type match
+                    if (C->getType() == Pty)
+                    {
+                        matched = C;
+                        break;
+                    }
+
+                    // prefer alloca when both are pointers (since we can't check element types with opaque pointers)
+                    if (auto *AI = llvm::dyn_cast<llvm::AllocaInst>(C))
+                    {
+                        if (Pty->isPointerTy())
+                        {
+                            matched = C;
+                            break;
+                        }
+                    }
+
+                    // pointer-to-pointer compatible (non-ideal but ok)
+                    if (C->getType()->isPointerTy() && Pty->isPointerTy())
+                    {
+                        matched = C;
+                        break;
+                    }
+
+                    // integer compatible
+                    if (C->getType()->isIntegerTy() && Pty->isIntegerTy())
+                    {
+                        matched = C;
+                        break;
+                    }
+                }
+
+                // Second pass: allow globals/constants if first pass found nothing
+                if (!matched)
+                {
+                    for (llvm::Value *C : Candidates)
+                    {
+                        if (UsedCandidates.count(C))
+                            continue;
+
+                        // exact type match
+                        if (C->getType() == Pty)
+                        {
+                            matched = C;
+                            break;
+                        }
+
+                        // pointer-to-pointer match
+                        if (C->getType()->isPointerTy() && Pty->isPointerTy())
+                        {
+                            matched = C;
+                            break;
+                        }
+
+                        // integer match
+                        if (C->getType()->isIntegerTy() && Pty->isIntegerTy())
+                        {
+                            matched = C;
+                            break;
+                        }
+                    }
+                }
+
+                if (matched)
+                    UsedCandidates.insert(matched);
+                ArgOriginVals.push_back(matched); // may be nullptr if nothing found
+            }
+
+            ArgOriginVals.pop_back();
+            ArgOriginVals.push_back(Outputs.back()); // just to test larger size than arg_size()
+
+            for (llvm::Value *U : Candidates)
+            {
+                llvm::errs() << " candidate: " << *U << "\n";
+            }
+            llvm::errs() << "ArgOriginVals mapping:\n";
+            for (unsigned i = 0; i < ArgOriginVals.size(); ++i)
+            {
+                llvm::errs() << "  param[" << i << "] -> ";
+                if (ArgOriginVals[i])
+                    ArgOriginVals[i]->print(llvm::errs());
+                else
+                    llvm::errs() << "NULL";
+                llvm::errs() << "\n";
+            }
+
+            // Also print Outputs to confirm expected allocas are present
+            llvm::errs() << "Captured Outputs:\n";
+            for (llvm::Value *V : Outputs)
+            {
+                if (V)
+                    V->print(llvm::errs());
+                llvm::errs() << "\n";
+            }
+            int InductionParamIndex = -1;
+            llvm::SmallVector<llvm::Type *, 8> NewEnvFieldTys;
+            llvm::SmallVector<llvm::Value *, 8> NewEnvOriginVals;
+
+            for (unsigned pi = 0; pi < ArgOriginVals.size(); ++pi)
+            {
+                llvm::Value *orig = ArgOriginVals[pi];
+                llvm::Type *ParamTy = Outlined->getFunctionType()->getParamType(pi);
+                if (orig == IndVar)
+                {
+                    InductionParamIndex = (int)pi;
+                    continue; // index param will be provided by runtime (idx)
+                }
+                // if (auto *SI = llvm::dyn_cast<llvm::StoreInst>(orig))
+                // {
+                //     llvm::Value *ptr = SI->getPointerOperand();
+                //     llvm::Value *val = SI->getValueOperand();
+
+                //     if (llvm::isa<llvm::ConstantPointerNull>(ptr))
+                //         continue;
+                //     if (llvm::isa<llvm::ConstantPointerNull>(val))
+                //         continue;
+                // }
+                // if (orig == nullptr)
+                // {
+                //     continue;
+                //     // llvm::errs() << "Param " << pi << " mapped to nullptr, storing null in env\n";
+                // }
+                NewEnvFieldTys.push_back(ParamTy);
+                NewEnvOriginVals.push_back(orig); // may be nullptr => will store null
+            }
 
             llvm::Instruction *Term = Preheader->getTerminator();
             llvm::IRBuilder<> B(Term);
@@ -205,70 +443,130 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             llvm::Type *Int8PtrTy = llvm::Type::getInt8Ty(F.getContext())->getPointerTo();
             llvm::Type *LoopBodyFnTy = llvm::FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false)->getPointerTo();
 
-            // Declare parallel_for_runtime
+            llvm::StructType *NewEnvStructTy =
+                llvm::StructType::create(F.getContext(), NewEnvFieldTys, "env.struct");
+
+            // Allocate env on heap via malloc
+            uint64_t NewEnvSize = M->getDataLayout().getTypeAllocSize(NewEnvStructTy);
+            llvm::Value *SizeConst = llvm::ConstantInt::get(Int64Ty, NewEnvSize);
+            llvm::FunctionCallee MallocFn = M->getOrInsertFunction("malloc",
+                                                                   llvm::FunctionType::get(Int8PtrTy, {Int64Ty}, false));
+            llvm::Value *RawPtr = B.CreateCall(MallocFn, {SizeConst}, "env_raw"); // i8*
+            llvm::Value *NewEnvPtr = B.CreateBitCast(RawPtr, NewEnvStructTy->getPointerTo(), "envptr_struct");
+
+            // Populate env fields (same order)
+            for (unsigned k = 0; k < NewEnvOriginVals.size(); ++k)
+            {
+                llvm::Value *orig = NewEnvOriginVals[k];
+                llvm::Value *GEP = B.CreateStructGEP(NewEnvStructTy, NewEnvPtr, k, "env_gep");
+                llvm::Value *storeVal = nullptr;
+                llvm::Type *FTy = NewEnvFieldTys[k];
+
+                if (!orig)
+                {
+                    storeVal = llvm::Constant::getNullValue(FTy);
+                }
+                else
+                {
+                    if (orig->getType() != FTy)
+                    {
+                        if (orig->getType()->isPointerTy() && FTy->isPointerTy())
+                            storeVal = B.CreateBitCast(orig, FTy);
+                        else if (orig->getType()->isIntegerTy() && FTy->isIntegerTy())
+                            storeVal = B.CreateIntCast(orig, FTy, /*isSigned=*/true);
+                        else
+                            storeVal = llvm::Constant::getNullValue(FTy);
+                    }
+                    else
+                    {
+                        storeVal = orig;
+                    }
+                }
+
+                B.CreateStore(storeVal, GEP);
+            }
+
+            llvm::Value *EnvPtrCast = RawPtr;
+
+            // -------- define wrapper(i64, i8*) that unpacks env and calls Outlined --------
+
+            llvm::FunctionType *WrapperFT = llvm::FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false);
+            llvm::Function *WrapperFn = M->getFunction("wrapper");
+            if (!WrapperFn)
+            {
+                WrapperFn = llvm::Function::Create(WrapperFT, llvm::Function::ExternalLinkage, "wrapper", M);
+            }
+
+            if (WrapperFn->empty())
+            {
+                auto argIt = WrapperFn->arg_begin();
+                llvm::Argument *IdxArg = argIt++;
+                IdxArg->setName("idx");
+                llvm::Argument *EnvArg = argIt++;
+                EnvArg->setName("env");
+
+                llvm::BasicBlock *WEntry = llvm::BasicBlock::Create(F.getContext(), "entry", WrapperFn);
+                llvm::IRBuilder<> Wb(WEntry);
+
+                // cast env -> NewEnvStructTy*
+                llvm::Value *EnvStructPtr = Wb.CreateBitCast(EnvArg, NewEnvStructTy->getPointerTo(), "envstruct");
+
+                // load fields in same order
+                llvm::SmallVector<llvm::Value *, 8> LoadedFields;
+                LoadedFields.reserve(NewEnvFieldTys.size());
+                for (unsigned k = 0; k < NewEnvFieldTys.size(); ++k)
+                {
+                    llvm::Value *Fgep = Wb.CreateStructGEP(NewEnvStructTy, EnvStructPtr, k, "fgep");
+                    llvm::Value *Fload = Wb.CreateLoad(NewEnvFieldTys[k], Fgep, "fload");
+                    LoadedFields.push_back(Fload);
+                }
+
+                // assemble call args for Outlined in exact param order
+                llvm::SmallVector<llvm::Value *, 8> CallArgsForOutlined;
+                unsigned envCursor = 0;
+                for (unsigned pi = 0; pi < ArgOriginVals.size(); ++pi)
+                {
+                    if ((int)pi == InductionParamIndex)
+                    {
+                        // use runtime idx (cast to param type)
+                        llvm::Type *PTy = Outlined->getFunctionType()->getParamType(pi);
+                        llvm::Value *IdxVal = Wb.CreateIntCast(IdxArg, PTy, /*isSigned=*/true, "idxcast");
+                        CallArgsForOutlined.push_back(IdxVal);
+                    }
+                    else
+                    {
+                        llvm::Value *fv = LoadedFields[envCursor++];
+                        llvm::Type *PTy = Outlined->getFunctionType()->getParamType(pi);
+                        if (fv->getType() != PTy)
+                        {
+                            if (fv->getType()->isPointerTy() && PTy->isPointerTy())
+                                fv = Wb.CreateBitCast(fv, PTy);
+                            else if (fv->getType()->isIntegerTy() && PTy->isIntegerTy())
+                                fv = Wb.CreateIntCast(fv, PTy, /*isSigned=*/true);
+                            else
+                                fv = llvm::Constant::getNullValue(PTy);
+                        }
+                        CallArgsForOutlined.push_back(fv);
+                    }
+                }
+
+                Wb.CreateCall(Outlined, CallArgsForOutlined);
+                Wb.CreateRetVoid();
+            }
+
+            // Bitcast wrapper to runtime expected function pointer type
+            llvm::Value *CastedWrapper = B.CreateBitCast(WrapperFn, LoopBodyFnTy);
+
+            //  Declare parallel_for_runtime
             llvm::FunctionCallee ParallelForFunc = M->getOrInsertFunction(
                 "parallel_for_runtime",
                 llvm::FunctionType::get(
                     VoidTy,
                     {Int64Ty, Int64Ty, Int64Ty, LoopBodyFnTy, Int8PtrTy}, false));
 
-            // Build env struct
-            // --- SAFE: do not attempt to store Outlined->getArg(0) here ---
-            // For now pass a NULL env pointer to runtime (populate env later properly)
-            llvm::Value *EnvPtrCast = nullptr;
             llvm::Type *ArgTy = nullptr;
             if (Outlined->getFunctionType()->getNumParams() > 0)
                 ArgTy = Outlined->getFunctionType()->getParamType(0);
-
-            // Look in the entry block for an Alloca that likely corresponds to the captured 'a'
-            llvm::BasicBlock &EntryBB = F.getEntryBlock();
-            llvm::AllocaInst *FoundAlloca = nullptr;
-            for (llvm::Instruction &I : EntryBB)
-            {
-                if (auto *AI = llvm::dyn_cast<llvm::AllocaInst>(&I))
-                {
-                    // If ArgTy is an actual pointer-to-some-type, compare allocated type.
-                    if (ArgTy)
-                    {
-                        if (AI->getAllocatedType() == ArgTy || AI->getAllocatedType()->isArrayTy())
-                        {
-                            FoundAlloca = AI;
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        // fallback: take the first alloca
-                        FoundAlloca = AI;
-                        break;
-                    }
-                }
-            }
-
-            if (FoundAlloca)
-            {
-                // cast the alloca pointer to i8* (env)
-                llvm::PointerType *Int8PtrTyPtr = llvm::cast<llvm::PointerType>(Int8PtrTy);
-                EnvPtrCast = B.CreateBitCast(FoundAlloca, Int8PtrTyPtr, "envptr");
-                // llvm::errs() << "Using alloca as env: " << *FoundAlloca << "\n";
-            }
-            else
-            {
-                // fallback to null (should not happen for simple stack-alloc cases)
-                llvm::PointerType *Int8PtrTyPtr = llvm::cast<llvm::PointerType>(Int8PtrTy);
-                EnvPtrCast = llvm::ConstantPointerNull::get(Int8PtrTyPtr);
-                // llvm::errs() << "WARNING: no alloca found, passing null env\n";
-            }
-
-            // Ensure wrapper symbol is declared (so CreateBitCast will not get nullptr)
-            llvm::Function *WrapperFn = M->getFunction("wrapper");
-            if (!WrapperFn)
-            {
-                llvm::FunctionType *WFT = llvm::FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false);
-                WrapperFn = llvm::Function::Create(WFT, llvm::Function::ExternalLinkage, "wrapper", M);
-            }
-            // Now it's safe to bitcast the wrapper to the expected function-pointer type
-            llvm::Value *CastedWrapper = B.CreateBitCast(WrapperFn, LoopBodyFnTy);
 
             // Insert the parallel call
             llvm::Value *StartArg = StartV;
@@ -375,23 +673,46 @@ void registerLoopOutlinerPass(llvm::FunctionPassManager &FPM)
     FPM.addPass(LoopOutlinerPass());
 }
 
-// Register the pass as a plugin
-extern "C" PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK llvmGetPassPluginInfo()
+void runLoopOutlinerOnModule(Module &M)
 {
-    return {
-        LLVM_PLUGIN_API_VERSION, "LoopOutliner", "v0.1",
-        [](PassBuilder &PB)
+    // analysis managers
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
+
+    // PassBuilder and register analyses/proxies
+    PassBuilder PB;
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    // Build FPM, add your function pass
+    FunctionPassManager FPM;
+    // Option A: add the pass type directly
+    FPM.addPass(LoopOutlinerPass());
+    // Option B: if you exposed a helper to register it, you can call that:
+    // registerLoopOutlinerPass(FPM);
+
+    // Wrap function-pass manager into a module pass and run
+    ModulePassManager MPM;
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+    MPM.run(M, MAM);
+}
+
+void registerLoopOutlinerPluginWithPassBuilder(PassBuilder &PB)
+{
+    PB.registerPipelineParsingCallback(
+        [](StringRef Name, FunctionPassManager &FPM, ArrayRef<PassBuilder::PipelineElement>)
         {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, FunctionPassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>)
-                {
-                    if (Name == "loop-outliner")
-                    {
-                        FPM.addPass(LoopOutlinerPass());
-                        return true;
-                    }
-                    return false;
-                });
-        }};
+            if (Name == "loop-outliner")
+            {
+                FPM.addPass(LoopOutlinerPass());
+                return true;
+            }
+            return false;
+        });
 }

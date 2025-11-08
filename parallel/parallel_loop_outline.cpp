@@ -7,7 +7,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-#include "llvm/Transforms/Utils/Local.h" // removeUnreachableBlocks
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -16,7 +16,10 @@
 #include "llvm/IR/BasicBlock.h"
 #include <cassert>
 #include "parallel_loop_outline.h"
-#include "llvm/Analysis/ValueTracking.h" // for GetUnderlyingObject
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/ADCE.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 
 static void collectInnermostLoops(llvm::Loop *L, llvm::SmallVectorImpl<llvm::Loop *> &Out)
 {
@@ -80,27 +83,6 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                             }
                         }
                     }
-                    // Case 2: nested MDNode (tuple-like metadata)
-                    else if (auto *Inner = llvm::dyn_cast<llvm::MDNode>(Op))
-                    {
-                        // llvm::errs() << "  Nested MDNode with " << Inner->getNumOperands()
-                        //              << " operands — recursing one level\n";
-                        for (unsigned j = 0; j < Inner->getNumOperands(); ++j)
-                        {
-                            if (auto *S = llvm::dyn_cast_or_null<llvm::MDString>(Inner->getOperand(j)))
-                            {
-                                // llvm::errs() << "    nested MDString: " << S->getString() << "\n";
-                            }
-                            else if (auto *CAM = llvm::dyn_cast_or_null<llvm::ConstantAsMetadata>(Inner->getOperand(j)))
-                            {
-                                if (auto *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
-                                {
-                                    // llvm::errs() << "    nested ConstantInt: " << CI->getZExtValue() << "\n";
-                                }
-                            }
-                            // extend handlers if needed
-                        }
-                    }
                     // Case 3: Constant-as-metadata (numbers attached as metadata)
                     else if (auto *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(Op))
                     {
@@ -109,25 +91,9 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                             bool Parallel = CI->getZExtValue() != 0;
                             // llvm::errs() << "  ConstantInt metadata -> parallel = " << Parallel << "\n";
                         }
-                        else
-                        {
-                            // llvm::errs() << "  ConstantAsMetadata with non-int constant\n";
-                        }
-                    }
-                    else
-                    {
-                        // llvm::errs() << "  Unknown metadata operand kind\n";
                     }
                 } // for operands
             }
-            else
-            {
-                // llvm::errs() << "No my.loop.parallel metadata on terminator\n";
-            }
-        }
-        else
-        {
-            // llvm::errs() << "Header has no terminator?!\n";
         }
 
         if (!doall_check)
@@ -236,6 +202,12 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
         {
             llvm::outs() << "  - " << *V << "\n";
         }
+        llvm::outs() << "Captured Outputs:\n";
+
+        for (llvm::Value *V : Outputs)
+        {
+            llvm::outs() << "  - " << *V << "\n";
+        }
 
         if (llvm::Function *Outlined = CE.extractCodeRegion(CEAC))
         {
@@ -258,130 +230,37 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             ArgOriginVals.reserve(Outlined->arg_size());
 
             llvm::SmallPtrSet<llvm::Value *, 8> UsedCandidates;
-            for (auto &Arg : Outlined->args())
+
+            // !!!!!!!!!!locate outlined function Call site and map args!!!!!!!!!!!!!!!!
+            for (llvm::BasicBlock &BB : F)
             {
-                llvm::Value *matched = nullptr;
-                llvm::Type *Pty = Arg.getType();
-
-                // Prefer mapping the induction var if types match and it isn't used yet
-                if (IndVar && IndVar->getType() == Pty && !UsedCandidates.count(IndVar))
+                llvm::StringRef BBName = BB.getName();
+                if (BBName == "codeRepl")
                 {
-                    matched = IndVar;
-                    UsedCandidates.insert(matched);
-                    ArgOriginVals.push_back(matched);
-                    continue;
-                }
-
-                // Otherwise pick the first compatible candidate not yet used
-                // for (llvm::Value *C : Candidates)
-                // {
-                //     if (UsedCandidates.count(C))
-                //         continue;
-                //     if (C->getType() == Pty)
-                //     {
-                //         matched = C;
-                //         break;
-                //     }
-                //     if (C->getType()->isPointerTy() && Pty->isPointerTy())
-                //     {
-                //         matched = C;
-                //         break;
-                //     }
-                //     if (C->getType()->isIntegerTy() && Pty->isIntegerTy())
-                //     {
-                //         matched = C;
-                //         break;
-                //     }
-                // }
-
-                // Two-pass selection: (1) prefer non-constant/allocation-best matches,
-                // (2) fall back to any compatible candidate (including globals/constants).
-
-                // First pass: prefer non-constant, strong matches (alloca whose allocated
-                // type matches pointer element type, or exact type matches)
-                for (llvm::Value *C : Candidates)
-                {
-                    if (UsedCandidates.count(C))
-                        continue;
-                    // skip constants and globals on first pass
-                    if (llvm::isa<llvm::Constant>(C) || llvm::isa<llvm::GlobalValue>(C))
-                        continue;
-
-                    // exact type match
-                    if (C->getType() == Pty)
+                    for (llvm::Instruction &I : BB)
                     {
-                        matched = C;
-                        break;
-                    }
-
-                    // prefer alloca when both are pointers (since we can't check element types with opaque pointers)
-                    if (auto *AI = llvm::dyn_cast<llvm::AllocaInst>(C))
-                    {
-                        if (Pty->isPointerTy())
+                        if (auto *CI = llvm::dyn_cast<llvm::CallInst>(&I))
                         {
-                            matched = C;
-                            break;
-                        }
-                    }
-
-                    // pointer-to-pointer compatible (non-ideal but ok)
-                    if (C->getType()->isPointerTy() && Pty->isPointerTy())
-                    {
-                        matched = C;
-                        break;
-                    }
-
-                    // integer compatible
-                    if (C->getType()->isIntegerTy() && Pty->isIntegerTy())
-                    {
-                        matched = C;
-                        break;
-                    }
-                }
-
-                // Second pass: allow globals/constants if first pass found nothing
-                if (!matched)
-                {
-                    for (llvm::Value *C : Candidates)
-                    {
-                        if (UsedCandidates.count(C))
-                            continue;
-
-                        // exact type match
-                        if (C->getType() == Pty)
-                        {
-                            matched = C;
-                            break;
-                        }
-
-                        // pointer-to-pointer match
-                        if (C->getType()->isPointerTy() && Pty->isPointerTy())
-                        {
-                            matched = C;
-                            break;
-                        }
-
-                        // integer match
-                        if (C->getType()->isIntegerTy() && Pty->isIntegerTy())
-                        {
-                            matched = C;
-                            break;
+                            if (CI->getCalledFunction() == Outlined)
+                            {
+                                // llvm::errs() << "Found outlined function call: " << *CI << "\n";
+                                for (unsigned ai = 0; ai < CI->getNumOperands() - 1; ++ai)
+                                {
+                                    llvm::Value *ArgOp = CI->getArgOperand(ai);
+                                    ArgOriginVals.push_back(ArgOp);
+                                }
+                            }
                         }
                     }
                 }
-
-                if (matched)
-                    UsedCandidates.insert(matched);
-                ArgOriginVals.push_back(matched); // may be nullptr if nothing found
             }
 
-            ArgOriginVals.pop_back();
-            ArgOriginVals.push_back(Outputs.back()); // just to test larger size than arg_size()
-
+            // Debug
             for (llvm::Value *U : Candidates)
             {
                 llvm::errs() << " candidate: " << *U << "\n";
             }
+            // Debug
             llvm::errs() << "ArgOriginVals mapping:\n";
             for (unsigned i = 0; i < ArgOriginVals.size(); ++i)
             {
@@ -393,7 +272,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                 llvm::errs() << "\n";
             }
 
-            // Also print Outputs to confirm expected allocas are present
+            // Debug
             llvm::errs() << "Captured Outputs:\n";
             for (llvm::Value *V : Outputs)
             {
@@ -414,21 +293,6 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                     InductionParamIndex = (int)pi;
                     continue; // index param will be provided by runtime (idx)
                 }
-                // if (auto *SI = llvm::dyn_cast<llvm::StoreInst>(orig))
-                // {
-                //     llvm::Value *ptr = SI->getPointerOperand();
-                //     llvm::Value *val = SI->getValueOperand();
-
-                //     if (llvm::isa<llvm::ConstantPointerNull>(ptr))
-                //         continue;
-                //     if (llvm::isa<llvm::ConstantPointerNull>(val))
-                //         continue;
-                // }
-                // if (orig == nullptr)
-                // {
-                //     continue;
-                //     // llvm::errs() << "Param " << pi << " mapped to nullptr, storing null in env\n";
-                // }
                 NewEnvFieldTys.push_back(ParamTy);
                 NewEnvOriginVals.push_back(orig); // may be nullptr => will store null
             }
@@ -573,6 +437,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             llvm::Value *EndArg = EndV;
             llvm::Value *StepArg = StepV;
 
+            // Improvement: Handle without sign extension or make dynamic to allow for larger types
             // If any are not i64, sign-extend them to i64 (safe for small positive indices)
             if (StartArg->getType() != Int64Ty && StartArg->getType()->isIntegerTy())
                 StartArg = B.CreateSExt(StartArg, Int64Ty, "start64");
@@ -581,7 +446,6 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             if (StepArg->getType() != Int64Ty && StepArg->getType()->isIntegerTy())
                 StepArg = B.CreateSExt(StepArg, Int64Ty, "step64");
 
-            // Now create the call with proper types
             if (!Preheader || !ExitBlock || !Term)
             {
                 // llvm::errs() << "PDG_OUTLINE: missing Preheader/ExitBlock/Term; skipping outlining for this loop\n";
@@ -598,26 +462,14 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             CallArgs.push_back(EnvPtrCast);
 
             // Create the call and a branch to the original exit block.
-            // We do this using the IRBuilder positioned at the Preheader terminator.
             llvm::CallInst *CI = llvm::cast<llvm::CallInst>(B.CreateCall(ParallelForFunc, CallArgs));
             (void)CI; // silence unused-var in release builds
 
-            // Create the new branch to the loop exit.
+            // Create new branch to the loop exit.
             B.CreateBr(ExitBlock);
 
-            // Erase the old terminator *only* after we inserted new terminating instructions.
-            // This avoids leaving the block without a terminator temporarily.
             Term->eraseFromParent();
 
-            // IMPORTANT: do NOT call removeUnreachableBlocks(F) here.
-            // That can aggressively delete IR if something is slightly off.
-            // Keep analyses invalidated and return; caller (opt) or later code can run
-            // passes that update analyses. For now, making a valid transformation
-            // that leaves the CFG consistent is sufficient.
-
-            // llvm::errs() << "PDG_OUTLINE: inserted parallel call into function " << F.getName() << "\n";
-
-            // Return the outlined function so the caller knows we succeeded.
             return Outlined;
         }
     }

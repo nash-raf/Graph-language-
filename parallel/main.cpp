@@ -40,6 +40,9 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/SourceMgr.h>
 
+#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/ADCE.h"
+
 using namespace antlr4;
 using namespace llvm;
 
@@ -116,11 +119,54 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
+    // {
+    //     ModuleAnalysisManager MAM;
+    //     dependencyGraph pdg = runPDGOnModule(*M);
+    //     (void)pdg;
+    //     runLoopOutlinerOnModule(*M);
+    //     FunctionPassManager FPM;
+    //     FPM.addPass(llvm::SimplifyCFGPass());
+    //     FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
+    //     FPM.addPass(llvm::DCEPass());
+    //     ModulePassManager MPM;
+    //     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+    //     MPM.run(*M, MAM);
+    // }
     {
+        // Create all analysis managers and register them with PassBuilder
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager MAM;
+
+        PassBuilder PB;
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+        // run PDG (you already do this)
         dependencyGraph pdg = runPDGOnModule(*M);
         (void)pdg;
+
+        // optional: you can still call your helper which creates its own managers
         runLoopOutlinerOnModule(*M);
+
+        // Build function-level cleanup pipeline
+        FunctionPassManager FPM;
+        FPM.addPass(llvm::SimplifyCFGPass());
+        FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
+        FPM.addPass(llvm::DCEPass());
+
+        ModulePassManager MPM;
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+        // Now this will succeed because MAM has been registered/cross-registered
+        MPM.run(*M, MAM);
     }
+
     M->print(outs(), nullptr);
 
     {

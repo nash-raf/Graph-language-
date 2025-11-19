@@ -1,0 +1,11 @@
+Number of vertices: 8
+Number of edges: 10
+Shortest distances from node 1:
+0: unreachable
+1: 0.00
+2: 100.00
+3: 200.00
+4: 300.00
+5: 450.00
+6: 500.00
+7: 750.00

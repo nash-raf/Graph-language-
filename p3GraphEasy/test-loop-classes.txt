@@ -1,0 +1,2 @@
+  Loop at block 'bfs.cond': DOALL
+  Loop at block 'bfs.for.body': DOALL

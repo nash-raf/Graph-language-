@@ -1,6 +1,0 @@
-graph g {
-    edges: file '../real_graphs/bio-HS-CX.txt';
-    TRUE
-};
-
-query k: 'dijkstra' of g;

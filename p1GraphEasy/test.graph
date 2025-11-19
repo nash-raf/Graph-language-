@@ -1,0 +1,9 @@
+graph g {
+    edges: file 'edgelistw.txt';
+    TRUE
+};
+
+query k: 'dijkstra' of g;
+
+print k;
+

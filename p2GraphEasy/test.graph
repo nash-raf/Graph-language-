@@ -1,0 +1,5 @@
+graph g {
+    edges: file '../real_graphs/ia-dbpedia.txt';
+};
+
+query k: 'dfs' of g;

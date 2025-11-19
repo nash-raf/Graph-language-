@@ -45,19 +45,19 @@ def main():
         e = g.add_edge(u, v)
         weight[e] = w
 
-    # print(f"Number of vertices: {g.num_vertices()}")
-    # print(f"Number of edges: {g.num_edges()}")
+    print(f"Number of vertices: {g.num_vertices()}")
+    print(f"Number of edges: {g.num_edges()}")
 
     # Run Dijkstra’s shortest path from source
     dist = shortest_distance(g, source=source, weights=weight)
 
-    # Print shortest distances
-    # print(f"Shortest distances from node {source}:")
-    # for i, d in enumerate(dist.a):  # dist is a property map → use .a to access array
-    #     if d == float("inf"):
-    #         print(f"{i}: unreachable")
-    #     else:
-    #         print(f"{i}: {d:.2f}")
+    #Print shortest distances
+    print(f"Shortest distances from node {source}:")
+    for i, d in enumerate(dist.a):  # dist is a property map → use .a to access array
+        if d == float("inf"):
+            print(f"{i}: unreachable")
+        else:
+            print(f"{i}: {d:.2f}")
 
 
 if __name__ == "__main__":

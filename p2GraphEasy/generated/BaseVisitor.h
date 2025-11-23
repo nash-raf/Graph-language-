@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -23,7 +23,9 @@ public:
 
     virtual std::any visitStatement(BaseParser::StatementContext *context) = 0;
 
-    virtual std::any visitGraphDef(BaseParser::GraphDefContext *context) = 0;
+    virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *context) = 0;
+
+    virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
 
     virtual std::any visitNodes(BaseParser::NodesContext *context) = 0;
 
@@ -117,6 +119,8 @@ public:
 
     virtual std::any visitPrintExpr(BaseParser::PrintExprContext *context) = 0;
 
+    virtual std::any visitPrintArrayStatement(BaseParser::PrintArrayStatementContext *context) = 0;
+
     virtual std::any visitEdgePrint(BaseParser::EdgePrintContext *context) = 0;
 
     virtual std::any visitNodePrint(BaseParser::NodePrintContext *context) = 0;
@@ -137,6 +141,8 @@ public:
 
     virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
 
+    virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *context) = 0;
+
     virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
 
     virtual std::any visitRealExpr(BaseParser::RealExprContext *context) = 0;
@@ -152,6 +158,8 @@ public:
     virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *context) = 0;
 
     virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *context) = 0;
+
+    virtual std::any visitWeights(BaseParser::WeightsContext *context) = 0;
 
 
 };

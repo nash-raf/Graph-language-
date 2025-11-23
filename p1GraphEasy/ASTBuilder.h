@@ -3,8 +3,6 @@
 
 #include "BaseBaseVisitor.h"
 #include "ASTNode.h"
-#include <unordered_map>
-#include <memory>
 
 class ASTBuilder : public BaseBaseVisitor
 {
@@ -21,13 +19,11 @@ public:
     antlrcpp::Any visitBlock(BaseParser::BlockContext *ctx) override;
     // antlrcpp::Any visitLoopStatement(BaseParser::LoopStatementContext* ctx) override;
     antlrcpp::Any visitWhileStatement(BaseParser::WhileStatementContext *ctx) override;
-    antlrcpp::Any visitForeachStatement(BaseParser::ForeachStatementContext *ctx) override;
 
     antlrcpp::Any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override;
     antlrcpp::Any visitFunction(BaseParser::FunctionContext *ctx) override;
     antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
-    antlrcpp::Any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override;
-    antlrcpp::Any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override;
+    antlrcpp::Any visitGraphDef(BaseParser::GraphDefContext *ctx) override;
 
     antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext *ctx) override;
 
@@ -38,6 +34,7 @@ private:
     std::unordered_map<std::string, int> symbolTable;
     std::unordered_map<std::string, std::vector<ASTNodePtr>> arrayTable;
     std::unordered_map<std::string, std::shared_ptr<FunctionDeclNode>> functionTable;
+
     int evaluate(ASTNodePtr node);
 };
 

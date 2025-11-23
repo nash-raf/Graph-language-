@@ -2,8 +2,9 @@
 set -euxo pipefail
 
 # ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
-LLVM_CONFIG="llvm-config-20"
-CLANGXX="clang++-20"
+LLVM_CONFIG="llvm-config-18"
+OPT_BIN="opt-18"
+CLANGXX="clang++-18"
 # ────────────────────────────────────────────────────────────────────────────────
 
 # Usage: ./run.sh <input.gpl> <dsl-input> [existing-IR.ll]
@@ -43,11 +44,10 @@ if [[ -z "$IR_OVERRIDE" ]]; then
 fi
 
 # ----------------------------------------------------------------------------- 
-# 2) Compile GraphProgram (with Polly support)
+# 2) Compile GraphProgram
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
-  gcc -c runtime.c -o runtime.o
 
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
   LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
@@ -55,35 +55,22 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
-  ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
+  ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
 
   g++ \
-    -g -std=c++17 -fexceptions -fopenmp \
+    -g -std=c++17 -fexceptions \
     $ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp \
-    generated/*.cpp runtime.o \
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp\
+    generated/*.cpp \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
     $LLVM_LIBS \
     $LLVM_SYSTEM_LIBS \
-    -lPolly -lPollyISL -lisl \
     -o GraphProgram
 
   echo ">>> GraphProgram build complete"
 fi
-
-# ----------------------------------------------------------------------------- 
-# 3) Run GraphProgram
-# -----------------------------------------------------------------------------
-echo "=== [3] Running GraphProgram ==="
-./GraphProgram "$GPL_SRC" > "$IR_SRC"
-echo ">>> IR written to $IR_SRC"
-
-# ----------------------------------------------------------------------------- 
-# 4) Run DSL input through GraphProgram (with Polly inside main)
-# -----------------------------------------------------------------------------
-echo "=== [4] Running GraphProgram on DSL input ${GP_INPUT} ==="
-./GraphProgram "$GP_INPUT"
+./GraphProgram>test.ll test.graph

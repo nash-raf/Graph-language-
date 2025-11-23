@@ -1,9 +1,5 @@
 graph g {
-    edges: file 'edgelistw.txt';
-    TRUE
+    edges: file '../real_graphs/ia-dbpedia.txt';
 };
 
-query k: 'dijkstra' of g;
-
-print k;
-
+query k: 'dfs' of g;

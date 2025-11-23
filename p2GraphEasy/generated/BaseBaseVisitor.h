@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -23,7 +23,11 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitGraphDef(BaseParser::GraphDefContext *ctx) override {
+  virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -211,6 +215,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitPrintArrayStatement(BaseParser::PrintArrayStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitEdgePrint(BaseParser::EdgePrintContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -251,6 +259,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitFuncExpr(BaseParser::FuncExprContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -280,6 +292,10 @@ public:
   }
 
   virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitWeights(BaseParser::WeightsContext *ctx) override {
     return visitChildren(ctx);
   }
 

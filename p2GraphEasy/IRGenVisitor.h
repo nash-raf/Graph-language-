@@ -37,21 +37,24 @@ public:
     void visitReturnStmt(ReturnStmtNode *ret);
     void visitStatement(ASTNode *node);
     void visitWhile(WhileStmtNode *ws);
-    //void visitForEach(ForEachStmtNode *fs);
+    void visitForEach(ForEachStmtNode *fs);
     void visitFunctionDecl(FunctionDeclNode *funcDecl);
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
+    llvm::Value *visitWeightedGraphDecl(WeightedGraphDeclNode *G);
     void visitQuery(QueryNode *Q);
     void emitBFS(QueryNode *Q);
+    void emitBFSSrc(QueryNode *Q);
     void emitDFS(QueryNode *Q);
+    void emitDFSSrc(QueryNode *Q);
     void emitBK(QueryNode *Q);
-    void emitChromacity(QueryNode *Q);
     void emitDijkstra(QueryNode *Q);
+    void emitChromacity(QueryNode *Q);
     void emitFloydWarshall(QueryNode *Q);
+    void emitMinCut(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
-    //void visitPrintArray(PrintArrayNode *PA);
+    void visitPrintArray(PrintArrayNode *PA);
     llvm::Value *evaluate(ASTNode *node);
-    llvm::Function* getPrintfFunction();
-
+    llvm::Function *getPrintfFunction();
 
 private:
     llvm::LLVMContext &Context;

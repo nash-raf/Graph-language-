@@ -1,4 +1,3 @@
-// main.cpp
 #include <iostream>
 #include <fstream>
 
@@ -8,36 +7,35 @@
 #include "ASTBuilder.h"
 #include "ASTNode.h"
 #include "IRGenVisitor.h"
-#include <chrono> //added
-using namespace std::chrono; //a
-
-#include "pdg.h"
-#include "parallel_loop_outline.h"
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/CommandLine.h>
 
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
-
-#include <llvm/IR/PassManager.h>
-#include <llvm/Passes/PassBuilder.h>
-
-#include <llvm/Transforms/Utils/Mem2Reg.h>
-#include <llvm/Transforms/Utils/LoopSimplify.h>
-#include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/TargetParser/Host.h>
-
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Support/TargetSelect.h>
-#include <llvm/Support/CodeGen.h> // CodeGenFileType, CodeGenOptLevel
+#include <llvm/Support/CodeGen.h>
 #include <llvm/IR/LegacyPassManager.h>
 
+// New Pass Manager headers
+#include <llvm/IR/PassManager.h>
+#include <llvm/Passes/PassBuilder.h>
+
+// Pass implementations
+#include <llvm/Transforms/Utils/Mem2Reg.h>
+#include <llvm/Transforms/Utils/LoopSimplify.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+
+// Polly header (Fedora package provides this)
+#include <polly/RegisterPasses.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/SourceMgr.h>
@@ -47,8 +45,8 @@ using namespace llvm;
 
 static cl::opt<std::string> InputFilename(
     cl::Positional,
-    cl::desc("<input-graph-file>"),
-    cl::Required);
+    cl::desc("<input-file>"),
+    cl::init(""));
 
 static void writeBitcodeToFile(Module &M, const std::string &path)
 {
@@ -63,15 +61,155 @@ static void writeBitcodeToFile(Module &M, const std::string &path)
     Out.flush();
 }
 
+// struct DummyPollyCheckPass : public PassInfoMixin<DummyPollyCheckPass>
+// {
+//     PreservedAnalyses run(Function &F, FunctionAnalysisManager &)
+//     {
+//         errs() << ">>> DummyPollyCheckPass visiting function: " << F.getName() << "\n";
+
+//         // Check function-level metadata
+//         if (MDNode *MD = F.getMetadata("polly"))
+//         {
+//             errs() << "   -> Found Polly metadata on function!\n";
+//             MD->print(errs());
+//             errs() << "\n";
+//         }
+
+//         if (MDNode *MD = F.getMetadata("scop"))
+//         {
+//             errs() << "   -> Found Scop metadata on function!\n";
+//             MD->print(errs());
+//             errs() << "\n";
+//         }
+
+//         return PreservedAnalyses::all();
+//     }
+// };
+
 int main(int argc, char **argv)
 {
-    InitLLVM initLLVM(argc, argv);
-    cl::ParseCommandLineOptions(argc, argv);
+    // NOTE: we postpone cl::ParseCommandLineOptions until after Polly registers its flags,
+    // so we do not call it here with the original argv. We'll build a new argv
+    // (original args + our forced polly args) and parse that after registration.
 
-    std::ifstream in(InputFilename);
+    InitLLVM initLLVM(argc, argv);
+
+    // We must register Polly with the PassBuilder before parsing Polly flags
+    // but we must avoid parsing positional arguments with the flag parser.
+
+    // --- New Pass Manager setup (early, to register Polly) ---
+    LoopAnalysisManager LAM;
+    FunctionAnalysisManager FAM;
+    CGSCCAnalysisManager CGAM;
+    ModuleAnalysisManager MAM;
+
+    PassBuilder PB;
+
+    // --- Polly integration using PassBuilder (Fedora packaging API) ---
+    // errs() << "DEBUG: about to call polly::registerPollyPasses(PB)\n";
+    polly::registerPollyPasses(PB);
+    // errs() << "DEBUG: returned from polly::registerPollyPasses(PB)\n";
+
+    // Register the analyses with the PassBuilder-managed analysis managers
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    // Build a simple function-level pipeline: mem2reg, loop-simplify, simplifycfg
+    FunctionPassManager FPM;
+    FPM.addPass(PromotePass());      // mem2reg
+    FPM.addPass(LoopSimplifyPass()); // loop-simplify
+    FPM.addPass(SimplifyCFGPass());  // simplifycfg
+
+    // FPM.addPass(DummyPollyCheckPass());
+
+    ModulePassManager MPM;
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    ModulePassManager OptMPM; // will be built after flag parsing
+
+    // ------------------
+    // FLAGS-ONLY PARSING
+    // ------------------
+    // Build a parse-only argv that contains program name + flags (no positional filename)
+    std::vector<const char *> parseArgv;
+    std::vector<std::string> storedArgs; // keep strings alive for c_str()
+
+    // program name
+    parseArgv.push_back(argv[0]);
+
+    // helper to check existing args in original argv
+    auto hasArg = [&](const char *a)
+    {
+        for (int i = 1; i < argc; ++i)
+            if (strcmp(argv[i], a) == 0)
+                return true;
+        return false;
+    };
+
+    // Force-enable polly if caller didn't pass it
+    if (!hasArg("-polly"))
+    {
+        storedArgs.emplace_back("-polly");
+        parseArgv.push_back(storedArgs.back().c_str());
+    }
+
+    // Append any ORIGINAL *flag* arguments (those that start with '-') from argv.
+    // If a flag has a value (next argv doesn't start with '-'), include that too.
+    for (int i = 1; i < argc; ++i)
+    {
+        const char *a = argv[i];
+        if (a[0] == '-')
+        {
+            // include flag
+            storedArgs.emplace_back(a);
+            parseArgv.push_back(storedArgs.back().c_str());
+            // if next token exists and is not a flag, treat it as the flag's value
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+            {
+                storedArgs.emplace_back(argv[i + 1]);
+                parseArgv.push_back(storedArgs.back().c_str());
+                ++i; // skip the value we consumed
+            }
+        }
+    }
+
+    // Parse only the flags so polly's flags are registered without confusing positional args.
+    {
+        int parseArgc = static_cast<int>(parseArgv.size());
+        std::vector<char *> mutableArgv;
+        mutableArgv.reserve(parseArgv.size());
+        for (auto s : parseArgv)
+            mutableArgv.push_back(const_cast<char *>(s));
+        // errs() << "DEBUG: parsing flag-only command-line (count=" << parseArgc << ")\n";
+        cl::ParseCommandLineOptions(parseArgc, mutableArgv.data());
+    }
+    // Build O3 pipeline *after* parsing flags so Polly's cl::opts (e.g. -polly) are respected.
+    OptMPM = PB.buildModuleOptimizationPipeline(OptimizationLevel::O3, ThinOrFullLTOPhase::None);
+
+    // ------------------
+    // INPUT FILE (positional) NOW
+    // ------------------
+    std::string infile;
+    if (!InputFilename.empty())
+    {
+        infile = InputFilename;
+    }
+    else if (argc > 1 && strlen(argv[1]) > 0)
+    {
+        infile = argv[1];
+    }
+    else
+    {
+        errs() << "No input filename provided.\n";
+        return 1;
+    }
+
+    std::ifstream in(infile);
     if (!in.good())
     {
-        std::cerr << "Failed to open input file: " << InputFilename << "\n";
+        std::cerr << "Failed to open input file: " << infile << "\n";
         return 1;
     }
 
@@ -85,69 +223,19 @@ int main(int argc, char **argv)
     auto progAny = astB.visitProgram(tree);
     auto prog = std::any_cast<ProgramNodePtr>(progAny);
 
+    // --- Now LLVM IR generation/linking and running passes ---
     LLVMContext Ctx;
     auto M = std::make_unique<Module>("my_module", Ctx);
     IRBuilder<> IRB(Ctx);
 
-
     IRGenVisitor irgen(Ctx, *M, IRB);
     irgen.visitProgram(prog);
 
-    {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
+    // M->print(outs(), nullptr);
 
-        PassBuilder PB;
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-        FunctionPassManager FPM;
-        FPM.addPass(PromotePass());      // mem2reg
-        FPM.addPass(LoopSimplifyPass()); // loop-simplify
-        FPM.addPass(SimplifyCFGPass());  // simplifycfg
-
-        ModulePassManager MPM;
-        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-
-        MPM.run(*M, MAM);
-    }
-
-    {
-        dependencyGraph pdg = runPDGOnModule(*M);
-        (void)pdg;
-    }
-
-    {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
-
-        PassBuilder PB;
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-        FunctionPassManager FPM;
-        registerLoopOutlinerPass(FPM);
-
-        ModulePassManager MPM;
-        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-        MPM.run(*M, MAM);
-    }
-
-    auto start = high_resolution_clock::now();
-
+    // --- Link in external IR (bfs_runtime.ll) into 'M' ---
     {
         llvm::SMDiagnostic Err;
-        // Parse textual IR file into a new Module
         std::unique_ptr<llvm::Module> BfsMod = llvm::parseIRFile("bfs_runtime.ll", Err, Ctx);
         if (!BfsMod)
         {
@@ -161,13 +249,10 @@ int main(int argc, char **argv)
         if (M_DL.empty() && !Bfs_DL.empty())
             M->setDataLayout(BfsMod->getDataLayout());
 
-        // TargetTriple check is fine as-is (getTargetTriple().empty()).
         if (M->getTargetTriple().empty() && !BfsMod->getTargetTriple().empty())
             M->setTargetTriple(BfsMod->getTargetTriple());
 
-        // Link BfsMod into M (M is the destination)
         llvm::Linker TheLinker(*M);
-        // linkInModule returns true on error (older/newer APIs may differ — treat non-zero/true as failure)
         if (TheLinker.linkInModule(std::move(BfsMod)))
         {
             llvm::errs() << "Linking bfs_runtime.ll into main module failed\n";
@@ -175,6 +260,80 @@ int main(int argc, char **argv)
         }
 
         // llvm::outs() << "Successfully linked bfs_runtime.ll into module\n";
+    }
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> BfsModSrc = llvm::parseIRFile("bfs_runtime_src.ll", Err, Ctx);
+        if (!BfsModSrc)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse bfs_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Bfs_DL = BfsModSrc->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Bfs_DL.empty())
+            M->setDataLayout(BfsModSrc->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !BfsModSrc->getTargetTriple().empty())
+            M->setTargetTriple(BfsModSrc->getTargetTriple());
+
+        llvm::Linker TheLinker(*M);
+        if (TheLinker.linkInModule(std::move(BfsModSrc)))
+        {
+            llvm::errs() << "Linking bfs_runtime.ll into main module failed\n";
+            return 1;
+        }
+    }
+     {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> karMod = llvm::parseIRFile("karger_runtime.ll", Err, Ctx);
+        if (!karMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse karger_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Bfs_DL = karMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Bfs_DL.empty())
+            M->setDataLayout(karMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !karMod->getTargetTriple().empty())
+            M->setTargetTriple(karMod->getTargetTriple());
+
+        llvm::Linker TheLinker(*M);
+        if (TheLinker.linkInModule(std::move(karMod)))
+        {
+            llvm::errs() << "Linking bfs_runtime.ll into main module failed\n";
+            return 1;
+        }
+    }
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> DfsMod = llvm::parseIRFile("dfs_runtime_src.ll", Err, Ctx);
+        if (!DfsMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Dfs_DL = DfsMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Dfs_DL.empty())
+            M->setDataLayout(Dfs_DL);
+
+        if (M->getTargetTriple().empty() && !DfsMod->getTargetTriple().empty())
+            M->setTargetTriple(DfsMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(DfsMod)))
+        {
+            llvm::errs() << "Error linking dfs_runtime_src.ll\n";
+            return 1;
+        }
     }
 
     {
@@ -263,6 +422,34 @@ int main(int argc, char **argv)
 
     {
         llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> DIMod = llvm::parseIRFile("dijkstra_runtime.ll", Err, Ctx);
+        if (!DIMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse dijkstra_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string DI_DL = DIMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !DI_DL.empty())
+            M->setDataLayout(DIMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !DIMod->getTargetTriple().empty())
+            M->setTargetTriple(DIMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(DIMod)))
+        {
+            llvm::errs() << "Linking dijkstra_runtime.ll into main module failed\n";
+            return 1;
+        }
+
+        // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
+    }
+
+    {
+        llvm::SMDiagnostic Err;
         std::unique_ptr<llvm::Module> CmMOD = llvm::parseIRFile("chromacity_runtime.ll", Err, Ctx);
         if (!CmMOD)
         {
@@ -289,38 +476,13 @@ int main(int argc, char **argv)
         // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
     }
 
-    {
-        llvm::SMDiagnostic Err;
-        std::unique_ptr<llvm::Module> CmMOD = llvm::parseIRFile("dijkstra_runtime.ll", Err, Ctx);
-        if (!CmMOD)
-        {
-            Err.print("GraphProgram", llvm::errs());
-            llvm::errs() << "Failed to parse dijkstra_runtime.ll\n";
-            return 1;
-        }
+    // Run the constructed ModulePassManager
+    // Run the standard O3 optimization pipeline first (programmatic).
+    OptMPM.run(*M, MAM);
+    // after OptMPM.run(*M, MAM)  (or MPM.run)
 
-        const std::string M_DL = M->getDataLayout().getStringRepresentation();
-        const std::string Cm_DL = CmMOD->getDataLayout().getStringRepresentation();
-        if (M_DL.empty() && !Cm_DL.empty())
-            M->setDataLayout(CmMOD->getDataLayout());
-
-        if (M->getTargetTriple().empty() && !CmMOD->getTargetTriple().empty())
-            M->setTargetTriple(CmMOD->getTargetTriple());
-
-        llvm::Linker L(*M);
-        if (L.linkInModule(std::move(CmMOD)))
-        {
-            llvm::errs() << "Linking dijkstra_runtime.ll into main module failed\n";
-            return 1;
-        }
-
-        // llvm::outs() << "Successfully linked dijkstra_runtime.ll into module\n";
-    }
-
-    auto end = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(end - start).count();
-    llvm::outs() << "Time took " << duration << " ms\n";
-
+    // Then run the constructed ModulePassManager (which may include other passes).
+    MPM.run(*M, MAM);
     InitializeAllTargetInfos();
     InitializeAllTargets();
     InitializeAllTargetMCs();
@@ -373,13 +535,34 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    
-    
     codeGenPass.run(*M);
-
-    
-
     dest.flush();
+    // errs() << "=== Named metadata in module ===\n";
+    // for (auto &N : M->named_metadata())
+    // {
+    //     StringRef name = N.getName();
+    //     errs() << "NamedMD: " << name << "  (operands=" << N.getNumOperands() << ")\n";
+
+    //     if (name.contains("polly") || name.contains("scop"))
+    //     {
+    //         errs() << "  -> Looks like Polly/Scop metadata exists\n";
+
+    //         // Print each operand (MDNode) in a supported way instead of using dump().
+    //         for (unsigned i = 0, e = N.getNumOperands(); i != e; ++i)
+    //         {
+    //             if (auto *MD = N.getOperand(i))
+    //             {
+    //                 errs() << "   operand[" << i << "]: ";
+    //                 MD->print(errs()); // public API
+    //                 errs() << "\n";
+    //             }
+    //         }
+    //     }
+    // }
+
+    // Write bitcode and print IR
+    // writeBitcodeToFile(*M, "myprog.bc");
+    // M->print(outs(), nullptr);
 
     return 0;
 }

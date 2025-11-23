@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.2
+// Generated from Base.g4 by ANTLR 4.13.0
 
 #pragma once
 
@@ -18,11 +18,11 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, GRAPH = 43, WEIGHTS = 44, 
-    EDGE = 45, NODE = 46, TRUE = 47, FALSE = 48, OF = 49, PLUS = 50, MINUS = 51, 
-    TIMES = 52, DIVIDE = 53, AND = 54, OR = 55, EQUAL = 56, NOTEQUAL = 57, 
-    LESSTHAN = 58, GREATERTHAN = 59, LESSEQUAL = 60, GREATEREQUAL = 61, 
-    ID = 62, INT = 63, REAL = 64, STRING = 65, Comment = 66, WS = 67
+    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, EDGE = 43, NODE = 44, 
+    TRUE = 45, FALSE = 46, OF = 47, PLUS = 48, MINUS = 49, TIMES = 50, DIVIDE = 51, 
+    AND = 52, OR = 53, EQUAL = 54, NOTEQUAL = 55, LESSTHAN = 56, GREATERTHAN = 57, 
+    LESSEQUAL = 58, GREATEREQUAL = 59, ID = 60, INT = 61, REAL = 62, STRING = 63, 
+    Comment = 64, WS = 65
   };
 
   enum {
@@ -37,9 +37,8 @@ public:
     RuleFunction = 27, RuleReturnType = 28, RuleParamList = 29, RuleParam = 30, 
     RuleType = 31, RuleFunctionCall = 32, RuleArgumentList = 33, RuleBlock = 34, 
     RuleReturnStatement = 35, RulePrintStatement = 36, RulePrintExpr = 37, 
-    RulePrintArrayStatement = 38, RulePrintgraph = 39, RuleExpr = 40, RuleArrayDeclarator = 41, 
-    RuleArrayInitializer = 42, RuleAssignmentStatement = 43, RuleArrayAssignStatement = 44, 
-    RuleWeights = 45
+    RulePrintgraph = 38, RuleExpr = 39, RuleArrayDeclarator = 40, RuleArrayInitializer = 41, 
+    RuleAssignmentStatement = 42, RuleArrayAssignStatement = 43
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -97,14 +96,12 @@ public:
   class ReturnStatementContext;
   class PrintStatementContext;
   class PrintExprContext;
-  class PrintArrayStatementContext;
   class PrintgraphContext;
   class ExprContext;
   class ArrayDeclaratorContext;
   class ArrayInitializerContext;
   class AssignmentStatementContext;
-  class ArrayAssignStatementContext;
-  class WeightsContext; 
+  class ArrayAssignStatementContext; 
 
   class  ProgramContext : public antlr4::ParserRuleContext {
   public:
@@ -131,7 +128,6 @@ public:
     ConditionalStatementContext *conditionalStatement();
     PrintStatementContext *printStatement();
     WhileStatementContext *whileStatement();
-    ForeachStatementContext *foreachStatement();
     VarDeclContext *varDecl();
     FunctionCallContext *functionCall();
     GraphComprehensionContext *graphComprehension();
@@ -151,39 +147,15 @@ public:
   class  GraphDefContext : public antlr4::ParserRuleContext {
   public:
     GraphDefContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-   
-    GraphDefContext() = default;
-    void copyFrom(GraphDefContext *context);
-    using antlr4::ParserRuleContext::copyFrom;
-
     virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *GRAPH();
+    GraphIDContext *graphID();
+    NodesContext *nodes();
+    EdgesContext *edges();
 
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
    
-  };
-
-  class  WeightedGraphDefContext : public GraphDefContext {
-  public:
-    WeightedGraphDefContext(GraphDefContext *ctx);
-
-    antlr4::tree::TerminalNode *GRAPH();
-    GraphIDContext *graphID();
-    antlr4::tree::TerminalNode *TRUE();
-    NodesContext *nodes();
-    EdgesContext *edges();
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  UnweightedGraphDefContext : public GraphDefContext {
-  public:
-    UnweightedGraphDefContext(GraphDefContext *ctx);
-
-    antlr4::tree::TerminalNode *GRAPH();
-    GraphIDContext *graphID();
-    NodesContext *nodes();
-    EdgesContext *edges();
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
   GraphDefContext* graphDef();
@@ -677,7 +649,6 @@ public:
     antlr4::tree::TerminalNode *STRING();
     antlr4::tree::TerminalNode *OF();
     GraphIDContext *graphID();
-    antlr4::tree::TerminalNode *INT();
 
 
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
@@ -831,7 +802,6 @@ public:
     PrintStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     PrintExprContext *printExpr();
-    PrintArrayStatementContext *printArrayStatement();
     PrintgraphContext *printgraph();
 
 
@@ -858,20 +828,6 @@ public:
 
   PrintExprContext* printExpr();
   PrintExprContext* printExpr(int precedence);
-  class  PrintArrayStatementContext : public antlr4::ParserRuleContext {
-  public:
-    PrintArrayStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *ID();
-    ExprContext *expr();
-
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-   
-  };
-
-  PrintArrayStatementContext* printArrayStatement();
-
   class  PrintgraphContext : public antlr4::ParserRuleContext {
   public:
     PrintgraphContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -1000,15 +956,6 @@ public:
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
-  class  ArrayPrintContext : public ExprContext {
-  public:
-    ArrayPrintContext(ExprContext *ctx);
-
-    antlr4::tree::TerminalNode *ID();
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
   class  FuncExprContext : public ExprContext {
   public:
     FuncExprContext(ExprContext *ctx);
@@ -1128,20 +1075,6 @@ public:
   };
 
   ArrayAssignStatementContext* arrayAssignStatement();
-
-  class  WeightsContext : public antlr4::ParserRuleContext {
-  public:
-    WeightsContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *TRUE();
-    antlr4::tree::TerminalNode *FALSE();
-
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-   
-  };
-
-  WeightsContext* weights();
 
 
   bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;

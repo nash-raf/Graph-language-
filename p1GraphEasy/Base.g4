@@ -4,7 +4,6 @@ grammar Base;
 program: (statement | function)* EOF;
 
 GRAPH: 'graph';
-WEIGHTS : 'weights' ;
 
 
 // Statements
@@ -14,7 +13,6 @@ statement:
 	| printStatement
 	//| loopStatement
 	| whileStatement
-	| foreachStatement
 	| varDecl
 	| functionCall ';'
 	| graphComprehension
@@ -26,13 +24,10 @@ statement:
 	| ';';
 
 // Graph Definition
-graphDef
-    : GRAPH graphID '{' nodes? edges? 'TRUE' '}' ';'   # WeightedGraphDef
-    | GRAPH graphID '{' nodes? edges? '}' ';'          # UnweightedGraphDef
-;
+graphDef: GRAPH graphID '{' nodes? edges? '}' ';';
 
 //in graphDef
-nodes: 'nodes:' nodeList ';';
+nodes: 'nodes:' nodeList? ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
 nodeList: nodeID (',' nodeID)*;
 edgeList: edge (',' edge)*;
@@ -102,7 +97,7 @@ removeTargets: nodeID | edge | nodeList | edgeList;
 
 
 
-queryStatement: 'query' ID ':' STRING INT? 'of' graphID ';';
+queryStatement: 'query' ID ':' STRING 'of' graphID ';';
 
 showgraph: 'show' graphID ';';
 //functions
@@ -133,11 +128,8 @@ block: '{' (statement | returnStatement)* '}' | '{' '}';
 returnStatement: 'return' expr ';';
 
 // Print
-printStatement: 'print' printExpr ';' | printArrayStatement | printgraph;
+printStatement: 'print' printExpr ';' | printgraph;
 printExpr: STRING | expr | printExpr '+' printExpr;
-printArrayStatement
-    : 'print' ID '[' expr ']' ';'
-    ;
 
 printgraph:
 	'print' EDGE OF graphID ';'		# edgePrint
@@ -155,7 +147,6 @@ expr:
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
-	| ID '[]'					# ArrayPrint
 	| REAL						# RealExpr;
 // | nodeID                	# nodeExpr
 
@@ -190,7 +181,7 @@ LESSTHAN: '<';
 GREATERTHAN: '>';
 LESSEQUAL: '<=';
 GREATEREQUAL: '>=';
-weights: 'TRUE' | 'FALSE';
+
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 INT: [0-9]+;
 REAL: [0-9]+ '.' [0-9]+;

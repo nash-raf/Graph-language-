@@ -8,7 +8,7 @@
         
         
         <link rel="shortcut icon" href="../img/favicon.ico">
-        <title>Tutorial: Loading a graph - My Docs</title>
+        <title>Tutorial: Using the language - My Docs</title>
         <link href="../css/bootstrap.min.css" rel="stylesheet">
         <link href="../css/fontawesome.min.css" rel="stylesheet">
         <link href="../css/brands.min.css" rel="stylesheet">
@@ -38,7 +38,7 @@
                                 <a href=".." class="nav-link">Graph Language</a>
                             </li>
                             <li class="nav-item">
-                                <a href="./" class="nav-link active" aria-current="page">Tutorial: Loading a graph</a>
+                                <a href="./" class="nav-link active" aria-current="page">Tutorial: Using the language</a>
                             </li>
                         </ul>
 
@@ -76,9 +76,21 @@
     <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
         <ul class="nav flex-column">
             
-            <li class="nav-item" data-bs-level="1"><a href="#tutorial-loading-a-graph" class="nav-link">Tutorial: Loading a graph</a>
+            <li class="nav-item" data-bs-level="1"><a href="#tutorial-using-the-language" class="nav-link">Tutorial: Using the language</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#example-edge-list-format" class="nav-link">Example edge list format</a>
+            <li class="nav-item" data-bs-level="2"><a href="#1-loading-a-graph" class="nav-link">1. Loading a graph :</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#2-using-built-in-functions-of-the-dsl" class="nav-link">2. Using built-in functions of the DSL:</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#3-using-for-each-loop-in-the-graph" class="nav-link">3. Using for-each loop in the graph:</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#4-using-if-else-while-loops" class="nav-link">4. Using if else, while loops:</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -89,9 +101,9 @@
 </div></div>
                     <div class="col-md-9" role="main">
 
-<h1 id="tutorial-loading-a-graph">Tutorial: Loading a graph</h1>
+<h1 id="tutorial-using-the-language">Tutorial: Using the language</h1>
 <p>This language will let you describe graphs and load them from a simple edgelist file.</p>
-<h2 id="example-edge-list-format">Example edge list format</h2>
+<h2 id="1-loading-a-graph">1. Loading a graph :</h2>
 <p>Suppose we have an 'edgelist.txt' file with the following edegs: </p>
 <pre><code>0 1
 1 2
@@ -103,7 +115,35 @@
     edges: file 'edgelist.txt'; 
 };
 </code></pre>
-<p>This would tell the language to create a graph <code>g</code> and load its edges from the file <code>edgelist.txt</code></p></div>
+<p>This would tell the language to create a graph <code>g</code> and load its edges from the file <code>edgelist.txt</code></p>
+<h2 id="2-using-built-in-functions-of-the-dsl">2. Using built-in functions of the DSL:</h2>
+<p>Suppose we want to find the bfs path of the graph <code>g</code> we previously had. In order to use the built-in function of the GraphEasy we can simply query it using : </p>
+<pre><code>query k : 'bfs' of g;
+</code></pre>
+<p>This would perform bfs on the graph g and load the path in k.</p>
+<p>If we want to print the path we can do it in the following way.</p>
+<pre><code>print k;
+</code></pre>
+<h2 id="3-using-for-each-loop-in-the-graph">3. Using for-each loop in the graph:</h2>
+<p>Our language provides user to iterate the graph in a simple, intuitive manner using the for-each method.</p>
+<pre><code>for each vertices v in g{
+
+} 
+</code></pre>
+<h2 id="4-using-if-else-while-loops">4. Using if else, while loops:</h2>
+<p>Using if else and basic while loops is similar to C++ syntax.</p>
+<pre><code>if(condition){
+
+}
+else{
+
+}
+</code></pre>
+<p>and while loop is </p>
+<pre><code>while(condition){
+
+}
+</code></pre></div>
             </div>
         </div>
 

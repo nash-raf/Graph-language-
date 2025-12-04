@@ -1,0 +1,7 @@
+graph g{
+    edges: file 'edgelist.txt';
+};
+
+for each vertices v in g {
+    print v;
+}

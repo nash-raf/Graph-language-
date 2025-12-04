@@ -46,7 +46,7 @@ print k;
 Our language provides user to iterate the graph in a simple, intuitive manner using the for-each method.
 
 ```
-for each vertices v in g{
+for each vertex v in g{
     
 } 
 ```

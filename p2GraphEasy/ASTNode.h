@@ -43,7 +43,8 @@ enum class ASTNodeType
     QueryNode,
     ForEachStmt,
     PrintStmt,
-    GraphUpdate
+    GraphUpdate,
+    ShowGraph
 };
 
 enum class GraphUpdateKind { Add, Remove };
@@ -422,6 +423,16 @@ public:
         file.close();
     }
 };
+
+class ShowGraphNode : public ASTNode
+{
+public:
+    std::string graphName;
+
+    ShowGraphNode(const std::string &g)
+        : ASTNode(ASTNodeType::ShowGraph), graphName(g) {}
+};
+
 
 // class GraphDeclNode : public ASTNode
 // {

@@ -267,6 +267,12 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
         return std::static_pointer_cast<ASTNode>(up);
     }
+    else if (ctx->showgraph())
+    {
+        std::string gname = ctx->showgraph()->graphID()->getText();
+        auto node = std::make_shared<ShowGraphNode>(gname);
+        return std::static_pointer_cast<ASTNode>(node);
+    }
     
 
     // std::cerr << " ending statement " << "\n";

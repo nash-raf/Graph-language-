@@ -2,8 +2,14 @@ graph g{
     edges: file 'edgelist.txt';
 };
 
+show g;
+add 3 to g;
+show g;
 
-for each vertex v in g {
-    print v;
-}
+add 2->3 to g;
 
+show g;
+
+remove 3 from g;
+
+show g;

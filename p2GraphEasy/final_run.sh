@@ -1,4 +1,4 @@
 
 ./GraphProgram test.graph
-g++ program.o -fopenmp -lomp -no-pie -o final_program
+g++ program.o runtime.o -fopenmp -lomp -no-pie -o final_program
 ./final_program

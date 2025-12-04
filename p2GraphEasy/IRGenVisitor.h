@@ -56,6 +56,8 @@ public:
     llvm::Value *evaluate(ASTNode *node);
     llvm::Function *getPrintfFunction();
     void visitGraphUpdate(GraphUpdateNode *upd);
+    void visitShowGraph(ShowGraphNode *S);
+
 
 private:
     llvm::LLVMContext &Context;

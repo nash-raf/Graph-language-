@@ -95,6 +95,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::GraphUpdate:
             visitGraphUpdate(static_cast<GraphUpdateNode *>(node.get()));
             break;
+        case ASTNodeType::ShowGraph:
+            visitShowGraph(static_cast<ShowGraphNode *>(node.get()));
+            break;
         default:
             // ignore or handle other kinds
             break;
@@ -112,6 +115,45 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
             visitFunctionDecl(static_cast<FunctionDeclNode *>(node.get()));
         }
     }
+}
+
+void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
+{
+    auto it = GraphMap.find(S->graphName);
+    if (it == GraphMap.end())
+    {
+        llvm::errs() << "show: graph not found: " << S->graphName << "\n";
+        return;
+    }
+    llvm::Value *graphPtr = it->second;
+
+    llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
+    llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+
+    // Load n, row_ptr, col_idx from struct.Graph { i64 n, i64 m, i64* row_ptr, i32* col_idx }
+    llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+    llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "g_n");
+
+    llvm::Value *rpPtrGEP = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        llvm::PointerType::getUnqual(i64Ty), rpPtrGEP, "row_ptr");
+
+    llvm::Value *ciPtrGEP = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        llvm::PointerType::getUnqual(i32Ty), ciPtrGEP, "col_ptr");
+
+    // extern "C" void show_graph_runtime(int64_t, int64_t*, int32_t*);
+    llvm::FunctionType *showFT = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(Context),
+        {i64Ty,
+         llvm::PointerType::getUnqual(i64Ty),
+         llvm::PointerType::getUnqual(i32Ty)},
+        false);
+
+    llvm::FunctionCallee showDecl =
+        Module.getOrInsertFunction("show_graph_runtime", showFT);
+
+    Builder.CreateCall(showDecl, {nVal, rowPtr, colPtr});
 }
 
 void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
@@ -172,6 +214,8 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
     // 7) Verify this function
     llvm::verifyFunction(*function, &llvm::errs());
 }
+
+
 
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
@@ -260,7 +304,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
     case ASTNodeType::GraphUpdate:
         visitGraphUpdate(static_cast<GraphUpdateNode*>(node));
         break;
-
+    case ASTNodeType::ShowGraph:
+        visitShowGraph(static_cast<ShowGraphNode*>(node));
+        break;
     default:
         std::cerr << "Unsupported statement type.\n";
         break;

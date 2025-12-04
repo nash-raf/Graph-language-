@@ -291,6 +291,27 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                         allCarriedHaveConstantPositiveDistance = false;
                         // llvm::outs() << "    -> non-positive distance => sequential/unsupported for DOACROSS\n";
                     }
+                    else
+                    {
+                        llvm::LLVMContext &Ctx = F.getContext();
+                        int srcID = G.nodes[edge.first];
+                        llvm::Metadata *IDVal = llvm::ConstantAsMetadata::get(
+                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), srcID));
+                        llvm::MDNode *IDNode = llvm::MDNode::get(Ctx, IDVal);
+
+                        llvm::MDNode *postNode = llvm::MDNode::get(
+                            Ctx, llvm::MDString::get(Ctx, "doacross.post"));
+                        edge.first->setMetadata("doacross.post", postNode);
+                        edge.first->setMetadata("doacross.id", IDNode);
+
+                        llvm::MDNode *waitNode = llvm::MDNode::get(
+                            Ctx, llvm::MDString::get(Ctx, "doacross.wait"));
+                        Metadata *DistVal = ConstantAsMetadata::get(ConstantInt::get(Type::getInt64Ty(Ctx), d));
+                        MDNode *DistNode = MDNode::get(Ctx, DistVal);
+                        edge.second->setMetadata("doacross.wait", waitNode);
+                        edge.second->setMetadata("doacross.dist", DistNode);
+                        edge.second->setMetadata("doacross.src", IDNode);
+                    }
                 }
                 else
                 {

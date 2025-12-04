@@ -356,7 +356,7 @@ public:
 
         auto edgeList = edges->materializeEdges();
         m = 2 * edgeList.size();
-        // 1) degree counts go into row_ptr[i+1]
+        // degree counts go into row_ptr[i+1]
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
         for (auto &e : edgeList)
@@ -368,11 +368,11 @@ public:
             row_ptr[v + 1]++;
         }
 
-        // 2) exclusive prefix‑sum
+        // exclusive prefix‑sum
         for (size_t i = 1; i <= n; ++i)
             row_ptr[i] += row_ptr[i - 1];
 
-        // 3) allocate col_idx and scatter
+        // allocate col_idx and scatter
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));

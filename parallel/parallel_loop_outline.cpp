@@ -48,6 +48,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
     for (llvm::Loop *L : Innermost)
     {
         bool doall_check = false;
+        bool doacross_check = false;
 
         // llvm::errs() << "Found loop\n";
 
@@ -76,6 +77,13 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                             {
                                 // llvm::errs() << "  -> Detected DOALL parallel loop\n";
                                 doall_check = true;
+                                doacross_check = false;
+                            }
+                            else if (Val.equals_insensitive("DOACROSS"))
+                            {
+                                llvm::errs() << "  -> Detected DOACROSS parallel loop\n";
+                                doall_check = false;
+                                doacross_check = true;
                             }
                             else
                             {
@@ -96,7 +104,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             }
         }
 
-        if (!doall_check)
+        if (!doall_check && !doacross_check)
         {
             continue;
         }
@@ -136,6 +144,105 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
         {
             // llvm::outs() << "No canonical induction variable\n";
             return nullptr;
+        }
+
+        if (doacross_check)
+        {
+            llvm::Module *M = F.getParent();
+            llvm::LLVMContext &Ctx = M->getContext();
+            llvm::Type *VoidTy = llvm::Type::getVoidTy(Ctx);
+            llvm::Type *Int64Ty = llvm::Type::getInt64Ty(Ctx);
+            llvm::Type *Int32Ty = llvm::Type::getInt32Ty(Ctx);
+
+            llvm::FunctionCallee WaitFn = M->getOrInsertFunction("doacross_wait",
+                                                                 llvm::FunctionType::get(VoidTy, {Int64Ty, Int64Ty, Int32Ty}, false));
+
+            // void doacross_post(int64_t iter, int32_t id);
+            llvm::FunctionCallee PostFn = M->getOrInsertFunction("doacross_post",
+                                                                 llvm::FunctionType::get(VoidTy, {Int64Ty, Int32Ty}, false));
+
+            // 2. Iterate over instructions in the loop body to find tags
+            // We collect them first to avoid modifying the block while iterating
+            struct InstrAction
+            {
+                llvm::Instruction *I;
+                bool isWait; // true = wait, false = post
+                int64_t dist;
+                int32_t id;
+            };
+
+            llvm::SmallVector<InstrAction, 8> actions;
+
+            for (llvm::BasicBlock *BB : LoopBody)
+            {
+                for (llvm::Instruction &I : *BB)
+                {
+
+                    // --- Check for WAIT (tagged on Store usually, via doacross.type) ---
+                    if (llvm::MDNode *TypeMD = I.getMetadata("doacross.wait"))
+                    {
+                        int64_t distVal = 0;
+                        int32_t idVal = 0;
+
+                        if (llvm::MDNode *DistMD = I.getMetadata("doacross.dist"))
+                            if (llvm::ConstantAsMetadata *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(DistMD->getOperand(0)))
+                                if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
+                                    distVal = CI->getSExtValue();
+
+                        if (llvm::MDNode *SrcMD = I.getMetadata("doacross.src"))
+                            if (llvm::ConstantAsMetadata *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(SrcMD->getOperand(0)))
+                                if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
+                                    idVal = (int32_t)CI->getSExtValue();
+
+                        actions.push_back({&I, true, distVal, idVal});
+                    }
+
+                    // --- Check for POST (tagged on Load usually, or explicit instruction) ---
+                    // Your IR shows: !doacross.post !1
+                    // Note: You might have simply tagged it with "doacross.post" metadata directly
+                    if (I.getMetadata("doacross.post"))
+                    {
+                        int32_t idVal = 0;
+                        // The ID is usually in doacross.id
+                        if (llvm::MDNode *IDMD = I.getMetadata("doacross.id"))
+                            if (llvm::ConstantAsMetadata *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(IDMD->getOperand(0)))
+                                if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
+                                    idVal = (int32_t)CI->getSExtValue();
+
+                        actions.push_back({&I, false, 0, idVal});
+                    }
+                }
+            }
+
+            for (auto &act : actions)
+            {
+                llvm::IRBuilder<> B(act.I);
+
+                // Ensure indvar is i64 for the runtime call
+                llvm::Value *IndVar64 = indvar;
+                if (indvar->getType() != Int64Ty)
+                {
+                    // Cast indvar to i64.
+                    // Note: We should ideally cache this cast, but creating multiple casts is safe (optimization passes will clean it up)
+                    IndVar64 = B.CreateIntCast(indvar, Int64Ty, true, "indvar.i64");
+                }
+
+                if (act.isWait)
+                {
+                    // Insert WAIT *before* the instruction
+                    B.SetInsertPoint(act.I);
+                    llvm::Value *DistArg = llvm::ConstantInt::get(Int64Ty, act.dist);
+                    llvm::Value *IDArg = llvm::ConstantInt::get(Int32Ty, act.id);
+                    B.CreateCall(WaitFn, {IndVar64, DistArg, IDArg});
+                }
+                else
+                {
+                    // Insert POST *after* the instruction
+                    B.SetInsertPoint(act.I->getNextNode());
+                    llvm::Value *IDArg = llvm::ConstantInt::get(Int32Ty, act.id);
+                    B.CreateCall(PostFn, {IndVar64, IDArg});
+                }
+            }
         }
         const llvm::SCEV *BackedgeCount = SE.getBackedgeTakenCount(L);
         const llvm::SCEV *Start = nullptr, *Step = nullptr, *End = nullptr;

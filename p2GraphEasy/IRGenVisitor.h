@@ -55,6 +55,7 @@ public:
     void visitPrintArray(PrintArrayNode *PA);
     llvm::Value *evaluate(ASTNode *node);
     llvm::Function *getPrintfFunction();
+    void visitGraphUpdate(GraphUpdateNode *upd);
 
 private:
     llvm::LLVMContext &Context;
@@ -71,6 +72,8 @@ private:
     }
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
+    std::unordered_map<std::string, GraphDeclNode*> GraphAstMap;
 };
+
 
 #endif // IRGENVISITOR_H

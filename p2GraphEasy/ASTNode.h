@@ -42,8 +42,11 @@ enum class ASTNodeType
     NodeList,
     QueryNode,
     ForEachStmt,
-    PrintStmt
+    PrintStmt,
+    GraphUpdate
 };
+
+enum class GraphUpdateKind { Add, Remove };
 
 template <typename T>
 T safe_any_cast(const std::any &a,
@@ -80,6 +83,26 @@ public:
         os << std::string(indent, ' ') << "ASTNode(type=" << static_cast<int>(type) << ")\n";
     }
 };
+
+class GraphUpdateNode : public ASTNode {
+    public: 
+    
+        GraphUpdateKind kind;
+        std::string graphName;
+        std::vector<int> nodes;
+        std::vector<std::pair<int, int>> edges;
+    
+        GraphUpdateNode(GraphUpdateKind k,
+                        const std::string &g,
+                        const std::vector<int> &n,
+                        const std::vector<std::pair<int, int>> &e)
+            : ASTNode(ASTNodeType::GraphUpdate),
+              kind(k),
+              graphName(g),
+              nodes(n),
+              edges(e)
+        {}
+    };
 
 class ProgramNode : public ASTNode
 {
@@ -508,6 +531,9 @@ public:
     int32_t *col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
 
+    std::vector<int> materializedNodes;
+    std::vector<std::pair<int,int>> edgeList;
+
     GraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
@@ -518,50 +544,55 @@ public:
           edges(std::move(eList))
     {
 
-        auto nodeIds = nodes->materializeNodeIds();
-        n = nodeIds.size();
+        materializedNodes = this->nodes->materializeNodeIds();
+        edgeList          = this->edges->materializeEdges();
 
-        // Map arbitrary IDs → contiguous [0..n-1]
-        // std::unordered_map<int, int> id2idx;
+        rebuildCSR();
+        // debug
+        
+    }
+    void rebuildCSR(){
+        arena.Reset();
+        n = materializedNodes.size();
+
         llvm::DenseMap<int, int> id2idx;
-        for (int i = 0; i < (int)nodeIds.size(); ++i)
-            id2idx[nodeIds[i]] = i;
+        for (int i = 0; i < (int)materializedNodes.size(); ++i)
+            id2idx[materializedNodes[i]] = i;
 
-        auto edgeList = edges->materializeEdges();
         m = 2 * edgeList.size();
-        // 1) degree counts go into row_ptr[i+1]
+
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
-        for (auto &e : edgeList)
-        {
+        for(auto &e : edgeList){
             int u0 = e.first, v0 = e.second;
             size_t u = id2idx.at(u0);
             size_t v = id2idx.at(v0);
             row_ptr[u + 1]++;
             row_ptr[v + 1]++;
         }
-
-        // 2) exclusive prefix‑sum
-        for (size_t i = 1; i <= n; ++i)
+        for(size_t i = 1; i <= n; ++i)
             row_ptr[i] += row_ptr[i - 1];
 
-        // 3) allocate col_idx and scatter
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
-        for (auto &e : edgeList)
-        {
+        for(auto &e : edgeList){
             size_t u = id2idx[e.first], v = id2idx[e.second];
             col_idx[next[u]++] = static_cast<int32_t>(v);
             col_idx[next[v]++] = static_cast<int32_t>(u);
         }
-
         // debug
-        // std::cerr << "[GraphDeclNode] CSR row_ptr =";
-        // for (auto x : row_ptr) std::cerr << " " << x;
-        // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
-        // for (auto x : col_idx) std::cerr << " " << x;
-        // std::cerr << "\n";
+//         std::cerr << "[GraphDeclNode] CSR row_ptr =";
+//         for (size_t i = 0; i <= n; ++i) {
+//             std::cerr << " " << row_ptr[i];
+//         }
+//         std::cerr << "\n";
+//         // ... inside your debug section ...
+// std::cerr << "\n[GraphDeclNode] CSR col_idx =";
+// for (size_t i = 0; i < m; ++i) {
+//     std::cerr << " " << col_idx[i];
+// }
+// std::cerr << "\n";
         // exit(0);
     }
 };

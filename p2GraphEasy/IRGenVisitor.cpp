@@ -92,6 +92,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::QueryNode:
             visitQuery(static_cast<QueryNode *>(node.get()));
             break;
+        case ASTNodeType::GraphUpdate:
+            visitGraphUpdate(static_cast<GraphUpdateNode *>(node.get()));
+            break;
         default:
             // ignore or handle other kinds
             break;
@@ -254,11 +257,72 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         std::cerr << "Entered queryNODe\n";
         visitQuery(static_cast<QueryNode *>(node));
         break;
+    case ASTNodeType::GraphUpdate:
+        visitGraphUpdate(static_cast<GraphUpdateNode*>(node));
+        break;
 
     default:
         std::cerr << "Unsupported statement type.\n";
         break;
     }
+}
+
+void IRGenVisitor::visitGraphUpdate(GraphUpdateNode *upd)
+{
+    auto it = GraphAstMap.find(upd->graphName);
+    if (it == GraphAstMap.end())
+        throw std::runtime_error("Graph not declared: " + upd->graphName);
+
+    GraphDeclNode *G = it->second;
+
+    auto &nodes = G->materializedNodes;
+    auto &edges = G->edgeList;
+
+    if (upd->kind == GraphUpdateKind::Add)
+    {
+        // add nodes
+        for (int v : upd->nodes)
+        {
+            if (std::find(nodes.begin(), nodes.end(), v) == nodes.end())
+                nodes.push_back(v);
+        }
+        // add edges
+        for (auto &e : upd->edges)
+        {
+            if (std::find(edges.begin(), edges.end(), e) == edges.end())
+                edges.push_back(e);
+        }
+    }
+    else // Remove
+    {
+        // remove nodes and their incident edges
+        for (int v : upd->nodes)
+        {
+            nodes.erase(std::remove(nodes.begin(), nodes.end(), v), nodes.end());
+            edges.erase(std::remove_if(edges.begin(), edges.end(),
+                                       [v](auto &e)
+                                       {
+                                           return e.first == v || e.second == v;
+                                       }),
+                        edges.end());
+        }
+        // remove specific edges
+        for (auto &eRem : upd->edges)
+        {
+            edges.erase(std::remove(edges.begin(), edges.end(), eRem), edges.end());
+        }
+    }
+
+    // keep nodes sorted (optional but nice for stable indexing)
+    std::sort(nodes.begin(), nodes.end());
+    nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
+
+    // rebuild CSR in AST object
+    G->rebuildCSR();
+
+    // and rebuild the LLVM Graph* value
+    llvm::Value *newGraphPtr = visitGraphDecl(G);
+    GraphMap[upd->graphName] = newGraphPtr;
 }
 
 void IRGenVisitor::visitBlock(BlockStmtNode *block)
@@ -1218,6 +1282,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     auto *I64 = llvm::Type::getInt64Ty(Context);
     auto *I32 = llvm::Type::getInt32Ty(Context);
 
+    GraphAstMap[G->name] = G;
     unsigned rpLen = static_cast<unsigned>(G->n + 1);
     auto *arrRP = llvm::ArrayType::get(I64, rpLen);
     llvm::SmallVector<llvm::Constant *, 16> rpConsts;

@@ -112,8 +112,7 @@ antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
     for (auto stmtCtx : ctx->statement())
     {
         auto stAny = visitStatement(stmtCtx);
-        // some statements return nullptr (e.g. varDecl returns nullptr after side‑effect),
-        // so guard with has_value & type check if you like.
+        
         if (stAny.has_value() && stAny.type() == typeid(ASTNodePtr))
         {
             items.push_back(safe_any_cast<ASTNodePtr>(stAny, "visitProgram"));
@@ -189,6 +188,86 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitQueryStatement(ctx->queryStatement());
     }
+    else if (ctx->nodeEdgeOperation())
+    {
+        auto *op = ctx->nodeEdgeOperation();
+
+        std::vector<int> nodes;
+        std::vector<std::pair<int,int>> edges;
+        std::string gname;
+        GraphUpdateKind kind;
+
+        if (auto *add = op->addOperation())
+        {
+            kind = GraphUpdateKind::Add;
+            gname = add->graphID()->getText();
+            auto *t = add->addTargets();
+
+            if (t->nodeID())
+            {
+                nodes.push_back(std::stoi(t->nodeID()->getText()));
+            }
+            else if (t->edge())
+            {
+                int u = std::stoi(t->edge()->nodeID(0)->getText());
+                int v = std::stoi(t->edge()->nodeID(1)->getText());
+                edges.emplace_back(u, v);
+            }
+            else if (t->nodeList())
+            {
+                for (auto *idT : t->nodeList()->nodeID())
+                    nodes.push_back(std::stoi(idT->getText()));
+            }
+            else if (t->edgeList())
+            {
+                for (auto *eCtx : t->edgeList()->edge())
+                {
+                    int u = std::stoi(eCtx->nodeID(0)->getText());
+                    int v = std::stoi(eCtx->nodeID(1)->getText());
+                    edges.emplace_back(u, v);
+                }
+            }
+        }
+        else if (auto *rem = op->removeOperation())
+        {
+            kind = GraphUpdateKind::Remove;
+            gname = rem->graphID()->getText();
+            auto *t = rem->removeTargets();
+
+            if (t->nodeID())
+            {
+                nodes.push_back(std::stoi(t->nodeID()->getText()));
+            }
+            else if (t->edge())
+            {
+                int u = std::stoi(t->edge()->nodeID(0)->getText());
+                int v = std::stoi(t->edge()->nodeID(1)->getText());
+                edges.emplace_back(u, v);
+            }
+            else if (t->nodeList())
+            {
+                for (auto *idT : t->nodeList()->nodeID())
+                    nodes.push_back(std::stoi(idT->getText()));
+            }
+            else if (t->edgeList())
+            {
+                for (auto *eCtx : t->edgeList()->edge())
+                {
+                    int u = std::stoi(eCtx->nodeID(0)->getText());
+                    int v = std::stoi(eCtx->nodeID(1)->getText());
+                    edges.emplace_back(u, v);
+                }
+            }
+        }
+        else
+        {
+            throw std::runtime_error("nodeEdgeOperation: unknown alternative");
+        }
+
+        auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
+        return std::static_pointer_cast<ASTNode>(up);
+    }
+    
 
     // std::cerr << " ending statement " << "\n";
     return nullptr;

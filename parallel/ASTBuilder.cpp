@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <vector>
 #include <unordered_set>
+#include "llvm/ADT/DenseSet.h"
 #include <algorithm>
 
 int ASTBuilder::evaluate(ASTNodePtr node)
@@ -148,6 +149,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     else if (ctx->queryStatement())
     {
         return visitQueryStatement(ctx->queryStatement());
+    }
+    else if (ctx->setDecl())
+    {
+        return visitSetDecl(ctx->setDecl());
     }
 
     return nullptr;
@@ -548,66 +553,6 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
         std::make_shared<FunctionCallNode>(callee, std::move(args))};
 }
 
-// antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
-// {
-//     std::string nm = ctx->graphID()->getText();
-
-//     std::unique_ptr<NodeListNode> nd;
-//     if (ctx->nodes())
-//     {
-
-//         auto *nl = ctx->nodes()->nodeList();
-//         if (nl)
-//         {
-//             std::vector<int> ids;
-//             for (auto *idT : nl->nodeID())
-//                 ids.push_back(std::stoi(idT->getText()));
-
-//             nd = std::make_unique<InlineNodeList>(std::move(ids));
-//         }
-//         else
-//         {
-
-//             nd = nullptr;
-//         }
-//     }
-
-//     std::unique_ptr<EdgeListNode> ed;
-//     if (ctx->edges())
-//     {
-//         if (auto *fe = ctx->edges()->fileEdgeList())
-//         {
-//             std::string s = fe->STRING()->getText();
-//             s = s.substr(1, s.size() - 2); // strip quotes
-//             ed = std::make_unique<FileEdgeList>(std::move(s));
-//         }
-//         else if (auto *el = ctx->edges()->edgeList())
-//         {
-//             std::vector<std::pair<int, int>> edgesVec;
-//             for (auto *eCtx : el->edge())
-//             {
-//                 int u = std::stoi(eCtx->nodeID(0)->getText());
-//                 int v = std::stoi(eCtx->nodeID(1)->getText());
-//                 edgesVec.emplace_back(u, v);
-//             }
-//             ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
-//         }
-//     }
-
-//     if (!ed)
-//     {
-//         throw std::runtime_error("graph must have edges (inline list or file):");
-//     }
-
-//     auto gnode = std::make_shared<GraphDeclNode>(
-//         std::move(nm),
-//         std::move(nd),
-//         std::move(ed));
-
-//     return std::static_pointer_cast<ASTNode>(gnode);
-// }
-#include "llvm/ADT/DenseSet.h"
-
 antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
@@ -695,4 +640,46 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
     }
 
     return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
+}
+
+antlrcpp::Any ASTBuilder::visitSetDecl(
+    BaseParser::SetDeclContext *ctx)
+{
+    std::string name = ctx->ID()->getText();
+
+    ASTNodePtr initNode = nullptr;
+
+    // Check if this declaration has an initializer
+    if (ctx->setInitializer())
+    {
+        // Visit the setInitializer to get the SetLiteralNode
+        initNode = safe_any_cast<ASTNodePtr>(
+            visitSetInitializer(ctx->setInitializer()),
+            "visitSetDecl");
+    }
+
+    auto node = std::make_shared<SetDeclNode>(name, initNode);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetInitializer(
+    BaseParser::SetInitializerContext *ctx)
+{
+    std::vector<ASTNodePtr> elements;
+
+    // Get all expressions in the set literal
+    if (ctx->expr().size() > 0)
+    {
+        elements.reserve(ctx->expr().size());
+        for (auto *e : ctx->expr())
+        {
+            elements.push_back(
+                safe_any_cast<ASTNodePtr>(
+                    visitExpr(e),
+                    "visitSetInitializer"));
+        }
+    }
+
+    auto node = std::make_shared<SetLiteralNode>(elements);
+    return std::static_pointer_cast<ASTNode>(node);
 }

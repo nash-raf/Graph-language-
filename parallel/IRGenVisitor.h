@@ -41,6 +41,7 @@ public:
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
     void visitQuery(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
+    void visitSetDecl(SetDeclNode *SD);
 
 private:
     llvm::LLVMContext &Context;

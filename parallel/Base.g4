@@ -14,6 +14,7 @@ statement:
 	//| loopStatement
 	| whileStatement
 	| varDecl
+	| setDecl
 	| functionCall ';'
 	| graphComprehension
 	| arrayAssignStatement
@@ -40,6 +41,16 @@ edge: nodeID '->' nodeID;
 varDecl:
 	type ID ('=' expr)? ';'								# SimpleDeclaration
 	| type arrayDeclarator ('=' arrayInitializer)? ';'	# ArrayDeclaration;
+
+
+setDecl:
+    'set' ID ';'
+    | 'set' ID '=' setInitializer ';'
+    ;
+
+setInitializer:
+    '{' (expr (',' expr)*)? '}'
+    ;
 
 // if-else
 conditionalStatement:
@@ -147,8 +158,12 @@ expr:
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
-	| REAL						# RealExpr;
+	| REAL						# RealExpr
+	| setInitializer            # SetExpr
+	;
 // | nodeID                	# nodeExpr
+
+SET: 'set';
 
 // Array 
 arrayDeclarator:

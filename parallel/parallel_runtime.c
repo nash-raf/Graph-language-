@@ -148,7 +148,7 @@ void parallel_for_runtime(int64_t start, int64_t end, int64_t step, loop_body_fn
         return;
 
     doacross_init(start);
-    int nthreads = 4;
+    int nthreads = sysconf(_SC_NPROCESSORS_ONLN);
     if (nthreads <= 0)
         nthreads = 1;
 

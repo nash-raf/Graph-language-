@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -64,6 +64,14 @@ public:
   }
 
   virtual std::any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetDecl(BaseParser::SetDeclContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetInitializer(BaseParser::SetInitializerContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -236,6 +244,10 @@ public:
   }
 
   virtual std::any visitBoolFalseExpr(BaseParser::BoolFalseExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetExpr(BaseParser::SetExprContext *ctx) override {
     return visitChildren(ctx);
   }
 

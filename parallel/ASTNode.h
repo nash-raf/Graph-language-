@@ -40,7 +40,9 @@ enum class ASTNodeType
     EdgeList,
     NodeList,
     QueryNode,
-    PrintStmt
+    PrintStmt,
+    SetDecl,
+    SetLiteral
 };
 
 template <typename T>
@@ -517,6 +519,27 @@ public:
 
     PrintStmtNode(ASTNodePtr e)
         : ASTNode(ASTNodeType::PrintStmt), expr(std::move(e)) {}
+};
+
+class SetDeclNode : public ASTNode
+{
+public:
+    std::string name;
+    ASTNodePtr initializer;
+    SetDeclNode(const std::string &n, ASTNodePtr init = nullptr)
+        : ASTNode(ASTNodeType::SetDecl),
+          name(n),
+          initializer(std::move(init)) {}
+};
+
+class SetLiteralNode : public ASTNode
+{
+public:
+    std::vector<ASTNodePtr> elements;
+
+    SetLiteralNode(const std::vector<ASTNodePtr> &elems)
+        : ASTNode(ASTNodeType::SetLiteral),
+          elements(std::move(elems)) {}
 };
 
 #endif // ASTNODE_H

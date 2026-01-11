@@ -1,6 +1,7 @@
 #include "IRGenVisitor.h"
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
+#include "roaring_bitmap.h"
 #include <chrono>
 
 void IRGenVisitor::visitProgram(ProgramNodePtr prog)
@@ -85,6 +86,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
             break;
         case ASTNodeType::QueryNode:
             visitQuery(static_cast<QueryNode *>(node.get()));
+            break;
+        case ASTNodeType::SetDecl:
+            visitSetDecl(static_cast<SetDeclNode *>(node.get()));
             break;
         default:
             // ignore or handle other kinds
@@ -644,143 +648,6 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
     }
 }
 
-// llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
-// {
-//     auto *I64 = llvm::Type::getInt64Ty(Context);
-//     auto *I32 = llvm::Type::getInt32Ty(Context);
-//     auto *arrRP = llvm::ArrayType::get(I64, G->row_ptr.size());
-//     auto *arrCI = llvm::ArrayType::get(I32, G->col_idx.size());
-
-//     llvm::SmallVector<llvm::Constant *, 16> rpConsts;
-//     for (auto x : G->row_ptr)
-//     {
-//         rpConsts.push_back(llvm::ConstantInt::get(I64, x));
-//     }
-//     auto *RPArray = llvm::ConstantArray::get(arrRP, rpConsts);
-
-//     llvm::SmallVector<llvm::Constant *, 16> ciConsts;
-//     for (auto x : G->col_idx)
-//     {
-//         ciConsts.push_back(llvm::ConstantInt::get(I32, x));
-//     }
-//     auto *CIArray = llvm::ConstantArray::get(arrCI, ciConsts);
-
-//     auto *GV_RP = new llvm::GlobalVariable(
-//         Module, arrRP, true, llvm::GlobalValue::InternalLinkage,
-//         RPArray, G->name + "_csr_row");
-
-//     auto *GV_CI = new llvm::GlobalVariable(
-//         Module, arrCI, true, llvm::GlobalValue::InternalLinkage,
-//         CIArray, G->name + "_csr_col");
-
-//     auto *mallocTy = llvm::FunctionType::get(
-//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
-//         {llvm::Type::getInt64Ty(Context)},
-//         false);
-
-//     llvm::FunctionCallee mallocCalle = Module.getOrInsertFunction("malloc", mallocTy);
-//     llvm::Function *mallocFn = llvm::cast<llvm::Function>(mallocCalle.getCallee());
-
-//     uint64_t rowBytes = G->row_ptr.size() * sizeof(int64_t);
-//     uint64_t colBytes = G->col_idx.size() * sizeof(int32_t);
-
-//     llvm::Value *rpRaw = Builder.CreateCall(
-//         mallocFn, llvm::ConstantInt::get(I64, rowBytes), "rp_raw");
-//     llvm::Value *rowPtr = Builder.CreateBitCast(
-//         rpRaw, llvm::PointerType::getUnqual(I64), "row_ptr");
-
-//     llvm::Value *ciRaw = Builder.CreateCall(
-//         mallocFn, llvm::ConstantInt::get(I64, colBytes), "ci_raw");
-//     llvm::Value *colPtr = Builder.CreateBitCast(
-//         ciRaw, llvm::PointerType::getUnqual(I32), "col_ptr");
-
-//     llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr,
-//                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-//     llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr,
-//                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-//     llvm::Value *src_rp = Builder.CreateBitCast(GV_RP,
-//                                                 llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-//     llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
-//                                                 llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-
-//     auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-//     auto *i64Ty = llvm::Type::getInt64Ty(Context);
-//     auto *memcpyTy = llvm::Intrinsic::getDeclaration(
-//         &Module, llvm::Intrinsic::memcpy,
-//         {i8PtrTy, i8PtrTy, i64Ty});
-
-//     auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
-
-//     // Perform the memcpy calls with correct argument types
-//     Builder.CreateCall(memcpyTy, {rp_i8, src_rp, llvm::ConstantInt::get(I64, rowBytes), volatileFlag}, "");
-//     Builder.CreateCall(memcpyTy, {ci_i8, src_ci, llvm::ConstantInt::get(I64, colBytes), volatileFlag}, "");
-
-//     // Build the malloc prototype for allocating the Graph struct
-//     llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(
-//         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)), // returns i8*
-//         {Builder.getInt64Ty()},                                       // takes an i64 size
-//         false);
-
-//     llvm::FunctionCallee mallocCalleeG =
-//         Module.getOrInsertFunction("malloc", mallocFT_graph);
-//     llvm::Function *mallocFnG =
-//         llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
-
-//     // Compute sizeof(struct.Graph)
-//     uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
-//     llvm::Value *graphSizeC =
-//         llvm::ConstantInt::get(Builder.getInt64Ty(), graphSize);
-
-//     // Call malloc(graphSize)
-//     llvm::Value *rawGraph = Builder.CreateCall(
-//         mallocFnG,
-//         graphSizeC,
-//         "graph_raw");
-
-//     // Cast i8* → %struct.Graph*
-//     llvm::Value *graphPtr = Builder.CreateBitCast(
-//         rawGraph,
-//         GraphTy->getPointerTo(),
-//         "graph_ptr");
-
-//     // GEP + store into field 0: n
-//     {
-//         // element 0 is the vertex count 'n'
-//         llvm::Value *nPtr = Builder.CreateStructGEP(
-//             GraphTy, graphPtr, 0, "g_n_ptr");
-//         Builder.CreateStore(
-//             llvm::ConstantInt::get(Builder.getInt64Ty(), G->n),
-//             nPtr);
-//     }
-
-//     // GEP + store into field 1: m
-//     {
-//         llvm::Value *mPtr = Builder.CreateStructGEP(
-//             GraphTy, graphPtr, 1, "g_m_ptr");
-//         Builder.CreateStore(
-//             llvm::ConstantInt::get(Builder.getInt64Ty(), G->m),
-//             mPtr);
-//     }
-
-//     // GEP + store into field 2: row_ptr
-//     {
-//         llvm::Value *rpPtr = Builder.CreateStructGEP(
-//             GraphTy, graphPtr, 2, "g_rp_ptr");
-//         Builder.CreateStore(rowPtr, rpPtr);
-//     }
-
-//     // GEP + store into field 3: col_idx
-//     {
-//         llvm::Value *ciPtr = Builder.CreateStructGEP(
-//             GraphTy, graphPtr, 3, "g_ci_ptr");
-//         Builder.CreateStore(colPtr, ciPtr);
-//     }
-
-//     GraphMap[G->name] = graphPtr;
-
-//     return graphPtr;
-// }
-
 llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
 {
     auto *I64 = llvm::Type::getInt64Ty(Context);
@@ -929,183 +796,6 @@ llvm::Value *zero64(llvm::IRBuilder<> &B, llvm::LLVMContext &C)
     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), 0);
 }
 
-// void IRGenVisitor::visitQuery(QueryNode *Q)
-// {
-//     // 1) Grab the Graph* value
-//     llvm::Value *graphPtr = GraphMap[Q->graphName];
-//     assert(graphPtr && "Graph not found in IRGenVisitor::visitQuery");
-
-//     // types
-//     auto *I64 = llvm::Type::getInt64Ty(Context);
-//     auto *I32 = llvm::Type::getInt32Ty(Context);
-//     auto *I1 = llvm::Type::getInt1Ty(Context);
-//     auto *I8 = llvm::Type::getInt8Ty(Context);
-//     auto *I8Ptr = llvm::PointerType::getUnqual(I8);
-
-//     // 2) Extract fields: n, row_ptr*, col_idx*
-//     llvm::Value *n_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
-//     llvm::Value *rp_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
-//     llvm::Value *ci_ptr = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
-
-//     llvm::Value *n_val = Builder.CreateLoad(I64, n_ptr, "n_val"); // i64
-//     llvm::Value *row_ptr = Builder.CreateLoad(llvm::PointerType::getUnqual(I64), rp_ptr, "row_ptr");
-//     llvm::Value *col_idx = Builder.CreateLoad(llvm::PointerType::getUnqual(I32), ci_ptr, "col_idx");
-
-//     // 3) malloc/calloc helper for visited and queue
-//     llvm::FunctionCallee mallocFn = Module.getOrInsertFunction(
-//         "malloc",
-//         llvm::FunctionType::get(I8Ptr, {I64}, false));
-//     llvm::FunctionCallee callocFn = Module.getOrInsertFunction(
-//         "calloc",
-//         llvm::FunctionType::get(I8Ptr, {I64, I64}, false));
-
-//     // visited: calloc(n,1) -> i1* after bitcast
-//     llvm::Value *rawVisited = Builder.CreateCall(callocFn, {n_val, llvm::ConstantInt::get(I64, 1)}, "rawVisited");
-//     llvm::Value *visited = Builder.CreateBitCast(rawVisited, llvm::PointerType::getUnqual(I1), "visited");
-
-//     // queue: malloc(n * 4) -> i32* after bitcast
-//     llvm::Value *bytesQueue = Builder.CreateMul(
-//         Builder.CreateSExt(n_val, I64),
-//         llvm::ConstantInt::get(I64, static_cast<uint64_t>(sizeof(int32_t))));
-//     llvm::Value *rawQueue = Builder.CreateCall(mallocFn, {bytesQueue}, "rawQueue");
-//     llvm::Value *queue = Builder.CreateBitCast(rawQueue, llvm::PointerType::getUnqual(I32), "queue");
-
-//     // entry allocas for head/tail and loop index i, scan index
-//     llvm::Function *F = Builder.GetInsertBlock()->getParent();
-//     llvm::IRBuilder<> entryB(&F->getEntryBlock(), F->getEntryBlock().begin());
-
-//     llvm::AllocaInst *headPtr = entryB.CreateAlloca(I32, nullptr, "head");
-//     llvm::AllocaInst *tailPtr = entryB.CreateAlloca(I32, nullptr, "tail");
-//     llvm::AllocaInst *iPtr = entryB.CreateAlloca(I64, nullptr, "i");       // inner-for index
-//     llvm::AllocaInst *scanPtr = entryB.CreateAlloca(I32, nullptr, "scan"); // scan start index
-
-//     // init scan=0
-//     Builder.CreateStore(Builder.getInt32(0), scanPtr);
-
-//     // Create BFS and scan basic blocks
-//     auto *scanInitBB = llvm::BasicBlock::Create(Context, "scan.init", F);
-//     auto *scanCondBB = llvm::BasicBlock::Create(Context, "scan.cond", F);
-//     auto *scanBodyBB = llvm::BasicBlock::Create(Context, "scan.body", F);
-//     auto *scanStartBfs = llvm::BasicBlock::Create(Context, "scan.startbfs", F);
-//     auto *scanIncBB = llvm::BasicBlock::Create(Context, "scan.inc", F);
-//     auto *scanExitBB = llvm::BasicBlock::Create(Context, "scan.exit", F);
-
-//     auto *bfsCondBB = llvm::BasicBlock::Create(Context, "bfs.cond", F);
-//     auto *bfsBodyBB = llvm::BasicBlock::Create(Context, "bfs.body", F);
-//     auto *bfsExitBB = llvm::BasicBlock::Create(Context, "bfs.exit", F);
-
-//     auto *forInitBB = llvm::BasicBlock::Create(Context, "bfs.for.init", F);
-//     auto *forCondBB = llvm::BasicBlock::Create(Context, "bfs.for.cond", F);
-//     auto *forBodyBB = llvm::BasicBlock::Create(Context, "bfs.for.body", F);
-//     auto *forIncBB = llvm::BasicBlock::Create(Context, "bfs.for.inc", F);
-//     auto *forExitBB = llvm::BasicBlock::Create(Context, "bfs.for.exit", F);
-//     auto *enqueueBB = llvm::BasicBlock::Create(Context, "bfs.enqueue", F);
-
-//     // Start: jump into scanInit
-//     Builder.CreateBr(scanInitBB);
-
-//     // scanInit -> cond
-//     Builder.SetInsertPoint(scanInitBB);
-//     Builder.CreateBr(scanCondBB);
-
-//     // scanCond: if (scan < n) -> scanBody else -> scanExit
-//     Builder.SetInsertPoint(scanCondBB);
-//     llvm::Value *scanVal = Builder.CreateLoad(I32, scanPtr, "scanVal");
-//     llvm::Value *scan64 = Builder.CreateSExt(scanVal, I64, "scan64");
-//     llvm::Value *scanCond = Builder.CreateICmpSLT(scan64, n_val, "scanCond");
-//     Builder.CreateCondBr(scanCond, scanBodyBB, scanExitBB);
-
-//     // scanBody: if visited[scan] -> scanInc else -> startBfs
-//     Builder.SetInsertPoint(scanBodyBB);
-//     llvm::Value *visitedPtrScan = Builder.CreateGEP(I1, visited, scanVal, "visitedPtrScan");
-//     llvm::Value *isVisitedScan = Builder.CreateLoad(I1, visitedPtrScan, "isVisitedScan");
-//     Builder.CreateCondBr(isVisitedScan, scanIncBB, scanStartBfs);
-
-//     // scanStartBfs: reset head/tail and enqueue start node
-//     Builder.SetInsertPoint(scanStartBfs);
-//     Builder.CreateStore(Builder.getInt32(0), headPtr);
-//     Builder.CreateStore(Builder.getInt32(0), tailPtr);
-//     llvm::Value *q0ptr = Builder.CreateGEP(I32, queue, scanVal, "q0ptr");
-//     Builder.CreateStore(scanVal, q0ptr);
-//     Builder.CreateStore(Builder.getInt1(true), visitedPtrScan);
-//     Builder.CreateStore(Builder.getInt32(1), tailPtr);
-//     Builder.CreateBr(bfsCondBB);
-
-//     // bfsCond: while (head < tail)
-//     Builder.SetInsertPoint(bfsCondBB);
-//     llvm::Value *h = Builder.CreateLoad(I32, headPtr, "h");
-//     llvm::Value *t = Builder.CreateLoad(I32, tailPtr, "t");
-//     llvm::Value *outerCond = Builder.CreateICmpSLT(h, t, "outerCond");
-//     Builder.CreateCondBr(outerCond, bfsBodyBB, bfsExitBB);
-
-//     // bfsBody: dequeue u
-//     Builder.SetInsertPoint(bfsBodyBB);
-//     llvm::Value *uqptr = Builder.CreateGEP(I32, queue, h, "uqptr");
-//     llvm::Value *u = Builder.CreateLoad(I32, uqptr, "u");
-//     Builder.CreateStore(Builder.CreateAdd(h, Builder.getInt32(1)), headPtr);
-
-//     // compute rp[u] and rp[u+1]
-//     llvm::Value *u64 = Builder.CreateSExt(u, I64);
-//     llvm::Value *rp_u_ptr = Builder.CreateGEP(I64, row_ptr, u64, "rp_u_ptr");
-//     llvm::Value *rp_u = Builder.CreateLoad(I64, rp_u_ptr, "rp_u");
-//     llvm::Value *rp_u1_ptr = Builder.CreateGEP(I64, row_ptr, Builder.CreateAdd(u64, Builder.getInt64(1)), "rp_u1_ptr");
-//     llvm::Value *rp_u1 = Builder.CreateLoad(I64, rp_u1_ptr, "rp_u1");
-
-//     // jump into forInit
-//     Builder.CreateBr(forInitBB);
-
-//     // forInit: i = rp_u
-//     Builder.SetInsertPoint(forInitBB);
-//     Builder.CreateStore(rp_u, iPtr);
-//     Builder.CreateBr(forCondBB);
-
-//     // forCond: if (i < rp_u1) -> forBody else -> forExit
-//     Builder.SetInsertPoint(forCondBB);
-//     llvm::Value *iVal = Builder.CreateLoad(I64, iPtr, "iVal");
-//     llvm::Value *innerCond = Builder.CreateICmpSLT(iVal, rp_u1, "innerCond");
-//     Builder.CreateCondBr(innerCond, forBodyBB, forExitBB);
-
-//     // forBody: v = col_idx[i]; check visited[v]
-//     Builder.SetInsertPoint(forBodyBB);
-//     llvm::Value *colPtr = Builder.CreateGEP(I32, col_idx, iVal, "colPtr");
-//     llvm::Value *v = Builder.CreateLoad(I32, colPtr, "v");
-//     llvm::Value *visitedPtr = Builder.CreateGEP(I1, visited, v, "visitedPtr");
-//     llvm::Value *isVisited = Builder.CreateLoad(I1, visitedPtr, "isVisited");
-//     Builder.CreateCondBr(isVisited, forIncBB, enqueueBB);
-
-//     // enqueueBB: visited[v] = 1; queue[tail] = v; tail = tail + 1
-//     Builder.SetInsertPoint(enqueueBB);
-//     Builder.CreateStore(Builder.getInt1(true), visitedPtr);
-//     llvm::Value *tailVal = Builder.CreateLoad(I32, tailPtr, "tailVal");
-//     llvm::Value *qptr = Builder.CreateGEP(I32, queue, tailVal, "qptr");
-//     Builder.CreateStore(v, qptr);
-//     Builder.CreateStore(Builder.CreateAdd(tailVal, Builder.getInt32(1)), tailPtr);
-//     Builder.CreateBr(forIncBB);
-
-//     // forIncBB: i = i + 1
-//     Builder.SetInsertPoint(forIncBB);
-//     llvm::Value *newI = Builder.CreateAdd(iVal, Builder.getInt64(1), "iNext");
-//     Builder.CreateStore(newI, iPtr);
-//     Builder.CreateBr(forCondBB);
-
-//     // forExitBB -> bfsCond
-//     Builder.SetInsertPoint(forExitBB);
-//     Builder.CreateBr(bfsCondBB);
-
-//     // bfsExitBB -> scanInc
-//     Builder.SetInsertPoint(bfsExitBB);
-//     Builder.CreateBr(scanIncBB);
-
-//     // scanIncBB: scan = scan + 1 -> scanCond
-//     Builder.SetInsertPoint(scanIncBB);
-//     llvm::Value *scanNow = Builder.CreateLoad(I32, scanPtr, "scanNow");
-//     Builder.CreateStore(Builder.CreateAdd(scanNow, Builder.getInt32(1)), scanPtr);
-//     Builder.CreateBr(scanCondBB);
-
-//     // scanExitBB: done scanning all vertices
-//     Builder.SetInsertPoint(scanExitBB);
-// }
-
 void IRGenVisitor::visitQuery(QueryNode *Q)
 {
     // Grab the Graph* value
@@ -1197,4 +887,102 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
 
     // 3) Call printf(fmtPtr, val)
     Builder.CreateCall(printfFn, {fmtPtr, val});
+}
+
+void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
+{
+    std::string baseName = setDecl->name;
+    std::string bitmapName = baseName + "_bitmap";
+    std::string blobName = baseName + "_blob";
+
+    auto *i8Ty = llvm::Type::getInt8Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(i8Ty);
+    auto *i64Ty = Builder.getInt64Ty();
+
+    /* -----------------------------
+       1. Create global pointer for runtime bitmap
+       ----------------------------- */
+    llvm::GlobalVariable *bitmapGV = Module.getGlobalVariable(bitmapName);
+    if (!bitmapGV)
+    {
+        bitmapGV = new llvm::GlobalVariable(
+            Module,
+            i8PtrTy,
+            /*isConstant=*/false,
+            llvm::GlobalValue::ExternalLinkage,
+            llvm::ConstantPointerNull::get(i8PtrTy),
+            bitmapName);
+    }
+
+    llvm::Function *fn = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+
+    llvm::AllocaInst *bitmapAlloca =
+        entryB.CreateAlloca(i8PtrTy, nullptr, baseName);
+
+    // Initialize alloca from global (might be null temporarily)
+    llvm::Value *cur = Builder.CreateLoad(i8PtrTy, bitmapGV);
+    Builder.CreateStore(cur, bitmapAlloca);
+    NamedValues[baseName] = bitmapAlloca;
+
+    RoaringBitmap *rb = roaring_bitmap_create(); // even empty sets
+
+    if (setDecl->initializer)
+    {
+        auto *lit = dynamic_cast<SetLiteralNode *>(setDecl->initializer.get());
+        if (!lit)
+            throw std::runtime_error("Set initializer must be a set literal");
+
+        // Fill bitmap if there are elements
+        for (auto &e : lit->elements)
+        {
+            auto *intLit = dynamic_cast<IntLiteralNode *>(e.get());
+            if (!intLit)
+                throw std::runtime_error("Set literal elements must be integers");
+
+            roaring_bitmap_add(rb, intLit->value);
+        }
+    }
+
+    size_t blobSize = roaring_bitmap_portable_size_in_bytes(rb);
+    llvm::SmallVector<uint8_t> blob(blobSize);
+    roaring_bitmap_portable_serialize(rb, blob.data());
+
+    // Done with compiler bitmap object
+    roaring_bitmap_free(rb);
+
+    llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blobSize);
+    llvm::SmallVector<llvm::Constant *, 128> bytes;
+    for (uint8_t b : blob)
+        bytes.push_back(llvm::ConstantInt::get(i8Ty, b));
+
+    llvm::Constant *blobConst = llvm::ConstantArray::get(blobTy, bytes);
+
+    llvm::GlobalVariable *blobGV =
+        new llvm::GlobalVariable(
+            Module,
+            blobTy,
+            /*isConstant=*/true,
+            llvm::GlobalValue::PrivateLinkage,
+            blobConst,
+            blobName);
+
+    llvm::Value *zero = Builder.getInt32(0);
+    llvm::Value *blobPtr =
+        Builder.CreateInBoundsGEP(blobTy, blobGV, {zero, zero}, blobName + ".ptr");
+
+    llvm::FunctionType *deserializeFT =
+        llvm::FunctionType::get(i8PtrTy, {i8PtrTy, i64Ty}, false);
+
+    auto deserializeFn =
+        Module.getOrInsertFunction("roaring_from_serialized", deserializeFT);
+
+    llvm::Value *sizeVal =
+        llvm::ConstantInt::get(i64Ty, blobSize);
+
+    llvm::Value *bitmapPtr =
+        Builder.CreateCall(deserializeFn, {blobPtr, sizeVal}, baseName + ".bitmap");
+
+    Builder.CreateStore(bitmapPtr, bitmapGV);
+    Builder.CreateStore(bitmapPtr, bitmapAlloca);
 }

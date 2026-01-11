@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -44,6 +44,10 @@ public:
     virtual std::any visitSimpleDeclaration(BaseParser::SimpleDeclarationContext *context) = 0;
 
     virtual std::any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *context) = 0;
+
+    virtual std::any visitSetDecl(BaseParser::SetDeclContext *context) = 0;
+
+    virtual std::any visitSetInitializer(BaseParser::SetInitializerContext *context) = 0;
 
     virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
 
@@ -130,6 +134,8 @@ public:
     virtual std::any visitIdExpr(BaseParser::IdExprContext *context) = 0;
 
     virtual std::any visitBoolFalseExpr(BaseParser::BoolFalseExprContext *context) = 0;
+
+    virtual std::any visitSetExpr(BaseParser::SetExprContext *context) = 0;
 
     virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *context) = 0;
 

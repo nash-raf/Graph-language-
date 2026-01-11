@@ -63,7 +63,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp\
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp roaring_bitmap.cpp \
     generated/*.cpp \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \

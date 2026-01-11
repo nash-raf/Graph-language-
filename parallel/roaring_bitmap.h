@@ -23,31 +23,56 @@ struct MemoryArena
     }
 };
 
+enum ContainerType
+{
+    ARRAY_CONTAINER,
+    BITMAP_CONTAINER
+};
+
 struct BitmapContainer
 {
-    uint16_t key;  // high 16 bits
     uint8_t *bits; // points into arena, size 2^16 / 8 = 8192 bytes
+};
+
+struct ArrayContainer
+{
+    uint16_t *values;   // sorted array of 16-bit integers
+    size_t cardinality; // number of elements
+    size_t capacity;    // allocated capacity
+};
+
+struct Container
+{
+    uint16_t key; // high 16 bits
+    ContainerType type;
+    union
+    {
+        ArrayContainer array;
+        BitmapContainer bitmap;
+    };
 };
 
 struct RoaringBitmap
 {
     MemoryArena arena;
-    BitmapContainer *containers;
+    Container *containers;
     size_t num_containers;
     size_t max_containers; // capacity of container array
 };
+
+const size_t THRESHOLD = 4096;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_capacity);
+    RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_containers);
     void roaring_bitmap_free(RoaringBitmap *bm);
     void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value);
     size_t roaring_bitmap_portable_size_in_bytes(RoaringBitmap *bm);
     void roaring_bitmap_portable_serialize(RoaringBitmap *bm, uint8_t *buf);
-    uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size);
+    RoaringBitmap *roaring_bitmap_portable_deserialize(const uint8_t *data, size_t size);
 
 #ifdef __cplusplus
 }

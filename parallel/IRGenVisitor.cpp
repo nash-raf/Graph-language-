@@ -925,7 +925,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     Builder.CreateStore(cur, bitmapAlloca);
     NamedValues[baseName] = bitmapAlloca;
 
-    RoaringBitmap *rb = roaring_bitmap_create(); // even empty sets
+    RoaringBitmap *rb = roaring_bitmap_create(100 * 1024 * 1024, 8); // even empty sets
 
     if (setDecl->initializer)
     {

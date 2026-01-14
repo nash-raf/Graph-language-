@@ -42,7 +42,9 @@ enum class ASTNodeType
     QueryNode,
     PrintStmt,
     SetDecl,
-    SetLiteral
+    SetLiteral,
+    SetOperation,
+    SetBinaryExpr
 };
 
 template <typename T>
@@ -540,6 +542,44 @@ public:
     SetLiteralNode(const std::vector<ASTNodePtr> &elems)
         : ASTNode(ASTNodeType::SetLiteral),
           elements(std::move(elems)) {}
+};
+
+class SetOperationNode : public ASTNode
+{
+public:
+    std::string targetName; // The variable being assigned to (e.g., "s3")
+    ASTNodePtr expr;        // The set expression (SetBinaryExprNode)
+
+    SetOperationNode(const std::string &target, ASTNodePtr expression)
+        : ASTNode(ASTNodeType::SetOperation),
+          targetName(target),
+          expr(std::move(expression)) {}
+};
+
+class SetBinaryExprNode : public ASTNode
+{
+public:
+    std::string op; // "union" or "intersect"
+    ASTNodePtr lhs; // Left operand (can be SetId, SetLiteral, or another SetBinaryExpr)
+    ASTNodePtr rhs; // Right operand
+
+    SetBinaryExprNode(const std::string &operation, ASTNodePtr left, ASTNodePtr right)
+        : ASTNode(ASTNodeType::SetBinaryExpr),
+          op(operation),
+          lhs(std::move(left)),
+          rhs(std::move(right)) {}
+};
+
+class SetIdNode : public ASTNode
+{
+public:
+    std::string name;
+
+    SetIdNode(const std::string &setName)
+        : ASTNode(ASTNodeType::Variable),
+          name(setName)
+    {
+    }
 };
 
 #endif // ASTNODE_H

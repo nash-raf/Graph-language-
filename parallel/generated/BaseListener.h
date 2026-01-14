@@ -59,23 +59,23 @@ public:
   virtual void enterSetInitializer(BaseParser::SetInitializerContext *ctx) = 0;
   virtual void exitSetInitializer(BaseParser::SetInitializerContext *ctx) = 0;
 
-  virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
-  virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
+  virtual void enterSetOperation(BaseParser::SetOperationContext *ctx) = 0;
+  virtual void exitSetOperation(BaseParser::SetOperationContext *ctx) = 0;
 
-  virtual void enterNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
-  virtual void exitNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
+  virtual void enterSetUnion(BaseParser::SetUnionContext *ctx) = 0;
+  virtual void exitSetUnion(BaseParser::SetUnionContext *ctx) = 0;
 
-  virtual void enterLogicalAnd(BaseParser::LogicalAndContext *ctx) = 0;
-  virtual void exitLogicalAnd(BaseParser::LogicalAndContext *ctx) = 0;
+  virtual void enterSetIntersect(BaseParser::SetIntersectContext *ctx) = 0;
+  virtual void exitSetIntersect(BaseParser::SetIntersectContext *ctx) = 0;
 
-  virtual void enterRelational(BaseParser::RelationalContext *ctx) = 0;
-  virtual void exitRelational(BaseParser::RelationalContext *ctx) = 0;
+  virtual void enterSetId(BaseParser::SetIdContext *ctx) = 0;
+  virtual void exitSetId(BaseParser::SetIdContext *ctx) = 0;
 
-  virtual void enterEdgeCheck(BaseParser::EdgeCheckContext *ctx) = 0;
-  virtual void exitEdgeCheck(BaseParser::EdgeCheckContext *ctx) = 0;
+  virtual void enterSetLiteral(BaseParser::SetLiteralContext *ctx) = 0;
+  virtual void exitSetLiteral(BaseParser::SetLiteralContext *ctx) = 0;
 
-  virtual void enterLogicalOr(BaseParser::LogicalOrContext *ctx) = 0;
-  virtual void exitLogicalOr(BaseParser::LogicalOrContext *ctx) = 0;
+  virtual void enterParenSet(BaseParser::ParenSetContext *ctx) = 0;
+  virtual void exitParenSet(BaseParser::ParenSetContext *ctx) = 0;
 
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
@@ -94,6 +94,24 @@ public:
 
   virtual void enterParenGraphCondition(BaseParser::ParenGraphConditionContext *ctx) = 0;
   virtual void exitParenGraphCondition(BaseParser::ParenGraphConditionContext *ctx) = 0;
+
+  virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
+  virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
+
+  virtual void enterNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
+  virtual void exitNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
+
+  virtual void enterLogicalAnd(BaseParser::LogicalAndContext *ctx) = 0;
+  virtual void exitLogicalAnd(BaseParser::LogicalAndContext *ctx) = 0;
+
+  virtual void enterRelational(BaseParser::RelationalContext *ctx) = 0;
+  virtual void exitRelational(BaseParser::RelationalContext *ctx) = 0;
+
+  virtual void enterEdgeCheck(BaseParser::EdgeCheckContext *ctx) = 0;
+  virtual void exitEdgeCheck(BaseParser::EdgeCheckContext *ctx) = 0;
+
+  virtual void enterLogicalOr(BaseParser::LogicalOrContext *ctx) = 0;
+  virtual void exitLogicalOr(BaseParser::LogicalOrContext *ctx) = 0;
 
   virtual void enterLoopStatement(BaseParser::LoopStatementContext *ctx) = 0;
   virtual void exitLoopStatement(BaseParser::LoopStatementContext *ctx) = 0;
@@ -188,11 +206,11 @@ public:
   virtual void enterBoolFalseExpr(BaseParser::BoolFalseExprContext *ctx) = 0;
   virtual void exitBoolFalseExpr(BaseParser::BoolFalseExprContext *ctx) = 0;
 
-  virtual void enterSetExpr(BaseParser::SetExprContext *ctx) = 0;
-  virtual void exitSetExpr(BaseParser::SetExprContext *ctx) = 0;
-
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
+
+  virtual void enterSetLitExpr(BaseParser::SetLitExprContext *ctx) = 0;
+  virtual void exitSetLitExpr(BaseParser::SetLitExprContext *ctx) = 0;
 
   virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
   virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;

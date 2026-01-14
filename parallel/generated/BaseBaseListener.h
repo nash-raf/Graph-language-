@@ -61,23 +61,23 @@ public:
   virtual void enterSetInitializer(BaseParser::SetInitializerContext * /*ctx*/) override { }
   virtual void exitSetInitializer(BaseParser::SetInitializerContext * /*ctx*/) override { }
 
-  virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
-  virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
+  virtual void enterSetOperation(BaseParser::SetOperationContext * /*ctx*/) override { }
+  virtual void exitSetOperation(BaseParser::SetOperationContext * /*ctx*/) override { }
 
-  virtual void enterNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
-  virtual void exitNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
+  virtual void enterSetUnion(BaseParser::SetUnionContext * /*ctx*/) override { }
+  virtual void exitSetUnion(BaseParser::SetUnionContext * /*ctx*/) override { }
 
-  virtual void enterLogicalAnd(BaseParser::LogicalAndContext * /*ctx*/) override { }
-  virtual void exitLogicalAnd(BaseParser::LogicalAndContext * /*ctx*/) override { }
+  virtual void enterSetIntersect(BaseParser::SetIntersectContext * /*ctx*/) override { }
+  virtual void exitSetIntersect(BaseParser::SetIntersectContext * /*ctx*/) override { }
 
-  virtual void enterRelational(BaseParser::RelationalContext * /*ctx*/) override { }
-  virtual void exitRelational(BaseParser::RelationalContext * /*ctx*/) override { }
+  virtual void enterSetId(BaseParser::SetIdContext * /*ctx*/) override { }
+  virtual void exitSetId(BaseParser::SetIdContext * /*ctx*/) override { }
 
-  virtual void enterEdgeCheck(BaseParser::EdgeCheckContext * /*ctx*/) override { }
-  virtual void exitEdgeCheck(BaseParser::EdgeCheckContext * /*ctx*/) override { }
+  virtual void enterSetLiteral(BaseParser::SetLiteralContext * /*ctx*/) override { }
+  virtual void exitSetLiteral(BaseParser::SetLiteralContext * /*ctx*/) override { }
 
-  virtual void enterLogicalOr(BaseParser::LogicalOrContext * /*ctx*/) override { }
-  virtual void exitLogicalOr(BaseParser::LogicalOrContext * /*ctx*/) override { }
+  virtual void enterParenSet(BaseParser::ParenSetContext * /*ctx*/) override { }
+  virtual void exitParenSet(BaseParser::ParenSetContext * /*ctx*/) override { }
 
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
@@ -96,6 +96,24 @@ public:
 
   virtual void enterParenGraphCondition(BaseParser::ParenGraphConditionContext * /*ctx*/) override { }
   virtual void exitParenGraphCondition(BaseParser::ParenGraphConditionContext * /*ctx*/) override { }
+
+  virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
+  virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
+
+  virtual void enterNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
+  virtual void exitNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
+
+  virtual void enterLogicalAnd(BaseParser::LogicalAndContext * /*ctx*/) override { }
+  virtual void exitLogicalAnd(BaseParser::LogicalAndContext * /*ctx*/) override { }
+
+  virtual void enterRelational(BaseParser::RelationalContext * /*ctx*/) override { }
+  virtual void exitRelational(BaseParser::RelationalContext * /*ctx*/) override { }
+
+  virtual void enterEdgeCheck(BaseParser::EdgeCheckContext * /*ctx*/) override { }
+  virtual void exitEdgeCheck(BaseParser::EdgeCheckContext * /*ctx*/) override { }
+
+  virtual void enterLogicalOr(BaseParser::LogicalOrContext * /*ctx*/) override { }
+  virtual void exitLogicalOr(BaseParser::LogicalOrContext * /*ctx*/) override { }
 
   virtual void enterLoopStatement(BaseParser::LoopStatementContext * /*ctx*/) override { }
   virtual void exitLoopStatement(BaseParser::LoopStatementContext * /*ctx*/) override { }
@@ -190,11 +208,11 @@ public:
   virtual void enterBoolFalseExpr(BaseParser::BoolFalseExprContext * /*ctx*/) override { }
   virtual void exitBoolFalseExpr(BaseParser::BoolFalseExprContext * /*ctx*/) override { }
 
-  virtual void enterSetExpr(BaseParser::SetExprContext * /*ctx*/) override { }
-  virtual void exitSetExpr(BaseParser::SetExprContext * /*ctx*/) override { }
-
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
+
+  virtual void enterSetLitExpr(BaseParser::SetLitExprContext * /*ctx*/) override { }
+  virtual void exitSetLitExpr(BaseParser::SetLitExprContext * /*ctx*/) override { }
 
   virtual void enterIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
   virtual void exitIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }

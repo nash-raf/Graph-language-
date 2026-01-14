@@ -73,6 +73,9 @@ extern "C"
     size_t roaring_bitmap_portable_size_in_bytes(RoaringBitmap *bm);
     void roaring_bitmap_portable_serialize(RoaringBitmap *bm, uint8_t *buf);
     RoaringBitmap *roaring_bitmap_portable_deserialize(const uint8_t *data, size_t size);
+    RoaringBitmap *roaring_bitmap_union(RoaringBitmap *bm1, RoaringBitmap *bm2);
+    RoaringBitmap *roaring_bitmap_intersect(RoaringBitmap *bm1, RoaringBitmap *bm2);
+    void roaring_print(uint8_t *ptr);
 
 #ifdef __cplusplus
 }

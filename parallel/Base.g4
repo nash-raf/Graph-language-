@@ -22,6 +22,7 @@ statement:
 	| queryStatement
 	| showgraph
 	| nodeEdgeOperation
+	| setOperation
 	| ';';
 
 // Graph Definition
@@ -46,11 +47,43 @@ varDecl:
 setDecl:
     'set' ID ';'
     | 'set' ID '=' setInitializer ';'
+    | 'set' ID '=' setExpr ';'
     ;
 
 setInitializer:
     '{' (expr (',' expr)*)? '}'
     ;
+
+// Set operations
+setOperation:
+    ID '=' setExpr ';'
+    ;
+
+setExpr:
+    setExpr UNION setExpr          # SetUnion
+    | setExpr INTERSECT setExpr    # SetIntersect
+    | ID                           # SetId
+    | setInitializer               # SetLiteral
+    | '(' setExpr ')'              # ParenSet
+    ;
+
+//graphcondition
+graphComprehension:
+	ID '=' '[' graphID 'where' graphCondition ']' ';';
+
+graphCondition:
+	graphCondition AND graphCondition	# GraphLogicalAnd
+	| graphCondition OR graphCondition	# GraphLogicalOr
+	| 'degree' (
+		EQUAL
+		| NOTEQUAL
+		| LESSEQUAL
+		| GREATEREQUAL
+		| LESSTHAN
+		| GREATERTHAN
+	) INT						# DegreeCondition
+	| 'connected' 'with' nodeID	# ConnectedCondition
+	| '(' graphCondition ')'	# ParenGraphCondition;
 
 // if-else
 conditionalStatement:
@@ -71,24 +104,6 @@ condition:
 	) expr					# Relational
 	| nodeID 'in' graphID	# NodeCheck
 	| edge 'in' graphID		# EdgeCheck;
-
-//graphcondition
-graphComprehension:
-	ID '=' '[' graphID 'where' graphCondition ']' ';';
-
-graphCondition:
-	graphCondition AND graphCondition	# GraphLogicalAnd
-	| graphCondition OR graphCondition	# GraphLogicalOr
-	| 'degree' (
-		EQUAL
-		| NOTEQUAL
-		| LESSEQUAL
-		| GREATEREQUAL
-		| LESSTHAN
-		| GREATERTHAN
-	) INT						# DegreeCondition
-	| 'connected' 'with' nodeID	# ConnectedCondition
-	| '(' graphCondition ')'	# ParenGraphCondition;
 
 //loop
 loopStatement: foreachStatement | whileStatement;
@@ -159,11 +174,13 @@ expr:
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
 	| REAL						# RealExpr
-	| setInitializer            # SetExpr
+	| setInitializer            # SetLitExpr
 	;
 // | nodeID                	# nodeExpr
 
 SET: 'set';
+UNION: 'union';
+INTERSECT: 'intersect';
 
 // Array 
 arrayDeclarator:

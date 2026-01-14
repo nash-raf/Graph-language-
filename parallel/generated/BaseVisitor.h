@@ -49,17 +49,17 @@ public:
 
     virtual std::any visitSetInitializer(BaseParser::SetInitializerContext *context) = 0;
 
-    virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
+    virtual std::any visitSetOperation(BaseParser::SetOperationContext *context) = 0;
 
-    virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *context) = 0;
+    virtual std::any visitSetUnion(BaseParser::SetUnionContext *context) = 0;
 
-    virtual std::any visitLogicalAnd(BaseParser::LogicalAndContext *context) = 0;
+    virtual std::any visitSetIntersect(BaseParser::SetIntersectContext *context) = 0;
 
-    virtual std::any visitRelational(BaseParser::RelationalContext *context) = 0;
+    virtual std::any visitSetId(BaseParser::SetIdContext *context) = 0;
 
-    virtual std::any visitEdgeCheck(BaseParser::EdgeCheckContext *context) = 0;
+    virtual std::any visitSetLiteral(BaseParser::SetLiteralContext *context) = 0;
 
-    virtual std::any visitLogicalOr(BaseParser::LogicalOrContext *context) = 0;
+    virtual std::any visitParenSet(BaseParser::ParenSetContext *context) = 0;
 
     virtual std::any visitGraphComprehension(BaseParser::GraphComprehensionContext *context) = 0;
 
@@ -72,6 +72,18 @@ public:
     virtual std::any visitGraphLogicalOr(BaseParser::GraphLogicalOrContext *context) = 0;
 
     virtual std::any visitParenGraphCondition(BaseParser::ParenGraphConditionContext *context) = 0;
+
+    virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
+
+    virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *context) = 0;
+
+    virtual std::any visitLogicalAnd(BaseParser::LogicalAndContext *context) = 0;
+
+    virtual std::any visitRelational(BaseParser::RelationalContext *context) = 0;
+
+    virtual std::any visitEdgeCheck(BaseParser::EdgeCheckContext *context) = 0;
+
+    virtual std::any visitLogicalOr(BaseParser::LogicalOrContext *context) = 0;
 
     virtual std::any visitLoopStatement(BaseParser::LoopStatementContext *context) = 0;
 
@@ -135,9 +147,9 @@ public:
 
     virtual std::any visitBoolFalseExpr(BaseParser::BoolFalseExprContext *context) = 0;
 
-    virtual std::any visitSetExpr(BaseParser::SetExprContext *context) = 0;
-
     virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *context) = 0;
+
+    virtual std::any visitSetLitExpr(BaseParser::SetLitExprContext *context) = 0;
 
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
 

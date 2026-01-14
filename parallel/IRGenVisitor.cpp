@@ -4,6 +4,11 @@
 #include "roaring_bitmap.h"
 #include <chrono>
 
+llvm::Type *getBitmapPtrTy(llvm::LLVMContext &Context)
+{
+    return llvm::PointerType::get(Context, 0);
+}
+
 void IRGenVisitor::visitProgram(ProgramNodePtr prog)
 {
 
@@ -57,6 +62,25 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
     // Entry block
     auto *BB = llvm::BasicBlock::Create(Context, "entry", mainF);
     Builder.SetInsertPoint(BB);
+
+    auto *BitmapPtrTy = llvm::PointerType::get(Context, 0);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *voidTy = Builder.getVoidTy();
+
+    // Declare all Roaring functions early with consistent typed i8* signatures
+    auto createFT = llvm::FunctionType::get(BitmapPtrTy, {i64Ty, i64Ty}, false);
+    Module.getOrInsertFunction("roaring_bitmap_create", createFT);
+
+    auto addFT = llvm::FunctionType::get(voidTy, {BitmapPtrTy, i32Ty}, false);
+    Module.getOrInsertFunction("roaring_bitmap_add", addFT);
+
+    auto opFT = llvm::FunctionType::get(BitmapPtrTy, {BitmapPtrTy, BitmapPtrTy}, false);
+    Module.getOrInsertFunction("roaring_bitmap_union", opFT);
+    Module.getOrInsertFunction("roaring_bitmap_intersect", opFT);
+
+    auto printFT = llvm::FunctionType::get(voidTy, {BitmapPtrTy}, false);
+    Module.getOrInsertFunction("roaring_print", printFT);
 
     // Lower every top‑level AST node
     for (auto &node : prog->topLevel)
@@ -252,7 +276,13 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         // std::cerr << "Entered queryNODe\n";
         visitQuery(static_cast<QueryNode *>(node));
         break;
+    case ASTNodeType::SetDecl:
+        visitSetDecl(static_cast<SetDeclNode *>(node));
+        break;
 
+    case ASTNodeType::SetOperation:
+        visitSetOperation(static_cast<SetOperationNode *>(node));
+        break;
     default:
         // std::cerr << "Unsupported statement type.\n";
         break;
@@ -817,76 +847,150 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
     return;
 }
 
-void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
+// void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
+// {
+//     // 1) Ensure printf is declared
+//     auto *i8Ty = llvm::Type::getInt8Ty(Context);
+//     auto *i8PtrTy = llvm::PointerType::getUnqual(i8Ty);
+
+//     llvm::Function *printfFn = Module.getFunction("printf");
+//     if (!printfFn)
+//     {
+//         // int printf(char*, ...)
+//         auto *i8p = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+//         auto *printfTy = llvm::FunctionType::get(
+//             /*Ret=*/Builder.getInt32Ty(),
+//             /*Params=*/{i8p},
+//             /*isVarArg=*/true);
+//         printfFn = llvm::Function::Create(
+//             printfTy,
+//             llvm::Function::ExternalLinkage,
+//             "printf",
+//             &Module);
+//     }
+
+//     // 2) Prepare format string
+//     llvm::Value *fmtPtr = nullptr;
+//     llvm::Value *val = nullptr;
+
+//     if (auto *lit = dynamic_cast<IntLiteralNode *>(PS->expr.get()))
+//     {
+//         // integer literal: we’ll just embed the value
+//         val = llvm::ConstantInt::get(Builder.getInt32Ty(), lit->value);
+//         // constant global: "%d\n\0"
+//         static llvm::GlobalVariable *fmtInt = nullptr;
+//         if (!fmtInt)
+//         {
+//             auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+//             fmtInt = new llvm::GlobalVariable(
+//                 Module, fmtTy, /*isConstant=*/true,
+//                 llvm::GlobalValue::PrivateLinkage,
+//                 llvm::ConstantDataArray::getString(Context, "%d\n", true),
+//                 ".fmt_int");
+//         }
+//         fmtPtr = Builder.CreateBitCast(fmtInt,
+//                                        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+//     }
+//     else if (auto *var = dynamic_cast<VariableNode *>(PS->expr.get()))
+//     {
+//         // assume it's an int variable
+//         llvm::AllocaInst *alloca = NamedValues[var->name];
+//         llvm::Type *allocTy = alloca->getAllocatedType();
+
+//         if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(allocTy))
+//         {
+//             llvm::Type *elemTy = ptrTy->getContainedType(0);
+//             if (elemTy->isIntegerTy(8))
+//             {
+//                 // This is a set variable (i8*)
+//                 llvm::Value *ptr = Builder.CreateLoad(i8PtrTy, alloca, var->name + ".ptr");
+//                 llvm::FunctionType *printFT = llvm::FunctionType::get(Builder.getVoidTy(), {i8PtrTy}, false);
+//                 auto printFn = Module.getOrInsertFunction("roaring_print", printFT);
+//                 Builder.CreateCall(printFn, {ptr});
+//                 return;
+//             }
+//         }
+//         val = Builder.CreateLoad(Builder.getInt32Ty(), alloca, var->name);
+//         // same fmtInt as above
+//         static llvm::GlobalVariable *fmtInt = nullptr;
+//         if (!fmtInt)
+//         {
+//             auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+//             fmtInt = new llvm::GlobalVariable(
+//                 Module, fmtTy, true,
+//                 llvm::GlobalValue::PrivateLinkage,
+//                 llvm::ConstantDataArray::getString(Context, "%d\n", true),
+//                 ".fmt_int");
+//         }
+
+//         fmtPtr = Builder.CreateBitCast(fmtInt,
+//                                        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+//     }
+//     else
+//     {
+//         // for string literals, extend similarly:
+//         // extract the const char* from your AST’s StringLiteralNode...
+//         // use "%s\n" format.
+//         throw std::runtime_error("print: only int literals & vars supported so far");
+//     }
+
+//     // 3) Call printf(fmtPtr, val)
+//     Builder.CreateCall(printfFn, {fmtPtr, val});
+// }
+
+void IRGenVisitor::visitPrintStmt(PrintStmtNode *node)
 {
-    // 1) Ensure printf is declared
-    llvm::Function *printfFn = Module.getFunction("printf");
-    if (!printfFn)
-    {
-        // int printf(char*, ...)
-        auto *i8p = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-        auto *printfTy = llvm::FunctionType::get(
-            /*Ret=*/Builder.getInt32Ty(),
-            /*Params=*/{i8p},
-            /*isVarArg=*/true);
-        printfFn = llvm::Function::Create(
-            printfTy,
-            llvm::Function::ExternalLinkage,
-            "printf",
-            &Module);
-    }
+    ASTNode *exprNode = node->expr.get();
 
-    // 2) Prepare format string
-    llvm::Value *fmtPtr = nullptr;
-    llvm::Value *val = nullptr;
-
-    if (auto *lit = dynamic_cast<IntLiteralNode *>(PS->expr.get()))
+    // Handle variable print (int or set)
+    if (exprNode->type == ASTNodeType::Variable)
     {
-        // integer literal: we’ll just embed the value
-        val = llvm::ConstantInt::get(Builder.getInt32Ty(), lit->value);
-        // constant global: "%d\n\0"
-        static llvm::GlobalVariable *fmtInt = nullptr;
-        if (!fmtInt)
+        auto *var = static_cast<VariableNode *>(exprNode);
+        auto it = NamedValues.find(var->name);
+        if (it == NamedValues.end())
         {
-            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
-            fmtInt = new llvm::GlobalVariable(
-                Module, fmtTy, /*isConstant=*/true,
-                llvm::GlobalValue::PrivateLinkage,
-                llvm::ConstantDataArray::getString(Context, "%d\n", true),
-                ".fmt_int");
+            throw std::runtime_error("Undefined variable in print: " + var->name);
         }
-        fmtPtr = Builder.CreateBitCast(fmtInt,
-                                       llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    }
-    else if (auto *var = dynamic_cast<VariableNode *>(PS->expr.get()))
-    {
-        // assume it's an int variable
-        llvm::Value *alloca = NamedValues[var->name];
-        val = Builder.CreateLoad(Builder.getInt32Ty(), alloca, var->name);
-        // same fmtInt as above
-        static llvm::GlobalVariable *fmtInt = nullptr;
-        if (!fmtInt)
+
+        llvm::AllocaInst *alloca = it->second;
+        llvm::Type *allocatedTy = alloca->getAllocatedType();
+
+        if (llvm::isa<llvm::PointerType>(allocatedTy))
         {
-            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
-            fmtInt = new llvm::GlobalVariable(
-                Module, fmtTy, true,
-                llvm::GlobalValue::PrivateLinkage,
-                llvm::ConstantDataArray::getString(Context, "%d\n", true),
-                ".fmt_int");
+            // Assume this is a set (bitmap pointer)
+            auto *BitmapPtrTy = getBitmapPtrTy(Context);
+            llvm::Value *ptr = Builder.CreateLoad(BitmapPtrTy, alloca, var->name + ".bitmap");
+
+            llvm::FunctionType *printFT = llvm::FunctionType::get(
+                Builder.getVoidTy(),
+                {BitmapPtrTy},
+                false);
+
+            auto printFn = Module.getOrInsertFunction("roaring_print", printFT);
+            Builder.CreateCall(printFn, {ptr});
+            return;
         }
-        fmtPtr = Builder.CreateBitCast(fmtInt,
-                                       llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    }
-    else
-    {
-        // for string literals, extend similarly:
-        // extract the const char* from your AST’s StringLiteralNode...
-        // use "%s\n" format.
-        throw std::runtime_error("print: only int literals & vars supported so far");
+
+        // Fall through to integer print if not a set
+        llvm::Value *val = Builder.CreateLoad(Builder.getInt32Ty(), alloca, var->name);
+        llvm::Function *printfFn = Module.getFunction("printf");
+        if (!printfFn)
+        {
+            llvm::FunctionType *printfTy = llvm::FunctionType::get(
+                Builder.getInt32Ty(),
+                {llvm::PointerType::get(Context, 0)},
+                true);
+            printfFn = llvm::Function::Create(printfTy, llvm::Function::ExternalLinkage, "printf", Module);
+        }
+
+        llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%d\n");
+        Builder.CreateCall(printfFn, {strPtr, val});
+        return;
     }
 
-    // 3) Call printf(fmtPtr, val)
-    Builder.CreateCall(printfFn, {fmtPtr, val});
+    // Add other print cases here if needed (e.g., string literals, expressions)
+    // For now, only variable print is supported
+    throw std::runtime_error("print only supports variables (int or set) for now");
 }
 
 void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
@@ -896,7 +1000,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     std::string blobName = baseName + "_blob";
 
     auto *i8Ty = llvm::Type::getInt8Ty(Context);
-    auto *i8PtrTy = llvm::PointerType::getUnqual(i8Ty);
+    auto *i8PtrTy = llvm::PointerType::get(Context, 0);
     auto *i64Ty = Builder.getInt64Ty();
 
     /* -----------------------------
@@ -917,23 +1021,31 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     llvm::Function *fn = Builder.GetInsertBlock()->getParent();
     llvm::IRBuilder<> entryB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
 
-    llvm::AllocaInst *bitmapAlloca =
-        entryB.CreateAlloca(i8PtrTy, nullptr, baseName);
-
-    // Initialize alloca from global (might be null temporarily)
-    llvm::Value *cur = Builder.CreateLoad(i8PtrTy, bitmapGV);
-    Builder.CreateStore(cur, bitmapAlloca);
+    auto *BitmapPtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    llvm::AllocaInst *bitmapAlloca = Builder.CreateAlloca(BitmapPtrTy, nullptr, baseName);
     NamedValues[baseName] = bitmapAlloca;
 
-    RoaringBitmap *rb = roaring_bitmap_create(100 * 1024 * 1024, 8); // even empty sets
+    // Check if initializer is a set expression (for cases like: set s3 = s1 union s2;)
+    if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetBinaryExpr)
+    {
+        // Evaluate the set expression at runtime
+        llvm::Value *bitmapPtr = visitSetExpr(setDecl->initializer.get());
 
-    if (setDecl->initializer)
+        // Store into both global and local
+        Builder.CreateStore(bitmapPtr, bitmapGV);
+        Builder.CreateStore(bitmapPtr, bitmapAlloca);
+        return;
+    }
+
+    // Original logic for set literals
+    RoaringBitmap *rb = roaring_bitmap_create(100 * 1024 * 1024, 8);
+
+    if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetLiteral)
     {
         auto *lit = dynamic_cast<SetLiteralNode *>(setDecl->initializer.get());
         if (!lit)
             throw std::runtime_error("Set initializer must be a set literal");
 
-        // Fill bitmap if there are elements
         for (auto &e : lit->elements)
         {
             auto *intLit = dynamic_cast<IntLiteralNode *>(e.get());
@@ -948,7 +1060,6 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     llvm::SmallVector<uint8_t> blob(blobSize);
     roaring_bitmap_portable_serialize(rb, blob.data());
 
-    // Done with compiler bitmap object
     roaring_bitmap_free(rb);
 
     llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blobSize);
@@ -985,4 +1096,122 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
 
     Builder.CreateStore(bitmapPtr, bitmapGV);
     Builder.CreateStore(bitmapPtr, bitmapAlloca);
+}
+
+void IRGenVisitor::visitSetOperation(SetOperationNode *setOp)
+{
+    // Get the target set variable (must already exist)
+    auto it = NamedValues.find(setOp->targetName);
+    if (it == NamedValues.end())
+    {
+        throw std::runtime_error("IRGenVisitor: undefined set variable: " +
+                                 setOp->targetName);
+    }
+
+    llvm::AllocaInst *targetAlloca = it->second;
+
+    // Evaluate the set expression to get the resulting bitmap pointer
+    llvm::Value *resultBitmap = visitSetExpr(setOp->expr.get());
+
+    // Store the result into the target variable
+    Builder.CreateStore(resultBitmap, targetAlloca);
+
+    // Also update the global variable if it exists
+    std::string bitmapName = setOp->targetName + "_bitmap";
+    if (llvm::GlobalVariable *bitmapGV = Module.getGlobalVariable(bitmapName))
+    {
+        Builder.CreateStore(resultBitmap, bitmapGV);
+    }
+}
+
+llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)
+{
+    switch (expr->type)
+    {
+    case ASTNodeType::SetBinaryExpr:
+    {
+        return visitSetBinaryExpr(static_cast<SetBinaryExprNode *>(expr));
+    }
+
+    case ASTNodeType::Variable:
+    {
+        auto *varNode = static_cast<VariableNode *>(expr);
+        auto it = NamedValues.find(varNode->name);
+        if (it == NamedValues.end())
+            throw std::runtime_error("Undefined set variable: " + varNode->name);
+
+        auto *BitmapPtrTy = getBitmapPtrTy(Context);
+        return Builder.CreateLoad(BitmapPtrTy, it->second, varNode->name + ".load");
+    }
+
+    case ASTNodeType::SetLiteral:
+    {
+        auto *lit = static_cast<SetLiteralNode *>(expr);
+
+        auto *BitmapPtrTy = getBitmapPtrTy(Context);
+        auto *i32Ty = Builder.getInt32Ty();
+        auto *i64Ty = Builder.getInt64Ty();
+
+        llvm::FunctionType *createFT = llvm::FunctionType::get(
+            BitmapPtrTy,
+            {i64Ty, i64Ty},
+            false);
+
+        auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
+
+        llvm::Value *arenaSize = llvm::ConstantInt::get(i64Ty, 100 * 1024 * 1024);
+        llvm::Value *initialCap = llvm::ConstantInt::get(i64Ty, 8);
+        llvm::Value *tempBitmap = Builder.CreateCall(
+            createFn,
+            {arenaSize, initialCap},
+            "temp.bitmap");
+
+        llvm::FunctionType *addFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {BitmapPtrTy, i32Ty},
+            false);
+
+        auto addFn = Module.getOrInsertFunction("roaring_bitmap_add", addFT);
+
+        for (auto &e : lit->elements)
+        {
+            auto *intLit = dynamic_cast<IntLiteralNode *>(e.get());
+            if (!intLit)
+                throw std::runtime_error("Set literal elements must be integers");
+            llvm::Value *value = llvm::ConstantInt::get(i32Ty, intLit->value);
+            Builder.CreateCall(addFn, {tempBitmap, value});
+        }
+
+        return tempBitmap;
+    }
+
+    default:
+        throw std::runtime_error("IRGenVisitor: unsupported set expression type");
+    }
+}
+
+llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
+{
+    llvm::Value *lhsBitmap = visitSetExpr(binExpr->lhs.get());
+    llvm::Value *rhsBitmap = visitSetExpr(binExpr->rhs.get());
+
+    auto *BitmapPtrTy = getBitmapPtrTy(Context);
+
+    llvm::FunctionType *opFT = llvm::FunctionType::get(
+        BitmapPtrTy,
+        {BitmapPtrTy, BitmapPtrTy},
+        false);
+
+    std::string opName = (binExpr->op == "union") ? "roaring_bitmap_union" : "roaring_bitmap_intersect";
+    if (binExpr->op != "union" && binExpr->op != "intersect")
+        throw std::runtime_error("Unsupported set operation: " + binExpr->op);
+
+    auto opFn = Module.getOrInsertFunction(opName, opFT);
+
+    llvm::Value *resultBitmap = Builder.CreateCall(
+        opFn,
+        {lhsBitmap, rhsBitmap},
+        "set." + binExpr->op + ".result");
+
+    return resultBitmap;
 }

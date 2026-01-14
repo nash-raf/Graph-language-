@@ -1,2 +1,5 @@
 
 set h = {1,2,4};
+set v = {1,2,3};
+set s = h intersect v;
+print s;

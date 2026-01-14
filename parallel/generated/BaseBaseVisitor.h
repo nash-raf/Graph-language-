@@ -75,27 +75,27 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) override {
+  virtual std::any visitSetOperation(BaseParser::SetOperationContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *ctx) override {
+  virtual std::any visitSetUnion(BaseParser::SetUnionContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitLogicalAnd(BaseParser::LogicalAndContext *ctx) override {
+  virtual std::any visitSetIntersect(BaseParser::SetIntersectContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitRelational(BaseParser::RelationalContext *ctx) override {
+  virtual std::any visitSetId(BaseParser::SetIdContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitEdgeCheck(BaseParser::EdgeCheckContext *ctx) override {
+  virtual std::any visitSetLiteral(BaseParser::SetLiteralContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitLogicalOr(BaseParser::LogicalOrContext *ctx) override {
+  virtual std::any visitParenSet(BaseParser::ParenSetContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -120,6 +120,30 @@ public:
   }
 
   virtual std::any visitParenGraphCondition(BaseParser::ParenGraphConditionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitLogicalAnd(BaseParser::LogicalAndContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitRelational(BaseParser::RelationalContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitEdgeCheck(BaseParser::EdgeCheckContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitLogicalOr(BaseParser::LogicalOrContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -247,11 +271,11 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitSetExpr(BaseParser::SetExprContext *ctx) override {
+  virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) override {
+  virtual std::any visitSetLitExpr(BaseParser::SetLitExprContext *ctx) override {
     return visitChildren(ctx);
   }
 

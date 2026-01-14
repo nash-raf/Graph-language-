@@ -18,27 +18,28 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, SET = 43, EDGE = 44, 
-    NODE = 45, TRUE = 46, FALSE = 47, OF = 48, PLUS = 49, MINUS = 50, TIMES = 51, 
-    DIVIDE = 52, AND = 53, OR = 54, EQUAL = 55, NOTEQUAL = 56, LESSTHAN = 57, 
-    GREATERTHAN = 58, LESSEQUAL = 59, GREATEREQUAL = 60, ID = 61, INT = 62, 
-    REAL = 63, STRING = 64, Comment = 65, WS = 66
+    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, SET = 43, UNION = 44, 
+    INTERSECT = 45, EDGE = 46, NODE = 47, TRUE = 48, FALSE = 49, OF = 50, 
+    PLUS = 51, MINUS = 52, TIMES = 53, DIVIDE = 54, AND = 55, OR = 56, EQUAL = 57, 
+    NOTEQUAL = 58, LESSTHAN = 59, GREATERTHAN = 60, LESSEQUAL = 61, GREATEREQUAL = 62, 
+    ID = 63, INT = 64, REAL = 65, STRING = 66, Comment = 67, WS = 68
   };
 
   enum {
     RuleProgram = 0, RuleStatement = 1, RuleGraphDef = 2, RuleNodes = 3, 
     RuleEdges = 4, RuleNodeList = 5, RuleEdgeList = 6, RuleGraphID = 7, 
     RuleNodeID = 8, RuleFileEdgeList = 9, RuleEdge = 10, RuleVarDecl = 11, 
-    RuleSetDecl = 12, RuleSetInitializer = 13, RuleConditionalStatement = 14, 
-    RuleCondition = 15, RuleGraphComprehension = 16, RuleGraphCondition = 17, 
-    RuleLoopStatement = 18, RuleForeachStatement = 19, RuleLoopTarget = 20, 
-    RuleWhileStatement = 21, RuleNodeEdgeOperation = 22, RuleAddOperation = 23, 
-    RuleRemoveOperation = 24, RuleAddTargets = 25, RuleRemoveTargets = 26, 
-    RuleQueryStatement = 27, RuleShowgraph = 28, RuleFunction = 29, RuleReturnType = 30, 
-    RuleParamList = 31, RuleParam = 32, RuleType = 33, RuleFunctionCall = 34, 
-    RuleArgumentList = 35, RuleBlock = 36, RuleReturnStatement = 37, RulePrintStatement = 38, 
-    RulePrintExpr = 39, RulePrintgraph = 40, RuleExpr = 41, RuleArrayDeclarator = 42, 
-    RuleArrayInitializer = 43, RuleAssignmentStatement = 44, RuleArrayAssignStatement = 45
+    RuleSetDecl = 12, RuleSetInitializer = 13, RuleSetOperation = 14, RuleSetExpr = 15, 
+    RuleGraphComprehension = 16, RuleGraphCondition = 17, RuleConditionalStatement = 18, 
+    RuleCondition = 19, RuleLoopStatement = 20, RuleForeachStatement = 21, 
+    RuleLoopTarget = 22, RuleWhileStatement = 23, RuleNodeEdgeOperation = 24, 
+    RuleAddOperation = 25, RuleRemoveOperation = 26, RuleAddTargets = 27, 
+    RuleRemoveTargets = 28, RuleQueryStatement = 29, RuleShowgraph = 30, 
+    RuleFunction = 31, RuleReturnType = 32, RuleParamList = 33, RuleParam = 34, 
+    RuleType = 35, RuleFunctionCall = 36, RuleArgumentList = 37, RuleBlock = 38, 
+    RuleReturnStatement = 39, RulePrintStatement = 40, RulePrintExpr = 41, 
+    RulePrintgraph = 42, RuleExpr = 43, RuleArrayDeclarator = 44, RuleArrayInitializer = 45, 
+    RuleAssignmentStatement = 46, RuleArrayAssignStatement = 47
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -72,10 +73,12 @@ public:
   class VarDeclContext;
   class SetDeclContext;
   class SetInitializerContext;
-  class ConditionalStatementContext;
-  class ConditionContext;
+  class SetOperationContext;
+  class SetExprContext;
   class GraphComprehensionContext;
   class GraphConditionContext;
+  class ConditionalStatementContext;
+  class ConditionContext;
   class LoopStatementContext;
   class ForeachStatementContext;
   class LoopTargetContext;
@@ -141,6 +144,7 @@ public:
     QueryStatementContext *queryStatement();
     ShowgraphContext *showgraph();
     NodeEdgeOperationContext *nodeEdgeOperation();
+    SetOperationContext *setOperation();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -341,6 +345,7 @@ public:
     antlr4::tree::TerminalNode *SET();
     antlr4::tree::TerminalNode *ID();
     SetInitializerContext *setInitializer();
+    SetExprContext *setExpr();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -367,6 +372,193 @@ public:
 
   SetInitializerContext* setInitializer();
 
+  class  SetOperationContext : public antlr4::ParserRuleContext {
+  public:
+    SetOperationContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ID();
+    SetExprContext *setExpr();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  SetOperationContext* setOperation();
+
+  class  SetExprContext : public antlr4::ParserRuleContext {
+  public:
+    SetExprContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    SetExprContext() = default;
+    void copyFrom(SetExprContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
+    virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  SetUnionContext : public SetExprContext {
+  public:
+    SetUnionContext(SetExprContext *ctx);
+
+    std::vector<SetExprContext *> setExpr();
+    SetExprContext* setExpr(size_t i);
+    antlr4::tree::TerminalNode *UNION();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetIntersectContext : public SetExprContext {
+  public:
+    SetIntersectContext(SetExprContext *ctx);
+
+    std::vector<SetExprContext *> setExpr();
+    SetExprContext* setExpr(size_t i);
+    antlr4::tree::TerminalNode *INTERSECT();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetIdContext : public SetExprContext {
+  public:
+    SetIdContext(SetExprContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetLiteralContext : public SetExprContext {
+  public:
+    SetLiteralContext(SetExprContext *ctx);
+
+    SetInitializerContext *setInitializer();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  ParenSetContext : public SetExprContext {
+  public:
+    ParenSetContext(SetExprContext *ctx);
+
+    SetExprContext *setExpr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  SetExprContext* setExpr();
+  SetExprContext* setExpr(int precedence);
+  class  GraphComprehensionContext : public antlr4::ParserRuleContext {
+  public:
+    GraphComprehensionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ID();
+    GraphIDContext *graphID();
+    GraphConditionContext *graphCondition();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  GraphComprehensionContext* graphComprehension();
+
+  class  GraphConditionContext : public antlr4::ParserRuleContext {
+  public:
+    GraphConditionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    GraphConditionContext() = default;
+    void copyFrom(GraphConditionContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
+    virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  GraphLogicalAndContext : public GraphConditionContext {
+  public:
+    GraphLogicalAndContext(GraphConditionContext *ctx);
+
+    std::vector<GraphConditionContext *> graphCondition();
+    GraphConditionContext* graphCondition(size_t i);
+    antlr4::tree::TerminalNode *AND();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  DegreeConditionContext : public GraphConditionContext {
+  public:
+    DegreeConditionContext(GraphConditionContext *ctx);
+
+    antlr4::tree::TerminalNode *INT();
+    antlr4::tree::TerminalNode *EQUAL();
+    antlr4::tree::TerminalNode *NOTEQUAL();
+    antlr4::tree::TerminalNode *LESSEQUAL();
+    antlr4::tree::TerminalNode *GREATEREQUAL();
+    antlr4::tree::TerminalNode *LESSTHAN();
+    antlr4::tree::TerminalNode *GREATERTHAN();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  ConnectedConditionContext : public GraphConditionContext {
+  public:
+    ConnectedConditionContext(GraphConditionContext *ctx);
+
+    NodeIDContext *nodeID();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  GraphLogicalOrContext : public GraphConditionContext {
+  public:
+    GraphLogicalOrContext(GraphConditionContext *ctx);
+
+    std::vector<GraphConditionContext *> graphCondition();
+    GraphConditionContext* graphCondition(size_t i);
+    antlr4::tree::TerminalNode *OR();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  ParenGraphConditionContext : public GraphConditionContext {
+  public:
+    ParenGraphConditionContext(GraphConditionContext *ctx);
+
+    GraphConditionContext *graphCondition();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  GraphConditionContext* graphCondition();
+  GraphConditionContext* graphCondition(int precedence);
   class  ConditionalStatementContext : public antlr4::ParserRuleContext {
   public:
     ConditionalStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -468,103 +660,6 @@ public:
 
   ConditionContext* condition();
   ConditionContext* condition(int precedence);
-  class  GraphComprehensionContext : public antlr4::ParserRuleContext {
-  public:
-    GraphComprehensionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-    virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *ID();
-    GraphIDContext *graphID();
-    GraphConditionContext *graphCondition();
-
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-   
-  };
-
-  GraphComprehensionContext* graphComprehension();
-
-  class  GraphConditionContext : public antlr4::ParserRuleContext {
-  public:
-    GraphConditionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
-   
-    GraphConditionContext() = default;
-    void copyFrom(GraphConditionContext *context);
-    using antlr4::ParserRuleContext::copyFrom;
-
-    virtual size_t getRuleIndex() const override;
-
-   
-  };
-
-  class  GraphLogicalAndContext : public GraphConditionContext {
-  public:
-    GraphLogicalAndContext(GraphConditionContext *ctx);
-
-    std::vector<GraphConditionContext *> graphCondition();
-    GraphConditionContext* graphCondition(size_t i);
-    antlr4::tree::TerminalNode *AND();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  DegreeConditionContext : public GraphConditionContext {
-  public:
-    DegreeConditionContext(GraphConditionContext *ctx);
-
-    antlr4::tree::TerminalNode *INT();
-    antlr4::tree::TerminalNode *EQUAL();
-    antlr4::tree::TerminalNode *NOTEQUAL();
-    antlr4::tree::TerminalNode *LESSEQUAL();
-    antlr4::tree::TerminalNode *GREATEREQUAL();
-    antlr4::tree::TerminalNode *LESSTHAN();
-    antlr4::tree::TerminalNode *GREATERTHAN();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  ConnectedConditionContext : public GraphConditionContext {
-  public:
-    ConnectedConditionContext(GraphConditionContext *ctx);
-
-    NodeIDContext *nodeID();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  GraphLogicalOrContext : public GraphConditionContext {
-  public:
-    GraphLogicalOrContext(GraphConditionContext *ctx);
-
-    std::vector<GraphConditionContext *> graphCondition();
-    GraphConditionContext* graphCondition(size_t i);
-    antlr4::tree::TerminalNode *OR();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  ParenGraphConditionContext : public GraphConditionContext {
-  public:
-    ParenGraphConditionContext(GraphConditionContext *ctx);
-
-    GraphConditionContext *graphCondition();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  GraphConditionContext* graphCondition();
-  GraphConditionContext* graphCondition(int precedence);
   class  LoopStatementContext : public antlr4::ParserRuleContext {
   public:
     LoopStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -1076,23 +1171,23 @@ public:
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
-  class  SetExprContext : public ExprContext {
-  public:
-    SetExprContext(ExprContext *ctx);
-
-    SetInitializerContext *setInitializer();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
   class  ArrayAccessExprContext : public ExprContext {
   public:
     ArrayAccessExprContext(ExprContext *ctx);
 
     antlr4::tree::TerminalNode *ID();
     ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetLitExprContext : public ExprContext {
+  public:
+    SetLitExprContext(ExprContext *ctx);
+
+    SetInitializerContext *setInitializer();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -1260,8 +1355,9 @@ public:
 
   bool sempred(antlr4::RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;
 
-  bool conditionSempred(ConditionContext *_localctx, size_t predicateIndex);
+  bool setExprSempred(SetExprContext *_localctx, size_t predicateIndex);
   bool graphConditionSempred(GraphConditionContext *_localctx, size_t predicateIndex);
+  bool conditionSempred(ConditionContext *_localctx, size_t predicateIndex);
   bool printExprSempred(PrintExprContext *_localctx, size_t predicateIndex);
   bool exprSempred(ExprContext *_localctx, size_t predicateIndex);
 

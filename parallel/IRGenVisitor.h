@@ -18,11 +18,11 @@ public:
     {
         // Build the Graph struct type: { i64, i64, i64*, i32* }
         llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
-        llvm::Type *I32P = llvm::PointerType::get(llvm::Type::getInt32Ty(Context), 0);
-        llvm::Type *I64P = llvm::PointerType::get(llvm::Type::getInt64Ty(Context), 0);
+        llvm::Type *I32 = llvm::Type::getInt32Ty(Context);
+        llvm::Type *PtrTy = llvm::PointerType::get(Context, 0);
         GraphTy = llvm::StructType::create(
             Context,
-            {I64, I64, I64P, I32P},
+            {I64, I64, PtrTy, PtrTy},
             "struct.Graph");
     }
 
@@ -42,6 +42,9 @@ public:
     void visitQuery(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
     void visitSetDecl(SetDeclNode *SD);
+    void visitSetOperation(SetOperationNode *setOp);
+    llvm::Value *visitSetExpr(ASTNode *expr);
+    llvm::Value *visitSetBinaryExpr(SetBinaryExprNode *binExpr);
 
 private:
     llvm::LLVMContext &Context;

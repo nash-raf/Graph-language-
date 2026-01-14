@@ -154,6 +154,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitSetDecl(ctx->setDecl());
     }
+    if (ctx->setOperation())
+    {
+        return visitSetOperation(ctx->setOperation());
+    }
 
     return nullptr;
 }
@@ -658,6 +662,13 @@ antlrcpp::Any ASTBuilder::visitSetDecl(
             "visitSetDecl");
     }
 
+    else if (ctx->setExpr())
+    {
+        initNode = safe_any_cast<ASTNodePtr>(
+            visitSetExpr(ctx->setExpr()),
+            "visitSetDecl");
+    }
+
     auto node = std::make_shared<SetDeclNode>(name, initNode);
     return std::static_pointer_cast<ASTNode>(node);
 }
@@ -682,4 +693,91 @@ antlrcpp::Any ASTBuilder::visitSetInitializer(
 
     auto node = std::make_shared<SetLiteralNode>(elements);
     return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetOperation(BaseParser::SetOperationContext *ctx)
+{
+    std::string targetName = ctx->ID()->getText();
+
+    ASTNodePtr setExpr = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr()),
+        "visitSetOperation");
+
+    auto node = std::make_shared<SetOperationNode>(targetName, setExpr);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetExpr(BaseParser::SetExprContext *ctx)
+{
+    if (auto unionCtx = dynamic_cast<BaseParser::SetUnionContext *>(ctx))
+    {
+        return visitSetUnion(unionCtx);
+    }
+    else if (auto intersectCtx = dynamic_cast<BaseParser::SetIntersectContext *>(ctx))
+    {
+        return visitSetIntersect(intersectCtx);
+    }
+    else if (auto idCtx = dynamic_cast<BaseParser::SetIdContext *>(ctx))
+    {
+        return visitSetId(idCtx);
+    }
+    else if (auto literalCtx = dynamic_cast<BaseParser::SetLiteralContext *>(ctx))
+    {
+        return visitSetLiteral(literalCtx);
+    }
+    else if (auto parenCtx = dynamic_cast<BaseParser::ParenSetContext *>(ctx))
+    {
+        return visitParenSet(parenCtx);
+    }
+
+    throw std::runtime_error("Unsupported setExpr: " + ctx->getText());
+}
+
+antlrcpp::Any ASTBuilder::visitSetUnion(BaseParser::SetUnionContext *ctx)
+{
+    ASTNodePtr lhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(0)),
+        "visitSetUnion left");
+
+    ASTNodePtr rhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(1)),
+        "visitSetUnion right");
+
+    auto node = std::make_shared<SetBinaryExprNode>("union", lhs, rhs);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetIntersect(BaseParser::SetIntersectContext *ctx)
+{
+    ASTNodePtr lhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(0)),
+        "visitSetIntersect left");
+
+    ASTNodePtr rhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(1)),
+        "visitSetIntersect right");
+
+    auto node = std::make_shared<SetBinaryExprNode>("intersect", lhs, rhs);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetId(BaseParser::SetIdContext *ctx)
+{
+    std::string name = ctx->ID()->getText();
+
+    // Reuse VariableNode or create a dedicated SetIdNode
+    auto node = std::make_shared<VariableNode>(name);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetLiteral(BaseParser::SetLiteralContext *ctx)
+{
+    // SetLiteral in setExpr refers to setInitializer
+    return visitSetInitializer(ctx->setInitializer());
+}
+
+antlrcpp::Any ASTBuilder::visitParenSet(BaseParser::ParenSetContext *ctx)
+{
+    // Just visit the inner expression
+    return visitSetExpr(ctx->setExpr());
 }

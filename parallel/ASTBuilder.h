@@ -31,6 +31,13 @@ public:
     antlrcpp::Any visitPrintStatement(BaseParser::PrintStatementContext *ctx) override;
     antlrcpp::Any visitSetDecl(BaseParser::SetDeclContext *ctx);
     antlrcpp::Any visitSetInitializer(BaseParser::SetInitializerContext *ctx);
+    antlrcpp::Any visitSetOperation(BaseParser::SetOperationContext *ctx);
+    antlrcpp::Any visitSetExpr(BaseParser::SetExprContext *ctx);
+    antlrcpp::Any visitSetUnion(BaseParser::SetUnionContext *ctx);
+    antlrcpp::Any visitSetIntersect(BaseParser::SetIntersectContext *ctx);
+    antlrcpp::Any visitSetId(BaseParser::SetIdContext *ctx);
+    antlrcpp::Any visitSetLiteral(BaseParser::SetLiteralContext *ctx);
+    antlrcpp::Any visitParenSet(BaseParser::ParenSetContext *ctx);
 
 private:
     std::unordered_map<std::string, int> symbolTable;

@@ -993,36 +993,127 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *node)
     throw std::runtime_error("print only supports variables (int or set) for now");
 }
 
+// void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
+// {
+//     std::string baseName = setDecl->name;
+//     std::string bitmapName = baseName + "_bitmap";
+//     std::string blobName = baseName + "_blob";
+
+//     auto *i8Ty = llvm::Type::getInt8Ty(Context);
+//     auto *i8PtrTy = llvm::PointerType::get(Context, 0);
+//     auto *i64Ty = Builder.getInt64Ty();
+
+//     /* -----------------------------
+//        1. Create global pointer for runtime bitmap
+//        ----------------------------- */
+//     llvm::GlobalVariable *bitmapGV = Module.getGlobalVariable(bitmapName);
+//     if (!bitmapGV)
+//     {
+//         bitmapGV = new llvm::GlobalVariable(
+//             Module,
+//             i8PtrTy,
+//             /*isConstant=*/false,
+//             llvm::GlobalValue::ExternalLinkage,
+//             llvm::ConstantPointerNull::get(i8PtrTy),
+//             bitmapName);
+//     }
+
+//     llvm::Function *fn = Builder.GetInsertBlock()->getParent();
+//     llvm::IRBuilder<> entryB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+
+//     auto *BitmapPtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+//     llvm::AllocaInst *bitmapAlloca = Builder.CreateAlloca(BitmapPtrTy, nullptr, baseName);
+//     NamedValues[baseName] = bitmapAlloca;
+
+//     // Check if initializer is a set expression (for cases like: set s3 = s1 union s2;)
+//     if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetBinaryExpr)
+//     {
+//         // Evaluate the set expression at runtime
+//         llvm::Value *bitmapPtr = visitSetExpr(setDecl->initializer.get());
+
+//         // Store into both global and local
+//         Builder.CreateStore(bitmapPtr, bitmapGV);
+//         Builder.CreateStore(bitmapPtr, bitmapAlloca);
+//         return;
+//     }
+
+//     // Original logic for set literals
+//     RoaringBitmap *rb = roaring_bitmap_create(100 * 1024 * 1024, 8);
+
+//     if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetLiteral)
+//     {
+//         auto *lit = dynamic_cast<SetLiteralNode *>(setDecl->initializer.get());
+//         if (!lit)
+//             throw std::runtime_error("Set initializer must be a set literal");
+
+//         for (auto &e : lit->elements)
+//         {
+//             auto *intLit = dynamic_cast<IntLiteralNode *>(e.get());
+//             if (!intLit)
+//                 throw std::runtime_error("Set literal elements must be integers");
+
+//             roaring_bitmap_add(rb, intLit->value);
+//         }
+//     }
+
+//     size_t blobSize = roaring_bitmap_portable_size_in_bytes(rb);
+//     llvm::SmallVector<uint8_t> blob(blobSize);
+//     roaring_bitmap_portable_serialize(rb, blob.data());
+
+//     roaring_bitmap_free(rb);
+
+//     llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blobSize);
+//     llvm::SmallVector<llvm::Constant *, 128> bytes;
+//     for (uint8_t b : blob)
+//         bytes.push_back(llvm::ConstantInt::get(i8Ty, b));
+
+//     llvm::Constant *blobConst = llvm::ConstantArray::get(blobTy, bytes);
+
+//     llvm::GlobalVariable *blobGV =
+//         new llvm::GlobalVariable(
+//             Module,
+//             blobTy,
+//             /*isConstant=*/true,
+//             llvm::GlobalValue::PrivateLinkage,
+//             blobConst,
+//             blobName);
+
+//     llvm::Value *zero = Builder.getInt32(0);
+//     llvm::Value *blobPtr =
+//         Builder.CreateInBoundsGEP(blobTy, blobGV, {zero, zero}, blobName + ".ptr");
+
+//     llvm::FunctionType *deserializeFT =
+//         llvm::FunctionType::get(i8PtrTy, {i8PtrTy, i64Ty}, false);
+
+//     auto deserializeFn =
+//         Module.getOrInsertFunction("roaring_from_serialized", deserializeFT);
+
+//     llvm::Value *sizeVal =
+//         llvm::ConstantInt::get(i64Ty, blobSize);
+
+//     llvm::Value *bitmapPtr =
+//         Builder.CreateCall(deserializeFn, {blobPtr, sizeVal}, baseName + ".bitmap");
+
+//     Builder.CreateStore(bitmapPtr, bitmapGV);
+//     Builder.CreateStore(bitmapPtr, bitmapAlloca);
+// }
+
 void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
 {
     std::string baseName = setDecl->name;
-    std::string bitmapName = baseName + "_bitmap";
     std::string blobName = baseName + "_blob";
 
     auto *i8Ty = llvm::Type::getInt8Ty(Context);
     auto *i8PtrTy = llvm::PointerType::get(Context, 0);
     auto *i64Ty = Builder.getInt64Ty();
 
-    /* -----------------------------
-       1. Create global pointer for runtime bitmap
-       ----------------------------- */
-    llvm::GlobalVariable *bitmapGV = Module.getGlobalVariable(bitmapName);
-    if (!bitmapGV)
-    {
-        bitmapGV = new llvm::GlobalVariable(
-            Module,
-            i8PtrTy,
-            /*isConstant=*/false,
-            llvm::GlobalValue::ExternalLinkage,
-            llvm::ConstantPointerNull::get(i8PtrTy),
-            bitmapName);
-    }
-
+    // Get current function for local allocation
     llvm::Function *fn = Builder.GetInsertBlock()->getParent();
-    llvm::IRBuilder<> entryB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
 
-    auto *BitmapPtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-    llvm::AllocaInst *bitmapAlloca = Builder.CreateAlloca(BitmapPtrTy, nullptr, baseName);
+    // Create LOCAL alloca for the bitmap pointer
+    // CRITICAL: Must allocate ptr type, not i32!
+    llvm::IRBuilder<> tmpB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+    llvm::AllocaInst *bitmapAlloca = tmpB.CreateAlloca(i8PtrTy, nullptr, baseName);
     NamedValues[baseName] = bitmapAlloca;
 
     // Check if initializer is a set expression (for cases like: set s3 = s1 union s2;)
@@ -1031,8 +1122,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
         // Evaluate the set expression at runtime
         llvm::Value *bitmapPtr = visitSetExpr(setDecl->initializer.get());
 
-        // Store into both global and local
-        Builder.CreateStore(bitmapPtr, bitmapGV);
+        // Store only into local alloca (no global!)
         Builder.CreateStore(bitmapPtr, bitmapAlloca);
         return;
     }
@@ -1069,6 +1159,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
 
     llvm::Constant *blobConst = llvm::ConstantArray::get(blobTy, bytes);
 
+    // Keep the blob as a private constant (this is fine - it's read-only data)
     llvm::GlobalVariable *blobGV =
         new llvm::GlobalVariable(
             Module,
@@ -1094,7 +1185,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     llvm::Value *bitmapPtr =
         Builder.CreateCall(deserializeFn, {blobPtr, sizeVal}, baseName + ".bitmap");
 
-    Builder.CreateStore(bitmapPtr, bitmapGV);
+    // Store only into local alloca (no global variable for the bitmap pointer!)
     Builder.CreateStore(bitmapPtr, bitmapAlloca);
 }
 
@@ -1113,15 +1204,8 @@ void IRGenVisitor::visitSetOperation(SetOperationNode *setOp)
     // Evaluate the set expression to get the resulting bitmap pointer
     llvm::Value *resultBitmap = visitSetExpr(setOp->expr.get());
 
-    // Store the result into the target variable
+    // Store the result ONLY into the local alloca (no global update!)
     Builder.CreateStore(resultBitmap, targetAlloca);
-
-    // Also update the global variable if it exists
-    std::string bitmapName = setOp->targetName + "_bitmap";
-    if (llvm::GlobalVariable *bitmapGV = Module.getGlobalVariable(bitmapName))
-    {
-        Builder.CreateStore(resultBitmap, bitmapGV);
-    }
 }
 
 llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)

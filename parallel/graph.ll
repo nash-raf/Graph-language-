@@ -1,21 +1,40 @@
+Captured Inputs:
+  - 0xdc2b010
+  - 0xdc2b3d0
+  - 0xdc00820
+  - 0xdc305b8
+Captured Inputs:
+  -   %b.bitmap = call ptr @roaring_from_serialized(ptr @b_blob, i64 57)
+  -   %c.bitmap = call ptr @roaring_from_serialized(ptr @c_blob, i64 55)
+  -   %s.bitmap = call ptr @roaring_from_serialized(ptr @s_blob, i64 51)
+  -   %i.0 = phi i32 [ 100, %entry ], [ %subtmp, %loopbody ]
+Captured Outputs:
+  -   %subtmp = sub i32 %i.0, 1
 ; ModuleID = 'my_module'
 source_filename = "my_module"
 
-@h_bitmap = global ptr null
-@h_blob = private constant [25 x i8] c"\01\00\00\00\00\00\00\00\00\00\00\03\00\00\00\00\00\00\00\01\00\02\00\04\00"
-@v_bitmap = global ptr null
-@v_blob = private constant [25 x i8] c"\01\00\00\00\00\00\00\00\00\00\00\03\00\00\00\00\00\00\00\01\00\02\00\03\00"
-@s_bitmap = global ptr null
+%env.struct = type { ptr, ptr, ptr, ptr }
+
+@s_blob = private constant [51 x i8] c"\03\00\00\00\00\00\00\00\00\00\00\03\00\00\00\00\00\00\00\03\00\04\00\05\00\01\00\00\01\00\00\00\00\00\00\00\A0\86\EB\0B\00\01\00\00\00\00\00\00\00\00\C2"
+@b_blob = private constant [57 x i8] c"\03\00\00\00\00\00\00\00\00\00\00\06\00\00\00\00\00\00\00\03\00\04\00\05\00\06\00\07\00\08\00\01\00\00\01\00\00\00\00\00\00\00\A0\86\EB\0B\00\01\00\00\00\00\00\00\00\00\C2"
+@c_blob = private constant [55 x i8] c"\03\00\00\00\00\00\00\00\00\00\00\05\00\00\00\00\00\00\00\03\00\04\00\06\00\07\00\08\00\01\00\00\01\00\00\00\00\00\00\00\A0\86\EB\0B\00\01\00\00\00\00\00\00\00\00\C2"
 
 define i32 @main() {
 entry:
-  %h.bitmap = call ptr @roaring_from_serialized(ptr @h_blob, i64 25)
-  store ptr %h.bitmap, ptr @h_bitmap, align 8
-  %v.bitmap = call ptr @roaring_from_serialized(ptr @v_blob, i64 25)
-  store ptr %v.bitmap, ptr @v_bitmap, align 8
-  %set.intersect.result = call ptr @roaring_bitmap_intersect(ptr %h.bitmap, ptr %v.bitmap)
-  store ptr %set.intersect.result, ptr @s_bitmap, align 8
-  call void @roaring_print(ptr %set.intersect.result)
+  %subtmp.loc = alloca i32, align 4
+  %s.bitmap = call ptr @roaring_from_serialized(ptr @s_blob, i64 51)
+  %b.bitmap = call ptr @roaring_from_serialized(ptr @b_blob, i64 57)
+  %c.bitmap = call ptr @roaring_from_serialized(ptr @c_blob, i64 55)
+  %env_raw = call ptr @malloc(i64 32)
+  %env_gep = getelementptr inbounds nuw %env.struct, ptr %env_raw, i32 0, i32 0
+  store ptr %b.bitmap, ptr %env_gep, align 8
+  %env_gep4 = getelementptr inbounds nuw %env.struct, ptr %env_raw, i32 0, i32 1
+  store ptr %c.bitmap, ptr %env_gep4, align 8
+  %env_gep5 = getelementptr inbounds nuw %env.struct, ptr %env_raw, i32 0, i32 2
+  store ptr %s.bitmap, ptr %env_gep5, align 8
+  %env_gep6 = getelementptr inbounds nuw %env.struct, ptr %env_raw, i32 0, i32 3
+  store ptr %subtmp.loc, ptr %env_gep6, align 8
+  call void @parallel_for_runtime(i64 100, i64 0, i64 -1, ptr @wrapper, ptr %env_raw)
   ret i32 0
 }
 
@@ -30,3 +49,40 @@ declare ptr @roaring_bitmap_intersect(ptr, ptr)
 declare void @roaring_print(ptr)
 
 declare ptr @roaring_from_serialized(ptr, i64)
+
+define dso_local void @outlined_main_loopbody(ptr %b.bitmap, ptr %c.bitmap, ptr %s.bitmap, i32 %i.0, ptr %subtmp.out) #0 {
+newFuncRoot:
+  %set.intersect.result = call ptr @roaring_bitmap_intersect(ptr %b.bitmap, ptr %c.bitmap)
+  %set.intersect.result2 = call ptr @roaring_bitmap_intersect(ptr %s.bitmap, ptr %set.intersect.result)
+  %subtmp = sub i32 %i.0, 1
+  store i32 %subtmp, ptr %subtmp.out, align 4
+  ret void
+}
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
+
+declare ptr @malloc(i64)
+
+define void @wrapper(i64 %idx, ptr %env) {
+entry:
+  %fgep = getelementptr inbounds nuw %env.struct, ptr %env, i32 0, i32 0
+  %fload = load ptr, ptr %fgep, align 8
+  %fgep1 = getelementptr inbounds nuw %env.struct, ptr %env, i32 0, i32 1
+  %fload2 = load ptr, ptr %fgep1, align 8
+  %fgep3 = getelementptr inbounds nuw %env.struct, ptr %env, i32 0, i32 2
+  %fload4 = load ptr, ptr %fgep3, align 8
+  %fgep5 = getelementptr inbounds nuw %env.struct, ptr %env, i32 0, i32 3
+  %fload6 = load ptr, ptr %fgep5, align 8
+  %idxcast = trunc i64 %idx to i32
+  call void @outlined_main_loopbody(ptr %fload, ptr %fload2, ptr %fload4, i32 %idxcast, ptr %fload6)
+  ret void
+}
+
+declare void @parallel_for_runtime(i64, i64, i64, ptr, ptr)
+
+attributes #0 = { "outlined-loop" }
+attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }

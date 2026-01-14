@@ -1,5 +1,11 @@
 
-set h = {1,2,4};
-set v = {1,2,3};
-set s = h intersect v;
-print s;
+set s = {100000,200000000,3,4,5};
+set b = {100000,200000000,3,4,5,6,7,8};
+set c = {100000,200000000,3,4,6,7,8};
+
+int i = 100;
+while(i > 0)
+{
+    set s1 = s intersect (b intersect c);  
+    i = i - 1;
+}

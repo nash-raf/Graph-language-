@@ -547,7 +547,7 @@ public:
 class SetOperationNode : public ASTNode
 {
 public:
-    std::string targetName; // The variable being assigned to (e.g., "s3")
+    std::string targetName; // The variable being assigned to
     ASTNodePtr expr;        // The set expression (SetBinaryExprNode)
 
     SetOperationNode(const std::string &target, ASTNodePtr expression)

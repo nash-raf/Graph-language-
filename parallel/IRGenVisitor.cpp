@@ -64,6 +64,7 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
     Builder.SetInsertPoint(BB);
 
     auto *BitmapPtrTy = llvm::PointerType::get(Context, 0);
+    auto *BitmapPtrPtrTy = BitmapPtrTy->getPointerTo();
     auto *i64Ty = Builder.getInt64Ty();
     auto *i32Ty = Builder.getInt32Ty();
     auto *voidTy = Builder.getVoidTy();
@@ -75,9 +76,12 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
     auto addFT = llvm::FunctionType::get(voidTy, {BitmapPtrTy, i32Ty}, false);
     Module.getOrInsertFunction("roaring_bitmap_add", addFT);
 
-    auto opFT = llvm::FunctionType::get(BitmapPtrTy, {BitmapPtrTy, BitmapPtrTy}, false);
-    Module.getOrInsertFunction("roaring_bitmap_union", opFT);
-    Module.getOrInsertFunction("roaring_bitmap_intersect", opFT);
+    auto unionFT = llvm::FunctionType::get(BitmapPtrTy, {BitmapPtrPtrTy, i64Ty}, false);
+    Module.getOrInsertFunction("roaring_bitmap_union", unionFT);
+
+    // Intersect: takes two bitmaps
+    auto intersectFT = llvm::FunctionType::get(BitmapPtrTy, {BitmapPtrTy, BitmapPtrTy}, false);
+    Module.getOrInsertFunction("roaring_bitmap_intersect", intersectFT);
 
     auto printFT = llvm::FunctionType::get(voidTy, {BitmapPtrTy}, false);
     Module.getOrInsertFunction("roaring_print", printFT);
@@ -1274,28 +1278,121 @@ llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)
     }
 }
 
+llvm::SmallVector<ASTNode *, 8> IRGenVisitor::flattenSetOperation(ASTNode *expr, const std::string &targetOp)
+{
+    llvm::SmallVector<ASTNode *, 8> operands;
+
+    if (expr->type != ASTNodeType::SetBinaryExpr)
+    {
+        // Leaf node (Variable or SetLiteral)
+        operands.push_back(expr);
+        return operands;
+    }
+
+    auto *binExpr = static_cast<SetBinaryExprNode *>(expr);
+
+    // Only flatten if this node has the same operation as targetOp
+    if (binExpr->op != targetOp)
+    {
+        // Different operation - treat as atomic
+        operands.push_back(expr);
+        return operands;
+    }
+
+    // Same operation - recursively flatten both sides
+    auto leftOps = flattenSetOperation(binExpr->lhs.get(), targetOp);
+    auto rightOps = flattenSetOperation(binExpr->rhs.get(), targetOp);
+
+    // Reserve space to avoid reallocations
+    operands.reserve(leftOps.size() + rightOps.size());
+
+    operands.insert(operands.end(), leftOps.begin(), leftOps.end());
+    operands.insert(operands.end(), rightOps.begin(), rightOps.end());
+
+    return operands;
+}
+
 llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
 {
-    llvm::Value *lhsBitmap = visitSetExpr(binExpr->lhs.get());
-    llvm::Value *rhsBitmap = visitSetExpr(binExpr->rhs.get());
-
     auto *BitmapPtrTy = getBitmapPtrTy(Context);
 
-    llvm::FunctionType *opFT = llvm::FunctionType::get(
-        BitmapPtrTy,
-        {BitmapPtrTy, BitmapPtrTy},
-        false);
+    if (binExpr->op == "union")
+    {
+        // Always flatten union operations
+        llvm::SmallVector<ASTNode *, 8> operands = flattenSetOperation(binExpr, "union");
 
-    std::string opName = (binExpr->op == "union") ? "roaring_bitmap_union" : "roaring_bitmap_intersect";
-    if (binExpr->op != "union" && binExpr->op != "intersect")
+        std::cerr << "[IRGen] Union expression with "
+                  << operands.size() << " operands\n";
+
+        // Evaluate all operands - use SmallVector here too
+        llvm::SmallVector<llvm::Value *, 8> bitmapPtrs;
+        bitmapPtrs.reserve(operands.size());
+
+        for (auto *op : operands)
+        {
+            bitmapPtrs.push_back(visitSetExpr(op));
+        }
+
+        // Create array to pass all bitmaps
+        auto *i64Ty = Builder.getInt64Ty();
+
+        // Allocate array on stack: RoaringBitmap* array[N]
+        llvm::Value *arraySize = llvm::ConstantInt::get(Builder.getInt64Ty(), operands.size());
+        llvm::AllocaInst *bitmapArray = Builder.CreateAlloca(
+            BitmapPtrTy,
+            arraySize,
+            "bitmap_array");
+
+        // Store all bitmap pointers into the array
+        for (size_t i = 0; i < bitmapPtrs.size(); ++i)
+        {
+            llvm::Value *idx = llvm::ConstantInt::get(Builder.getInt32Ty(), i);
+            llvm::Value *elemPtr = Builder.CreateGEP(
+                BitmapPtrTy,
+                bitmapArray,
+                {idx},
+                "array_elem_" + std::to_string(i));
+            Builder.CreateStore(bitmapPtrs[i], elemPtr);
+        }
+
+        // Call union function: roaring_bitmap_union(RoaringBitmap** bitmaps, size_t count)
+        llvm::FunctionType *unionFT = llvm::FunctionType::get(
+            BitmapPtrTy,
+            {BitmapPtrTy->getPointerTo(), i64Ty}, // (ptr*, size_t)
+            false);
+
+        auto unionFn = Module.getOrInsertFunction("roaring_bitmap_union", unionFT);
+
+        llvm::Value *count = llvm::ConstantInt::get(i64Ty, operands.size());
+        llvm::Value *resultBitmap = Builder.CreateCall(
+            unionFn,
+            {bitmapArray, count},
+            "set.union.result");
+
+        return resultBitmap;
+    }
+    else if (binExpr->op == "intersect")
+    {
+        // Intersect stays binary
+        llvm::Value *lhsBitmap = visitSetExpr(binExpr->lhs.get());
+        llvm::Value *rhsBitmap = visitSetExpr(binExpr->rhs.get());
+
+        llvm::FunctionType *intersectFT = llvm::FunctionType::get(
+            BitmapPtrTy,
+            {BitmapPtrTy, BitmapPtrTy},
+            false);
+
+        auto intersectFn = Module.getOrInsertFunction("roaring_bitmap_intersect", intersectFT);
+
+        llvm::Value *resultBitmap = Builder.CreateCall(
+            intersectFn,
+            {lhsBitmap, rhsBitmap},
+            "set.intersect.result");
+
+        return resultBitmap;
+    }
+    else
+    {
         throw std::runtime_error("Unsupported set operation: " + binExpr->op);
-
-    auto opFn = Module.getOrInsertFunction(opName, opFT);
-
-    llvm::Value *resultBitmap = Builder.CreateCall(
-        opFn,
-        {lhsBitmap, rhsBitmap},
-        "set." + binExpr->op + ".result");
-
-    return resultBitmap;
+    }
 }

@@ -1132,7 +1132,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     }
 
     // Original logic for set literals
-    RoaringBitmap *rb = roaring_bitmap_create(100 * 1024 * 1024, 8);
+    RoaringBitmap *rb = roaring_bitmap_create(500 * 1024 * 1024, 8);
 
     if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetLiteral)
     {
@@ -1247,7 +1247,7 @@ llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)
 
         auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
 
-        llvm::Value *arenaSize = llvm::ConstantInt::get(i64Ty, 100 * 1024 * 1024);
+        llvm::Value *arenaSize = llvm::ConstantInt::get(i64Ty, 500 * 1024 * 1024);
         llvm::Value *initialCap = llvm::ConstantInt::get(i64Ty, 8);
         llvm::Value *tempBitmap = Builder.CreateCall(
             createFn,

@@ -2,6 +2,7 @@
 #include <immintrin.h>
 #include <cstdio>
 #include <omp.h>
+#include <iostream>
 
 // Heap node containing a container pointer and metadata
 struct ContainerHeapNode
@@ -272,6 +273,7 @@ Container *create_container(RoaringBitmap *bm, uint16_t key, ContainerType type)
         container->bitmap.bits = bm->arena.alloc(8192); // 2^16 / 8
         if (!container->bitmap.bits)
             return nullptr; // out of memory
+        // *** CRITICAL: Initialize bitmap to zero ***
         std::memset(container->bitmap.bits, 0, 8192);
     }
     else if (type == ARRAY_CONTAINER)
@@ -392,25 +394,39 @@ void add_to_array(RoaringBitmap *bm, Container *c, uint16_t value)
 
 void promote_to_bitmap(RoaringBitmap *bm, Container *c)
 {
-    ArrayContainer &a = c->array;
+    // Save the array values pointer before we change anything
+    uint16_t *old_values = c->array.values;
+    size_t old_cardinality = c->array.cardinality;
+
+    fprintf(stderr, "  promote_to_bitmap: Allocating 8192 bytes (arena offset=%zu, capacity=%zu)\n",
+            bm->arena.offset, bm->arena.capacity);
 
     uint8_t *bits = reinterpret_cast<uint8_t *>(bm->arena.alloc(8192));
     if (!bits)
-        return; // out of memory
+    {
+        fprintf(stderr, "  ERROR: Arena allocation FAILED! Cannot promote to bitmap.\n");
+        fprintf(stderr, "  Arena needs 8192 bytes but only has %zu bytes free\n",
+                bm->arena.capacity - bm->arena.offset);
+        return;
+    }
+
+    fprintf(stderr, "  promote_to_bitmap: Allocated bits at %p\n", (void *)bits);
     std::memset(bits, 0, 8192);
 
-    for (size_t i = 0; i < a.cardinality; ++i)
+    // Copy values from old array to new bitmap
+    for (size_t i = 0; i < old_cardinality; ++i)
     {
-        uint16_t v = a.values[i];
+        uint16_t v = old_values[i];
         bits[v >> 3] |= (1u << (v & 7));
     }
 
+    // Now change the container type and set bitmap fields
+    // CRITICAL: Do this AFTER we're done reading from the array!
     c->type = BITMAP_CONTAINER;
     c->bitmap.bits = bits;
 
-    a.values = nullptr;
-    a.capacity = 0;
-    a.cardinality = 0;
+    fprintf(stderr, "  promote_to_bitmap: Complete. Container type=%d, bits=%p\n",
+            (int)c->type, (void *)c->bitmap.bits);
 }
 
 inline void set_bit(BitmapContainer &b, uint16_t value)
@@ -433,20 +449,52 @@ void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value)
     {
         container = create_container(bm, high, ARRAY_CONTAINER);
         if (!container)
-            return; // out of memory
+        {
+            fprintf(stderr, "ERROR: create_container failed for value %u\n", value);
+            return;
+        }
     }
 
     if (container->type == ARRAY_CONTAINER)
     {
         add_to_array(bm, container, low);
+
+        // Check if we need to promote
         if (container->array.cardinality > THRESHOLD)
         {
+            fprintf(stderr, "Promoting container with key=%u, cardinality=%zu to bitmap\n",
+                    container->key, container->array.cardinality);
+
+            ContainerType oldType = container->type;
             promote_to_bitmap(bm, container);
+
+            // Verify promotion succeeded
+            if (container->type == oldType)
+            {
+                // Promotion failed - type wasn't changed
+                fprintf(stderr, "ERROR: Promotion failed! Still ARRAY_CONTAINER. Stopping.\n");
+                exit(1);
+            }
+            if (!container->bitmap.bits)
+            {
+                fprintf(stderr, "ERROR: Promotion succeeded but bitmap.bits is NULL!\n");
+                exit(1);
+            }
+            fprintf(stderr, "Promotion successful, bitmap.bits = %p\n",
+                    (void *)container->bitmap.bits);
         }
     }
-
     else if (container->type == BITMAP_CONTAINER)
     {
+        if (!container->bitmap.bits)
+        {
+            fprintf(stderr, "ERROR: About to set bit in NULL bitmap! value=%u, high=%u, low=%u\n",
+                    value, high, low);
+            fprintf(stderr, "Container key=%u, type=%d\n",
+                    container->key, (int)container->type);
+            fprintf(stderr, "This should never happen - bitmap container must have valid bits!\n");
+            exit(1);
+        }
         set_bit(container->bitmap, low);
     }
 }
@@ -724,19 +772,16 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
 
     while (!P->empty())
     {
-        // Step 6: Remove ALL elements with the same key as root
         ContainerHeapNode x_h = P->pop();
         Container *x = x_h.container;
         uint16_t current_key = x->key;
 
-        // Collect all containers with the same key (this is Q from the algorithm)
         std::vector<Container *> Q_vec;
-        std::vector<ContainerHeapNode> popped_nodes; // Track which nodes we popped
+        std::vector<ContainerHeapNode> popped_nodes;
 
         Q_vec.push_back(x);
         popped_nodes.push_back(x_h);
 
-        // Remove ALL remaining containers with same key from heap
         while (!P->empty() && P->top().container->key == current_key)
         {
             ContainerHeapNode next_h = P->pop();
@@ -744,13 +789,11 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
             popped_nodes.push_back(next_h);
         }
 
-        // advance all the bitmaps that contributed containers
         for (const auto &node : popped_nodes)
         {
             advance_and_reinsert(P, bitmaps, node);
         }
 
-        // Step 7: Sort Q by descending cardinality
         size_t Q_size = Q_vec.size();
         Container **Q = new Container *[Q_size];
         for (size_t i = 0; i < Q_size; ++i)
@@ -759,20 +802,59 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
         }
         roaring_bitmap_sort_containers_array(Q, Q_size);
 
-        // Step 8: Clone Q_1 and call the result A
-        Container *A = reinterpret_cast<Container *>(T->arena.alloc(sizeof(Container)));
+        // ========================================
+        // FIXED: Allocate container directly in T's array
+        // ========================================
+        if (T->num_containers >= T->max_containers)
+        {
+            size_t new_capacity = T->max_containers * 2;
+            Container *new_array = reinterpret_cast<Container *>(T->arena.alloc(sizeof(Container) * new_capacity));
+            if (!new_array)
+            {
+                delete[] Q;
+                return nullptr;
+            }
+            std::memcpy(new_array, T->containers, sizeof(Container) * T->num_containers);
+            T->containers = new_array;
+            T->max_containers = new_capacity;
+        }
+
+        size_t insert_pos = find_insert_position(T, current_key);
+        if (insert_pos < T->num_containers)
+        {
+            std::memmove(
+                &T->containers[insert_pos + 1],
+                &T->containers[insert_pos],
+                sizeof(Container) * (T->num_containers - insert_pos));
+        }
+
+        // Work directly on the container in T's array
+        Container *A = &T->containers[insert_pos];
+        T->num_containers++;
+
         A->key = current_key;
 
-        // Determine if we should start with bitmap or array based on largest container
         bool start_as_bitmap = (Q[0]->type == BITMAP_CONTAINER) ||
                                (Q[0]->type == ARRAY_CONTAINER && Q[0]->array.cardinality > THRESHOLD);
 
-        // If A is bitmap, union all Q containers in parallel
         if (start_as_bitmap)
         {
             // Start as bitmap container
             A->type = BITMAP_CONTAINER;
             A->bitmap.bits = T->arena.alloc(8192);
+
+            // *** CRITICAL FIX: Check for allocation failure ***
+            if (!A->bitmap.bits)
+            {
+                delete[] Q;
+                delete P;
+                fprintf(stderr, "ERROR: Failed to allocate bitmap bits for union - arena out of memory\n");
+                fprintf(stderr, "Arena usage: %zu / %zu bytes\n", T->arena.offset, T->arena.capacity);
+                return nullptr;
+            }
+
+            // *** CRITICAL FIX: Initialize bitmap to zero before ORing ***
+            std::memset(A->bitmap.bits, 0, 8192);
 
             // Step 1: Convert all containers to bitmap format in parallel
             std::vector<uint8_t *> temp_bitmaps(Q_size);
@@ -783,7 +865,6 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
             {
                 if (Q[i]->type == BITMAP_CONTAINER)
                 {
-                    // Already a bitmap, just reference it
                     temp_bitmaps[i] = Q[i]->bitmap.bits;
                     needs_cleanup[i] = false;
                 }
@@ -802,7 +883,7 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
                 }
             }
 
-// Step 2: Parallel reduction - OR all bitmaps word by word
+            // Step 2: Parallel reduction - OR all bitmaps word by word
 #pragma omp parallel for schedule(static)
             for (size_t word_idx = 0; word_idx < 256; ++word_idx)
             {
@@ -826,28 +907,34 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
                 }
             }
         }
-        else
+        else // Array container path
         {
-            // Steps 12-13: A is an array container
             A->type = ARRAY_CONTAINER;
             A->array.capacity = Q[0]->array.capacity;
             A->array.cardinality = Q[0]->array.cardinality;
             A->array.values = reinterpret_cast<uint16_t *>(T->arena.alloc(sizeof(uint16_t) * A->array.capacity));
+
+            // *** CRITICAL FIX: Check array allocation ***
+            if (!A->array.values)
+            {
+                delete[] Q;
+                delete P;
+                fprintf(stderr, "ERROR: Failed to allocate array values for union\n");
+                return nullptr;
+            }
+
             std::memcpy(A->array.values, Q[0]->array.values, sizeof(uint16_t) * A->array.cardinality);
 
-            // Step 13: Compute union with remaining array containers
             size_t i = 1;
             while (i < Q_size && A->type == ARRAY_CONTAINER)
             {
                 if (Q[i]->type == ARRAY_CONTAINER)
                 {
-                    // Merge sorted arrays
                     for (size_t j = 0; j < Q[i]->array.cardinality; ++j)
                     {
                         add_to_array(T, A, Q[i]->array.values[j]);
                     }
 
-                    // If A exceeds cardinality of 4096, promote to bitmap
                     if (A->array.cardinality > THRESHOLD)
                     {
                         promote_to_bitmap(T, A);
@@ -856,14 +943,12 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
                 }
                 else
                 {
-                    // Q[i] is bitmap, we must promote
                     promote_to_bitmap(T, A);
                     break;
                 }
                 i++;
             }
 
-            // If promoted to bitmap during the loop, handle remaining containers
             if (A->type == BITMAP_CONTAINER)
             {
                 for (; i < Q_size; ++i)
@@ -889,14 +974,197 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
             }
         }
 
-        // Step 15: Add A to the output
-        add_container(T, A);
+        // NO add_container call - A is already in T->containers[]!
         delete[] Q;
     }
 
     delete P;
     return T;
 }
+
+// extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t count)
+// {
+//     if (!bitmaps || count == 0)
+//         return nullptr;
+
+//     RoaringBitmap *T = roaring_bitmap_create(100 * 1024 * 1024, 16);
+//     ContainerMinHeap *P = build_container_heap(bitmaps, count);
+
+//     while (!P->empty())
+//     {
+//         // Step 6: Remove ALL elements with the same key as root
+//         ContainerHeapNode x_h = P->pop();
+//         Container *x = x_h.container;
+//         uint16_t current_key = x->key;
+
+//         // Collect all containers with the same key (this is Q from the algorithm)
+//         std::vector<Container *> Q_vec;
+//         std::vector<ContainerHeapNode> popped_nodes; // Track which nodes we popped
+
+//         Q_vec.push_back(x);
+//         popped_nodes.push_back(x_h);
+
+//         // Remove ALL remaining containers with same key from heap
+//         while (!P->empty() && P->top().container->key == current_key)
+//         {
+//             ContainerHeapNode next_h = P->pop();
+//             Q_vec.push_back(next_h.container);
+//             popped_nodes.push_back(next_h);
+//         }
+
+//         // advance all the bitmaps that contributed containers
+//         for (const auto &node : popped_nodes)
+//         {
+//             advance_and_reinsert(P, bitmaps, node);
+//         }
+
+//         // Step 7: Sort Q by descending cardinality
+//         size_t Q_size = Q_vec.size();
+//         Container **Q = new Container *[Q_size];
+//         for (size_t i = 0; i < Q_size; ++i)
+//         {
+//             Q[i] = Q_vec[i];
+//         }
+//         roaring_bitmap_sort_containers_array(Q, Q_size);
+
+//         // Step 8: Clone Q_1 and call the result A
+//         Container *A = reinterpret_cast<Container *>(T->arena.alloc(sizeof(Container)));
+//         A->key = current_key;
+
+//         // Determine if we should start with bitmap or array based on largest container
+//         bool start_as_bitmap = (Q[0]->type == BITMAP_CONTAINER) ||
+//                                (Q[0]->type == ARRAY_CONTAINER && Q[0]->array.cardinality > THRESHOLD);
+
+//         // If A is bitmap, union all Q containers in parallel
+//         if (start_as_bitmap)
+//         {
+//             // Start as bitmap container
+//             A->type = BITMAP_CONTAINER;
+//             A->bitmap.bits = T->arena.alloc(8192);
+
+//             // Step 1: Convert all containers to bitmap format in parallel
+//             std::vector<uint8_t *> temp_bitmaps(Q_size);
+//             std::vector<bool> needs_cleanup(Q_size, false);
+
+// #pragma omp parallel for schedule(dynamic)
+//             for (size_t i = 0; i < Q_size; ++i)
+//             {
+//                 if (Q[i]->type == BITMAP_CONTAINER)
+//                 {
+//                     // Already a bitmap, just reference it
+//                     temp_bitmaps[i] = Q[i]->bitmap.bits;
+//                     needs_cleanup[i] = false;
+//                 }
+//                 else
+//                 {
+//                     // Array container - convert to bitmap
+//                     uint8_t *temp = new uint8_t[8192];
+//                     std::memset(temp, 0, 8192);
+//                     for (size_t j = 0; j < Q[i]->array.cardinality; ++j)
+//                     {
+//                         uint16_t v = Q[i]->array.values[j];
+//                         temp[v >> 3] |= (1u << (v & 7));
+//                     }
+//                     temp_bitmaps[i] = temp;
+//                     needs_cleanup[i] = true;
+//                 }
+//             }
+
+// // Step 2: Parallel reduction - OR all bitmaps word by word
+// #pragma omp parallel for schedule(static)
+//             for (size_t word_idx = 0; word_idx < 256; ++word_idx)
+//             {
+//                 __m256i result = _mm256_loadu_si256((__m256i const *)(temp_bitmaps[0] + word_idx * 32));
+
+//                 for (size_t i = 1; i < Q_size; ++i)
+//                 {
+//                     __m256i vec = _mm256_loadu_si256((__m256i const *)(temp_bitmaps[i] + word_idx * 32));
+//                     result = _mm256_or_si256(result, vec);
+//                 }
+
+//                 _mm256_storeu_si256((__m256i *)(A->bitmap.bits + word_idx * 32), result);
+//             }
+
+//             // Step 3: Clean up temporary bitmaps
+//             for (size_t i = 0; i < Q_size; ++i)
+//             {
+//                 if (needs_cleanup[i])
+//                 {
+//                     delete[] temp_bitmaps[i];
+//                 }
+//             }
+//         }
+//         else
+//         {
+//             // Steps 12-13: A is an array container
+//             A->type = ARRAY_CONTAINER;
+//             A->array.capacity = Q[0]->array.capacity;
+//             A->array.cardinality = Q[0]->array.cardinality;
+//             A->array.values = reinterpret_cast<uint16_t *>(T->arena.alloc(sizeof(uint16_t) * A->array.capacity));
+//             std::memcpy(A->array.values, Q[0]->array.values, sizeof(uint16_t) * A->array.cardinality);
+
+//             // Step 13: Compute union with remaining array containers
+//             size_t i = 1;
+//             while (i < Q_size && A->type == ARRAY_CONTAINER)
+//             {
+//                 if (Q[i]->type == ARRAY_CONTAINER)
+//                 {
+//                     // Merge sorted arrays
+//                     for (size_t j = 0; j < Q[i]->array.cardinality; ++j)
+//                     {
+//                         add_to_array(T, A, Q[i]->array.values[j]);
+//                     }
+
+//                     // If A exceeds cardinality of 4096, promote to bitmap
+//                     if (A->array.cardinality > THRESHOLD)
+//                     {
+//                         promote_to_bitmap(T, A);
+//                         break;
+//                     }
+//                 }
+//                 else
+//                 {
+//                     // Q[i] is bitmap, we must promote
+//                     promote_to_bitmap(T, A);
+//                     break;
+//                 }
+//                 i++;
+//             }
+
+//             // If promoted to bitmap during the loop, handle remaining containers
+//             if (A->type == BITMAP_CONTAINER)
+//             {
+//                 for (; i < Q_size; ++i)
+//                 {
+//                     if (Q[i]->type == BITMAP_CONTAINER)
+//                     {
+//                         for (size_t word_idx = 0; word_idx < 256; ++word_idx)
+//                         {
+//                             __m256i vecA = _mm256_loadu_si256((__m256i const *)(A->bitmap.bits + word_idx * 32));
+//                             __m256i vecQ = _mm256_loadu_si256((__m256i const *)(Q[i]->bitmap.bits + word_idx * 32));
+//                             __m256i vecResult = _mm256_or_si256(vecA, vecQ);
+//                             _mm256_storeu_si256((__m256i *)(A->bitmap.bits + word_idx * 32), vecResult);
+//                         }
+//                     }
+//                     else
+//                     {
+//                         for (size_t j = 0; j < Q[i]->array.cardinality; ++j)
+//                         {
+//                             set_bit(A->bitmap, Q[i]->array.values[j]);
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+
+//         // Step 15: Add A to the output
+//         add_container(T, A);
+//         delete[] Q;
+//     }
+
+//     delete P;
+//     return T;
+// }
 
 // inline int roaring_bitmap_contains(roaring_bitmap_t *bm, uint32_t value)
 // {

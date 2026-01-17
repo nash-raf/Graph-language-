@@ -58,6 +58,8 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
 
   clang++ -O3 -mavx2 -march=native \
+  -fopenmp=libomp \
+  -L/usr/lib64 -lomp \
     -g -std=c++17 -fexceptions \
     $ANTLR_INCLUDE \
     -Igenerated -I. \

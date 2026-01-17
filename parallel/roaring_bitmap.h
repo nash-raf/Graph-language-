@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <vector>
 
 // -------------------------------
@@ -17,23 +18,47 @@ struct ArenaBlock
 
 struct MemoryArena
 {
-    ArenaBlock *head;          // First block
-    ArenaBlock *current;       // Current block being allocated from
-    size_t default_block_size; // Size for new blocks
+    ArenaBlock *head;
+    ArenaBlock *current;
+    size_t default_block_size;
+
+    // Statistics
+    size_t total_allocations;
+    size_t total_bytes_allocated;
+    size_t blocks_created;
+
+    MemoryArena() : head(nullptr), current(nullptr), default_block_size(0),
+                    total_allocations(0), total_bytes_allocated(0), blocks_created(0) {}
 
     uint8_t *alloc(size_t n)
     {
+        total_allocations++;
+        total_bytes_allocated += n;
+
         // Try to allocate from current block
         if (current && current->offset + n <= current->capacity)
         {
             uint8_t *ptr = current->buffer + current->offset;
             current->offset += n;
+
+            // Log large allocations
+            if (n >= 8192)
+            {
+                fprintf(stderr, "[Arena] Allocated %zu bytes from current block (block has %zu/%zu used)\n",
+                        n, current->offset, current->capacity);
+            }
+
             return ptr;
         }
 
         // Need a new block
-        // Determine size: use max(default_block_size, n) to handle large allocations
         size_t new_block_size = (n > default_block_size) ? n : default_block_size;
+
+        fprintf(stderr, "\n[Arena] *** CREATING NEW BLOCK ***\n");
+        fprintf(stderr, "[Arena]   Reason: Request for %zu bytes, current block has %zu free\n",
+                n, current ? (current->capacity - current->offset) : 0);
+        fprintf(stderr, "[Arena]   New block size: %zu bytes (%.1f MB)\n",
+                new_block_size, new_block_size / (1024.0 * 1024.0));
 
         ArenaBlock *new_block = new ArenaBlock();
         new_block->buffer = new uint8_t[new_block_size];
@@ -41,33 +66,51 @@ struct MemoryArena
         new_block->offset = 0;
         new_block->next = nullptr;
 
+        blocks_created++;
+
         // Link the new block
         if (current)
         {
             current->next = new_block;
+            fprintf(stderr, "[Arena]   Chained to existing block (now have %zu blocks)\n", blocks_created);
         }
         else
         {
             head = new_block;
+            fprintf(stderr, "[Arena]   Created first block\n");
         }
         current = new_block;
 
         // Allocate from the new block
         uint8_t *ptr = current->buffer + current->offset;
         current->offset += n;
+
+        fprintf(stderr, "[Arena]   Allocated %zu bytes from new block\n\n", n);
+
         return ptr;
     }
 
     void free_all()
     {
+        fprintf(stderr, "\n[Arena] Freeing all arena blocks...\n");
+        fprintf(stderr, "[Arena]   Total allocations made: %zu\n", total_allocations);
+        fprintf(stderr, "[Arena]   Total bytes allocated: %zu (%.1f MB)\n",
+                total_bytes_allocated, total_bytes_allocated / (1024.0 * 1024.0));
+        fprintf(stderr, "[Arena]   Blocks created: %zu\n", blocks_created);
+
         ArenaBlock *block = head;
+        int count = 0;
         while (block)
         {
+            count++;
             ArenaBlock *next = block->next;
             delete[] block->buffer;
             delete block;
             block = next;
         }
+
+        fprintf(stderr, "[Arena]   Freed %d blocks\n\n", count);
+
         head = nullptr;
         current = nullptr;
     }

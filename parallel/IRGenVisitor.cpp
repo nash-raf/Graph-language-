@@ -997,111 +997,6 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *node)
     throw std::runtime_error("print only supports variables (int or set) for now");
 }
 
-// void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
-// {
-//     std::string baseName = setDecl->name;
-//     std::string bitmapName = baseName + "_bitmap";
-//     std::string blobName = baseName + "_blob";
-
-//     auto *i8Ty = llvm::Type::getInt8Ty(Context);
-//     auto *i8PtrTy = llvm::PointerType::get(Context, 0);
-//     auto *i64Ty = Builder.getInt64Ty();
-
-//     /* -----------------------------
-//        1. Create global pointer for runtime bitmap
-//        ----------------------------- */
-//     llvm::GlobalVariable *bitmapGV = Module.getGlobalVariable(bitmapName);
-//     if (!bitmapGV)
-//     {
-//         bitmapGV = new llvm::GlobalVariable(
-//             Module,
-//             i8PtrTy,
-//             /*isConstant=*/false,
-//             llvm::GlobalValue::ExternalLinkage,
-//             llvm::ConstantPointerNull::get(i8PtrTy),
-//             bitmapName);
-//     }
-
-//     llvm::Function *fn = Builder.GetInsertBlock()->getParent();
-//     llvm::IRBuilder<> entryB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
-
-//     auto *BitmapPtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-//     llvm::AllocaInst *bitmapAlloca = Builder.CreateAlloca(BitmapPtrTy, nullptr, baseName);
-//     NamedValues[baseName] = bitmapAlloca;
-
-//     // Check if initializer is a set expression (for cases like: set s3 = s1 union s2;)
-//     if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetBinaryExpr)
-//     {
-//         // Evaluate the set expression at runtime
-//         llvm::Value *bitmapPtr = visitSetExpr(setDecl->initializer.get());
-
-//         // Store into both global and local
-//         Builder.CreateStore(bitmapPtr, bitmapGV);
-//         Builder.CreateStore(bitmapPtr, bitmapAlloca);
-//         return;
-//     }
-
-//     // Original logic for set literals
-//     RoaringBitmap *rb = roaring_bitmap_create(100 * 1024 * 1024, 8);
-
-//     if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetLiteral)
-//     {
-//         auto *lit = dynamic_cast<SetLiteralNode *>(setDecl->initializer.get());
-//         if (!lit)
-//             throw std::runtime_error("Set initializer must be a set literal");
-
-//         for (auto &e : lit->elements)
-//         {
-//             auto *intLit = dynamic_cast<IntLiteralNode *>(e.get());
-//             if (!intLit)
-//                 throw std::runtime_error("Set literal elements must be integers");
-
-//             roaring_bitmap_add(rb, intLit->value);
-//         }
-//     }
-
-//     size_t blobSize = roaring_bitmap_portable_size_in_bytes(rb);
-//     llvm::SmallVector<uint8_t> blob(blobSize);
-//     roaring_bitmap_portable_serialize(rb, blob.data());
-
-//     roaring_bitmap_free(rb);
-
-//     llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blobSize);
-//     llvm::SmallVector<llvm::Constant *, 128> bytes;
-//     for (uint8_t b : blob)
-//         bytes.push_back(llvm::ConstantInt::get(i8Ty, b));
-
-//     llvm::Constant *blobConst = llvm::ConstantArray::get(blobTy, bytes);
-
-//     llvm::GlobalVariable *blobGV =
-//         new llvm::GlobalVariable(
-//             Module,
-//             blobTy,
-//             /*isConstant=*/true,
-//             llvm::GlobalValue::PrivateLinkage,
-//             blobConst,
-//             blobName);
-
-//     llvm::Value *zero = Builder.getInt32(0);
-//     llvm::Value *blobPtr =
-//         Builder.CreateInBoundsGEP(blobTy, blobGV, {zero, zero}, blobName + ".ptr");
-
-//     llvm::FunctionType *deserializeFT =
-//         llvm::FunctionType::get(i8PtrTy, {i8PtrTy, i64Ty}, false);
-
-//     auto deserializeFn =
-//         Module.getOrInsertFunction("roaring_from_serialized", deserializeFT);
-
-//     llvm::Value *sizeVal =
-//         llvm::ConstantInt::get(i64Ty, blobSize);
-
-//     llvm::Value *bitmapPtr =
-//         Builder.CreateCall(deserializeFn, {blobPtr, sizeVal}, baseName + ".bitmap");
-
-//     Builder.CreateStore(bitmapPtr, bitmapGV);
-//     Builder.CreateStore(bitmapPtr, bitmapAlloca);
-// }
-
 void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
 {
     std::string baseName = setDecl->name;
@@ -1132,7 +1027,7 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
     }
 
     // Original logic for set literals
-    RoaringBitmap *rb = roaring_bitmap_create(500 * 1024 * 1024, 8);
+    RoaringBitmap *rb = roaring_bitmap_create(64 * 1024, 8);
 
     if (setDecl->initializer && setDecl->initializer->type == ASTNodeType::SetLiteral)
     {
@@ -1247,7 +1142,7 @@ llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)
 
         auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
 
-        llvm::Value *arenaSize = llvm::ConstantInt::get(i64Ty, 500 * 1024 * 1024);
+        llvm::Value *arenaSize = llvm::ConstantInt::get(i64Ty, 64 * 1024);
         llvm::Value *initialCap = llvm::ConstantInt::get(i64Ty, 8);
         llvm::Value *tempBitmap = Builder.CreateCall(
             createFn,
@@ -1318,13 +1213,11 @@ llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
 
     if (binExpr->op == "union")
     {
-        // Always flatten union operations
         llvm::SmallVector<ASTNode *, 8> operands = flattenSetOperation(binExpr, "union");
 
         std::cerr << "[IRGen] Union expression with "
                   << operands.size() << " operands\n";
 
-        // Evaluate all operands - use SmallVector here too
         llvm::SmallVector<llvm::Value *, 8> bitmapPtrs;
         bitmapPtrs.reserve(operands.size());
 
@@ -1333,17 +1226,14 @@ llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
             bitmapPtrs.push_back(visitSetExpr(op));
         }
 
-        // Create array to pass all bitmaps
         auto *i64Ty = Builder.getInt64Ty();
 
-        // Allocate array on stack: RoaringBitmap* array[N]
         llvm::Value *arraySize = llvm::ConstantInt::get(Builder.getInt64Ty(), operands.size());
         llvm::AllocaInst *bitmapArray = Builder.CreateAlloca(
             BitmapPtrTy,
             arraySize,
             "bitmap_array");
 
-        // Store all bitmap pointers into the array
         for (size_t i = 0; i < bitmapPtrs.size(); ++i)
         {
             llvm::Value *idx = llvm::ConstantInt::get(Builder.getInt32Ty(), i);
@@ -1355,10 +1245,9 @@ llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
             Builder.CreateStore(bitmapPtrs[i], elemPtr);
         }
 
-        // Call union function: roaring_bitmap_union(RoaringBitmap** bitmaps, size_t count)
         llvm::FunctionType *unionFT = llvm::FunctionType::get(
             BitmapPtrTy,
-            {BitmapPtrTy->getPointerTo(), i64Ty}, // (ptr*, size_t)
+            {BitmapPtrTy->getPointerTo(), i64Ty},
             false);
 
         auto unionFn = Module.getOrInsertFunction("roaring_bitmap_union", unionFT);
@@ -1369,11 +1258,24 @@ llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
             {bitmapArray, count},
             "set.union.result");
 
+        llvm::FunctionType *freeFT = llvm::FunctionType::get(
+            Builder.getVoidTy(),
+            {BitmapPtrTy},
+            false);
+        auto freeFn = Module.getOrInsertFunction("roaring_bitmap_free", freeFT);
+
+        for (size_t i = 0; i < bitmapPtrs.size(); ++i)
+        {
+            if (operands[i]->type != ASTNodeType::Variable)
+            {
+                Builder.CreateCall(freeFn, {bitmapPtrs[i]});
+            }
+        }
+
         return resultBitmap;
     }
     else if (binExpr->op == "intersect")
     {
-        // Intersect stays binary
         llvm::Value *lhsBitmap = visitSetExpr(binExpr->lhs.get());
         llvm::Value *rhsBitmap = visitSetExpr(binExpr->rhs.get());
 
@@ -1388,6 +1290,21 @@ llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
             intersectFn,
             {lhsBitmap, rhsBitmap},
             "set.intersect.result");
+        llvm::FunctionType *freeFT = llvm::FunctionType::get(
+            Builder.getVoidTy(),
+            {BitmapPtrTy},
+            false);
+        auto freeFn = Module.getOrInsertFunction("roaring_bitmap_free", freeFT);
+
+        if (binExpr->lhs->type != ASTNodeType::Variable)
+        {
+            Builder.CreateCall(freeFn, {lhsBitmap});
+        }
+
+        if (binExpr->rhs->type != ASTNodeType::Variable)
+        {
+            Builder.CreateCall(freeFn, {rhsBitmap});
+        }
 
         return resultBitmap;
     }

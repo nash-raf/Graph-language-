@@ -201,16 +201,22 @@ void advance_and_reinsert(ContainerMinHeap *heap, RoaringBitmap **bitmaps,
 // Creation / Destruction
 // -------------------------------
 
-RoaringBitmap *roaring_bitmap_create(size_t arena_size = 100 * 1024 * 1024, size_t initial_capacity = 8)
+RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_capacity)
 {
     RoaringBitmap *bm = new RoaringBitmap();
 
-    // initialize arena
-    bm->arena.buffer = new uint8_t[arena_size];
-    bm->arena.capacity = arena_size;
-    bm->arena.offset = 0;
+    // Initialize arena with chaining support
+    ArenaBlock *first_block = new ArenaBlock();
+    first_block->buffer = new uint8_t[arena_size];
+    first_block->capacity = arena_size;
+    first_block->offset = 0;
+    first_block->next = nullptr;
 
-    // initialize container array
+    bm->arena.head = first_block;
+    bm->arena.current = first_block;
+    bm->arena.default_block_size = arena_size;
+
+    // Initialize container array
     bm->num_containers = 0;
     bm->max_containers = initial_capacity;
     bm->containers = reinterpret_cast<Container *>(bm->arena.alloc(sizeof(Container) * initial_capacity));
@@ -321,10 +327,13 @@ void add_container(RoaringBitmap *bm, Container *cont)
     bm->containers[insert_pos] = *cont;
     bm->num_containers++;
 }
+
 void roaring_bitmap_free(RoaringBitmap *bm)
 {
     if (!bm)
         return;
+
+    bm->arena.free_all();
     delete bm;
 }
 
@@ -398,19 +407,31 @@ void promote_to_bitmap(RoaringBitmap *bm, Container *c)
     uint16_t *old_values = c->array.values;
     size_t old_cardinality = c->array.cardinality;
 
-    fprintf(stderr, "  promote_to_bitmap: Allocating 8192 bytes (arena offset=%zu, capacity=%zu)\n",
-            bm->arena.offset, bm->arena.capacity);
+    // Calculate total arena usage across all blocks
+    size_t total_used = 0;
+    size_t total_capacity = 0;
+    int block_count = 0;
+    ArenaBlock *block = bm->arena.head;
+    while (block)
+    {
+        total_used += block->offset;
+        total_capacity += block->capacity;
+        block_count++;
+        block = block->next;
+    }
+
+    fprintf(stderr, "  promote_to_bitmap: Allocating 8192 bytes (total used=%zu, total capacity=%zu, blocks=%d)\n",
+            total_used, total_capacity, block_count);
 
     uint8_t *bits = reinterpret_cast<uint8_t *>(bm->arena.alloc(8192));
     if (!bits)
     {
-        fprintf(stderr, "  ERROR: Arena allocation FAILED! Cannot promote to bitmap.\n");
-        fprintf(stderr, "  Arena needs 8192 bytes but only has %zu bytes free\n",
-                bm->arena.capacity - bm->arena.offset);
+        fprintf(stderr, "  ERROR: Arena allocation FAILED!\n");
         return;
     }
 
-    fprintf(stderr, "  promote_to_bitmap: Allocated bits at %p\n", (void *)bits);
+    fprintf(stderr, "  promote_to_bitmap: Allocated bits at %p (now %d blocks)\n",
+            (void *)bits, block_count);
     std::memset(bits, 0, 8192);
 
     // Copy values from old array to new bitmap
@@ -421,7 +442,6 @@ void promote_to_bitmap(RoaringBitmap *bm, Container *c)
     }
 
     // Now change the container type and set bitmap fields
-    // CRITICAL: Do this AFTER we're done reading from the array!
     c->type = BITMAP_CONTAINER;
     c->bitmap.bits = bits;
 
@@ -848,8 +868,8 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
             {
                 delete[] Q;
                 delete P;
-                fprintf(stderr, "ERROR: Failed to allocate bitmap bits for union - arena out of memory\n");
-                fprintf(stderr, "Arena usage: %zu / %zu bytes\n", T->arena.offset, T->arena.capacity);
+                // fprintf(stderr, "ERROR: Failed to allocate bitmap bits for union - arena out of memory\n");
+                // fprintf(stderr, "Arena usage: %zu / %zu bytes\n", T->arena.offset, T->arena.capacity);
                 return nullptr;
             }
 
@@ -1262,23 +1282,34 @@ extern "C" uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size)
 
     const uint8_t *ptr = data;
 
-    // read number of containers
+    // Read number of containers
     size_t num_containers = *reinterpret_cast<const size_t *>(ptr);
     ptr += sizeof(size_t);
 
     RoaringBitmap *bm = new RoaringBitmap();
     bm->num_containers = num_containers;
     bm->max_containers = num_containers;
-    size_t arena_size = 100 * 1024 * 1024; // 100MB like in roaring_bitmap_create
-    bm->arena.buffer = new uint8_t[arena_size];
-    bm->arena.capacity = arena_size;
-    bm->arena.offset = 0;
 
-    // allocate container array
+    size_t arena_size = 100 * 1024 * 1024; // 100MB default
+
+    // Initialize arena with chaining
+    ArenaBlock *first_block = new ArenaBlock();
+    first_block->buffer = new uint8_t[arena_size];
+    first_block->capacity = arena_size;
+    first_block->offset = 0;
+    first_block->next = nullptr;
+
+    bm->arena.head = first_block;
+    bm->arena.current = first_block;
+    bm->arena.default_block_size = arena_size;
+
+    // Allocate container array
     bm->containers = reinterpret_cast<Container *>(bm->arena.alloc(sizeof(Container) * num_containers));
     if (!bm->containers)
     {
         fprintf(stderr, "ERROR: Failed to allocate containers in roaring_from_serialized\n");
+        bm->arena.free_all();
+        delete bm;
         return nullptr;
     }
 
@@ -1288,11 +1319,11 @@ extern "C" uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size)
     {
         Container &c = bm->containers[i];
 
-        // read key
+        // Read key
         c.key = *reinterpret_cast<const uint16_t *>(ptr);
         ptr += sizeof(uint16_t);
 
-        // read type
+        // Read type
         c.type = static_cast<ContainerType>(*reinterpret_cast<const uint8_t *>(ptr));
         ptr += sizeof(uint8_t);
 
@@ -1302,6 +1333,8 @@ extern "C" uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size)
             if (!c.bitmap.bits)
             {
                 fprintf(stderr, "ERROR: Failed to allocate bitmap container\n");
+                bm->arena.free_all();
+                delete bm;
                 return nullptr;
             }
             std::memcpy(c.bitmap.bits, ptr, 8192);
@@ -1309,7 +1342,7 @@ extern "C" uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size)
         }
         else if (c.type == ARRAY_CONTAINER)
         {
-            // read array cardinality
+            // Read array cardinality
             c.array.cardinality = *reinterpret_cast<const size_t *>(ptr);
             ptr += sizeof(size_t);
 
@@ -1318,6 +1351,8 @@ extern "C" uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size)
             if (!c.array.values)
             {
                 fprintf(stderr, "ERROR: Failed to allocate array container\n");
+                bm->arena.free_all();
+                delete bm;
                 return nullptr;
             }
 
@@ -1326,8 +1361,10 @@ extern "C" uint8_t *roaring_from_serialized(const uint8_t *data, uint64_t size)
         }
         else
         {
-            // unknown container type
+            // Unknown container type
             fprintf(stderr, "ERROR: Unknown container type\n");
+            bm->arena.free_all();
+            delete bm;
             return nullptr;
         }
     }

@@ -8,94 +8,6 @@
 #include <cstring> // for std::memcpy
 #include "llvm/Support/Allocator.h"
 
-int ASTBuilder::evaluate(ASTNodePtr node)
-{
-
-    if (auto lit = dynamic_cast<IntLiteralNode *>(node.get()))
-    {
-        return lit->value;
-    }
-    if (auto var = dynamic_cast<VariableNode *>(node.get()))
-    {
-        auto it = symbolTable.find(var->name);
-        if (it == symbolTable.end())
-            throw std::runtime_error("Undefined variable: " + var->name);
-        return it->second;
-    }
-    if (auto bin = dynamic_cast<BinaryExprNode *>(node.get()))
-    {
-        int L = evaluate(bin->lhs);
-        int R = evaluate(bin->rhs);
-        if (bin->op == "+")
-            return L + R;
-        if (bin->op == "-")
-            return L - R;
-        if (bin->op == "*")
-            return L * R;
-        if (bin->op == "/")
-            return R != 0 ? L / R : 0;
-    }
-    if (auto call = dynamic_cast<FunctionCallNode *>(node.get()))
-    {
-        // Look up the function declaration
-        auto it = functionTable.find(call->name);
-        if (it == functionTable.end())
-            throw std::runtime_error("Undefined function: " + call->name);
-        auto decl = it->second;
-
-        // Evaluate arguments in the current scope
-        std::vector<int> argValues;
-        for (const auto &arg : call->arguments)
-        {
-            argValues.push_back(evaluate(arg));
-        }
-
-        // Save current symbol table
-        std::unordered_map<std::string, int> oldSymbols = symbolTable;
-        symbolTable.clear();
-
-        // Bind parameters to evaluated argument values
-        for (size_t i = 0; i < decl->parameters.size(); ++i)
-        {
-            auto &p = decl->parameters[i];
-            symbolTable[p->paramName] = argValues[i];
-        }
-
-        // Execute the function body
-        int ret = 0;
-        auto block = dynamic_cast<BlockStmtNode *>(decl->body.get());
-        for (auto &stmt : block->statements)
-        {
-            if (auto retStmt = dynamic_cast<ReturnStmtNode *>(stmt.get()))
-            {
-                ret = evaluate(retStmt->returnValue);
-                break;
-            }
-        }
-
-        // Restore outer symbol table
-        symbolTable = std::move(oldSymbols);
-        return ret;
-    }
-    if (auto q = dynamic_cast<QueryNode *>(node.get()))
-    {
-        if (q->type == QueryType::INT)
-        {
-            // Mark INT query result (like chromaticity)
-            symbolTable[q->queryName] = 0; // placeholder
-            return 0;
-        }
-        else if (q->type == QueryType::ARRAY)
-        {
-            // Mark ARRAY query result (like BFS/DFS)
-            arrayTable[q->queryName] = {}; // placeholder
-            return 0;
-        }
-    }
-
-    throw std::runtime_error("wrongnode");
-}
-
 antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 {
     std::vector<ASTNodePtr> items;
@@ -267,6 +179,15 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
         return std::static_pointer_cast<ASTNode>(up);
     }
+    else if (ctx->graphComprehension())
+    {
+        auto *gc = ctx->graphComprehension();
+        std::string target = gc->ID()->getText();
+        std::string gname  = gc->graphID()->getText();
+        auto cond = buildGraphCondition(gc->graphCondition());
+        auto node = std::make_shared<GraphComprehensionNode>(target, gname, cond);
+        return std::static_pointer_cast<ASTNode>(node);
+    }
     else if (ctx->showgraph())
     {
         std::string gname = ctx->showgraph()->graphID()->getText();
@@ -403,6 +324,19 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
         // std::cout << "astbuilder intExpr : " << val << "\n";
         return ASTNodePtr(std::make_shared<IntLiteralNode>(val));
     }
+    else if (auto realExprContext = dynamic_cast<BaseParser::RealExprContext *>(ctx))
+    {
+        double val = std::stod(realExprContext->getText());
+        return ASTNodePtr(std::make_shared<RealLiteralNode>(val));
+    }
+    else if (dynamic_cast<BaseParser::BoolTrueExprContext *>(ctx))
+    {
+        return ASTNodePtr(std::make_shared<BoolLiteralNode>(true));
+    }
+    else if (dynamic_cast<BaseParser::BoolFalseExprContext *>(ctx))
+    {
+        return ASTNodePtr(std::make_shared<BoolLiteralNode>(false));
+    }
     else if (auto idExprContext = dynamic_cast<BaseParser::IdExprContext *>(ctx))
     {
         std::string name = idExprContext->getText();
@@ -421,57 +355,7 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
         std::string name = arrCtx->ID()->getText();
         ASTNodePtr indexNode = safe_any_cast<ASTNodePtr>(visitExpr(arrCtx->expr()));
 
-        // Try safe, local constant-fold: only if index is an IntLiteral and array has static initializer
-        if (arrayTable.find(name) != arrayTable.end())
-        {
-            if (auto *idxLit = dynamic_cast<IntLiteralNode *>(indexNode.get()))
-            {
-                int index = idxLit->value;
-                auto &arr = arrayTable[name];
-                if (index >= 0 && index < (int)arr.size())
-                {
-                    ASTNodePtr elem = arr[index];
-
-                    // Case A: element is an IntLiteral -> return it directly
-                    if (auto *elemLit = dynamic_cast<IntLiteralNode *>(elem.get()))
-                    {
-                        return ASTNodePtr(std::make_shared<IntLiteralNode>(elemLit->value));
-                    }
-
-                    // Case B: element is a BinaryExpr with literal children (simple fold inline)
-                    if (auto *bin = dynamic_cast<BinaryExprNode *>(elem.get()))
-                    {
-                        // Only fold if both sides are integer literals
-                        auto *L = dynamic_cast<IntLiteralNode *>(bin->lhs.get());
-                        auto *R = dynamic_cast<IntLiteralNode *>(bin->rhs.get());
-                        if (L && R)
-                        {
-                            int Lv = L->value;
-                            int Rv = R->value;
-                            if (bin->op == "+")
-                                return ASTNodePtr(std::make_shared<IntLiteralNode>(Lv + Rv));
-                            else if (bin->op == "-")
-                                return ASTNodePtr(std::make_shared<IntLiteralNode>(Lv - Rv));
-                            else if (bin->op == "*")
-                                return ASTNodePtr(std::make_shared<IntLiteralNode>(Lv * Rv));
-                            else if (bin->op == "/")
-                            {
-                                // if (Rv == 0)
-                                // {
-                                //     // avoid folding divide-by-zero at compile-time; fall through to runtime access
-                                // }
-                                // else
-                                // {
-                                return ASTNodePtr(std::make_shared<IntLiteralNode>(Lv / Rv));
-                                // }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback: produce a runtime ArrayAccessNode (array variable + index expression)
+        // Produce a runtime ArrayAccessNode (array variable + index expression)
         ASTNodePtr base = std::make_shared<VariableNode>(name);
         return ASTNodePtr(std::make_shared<ArrayAccessNode>(base, indexNode));
     }
@@ -486,6 +370,7 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
     // only SimpleDeclaration (#SimpleDeclaration)
     if (auto sd = dynamic_cast<BaseParser::SimpleDeclarationContext *>(ctx))
     {
+        std::string typeName = sd->type()->getText();
         std::string name = sd->ID()->getText();
         ASTNodePtr init = nullptr;
         if (sd->expr())
@@ -497,16 +382,17 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
             // initializer is an array literal -> infer size from initializer
             auto *arrLit = static_cast<ArrayLiteralNode *>(init.get());
             return std::static_pointer_cast<ASTNode>(
-                std::make_shared<VarDeclNode>(name, init, /*isArr=*/true, arrLit->elements.size()));
+                std::make_shared<VarDeclNode>(typeName, name, init, /*isArr=*/true, arrLit->elements.size()));
         }
         else
         {
             return std::static_pointer_cast<ASTNode>(
-                std::make_shared<VarDeclNode>(name, init, /*isArr=*/false, 0));
+                std::make_shared<VarDeclNode>(typeName, name, init, /*isArr=*/false, 0));
         }
     }
     else if (auto arrayDecl = dynamic_cast<BaseParser::ArrayDeclarationContext *>(ctx))
     {
+        std::string typeName = arrayDecl->type()->getText();
         // Extract the name and (static) size
         auto declarator = arrayDecl->arrayDeclarator();
         if (!declarator)
@@ -550,7 +436,7 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
 
         // Finally, return a VarDeclNode carrying that literal
         return std::static_pointer_cast<ASTNode>(
-            std::make_shared<VarDeclNode>(name, arrayLit, /*isArr=*/true, static_cast<size_t>(size)));
+            std::make_shared<VarDeclNode>(typeName, name, arrayLit, /*isArr=*/true, static_cast<size_t>(size)));
     }
     return nullptr;
 }
@@ -609,16 +495,6 @@ antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)
     }
     // std::cerr << "\n";
 
-    functionTable[funcNode->name] = funcNode;
-
-    // Debug: Verify parameters in functionTable
-    // std::cerr << "[FunctionTable Entry] " << funcNode->name << " parameters: ";
-    // for (const auto &param : functionTable[funcNode->name]->parameters)
-    // {
-    //     //std::cerr << param->paramName << " ";
-    // }
-    // std::cerr << "\n";
-
     return std::static_pointer_cast<ASTNode>(funcNode);
 }
 
@@ -672,6 +548,14 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
             {
                 leftStr = std::to_string(lit->value);
             }
+            else if (auto bl = dynamic_cast<BoolLiteralNode *>(node.get()))
+            {
+                leftStr = bl->value ? "true" : "false";
+            }
+            else if (auto rl = dynamic_cast<RealLiteralNode *>(node.get()))
+            {
+                leftStr = std::to_string(rl->value);
+            }
             else if (auto var = dynamic_cast<VariableNode *>(node.get()))
             {
                 leftStr = var->name;
@@ -692,6 +576,14 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
             if (auto lit = dynamic_cast<IntLiteralNode *>(node.get()))
             {
                 rightStr = std::to_string(lit->value);
+            }
+            else if (auto bl = dynamic_cast<BoolLiteralNode *>(node.get()))
+            {
+                rightStr = bl->value ? "true" : "false";
+            }
+            else if (auto rl = dynamic_cast<RealLiteralNode *>(node.get()))
+            {
+                rightStr = std::to_string(rl->value);
             }
             else if (auto var = dynamic_cast<VariableNode *>(node.get()))
             {
@@ -969,15 +861,6 @@ antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext 
         node->source = std::stoi(ctx->INT()->getText());
     }
 
-    if (qtype == QueryType::INT)
-    {
-        symbolTable[name] = 0; // int placeholder
-    }
-    else if (qtype == QueryType::ARRAY)
-    {
-        arrayTable[name] = {}; // empty vector placeholder
-    }
-
     return std::static_pointer_cast<ASTNode>(node);
 }
 
@@ -1175,4 +1058,34 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
 
     // Return as ASTNodePtr
     return std::static_pointer_cast<ASTNode>(fsNode);
+}
+
+// Helper to build GraphConditionNode from grammar
+std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::GraphConditionContext *ctx)
+{
+    if (auto *andCtx = dynamic_cast<BaseParser::GraphLogicalAndContext*>(ctx))
+    {
+        auto left = buildGraphCondition(andCtx->graphCondition(0));
+        auto right = buildGraphCondition(andCtx->graphCondition(1));
+        return std::make_shared<GraphConditionNode>(GraphConditionOp::And, left, right);
+    }
+    else if (auto *orCtx = dynamic_cast<BaseParser::GraphLogicalOrContext*>(ctx))
+    {
+        auto left = buildGraphCondition(orCtx->graphCondition(0));
+        auto right = buildGraphCondition(orCtx->graphCondition(1));
+        return std::make_shared<GraphConditionNode>(GraphConditionOp::Or, left, right);
+    }
+    else if (auto *connCtx = dynamic_cast<BaseParser::ConnectedConditionContext*>(ctx))
+    {
+        int nid = std::stoi(connCtx->nodeID()->getText());
+        return std::make_shared<GraphConditionNode>(nid);
+    }
+    else if (auto *parenCtx = dynamic_cast<BaseParser::ParenGraphConditionContext*>(ctx))
+    {
+        return buildGraphCondition(parenCtx->graphCondition());
+    }
+    else
+    {
+        throw std::runtime_error("buildGraphCondition: unsupported condition type");
+    }
 }

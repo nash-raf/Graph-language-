@@ -34,11 +34,11 @@ echo ">>> DSL input: ${GP_INPUT}"
 # 1) ANTLR generation (if needed)
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
-  if [[ ! -d generated ]]; then
+  if [[ ! -d generated ]] || [[ Base.g4 -nt generated/BaseParser.h ]]; then
     echo "=== [1] Generating ANTLR parser/lexer ==="
     antlr4 -Dlanguage=Cpp -visitor Base.g4 -o generated
   else
-    echo "=== [1] Skipping ANTLR generation (generated/ exists)"
+    echo "=== [1] Skipping ANTLR generation (generated/ up-to-date)"
   fi
 fi
 
@@ -63,7 +63,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp \
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp \
     generated/*.cpp runtime.o \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \

@@ -2,6 +2,24 @@
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
+#include <stdexcept>
+
+llvm::Type *IRGenVisitor::getLLVMTypeForName(const std::string &typeName)
+{
+    if (typeName == "void")
+        return llvm::Type::getVoidTy(Context);
+    if (typeName == "int" || typeName == "vertex" || typeName == "edge")
+        return Builder.getInt32Ty();
+    if (typeName == "bool")
+        return Builder.getInt1Ty();
+    if (typeName == "real")
+        return Builder.getDoubleTy();
+    if (typeName == "string")
+        return llvm::PointerType::getUnqual(Builder.getInt8Ty());
+    if (typeName == "graph")
+        return GraphTy->getPointerTo();
+    return Builder.getInt32Ty();
+}
 
 void IRGenVisitor::visitProgram(ProgramNodePtr prog)
 {
@@ -12,23 +30,16 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         {
             auto *FD = static_cast<FunctionDeclNode *>(node.get());
 
-            // Collect parameter types (all i32 for now)
+            // Collect parameter types
             std::vector<llvm::Type *> paramTys;
             for (size_t i = 0; i < FD->parameters.size(); ++i)
             {
-                paramTys.push_back(Builder.getInt32Ty());
+                paramTys.push_back(getLLVMTypeForName(FD->parameters[i]->typeName));
             }
 
             // Determine return type
             llvm::Type *retTy;
-            if (FD->returnType == "void")
-            {
-                retTy = llvm::Type::getVoidTy(Context);
-            }
-            else
-            {
-                retTy = Builder.getInt32Ty();
-            }
+            retTy = getLLVMTypeForName(FD->returnType);
 
             // Create the function prototype and insert into the module
             llvm::FunctionType *funcType =
@@ -98,6 +109,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::ShowGraph:
             visitShowGraph(static_cast<ShowGraphNode *>(node.get()));
             break;
+        case ASTNodeType::GraphComprehension:
+            visitGraphComprehension(static_cast<GraphComprehensionNode *>(node.get()));
+            break;
         default:
             // ignore or handle other kinds
             break;
@@ -156,6 +170,162 @@ void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
     Builder.CreateCall(showDecl, {nVal, rowPtr, colPtr});
 }
 
+void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
+{
+    // Lookup source graph
+    auto it = GraphMap.find(GC->graphName);
+    if (it == GraphMap.end())
+    {
+        llvm::errs() << "graphComprehension: graph not found: " << GC->graphName << "\n";
+        return;
+    }
+    llvm::Value *srcGraphPtr = it->second;
+
+    // Also lookup AST graph to get node ID -> index mapping
+    auto astIt = GraphAstMap.find(GC->graphName);
+    if (astIt == GraphAstMap.end())
+    {
+        llvm::errs() << "graphComprehension: AST graph not found: " << GC->graphName << "\n";
+        return;
+    }
+    GraphDeclNode *astGraph = astIt->second;
+
+    llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
+    llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+
+    // Load source graph CSR
+    llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, srcGraphPtr, 0, "src_n_ptr");
+    llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "src_n");
+
+    llvm::Value *rpPtrGEP = Builder.CreateStructGEP(GraphTy, srcGraphPtr, 2, "src_rp_ptr");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        llvm::PointerType::getUnqual(i64Ty), rpPtrGEP, "src_row_ptr");
+
+    llvm::Value *ciPtrGEP = Builder.CreateStructGEP(GraphTy, srcGraphPtr, 3, "src_ci_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        llvm::PointerType::getUnqual(i32Ty), ciPtrGEP, "src_col_ptr");
+
+    // Flatten condition tree to extract all "connected with" node IDs and determine AND/OR
+    std::vector<int> conditionNodeIds;  // original node IDs
+    int is_and = 0;  // 0 = OR, 1 = AND
+    
+    std::function<void(std::shared_ptr<GraphConditionNode>)> collect = [&](auto cond) {
+        if (cond->op == GraphConditionOp::Connected) {
+            conditionNodeIds.push_back(cond->nodeId);
+        } else if (cond->op == GraphConditionOp::And) {
+            is_and = 1;  // If we see any AND, use AND mode
+            if (cond->left) collect(cond->left);
+            if (cond->right) collect(cond->right);
+        } else if (cond->op == GraphConditionOp::Or) {
+            if (cond->left) collect(cond->left);
+            if (cond->right) collect(cond->right);
+        }
+    };
+    collect(GC->condition);
+
+    if (conditionNodeIds.empty()) {
+        llvm::errs() << "graphComprehension: no condition nodes found\n";
+        return;
+    }
+
+    // Map original node IDs to CSR indices
+    std::vector<int> conditionIndices;
+    const auto &materializedNodes = astGraph->materializedNodes;
+    for (int nodeId : conditionNodeIds) {
+        auto it = std::find(materializedNodes.begin(), materializedNodes.end(), nodeId);
+        if (it != materializedNodes.end()) {
+            int csrIndex = std::distance(materializedNodes.begin(), it);
+            conditionIndices.push_back(csrIndex);
+        } else {
+            llvm::errs() << "graphComprehension: node ID " << nodeId << " not found in graph\n";
+        }
+    }
+
+    if (conditionIndices.empty()) {
+        llvm::errs() << "graphComprehension: no valid condition indices found\n";
+        return;
+    }
+
+    // Allocate arrays for condition indices (CSR indices, not original node IDs)
+    llvm::Function *F = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+    
+    size_t condCount = conditionIndices.size();
+    llvm::AllocaInst *condNodesAlloca = tmpB.CreateAlloca(
+        llvm::ArrayType::get(i32Ty, condCount), nullptr, GC->targetName + "_cond_indices");
+
+    for (size_t i = 0; i < condCount; ++i) {
+        llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+        llvm::Value *elemPtr = Builder.CreateGEP(
+            llvm::ArrayType::get(i32Ty, condCount),
+            condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), idx}, "cond_elem_ptr");
+        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, conditionIndices[i]), elemPtr);
+    }
+
+    // Allocate output pointers
+    llvm::AllocaInst *outN = tmpB.CreateAlloca(i64Ty, nullptr, GC->targetName + "_out_n");
+    llvm::AllocaInst *outM = tmpB.CreateAlloca(i64Ty, nullptr, GC->targetName + "_out_m");
+    llvm::AllocaInst *outRP = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i64Ty), nullptr, GC->targetName + "_out_rp");
+    llvm::AllocaInst *outCI = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i32Ty), nullptr, GC->targetName + "_out_ci");
+
+    // Declare: void graph_comprehension_runtime(int64_t, int64_t*, int32_t*, int32_t*, int32_t, int32_t, int64_t*, int64_t*, int64_t**, int32_t**);
+    llvm::FunctionType *compFT = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(Context),
+        {i64Ty,
+         llvm::PointerType::getUnqual(i64Ty),
+         llvm::PointerType::getUnqual(i32Ty),
+         llvm::PointerType::getUnqual(i32Ty),
+         i32Ty,
+         i32Ty,
+         llvm::PointerType::getUnqual(i64Ty),
+         llvm::PointerType::getUnqual(i64Ty),
+         llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+         llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+        false);
+
+    llvm::FunctionCallee compDecl = Module.getOrInsertFunction("graph_comprehension_runtime", compFT);
+
+    // Get pointer to first element of condition indices array
+    llvm::Value *condNodesPtr = Builder.CreateGEP(
+        llvm::ArrayType::get(i32Ty, condCount),
+        condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), llvm::ConstantInt::get(i32Ty, 0)},
+        "cond_indices_ptr");
+
+    Builder.CreateCall(compDecl, {
+        nVal, rowPtr, colPtr,
+        condNodesPtr, llvm::ConstantInt::get(i32Ty, condCount),
+        llvm::ConstantInt::get(i32Ty, is_and),
+        outN, outM, outRP, outCI
+    });
+
+    // Load results
+    llvm::Value *newN = Builder.CreateLoad(i64Ty, outN, "new_n");
+    llvm::Value *newM = Builder.CreateLoad(i64Ty, outM, "new_m");
+    llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP, "new_rp");
+    llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI, "new_ci");
+
+    // Create a new Graph struct and store it
+    llvm::FunctionType *mallocFT = llvm::FunctionType::get(
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+        {i64Ty}, false);
+    llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
+    uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
+    llvm::Value *newGraphRaw = Builder.CreateCall(mallocDecl, llvm::ConstantInt::get(i64Ty, graphSize));
+    llvm::Value *newGraphPtr = Builder.CreateBitCast(newGraphRaw, GraphTy->getPointerTo());
+
+    // Store fields
+    llvm::Value *newNPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 0);
+    Builder.CreateStore(newN, newNPtr);
+    llvm::Value *newMPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 1);
+    Builder.CreateStore(newM, newMPtr);
+    llvm::Value *newRPPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 2);
+    Builder.CreateStore(newRP, newRPPtr);
+    llvm::Value *newCIPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 3);
+    Builder.CreateStore(newCI, newCIPtr);
+
+    GraphMap[GC->targetName] = newGraphPtr;
+}
+
 void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
 {
     // 1) Grab the LLVM Function* from your prototype map
@@ -178,7 +348,7 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
 
         // Create an alloca in entry
         llvm::AllocaInst *alloca =
-            createEntryBlockAlloca(function, arg.getName().str());
+            createEntryBlockAlloca(function, arg.getName().str(), arg.getType());
 
         // Store the initial argument value into our alloca
         Builder.CreateStore(&arg, alloca);
@@ -205,9 +375,7 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
         else
         {
             Builder.CreateRet(
-                llvm::ConstantInt::get(
-                    Builder.getInt32Ty(), // <-- no Context here
-                    0));
+                llvm::Constant::getNullValue(getLLVMTypeForName(funcDecl->returnType)));
         }
     }
 
@@ -221,6 +389,10 @@ void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
     llvm::Value *condVal = visitExpr(ifs->condition.get());
     llvm::Value *condBool = condVal;
+    if (condVal->getType()->isIntegerTy(32))
+        condBool = Builder.CreateICmpNE(condVal, Builder.getInt32(0), "ifcond");
+    else if (condVal->getType()->isDoubleTy())
+        condBool = Builder.CreateFCmpONE(condVal, llvm::ConstantFP::get(Builder.getDoubleTy(), 0.0), "ifcond");
 
     // gets the current function. LLVM needs to know which function the blocks are part of
     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
@@ -306,6 +478,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         break;
     case ASTNodeType::ShowGraph:
         visitShowGraph(static_cast<ShowGraphNode*>(node));
+        break;
+    case ASTNodeType::GraphComprehension:
+        visitGraphComprehension(static_cast<GraphComprehensionNode*>(node));
         break;
     default:
         std::cerr << "Unsupported statement type.\n";
@@ -413,8 +588,12 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         // Cast RHS if needed
         if (rhsVal->getType() != allocTy)
         {
-            if (rhsVal->getType()->isIntegerTy() && allocTy->isIntegerTy())
+            if (allocTy->isDoubleTy() && rhsVal->getType()->isIntegerTy())
+                rhsVal = Builder.CreateSIToFP(rhsVal, allocTy);
+            else if (allocTy->isIntegerTy() && rhsVal->getType()->isIntegerTy())
                 rhsVal = Builder.CreateIntCast(rhsVal, llvm::cast<llvm::IntegerType>(allocTy), true);
+            else if (allocTy->isIntegerTy() && rhsVal->getType()->isDoubleTy())
+                rhsVal = Builder.CreateFPToSI(rhsVal, llvm::cast<llvm::IntegerType>(allocTy));
             else
                 throw std::runtime_error("IRGenVisitor: type mismatch in scalar assignment");
         }
@@ -569,21 +748,29 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
     }
 
     // --- Scalar path ---
+    llvm::Type *declTy = getLLVMTypeForName(decl->typeName);
     llvm::AllocaInst *scalarAlloca =
-        createEntryBlockAlloca(currentFunction, decl->name);
+        createEntryBlockAlloca(currentFunction, decl->name, declTy);
 
     if (decl->initializer)
     {
         llvm::Value *initVal = visitExpr(decl->initializer.get());
-        if (initVal->getType() != Builder.getInt32Ty() && initVal->getType()->isIntegerTy())
+        if (initVal->getType() != declTy)
         {
-            initVal = Builder.CreateIntCast(initVal, Builder.getInt32Ty(), true);
+            if (declTy->isDoubleTy() && initVal->getType()->isIntegerTy())
+                initVal = Builder.CreateSIToFP(initVal, declTy);
+            else if (declTy->isIntegerTy() && initVal->getType()->isIntegerTy())
+                initVal = Builder.CreateIntCast(initVal, declTy, true);
+            else if (declTy->isIntegerTy() && initVal->getType()->isDoubleTy())
+                initVal = Builder.CreateFPToSI(initVal, declTy);
+            else
+                throw std::runtime_error("IRGenVisitor: unsupported initializer cast for " + decl->name);
         }
         Builder.CreateStore(initVal, scalarAlloca);
     }
     else
     {
-        Builder.CreateStore(llvm::ConstantInt::get(Builder.getInt32Ty(), 0), scalarAlloca);
+        Builder.CreateStore(llvm::Constant::getNullValue(declTy), scalarAlloca);
     }
 
     NamedValues[decl->name] = scalarAlloca;
@@ -603,7 +790,12 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 
     Builder.SetInsertPoint(condBB);
     llvm::Value *condV = visitExpr(ws->condition.get());
-    Builder.CreateCondBr(condV, bodyBB, mergeBB);
+    llvm::Value *condBool = condV;
+    if (condV->getType()->isIntegerTy(32))
+        condBool = Builder.CreateICmpNE(condV, Builder.getInt32(0), "whilecond");
+    else if (condV->getType()->isDoubleTy())
+        condBool = Builder.CreateFCmpONE(condV, llvm::ConstantFP::get(Builder.getDoubleTy(), 0.0), "whilecond");
+    Builder.CreateCondBr(condBool, bodyBB, mergeBB);
 
     Builder.SetInsertPoint(bodyBB);
     visitBlock(static_cast<BlockStmtNode *>(ws->body.get()));
@@ -874,6 +1066,16 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         auto *intLit = static_cast<IntLiteralNode *>(expr);
         return llvm::ConstantInt::get(Builder.getInt32Ty(), intLit->value);
     }
+    case ASTNodeType::BoolLiteral:
+    {
+        auto *bl = static_cast<BoolLiteralNode *>(expr);
+        return llvm::ConstantInt::get(Builder.getInt1Ty(), bl->value ? 1 : 0);
+    }
+    case ASTNodeType::RealLiteral:
+    {
+        auto *rl = static_cast<RealLiteralNode *>(expr);
+        return llvm::ConstantFP::get(Builder.getDoubleTy(), rl->value);
+    }
     case ASTNodeType::Variable:
     {
         auto *varNode = static_cast<VariableNode *>(expr);
@@ -889,54 +1091,54 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         auto *bin = static_cast<BinaryExprNode *>(expr);
         llvm::Value *lhs = visitExpr(bin->lhs.get());
         llvm::Value *rhs = visitExpr(bin->rhs.get());
+        bool isFP = lhs->getType()->isDoubleTy() || rhs->getType()->isDoubleTy();
+        if (isFP)
+        {
+            if (!lhs->getType()->isDoubleTy())
+                lhs = Builder.CreateSIToFP(lhs, Builder.getDoubleTy());
+            if (!rhs->getType()->isDoubleTy())
+                rhs = Builder.CreateSIToFP(rhs, Builder.getDoubleTy());
+        }
+
         if (bin->op == "+")
-        {
-            return Builder.CreateAdd(lhs, rhs, "addtmp");
-        }
-        else if (bin->op == "-")
-        {
-            return Builder.CreateSub(lhs, rhs, "subtmp");
-        }
-        else if (bin->op == "*")
-        {
-            return Builder.CreateMul(lhs, rhs, "multmp");
-        }
-        else if (bin->op == "/")
-        {
-            return Builder.CreateSDiv(lhs, rhs, "divtmp");
-        }
-        else if (bin->op == "%")
-        {
+            return isFP ? Builder.CreateFAdd(lhs, rhs, "faddtmp")
+                        : Builder.CreateAdd(lhs, rhs, "addtmp");
+        if (bin->op == "-")
+            return isFP ? Builder.CreateFSub(lhs, rhs, "fsubtmp")
+                        : Builder.CreateSub(lhs, rhs, "subtmp");
+        if (bin->op == "*")
+            return isFP ? Builder.CreateFMul(lhs, rhs, "fmultmp")
+                        : Builder.CreateMul(lhs, rhs, "multmp");
+        if (bin->op == "/")
+            return isFP ? Builder.CreateFDiv(lhs, rhs, "fdivtmp")
+                        : Builder.CreateSDiv(lhs, rhs, "divtmp");
+        if (bin->op == "%")
             return Builder.CreateSRem(lhs, rhs, "modtmp");
-        }
-        else if (bin->op == "==")
-        {
-            return Builder.CreateICmpEQ(lhs, rhs, "eqtmp");
-        }
-        else if (bin->op == "!=")
-        {
-            return Builder.CreateICmpNE(lhs, rhs, "netmp");
-        }
-        else if (bin->op == "<")
-        {
-            return Builder.CreateICmpSLT(lhs, rhs, "lttmp");
-        }
-        else if (bin->op == "<=")
-        {
-            return Builder.CreateICmpSLE(lhs, rhs, "letmp");
-        }
-        else if (bin->op == ">")
-        {
-            return Builder.CreateICmpSGT(lhs, rhs, "gttmp");
-        }
-        else if (bin->op == ">=")
-        {
-            return Builder.CreateICmpSGE(lhs, rhs, "getmp");
-        }
-        else
-        {
-            throw std::runtime_error("Unsupported binary operator: " + bin->op);
-        }
+        if (bin->op == "&&")
+            return Builder.CreateAnd(lhs, rhs, "andtmp");
+        if (bin->op == "||")
+            return Builder.CreateOr(lhs, rhs, "ortmp");
+
+        if (bin->op == "==")
+            return isFP ? Builder.CreateFCmpUEQ(lhs, rhs, "feqtmp")
+                        : Builder.CreateICmpEQ(lhs, rhs, "eqtmp");
+        if (bin->op == "!=")
+            return isFP ? Builder.CreateFCmpUNE(lhs, rhs, "fnetmp")
+                        : Builder.CreateICmpNE(lhs, rhs, "netmp");
+        if (bin->op == "<")
+            return isFP ? Builder.CreateFCmpULT(lhs, rhs, "flttmp")
+                        : Builder.CreateICmpSLT(lhs, rhs, "lttmp");
+        if (bin->op == "<=")
+            return isFP ? Builder.CreateFCmpULE(lhs, rhs, "fletmp")
+                        : Builder.CreateICmpSLE(lhs, rhs, "letmp");
+        if (bin->op == ">")
+            return isFP ? Builder.CreateFCmpUGT(lhs, rhs, "fgttmp")
+                        : Builder.CreateICmpSGT(lhs, rhs, "gttmp");
+        if (bin->op == ">=")
+            return isFP ? Builder.CreateFCmpUGE(lhs, rhs, "fgetmp")
+                        : Builder.CreateICmpSGE(lhs, rhs, "getmp");
+
+        throw std::runtime_error("Unsupported binary operator: " + bin->op);
     }
     case ASTNodeType::FunctionCall:
     {
@@ -1465,7 +1667,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     GraphMap[G->name] = graphPtr;
 
     llvm::Function *F = Builder.GetInsertBlock()->getParent();
-    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name);
+    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name, GraphTy->getPointerTo());
     Builder.CreateStore(graphPtr, graphAlloca);
     NamedValues[G->name] = graphAlloca;
     // debug
@@ -1656,7 +1858,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
     GraphMap[G->name] = graphPtr;
 
     llvm::Function *F = Builder.GetInsertBlock()->getParent();
-    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name);
+    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name, GraphTy->getPointerTo());
     Builder.CreateStore(graphPtr, graphAlloca);
     NamedValues[G->name] = graphAlloca;
     // debug
@@ -2173,9 +2375,44 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
             llvm::errs() << "Undefined variable in print: " << var->name << "\n";
             return;
         }
-        llvm::Value *val = Builder.CreateLoad(Builder.getInt32Ty(), it->second, var->name);
+        llvm::Type *valTy = it->second->getAllocatedType();
+        llvm::Value *val = Builder.CreateLoad(valTy, it->second, var->name);
 
-        // Emit printf("%d\n", val)
+        if (valTy->isIntegerTy(1))
+        {
+            llvm::Value *val32 = Builder.CreateZExt(val, Builder.getInt32Ty(), "bool_to_i32");
+            static llvm::GlobalVariable *fmtBool = nullptr;
+            if (!fmtBool)
+            {
+                auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+                fmtBool = new llvm::GlobalVariable(
+                    Module, fmtTy, /*isConstant=*/true,
+                    llvm::GlobalValue::PrivateLinkage,
+                    llvm::ConstantDataArray::getString(Context, "%d\n", true),
+                    ".fmt_bool");
+            }
+            llvm::Value *fmtPtr = Builder.CreateBitCast(fmtBool, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+            Builder.CreateCall(printfFn, {fmtPtr, val32});
+            return;
+        }
+        if (valTy->isDoubleTy())
+        {
+            static llvm::GlobalVariable *fmtReal = nullptr;
+            if (!fmtReal)
+            {
+                auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+                fmtReal = new llvm::GlobalVariable(
+                    Module, fmtTy, /*isConstant=*/true,
+                    llvm::GlobalValue::PrivateLinkage,
+                    llvm::ConstantDataArray::getString(Context, "%f\n", true),
+                    ".fmt_real");
+            }
+            llvm::Value *fmtPtr = Builder.CreateBitCast(fmtReal, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+            Builder.CreateCall(printfFn, {fmtPtr, val});
+            return;
+        }
+
+        // Emit printf("%d\n", val) for int
         static llvm::GlobalVariable *fmtInt = nullptr;
         if (!fmtInt)
         {
@@ -2206,6 +2443,44 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
                 ".fmt_int");
         }
         llvm::Value *fmtPtr = Builder.CreateBitCast(fmtInt, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+        Builder.CreateCall(printfFn, {fmtPtr, val});
+        return;
+    }
+
+    // Handle bool literal prints
+    if (auto *bl = dynamic_cast<BoolLiteralNode *>(PS->expr.get()))
+    {
+        llvm::Value *val = llvm::ConstantInt::get(Builder.getInt32Ty(), bl->value ? 1 : 0);
+        static llvm::GlobalVariable *fmtBool = nullptr;
+        if (!fmtBool)
+        {
+            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+            fmtBool = new llvm::GlobalVariable(
+                Module, fmtTy, /*isConstant=*/true,
+                llvm::GlobalValue::PrivateLinkage,
+                llvm::ConstantDataArray::getString(Context, "%d\n", true),
+                ".fmt_bool");
+        }
+        llvm::Value *fmtPtr = Builder.CreateBitCast(fmtBool, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+        Builder.CreateCall(printfFn, {fmtPtr, val});
+        return;
+    }
+
+    // Handle real literal prints
+    if (auto *rl = dynamic_cast<RealLiteralNode *>(PS->expr.get()))
+    {
+        llvm::Value *val = llvm::ConstantFP::get(Builder.getDoubleTy(), rl->value);
+        static llvm::GlobalVariable *fmtReal = nullptr;
+        if (!fmtReal)
+        {
+            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+            fmtReal = new llvm::GlobalVariable(
+                Module, fmtTy, /*isConstant=*/true,
+                llvm::GlobalValue::PrivateLinkage,
+                llvm::ConstantDataArray::getString(Context, "%f\n", true),
+                ".fmt_real");
+        }
+        llvm::Value *fmtPtr = Builder.CreateBitCast(fmtReal, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
         Builder.CreateCall(printfFn, {fmtPtr, val});
         return;
     }

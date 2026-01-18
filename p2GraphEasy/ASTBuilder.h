@@ -3,7 +3,6 @@
 
 #include "BaseBaseVisitor.h"
 #include "ASTNode.h"
-#include <unordered_map>
 #include <memory>
 
 class ASTBuilder : public BaseBaseVisitor
@@ -35,10 +34,7 @@ public:
     antlrcpp::Any visitPrintStatement(BaseParser::PrintStatementContext *ctx) override;
 
 private:
-    std::unordered_map<std::string, int> symbolTable;
-    std::unordered_map<std::string, std::vector<ASTNodePtr>> arrayTable;
-    std::unordered_map<std::string, std::shared_ptr<FunctionDeclNode>> functionTable;
-    int evaluate(ASTNodePtr node);
+    std::shared_ptr<GraphConditionNode> buildGraphCondition(BaseParser::GraphConditionContext *ctx);
 };
 
 #endif // ASTBUILDER_H

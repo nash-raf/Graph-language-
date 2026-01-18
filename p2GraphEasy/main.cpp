@@ -7,6 +7,7 @@
 #include "ASTBuilder.h"
 #include "ASTNode.h"
 #include "IRGenVisitor.h"
+#include "SemanticAnalyzer.h"
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -222,6 +223,18 @@ int main(int argc, char **argv)
     ASTBuilder astB;
     auto progAny = astB.visitProgram(tree);
     auto prog = std::any_cast<ProgramNodePtr>(progAny);
+
+    // Semantic analysis (name resolution, type checking, validations)
+    try
+    {
+        SemanticAnalyzer sema(prog);
+        sema.analyze();
+    }
+    catch (const std::exception &ex)
+    {
+        errs() << ex.what() << "\n";
+        return 1;
+    }
 
     // --- Now LLVM IR generation/linking and running passes ---
     LLVMContext Ctx;

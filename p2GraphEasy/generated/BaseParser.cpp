@@ -1,7 +1,8 @@
 
-// Generated from Base.g4 by ANTLR 4.13.2
+// Generated from Base.g4 by ANTLR 4.13.0
 
 
+#include "BaseListener.h"
 #include "BaseVisitor.h"
 
 #include "BaseParser.h"
@@ -40,7 +41,7 @@ struct BaseParserStaticData final {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
 static thread_local
 #endif
-std::unique_ptr<BaseParserStaticData> baseParserStaticData = nullptr;
+BaseParserStaticData *baseParserStaticData = nullptr;
 
 void baseParserInitialize() {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
@@ -68,8 +69,8 @@ void baseParserInitialize() {
       "'->'", "'='", "'if'", "'('", "')'", "'else'", "'in'", "'['", "'where'", 
       "']'", "'degree'", "'connected'", "'with'", "'for'", "'each'", "'vertex'", 
       "'edge'", "'neighbor'", "'while'", "'add'", "'to'", "'remove'", "'from'", 
-      "'query'", "':'", "'show'", "'fn'", "'int'", "'void'", "'string'", 
-      "'real'", "'bool'", "'return'", "'print'", "'[]'", "'graph'", "'weights'", 
+      "'query'", "':'", "'show'", "'fn'", "'int'", "'real'", "'bool'", "'void'", 
+      "'string'", "'return'", "'print'", "'[]'", "'graph'", "'weights'", 
       "'edges'", "'nodes'", "'TRUE'", "'FALSE'", "'of'", "'+'", "'-'", "'*'", 
       "'/'", "'&&'", "'||'", "'=='", "'!='", "'<'", "'>'", "'<='", "'>='"
     },
@@ -124,8 +125,8 @@ void baseParserInitialize() {
   	43,1,43,3,43,509,8,43,1,44,1,44,1,44,1,44,1,44,1,44,1,44,1,44,1,45,1,
   	45,1,45,0,4,26,30,74,80,46,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,
   	32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,76,
-  	78,80,82,84,86,88,90,0,6,1,0,56,61,3,0,23,24,35,37,43,43,4,0,23,24,35,
-  	35,37,39,43,43,1,0,52,53,1,0,50,51,1,0,47,48,547,0,96,1,0,0,0,2,117,1,
+  	78,80,82,84,86,88,90,0,6,1,0,56,61,3,0,23,24,35,39,43,43,4,0,23,24,35,
+  	37,39,39,43,43,1,0,52,53,1,0,50,51,1,0,47,48,547,0,96,1,0,0,0,2,117,1,
   	0,0,0,4,144,1,0,0,0,6,146,1,0,0,0,8,150,1,0,0,0,10,157,1,0,0,0,12,165,
   	1,0,0,0,14,173,1,0,0,0,16,175,1,0,0,0,18,177,1,0,0,0,20,180,1,0,0,0,22,
   	200,1,0,0,0,24,202,1,0,0,0,26,226,1,0,0,0,28,239,1,0,0,0,30,259,1,0,0,
@@ -267,7 +268,7 @@ void baseParserInitialize() {
   for (size_t i = 0; i < count; i++) { 
     staticData->decisionToDFA.emplace_back(staticData->atn->getDecisionState(i), i);
   }
-  baseParserStaticData = std::move(staticData);
+  baseParserStaticData = staticData.release();
 }
 
 }
@@ -335,6 +336,18 @@ size_t BaseParser::ProgramContext::getRuleIndex() const {
   return BaseParser::RuleProgram;
 }
 
+void BaseParser::ProgramContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterProgram(this);
+}
+
+void BaseParser::ProgramContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitProgram(this);
+}
+
 
 std::any BaseParser::ProgramContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -361,7 +374,7 @@ BaseParser::ProgramContext* BaseParser::program() {
     _errHandler->sync(this);
     _la = _input->LA(1);
     while ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 4611698038658827266) != 0)) {
+      ((1ULL << _la) & 4611697832500397058) != 0)) {
       setState(94);
       _errHandler->sync(this);
       switch (_input->LA(1)) {
@@ -376,8 +389,8 @@ BaseParser::ProgramContext* BaseParser::program() {
         case BaseParser::T__30:
         case BaseParser::T__32:
         case BaseParser::T__34:
+        case BaseParser::T__35:
         case BaseParser::T__36:
-        case BaseParser::T__37:
         case BaseParser::T__38:
         case BaseParser::T__40:
         case BaseParser::GRAPH:
@@ -474,6 +487,18 @@ BaseParser::NodeEdgeOperationContext* BaseParser::StatementContext::nodeEdgeOper
 
 size_t BaseParser::StatementContext::getRuleIndex() const {
   return BaseParser::RuleStatement;
+}
+
+void BaseParser::StatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterStatement(this);
+}
+
+void BaseParser::StatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitStatement(this);
 }
 
 
@@ -652,6 +677,16 @@ BaseParser::EdgesContext* BaseParser::WeightedGraphDefContext::edges() {
 
 BaseParser::WeightedGraphDefContext::WeightedGraphDefContext(GraphDefContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::WeightedGraphDefContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterWeightedGraphDef(this);
+}
+void BaseParser::WeightedGraphDefContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitWeightedGraphDef(this);
+}
 
 std::any BaseParser::WeightedGraphDefContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -679,6 +714,16 @@ BaseParser::EdgesContext* BaseParser::UnweightedGraphDefContext::edges() {
 
 BaseParser::UnweightedGraphDefContext::UnweightedGraphDefContext(GraphDefContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::UnweightedGraphDefContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterUnweightedGraphDef(this);
+}
+void BaseParser::UnweightedGraphDefContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitUnweightedGraphDef(this);
+}
 
 std::any BaseParser::UnweightedGraphDefContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -797,6 +842,18 @@ size_t BaseParser::NodesContext::getRuleIndex() const {
   return BaseParser::RuleNodes;
 }
 
+void BaseParser::NodesContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterNodes(this);
+}
+
+void BaseParser::NodesContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitNodes(this);
+}
+
 
 std::any BaseParser::NodesContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -852,6 +909,18 @@ BaseParser::FileEdgeListContext* BaseParser::EdgesContext::fileEdgeList() {
 
 size_t BaseParser::EdgesContext::getRuleIndex() const {
   return BaseParser::RuleEdges;
+}
+
+void BaseParser::EdgesContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterEdges(this);
+}
+
+void BaseParser::EdgesContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitEdges(this);
 }
 
 
@@ -927,6 +996,18 @@ size_t BaseParser::NodeListContext::getRuleIndex() const {
   return BaseParser::RuleNodeList;
 }
 
+void BaseParser::NodeListContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterNodeList(this);
+}
+
+void BaseParser::NodeListContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitNodeList(this);
+}
+
 
 std::any BaseParser::NodeListContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -993,6 +1074,18 @@ size_t BaseParser::EdgeListContext::getRuleIndex() const {
   return BaseParser::RuleEdgeList;
 }
 
+void BaseParser::EdgeListContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterEdgeList(this);
+}
+
+void BaseParser::EdgeListContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitEdgeList(this);
+}
+
 
 std::any BaseParser::EdgeListContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1055,6 +1148,18 @@ size_t BaseParser::GraphIDContext::getRuleIndex() const {
   return BaseParser::RuleGraphID;
 }
 
+void BaseParser::GraphIDContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterGraphID(this);
+}
+
+void BaseParser::GraphIDContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitGraphID(this);
+}
+
 
 std::any BaseParser::GraphIDContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1104,6 +1209,18 @@ size_t BaseParser::NodeIDContext::getRuleIndex() const {
   return BaseParser::RuleNodeID;
 }
 
+void BaseParser::NodeIDContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterNodeID(this);
+}
+
+void BaseParser::NodeIDContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitNodeID(this);
+}
+
 
 std::any BaseParser::NodeIDContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1151,6 +1268,18 @@ tree::TerminalNode* BaseParser::FileEdgeListContext::STRING() {
 
 size_t BaseParser::FileEdgeListContext::getRuleIndex() const {
   return BaseParser::RuleFileEdgeList;
+}
+
+void BaseParser::FileEdgeListContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterFileEdgeList(this);
+}
+
+void BaseParser::FileEdgeListContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitFileEdgeList(this);
 }
 
 
@@ -1206,6 +1335,18 @@ BaseParser::NodeIDContext* BaseParser::EdgeContext::nodeID(size_t i) {
 
 size_t BaseParser::EdgeContext::getRuleIndex() const {
   return BaseParser::RuleEdge;
+}
+
+void BaseParser::EdgeContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterEdge(this);
+}
+
+void BaseParser::EdgeContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitEdge(this);
 }
 
 
@@ -1277,6 +1418,16 @@ BaseParser::ExprContext* BaseParser::SimpleDeclarationContext::expr() {
 
 BaseParser::SimpleDeclarationContext::SimpleDeclarationContext(VarDeclContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::SimpleDeclarationContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterSimpleDeclaration(this);
+}
+void BaseParser::SimpleDeclarationContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitSimpleDeclaration(this);
+}
 
 std::any BaseParser::SimpleDeclarationContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1300,6 +1451,16 @@ BaseParser::ArrayInitializerContext* BaseParser::ArrayDeclarationContext::arrayI
 
 BaseParser::ArrayDeclarationContext::ArrayDeclarationContext(VarDeclContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ArrayDeclarationContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterArrayDeclaration(this);
+}
+void BaseParser::ArrayDeclarationContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArrayDeclaration(this);
+}
 
 std::any BaseParser::ArrayDeclarationContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1408,6 +1569,18 @@ size_t BaseParser::ConditionalStatementContext::getRuleIndex() const {
   return BaseParser::RuleConditionalStatement;
 }
 
+void BaseParser::ConditionalStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterConditionalStatement(this);
+}
+
+void BaseParser::ConditionalStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitConditionalStatement(this);
+}
+
 
 std::any BaseParser::ConditionalStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1500,6 +1673,16 @@ BaseParser::GraphIDContext* BaseParser::NodeCheckContext::graphID() {
 
 BaseParser::NodeCheckContext::NodeCheckContext(ConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::NodeCheckContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterNodeCheck(this);
+}
+void BaseParser::NodeCheckContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitNodeCheck(this);
+}
 
 std::any BaseParser::NodeCheckContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1523,6 +1706,16 @@ tree::TerminalNode* BaseParser::LogicalAndContext::AND() {
 
 BaseParser::LogicalAndContext::LogicalAndContext(ConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::LogicalAndContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterLogicalAnd(this);
+}
+void BaseParser::LogicalAndContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitLogicalAnd(this);
+}
 
 std::any BaseParser::LogicalAndContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1566,6 +1759,16 @@ tree::TerminalNode* BaseParser::RelationalContext::GREATERTHAN() {
 
 BaseParser::RelationalContext::RelationalContext(ConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::RelationalContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterRelational(this);
+}
+void BaseParser::RelationalContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitRelational(this);
+}
 
 std::any BaseParser::RelationalContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1585,6 +1788,16 @@ BaseParser::GraphIDContext* BaseParser::EdgeCheckContext::graphID() {
 
 BaseParser::EdgeCheckContext::EdgeCheckContext(ConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::EdgeCheckContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterEdgeCheck(this);
+}
+void BaseParser::EdgeCheckContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitEdgeCheck(this);
+}
 
 std::any BaseParser::EdgeCheckContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1608,6 +1821,16 @@ tree::TerminalNode* BaseParser::LogicalOrContext::OR() {
 
 BaseParser::LogicalOrContext::LogicalOrContext(ConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::LogicalOrContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterLogicalOr(this);
+}
+void BaseParser::LogicalOrContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitLogicalOr(this);
+}
 
 std::any BaseParser::LogicalOrContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1775,6 +1998,18 @@ size_t BaseParser::GraphComprehensionContext::getRuleIndex() const {
   return BaseParser::RuleGraphComprehension;
 }
 
+void BaseParser::GraphComprehensionContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterGraphComprehension(this);
+}
+
+void BaseParser::GraphComprehensionContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitGraphComprehension(this);
+}
+
 
 std::any BaseParser::GraphComprehensionContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1854,6 +2089,16 @@ tree::TerminalNode* BaseParser::GraphLogicalAndContext::AND() {
 
 BaseParser::GraphLogicalAndContext::GraphLogicalAndContext(GraphConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::GraphLogicalAndContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterGraphLogicalAnd(this);
+}
+void BaseParser::GraphLogicalAndContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitGraphLogicalAnd(this);
+}
 
 std::any BaseParser::GraphLogicalAndContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1893,6 +2138,16 @@ tree::TerminalNode* BaseParser::DegreeConditionContext::GREATERTHAN() {
 
 BaseParser::DegreeConditionContext::DegreeConditionContext(GraphConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::DegreeConditionContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterDegreeCondition(this);
+}
+void BaseParser::DegreeConditionContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitDegreeCondition(this);
+}
 
 std::any BaseParser::DegreeConditionContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1908,6 +2163,16 @@ BaseParser::NodeIDContext* BaseParser::ConnectedConditionContext::nodeID() {
 
 BaseParser::ConnectedConditionContext::ConnectedConditionContext(GraphConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ConnectedConditionContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterConnectedCondition(this);
+}
+void BaseParser::ConnectedConditionContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitConnectedCondition(this);
+}
 
 std::any BaseParser::ConnectedConditionContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1931,6 +2196,16 @@ tree::TerminalNode* BaseParser::GraphLogicalOrContext::OR() {
 
 BaseParser::GraphLogicalOrContext::GraphLogicalOrContext(GraphConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::GraphLogicalOrContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterGraphLogicalOr(this);
+}
+void BaseParser::GraphLogicalOrContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitGraphLogicalOr(this);
+}
 
 std::any BaseParser::GraphLogicalOrContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -1946,6 +2221,16 @@ BaseParser::GraphConditionContext* BaseParser::ParenGraphConditionContext::graph
 
 BaseParser::ParenGraphConditionContext::ParenGraphConditionContext(GraphConditionContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ParenGraphConditionContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterParenGraphCondition(this);
+}
+void BaseParser::ParenGraphConditionContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitParenGraphCondition(this);
+}
 
 std::any BaseParser::ParenGraphConditionContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2109,6 +2394,18 @@ size_t BaseParser::LoopStatementContext::getRuleIndex() const {
   return BaseParser::RuleLoopStatement;
 }
 
+void BaseParser::LoopStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterLoopStatement(this);
+}
+
+void BaseParser::LoopStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitLoopStatement(this);
+}
+
 
 std::any BaseParser::LoopStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2183,6 +2480,18 @@ size_t BaseParser::ForeachStatementContext::getRuleIndex() const {
   return BaseParser::RuleForeachStatement;
 }
 
+void BaseParser::ForeachStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterForeachStatement(this);
+}
+
+void BaseParser::ForeachStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitForeachStatement(this);
+}
+
 
 std::any BaseParser::ForeachStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2250,6 +2559,16 @@ tree::TerminalNode* BaseParser::ForEachVertexContext::ID() {
 
 BaseParser::ForEachVertexContext::ForEachVertexContext(LoopTargetContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ForEachVertexContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterForEachVertex(this);
+}
+void BaseParser::ForEachVertexContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitForEachVertex(this);
+}
 
 std::any BaseParser::ForEachVertexContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2273,6 +2592,16 @@ BaseParser::NodeIDContext* BaseParser::ForEachAdjContext::nodeID() {
 
 BaseParser::ForEachAdjContext::ForEachAdjContext(LoopTargetContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ForEachAdjContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterForEachAdj(this);
+}
+void BaseParser::ForEachAdjContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitForEachAdj(this);
+}
 
 std::any BaseParser::ForEachAdjContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2292,6 +2621,16 @@ tree::TerminalNode* BaseParser::ForEachEdgeContext::ID(size_t i) {
 
 BaseParser::ForEachEdgeContext::ForEachEdgeContext(LoopTargetContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ForEachEdgeContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterForEachEdge(this);
+}
+void BaseParser::ForEachEdgeContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitForEachEdge(this);
+}
 
 std::any BaseParser::ForEachEdgeContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2385,6 +2724,18 @@ size_t BaseParser::WhileStatementContext::getRuleIndex() const {
   return BaseParser::RuleWhileStatement;
 }
 
+void BaseParser::WhileStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterWhileStatement(this);
+}
+
+void BaseParser::WhileStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitWhileStatement(this);
+}
+
 
 std::any BaseParser::WhileStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2444,6 +2795,18 @@ BaseParser::RemoveOperationContext* BaseParser::NodeEdgeOperationContext::remove
 
 size_t BaseParser::NodeEdgeOperationContext::getRuleIndex() const {
   return BaseParser::RuleNodeEdgeOperation;
+}
+
+void BaseParser::NodeEdgeOperationContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterNodeEdgeOperation(this);
+}
+
+void BaseParser::NodeEdgeOperationContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitNodeEdgeOperation(this);
 }
 
 
@@ -2516,6 +2879,18 @@ size_t BaseParser::AddOperationContext::getRuleIndex() const {
   return BaseParser::RuleAddOperation;
 }
 
+void BaseParser::AddOperationContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterAddOperation(this);
+}
+
+void BaseParser::AddOperationContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitAddOperation(this);
+}
+
 
 std::any BaseParser::AddOperationContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2575,6 +2950,18 @@ BaseParser::GraphIDContext* BaseParser::RemoveOperationContext::graphID() {
 
 size_t BaseParser::RemoveOperationContext::getRuleIndex() const {
   return BaseParser::RuleRemoveOperation;
+}
+
+void BaseParser::RemoveOperationContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterRemoveOperation(this);
+}
+
+void BaseParser::RemoveOperationContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitRemoveOperation(this);
 }
 
 
@@ -2644,6 +3031,18 @@ BaseParser::EdgeListContext* BaseParser::AddTargetsContext::edgeList() {
 
 size_t BaseParser::AddTargetsContext::getRuleIndex() const {
   return BaseParser::RuleAddTargets;
+}
+
+void BaseParser::AddTargetsContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterAddTargets(this);
+}
+
+void BaseParser::AddTargetsContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitAddTargets(this);
 }
 
 
@@ -2736,6 +3135,18 @@ BaseParser::EdgeListContext* BaseParser::RemoveTargetsContext::edgeList() {
 
 size_t BaseParser::RemoveTargetsContext::getRuleIndex() const {
   return BaseParser::RuleRemoveTargets;
+}
+
+void BaseParser::RemoveTargetsContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterRemoveTargets(this);
+}
+
+void BaseParser::RemoveTargetsContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitRemoveTargets(this);
 }
 
 
@@ -2834,6 +3245,18 @@ size_t BaseParser::QueryStatementContext::getRuleIndex() const {
   return BaseParser::RuleQueryStatement;
 }
 
+void BaseParser::QueryStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterQueryStatement(this);
+}
+
+void BaseParser::QueryStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitQueryStatement(this);
+}
+
 
 std::any BaseParser::QueryStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2904,6 +3327,18 @@ size_t BaseParser::ShowgraphContext::getRuleIndex() const {
   return BaseParser::RuleShowgraph;
 }
 
+void BaseParser::ShowgraphContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterShowgraph(this);
+}
+
+void BaseParser::ShowgraphContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitShowgraph(this);
+}
+
 
 std::any BaseParser::ShowgraphContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -2969,6 +3404,18 @@ size_t BaseParser::FunctionContext::getRuleIndex() const {
   return BaseParser::RuleFunction;
 }
 
+void BaseParser::FunctionContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterFunction(this);
+}
+
+void BaseParser::FunctionContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitFunction(this);
+}
+
 
 std::any BaseParser::FunctionContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3026,6 +3473,18 @@ size_t BaseParser::ReturnTypeContext::getRuleIndex() const {
   return BaseParser::RuleReturnType;
 }
 
+void BaseParser::ReturnTypeContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterReturnType(this);
+}
+
+void BaseParser::ReturnTypeContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitReturnType(this);
+}
+
 
 std::any BaseParser::ReturnTypeContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3051,7 +3510,7 @@ BaseParser::ReturnTypeContext* BaseParser::returnType() {
     setState(350);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 9036636356608) != 0))) {
+      ((1ULL << _la) & 9861270077440) != 0))) {
     _errHandler->recoverInline(this);
     }
     else {
@@ -3088,6 +3547,18 @@ size_t BaseParser::ParamListContext::getRuleIndex() const {
   return BaseParser::RuleParamList;
 }
 
+void BaseParser::ParamListContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterParamList(this);
+}
+
+void BaseParser::ParamListContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitParamList(this);
+}
+
 
 std::any BaseParser::ParamListContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3117,7 +3588,7 @@ BaseParser::ParamListContext* BaseParser::paramList() {
 
     _la = _input->LA(1);
     if ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 9792550600704) != 0)) {
+      ((1ULL << _la) & 9586392170496) != 0)) {
       setState(353);
       param();
       setState(358);
@@ -3163,6 +3634,18 @@ tree::TerminalNode* BaseParser::ParamContext::ID() {
 
 size_t BaseParser::ParamContext::getRuleIndex() const {
   return BaseParser::RuleParam;
+}
+
+void BaseParser::ParamContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterParam(this);
+}
+
+void BaseParser::ParamContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitParam(this);
 }
 
 
@@ -3216,6 +3699,18 @@ size_t BaseParser::TypeContext::getRuleIndex() const {
   return BaseParser::RuleType;
 }
 
+void BaseParser::TypeContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterType(this);
+}
+
+void BaseParser::TypeContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitType(this);
+}
+
 
 std::any BaseParser::TypeContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3241,7 +3736,7 @@ BaseParser::TypeContext* BaseParser::type() {
     setState(368);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 9792550600704) != 0))) {
+      ((1ULL << _la) & 9586392170496) != 0))) {
     _errHandler->recoverInline(this);
     }
     else {
@@ -3276,6 +3771,18 @@ BaseParser::ArgumentListContext* BaseParser::FunctionCallContext::argumentList()
 
 size_t BaseParser::FunctionCallContext::getRuleIndex() const {
   return BaseParser::RuleFunctionCall;
+}
+
+void BaseParser::FunctionCallContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterFunctionCall(this);
+}
+
+void BaseParser::FunctionCallContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitFunctionCall(this);
 }
 
 
@@ -3343,6 +3850,18 @@ BaseParser::ExprContext* BaseParser::ArgumentListContext::expr(size_t i) {
 
 size_t BaseParser::ArgumentListContext::getRuleIndex() const {
   return BaseParser::RuleArgumentList;
+}
+
+void BaseParser::ArgumentListContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterArgumentList(this);
+}
+
+void BaseParser::ArgumentListContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArgumentList(this);
 }
 
 
@@ -3419,6 +3938,18 @@ size_t BaseParser::BlockContext::getRuleIndex() const {
   return BaseParser::RuleBlock;
 }
 
+void BaseParser::BlockContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterBlock(this);
+}
+
+void BaseParser::BlockContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitBlock(this);
+}
+
 
 std::any BaseParser::BlockContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3451,7 +3982,7 @@ BaseParser::BlockContext* BaseParser::block() {
       _errHandler->sync(this);
       _la = _input->LA(1);
       while ((((_la & ~ 0x3fULL) == 0) &&
-        ((1ULL << _la) & 4611699120990585858) != 0)) {
+        ((1ULL << _la) & 4611698914832155650) != 0)) {
         setState(388);
         _errHandler->sync(this);
         switch (_input->LA(1)) {
@@ -3466,8 +3997,8 @@ BaseParser::BlockContext* BaseParser::block() {
           case BaseParser::T__30:
           case BaseParser::T__32:
           case BaseParser::T__34:
+          case BaseParser::T__35:
           case BaseParser::T__36:
-          case BaseParser::T__37:
           case BaseParser::T__38:
           case BaseParser::T__40:
           case BaseParser::GRAPH:
@@ -3533,6 +4064,18 @@ size_t BaseParser::ReturnStatementContext::getRuleIndex() const {
   return BaseParser::RuleReturnStatement;
 }
 
+void BaseParser::ReturnStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterReturnStatement(this);
+}
+
+void BaseParser::ReturnStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitReturnStatement(this);
+}
+
 
 std::any BaseParser::ReturnStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3592,6 +4135,18 @@ BaseParser::PrintgraphContext* BaseParser::PrintStatementContext::printgraph() {
 
 size_t BaseParser::PrintStatementContext::getRuleIndex() const {
   return BaseParser::RulePrintStatement;
+}
+
+void BaseParser::PrintStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterPrintStatement(this);
+}
+
+void BaseParser::PrintStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitPrintStatement(this);
 }
 
 
@@ -3685,6 +4240,18 @@ tree::TerminalNode* BaseParser::PrintExprContext::PLUS() {
 
 size_t BaseParser::PrintExprContext::getRuleIndex() const {
   return BaseParser::RulePrintExpr;
+}
+
+void BaseParser::PrintExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterPrintExpr(this);
+}
+
+void BaseParser::PrintExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitPrintExpr(this);
 }
 
 
@@ -3795,6 +4362,18 @@ size_t BaseParser::PrintArrayStatementContext::getRuleIndex() const {
   return BaseParser::RulePrintArrayStatement;
 }
 
+void BaseParser::PrintArrayStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterPrintArrayStatement(this);
+}
+
+void BaseParser::PrintArrayStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitPrintArrayStatement(this);
+}
+
 
 std::any BaseParser::PrintArrayStatementContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3870,6 +4449,16 @@ BaseParser::GraphIDContext* BaseParser::NodePrintContext::graphID() {
 
 BaseParser::NodePrintContext::NodePrintContext(PrintgraphContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::NodePrintContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterNodePrint(this);
+}
+void BaseParser::NodePrintContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitNodePrint(this);
+}
 
 std::any BaseParser::NodePrintContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3893,6 +4482,16 @@ BaseParser::GraphIDContext* BaseParser::GraphPrintContext::graphID() {
 
 BaseParser::GraphPrintContext::GraphPrintContext(PrintgraphContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::GraphPrintContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterGraphPrint(this);
+}
+void BaseParser::GraphPrintContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitGraphPrint(this);
+}
 
 std::any BaseParser::GraphPrintContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -3916,6 +4515,16 @@ BaseParser::GraphIDContext* BaseParser::EdgePrintContext::graphID() {
 
 BaseParser::EdgePrintContext::EdgePrintContext(PrintgraphContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::EdgePrintContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterEdgePrint(this);
+}
+void BaseParser::EdgePrintContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitEdgePrint(this);
+}
 
 std::any BaseParser::EdgePrintContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4023,6 +4632,16 @@ tree::TerminalNode* BaseParser::BoolTrueExprContext::TRUE() {
 
 BaseParser::BoolTrueExprContext::BoolTrueExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::BoolTrueExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterBoolTrueExpr(this);
+}
+void BaseParser::BoolTrueExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitBoolTrueExpr(this);
+}
 
 std::any BaseParser::BoolTrueExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4050,6 +4669,16 @@ tree::TerminalNode* BaseParser::MulDivExprContext::DIVIDE() {
 
 BaseParser::MulDivExprContext::MulDivExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::MulDivExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterMulDivExpr(this);
+}
+void BaseParser::MulDivExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitMulDivExpr(this);
+}
 
 std::any BaseParser::MulDivExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4065,6 +4694,16 @@ tree::TerminalNode* BaseParser::IdExprContext::ID() {
 
 BaseParser::IdExprContext::IdExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::IdExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterIdExpr(this);
+}
+void BaseParser::IdExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitIdExpr(this);
+}
 
 std::any BaseParser::IdExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4080,6 +4719,16 @@ tree::TerminalNode* BaseParser::BoolFalseExprContext::FALSE() {
 
 BaseParser::BoolFalseExprContext::BoolFalseExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::BoolFalseExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterBoolFalseExpr(this);
+}
+void BaseParser::BoolFalseExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitBoolFalseExpr(this);
+}
 
 std::any BaseParser::BoolFalseExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4099,6 +4748,16 @@ BaseParser::ExprContext* BaseParser::ArrayAccessExprContext::expr() {
 
 BaseParser::ArrayAccessExprContext::ArrayAccessExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ArrayAccessExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterArrayAccessExpr(this);
+}
+void BaseParser::ArrayAccessExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArrayAccessExpr(this);
+}
 
 std::any BaseParser::ArrayAccessExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4114,6 +4773,16 @@ tree::TerminalNode* BaseParser::IntExprContext::INT() {
 
 BaseParser::IntExprContext::IntExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::IntExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterIntExpr(this);
+}
+void BaseParser::IntExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitIntExpr(this);
+}
 
 std::any BaseParser::IntExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4129,6 +4798,16 @@ BaseParser::ExprContext* BaseParser::ParenExprContext::expr() {
 
 BaseParser::ParenExprContext::ParenExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ParenExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterParenExpr(this);
+}
+void BaseParser::ParenExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitParenExpr(this);
+}
 
 std::any BaseParser::ParenExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4144,6 +4823,16 @@ tree::TerminalNode* BaseParser::ArrayPrintContext::ID() {
 
 BaseParser::ArrayPrintContext::ArrayPrintContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ArrayPrintContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterArrayPrint(this);
+}
+void BaseParser::ArrayPrintContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArrayPrint(this);
+}
 
 std::any BaseParser::ArrayPrintContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4159,6 +4848,16 @@ BaseParser::FunctionCallContext* BaseParser::FuncExprContext::functionCall() {
 
 BaseParser::FuncExprContext::FuncExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::FuncExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterFuncExpr(this);
+}
+void BaseParser::FuncExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitFuncExpr(this);
+}
 
 std::any BaseParser::FuncExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4174,6 +4873,16 @@ tree::TerminalNode* BaseParser::RealExprContext::REAL() {
 
 BaseParser::RealExprContext::RealExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::RealExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterRealExpr(this);
+}
+void BaseParser::RealExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitRealExpr(this);
+}
 
 std::any BaseParser::RealExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4201,6 +4910,16 @@ tree::TerminalNode* BaseParser::AddSubExprContext::MINUS() {
 
 BaseParser::AddSubExprContext::AddSubExprContext(ExprContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::AddSubExprContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterAddSubExpr(this);
+}
+void BaseParser::AddSubExprContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitAddSubExpr(this);
+}
 
 std::any BaseParser::AddSubExprContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4436,6 +5155,16 @@ tree::TerminalNode* BaseParser::SizedArrayContext::INT() {
 
 BaseParser::SizedArrayContext::SizedArrayContext(ArrayDeclaratorContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::SizedArrayContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterSizedArray(this);
+}
+void BaseParser::SizedArrayContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitSizedArray(this);
+}
 
 std::any BaseParser::SizedArrayContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4451,6 +5180,16 @@ tree::TerminalNode* BaseParser::UnsizedArrayContext::ID() {
 
 BaseParser::UnsizedArrayContext::UnsizedArrayContext(ArrayDeclaratorContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::UnsizedArrayContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterUnsizedArray(this);
+}
+void BaseParser::UnsizedArrayContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitUnsizedArray(this);
+}
 
 std::any BaseParser::UnsizedArrayContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4532,6 +5271,18 @@ size_t BaseParser::ArrayInitializerContext::getRuleIndex() const {
   return BaseParser::RuleArrayInitializer;
 }
 
+void BaseParser::ArrayInitializerContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterArrayInitializer(this);
+}
+
+void BaseParser::ArrayInitializerContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArrayInitializer(this);
+}
+
 
 std::any BaseParser::ArrayInitializerContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4600,6 +5351,18 @@ BaseParser::ExprContext* BaseParser::AssignmentStatementContext::expr() {
 
 size_t BaseParser::AssignmentStatementContext::getRuleIndex() const {
   return BaseParser::RuleAssignmentStatement;
+}
+
+void BaseParser::AssignmentStatementContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterAssignmentStatement(this);
+}
+
+void BaseParser::AssignmentStatementContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitAssignmentStatement(this);
 }
 
 
@@ -4692,6 +5455,16 @@ BaseParser::ExprContext* BaseParser::ArrayAssignStmtContext::expr(size_t i) {
 
 BaseParser::ArrayAssignStmtContext::ArrayAssignStmtContext(ArrayAssignStatementContext *ctx) { copyFrom(ctx); }
 
+void BaseParser::ArrayAssignStmtContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterArrayAssignStmt(this);
+}
+void BaseParser::ArrayAssignStmtContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitArrayAssignStmt(this);
+}
 
 std::any BaseParser::ArrayAssignStmtContext::accept(tree::ParseTreeVisitor *visitor) {
   if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
@@ -4755,6 +5528,18 @@ tree::TerminalNode* BaseParser::WeightsContext::FALSE() {
 
 size_t BaseParser::WeightsContext::getRuleIndex() const {
   return BaseParser::RuleWeights;
+}
+
+void BaseParser::WeightsContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterWeights(this);
+}
+
+void BaseParser::WeightsContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitWeights(this);
 }
 
 

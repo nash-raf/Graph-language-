@@ -113,6 +113,8 @@ returnType:
 	| 'vertex'
 	| 'edge'
 	| 'int'
+	| 'real'
+	| 'bool'
 	| 'void'
 	| 'string';
 paramList: '(' (param (',' param)*)? ')';

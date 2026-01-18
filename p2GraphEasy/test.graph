@@ -1,15 +1,3 @@
-graph g{
-    edges: file 'edgelist.txt';
-};
-
-show g;
-add 3 to g;
-show g;
-
-add 2->3 to g;
-
-show g;
-
-remove 3 from g;
-
-show g;
+real r = 3.5;
+real s = 2.0;
+print r + s;

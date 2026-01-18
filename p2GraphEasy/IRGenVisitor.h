@@ -57,6 +57,7 @@ public:
     llvm::Function *getPrintfFunction();
     void visitGraphUpdate(GraphUpdateNode *upd);
     void visitShowGraph(ShowGraphNode *S);
+    void visitGraphComprehension(GraphComprehensionNode *GC);
 
 
 private:
@@ -67,11 +68,14 @@ private:
     std::unordered_map<std::string, llvm::Function *> FunctionProtos;
 
     std::unordered_map<std::string, llvm::AllocaInst *> NamedValues;
-    llvm::AllocaInst *createEntryBlockAlloca(llvm::Function *function, const std::string &name)
+    llvm::AllocaInst *createEntryBlockAlloca(llvm::Function *function, const std::string &name, llvm::Type *ty = nullptr)
     {
         llvm::IRBuilder<> tmpBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());
-        return tmpBuilder.CreateAlloca(Builder.getInt32Ty(), 0, name);
+        if (!ty)
+            ty = Builder.getInt32Ty();
+        return tmpBuilder.CreateAlloca(ty, nullptr, name);
     }
+    llvm::Type *getLLVMTypeForName(const std::string &typeName);
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
     std::unordered_map<std::string, GraphDeclNode*> GraphAstMap;

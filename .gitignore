@@ -2,3 +2,7 @@ log/*
 log/csv/*
 csv/*
 synth_graphs/*
+synth_graphs_weighted/*
+synth_graphs_weighted_graphit/*
+synth_graphs_violin/*
+*.wel

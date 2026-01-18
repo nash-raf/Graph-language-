@@ -21,6 +21,8 @@ enum class ASTNodeType
 {
     Program,
     IntLiteral,
+    BoolLiteral,
+    RealLiteral,
     StringLiteral,
     Variable,
     VarDecl,
@@ -44,10 +46,13 @@ enum class ASTNodeType
     ForEachStmt,
     PrintStmt,
     GraphUpdate,
-    ShowGraph
+    ShowGraph,
+    GraphComprehension
 };
 
 enum class GraphUpdateKind { Add, Remove };
+enum class GraphConditionOp { And, Or, Connected };
+
 
 template <typename T>
 T safe_any_cast(const std::any &a,
@@ -84,6 +89,40 @@ public:
         os << std::string(indent, ' ') << "ASTNode(type=" << static_cast<int>(type) << ")\n";
     }
 };
+
+class GraphConditionNode : public ASTNode
+{
+public:
+    GraphConditionOp op;
+    int nodeId = -1;  // for Connected
+    std::shared_ptr<GraphConditionNode> left;   // for And/Or
+    std::shared_ptr<GraphConditionNode> right;  // for And/Or
+
+    // Connected: 'connected with nodeID'
+    GraphConditionNode(int nid)
+        : ASTNode(ASTNodeType::GraphComprehension), op(GraphConditionOp::Connected), nodeId(nid) {}
+
+    // And/Or: binary condition
+    GraphConditionNode(GraphConditionOp o,
+                       std::shared_ptr<GraphConditionNode> l,
+                       std::shared_ptr<GraphConditionNode> r)
+        : ASTNode(ASTNodeType::GraphComprehension), op(o), left(l), right(r) {}
+};
+
+class GraphComprehensionNode : public ASTNode
+{
+public:
+    std::string targetName;   // j
+    std::string graphName;    // g
+    std::shared_ptr<GraphConditionNode> condition;
+
+    GraphComprehensionNode(const std::string &t,
+                           const std::string &g,
+                           std::shared_ptr<GraphConditionNode> cond)
+        : ASTNode(ASTNodeType::GraphComprehension),
+          targetName(t), graphName(g), condition(cond) {}
+};
+
 
 class GraphUpdateNode : public ASTNode {
     public: 
@@ -122,6 +161,20 @@ public:
     IntLiteralNode(int val) : ASTNode(ASTNodeType::IntLiteral), value(val) {}
 };
 
+class BoolLiteralNode : public ASTNode
+{
+public:
+    bool value;
+    BoolLiteralNode(bool val) : ASTNode(ASTNodeType::BoolLiteral), value(val) {}
+};
+
+class RealLiteralNode : public ASTNode
+{
+public:
+    double value;
+    RealLiteralNode(double val) : ASTNode(ASTNodeType::RealLiteral), value(val) {}
+};
+
 class StringLiteralNode : public ASTNode
 {
 public:
@@ -150,6 +203,7 @@ using ConditionalNodePtr = std::shared_ptr<ConditionalNode>;
 class VarDeclNode : public ASTNode
 {
 public:
+    std::string typeName;
     std::string name;
     ASTNodePtr initializer; // nullptr if none
 
@@ -157,8 +211,9 @@ public:
     bool isArray = false;
     size_t arraySize = 0; // valid if isArray == true
 
-    VarDeclNode(std::string n, ASTNodePtr init = nullptr, bool isArr = false, size_t arrSz = 0)
+    VarDeclNode(std::string ty, std::string n, ASTNodePtr init = nullptr, bool isArr = false, size_t arrSz = 0)
         : ASTNode(ASTNodeType::VarDecl),
+          typeName(std::move(ty)),
           name(std::move(n)),
           initializer(std::move(init)),
           isArray(isArr),

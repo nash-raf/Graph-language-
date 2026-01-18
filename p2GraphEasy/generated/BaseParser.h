@@ -392,6 +392,17 @@ public:
    
   };
 
+  class  ExprConditionContext : public ConditionContext {
+  public:
+    ExprConditionContext(ConditionContext *ctx);
+
+    ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  NodeCheckContext : public ConditionContext {
   public:
     NodeCheckContext(ConditionContext *ctx);

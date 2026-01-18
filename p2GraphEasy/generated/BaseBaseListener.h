@@ -61,6 +61,9 @@ public:
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
 
+  virtual void enterExprCondition(BaseParser::ExprConditionContext * /*ctx*/) override { }
+  virtual void exitExprCondition(BaseParser::ExprConditionContext * /*ctx*/) override { }
+
   virtual void enterNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
   virtual void exitNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
 

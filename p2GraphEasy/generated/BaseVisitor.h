@@ -49,6 +49,8 @@ public:
 
     virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
 
+    virtual std::any visitExprCondition(BaseParser::ExprConditionContext *context) = 0;
+
     virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *context) = 0;
 
     virtual std::any visitLogicalAnd(BaseParser::LogicalAndContext *context) = 0;

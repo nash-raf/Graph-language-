@@ -64,7 +64,8 @@ condition:
 		| GREATERTHAN
 	) expr					# Relational
 	| nodeID 'in' graphID	# NodeCheck
-	| edge 'in' graphID		# EdgeCheck;
+	| edge 'in' graphID		# EdgeCheck
+	| expr					# ExprCondition;
 
 //graphcondition
 graphComprehension:

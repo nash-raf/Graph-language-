@@ -84,7 +84,7 @@ void baseParserInitialize() {
     }
   );
   static const int32_t serializedATNSegment[] = {
-  	4,1,67,521,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
+  	4,1,67,522,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
   	7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,
   	14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,7,20,2,21,7,
   	21,2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,2,27,7,27,2,28,7,
@@ -99,44 +99,44 @@ void baseParserInitialize() {
   	7,1,8,1,8,1,9,1,9,1,9,1,10,1,10,1,10,1,10,1,11,1,11,1,11,1,11,3,11,189,
   	8,11,1,11,1,11,1,11,1,11,1,11,1,11,3,11,197,8,11,1,11,1,11,3,11,201,8,
   	11,1,12,1,12,1,12,1,12,1,12,1,12,1,12,1,12,1,12,3,12,212,8,12,1,13,1,
-  	13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,3,13,227,8,
-  	13,1,13,1,13,1,13,1,13,1,13,1,13,5,13,235,8,13,10,13,12,13,238,9,13,1,
-  	14,1,14,1,14,1,14,1,14,1,14,1,14,1,14,1,14,1,15,1,15,1,15,1,15,1,15,1,
-  	15,1,15,1,15,1,15,1,15,1,15,3,15,260,8,15,1,15,1,15,1,15,1,15,1,15,1,
-  	15,5,15,268,8,15,10,15,12,15,271,9,15,1,16,1,16,3,16,275,8,16,1,17,1,
-  	17,1,17,1,17,1,17,1,17,1,17,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,
-  	18,1,18,3,18,294,8,18,1,19,1,19,1,19,1,19,1,19,1,19,1,20,1,20,3,20,304,
-  	8,20,1,21,1,21,1,21,1,21,1,21,1,21,1,22,1,22,1,22,1,22,1,22,1,22,1,23,
-  	1,23,1,23,1,23,3,23,322,8,23,1,24,1,24,1,24,1,24,3,24,328,8,24,1,25,1,
-  	25,1,25,1,25,1,25,3,25,335,8,25,1,25,1,25,1,25,1,25,1,26,1,26,1,26,1,
-  	26,1,27,1,27,1,27,1,27,1,27,1,27,1,28,1,28,1,29,1,29,1,29,1,29,5,29,357,
-  	8,29,10,29,12,29,360,9,29,3,29,362,8,29,1,29,1,29,1,30,1,30,1,30,1,31,
-  	1,31,1,32,1,32,1,32,3,32,374,8,32,1,32,1,32,1,33,1,33,1,33,5,33,381,8,
-  	33,10,33,12,33,384,9,33,1,34,1,34,1,34,5,34,389,8,34,10,34,12,34,392,
-  	9,34,1,34,1,34,1,34,3,34,397,8,34,1,35,1,35,1,35,1,35,1,36,1,36,1,36,
-  	1,36,1,36,1,36,3,36,409,8,36,1,37,1,37,1,37,3,37,414,8,37,1,37,1,37,1,
-  	37,5,37,419,8,37,10,37,12,37,422,9,37,1,38,1,38,1,38,1,38,1,38,1,38,1,
-  	38,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,
-  	39,1,39,1,39,1,39,1,39,3,39,449,8,39,1,40,1,40,1,40,1,40,1,40,1,40,1,
-  	40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,3,40,469,8,
-  	40,1,40,1,40,1,40,1,40,1,40,1,40,5,40,477,8,40,10,40,12,40,480,9,40,1,
-  	41,1,41,1,41,1,41,1,41,1,41,1,41,3,41,489,8,41,1,42,1,42,1,42,1,42,5,
-  	42,495,8,42,10,42,12,42,498,9,42,1,42,1,42,1,43,1,43,1,43,1,43,1,43,1,
-  	43,1,43,3,43,509,8,43,1,44,1,44,1,44,1,44,1,44,1,44,1,44,1,44,1,45,1,
-  	45,1,45,0,4,26,30,74,80,46,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,
-  	32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,76,
-  	78,80,82,84,86,88,90,0,6,1,0,56,61,3,0,23,24,35,39,43,43,4,0,23,24,35,
-  	37,39,39,43,43,1,0,52,53,1,0,50,51,1,0,47,48,547,0,96,1,0,0,0,2,117,1,
-  	0,0,0,4,144,1,0,0,0,6,146,1,0,0,0,8,150,1,0,0,0,10,157,1,0,0,0,12,165,
+  	13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,1,13,3,13,228,
+  	8,13,1,13,1,13,1,13,1,13,1,13,1,13,5,13,236,8,13,10,13,12,13,239,9,13,
+  	1,14,1,14,1,14,1,14,1,14,1,14,1,14,1,14,1,14,1,15,1,15,1,15,1,15,1,15,
+  	1,15,1,15,1,15,1,15,1,15,1,15,3,15,261,8,15,1,15,1,15,1,15,1,15,1,15,
+  	1,15,5,15,269,8,15,10,15,12,15,272,9,15,1,16,1,16,3,16,276,8,16,1,17,
+  	1,17,1,17,1,17,1,17,1,17,1,17,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,
+  	1,18,1,18,3,18,295,8,18,1,19,1,19,1,19,1,19,1,19,1,19,1,20,1,20,3,20,
+  	305,8,20,1,21,1,21,1,21,1,21,1,21,1,21,1,22,1,22,1,22,1,22,1,22,1,22,
+  	1,23,1,23,1,23,1,23,3,23,323,8,23,1,24,1,24,1,24,1,24,3,24,329,8,24,1,
+  	25,1,25,1,25,1,25,1,25,3,25,336,8,25,1,25,1,25,1,25,1,25,1,26,1,26,1,
+  	26,1,26,1,27,1,27,1,27,1,27,1,27,1,27,1,28,1,28,1,29,1,29,1,29,1,29,5,
+  	29,358,8,29,10,29,12,29,361,9,29,3,29,363,8,29,1,29,1,29,1,30,1,30,1,
+  	30,1,31,1,31,1,32,1,32,1,32,3,32,375,8,32,1,32,1,32,1,33,1,33,1,33,5,
+  	33,382,8,33,10,33,12,33,385,9,33,1,34,1,34,1,34,5,34,390,8,34,10,34,12,
+  	34,393,9,34,1,34,1,34,1,34,3,34,398,8,34,1,35,1,35,1,35,1,35,1,36,1,36,
+  	1,36,1,36,1,36,1,36,3,36,410,8,36,1,37,1,37,1,37,3,37,415,8,37,1,37,1,
+  	37,1,37,5,37,420,8,37,10,37,12,37,423,9,37,1,38,1,38,1,38,1,38,1,38,1,
+  	38,1,38,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,39,1,
+  	39,1,39,1,39,1,39,1,39,1,39,3,39,450,8,39,1,40,1,40,1,40,1,40,1,40,1,
+  	40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,1,40,3,40,470,
+  	8,40,1,40,1,40,1,40,1,40,1,40,1,40,5,40,478,8,40,10,40,12,40,481,9,40,
+  	1,41,1,41,1,41,1,41,1,41,1,41,1,41,3,41,490,8,41,1,42,1,42,1,42,1,42,
+  	5,42,496,8,42,10,42,12,42,499,9,42,1,42,1,42,1,43,1,43,1,43,1,43,1,43,
+  	1,43,1,43,3,43,510,8,43,1,44,1,44,1,44,1,44,1,44,1,44,1,44,1,44,1,45,
+  	1,45,1,45,0,4,26,30,74,80,46,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,
+  	30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,
+  	76,78,80,82,84,86,88,90,0,6,1,0,56,61,3,0,23,24,35,39,43,43,4,0,23,24,
+  	35,37,39,39,43,43,1,0,52,53,1,0,50,51,1,0,47,48,549,0,96,1,0,0,0,2,117,
+  	1,0,0,0,4,144,1,0,0,0,6,146,1,0,0,0,8,150,1,0,0,0,10,157,1,0,0,0,12,165,
   	1,0,0,0,14,173,1,0,0,0,16,175,1,0,0,0,18,177,1,0,0,0,20,180,1,0,0,0,22,
-  	200,1,0,0,0,24,202,1,0,0,0,26,226,1,0,0,0,28,239,1,0,0,0,30,259,1,0,0,
-  	0,32,274,1,0,0,0,34,276,1,0,0,0,36,293,1,0,0,0,38,295,1,0,0,0,40,303,
-  	1,0,0,0,42,305,1,0,0,0,44,311,1,0,0,0,46,321,1,0,0,0,48,327,1,0,0,0,50,
-  	329,1,0,0,0,52,340,1,0,0,0,54,344,1,0,0,0,56,350,1,0,0,0,58,352,1,0,0,
-  	0,60,365,1,0,0,0,62,368,1,0,0,0,64,370,1,0,0,0,66,377,1,0,0,0,68,396,
-  	1,0,0,0,70,398,1,0,0,0,72,408,1,0,0,0,74,413,1,0,0,0,76,423,1,0,0,0,78,
-  	448,1,0,0,0,80,468,1,0,0,0,82,488,1,0,0,0,84,490,1,0,0,0,86,508,1,0,0,
-  	0,88,510,1,0,0,0,90,518,1,0,0,0,92,95,3,2,1,0,93,95,3,54,27,0,94,92,1,
+  	200,1,0,0,0,24,202,1,0,0,0,26,227,1,0,0,0,28,240,1,0,0,0,30,260,1,0,0,
+  	0,32,275,1,0,0,0,34,277,1,0,0,0,36,294,1,0,0,0,38,296,1,0,0,0,40,304,
+  	1,0,0,0,42,306,1,0,0,0,44,312,1,0,0,0,46,322,1,0,0,0,48,328,1,0,0,0,50,
+  	330,1,0,0,0,52,341,1,0,0,0,54,345,1,0,0,0,56,351,1,0,0,0,58,353,1,0,0,
+  	0,60,366,1,0,0,0,62,369,1,0,0,0,64,371,1,0,0,0,66,378,1,0,0,0,68,397,
+  	1,0,0,0,70,399,1,0,0,0,72,409,1,0,0,0,74,414,1,0,0,0,76,424,1,0,0,0,78,
+  	449,1,0,0,0,80,469,1,0,0,0,82,489,1,0,0,0,84,491,1,0,0,0,86,509,1,0,0,
+  	0,88,511,1,0,0,0,90,519,1,0,0,0,92,95,3,2,1,0,93,95,3,54,27,0,94,92,1,
   	0,0,0,94,93,1,0,0,0,95,98,1,0,0,0,96,94,1,0,0,0,96,97,1,0,0,0,97,99,1,
   	0,0,0,98,96,1,0,0,0,99,100,5,0,0,1,100,1,1,0,0,0,101,118,3,4,2,0,102,
   	118,3,24,12,0,103,118,3,72,36,0,104,118,3,38,19,0,105,118,3,34,17,0,106,
@@ -171,92 +171,92 @@ void baseParserInitialize() {
   	204,5,11,0,0,204,205,3,26,13,0,205,206,5,12,0,0,206,211,3,68,34,0,207,
   	208,5,13,0,0,208,212,3,24,12,0,209,210,5,13,0,0,210,212,3,68,34,0,211,
   	207,1,0,0,0,211,209,1,0,0,0,211,212,1,0,0,0,212,25,1,0,0,0,213,214,6,
-  	13,-1,0,214,215,3,80,40,0,215,216,7,0,0,0,216,217,3,80,40,0,217,227,1,
-  	0,0,0,218,219,3,16,8,0,219,220,5,14,0,0,220,221,3,14,7,0,221,227,1,0,
-  	0,0,222,223,3,20,10,0,223,224,5,14,0,0,224,225,3,14,7,0,225,227,1,0,0,
-  	0,226,213,1,0,0,0,226,218,1,0,0,0,226,222,1,0,0,0,227,236,1,0,0,0,228,
-  	229,10,5,0,0,229,230,5,54,0,0,230,235,3,26,13,6,231,232,10,4,0,0,232,
-  	233,5,55,0,0,233,235,3,26,13,5,234,228,1,0,0,0,234,231,1,0,0,0,235,238,
-  	1,0,0,0,236,234,1,0,0,0,236,237,1,0,0,0,237,27,1,0,0,0,238,236,1,0,0,
-  	0,239,240,5,62,0,0,240,241,5,9,0,0,241,242,5,15,0,0,242,243,3,14,7,0,
-  	243,244,5,16,0,0,244,245,3,30,15,0,245,246,5,17,0,0,246,247,5,1,0,0,247,
-  	29,1,0,0,0,248,249,6,15,-1,0,249,250,5,18,0,0,250,251,7,0,0,0,251,260,
-  	5,63,0,0,252,253,5,19,0,0,253,254,5,20,0,0,254,260,3,16,8,0,255,256,5,
-  	11,0,0,256,257,3,30,15,0,257,258,5,12,0,0,258,260,1,0,0,0,259,248,1,0,
-  	0,0,259,252,1,0,0,0,259,255,1,0,0,0,260,269,1,0,0,0,261,262,10,5,0,0,
-  	262,263,5,54,0,0,263,268,3,30,15,6,264,265,10,4,0,0,265,266,5,55,0,0,
-  	266,268,3,30,15,5,267,261,1,0,0,0,267,264,1,0,0,0,268,271,1,0,0,0,269,
-  	267,1,0,0,0,269,270,1,0,0,0,270,31,1,0,0,0,271,269,1,0,0,0,272,275,3,
-  	34,17,0,273,275,3,38,19,0,274,272,1,0,0,0,274,273,1,0,0,0,275,33,1,0,
-  	0,0,276,277,5,21,0,0,277,278,5,22,0,0,278,279,3,36,18,0,279,280,5,14,
-  	0,0,280,281,3,14,7,0,281,282,3,68,34,0,282,35,1,0,0,0,283,284,5,23,0,
-  	0,284,294,5,62,0,0,285,286,5,24,0,0,286,287,5,62,0,0,287,288,5,6,0,0,
-  	288,294,5,62,0,0,289,290,5,25,0,0,290,291,5,62,0,0,291,292,5,49,0,0,292,
-  	294,3,16,8,0,293,283,1,0,0,0,293,285,1,0,0,0,293,289,1,0,0,0,294,37,1,
-  	0,0,0,295,296,5,26,0,0,296,297,5,11,0,0,297,298,3,26,13,0,298,299,5,12,
-  	0,0,299,300,3,68,34,0,300,39,1,0,0,0,301,304,3,42,21,0,302,304,3,44,22,
-  	0,303,301,1,0,0,0,303,302,1,0,0,0,304,41,1,0,0,0,305,306,5,27,0,0,306,
-  	307,3,46,23,0,307,308,5,28,0,0,308,309,3,14,7,0,309,310,5,1,0,0,310,43,
-  	1,0,0,0,311,312,5,29,0,0,312,313,3,48,24,0,313,314,5,30,0,0,314,315,3,
-  	14,7,0,315,316,5,1,0,0,316,45,1,0,0,0,317,322,3,16,8,0,318,322,3,20,10,
-  	0,319,322,3,10,5,0,320,322,3,12,6,0,321,317,1,0,0,0,321,318,1,0,0,0,321,
-  	319,1,0,0,0,321,320,1,0,0,0,322,47,1,0,0,0,323,328,3,16,8,0,324,328,3,
-  	20,10,0,325,328,3,10,5,0,326,328,3,12,6,0,327,323,1,0,0,0,327,324,1,0,
-  	0,0,327,325,1,0,0,0,327,326,1,0,0,0,328,49,1,0,0,0,329,330,5,31,0,0,330,
-  	331,5,62,0,0,331,332,5,32,0,0,332,334,5,65,0,0,333,335,5,63,0,0,334,333,
-  	1,0,0,0,334,335,1,0,0,0,335,336,1,0,0,0,336,337,5,49,0,0,337,338,3,14,
-  	7,0,338,339,5,1,0,0,339,51,1,0,0,0,340,341,5,33,0,0,341,342,3,14,7,0,
-  	342,343,5,1,0,0,343,53,1,0,0,0,344,345,5,34,0,0,345,346,3,56,28,0,346,
-  	347,5,62,0,0,347,348,3,58,29,0,348,349,3,68,34,0,349,55,1,0,0,0,350,351,
-  	7,1,0,0,351,57,1,0,0,0,352,361,5,11,0,0,353,358,3,60,30,0,354,355,5,6,
-  	0,0,355,357,3,60,30,0,356,354,1,0,0,0,357,360,1,0,0,0,358,356,1,0,0,0,
-  	358,359,1,0,0,0,359,362,1,0,0,0,360,358,1,0,0,0,361,353,1,0,0,0,361,362,
-  	1,0,0,0,362,363,1,0,0,0,363,364,5,12,0,0,364,59,1,0,0,0,365,366,3,62,
-  	31,0,366,367,5,62,0,0,367,61,1,0,0,0,368,369,7,2,0,0,369,63,1,0,0,0,370,
-  	371,5,62,0,0,371,373,5,11,0,0,372,374,3,66,33,0,373,372,1,0,0,0,373,374,
-  	1,0,0,0,374,375,1,0,0,0,375,376,5,12,0,0,376,65,1,0,0,0,377,382,3,80,
-  	40,0,378,379,5,6,0,0,379,381,3,80,40,0,380,378,1,0,0,0,381,384,1,0,0,
-  	0,382,380,1,0,0,0,382,383,1,0,0,0,383,67,1,0,0,0,384,382,1,0,0,0,385,
-  	390,5,2,0,0,386,389,3,2,1,0,387,389,3,70,35,0,388,386,1,0,0,0,388,387,
-  	1,0,0,0,389,392,1,0,0,0,390,388,1,0,0,0,390,391,1,0,0,0,391,393,1,0,0,
-  	0,392,390,1,0,0,0,393,397,5,3,0,0,394,395,5,2,0,0,395,397,5,3,0,0,396,
-  	385,1,0,0,0,396,394,1,0,0,0,397,69,1,0,0,0,398,399,5,40,0,0,399,400,3,
-  	80,40,0,400,401,5,1,0,0,401,71,1,0,0,0,402,403,5,41,0,0,403,404,3,74,
-  	37,0,404,405,5,1,0,0,405,409,1,0,0,0,406,409,3,76,38,0,407,409,3,78,39,
-  	0,408,402,1,0,0,0,408,406,1,0,0,0,408,407,1,0,0,0,409,73,1,0,0,0,410,
-  	411,6,37,-1,0,411,414,5,65,0,0,412,414,3,80,40,0,413,410,1,0,0,0,413,
-  	412,1,0,0,0,414,420,1,0,0,0,415,416,10,1,0,0,416,417,5,50,0,0,417,419,
-  	3,74,37,2,418,415,1,0,0,0,419,422,1,0,0,0,420,418,1,0,0,0,420,421,1,0,
-  	0,0,421,75,1,0,0,0,422,420,1,0,0,0,423,424,5,41,0,0,424,425,5,62,0,0,
-  	425,426,5,15,0,0,426,427,3,80,40,0,427,428,5,17,0,0,428,429,5,1,0,0,429,
-  	77,1,0,0,0,430,431,5,41,0,0,431,432,5,45,0,0,432,433,5,49,0,0,433,434,
-  	3,14,7,0,434,435,5,1,0,0,435,449,1,0,0,0,436,437,5,41,0,0,437,438,5,46,
-  	0,0,438,439,5,49,0,0,439,440,3,14,7,0,440,441,5,1,0,0,441,449,1,0,0,0,
-  	442,443,5,41,0,0,443,444,5,43,0,0,444,445,5,49,0,0,445,446,3,14,7,0,446,
-  	447,5,1,0,0,447,449,1,0,0,0,448,430,1,0,0,0,448,436,1,0,0,0,448,442,1,
-  	0,0,0,449,79,1,0,0,0,450,451,6,40,-1,0,451,469,3,64,32,0,452,469,5,63,
-  	0,0,453,469,5,62,0,0,454,455,5,11,0,0,455,456,3,80,40,0,456,457,5,12,
-  	0,0,457,469,1,0,0,0,458,459,5,62,0,0,459,460,5,15,0,0,460,461,3,80,40,
-  	0,461,462,5,17,0,0,462,469,1,0,0,0,463,469,5,47,0,0,464,469,5,48,0,0,
-  	465,466,5,62,0,0,466,469,5,42,0,0,467,469,5,64,0,0,468,450,1,0,0,0,468,
-  	452,1,0,0,0,468,453,1,0,0,0,468,454,1,0,0,0,468,458,1,0,0,0,468,463,1,
-  	0,0,0,468,464,1,0,0,0,468,465,1,0,0,0,468,467,1,0,0,0,469,478,1,0,0,0,
-  	470,471,10,11,0,0,471,472,7,3,0,0,472,477,3,80,40,12,473,474,10,10,0,
-  	0,474,475,7,4,0,0,475,477,3,80,40,11,476,470,1,0,0,0,476,473,1,0,0,0,
-  	477,480,1,0,0,0,478,476,1,0,0,0,478,479,1,0,0,0,479,81,1,0,0,0,480,478,
-  	1,0,0,0,481,482,5,62,0,0,482,483,5,15,0,0,483,484,5,63,0,0,484,489,5,
-  	17,0,0,485,486,5,62,0,0,486,487,5,15,0,0,487,489,5,17,0,0,488,481,1,0,
-  	0,0,488,485,1,0,0,0,489,83,1,0,0,0,490,491,5,15,0,0,491,496,3,80,40,0,
-  	492,493,5,6,0,0,493,495,3,80,40,0,494,492,1,0,0,0,495,498,1,0,0,0,496,
-  	494,1,0,0,0,496,497,1,0,0,0,497,499,1,0,0,0,498,496,1,0,0,0,499,500,5,
-  	17,0,0,500,85,1,0,0,0,501,502,5,62,0,0,502,503,5,9,0,0,503,504,3,80,40,
-  	0,504,505,5,1,0,0,505,509,1,0,0,0,506,507,5,62,0,0,507,509,5,1,0,0,508,
-  	501,1,0,0,0,508,506,1,0,0,0,509,87,1,0,0,0,510,511,5,62,0,0,511,512,5,
-  	15,0,0,512,513,3,80,40,0,513,514,5,17,0,0,514,515,5,9,0,0,515,516,3,80,
-  	40,0,516,517,5,1,0,0,517,89,1,0,0,0,518,519,7,5,0,0,519,91,1,0,0,0,44,
-  	94,96,117,123,126,136,139,144,153,162,170,188,196,200,211,226,234,236,
-  	259,267,269,274,293,303,321,327,334,358,361,373,382,388,390,396,408,413,
-  	420,448,468,476,478,488,496,508
+  	13,-1,0,214,215,3,80,40,0,215,216,7,0,0,0,216,217,3,80,40,0,217,228,1,
+  	0,0,0,218,219,3,16,8,0,219,220,5,14,0,0,220,221,3,14,7,0,221,228,1,0,
+  	0,0,222,223,3,20,10,0,223,224,5,14,0,0,224,225,3,14,7,0,225,228,1,0,0,
+  	0,226,228,3,80,40,0,227,213,1,0,0,0,227,218,1,0,0,0,227,222,1,0,0,0,227,
+  	226,1,0,0,0,228,237,1,0,0,0,229,230,10,6,0,0,230,231,5,54,0,0,231,236,
+  	3,26,13,7,232,233,10,5,0,0,233,234,5,55,0,0,234,236,3,26,13,6,235,229,
+  	1,0,0,0,235,232,1,0,0,0,236,239,1,0,0,0,237,235,1,0,0,0,237,238,1,0,0,
+  	0,238,27,1,0,0,0,239,237,1,0,0,0,240,241,5,62,0,0,241,242,5,9,0,0,242,
+  	243,5,15,0,0,243,244,3,14,7,0,244,245,5,16,0,0,245,246,3,30,15,0,246,
+  	247,5,17,0,0,247,248,5,1,0,0,248,29,1,0,0,0,249,250,6,15,-1,0,250,251,
+  	5,18,0,0,251,252,7,0,0,0,252,261,5,63,0,0,253,254,5,19,0,0,254,255,5,
+  	20,0,0,255,261,3,16,8,0,256,257,5,11,0,0,257,258,3,30,15,0,258,259,5,
+  	12,0,0,259,261,1,0,0,0,260,249,1,0,0,0,260,253,1,0,0,0,260,256,1,0,0,
+  	0,261,270,1,0,0,0,262,263,10,5,0,0,263,264,5,54,0,0,264,269,3,30,15,6,
+  	265,266,10,4,0,0,266,267,5,55,0,0,267,269,3,30,15,5,268,262,1,0,0,0,268,
+  	265,1,0,0,0,269,272,1,0,0,0,270,268,1,0,0,0,270,271,1,0,0,0,271,31,1,
+  	0,0,0,272,270,1,0,0,0,273,276,3,34,17,0,274,276,3,38,19,0,275,273,1,0,
+  	0,0,275,274,1,0,0,0,276,33,1,0,0,0,277,278,5,21,0,0,278,279,5,22,0,0,
+  	279,280,3,36,18,0,280,281,5,14,0,0,281,282,3,14,7,0,282,283,3,68,34,0,
+  	283,35,1,0,0,0,284,285,5,23,0,0,285,295,5,62,0,0,286,287,5,24,0,0,287,
+  	288,5,62,0,0,288,289,5,6,0,0,289,295,5,62,0,0,290,291,5,25,0,0,291,292,
+  	5,62,0,0,292,293,5,49,0,0,293,295,3,16,8,0,294,284,1,0,0,0,294,286,1,
+  	0,0,0,294,290,1,0,0,0,295,37,1,0,0,0,296,297,5,26,0,0,297,298,5,11,0,
+  	0,298,299,3,26,13,0,299,300,5,12,0,0,300,301,3,68,34,0,301,39,1,0,0,0,
+  	302,305,3,42,21,0,303,305,3,44,22,0,304,302,1,0,0,0,304,303,1,0,0,0,305,
+  	41,1,0,0,0,306,307,5,27,0,0,307,308,3,46,23,0,308,309,5,28,0,0,309,310,
+  	3,14,7,0,310,311,5,1,0,0,311,43,1,0,0,0,312,313,5,29,0,0,313,314,3,48,
+  	24,0,314,315,5,30,0,0,315,316,3,14,7,0,316,317,5,1,0,0,317,45,1,0,0,0,
+  	318,323,3,16,8,0,319,323,3,20,10,0,320,323,3,10,5,0,321,323,3,12,6,0,
+  	322,318,1,0,0,0,322,319,1,0,0,0,322,320,1,0,0,0,322,321,1,0,0,0,323,47,
+  	1,0,0,0,324,329,3,16,8,0,325,329,3,20,10,0,326,329,3,10,5,0,327,329,3,
+  	12,6,0,328,324,1,0,0,0,328,325,1,0,0,0,328,326,1,0,0,0,328,327,1,0,0,
+  	0,329,49,1,0,0,0,330,331,5,31,0,0,331,332,5,62,0,0,332,333,5,32,0,0,333,
+  	335,5,65,0,0,334,336,5,63,0,0,335,334,1,0,0,0,335,336,1,0,0,0,336,337,
+  	1,0,0,0,337,338,5,49,0,0,338,339,3,14,7,0,339,340,5,1,0,0,340,51,1,0,
+  	0,0,341,342,5,33,0,0,342,343,3,14,7,0,343,344,5,1,0,0,344,53,1,0,0,0,
+  	345,346,5,34,0,0,346,347,3,56,28,0,347,348,5,62,0,0,348,349,3,58,29,0,
+  	349,350,3,68,34,0,350,55,1,0,0,0,351,352,7,1,0,0,352,57,1,0,0,0,353,362,
+  	5,11,0,0,354,359,3,60,30,0,355,356,5,6,0,0,356,358,3,60,30,0,357,355,
+  	1,0,0,0,358,361,1,0,0,0,359,357,1,0,0,0,359,360,1,0,0,0,360,363,1,0,0,
+  	0,361,359,1,0,0,0,362,354,1,0,0,0,362,363,1,0,0,0,363,364,1,0,0,0,364,
+  	365,5,12,0,0,365,59,1,0,0,0,366,367,3,62,31,0,367,368,5,62,0,0,368,61,
+  	1,0,0,0,369,370,7,2,0,0,370,63,1,0,0,0,371,372,5,62,0,0,372,374,5,11,
+  	0,0,373,375,3,66,33,0,374,373,1,0,0,0,374,375,1,0,0,0,375,376,1,0,0,0,
+  	376,377,5,12,0,0,377,65,1,0,0,0,378,383,3,80,40,0,379,380,5,6,0,0,380,
+  	382,3,80,40,0,381,379,1,0,0,0,382,385,1,0,0,0,383,381,1,0,0,0,383,384,
+  	1,0,0,0,384,67,1,0,0,0,385,383,1,0,0,0,386,391,5,2,0,0,387,390,3,2,1,
+  	0,388,390,3,70,35,0,389,387,1,0,0,0,389,388,1,0,0,0,390,393,1,0,0,0,391,
+  	389,1,0,0,0,391,392,1,0,0,0,392,394,1,0,0,0,393,391,1,0,0,0,394,398,5,
+  	3,0,0,395,396,5,2,0,0,396,398,5,3,0,0,397,386,1,0,0,0,397,395,1,0,0,0,
+  	398,69,1,0,0,0,399,400,5,40,0,0,400,401,3,80,40,0,401,402,5,1,0,0,402,
+  	71,1,0,0,0,403,404,5,41,0,0,404,405,3,74,37,0,405,406,5,1,0,0,406,410,
+  	1,0,0,0,407,410,3,76,38,0,408,410,3,78,39,0,409,403,1,0,0,0,409,407,1,
+  	0,0,0,409,408,1,0,0,0,410,73,1,0,0,0,411,412,6,37,-1,0,412,415,5,65,0,
+  	0,413,415,3,80,40,0,414,411,1,0,0,0,414,413,1,0,0,0,415,421,1,0,0,0,416,
+  	417,10,1,0,0,417,418,5,50,0,0,418,420,3,74,37,2,419,416,1,0,0,0,420,423,
+  	1,0,0,0,421,419,1,0,0,0,421,422,1,0,0,0,422,75,1,0,0,0,423,421,1,0,0,
+  	0,424,425,5,41,0,0,425,426,5,62,0,0,426,427,5,15,0,0,427,428,3,80,40,
+  	0,428,429,5,17,0,0,429,430,5,1,0,0,430,77,1,0,0,0,431,432,5,41,0,0,432,
+  	433,5,45,0,0,433,434,5,49,0,0,434,435,3,14,7,0,435,436,5,1,0,0,436,450,
+  	1,0,0,0,437,438,5,41,0,0,438,439,5,46,0,0,439,440,5,49,0,0,440,441,3,
+  	14,7,0,441,442,5,1,0,0,442,450,1,0,0,0,443,444,5,41,0,0,444,445,5,43,
+  	0,0,445,446,5,49,0,0,446,447,3,14,7,0,447,448,5,1,0,0,448,450,1,0,0,0,
+  	449,431,1,0,0,0,449,437,1,0,0,0,449,443,1,0,0,0,450,79,1,0,0,0,451,452,
+  	6,40,-1,0,452,470,3,64,32,0,453,470,5,63,0,0,454,470,5,62,0,0,455,456,
+  	5,11,0,0,456,457,3,80,40,0,457,458,5,12,0,0,458,470,1,0,0,0,459,460,5,
+  	62,0,0,460,461,5,15,0,0,461,462,3,80,40,0,462,463,5,17,0,0,463,470,1,
+  	0,0,0,464,470,5,47,0,0,465,470,5,48,0,0,466,467,5,62,0,0,467,470,5,42,
+  	0,0,468,470,5,64,0,0,469,451,1,0,0,0,469,453,1,0,0,0,469,454,1,0,0,0,
+  	469,455,1,0,0,0,469,459,1,0,0,0,469,464,1,0,0,0,469,465,1,0,0,0,469,466,
+  	1,0,0,0,469,468,1,0,0,0,470,479,1,0,0,0,471,472,10,11,0,0,472,473,7,3,
+  	0,0,473,478,3,80,40,12,474,475,10,10,0,0,475,476,7,4,0,0,476,478,3,80,
+  	40,11,477,471,1,0,0,0,477,474,1,0,0,0,478,481,1,0,0,0,479,477,1,0,0,0,
+  	479,480,1,0,0,0,480,81,1,0,0,0,481,479,1,0,0,0,482,483,5,62,0,0,483,484,
+  	5,15,0,0,484,485,5,63,0,0,485,490,5,17,0,0,486,487,5,62,0,0,487,488,5,
+  	15,0,0,488,490,5,17,0,0,489,482,1,0,0,0,489,486,1,0,0,0,490,83,1,0,0,
+  	0,491,492,5,15,0,0,492,497,3,80,40,0,493,494,5,6,0,0,494,496,3,80,40,
+  	0,495,493,1,0,0,0,496,499,1,0,0,0,497,495,1,0,0,0,497,498,1,0,0,0,498,
+  	500,1,0,0,0,499,497,1,0,0,0,500,501,5,17,0,0,501,85,1,0,0,0,502,503,5,
+  	62,0,0,503,504,5,9,0,0,504,505,3,80,40,0,505,506,5,1,0,0,506,510,1,0,
+  	0,0,507,508,5,62,0,0,508,510,5,1,0,0,509,502,1,0,0,0,509,507,1,0,0,0,
+  	510,87,1,0,0,0,511,512,5,62,0,0,512,513,5,15,0,0,513,514,3,80,40,0,514,
+  	515,5,17,0,0,515,516,5,9,0,0,516,517,3,80,40,0,517,518,5,1,0,0,518,89,
+  	1,0,0,0,519,520,7,5,0,0,520,91,1,0,0,0,44,94,96,117,123,126,136,139,144,
+  	153,162,170,188,196,200,211,227,235,237,260,268,270,275,294,304,322,328,
+  	335,359,362,374,383,389,391,397,409,414,421,449,469,477,479,489,497,509
   };
   staticData->serializedATN = antlr4::atn::SerializedATNView(serializedATNSegment, sizeof(serializedATNSegment) / sizeof(serializedATNSegment[0]));
 
@@ -1661,6 +1661,31 @@ void BaseParser::ConditionContext::copyFrom(ConditionContext *ctx) {
   ParserRuleContext::copyFrom(ctx);
 }
 
+//----------------- ExprConditionContext ------------------------------------------------------------------
+
+BaseParser::ExprContext* BaseParser::ExprConditionContext::expr() {
+  return getRuleContext<BaseParser::ExprContext>(0);
+}
+
+BaseParser::ExprConditionContext::ExprConditionContext(ConditionContext *ctx) { copyFrom(ctx); }
+
+void BaseParser::ExprConditionContext::enterRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->enterExprCondition(this);
+}
+void BaseParser::ExprConditionContext::exitRule(tree::ParseTreeListener *listener) {
+  auto parserListener = dynamic_cast<BaseListener *>(listener);
+  if (parserListener != nullptr)
+    parserListener->exitExprCondition(this);
+}
+
+std::any BaseParser::ExprConditionContext::accept(tree::ParseTreeVisitor *visitor) {
+  if (auto parserVisitor = dynamic_cast<BaseVisitor*>(visitor))
+    return parserVisitor->visitExprCondition(this);
+  else
+    return visitor->visitChildren(this);
+}
 //----------------- NodeCheckContext ------------------------------------------------------------------
 
 BaseParser::NodeIDContext* BaseParser::NodeCheckContext::nodeID() {
@@ -1864,7 +1889,7 @@ BaseParser::ConditionContext* BaseParser::condition(int precedence) {
   try {
     size_t alt;
     enterOuterAlt(_localctx, 1);
-    setState(226);
+    setState(227);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 15, _ctx)) {
     case 1: {
@@ -1915,11 +1940,20 @@ BaseParser::ConditionContext* BaseParser::condition(int precedence) {
       break;
     }
 
+    case 4: {
+      _localctx = _tracker.createInstance<ExprConditionContext>(_localctx);
+      _ctx = _localctx;
+      previousContext = _localctx;
+      setState(226);
+      expr(0);
+      break;
+    }
+
     default:
       break;
     }
     _ctx->stop = _input->LT(-1);
-    setState(236);
+    setState(237);
     _errHandler->sync(this);
     alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 17, _ctx);
     while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
@@ -1927,20 +1961,20 @@ BaseParser::ConditionContext* BaseParser::condition(int precedence) {
         if (!_parseListeners.empty())
           triggerExitRuleEvent();
         previousContext = _localctx;
-        setState(234);
+        setState(235);
         _errHandler->sync(this);
         switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 16, _ctx)) {
         case 1: {
           auto newContext = _tracker.createInstance<LogicalAndContext>(_tracker.createInstance<ConditionContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleCondition);
-          setState(228);
-
-          if (!(precpred(_ctx, 5))) throw FailedPredicateException(this, "precpred(_ctx, 5)");
           setState(229);
-          match(BaseParser::AND);
+
+          if (!(precpred(_ctx, 6))) throw FailedPredicateException(this, "precpred(_ctx, 6)");
           setState(230);
-          condition(6);
+          match(BaseParser::AND);
+          setState(231);
+          condition(7);
           break;
         }
 
@@ -1948,13 +1982,13 @@ BaseParser::ConditionContext* BaseParser::condition(int precedence) {
           auto newContext = _tracker.createInstance<LogicalOrContext>(_tracker.createInstance<ConditionContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleCondition);
-          setState(231);
-
-          if (!(precpred(_ctx, 4))) throw FailedPredicateException(this, "precpred(_ctx, 4)");
           setState(232);
-          match(BaseParser::OR);
+
+          if (!(precpred(_ctx, 5))) throw FailedPredicateException(this, "precpred(_ctx, 5)");
           setState(233);
-          condition(5);
+          match(BaseParser::OR);
+          setState(234);
+          condition(6);
           break;
         }
 
@@ -1962,7 +1996,7 @@ BaseParser::ConditionContext* BaseParser::condition(int precedence) {
           break;
         } 
       }
-      setState(238);
+      setState(239);
       _errHandler->sync(this);
       alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 17, _ctx);
     }
@@ -2031,21 +2065,21 @@ BaseParser::GraphComprehensionContext* BaseParser::graphComprehension() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(239);
-    match(BaseParser::ID);
     setState(240);
-    match(BaseParser::T__8);
+    match(BaseParser::ID);
     setState(241);
-    match(BaseParser::T__14);
+    match(BaseParser::T__8);
     setState(242);
-    graphID();
+    match(BaseParser::T__14);
     setState(243);
-    match(BaseParser::T__15);
+    graphID();
     setState(244);
-    graphCondition(0);
+    match(BaseParser::T__15);
     setState(245);
-    match(BaseParser::T__16);
+    graphCondition(0);
     setState(246);
+    match(BaseParser::T__16);
+    setState(247);
     match(BaseParser::T__0);
    
   }
@@ -2264,7 +2298,7 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
   try {
     size_t alt;
     enterOuterAlt(_localctx, 1);
-    setState(259);
+    setState(260);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case BaseParser::T__17: {
@@ -2272,9 +2306,9 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
         _ctx = _localctx;
         previousContext = _localctx;
 
-        setState(249);
-        match(BaseParser::T__17);
         setState(250);
+        match(BaseParser::T__17);
+        setState(251);
         _la = _input->LA(1);
         if (!((((_la & ~ 0x3fULL) == 0) &&
           ((1ULL << _la) & 4539628424389459968) != 0))) {
@@ -2284,7 +2318,7 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
           _errHandler->reportMatch(this);
           consume();
         }
-        setState(251);
+        setState(252);
         match(BaseParser::INT);
         break;
       }
@@ -2293,11 +2327,11 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
         _localctx = _tracker.createInstance<ConnectedConditionContext>(_localctx);
         _ctx = _localctx;
         previousContext = _localctx;
-        setState(252);
-        match(BaseParser::T__18);
         setState(253);
-        match(BaseParser::T__19);
+        match(BaseParser::T__18);
         setState(254);
+        match(BaseParser::T__19);
+        setState(255);
         nodeID();
         break;
       }
@@ -2306,11 +2340,11 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
         _localctx = _tracker.createInstance<ParenGraphConditionContext>(_localctx);
         _ctx = _localctx;
         previousContext = _localctx;
-        setState(255);
-        match(BaseParser::T__10);
         setState(256);
-        graphCondition(0);
+        match(BaseParser::T__10);
         setState(257);
+        graphCondition(0);
+        setState(258);
         match(BaseParser::T__11);
         break;
       }
@@ -2319,7 +2353,7 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
       throw NoViableAltException(this);
     }
     _ctx->stop = _input->LT(-1);
-    setState(269);
+    setState(270);
     _errHandler->sync(this);
     alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 20, _ctx);
     while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
@@ -2327,19 +2361,19 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
         if (!_parseListeners.empty())
           triggerExitRuleEvent();
         previousContext = _localctx;
-        setState(267);
+        setState(268);
         _errHandler->sync(this);
         switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 19, _ctx)) {
         case 1: {
           auto newContext = _tracker.createInstance<GraphLogicalAndContext>(_tracker.createInstance<GraphConditionContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleGraphCondition);
-          setState(261);
+          setState(262);
 
           if (!(precpred(_ctx, 5))) throw FailedPredicateException(this, "precpred(_ctx, 5)");
-          setState(262);
-          match(BaseParser::AND);
           setState(263);
+          match(BaseParser::AND);
+          setState(264);
           graphCondition(6);
           break;
         }
@@ -2348,12 +2382,12 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
           auto newContext = _tracker.createInstance<GraphLogicalOrContext>(_tracker.createInstance<GraphConditionContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleGraphCondition);
-          setState(264);
+          setState(265);
 
           if (!(precpred(_ctx, 4))) throw FailedPredicateException(this, "precpred(_ctx, 4)");
-          setState(265);
-          match(BaseParser::OR);
           setState(266);
+          match(BaseParser::OR);
+          setState(267);
           graphCondition(5);
           break;
         }
@@ -2362,7 +2396,7 @@ BaseParser::GraphConditionContext* BaseParser::graphCondition(int precedence) {
           break;
         } 
       }
-      setState(271);
+      setState(272);
       _errHandler->sync(this);
       alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 20, _ctx);
     }
@@ -2426,19 +2460,19 @@ BaseParser::LoopStatementContext* BaseParser::loopStatement() {
     exitRule();
   });
   try {
-    setState(274);
+    setState(275);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case BaseParser::T__20: {
         enterOuterAlt(_localctx, 1);
-        setState(272);
+        setState(273);
         foreachStatement();
         break;
       }
 
       case BaseParser::T__25: {
         enterOuterAlt(_localctx, 2);
-        setState(273);
+        setState(274);
         whileStatement();
         break;
       }
@@ -2513,17 +2547,17 @@ BaseParser::ForeachStatementContext* BaseParser::foreachStatement() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(276);
-    match(BaseParser::T__20);
     setState(277);
-    match(BaseParser::T__21);
+    match(BaseParser::T__20);
     setState(278);
-    loopTarget();
+    match(BaseParser::T__21);
     setState(279);
-    match(BaseParser::T__13);
+    loopTarget();
     setState(280);
-    graphID();
+    match(BaseParser::T__13);
     setState(281);
+    graphID();
+    setState(282);
     block();
    
   }
@@ -2650,15 +2684,15 @@ BaseParser::LoopTargetContext* BaseParser::loopTarget() {
     exitRule();
   });
   try {
-    setState(293);
+    setState(294);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case BaseParser::T__22: {
         _localctx = _tracker.createInstance<BaseParser::ForEachVertexContext>(_localctx);
         enterOuterAlt(_localctx, 1);
-        setState(283);
-        match(BaseParser::T__22);
         setState(284);
+        match(BaseParser::T__22);
+        setState(285);
         match(BaseParser::ID);
         break;
       }
@@ -2666,13 +2700,13 @@ BaseParser::LoopTargetContext* BaseParser::loopTarget() {
       case BaseParser::T__23: {
         _localctx = _tracker.createInstance<BaseParser::ForEachEdgeContext>(_localctx);
         enterOuterAlt(_localctx, 2);
-        setState(285);
-        match(BaseParser::T__23);
         setState(286);
-        match(BaseParser::ID);
+        match(BaseParser::T__23);
         setState(287);
-        match(BaseParser::T__5);
+        match(BaseParser::ID);
         setState(288);
+        match(BaseParser::T__5);
+        setState(289);
         match(BaseParser::ID);
         break;
       }
@@ -2680,13 +2714,13 @@ BaseParser::LoopTargetContext* BaseParser::loopTarget() {
       case BaseParser::T__24: {
         _localctx = _tracker.createInstance<BaseParser::ForEachAdjContext>(_localctx);
         enterOuterAlt(_localctx, 3);
-        setState(289);
-        match(BaseParser::T__24);
         setState(290);
-        match(BaseParser::ID);
+        match(BaseParser::T__24);
         setState(291);
-        match(BaseParser::OF);
+        match(BaseParser::ID);
         setState(292);
+        match(BaseParser::OF);
+        setState(293);
         nodeID();
         break;
       }
@@ -2757,15 +2791,15 @@ BaseParser::WhileStatementContext* BaseParser::whileStatement() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(295);
-    match(BaseParser::T__25);
     setState(296);
-    match(BaseParser::T__10);
+    match(BaseParser::T__25);
     setState(297);
-    condition(0);
+    match(BaseParser::T__10);
     setState(298);
-    match(BaseParser::T__11);
+    condition(0);
     setState(299);
+    match(BaseParser::T__11);
+    setState(300);
     block();
    
   }
@@ -2829,19 +2863,19 @@ BaseParser::NodeEdgeOperationContext* BaseParser::nodeEdgeOperation() {
     exitRule();
   });
   try {
-    setState(303);
+    setState(304);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case BaseParser::T__26: {
         enterOuterAlt(_localctx, 1);
-        setState(301);
+        setState(302);
         addOperation();
         break;
       }
 
       case BaseParser::T__28: {
         enterOuterAlt(_localctx, 2);
-        setState(302);
+        setState(303);
         removeOperation();
         break;
       }
@@ -2912,15 +2946,15 @@ BaseParser::AddOperationContext* BaseParser::addOperation() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(305);
-    match(BaseParser::T__26);
     setState(306);
-    addTargets();
+    match(BaseParser::T__26);
     setState(307);
-    match(BaseParser::T__27);
+    addTargets();
     setState(308);
-    graphID();
+    match(BaseParser::T__27);
     setState(309);
+    graphID();
+    setState(310);
     match(BaseParser::T__0);
    
   }
@@ -2985,15 +3019,15 @@ BaseParser::RemoveOperationContext* BaseParser::removeOperation() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(311);
-    match(BaseParser::T__28);
     setState(312);
-    removeTargets();
+    match(BaseParser::T__28);
     setState(313);
-    match(BaseParser::T__29);
+    removeTargets();
     setState(314);
-    graphID();
+    match(BaseParser::T__29);
     setState(315);
+    graphID();
+    setState(316);
     match(BaseParser::T__0);
    
   }
@@ -3065,33 +3099,33 @@ BaseParser::AddTargetsContext* BaseParser::addTargets() {
     exitRule();
   });
   try {
-    setState(321);
+    setState(322);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 24, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(317);
+      setState(318);
       nodeID();
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(318);
+      setState(319);
       edge();
       break;
     }
 
     case 3: {
       enterOuterAlt(_localctx, 3);
-      setState(319);
+      setState(320);
       nodeList();
       break;
     }
 
     case 4: {
       enterOuterAlt(_localctx, 4);
-      setState(320);
+      setState(321);
       edgeList();
       break;
     }
@@ -3169,33 +3203,33 @@ BaseParser::RemoveTargetsContext* BaseParser::removeTargets() {
     exitRule();
   });
   try {
-    setState(327);
+    setState(328);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 25, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(323);
+      setState(324);
       nodeID();
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(324);
+      setState(325);
       edge();
       break;
     }
 
     case 3: {
       enterOuterAlt(_localctx, 3);
-      setState(325);
+      setState(326);
       nodeList();
       break;
     }
 
     case 4: {
       enterOuterAlt(_localctx, 4);
-      setState(326);
+      setState(327);
       edgeList();
       break;
     }
@@ -3279,27 +3313,27 @@ BaseParser::QueryStatementContext* BaseParser::queryStatement() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(329);
-    match(BaseParser::T__30);
     setState(330);
-    match(BaseParser::ID);
+    match(BaseParser::T__30);
     setState(331);
-    match(BaseParser::T__31);
+    match(BaseParser::ID);
     setState(332);
+    match(BaseParser::T__31);
+    setState(333);
     match(BaseParser::STRING);
-    setState(334);
+    setState(335);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (_la == BaseParser::INT) {
-      setState(333);
+      setState(334);
       match(BaseParser::INT);
     }
-    setState(336);
-    match(BaseParser::OF);
     setState(337);
-    graphID();
+    match(BaseParser::OF);
     setState(338);
+    graphID();
+    setState(339);
     match(BaseParser::T__0);
    
   }
@@ -3360,11 +3394,11 @@ BaseParser::ShowgraphContext* BaseParser::showgraph() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(340);
-    match(BaseParser::T__32);
     setState(341);
-    graphID();
+    match(BaseParser::T__32);
     setState(342);
+    graphID();
+    setState(343);
     match(BaseParser::T__0);
    
   }
@@ -3437,15 +3471,15 @@ BaseParser::FunctionContext* BaseParser::function() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(344);
-    match(BaseParser::T__33);
     setState(345);
-    returnType();
+    match(BaseParser::T__33);
     setState(346);
-    match(BaseParser::ID);
+    returnType();
     setState(347);
-    paramList();
+    match(BaseParser::ID);
     setState(348);
+    paramList();
+    setState(349);
     block();
    
   }
@@ -3507,7 +3541,7 @@ BaseParser::ReturnTypeContext* BaseParser::returnType() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(350);
+    setState(351);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & 9861270077440) != 0))) {
@@ -3581,30 +3615,30 @@ BaseParser::ParamListContext* BaseParser::paramList() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(352);
+    setState(353);
     match(BaseParser::T__10);
-    setState(361);
+    setState(362);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if ((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & 9586392170496) != 0)) {
-      setState(353);
+      setState(354);
       param();
-      setState(358);
+      setState(359);
       _errHandler->sync(this);
       _la = _input->LA(1);
       while (_la == BaseParser::T__5) {
-        setState(354);
-        match(BaseParser::T__5);
         setState(355);
+        match(BaseParser::T__5);
+        setState(356);
         param();
-        setState(360);
+        setState(361);
         _errHandler->sync(this);
         _la = _input->LA(1);
       }
     }
-    setState(363);
+    setState(364);
     match(BaseParser::T__11);
    
   }
@@ -3669,9 +3703,9 @@ BaseParser::ParamContext* BaseParser::param() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(365);
-    type();
     setState(366);
+    type();
+    setState(367);
     match(BaseParser::ID);
    
   }
@@ -3733,7 +3767,7 @@ BaseParser::TypeContext* BaseParser::type() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(368);
+    setState(369);
     _la = _input->LA(1);
     if (!((((_la & ~ 0x3fULL) == 0) &&
       ((1ULL << _la) & 9586392170496) != 0))) {
@@ -3807,20 +3841,20 @@ BaseParser::FunctionCallContext* BaseParser::functionCall() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(370);
-    match(BaseParser::ID);
     setState(371);
+    match(BaseParser::ID);
+    setState(372);
     match(BaseParser::T__10);
-    setState(373);
+    setState(374);
     _errHandler->sync(this);
 
     _la = _input->LA(1);
     if (((((_la - 11) & ~ 0x3fULL) == 0) &&
       ((1ULL << (_la - 11)) & 15762804854226945) != 0)) {
-      setState(372);
+      setState(373);
       argumentList();
     }
-    setState(375);
+    setState(376);
     match(BaseParser::T__11);
    
   }
@@ -3886,17 +3920,17 @@ BaseParser::ArgumentListContext* BaseParser::argumentList() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(377);
+    setState(378);
     expr(0);
-    setState(382);
+    setState(383);
     _errHandler->sync(this);
     _la = _input->LA(1);
     while (_la == BaseParser::T__5) {
-      setState(378);
-      match(BaseParser::T__5);
       setState(379);
+      match(BaseParser::T__5);
+      setState(380);
       expr(0);
-      setState(384);
+      setState(385);
       _errHandler->sync(this);
       _la = _input->LA(1);
     }
@@ -3971,19 +4005,19 @@ BaseParser::BlockContext* BaseParser::block() {
     exitRule();
   });
   try {
-    setState(396);
+    setState(397);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 33, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(385);
+      setState(386);
       match(BaseParser::T__1);
-      setState(390);
+      setState(391);
       _errHandler->sync(this);
       _la = _input->LA(1);
       while ((((_la & ~ 0x3fULL) == 0) &&
         ((1ULL << _la) & 4611698914832155650) != 0)) {
-        setState(388);
+        setState(389);
         _errHandler->sync(this);
         switch (_input->LA(1)) {
           case BaseParser::T__0:
@@ -4003,13 +4037,13 @@ BaseParser::BlockContext* BaseParser::block() {
           case BaseParser::T__40:
           case BaseParser::GRAPH:
           case BaseParser::ID: {
-            setState(386);
+            setState(387);
             statement();
             break;
           }
 
           case BaseParser::T__39: {
-            setState(387);
+            setState(388);
             returnStatement();
             break;
           }
@@ -4017,20 +4051,20 @@ BaseParser::BlockContext* BaseParser::block() {
         default:
           throw NoViableAltException(this);
         }
-        setState(392);
+        setState(393);
         _errHandler->sync(this);
         _la = _input->LA(1);
       }
-      setState(393);
+      setState(394);
       match(BaseParser::T__2);
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(394);
-      match(BaseParser::T__1);
       setState(395);
+      match(BaseParser::T__1);
+      setState(396);
       match(BaseParser::T__2);
       break;
     }
@@ -4097,11 +4131,11 @@ BaseParser::ReturnStatementContext* BaseParser::returnStatement() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(398);
-    match(BaseParser::T__39);
     setState(399);
-    expr(0);
+    match(BaseParser::T__39);
     setState(400);
+    expr(0);
+    setState(401);
     match(BaseParser::T__0);
    
   }
@@ -4169,30 +4203,30 @@ BaseParser::PrintStatementContext* BaseParser::printStatement() {
     exitRule();
   });
   try {
-    setState(408);
+    setState(409);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 34, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(402);
-      match(BaseParser::T__40);
       setState(403);
-      printExpr(0);
+      match(BaseParser::T__40);
       setState(404);
+      printExpr(0);
+      setState(405);
       match(BaseParser::T__0);
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(406);
+      setState(407);
       printArrayStatement();
       break;
     }
 
     case 3: {
       enterOuterAlt(_localctx, 3);
-      setState(407);
+      setState(408);
       printgraph();
       break;
     }
@@ -4288,11 +4322,11 @@ BaseParser::PrintExprContext* BaseParser::printExpr(int precedence) {
   try {
     size_t alt;
     enterOuterAlt(_localctx, 1);
-    setState(413);
+    setState(414);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
       case BaseParser::STRING: {
-        setState(411);
+        setState(412);
         match(BaseParser::STRING);
         break;
       }
@@ -4303,7 +4337,7 @@ BaseParser::PrintExprContext* BaseParser::printExpr(int precedence) {
       case BaseParser::ID:
       case BaseParser::INT:
       case BaseParser::REAL: {
-        setState(412);
+        setState(413);
         expr(0);
         break;
       }
@@ -4312,7 +4346,7 @@ BaseParser::PrintExprContext* BaseParser::printExpr(int precedence) {
       throw NoViableAltException(this);
     }
     _ctx->stop = _input->LT(-1);
-    setState(420);
+    setState(421);
     _errHandler->sync(this);
     alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 36, _ctx);
     while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
@@ -4322,15 +4356,15 @@ BaseParser::PrintExprContext* BaseParser::printExpr(int precedence) {
         previousContext = _localctx;
         _localctx = _tracker.createInstance<PrintExprContext>(parentContext, parentState);
         pushNewRecursionContext(_localctx, startState, RulePrintExpr);
-        setState(415);
+        setState(416);
 
         if (!(precpred(_ctx, 1))) throw FailedPredicateException(this, "precpred(_ctx, 1)");
-        setState(416);
-        match(BaseParser::PLUS);
         setState(417);
+        match(BaseParser::PLUS);
+        setState(418);
         printExpr(2); 
       }
-      setState(422);
+      setState(423);
       _errHandler->sync(this);
       alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 36, _ctx);
     }
@@ -4395,17 +4429,17 @@ BaseParser::PrintArrayStatementContext* BaseParser::printArrayStatement() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(423);
-    match(BaseParser::T__40);
     setState(424);
-    match(BaseParser::ID);
+    match(BaseParser::T__40);
     setState(425);
-    match(BaseParser::T__14);
+    match(BaseParser::ID);
     setState(426);
-    expr(0);
+    match(BaseParser::T__14);
     setState(427);
-    match(BaseParser::T__16);
+    expr(0);
     setState(428);
+    match(BaseParser::T__16);
+    setState(429);
     match(BaseParser::T__0);
    
   }
@@ -4544,21 +4578,21 @@ BaseParser::PrintgraphContext* BaseParser::printgraph() {
     exitRule();
   });
   try {
-    setState(448);
+    setState(449);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 37, _ctx)) {
     case 1: {
       _localctx = _tracker.createInstance<BaseParser::EdgePrintContext>(_localctx);
       enterOuterAlt(_localctx, 1);
-      setState(430);
-      match(BaseParser::T__40);
       setState(431);
-      match(BaseParser::EDGE);
+      match(BaseParser::T__40);
       setState(432);
-      match(BaseParser::OF);
+      match(BaseParser::EDGE);
       setState(433);
-      graphID();
+      match(BaseParser::OF);
       setState(434);
+      graphID();
+      setState(435);
       match(BaseParser::T__0);
       break;
     }
@@ -4566,15 +4600,15 @@ BaseParser::PrintgraphContext* BaseParser::printgraph() {
     case 2: {
       _localctx = _tracker.createInstance<BaseParser::NodePrintContext>(_localctx);
       enterOuterAlt(_localctx, 2);
-      setState(436);
-      match(BaseParser::T__40);
       setState(437);
-      match(BaseParser::NODE);
+      match(BaseParser::T__40);
       setState(438);
-      match(BaseParser::OF);
+      match(BaseParser::NODE);
       setState(439);
-      graphID();
+      match(BaseParser::OF);
       setState(440);
+      graphID();
+      setState(441);
       match(BaseParser::T__0);
       break;
     }
@@ -4582,15 +4616,15 @@ BaseParser::PrintgraphContext* BaseParser::printgraph() {
     case 3: {
       _localctx = _tracker.createInstance<BaseParser::GraphPrintContext>(_localctx);
       enterOuterAlt(_localctx, 3);
-      setState(442);
-      match(BaseParser::T__40);
       setState(443);
-      match(BaseParser::GRAPH);
+      match(BaseParser::T__40);
       setState(444);
-      match(BaseParser::OF);
+      match(BaseParser::GRAPH);
       setState(445);
-      graphID();
+      match(BaseParser::OF);
       setState(446);
+      graphID();
+      setState(447);
       match(BaseParser::T__0);
       break;
     }
@@ -4953,7 +4987,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
   try {
     size_t alt;
     enterOuterAlt(_localctx, 1);
-    setState(468);
+    setState(469);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 38, _ctx)) {
     case 1: {
@@ -4961,7 +4995,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _ctx = _localctx;
       previousContext = _localctx;
 
-      setState(451);
+      setState(452);
       functionCall();
       break;
     }
@@ -4970,7 +5004,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<IntExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(452);
+      setState(453);
       match(BaseParser::INT);
       break;
     }
@@ -4979,7 +5013,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<IdExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(453);
+      setState(454);
       match(BaseParser::ID);
       break;
     }
@@ -4988,11 +5022,11 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<ParenExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(454);
-      match(BaseParser::T__10);
       setState(455);
-      expr(0);
+      match(BaseParser::T__10);
       setState(456);
+      expr(0);
+      setState(457);
       match(BaseParser::T__11);
       break;
     }
@@ -5001,13 +5035,13 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<ArrayAccessExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(458);
-      match(BaseParser::ID);
       setState(459);
-      match(BaseParser::T__14);
+      match(BaseParser::ID);
       setState(460);
-      expr(0);
+      match(BaseParser::T__14);
       setState(461);
+      expr(0);
+      setState(462);
       match(BaseParser::T__16);
       break;
     }
@@ -5016,7 +5050,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<BoolTrueExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(463);
+      setState(464);
       match(BaseParser::TRUE);
       break;
     }
@@ -5025,7 +5059,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<BoolFalseExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(464);
+      setState(465);
       match(BaseParser::FALSE);
       break;
     }
@@ -5034,9 +5068,9 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<ArrayPrintContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(465);
-      match(BaseParser::ID);
       setState(466);
+      match(BaseParser::ID);
+      setState(467);
       match(BaseParser::T__41);
       break;
     }
@@ -5045,7 +5079,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       _localctx = _tracker.createInstance<RealExprContext>(_localctx);
       _ctx = _localctx;
       previousContext = _localctx;
-      setState(467);
+      setState(468);
       match(BaseParser::REAL);
       break;
     }
@@ -5054,7 +5088,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
       break;
     }
     _ctx->stop = _input->LT(-1);
-    setState(478);
+    setState(479);
     _errHandler->sync(this);
     alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 40, _ctx);
     while (alt != 2 && alt != atn::ATN::INVALID_ALT_NUMBER) {
@@ -5062,17 +5096,17 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
         if (!_parseListeners.empty())
           triggerExitRuleEvent();
         previousContext = _localctx;
-        setState(476);
+        setState(477);
         _errHandler->sync(this);
         switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 39, _ctx)) {
         case 1: {
           auto newContext = _tracker.createInstance<MulDivExprContext>(_tracker.createInstance<ExprContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExpr);
-          setState(470);
+          setState(471);
 
           if (!(precpred(_ctx, 11))) throw FailedPredicateException(this, "precpred(_ctx, 11)");
-          setState(471);
+          setState(472);
           _la = _input->LA(1);
           if (!(_la == BaseParser::TIMES
 
@@ -5083,7 +5117,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
             _errHandler->reportMatch(this);
             consume();
           }
-          setState(472);
+          setState(473);
           expr(12);
           break;
         }
@@ -5092,10 +5126,10 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
           auto newContext = _tracker.createInstance<AddSubExprContext>(_tracker.createInstance<ExprContext>(parentContext, parentState));
           _localctx = newContext;
           pushNewRecursionContext(newContext, startState, RuleExpr);
-          setState(473);
+          setState(474);
 
           if (!(precpred(_ctx, 10))) throw FailedPredicateException(this, "precpred(_ctx, 10)");
-          setState(474);
+          setState(475);
           _la = _input->LA(1);
           if (!(_la == BaseParser::PLUS
 
@@ -5106,7 +5140,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
             _errHandler->reportMatch(this);
             consume();
           }
-          setState(475);
+          setState(476);
           expr(11);
           break;
         }
@@ -5115,7 +5149,7 @@ BaseParser::ExprContext* BaseParser::expr(int precedence) {
           break;
         } 
       }
-      setState(480);
+      setState(481);
       _errHandler->sync(this);
       alt = getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 40, _ctx);
     }
@@ -5209,19 +5243,19 @@ BaseParser::ArrayDeclaratorContext* BaseParser::arrayDeclarator() {
     exitRule();
   });
   try {
-    setState(488);
+    setState(489);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 41, _ctx)) {
     case 1: {
       _localctx = _tracker.createInstance<BaseParser::SizedArrayContext>(_localctx);
       enterOuterAlt(_localctx, 1);
-      setState(481);
-      match(BaseParser::ID);
       setState(482);
-      match(BaseParser::T__14);
+      match(BaseParser::ID);
       setState(483);
-      match(BaseParser::INT);
+      match(BaseParser::T__14);
       setState(484);
+      match(BaseParser::INT);
+      setState(485);
       match(BaseParser::T__16);
       break;
     }
@@ -5229,11 +5263,11 @@ BaseParser::ArrayDeclaratorContext* BaseParser::arrayDeclarator() {
     case 2: {
       _localctx = _tracker.createInstance<BaseParser::UnsizedArrayContext>(_localctx);
       enterOuterAlt(_localctx, 2);
-      setState(485);
-      match(BaseParser::ID);
       setState(486);
-      match(BaseParser::T__14);
+      match(BaseParser::ID);
       setState(487);
+      match(BaseParser::T__14);
+      setState(488);
       match(BaseParser::T__16);
       break;
     }
@@ -5305,23 +5339,23 @@ BaseParser::ArrayInitializerContext* BaseParser::arrayInitializer() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(490);
-    match(BaseParser::T__14);
     setState(491);
+    match(BaseParser::T__14);
+    setState(492);
     expr(0);
-    setState(496);
+    setState(497);
     _errHandler->sync(this);
     _la = _input->LA(1);
     while (_la == BaseParser::T__5) {
-      setState(492);
-      match(BaseParser::T__5);
       setState(493);
+      match(BaseParser::T__5);
+      setState(494);
       expr(0);
-      setState(498);
+      setState(499);
       _errHandler->sync(this);
       _la = _input->LA(1);
     }
-    setState(499);
+    setState(500);
     match(BaseParser::T__16);
    
   }
@@ -5385,27 +5419,27 @@ BaseParser::AssignmentStatementContext* BaseParser::assignmentStatement() {
     exitRule();
   });
   try {
-    setState(508);
+    setState(509);
     _errHandler->sync(this);
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 43, _ctx)) {
     case 1: {
       enterOuterAlt(_localctx, 1);
-      setState(501);
-      match(BaseParser::ID);
       setState(502);
-      match(BaseParser::T__8);
+      match(BaseParser::ID);
       setState(503);
-      expr(0);
+      match(BaseParser::T__8);
       setState(504);
+      expr(0);
+      setState(505);
       match(BaseParser::T__0);
       break;
     }
 
     case 2: {
       enterOuterAlt(_localctx, 2);
-      setState(506);
-      match(BaseParser::ID);
       setState(507);
+      match(BaseParser::ID);
+      setState(508);
       match(BaseParser::T__0);
       break;
     }
@@ -5486,19 +5520,19 @@ BaseParser::ArrayAssignStatementContext* BaseParser::arrayAssignStatement() {
   try {
     _localctx = _tracker.createInstance<BaseParser::ArrayAssignStmtContext>(_localctx);
     enterOuterAlt(_localctx, 1);
-    setState(510);
-    match(BaseParser::ID);
     setState(511);
-    match(BaseParser::T__14);
+    match(BaseParser::ID);
     setState(512);
-    expr(0);
+    match(BaseParser::T__14);
     setState(513);
-    match(BaseParser::T__16);
-    setState(514);
-    match(BaseParser::T__8);
-    setState(515);
     expr(0);
+    setState(514);
+    match(BaseParser::T__16);
+    setState(515);
+    match(BaseParser::T__8);
     setState(516);
+    expr(0);
+    setState(517);
     match(BaseParser::T__0);
    
   }
@@ -5564,7 +5598,7 @@ BaseParser::WeightsContext* BaseParser::weights() {
   });
   try {
     enterOuterAlt(_localctx, 1);
-    setState(518);
+    setState(519);
     _la = _input->LA(1);
     if (!(_la == BaseParser::TRUE
 
@@ -5601,8 +5635,8 @@ bool BaseParser::sempred(RuleContext *context, size_t ruleIndex, size_t predicat
 
 bool BaseParser::conditionSempred(ConditionContext *_localctx, size_t predicateIndex) {
   switch (predicateIndex) {
-    case 0: return precpred(_ctx, 5);
-    case 1: return precpred(_ctx, 4);
+    case 0: return precpred(_ctx, 6);
+    case 1: return precpred(_ctx, 5);
 
   default:
     break;

@@ -2354,103 +2354,26 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         return;
     }
 
-    // Handle variable prints
+    // If this is a query-array name (k), print the entire array using k_ptr and k_size
     if (auto *var = dynamic_cast<VariableNode *>(PS->expr.get()))
     {
-        // If this is a query-array name (k), print the entire array using k_ptr and k_size
         auto ptrIt  = NamedValues.find(var->name + "_ptr");
         auto sizeIt = NamedValues.find(var->name + "_size");
         if (ptrIt != NamedValues.end() && sizeIt != NamedValues.end())
         {
-            // Reuse the array printing logic by synthesizing a PrintArrayNode
             PrintArrayNode pan(var->name, nullptr);
             visitPrintArray(&pan);
             return;
         }
-
-        // Otherwise, print a scalar int variable
-        auto it = NamedValues.find(var->name);
-        if (it == NamedValues.end() || it->second == nullptr)
-        {
-            llvm::errs() << "Undefined variable in print: " << var->name << "\n";
-            return;
-        }
-        llvm::Type *valTy = it->second->getAllocatedType();
-        llvm::Value *val = Builder.CreateLoad(valTy, it->second, var->name);
-
-        if (valTy->isIntegerTy(1))
-        {
-            llvm::Value *val32 = Builder.CreateZExt(val, Builder.getInt32Ty(), "bool_to_i32");
-            static llvm::GlobalVariable *fmtBool = nullptr;
-            if (!fmtBool)
-            {
-                auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
-                fmtBool = new llvm::GlobalVariable(
-                    Module, fmtTy, /*isConstant=*/true,
-                    llvm::GlobalValue::PrivateLinkage,
-                    llvm::ConstantDataArray::getString(Context, "%d\n", true),
-                    ".fmt_bool");
-            }
-            llvm::Value *fmtPtr = Builder.CreateBitCast(fmtBool, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-            Builder.CreateCall(printfFn, {fmtPtr, val32});
-            return;
-        }
-        if (valTy->isDoubleTy())
-        {
-            static llvm::GlobalVariable *fmtReal = nullptr;
-            if (!fmtReal)
-            {
-                auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
-                fmtReal = new llvm::GlobalVariable(
-                    Module, fmtTy, /*isConstant=*/true,
-                    llvm::GlobalValue::PrivateLinkage,
-                    llvm::ConstantDataArray::getString(Context, "%f\n", true),
-                    ".fmt_real");
-            }
-            llvm::Value *fmtPtr = Builder.CreateBitCast(fmtReal, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-            Builder.CreateCall(printfFn, {fmtPtr, val});
-            return;
-        }
-
-        // Emit printf("%d\n", val) for int
-        static llvm::GlobalVariable *fmtInt = nullptr;
-        if (!fmtInt)
-        {
-            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
-            fmtInt = new llvm::GlobalVariable(
-                Module, fmtTy, /*isConstant=*/true,
-                llvm::GlobalValue::PrivateLinkage,
-                llvm::ConstantDataArray::getString(Context, "%d\n", true),
-                ".fmt_int");
-        }
-        llvm::Value *fmtPtr = Builder.CreateBitCast(fmtInt, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-        Builder.CreateCall(printfFn, {fmtPtr, val});
-        return;
     }
 
-    // Handle integer literal prints
-    if (auto *lit = dynamic_cast<IntLiteralNode *>(PS->expr.get()))
-    {
-        llvm::Value *val = llvm::ConstantInt::get(Builder.getInt32Ty(), lit->value);
-        static llvm::GlobalVariable *fmtInt = nullptr;
-        if (!fmtInt)
-        {
-            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
-            fmtInt = new llvm::GlobalVariable(
-                Module, fmtTy, /*isConstant=*/true,
-                llvm::GlobalValue::PrivateLinkage,
-                llvm::ConstantDataArray::getString(Context, "%d\n", true),
-                ".fmt_int");
-        }
-        llvm::Value *fmtPtr = Builder.CreateBitCast(fmtInt, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-        Builder.CreateCall(printfFn, {fmtPtr, val});
-        return;
-    }
+    // Generic expression printing: evaluate then print by type
+    llvm::Value *val = visitExpr(PS->expr.get());
+    llvm::Type *valTy = val->getType();
 
-    // Handle bool literal prints
-    if (auto *bl = dynamic_cast<BoolLiteralNode *>(PS->expr.get()))
+    if (valTy->isIntegerTy(1))
     {
-        llvm::Value *val = llvm::ConstantInt::get(Builder.getInt32Ty(), bl->value ? 1 : 0);
+        llvm::Value *val32 = Builder.CreateZExt(val, Builder.getInt32Ty(), "bool_to_i32");
         static llvm::GlobalVariable *fmtBool = nullptr;
         if (!fmtBool)
         {
@@ -2462,14 +2385,11 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
                 ".fmt_bool");
         }
         llvm::Value *fmtPtr = Builder.CreateBitCast(fmtBool, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-        Builder.CreateCall(printfFn, {fmtPtr, val});
+        Builder.CreateCall(printfFn, {fmtPtr, val32});
         return;
     }
-
-    // Handle real literal prints
-    if (auto *rl = dynamic_cast<RealLiteralNode *>(PS->expr.get()))
+    if (valTy->isDoubleTy())
     {
-        llvm::Value *val = llvm::ConstantFP::get(Builder.getDoubleTy(), rl->value);
         static llvm::GlobalVariable *fmtReal = nullptr;
         if (!fmtReal)
         {
@@ -2484,7 +2404,22 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         Builder.CreateCall(printfFn, {fmtPtr, val});
         return;
     }
+    if (valTy->isIntegerTy())
+    {
+        static llvm::GlobalVariable *fmtInt = nullptr;
+        if (!fmtInt)
+        {
+            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+            fmtInt = new llvm::GlobalVariable(
+                Module, fmtTy, /*isConstant=*/true,
+                llvm::GlobalValue::PrivateLinkage,
+                llvm::ConstantDataArray::getString(Context, "%d\n", true),
+                ".fmt_int");
+        }
+        llvm::Value *fmtPtr = Builder.CreateBitCast(fmtInt, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+        Builder.CreateCall(printfFn, {fmtPtr, val});
+        return;
+    }
 
-    // Fallback
     throw std::runtime_error("print: unsupported expression type");
 }

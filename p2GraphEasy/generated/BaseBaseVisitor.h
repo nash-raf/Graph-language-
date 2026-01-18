@@ -75,6 +75,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitExprCondition(BaseParser::ExprConditionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *ctx) override {
     return visitChildren(ctx);
   }

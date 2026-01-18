@@ -1,3 +1,31 @@
+
+int x = 3;
+int y = 7;
+print x + y;
+
+bool b = TRUE;
+print b;
+
 real r = 3.5;
 real s = 2.0;
 print r + s;
+
+//int x = 0;
+bool ok = TRUE;
+
+if (ok == TRUE) { 
+    print 1;
+     }
+if (ok){
+    print 1;
+}
+
+while (x < 3) {
+  print x;
+  x = x + 1;
+}
+
+int a[5] = [1,2,3,4,5];
+print a[0];
+int k = a[0];
+print k;

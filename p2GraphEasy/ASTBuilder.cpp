@@ -268,6 +268,10 @@ antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
                                                              : "";
         return ASTNodePtr(std::make_shared<BinaryExprNode>(op, left, right));
     }
+    if (auto e = dynamic_cast<Ctx::ExprConditionContext *>(ctx))
+    {
+        return safe_any_cast<ASTNodePtr>(visitExpr(e->expr()));
+    }
     throw std::runtime_error("Unsupported condition: " + ctx->getText());
 }
 

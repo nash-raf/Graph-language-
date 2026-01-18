@@ -59,6 +59,9 @@ public:
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
 
+  virtual void enterExprCondition(BaseParser::ExprConditionContext *ctx) = 0;
+  virtual void exitExprCondition(BaseParser::ExprConditionContext *ctx) = 0;
+
   virtual void enterNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
   virtual void exitNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
 

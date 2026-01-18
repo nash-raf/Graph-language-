@@ -275,6 +275,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitLogicalExpr(BaseParser::LogicalExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitAddSubExpr(BaseParser::AddSubExprContext *ctx) override {
     return visitChildren(ctx);
   }

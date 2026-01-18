@@ -298,7 +298,14 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
     // std::cout << " expr text: " << ctx->getText() << "\n";
     // std::cout << " Runtime type: " << typeid(*ctx).name() << "\n";
 
-    if (auto mulDivContext = dynamic_cast<BaseParser::MulDivExprContext *>(ctx))
+    if (auto logCtx = dynamic_cast<BaseParser::LogicalExprContext *>(ctx))
+    {
+        auto lhs = safe_any_cast<ASTNodePtr>(visitExpr(logCtx->expr(0)));
+        auto rhs = safe_any_cast<ASTNodePtr>(visitExpr(logCtx->expr(1)));
+        std::string op = logCtx->AND() ? "&&" : "||";
+        return ASTNodePtr(std::make_shared<BinaryExprNode>(op, lhs, rhs));
+    }
+    else if (auto mulDivContext = dynamic_cast<BaseParser::MulDivExprContext *>(ctx))
     {
         auto lhs = safe_any_cast<ASTNodePtr>(visitExpr(mulDivContext->expr(0)));
         auto rhs = safe_any_cast<ASTNodePtr>(visitExpr(mulDivContext->expr(1)));

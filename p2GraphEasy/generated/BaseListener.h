@@ -209,6 +209,9 @@ public:
   virtual void enterRealExpr(BaseParser::RealExprContext *ctx) = 0;
   virtual void exitRealExpr(BaseParser::RealExprContext *ctx) = 0;
 
+  virtual void enterLogicalExpr(BaseParser::LogicalExprContext *ctx) = 0;
+  virtual void exitLogicalExpr(BaseParser::LogicalExprContext *ctx) = 0;
+
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
 

@@ -211,6 +211,9 @@ public:
   virtual void enterRealExpr(BaseParser::RealExprContext * /*ctx*/) override { }
   virtual void exitRealExpr(BaseParser::RealExprContext * /*ctx*/) override { }
 
+  virtual void enterLogicalExpr(BaseParser::LogicalExprContext * /*ctx*/) override { }
+  virtual void exitLogicalExpr(BaseParser::LogicalExprContext * /*ctx*/) override { }
+
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext * /*ctx*/) override { }
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext * /*ctx*/) override { }
 

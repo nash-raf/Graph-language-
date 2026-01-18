@@ -149,6 +149,8 @@ public:
 
     virtual std::any visitRealExpr(BaseParser::RealExprContext *context) = 0;
 
+    virtual std::any visitLogicalExpr(BaseParser::LogicalExprContext *context) = 0;
+
     virtual std::any visitAddSubExpr(BaseParser::AddSubExprContext *context) = 0;
 
     virtual std::any visitSizedArray(BaseParser::SizedArrayContext *context) = 0;

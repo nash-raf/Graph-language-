@@ -1,7 +1,7 @@
 
 int x = 3;
 int y = 7;
-print x + y;
+print x + 7;
 
 bool b = TRUE;
 print b;
@@ -29,3 +29,24 @@ int a[5] = [1,2,3,4,5];
 print a[0];
 int k = a[0];
 print k;
+
+fn int add1(int a, int b) {
+  return a + b;
+}
+
+fn real half(real x) {
+  return x / 2.0;
+}
+
+fn bool both(bool x, bool y) {
+  return x || y ;
+}
+
+fn bool both1(bool x, bool y) {
+  return x && y ;
+}
+
+print add1(4,5);
+print half(5.0);
+print both(FALSE, FALSE);
+print both1(TRUE, TRUE);

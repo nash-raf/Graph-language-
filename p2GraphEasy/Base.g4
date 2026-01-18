@@ -149,7 +149,8 @@ printgraph:
 
 // Expressions
 expr:
-	expr (TIMES | DIVIDE) expr	# MulDivExpr
+	expr (AND | OR) expr		# LogicalExpr
+	| expr (TIMES | DIVIDE) expr	# MulDivExpr
 	| expr (PLUS | MINUS) expr	# AddSubExpr
 	| functionCall				# FuncExpr
 	| INT						# IntExpr

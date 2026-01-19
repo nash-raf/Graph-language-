@@ -46,6 +46,8 @@ public:
     llvm::Value *visitSetExpr(ASTNode *expr);
     llvm::Value *visitSetBinaryExpr(SetBinaryExprNode *binExpr);
     llvm::SmallVector<ASTNode *, 8> flattenSetOperation(ASTNode *expr, const std::string &targetOp);
+    void visitSetMethodCall(SetMethodCallNode *node);
+    llvm::Value *visitSetContainsExpr(SetContainsExprNode *node);
 
 private:
     llvm::LLVMContext &Context;

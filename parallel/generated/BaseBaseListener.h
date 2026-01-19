@@ -79,6 +79,12 @@ public:
   virtual void enterParenSet(BaseParser::ParenSetContext * /*ctx*/) override { }
   virtual void exitParenSet(BaseParser::ParenSetContext * /*ctx*/) override { }
 
+  virtual void enterSetAddMethod(BaseParser::SetAddMethodContext * /*ctx*/) override { }
+  virtual void exitSetAddMethod(BaseParser::SetAddMethodContext * /*ctx*/) override { }
+
+  virtual void enterSetRemoveMethod(BaseParser::SetRemoveMethodContext * /*ctx*/) override { }
+  virtual void exitSetRemoveMethod(BaseParser::SetRemoveMethodContext * /*ctx*/) override { }
+
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
 
@@ -111,6 +117,9 @@ public:
 
   virtual void enterEdgeCheck(BaseParser::EdgeCheckContext * /*ctx*/) override { }
   virtual void exitEdgeCheck(BaseParser::EdgeCheckContext * /*ctx*/) override { }
+
+  virtual void enterBooleanExpr(BaseParser::BooleanExprContext * /*ctx*/) override { }
+  virtual void exitBooleanExpr(BaseParser::BooleanExprContext * /*ctx*/) override { }
 
   virtual void enterLogicalOr(BaseParser::LogicalOrContext * /*ctx*/) override { }
   virtual void exitLogicalOr(BaseParser::LogicalOrContext * /*ctx*/) override { }
@@ -195,6 +204,9 @@ public:
 
   virtual void enterGraphPrint(BaseParser::GraphPrintContext * /*ctx*/) override { }
   virtual void exitGraphPrint(BaseParser::GraphPrintContext * /*ctx*/) override { }
+
+  virtual void enterSetContainsExpr(BaseParser::SetContainsExprContext * /*ctx*/) override { }
+  virtual void exitSetContainsExpr(BaseParser::SetContainsExprContext * /*ctx*/) override { }
 
   virtual void enterBoolTrueExpr(BaseParser::BoolTrueExprContext * /*ctx*/) override { }
   virtual void exitBoolTrueExpr(BaseParser::BoolTrueExprContext * /*ctx*/) override { }

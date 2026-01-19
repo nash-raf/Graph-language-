@@ -1244,3 +1244,174 @@ extern "C" void roaring_print(uint8_t *ptr)
     printf("}\n");
     fflush(stdout);
 }
+
+extern "C" int roaring_bitmap_contains(RoaringBitmap *bm, uint32_t value)
+{
+    if (!bm)
+        return 0;
+
+    uint16_t high = (uint16_t)(value >> 16);
+    uint16_t low = (uint16_t)(value & 0xFFFF);
+
+    Container *container = find_container(bm, high);
+    if (!container)
+        return 0;
+
+    if (container->type == ARRAY_CONTAINER)
+    {
+        // Binary search in sorted array
+        size_t left = 0;
+        size_t right = container->array.cardinality;
+        while (left < right)
+        {
+            size_t mid = left + (right - left) / 2;
+            if (container->array.values[mid] < low)
+                left = mid + 1;
+            else if (container->array.values[mid] > low)
+                right = mid;
+            else
+                return 1; // found
+        }
+        return 0;
+    }
+    else if (container->type == BITMAP_CONTAINER)
+    {
+        uint32_t byte_index = low >> 3;
+        uint8_t bit_mask = 1u << (low & 7);
+        return (container->bitmap.bits[byte_index] & bit_mask) != 0;
+    }
+
+    return 0;
+}
+
+// 2. Remove function
+extern "C" void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value)
+{
+    if (!bm)
+        return;
+
+    uint16_t high = (uint16_t)(value >> 16);
+    uint16_t low = (uint16_t)(value & 0xFFFF);
+
+    Container *container = find_container(bm, high);
+    if (!container)
+        return; // value not present
+
+    if (container->type == ARRAY_CONTAINER)
+    {
+        // Find the value in the sorted array
+        size_t left = 0;
+        size_t right = container->array.cardinality;
+        while (left < right)
+        {
+            size_t mid = left + (right - left) / 2;
+            if (container->array.values[mid] < low)
+                left = mid + 1;
+            else if (container->array.values[mid] > low)
+                right = mid;
+            else
+            {
+                // Found it at position mid, remove it
+                std::memmove(
+                    container->array.values + mid,
+                    container->array.values + mid + 1,
+                    sizeof(uint16_t) * (container->array.cardinality - mid - 1));
+                container->array.cardinality--;
+                return;
+            }
+        }
+    }
+    else if (container->type == BITMAP_CONTAINER)
+    {
+        uint32_t byte_index = low >> 3;
+        uint8_t bit_mask = 1u << (low & 7);
+        container->bitmap.bits[byte_index] &= ~bit_mask;
+    }
+}
+
+// 3. Get cardinality function
+extern "C" uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm)
+{
+    if (!bm)
+        return 0;
+
+    uint64_t total = 0;
+    for (size_t i = 0; i < bm->num_containers; ++i)
+    {
+        Container &c = bm->containers[i];
+        if (c.type == ARRAY_CONTAINER)
+        {
+            total += c.array.cardinality;
+        }
+        else if (c.type == BITMAP_CONTAINER)
+        {
+            uint64_t *words = reinterpret_cast<uint64_t *>(c.bitmap.bits);
+            for (int w = 0; w < 1024; ++w)
+            {
+                total += __builtin_popcountll(words[w]);
+            }
+        }
+    }
+    return total;
+}
+
+extern "C" uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t index)
+{
+    if (!bm)
+    {
+        fprintf(stderr, "Error: roaring_bitmap_get_at_index called with NULL bitmap\n");
+        return 0;
+    }
+
+    uint32_t count = 0;
+
+    for (size_t i = 0; i < bm->num_containers; ++i)
+    {
+        Container &c = bm->containers[i];
+        uint32_t base = static_cast<uint32_t>(c.key) << 16;
+
+        if (c.type == ARRAY_CONTAINER)
+        {
+            uint32_t container_size = c.array.cardinality;
+            if (count + container_size > index)
+            {
+                // The element is in this container
+                uint32_t local_index = index - count;
+                return base + c.array.values[local_index];
+            }
+            count += container_size;
+        }
+        else if (c.type == BITMAP_CONTAINER)
+        {
+            uint64_t *words = reinterpret_cast<uint64_t *>(c.bitmap.bits);
+            for (int w = 0; w < 1024; ++w)
+            {
+                uint64_t word = words[w];
+                int popcount = __builtin_popcountll(word);
+
+                if (count + popcount > index)
+                {
+                    // The element is in this word
+                    uint32_t local_index = index - count;
+
+                    // Extract bits one by one until we reach local_index
+                    uint32_t bits_found = 0;
+                    while (word)
+                    {
+                        int bit = __builtin_ctzll(word);
+                        if (bits_found == local_index)
+                        {
+                            return base + (w * 64 + bit);
+                        }
+                        bits_found++;
+                        word &= word - 1;
+                    }
+                }
+                count += popcount;
+            }
+        }
+    }
+
+    fprintf(stderr, "Error: Index %u out of bounds (cardinality: %u)\n", index, count);
+    return 0;
+}

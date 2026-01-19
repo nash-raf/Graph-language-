@@ -44,7 +44,9 @@ enum class ASTNodeType
     SetDecl,
     SetLiteral,
     SetOperation,
-    SetBinaryExpr
+    SetBinaryExpr,
+    SetMethodCall,
+    SetContainsExpr
 };
 
 template <typename T>
@@ -347,20 +349,15 @@ public:
           nodes(std::move(nList)),
           edges(std::move(eList))
     {
-        // auto t0 = std::chrono::high_resolution_clock::now();
-
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
 
-        // Map arbitrary IDs → contiguous [0..n-1]
-        // std::unordered_map<int, int> id2idx;
         llvm::DenseMap<int, int> id2idx;
         for (int i = 0; i < (int)nodeIds.size(); ++i)
             id2idx[nodeIds[i]] = i;
 
         auto edgeList = edges->materializeEdges();
         m = 2 * edgeList.size();
-        // degree counts go into row_ptr[i+1]
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
         for (auto &e : edgeList)
@@ -372,11 +369,9 @@ public:
             row_ptr[v + 1]++;
         }
 
-        // exclusive prefix‑sum
         for (size_t i = 1; i <= n; ++i)
             row_ptr[i] += row_ptr[i - 1];
 
-        // allocate col_idx and scatter
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
@@ -386,122 +381,8 @@ public:
             col_idx[next[u]++] = static_cast<int32_t>(v);
             col_idx[next[v]++] = static_cast<int32_t>(u);
         }
-
-        // debug
-        // std::cerr << "[GraphDeclNode] CSR row_ptr =";
-        // for (auto x : row_ptr) std::cerr << " " << x;
-        // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
-        // for (auto x : col_idx) std::cerr << " " << x;
-        // std::cerr << "\n";
-        // auto t1 = std::chrono::high_resolution_clock::now();
-        // auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        // std::cerr << "[ASTBuilder] fulledge '"
-        //           << "' in " << dur.count() << " ms\n";
-        // exit(0);
     }
 };
-
-// class GraphDeclNode : public ASTNode
-// {
-// public:
-//     std::string name;
-//     std::unique_ptr<NodeListNode> nodes;
-//     std::unique_ptr<EdgeListNode> edges;
-
-//     size_t n = 0, m = 0;
-//     std::vector<size_t> row_ptr;
-//     std::vector<int> col_idx;
-
-//     GraphDeclNode(
-//         std::string nm,
-//         std::unique_ptr<NodeListNode> nList,
-//         std::unique_ptr<EdgeListNode> eList)
-//         : ASTNode(ASTNodeType::GraphDecl),
-//           name(std::move(nm)),
-//           nodes(std::move(nList)),
-//           edges(std::move(eList))
-//     {
-
-//         if (!edges)
-//             throw std::runtime_error("GraphDeclNode: edges required");
-
-//         auto t0 = std::chrono::high_resolution_clock::now();
-
-//         auto edgeList = edges->materializeEdges();
-//         llvm::DenseSet<int> nodeSet;
-//         // std::unordered_set<int> nodeSet;
-//         if (nodes)
-//         {
-//             auto explicitIds = nodes->materializeNodeIds();
-//             for (int id : explicitIds)
-//                 nodeSet.insert(id);
-//         }
-
-//         for (auto &e : edgeList)
-//         {
-//             nodeSet.insert(e.first);
-//             nodeSet.insert(e.second);
-//         }
-
-//         std::vector<int> nodeIds;
-//         nodeIds.reserve(nodeSet.size());
-//         for (int id : nodeSet)
-//             nodeIds.push_back(id);
-
-//         std::sort(nodeIds.begin(), nodeIds.end());
-
-//         nodes = std::make_unique<InlineNodeList>(std::move(nodeIds));
-
-//         auto materializedNodes = nodes->materializeNodeIds();
-//         n = materializedNodes.size();
-//         llvm::DenseMap<int, int> id2idx;
-//         // std::unordered_map<int, int> id2idx;
-//         for (int i = 0; i < (int)materializedNodes.size(); ++i)
-//             id2idx[materializedNodes[i]] = i;
-
-//         m = 2 * edgeList.size();
-
-//         row_ptr.assign(n + 1, 0);
-//         for (auto &e : edgeList)
-//         {
-//             int u0 = e.first, v0 = e.second;
-//             auto it_u = id2idx.find(u0);
-//             auto it_v = id2idx.find(v0);
-//             if (it_u == id2idx.end() || it_v == id2idx.end())
-//             {
-//                 continue;
-//             }
-//             size_t u = it_u->second;
-//             size_t v = it_v->second;
-//             row_ptr[u + 1]++;
-//             row_ptr[v + 1]++;
-//         }
-
-//         for (size_t i = 1; i <= n; ++i)
-//             row_ptr[i] += row_ptr[i - 1];
-
-//         col_idx.resize(m);
-//         std::vector<size_t> next = row_ptr;
-//         for (auto &e : edgeList)
-//         {
-//             int u0 = e.first, v0 = e.second;
-//             auto it_u = id2idx.find(u0);
-//             auto it_v = id2idx.find(v0);
-//             if (it_u == id2idx.end() || it_v == id2idx.end())
-//             {
-//                 continue;
-//             }
-//             size_t u = it_u->second;
-//             size_t v = it_v->second;
-//             col_idx[next[u]++] = (int)v;
-//             col_idx[next[v]++] = (int)u;
-//         }
-//         auto t1 = std::chrono::high_resolution_clock::now();
-//         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-//         std::cerr << "[ASTBuilder] fulledge '"
-//                   << "' in " << dur.count() << " ms\n";
-//     }
-// };
 
 class QueryNode : public ASTNode
 {
@@ -547,8 +428,8 @@ public:
 class SetOperationNode : public ASTNode
 {
 public:
-    std::string targetName; // The variable being assigned to
-    ASTNodePtr expr;        // The set expression (SetBinaryExprNode)
+    std::string targetName;
+    ASTNodePtr expr;
 
     SetOperationNode(const std::string &target, ASTNodePtr expression)
         : ASTNode(ASTNodeType::SetOperation),
@@ -559,9 +440,9 @@ public:
 class SetBinaryExprNode : public ASTNode
 {
 public:
-    std::string op; // "union" or "intersect"
-    ASTNodePtr lhs; // Left operand (can be SetId, SetLiteral, or another SetBinaryExpr)
-    ASTNodePtr rhs; // Right operand
+    std::string op;
+    ASTNodePtr lhs;
+    ASTNodePtr rhs;
 
     SetBinaryExprNode(const std::string &operation, ASTNodePtr left, ASTNodePtr right)
         : ASTNode(ASTNodeType::SetBinaryExpr),
@@ -580,6 +461,32 @@ public:
           name(setName)
     {
     }
+};
+
+class SetMethodCallNode : public ASTNode
+{
+public:
+    std::string setName;
+    std::string methodName; // "add" or "remove"
+    ASTNodePtr argument;
+
+    SetMethodCallNode(const std::string &name, const std::string &method, ASTNodePtr arg)
+        : ASTNode(ASTNodeType::SetMethodCall),
+          setName(name),
+          methodName(method),
+          argument(std::move(arg)) {}
+};
+
+class SetContainsExprNode : public ASTNode
+{
+public:
+    std::string setName;
+    ASTNodePtr argument;
+
+    SetContainsExprNode(const std::string &name, ASTNodePtr arg)
+        : ASTNode(ASTNodeType::SetContainsExpr),
+          setName(name),
+          argument(std::move(arg)) {}
 };
 
 #endif // ASTNODE_H

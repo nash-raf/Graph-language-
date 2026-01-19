@@ -18,11 +18,12 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, GRAPH = 42, SET = 43, UNION = 44, 
-    INTERSECT = 45, EDGE = 46, NODE = 47, TRUE = 48, FALSE = 49, OF = 50, 
-    PLUS = 51, MINUS = 52, TIMES = 53, DIVIDE = 54, AND = 55, OR = 56, EQUAL = 57, 
-    NOTEQUAL = 58, LESSTHAN = 59, GREATERTHAN = 60, LESSEQUAL = 61, GREATEREQUAL = 62, 
-    ID = 63, INT = 64, REAL = 65, STRING = 66, Comment = 67, WS = 68
+    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, GRAPH = 44, 
+    SET = 45, UNION = 46, INTERSECT = 47, EDGE = 48, NODE = 49, TRUE = 50, 
+    FALSE = 51, OF = 52, PLUS = 53, MINUS = 54, TIMES = 55, DIVIDE = 56, 
+    AND = 57, OR = 58, EQUAL = 59, NOTEQUAL = 60, LESSTHAN = 61, GREATERTHAN = 62, 
+    LESSEQUAL = 63, GREATEREQUAL = 64, ID = 65, INT = 66, REAL = 67, STRING = 68, 
+    Comment = 69, WS = 70
   };
 
   enum {
@@ -30,16 +31,16 @@ public:
     RuleEdges = 4, RuleNodeList = 5, RuleEdgeList = 6, RuleGraphID = 7, 
     RuleNodeID = 8, RuleFileEdgeList = 9, RuleEdge = 10, RuleVarDecl = 11, 
     RuleSetDecl = 12, RuleSetInitializer = 13, RuleSetOperation = 14, RuleSetExpr = 15, 
-    RuleGraphComprehension = 16, RuleGraphCondition = 17, RuleConditionalStatement = 18, 
-    RuleCondition = 19, RuleLoopStatement = 20, RuleForeachStatement = 21, 
-    RuleLoopTarget = 22, RuleWhileStatement = 23, RuleNodeEdgeOperation = 24, 
-    RuleAddOperation = 25, RuleRemoveOperation = 26, RuleAddTargets = 27, 
-    RuleRemoveTargets = 28, RuleQueryStatement = 29, RuleShowgraph = 30, 
-    RuleFunction = 31, RuleReturnType = 32, RuleParamList = 33, RuleParam = 34, 
-    RuleType = 35, RuleFunctionCall = 36, RuleArgumentList = 37, RuleBlock = 38, 
-    RuleReturnStatement = 39, RulePrintStatement = 40, RulePrintExpr = 41, 
-    RulePrintgraph = 42, RuleExpr = 43, RuleArrayDeclarator = 44, RuleArrayInitializer = 45, 
-    RuleAssignmentStatement = 46, RuleArrayAssignStatement = 47
+    RuleSetMethodCall = 16, RuleGraphComprehension = 17, RuleGraphCondition = 18, 
+    RuleConditionalStatement = 19, RuleCondition = 20, RuleLoopStatement = 21, 
+    RuleForeachStatement = 22, RuleLoopTarget = 23, RuleWhileStatement = 24, 
+    RuleNodeEdgeOperation = 25, RuleAddOperation = 26, RuleRemoveOperation = 27, 
+    RuleAddTargets = 28, RuleRemoveTargets = 29, RuleQueryStatement = 30, 
+    RuleShowgraph = 31, RuleFunction = 32, RuleReturnType = 33, RuleParamList = 34, 
+    RuleParam = 35, RuleType = 36, RuleFunctionCall = 37, RuleArgumentList = 38, 
+    RuleBlock = 39, RuleReturnStatement = 40, RulePrintStatement = 41, RulePrintExpr = 42, 
+    RulePrintgraph = 43, RuleExpr = 44, RuleArrayDeclarator = 45, RuleArrayInitializer = 46, 
+    RuleAssignmentStatement = 47, RuleArrayAssignStatement = 48
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -75,6 +76,7 @@ public:
   class SetInitializerContext;
   class SetOperationContext;
   class SetExprContext;
+  class SetMethodCallContext;
   class GraphComprehensionContext;
   class GraphConditionContext;
   class ConditionalStatementContext;
@@ -145,6 +147,7 @@ public:
     ShowgraphContext *showgraph();
     NodeEdgeOperationContext *nodeEdgeOperation();
     SetOperationContext *setOperation();
+    SetMethodCallContext *setMethodCall();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -462,6 +465,45 @@ public:
 
   SetExprContext* setExpr();
   SetExprContext* setExpr(int precedence);
+  class  SetMethodCallContext : public antlr4::ParserRuleContext {
+  public:
+    SetMethodCallContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+   
+    SetMethodCallContext() = default;
+    void copyFrom(SetMethodCallContext *context);
+    using antlr4::ParserRuleContext::copyFrom;
+
+    virtual size_t getRuleIndex() const override;
+
+   
+  };
+
+  class  SetRemoveMethodContext : public SetMethodCallContext {
+  public:
+    SetRemoveMethodContext(SetMethodCallContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetAddMethodContext : public SetMethodCallContext {
+  public:
+    SetAddMethodContext(SetMethodCallContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  SetMethodCallContext* setMethodCall();
+
   class  GraphComprehensionContext : public antlr4::ParserRuleContext {
   public:
     GraphComprehensionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -639,6 +681,17 @@ public:
 
     EdgeContext *edge();
     GraphIDContext *graphID();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  BooleanExprContext : public ConditionContext {
+  public:
+    BooleanExprContext(ConditionContext *ctx);
+
+    ExprContext *expr();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -1122,6 +1175,18 @@ public:
     virtual size_t getRuleIndex() const override;
 
    
+  };
+
+  class  SetContainsExprContext : public ExprContext {
+  public:
+    SetContainsExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
+    ExprContext *expr();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
   class  BoolTrueExprContext : public ExprContext {

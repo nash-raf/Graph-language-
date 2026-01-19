@@ -169,6 +169,10 @@ extern "C"
     RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t count);
     RoaringBitmap *roaring_bitmap_intersect(RoaringBitmap *bm1, RoaringBitmap *bm2);
     void roaring_print(uint8_t *ptr);
+    void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value);
+    int roaring_bitmap_contains(RoaringBitmap *bm, uint32_t value);
+    uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t index);
+    uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm);
 
 #ifdef __cplusplus
 }

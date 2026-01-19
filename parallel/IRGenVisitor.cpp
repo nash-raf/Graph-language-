@@ -86,6 +86,18 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
     auto printFT = llvm::FunctionType::get(voidTy, {BitmapPtrTy}, false);
     Module.getOrInsertFunction("roaring_print", printFT);
 
+    auto removeFT = llvm::FunctionType::get(voidTy, {BitmapPtrTy, i32Ty}, false);
+    Module.getOrInsertFunction("roaring_bitmap_remove", removeFT);
+
+    auto containsFT = llvm::FunctionType::get(i32Ty, {BitmapPtrTy, i32Ty}, false);
+    Module.getOrInsertFunction("roaring_bitmap_contains", containsFT);
+
+    auto getAtIndexFT = llvm::FunctionType::get(i32Ty, {BitmapPtrTy, i32Ty}, false);
+    Module.getOrInsertFunction("roaring_bitmap_get_at_index", getAtIndexFT);
+
+    auto getCardinalityFT = llvm::FunctionType::get(i64Ty, {BitmapPtrTy}, false);
+    Module.getOrInsertFunction("roaring_bitmap_get_cardinality", getCardinalityFT);
+
     // Lower every top‑level AST node
     for (auto &node : prog->topLevel)
     {
@@ -117,6 +129,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
             break;
         case ASTNodeType::SetDecl:
             visitSetDecl(static_cast<SetDeclNode *>(node.get()));
+            break;
+        case ASTNodeType::SetMethodCall:
+            visitSetMethodCall(static_cast<SetMethodCallNode *>(node.get()));
             break;
         default:
             // ignore or handle other kinds
@@ -283,9 +298,11 @@ void IRGenVisitor::visitStatement(ASTNode *node)
     case ASTNodeType::SetDecl:
         visitSetDecl(static_cast<SetDeclNode *>(node));
         break;
-
     case ASTNodeType::SetOperation:
         visitSetOperation(static_cast<SetOperationNode *>(node));
+        break;
+    case ASTNodeType::SetMethodCall:
+        visitSetMethodCall(static_cast<SetMethodCallNode *>(node));
         break;
     default:
         // std::cerr << "Unsupported statement type.\n";
@@ -627,18 +644,51 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         return Builder.CreateCall(callee, args, "calltmp");
     }
 
+    case ASTNodeType::SetContainsExpr:
+    {
+        auto *containsNode = static_cast<SetContainsExprNode *>(expr);
+        return visitSetContainsExpr(containsNode);
+    }
+
     case ASTNodeType::ArrayAccess:
     {
         auto *A = static_cast<ArrayAccessNode *>(expr);
         auto *baseVar = dynamic_cast<VariableNode *>(A->arrayExpr.get());
         if (!baseVar)
-            throw std::runtime_error("Array base must be variable");
+            throw std::runtime_error("Array/Set base must be variable");
 
         auto it = NamedValues.find(baseVar->name);
         if (it == NamedValues.end())
-            throw std::runtime_error("Undefined array in access: " + baseVar->name);
+            throw std::runtime_error("Undefined array/set in access: " + baseVar->name);
         llvm::AllocaInst *baseAlloca = it->second;
 
+        // Check if this is a set (pointer type to i8/bitmap)
+        llvm::Type *allocatedType = baseAlloca->getAllocatedType();
+        if (allocatedType->isPointerTy())
+        {
+            // This might be a set - check if it's a bitmap pointer
+            auto *BitmapPtrTy = getBitmapPtrTy(Context);
+            if (allocatedType == BitmapPtrTy)
+            {
+                // This is set access: s[index]
+                llvm::Value *bitmapPtr = Builder.CreateLoad(BitmapPtrTy, baseAlloca, baseVar->name + ".load");
+
+                llvm::Value *idxVal = visitExpr(A->indexExpr.get());
+                if (idxVal->getType() != Builder.getInt32Ty())
+                    idxVal = Builder.CreateIntCast(idxVal, Builder.getInt32Ty(), true);
+
+                // Call roaring_bitmap_get_at_index(bitmap*, i32) -> i32
+                llvm::FunctionType *getAtIndexFT = llvm::FunctionType::get(
+                    Builder.getInt32Ty(),
+                    {BitmapPtrTy, Builder.getInt32Ty()},
+                    false);
+
+                auto getAtIndexFn = Module.getOrInsertFunction("roaring_bitmap_get_at_index", getAtIndexFT);
+                return Builder.CreateCall(getAtIndexFn, {bitmapPtr, idxVal}, "set.get");
+            }
+        }
+
+        // Otherwise, handle as regular array access (existing code)
         llvm::Value *idxVal = visitExpr(A->indexExpr.get());
         if (idxVal->getType() != Builder.getInt32Ty())
             idxVal = Builder.CreateIntCast(idxVal, Builder.getInt32Ty(), true);
@@ -656,27 +706,21 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         }
         else
         {
-            // pointer case: baseAlloca holds a pointer to elements
             llvm::Type *baseTy = baseAlloca->getAllocatedType();
             if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseTy))
             {
                 llvm::Type *elemTy = ptrTy->getContainedType(0);
-
-                // Compute element pointer with GEP
                 llvm::Value *elemPtr = Builder.CreateGEP(
                     elemTy,
                     baseAlloca,
                     {idxVal},
                     baseVar->name + "_elemptr");
-
-                // Load element and return
                 return Builder.CreateLoad(elemTy, elemPtr, baseVar->name + "_loadelem");
             }
 
             throw std::runtime_error("IRGenVisitor: unsupported array storage type for load " + baseVar->name);
         }
     }
-
     default:
         throw std::runtime_error("Unsupported expression type in IRGenVisitor");
     }
@@ -1312,4 +1356,127 @@ llvm::Value *IRGenVisitor::visitSetBinaryExpr(SetBinaryExprNode *binExpr)
     {
         throw std::runtime_error("Unsupported set operation: " + binExpr->op);
     }
+}
+
+void IRGenVisitor::visitSetMethodCall(SetMethodCallNode *node)
+{
+    auto *BitmapPtrTy = getBitmapPtrTy(Context);
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *voidTy = Builder.getVoidTy();
+
+    // Get the set variable
+    auto it = NamedValues.find(node->setName);
+    if (it == NamedValues.end())
+    {
+        throw std::runtime_error("Undefined set variable: " + node->setName);
+    }
+
+    llvm::AllocaInst *setAlloca = it->second;
+    llvm::Value *bitmapPtr = Builder.CreateLoad(BitmapPtrTy, setAlloca, node->setName + ".load");
+
+    // Evaluate the argument
+    llvm::Value *argValue = visitExpr(node->argument.get());
+    if (argValue->getType() != i32Ty)
+    {
+        argValue = Builder.CreateIntCast(argValue, i32Ty, true);
+    }
+
+    // ADD DEBUG: Print what we're doing
+    llvm::Function *printfFn = Module.getFunction("printf");
+    if (!printfFn)
+    {
+        llvm::FunctionType *printfTy = llvm::FunctionType::get(
+            Builder.getInt32Ty(),
+            {llvm::PointerType::get(Context, 0)},
+            true);
+        printfFn = llvm::Function::Create(printfTy, llvm::Function::ExternalLinkage, "printf", Module);
+    }
+
+    if (node->methodName == "add")
+    {
+        // Debug output
+        llvm::Value *debugStr = Builder.CreateGlobalStringPtr("[DEBUG] Calling roaring_bitmap_add(%p, %d)\n");
+        Builder.CreateCall(printfFn, {debugStr, bitmapPtr, argValue});
+
+        // Call roaring_bitmap_add(bitmap*, i32)
+        llvm::FunctionType *addFT = llvm::FunctionType::get(
+            voidTy,
+            {BitmapPtrTy, i32Ty},
+            false);
+
+        auto addFn = Module.getOrInsertFunction("roaring_bitmap_add", addFT);
+        Builder.CreateCall(addFn, {bitmapPtr, argValue});
+
+        // Debug: print after add
+        llvm::Value *afterStr = Builder.CreateGlobalStringPtr("[DEBUG] After add, printing bitmap:\n");
+        Builder.CreateCall(printfFn, {afterStr});
+
+        llvm::FunctionType *printFT = llvm::FunctionType::get(
+            Builder.getVoidTy(),
+            {BitmapPtrTy},
+            false);
+        auto printFn = Module.getOrInsertFunction("roaring_print", printFT);
+        Builder.CreateCall(printFn, {bitmapPtr});
+    }
+    else if (node->methodName == "remove")
+    {
+        // Debug output
+        llvm::Value *debugStr = Builder.CreateGlobalStringPtr("[DEBUG] Calling roaring_bitmap_remove(%p, %d)\n");
+        Builder.CreateCall(printfFn, {debugStr, bitmapPtr, argValue});
+
+        // Call roaring_bitmap_remove(bitmap*, i32)
+        llvm::FunctionType *removeFT = llvm::FunctionType::get(
+            voidTy,
+            {BitmapPtrTy, i32Ty},
+            false);
+
+        auto removeFn = Module.getOrInsertFunction("roaring_bitmap_remove", removeFT);
+        Builder.CreateCall(removeFn, {bitmapPtr, argValue});
+
+        // Debug: print after remove
+        llvm::Value *afterStr = Builder.CreateGlobalStringPtr("[DEBUG] After remove, printing bitmap:\n");
+        Builder.CreateCall(printfFn, {afterStr});
+
+        llvm::FunctionType *printFT = llvm::FunctionType::get(
+            Builder.getVoidTy(),
+            {BitmapPtrTy},
+            false);
+        auto printFn = Module.getOrInsertFunction("roaring_print", printFT);
+        Builder.CreateCall(printFn, {bitmapPtr});
+    }
+}
+
+llvm::Value *IRGenVisitor::visitSetContainsExpr(SetContainsExprNode *node)
+{
+    auto *BitmapPtrTy = getBitmapPtrTy(Context);
+    auto *i32Ty = Builder.getInt32Ty();
+
+    // Get the set variable
+    auto it = NamedValues.find(node->setName);
+    if (it == NamedValues.end())
+    {
+        throw std::runtime_error("Undefined set variable: " + node->setName);
+    }
+
+    llvm::AllocaInst *setAlloca = it->second;
+    llvm::Value *bitmapPtr = Builder.CreateLoad(BitmapPtrTy, setAlloca, node->setName + ".load");
+
+    // Evaluate the argument
+    llvm::Value *argValue = visitExpr(node->argument.get());
+    if (argValue->getType() != i32Ty)
+    {
+        argValue = Builder.CreateIntCast(argValue, i32Ty, true);
+    }
+
+    // Call roaring_bitmap_contains(bitmap*, i32) -> i32
+    llvm::FunctionType *containsFT = llvm::FunctionType::get(
+        i32Ty,
+        {BitmapPtrTy, i32Ty},
+        false);
+
+    auto containsFn = Module.getOrInsertFunction("roaring_bitmap_contains", containsFT);
+    llvm::Value *result = Builder.CreateCall(containsFn, {bitmapPtr, argValue}, "contains.result");
+
+    // Convert to i1 (boolean) for conditional use
+    return Builder.CreateICmpNE(result, llvm::ConstantInt::get(i32Ty, 0), "contains.bool");
 }

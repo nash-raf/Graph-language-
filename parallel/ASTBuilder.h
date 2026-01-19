@@ -38,6 +38,10 @@ public:
     antlrcpp::Any visitSetId(BaseParser::SetIdContext *ctx);
     antlrcpp::Any visitSetLiteral(BaseParser::SetLiteralContext *ctx);
     antlrcpp::Any visitParenSet(BaseParser::ParenSetContext *ctx);
+    antlrcpp::Any visitSetAddMethod(BaseParser::SetAddMethodContext *ctx);
+    antlrcpp::Any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx);
+    antlrcpp::Any visitSetMethodCall(BaseParser::SetMethodCallContext *ctx);
+    antlrcpp::Any visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx);
 
 private:
     std::unordered_map<std::string, int> symbolTable;

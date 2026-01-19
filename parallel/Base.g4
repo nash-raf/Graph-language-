@@ -23,6 +23,7 @@ statement:
 	| showgraph
 	| nodeEdgeOperation
 	| setOperation
+	| setMethodCall
 	| ';';
 
 // Graph Definition
@@ -67,6 +68,12 @@ setExpr:
     | '(' setExpr ')'              # ParenSet
     ;
 
+// Set method calls
+setMethodCall:
+    ID '.' 'add' '(' expr ')' ';'           # SetAddMethod
+    | ID '.' 'remove' '(' expr ')' ';'      # SetRemoveMethod
+    ;
+
 //graphcondition
 graphComprehension:
 	ID '=' '[' graphID 'where' graphCondition ']' ';';
@@ -103,7 +110,9 @@ condition:
 		| GREATERTHAN
 	) expr					# Relational
 	| nodeID 'in' graphID	# NodeCheck
-	| edge 'in' graphID		# EdgeCheck;
+	| edge 'in' graphID		# EdgeCheck
+	| expr					# BooleanExpr
+	;
 
 //loop
 loopStatement: foreachStatement | whileStatement;
@@ -171,6 +180,7 @@ expr:
 	| ID						# IdExpr
 	| '(' expr ')'				# ParenExpr
 	| ID '[' expr ']'			# ArrayAccessExpr
+	| ID '.' 'contains' '(' expr ')'  # SetContainsExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
 	| REAL						# RealExpr

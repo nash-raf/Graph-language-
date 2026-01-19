@@ -154,9 +154,17 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitSetDecl(ctx->setDecl());
     }
-    if (ctx->setOperation())
+    else if (ctx->setOperation())
     {
         return visitSetOperation(ctx->setOperation());
+    }
+    else if (ctx->setMethodCall())
+    {
+        return visitSetMethodCall(ctx->setMethodCall());
+    }
+    else if (ctx->setMethodCall())
+    {
+        return visitSetMethodCall(ctx->setMethodCall());
     }
 
     return nullptr;
@@ -227,6 +235,10 @@ antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
                                          : r->GREATERTHAN()  ? ">"
                                                              : "";
         return ASTNodePtr(std::make_shared<BinaryExprNode>(op, left, right));
+    }
+    if (auto b = dynamic_cast<Ctx::BooleanExprContext *>(ctx))
+    {
+        return visitExpr(b->expr());
     }
     throw std::runtime_error("Unsupported condition: " + ctx->getText());
 }
@@ -333,6 +345,12 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
 
         ASTNodePtr base = std::make_shared<VariableNode>(name);
         return ASTNodePtr(std::make_shared<ArrayAccessNode>(base, indexNode));
+    }
+    else if (auto containsCtx = dynamic_cast<BaseParser::SetContainsExprContext *>(ctx))
+    {
+        std::string setName = containsCtx->ID()->getText();
+        ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(containsCtx->expr()));
+        return ASTNodePtr(std::make_shared<SetContainsExprNode>(setName, arg));
     }
 
     throw std::runtime_error("ASTBuilder Unsupported expr: " + ctx->getText());
@@ -729,6 +747,12 @@ antlrcpp::Any ASTBuilder::visitSetExpr(BaseParser::SetExprContext *ctx)
     {
         return visitParenSet(parenCtx);
     }
+    else if (auto containsCtx = dynamic_cast<BaseParser::SetContainsExprContext *>(ctx))
+    {
+        std::string setName = containsCtx->ID()->getText();
+        ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(containsCtx->expr()));
+        return ASTNodePtr(std::make_shared<SetContainsExprNode>(setName, arg));
+    }
 
     throw std::runtime_error("Unsupported setExpr: " + ctx->getText());
 }
@@ -780,4 +804,45 @@ antlrcpp::Any ASTBuilder::visitParenSet(BaseParser::ParenSetContext *ctx)
 {
     // Just visit the inner expression
     return visitSetExpr(ctx->setExpr());
+}
+
+antlrcpp::Any ASTBuilder::visitSetMethodCall(BaseParser::SetMethodCallContext *ctx)
+{
+    if (auto addCtx = dynamic_cast<BaseParser::SetAddMethodContext *>(ctx))
+    {
+        return visitSetAddMethod(addCtx);
+    }
+    else if (auto removeCtx = dynamic_cast<BaseParser::SetRemoveMethodContext *>(ctx))
+    {
+        return visitSetRemoveMethod(removeCtx);
+    }
+    return nullptr;
+}
+
+antlrcpp::Any ASTBuilder::visitSetAddMethod(BaseParser::SetAddMethodContext *ctx)
+{
+    std::string setName = ctx->ID()->getText();
+    ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()), "visitSetAddMethod");
+
+    auto node = std::make_shared<SetMethodCallNode>(setName, "add", arg);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx)
+{
+    std::string setName = ctx->ID()->getText();
+    ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()), "visitSetRemoveMethod");
+
+    auto node = std::make_shared<SetMethodCallNode>(setName, "remove", arg);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+// This is the missing implementation that's causing the linker error:
+antlrcpp::Any ASTBuilder::visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx)
+{
+    std::string setName = ctx->ID()->getText();
+    ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()), "visitSetContainsExpr");
+
+    auto node = std::make_shared<SetContainsExprNode>(setName, arg);
+    return std::static_pointer_cast<ASTNode>(node);
 }

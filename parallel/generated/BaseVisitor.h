@@ -61,6 +61,10 @@ public:
 
     virtual std::any visitParenSet(BaseParser::ParenSetContext *context) = 0;
 
+    virtual std::any visitSetAddMethod(BaseParser::SetAddMethodContext *context) = 0;
+
+    virtual std::any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *context) = 0;
+
     virtual std::any visitGraphComprehension(BaseParser::GraphComprehensionContext *context) = 0;
 
     virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *context) = 0;
@@ -82,6 +86,8 @@ public:
     virtual std::any visitRelational(BaseParser::RelationalContext *context) = 0;
 
     virtual std::any visitEdgeCheck(BaseParser::EdgeCheckContext *context) = 0;
+
+    virtual std::any visitBooleanExpr(BaseParser::BooleanExprContext *context) = 0;
 
     virtual std::any visitLogicalOr(BaseParser::LogicalOrContext *context) = 0;
 
@@ -138,6 +144,8 @@ public:
     virtual std::any visitNodePrint(BaseParser::NodePrintContext *context) = 0;
 
     virtual std::any visitGraphPrint(BaseParser::GraphPrintContext *context) = 0;
+
+    virtual std::any visitSetContainsExpr(BaseParser::SetContainsExprContext *context) = 0;
 
     virtual std::any visitBoolTrueExpr(BaseParser::BoolTrueExprContext *context) = 0;
 

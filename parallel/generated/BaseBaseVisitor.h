@@ -99,6 +99,14 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSetAddMethod(BaseParser::SetAddMethodContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -140,6 +148,10 @@ public:
   }
 
   virtual std::any visitEdgeCheck(BaseParser::EdgeCheckContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitBooleanExpr(BaseParser::BooleanExprContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -252,6 +264,10 @@ public:
   }
 
   virtual std::any visitGraphPrint(BaseParser::GraphPrintContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx) override {
     return visitChildren(ctx);
   }
 

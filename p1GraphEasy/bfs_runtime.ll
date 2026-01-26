@@ -3,7 +3,7 @@ source_filename = "bfs_runtime.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-redhat-linux-gnu"
 
-%struct.Graph = type { i64, i64, ptr, ptr }
+%struct.Graph = type { i64, i64, i64*, i32*, i32* }
 
 @.str = private unnamed_addr constant [46 x i8] c"[BFS] Completed in %.6f seconds (sequential)\0A\00", align 1
 @.str.1 = private unnamed_addr constant [49 x i8] c"cannot create std::vector larger than max_size()\00", align 1

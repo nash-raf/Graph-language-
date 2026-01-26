@@ -55,11 +55,11 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
-  ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
+  ANTLR_INCLUDE="/usr/include/antlr4-runtime"
 
   g++ \
     -g -std=c++17 -fexceptions \
-    $ANTLR_INCLUDE \
+    -I$ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -pthread \
@@ -67,6 +67,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     generated/*.cpp \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
+    -lroaring \
     $LLVM_LIBS \
     $LLVM_SYSTEM_LIBS \
     -o GraphProgram

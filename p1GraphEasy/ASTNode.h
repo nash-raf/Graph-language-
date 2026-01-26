@@ -18,6 +18,7 @@
 
 #include <cstring>
 #include "llvm/Support/Allocator.h"
+#include "GraphStorage.h" 
 
 enum class ASTNodeType
 {
@@ -257,18 +258,18 @@ public:
     virtual std::vector<int> materializeNodeIds() const = 0;
 };
 
-class InlineNodeList : public NodeListNode
-{
-    std::vector<int> _ids;
+// class InlineNodeList : public NodeListNode
+// {
+//     std::vector<int> _ids;
 
-public:
-    InlineNodeList(std::vector<int> ids)
-        : NodeListNode(), _ids(std::move(ids)) {}
-    std::vector<int> materializeNodeIds() const override
-    {
-        return _ids;
-    }
-};
+// public:
+//     InlineNodeList(std::vector<int> ids)
+//         : NodeListNode(), _ids(std::move(ids)) {}
+//     std::vector<int> materializeNodeIds() const override
+//     {
+//         return _ids;
+//     }
+// };
 
 class EdgeListNode : public ASTNode
 {
@@ -277,125 +278,170 @@ public:
     virtual std::vector<std::pair<int, int>> materializeEdges() const = 0;
 };
 
-class InlineEdgeList : public EdgeListNode
-{
-    std::vector<std::pair<int, int>> _edges;
+// class InlineEdgeList : public EdgeListNode
+// {
+//     std::vector<std::pair<int, int>> _edges;
 
-public:
-    InlineEdgeList(std::vector<std::pair<int, int>> edges)
-        : EdgeListNode(), _edges(std::move(edges)) {}
-    std::vector<std::pair<int, int>> materializeEdges() const override
-    {
-        return _edges;
-    }
-};
+// public:
+//     InlineEdgeList(std::vector<std::pair<int, int>> edges)
+//         : EdgeListNode(), _edges(std::move(edges)) {}
+//     std::vector<std::pair<int, int>> materializeEdges() const override
+//     {
+//         return _edges;
+//     }
+// };
 
-class FileEdgeList : public EdgeListNode
-{
-    std::string _path;
+// class FileEdgeList : public EdgeListNode
+// {
+//     std::string _path;
 
-public:
-    FileEdgeList(std::string path)
-        : EdgeListNode(), _path(std::move(path)) {}
-    std::vector<std::pair<int, int>> materializeEdges() const override
-    {
-        auto t0 = std::chrono::high_resolution_clock::now();
+// public:
+//     FileEdgeList(std::string path)
+//         : EdgeListNode(), _path(std::move(path)) {}
+//     std::vector<std::pair<int, int>> materializeEdges() const override
+//     {
+//         auto t0 = std::chrono::high_resolution_clock::now();
 
-        std::ifstream file(_path);
-        if (!file.is_open())
-        {
-            throw std::runtime_error("Could not open edge list file: " + _path);
-        }
-        int u, v;
-        std::vector<std::pair<int, int>> edges;
-        while (file >> u >> v)
-        {
-            edges.emplace_back(u, v);
-        }
-        file.close();
+//         std::ifstream file(_path);
+//         if (!file.is_open())
+//         {
+//             throw std::runtime_error("Could not open edge list file: " + _path);
+//         }
+//         int u, v;
+//         std::vector<std::pair<int, int>> edges;
+//         while (file >> u >> v)
+//         {
+//             edges.emplace_back(u, v);
+//         }
+//         file.close();
 
-        auto t1 = std::chrono::high_resolution_clock::now();
-        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        std::cerr << "[ASTBuilder] loaded edge-list file '"
-                  << "' in " << dur.count() << " ms\n";
-        return edges;
-    }
-};
+//         auto t1 = std::chrono::high_resolution_clock::now();
+//         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
+//         std::cerr << "[ASTBuilder] loaded edge-list file '"
+//                   << "' in " << dur.count() << " ms\n";
+//         return edges;
+//     }
+// };
+
+// class GraphDeclNode : public ASTNode
+// {
+// public:
+//     std::string name;
+//     std::unique_ptr<NodeListNode> nodes;
+//     std::unique_ptr<EdgeListNode> edges;
+
+//     size_t n, m;
+//     size_t *row_ptr = nullptr;
+//     int32_t *col_idx = nullptr;
+//     llvm::BumpPtrAllocator arena;
+
+//     GraphDeclNode(
+//         std::string nm,
+//         std::unique_ptr<NodeListNode> nList,
+//         std::unique_ptr<EdgeListNode> eList)
+//         : ASTNode(ASTNodeType::GraphDecl),
+//           name(std::move(nm)),
+//           nodes(std::move(nList)),
+//           edges(std::move(eList))
+//     {
+//         // auto t0 = std::chrono::high_resolution_clock::now();
+
+//         auto nodeIds = nodes->materializeNodeIds();
+//         n = nodeIds.size();
+
+//         // Map arbitrary IDs → contiguous [0..n-1]
+//         // std::unordered_map<int, int> id2idx;
+        // llvm::DenseMap<int, int> id2idx;
+        // for (int i = 0; i < (int)nodeIds.size(); ++i)
+        //     id2idx[nodeIds[i]] = i;
+
+        // auto edgeList = edges->materializeEdges();
+        // m = 2 * edgeList.size();
+        // // 1) degree counts go into row_ptr[i+1]
+        // row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        // std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
+        // for (auto &e : edgeList)
+        // {
+        //     int u0 = e.first, v0 = e.second;
+        //     size_t u = id2idx.at(u0);
+        //     size_t v = id2idx.at(v0);
+        //     row_ptr[u + 1]++;
+        //     row_ptr[v + 1]++;
+        // }
+
+        // // 2) exclusive prefix‑sum
+        // for (size_t i = 1; i <= n; ++i)
+        //     row_ptr[i] += row_ptr[i - 1];
+
+//         // 3) allocate col_idx and scatter
+//         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
+//         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+//         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
+//         for (auto &e : edgeList)
+//         {
+//             size_t u = id2idx[e.first], v = id2idx[e.second];
+//             col_idx[next[u]++] = static_cast<int32_t>(v);
+//             col_idx[next[v]++] = static_cast<int32_t>(u);
+//         }
+
+//         // debug
+//         // std::cerr << "[GraphDeclNode] CSR row_ptr =";
+//         // for (auto x : row_ptr) std::cerr << " " << x;
+//         // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
+//         // for (auto x : col_idx) std::cerr << " " << x;
+//         // std::cerr << "\n";
+//         // auto t1 = std::chrono::high_resolution_clock::now();
+//         // auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
+//         // std::cerr << "[ASTBuilder] fulledge '"
+//         //           << "' in " << dur.count() << " ms\n";
+//         // exit(0);
+//     }
+// };
 
 class GraphDeclNode : public ASTNode
 {
 public:
     std::string name;
-    std::unique_ptr<NodeListNode> nodes;
-    std::unique_ptr<EdgeListNode> edges;
 
-    size_t n, m;
-    size_t *row_ptr = nullptr;
-    int32_t *col_idx = nullptr;
-    llvm::BumpPtrAllocator arena;
+    // Original parsed sources (optional to keep; you can drop later)
+    std::unique_ptr<NodeListNode> nodesSrc;
+    std::unique_ptr<EdgeListNode> edgesSrc;
 
-    GraphDeclNode(
-        std::string nm,
-        std::unique_ptr<NodeListNode> nList,
-        std::unique_ptr<EdgeListNode> eList)
+    // New: canonical set representation (fast, dedup)
+    gpl::GraphSet set;
+
+    // Optional: cache materialized format chosen later (autotuner decides)
+    // Keep empty until IRGen/query forces materialization.
+    mutable bool materialized = false;
+    mutable gpl::GraphMaterialized mat;
+    mutable gpl::GraphLayoutKind chosenKind = gpl::GraphLayoutKind::PackedCSR;
+
+    GraphDeclNode(std::string nm,
+                  std::unique_ptr<NodeListNode> nList,
+                  std::unique_ptr<EdgeListNode> eList)
         : ASTNode(ASTNodeType::GraphDecl),
           name(std::move(nm)),
-          nodes(std::move(nList)),
-          edges(std::move(eList))
+          nodesSrc(std::move(nList)),
+          edgesSrc(std::move(eList))
     {
-        // auto t0 = std::chrono::high_resolution_clock::now();
+        if (!edgesSrc)
+            throw std::runtime_error("GraphDeclNode: edges required");
 
-        auto nodeIds = nodes->materializeNodeIds();
-        n = nodeIds.size();
+        // Materialize edges ONCE into roaring sets
+        auto edgeList = edgesSrc->materializeEdges();
 
-        // Map arbitrary IDs → contiguous [0..n-1]
-        // std::unordered_map<int, int> id2idx;
-        llvm::DenseMap<int, int> id2idx;
-        for (int i = 0; i < (int)nodeIds.size(); ++i)
-            id2idx[nodeIds[i]] = i;
-
-        auto edgeList = edges->materializeEdges();
-        m = 2 * edgeList.size();
-        // 1) degree counts go into row_ptr[i+1]
-        row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
-        std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
-        for (auto &e : edgeList)
-        {
-            int u0 = e.first, v0 = e.second;
-            size_t u = id2idx.at(u0);
-            size_t v = id2idx.at(v0);
-            row_ptr[u + 1]++;
-            row_ptr[v + 1]++;
+        if (nodesSrc) {
+            auto explicitIds = nodesSrc->materializeNodeIds();
+            for (int id : explicitIds) set.addNode(uint32_t(id));
         }
 
-        // 2) exclusive prefix‑sum
-        for (size_t i = 1; i <= n; ++i)
-            row_ptr[i] += row_ptr[i - 1];
-
-        // 3) allocate col_idx and scatter
-        col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
-        size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
-        std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
-        for (auto &e : edgeList)
-        {
-            size_t u = id2idx[e.first], v = id2idx[e.second];
-            col_idx[next[u]++] = static_cast<int32_t>(v);
-            col_idx[next[v]++] = static_cast<int32_t>(u);
+        for (auto &e : edgeList) {
+            set.addEdge(uint32_t(e.first), uint32_t(e.second));
         }
-
-        // debug
-        // std::cerr << "[GraphDeclNode] CSR row_ptr =";
-        // for (auto x : row_ptr) std::cerr << " " << x;
-        // std::cerr << "\n[GraphDeclNode] CSR col_idx =";
-        // for (auto x : col_idx) std::cerr << " " << x;
-        // std::cerr << "\n";
-        // auto t1 = std::chrono::high_resolution_clock::now();
-        // auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        // std::cerr << "[ASTBuilder] fulledge '"
-        //           << "' in " << dur.count() << " ms\n";
-        // exit(0);
     }
 };
+
+
 
 // class GraphDeclNode : public ASTNode
 // {
@@ -518,5 +564,50 @@ public:
     PrintStmtNode(ASTNodePtr e)
         : ASTNode(ASTNodeType::PrintStmt), expr(std::move(e)) {}
 };
+
+class InlineNodeList : public NodeListNode
+{
+    std::vector<int> _ids;
+
+public:
+    InlineNodeList(std::vector<int> ids)
+        : NodeListNode(), _ids(std::move(ids)) {}
+
+    std::vector<int> materializeNodeIds() const override { return _ids; }
+};
+
+class InlineEdgeList : public EdgeListNode
+{
+    std::vector<std::pair<int, int>> _edges;
+
+public:
+    InlineEdgeList(std::vector<std::pair<int, int>> edges)
+        : EdgeListNode(), _edges(std::move(edges)) {}
+
+    std::vector<std::pair<int, int>> materializeEdges() const override { return _edges; }
+};
+
+class FileEdgeList : public EdgeListNode
+{
+    std::string _path;
+
+public:
+    FileEdgeList(std::string path)
+        : EdgeListNode(), _path(std::move(path)) {}
+
+    const std::string& path() const { return _path; }
+
+    std::vector<std::pair<int, int>> materializeEdges() const override {
+        std::ifstream in(_path);
+        if (!in.is_open())
+            throw std::runtime_error("FileEdgeList: cannot open " + _path);
+
+        std::vector<std::pair<int,int>> out;
+        int u, v;
+        while (in >> u >> v) out.emplace_back(u, v);
+        return out;
+    }
+};
+
 
 #endif // ASTNODE_H

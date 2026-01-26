@@ -157,10 +157,12 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             continue;
         }
 
+        // ...existing code...
         llvm::SetVector<llvm::Value *> Inputs, Outputs;
         llvm::SetVector<llvm::Value *> SinkCands; // usually empty for loops
 
-        CE.findInputsOutputs(Inputs, Outputs, SinkCands, /*CollectGlobalInputs = */ true);
+        // LLVM-18 signature:
+        CE.findInputsOutputs(Inputs, Outputs, SinkCands);
 
         // --- store-scan: find memory destinations the loop writes to and add their underlying object
         for (llvm::BasicBlock *BB : LoopBody)

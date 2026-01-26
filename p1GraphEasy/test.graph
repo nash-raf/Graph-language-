@@ -1,5 +1,6 @@
 graph g {
-    edges: file '../real_graphs/ia-dbpedia.txt';
+    edges: file 'g.txt';
 };
 
-query k: 'dfs' of g;
+for each vertex v in g;
+    print v;

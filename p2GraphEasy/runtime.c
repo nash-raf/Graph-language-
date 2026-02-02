@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <time.h>
 
 char* concat_strings(const char* a, const char* b)
 {
@@ -558,4 +560,29 @@ void graph_intersection_runtime(int64_t n,
     if (!row_ptr1 || !col_idx1 || !row_ptr2 || !col_idx2 || n <= 0) return;
     build_union_or_intersection(n, row_ptr1, col_idx1, row_ptr2, col_idx2, false,
                                 out_n, out_m, out_row_ptr, out_col_idx);
+}
+
+// Sleep function: sleep for specified number of seconds
+void sleep_runtime(int32_t seconds)
+{
+    if (seconds < 0) return;
+    // Use nanosleep for more reliable sleep
+    struct timespec req, rem;
+    req.tv_sec = (time_t)seconds;
+    req.tv_nsec = 0;
+    // Loop in case of interruption
+    while (nanosleep(&req, &rem) == -1) {
+        req = rem;
+    }
+}
+
+// Timer function: returns current time in seconds since epoch as double
+double timer_runtime(void)
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) == 0)
+    {
+        return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+    }
+    return 0.0;
 }

@@ -172,9 +172,27 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         bin->resolvedType = resultType;
         return resultType;
     }
+    case ASTNodeType::QueryNode:
+    {
+        auto *q = static_cast<QueryNode *>(expr);
+        if (q->type == QueryType::INT)
+            return TypeKind::Int;
+        if (q->type == QueryType::ARRAY)
+            return TypeKind::IntArray;
+        return TypeKind::Unknown;
+    }
     case ASTNodeType::FunctionCall:
     {
         auto *call = static_cast<FunctionCallNode *>(expr);
+        // Handle built-in timer() function
+        if (call->name == "timer")
+        {
+            if (!call->arguments.empty())
+                error("timer() takes no arguments");
+            call->resolvedType = TypeKind::Real;
+            return TypeKind::Real;
+        }
+        // Fall through to normal function call handling
         Symbol *sym = lookupSymbol(call->name);
         if (!sym || !sym->isFunction)
             error("call to undeclared function: " + call->name);
@@ -190,15 +208,6 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         // Annotate the function call node with its return type
         call->resolvedType = sym->func.returnType;
         return sym->func.returnType;
-    }
-    case ASTNodeType::QueryNode:
-    {
-        auto *q = static_cast<QueryNode *>(expr);
-        if (q->type == QueryType::INT)
-            return TypeKind::Int;
-        if (q->type == QueryType::ARRAY)
-            return TypeKind::IntArray;
-        return TypeKind::Unknown;
     }
     default:
         return TypeKind::Unknown;
@@ -278,6 +287,14 @@ void SemanticAnalyzer::analyzeStatement(ASTNode *node)
     case ASTNodeType::PrintStmt:
         analyzePrintStmt(static_cast<PrintStmtNode *>(node));
         break;
+    case ASTNodeType::SleepStmt:
+    {
+        auto *sleep = static_cast<SleepStmtNode *>(node);
+        TypeKind durTy = analyzeExpr(sleep->duration.get());
+        if (durTy != TypeKind::Int)
+            error("sleep() requires int argument (seconds)");
+        break;
+    }
     case ASTNodeType::GraphUpdate:
         analyzeGraphUpdate(static_cast<GraphUpdateNode *>(node));
         break;

@@ -53,6 +53,7 @@ public:
     void emitMinCut(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
     void visitPrintArray(PrintArrayNode *PA);
+    void visitSleepStmt(SleepStmtNode *SS);
     llvm::Value *evaluate(ASTNode *node);
     llvm::Function *getPrintfFunction();
     void visitGraphUpdate(GraphUpdateNode *upd);

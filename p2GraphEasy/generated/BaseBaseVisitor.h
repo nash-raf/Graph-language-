@@ -211,6 +211,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSleepStatement(BaseParser::SleepStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitBlock(BaseParser::BlockContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -247,7 +251,7 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override {
+  virtual std::any visitTimerExpr(BaseParser::TimerExprContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -263,19 +267,23 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitIntExpr(BaseParser::IntExprContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitParenExpr(BaseParser::ParenExprContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
   virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual std::any visitFuncExpr(BaseParser::FuncExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitIntExpr(BaseParser::IntExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitParenExpr(BaseParser::ParenExprContext *ctx) override {
     return visitChildren(ctx);
   }
 

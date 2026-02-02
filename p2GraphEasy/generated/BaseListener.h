@@ -161,6 +161,9 @@ public:
   virtual void enterArgumentList(BaseParser::ArgumentListContext *ctx) = 0;
   virtual void exitArgumentList(BaseParser::ArgumentListContext *ctx) = 0;
 
+  virtual void enterSleepStatement(BaseParser::SleepStatementContext *ctx) = 0;
+  virtual void exitSleepStatement(BaseParser::SleepStatementContext *ctx) = 0;
+
   virtual void enterBlock(BaseParser::BlockContext *ctx) = 0;
   virtual void exitBlock(BaseParser::BlockContext *ctx) = 0;
 
@@ -188,8 +191,8 @@ public:
   virtual void enterBoolTrueExpr(BaseParser::BoolTrueExprContext *ctx) = 0;
   virtual void exitBoolTrueExpr(BaseParser::BoolTrueExprContext *ctx) = 0;
 
-  virtual void enterMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
-  virtual void exitMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
+  virtual void enterTimerExpr(BaseParser::TimerExprContext *ctx) = 0;
+  virtual void exitTimerExpr(BaseParser::TimerExprContext *ctx) = 0;
 
   virtual void enterIdExpr(BaseParser::IdExprContext *ctx) = 0;
   virtual void exitIdExpr(BaseParser::IdExprContext *ctx) = 0;
@@ -200,17 +203,20 @@ public:
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
 
-  virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
-  virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;
-
-  virtual void enterParenExpr(BaseParser::ParenExprContext *ctx) = 0;
-  virtual void exitParenExpr(BaseParser::ParenExprContext *ctx) = 0;
-
   virtual void enterArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
   virtual void exitArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
 
   virtual void enterFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
   virtual void exitFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
+
+  virtual void enterMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
+  virtual void exitMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
+
+  virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
+  virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;
+
+  virtual void enterParenExpr(BaseParser::ParenExprContext *ctx) = 0;
+  virtual void exitParenExpr(BaseParser::ParenExprContext *ctx) = 0;
 
   virtual void enterRealExpr(BaseParser::RealExprContext *ctx) = 0;
   virtual void exitRealExpr(BaseParser::RealExprContext *ctx) = 0;

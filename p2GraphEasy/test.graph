@@ -2,12 +2,19 @@
 
 
 
+// Sleep for 2 seconds
+// sleep(2);
+
+// Measure elapsed time
+real start = timer();
+// ... do some work ...
+sleep(7);
+real end = timer();
+real elapsed = end - start;
+print elapsed;
 
 
-
-
-
-
+/*
 int x = 3;
 int y = 7;
 print x + 7;
@@ -60,5 +67,5 @@ print half(5.0);
 print both(FALSE, FALSE);
 print both1(TRUE, TRUE);
 
-
+*/
 

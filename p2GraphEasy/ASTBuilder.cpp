@@ -215,7 +215,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         auto node = std::make_shared<ShowGraphNode>(gname);
         return std::static_pointer_cast<ASTNode>(node);
     }
-    
+    else if (ctx->sleepStatement())
+    {
+        return visitSleepStatement(ctx->sleepStatement());
+    }
 
     // std::cerr << " ending statement " << "\n";
     return nullptr;
@@ -390,6 +393,12 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
         // Produce a runtime ArrayAccessNode (array variable + index expression)
         ASTNodePtr base = std::make_shared<VariableNode>(name);
         return ASTNodePtr(std::make_shared<ArrayAccessNode>(base, indexNode));
+    }
+    else if (dynamic_cast<BaseParser::TimerExprContext *>(ctx))
+    {
+        // timer() returns current time as real - treat as function call
+        std::vector<ASTNodePtr> emptyArgs;
+        return ASTNodePtr(std::make_shared<FunctionCallNode>("timer", emptyArgs));
     }
 
     throw std::runtime_error("ASTBuilder Unsupported expr: " + ctx->getText());
@@ -966,7 +975,7 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
             return ASTNodePtr{std::make_shared<PrintStmtNode>(strNode)};
         }
 
-        throw std::runtime_error("visitPrintStatement: unexpected type from visitPrintExpr");
+    throw std::runtime_error("visitPrintStatement: unexpected type from visitPrintExpr");
     }
 
     // 2) print array: 'print' ID '[' expr ']' ';'
@@ -984,6 +993,13 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
     }
 
     throw std::runtime_error("Unsupported print statement form");
+}
+
+antlrcpp::Any ASTBuilder::visitSleepStatement(BaseParser::SleepStatementContext *ctx)
+{
+    ASTNodePtr durationExpr = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
+    auto sleepNode = std::make_shared<SleepStmtNode>(durationExpr);
+    return std::static_pointer_cast<ASTNode>(sleepNode);
 }
 
 // antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx) {

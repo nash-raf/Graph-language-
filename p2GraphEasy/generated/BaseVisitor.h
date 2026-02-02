@@ -117,6 +117,8 @@ public:
 
     virtual std::any visitArgumentList(BaseParser::ArgumentListContext *context) = 0;
 
+    virtual std::any visitSleepStatement(BaseParser::SleepStatementContext *context) = 0;
+
     virtual std::any visitBlock(BaseParser::BlockContext *context) = 0;
 
     virtual std::any visitReturnStatement(BaseParser::ReturnStatementContext *context) = 0;
@@ -135,7 +137,7 @@ public:
 
     virtual std::any visitBoolTrueExpr(BaseParser::BoolTrueExprContext *context) = 0;
 
-    virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
+    virtual std::any visitTimerExpr(BaseParser::TimerExprContext *context) = 0;
 
     virtual std::any visitIdExpr(BaseParser::IdExprContext *context) = 0;
 
@@ -143,13 +145,15 @@ public:
 
     virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *context) = 0;
 
-    virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
-
-    virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
-
     virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *context) = 0;
 
     virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
+
+    virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
+
+    virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
+
+    virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
 
     virtual std::any visitRealExpr(BaseParser::RealExprContext *context) = 0;
 

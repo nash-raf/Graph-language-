@@ -18,11 +18,12 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, GRAPH = 44, 
-    WEIGHTS = 45, EDGE = 46, NODE = 47, TRUE = 48, FALSE = 49, OF = 50, 
-    PLUS = 51, MINUS = 52, TIMES = 53, DIVIDE = 54, AND = 55, OR = 56, EQUAL = 57, 
-    NOTEQUAL = 58, LESSTHAN = 59, GREATERTHAN = 60, LESSEQUAL = 61, GREATEREQUAL = 62, 
-    ID = 63, INT = 64, REAL = 65, STRING = 66, Comment = 67, WS = 68
+    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, T__43 = 44, 
+    T__44 = 45, GRAPH = 46, WEIGHTS = 47, EDGE = 48, NODE = 49, TRUE = 50, 
+    FALSE = 51, OF = 52, PLUS = 53, MINUS = 54, TIMES = 55, DIVIDE = 56, 
+    AND = 57, OR = 58, EQUAL = 59, NOTEQUAL = 60, LESSTHAN = 61, GREATERTHAN = 62, 
+    LESSEQUAL = 63, GREATEREQUAL = 64, ID = 65, INT = 66, REAL = 67, STRING = 68, 
+    Comment = 69, WS = 70
   };
 
   enum {
@@ -36,10 +37,10 @@ public:
     RuleAddTargets = 24, RuleRemoveTargets = 25, RuleQueryStatement = 26, 
     RuleShowgraph = 27, RuleFunction = 28, RuleReturnType = 29, RuleParamList = 30, 
     RuleParam = 31, RuleType = 32, RuleFunctionCall = 33, RuleArgumentList = 34, 
-    RuleBlock = 35, RuleReturnStatement = 36, RulePrintStatement = 37, RulePrintExpr = 38, 
-    RulePrintArrayStatement = 39, RulePrintgraph = 40, RuleExpr = 41, RuleArrayDeclarator = 42, 
-    RuleArrayInitializer = 43, RuleAssignmentStatement = 44, RuleArrayAssignStatement = 45, 
-    RuleWeights = 46
+    RuleSleepStatement = 35, RuleBlock = 36, RuleReturnStatement = 37, RulePrintStatement = 38, 
+    RulePrintExpr = 39, RulePrintArrayStatement = 40, RulePrintgraph = 41, 
+    RuleExpr = 42, RuleArrayDeclarator = 43, RuleArrayInitializer = 44, 
+    RuleAssignmentStatement = 45, RuleArrayAssignStatement = 46, RuleWeights = 47
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -94,6 +95,7 @@ public:
   class TypeContext;
   class FunctionCallContext;
   class ArgumentListContext;
+  class SleepStatementContext;
   class BlockContext;
   class ReturnStatementContext;
   class PrintStatementContext;
@@ -137,6 +139,7 @@ public:
     ForeachStatementContext *foreachStatement();
     VarDeclContext *varDecl();
     FunctionCallContext *functionCall();
+    SleepStatementContext *sleepStatement();
     GraphComprehensionContext *graphComprehension();
     ArrayAssignStatementContext *arrayAssignStatement();
     AssignmentStatementContext *assignmentStatement();
@@ -931,6 +934,21 @@ public:
 
   ArgumentListContext* argumentList();
 
+  class  SleepStatementContext : public antlr4::ParserRuleContext {
+  public:
+    SleepStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    ExprContext *expr();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  SleepStatementContext* sleepStatement();
+
   class  BlockContext : public antlr4::ParserRuleContext {
   public:
     BlockContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -1094,14 +1112,10 @@ public:
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
-  class  MulDivExprContext : public ExprContext {
+  class  TimerExprContext : public ExprContext {
   public:
-    MulDivExprContext(ExprContext *ctx);
+    TimerExprContext(ExprContext *ctx);
 
-    std::vector<ExprContext *> expr();
-    ExprContext* expr(size_t i);
-    antlr4::tree::TerminalNode *TIMES();
-    antlr4::tree::TerminalNode *DIVIDE();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 
@@ -1142,28 +1156,6 @@ public:
     virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
-  class  IntExprContext : public ExprContext {
-  public:
-    IntExprContext(ExprContext *ctx);
-
-    antlr4::tree::TerminalNode *INT();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
-  class  ParenExprContext : public ExprContext {
-  public:
-    ParenExprContext(ExprContext *ctx);
-
-    ExprContext *expr();
-    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
-    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
-
-    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
-  };
-
   class  ArrayPrintContext : public ExprContext {
   public:
     ArrayPrintContext(ExprContext *ctx);
@@ -1180,6 +1172,42 @@ public:
     FuncExprContext(ExprContext *ctx);
 
     FunctionCallContext *functionCall();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  MulDivExprContext : public ExprContext {
+  public:
+    MulDivExprContext(ExprContext *ctx);
+
+    std::vector<ExprContext *> expr();
+    ExprContext* expr(size_t i);
+    antlr4::tree::TerminalNode *TIMES();
+    antlr4::tree::TerminalNode *DIVIDE();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  IntExprContext : public ExprContext {
+  public:
+    IntExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *INT();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  ParenExprContext : public ExprContext {
+  public:
+    ParenExprContext(ExprContext *ctx);
+
+    ExprContext *expr();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 

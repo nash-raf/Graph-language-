@@ -60,6 +60,7 @@ enum class ASTNodeType
     QueryNode,
     ForEachStmt,
     PrintStmt,
+    SleepStmt,
     GraphUpdate,
     ShowGraph,
     GraphComprehension
@@ -835,6 +836,15 @@ public:
 
     PrintStmtNode(ASTNodePtr e)
         : ASTNode(ASTNodeType::PrintStmt), expr(std::move(e)) {}
+};
+
+class SleepStmtNode : public ASTNode
+{
+public:
+    ASTNodePtr duration; // Expression evaluating to int (seconds)
+
+    SleepStmtNode(ASTNodePtr dur)
+        : ASTNode(ASTNodeType::SleepStmt), duration(std::move(dur)) {}
 };
 
 class PrintArrayNode : public ASTNode

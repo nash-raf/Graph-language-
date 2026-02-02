@@ -54,6 +54,7 @@ private:
     void analyzeWeightedGraphDecl(WeightedGraphDeclNode *G);
     void analyzeQuery(QueryNode *Q);
     void analyzePrintStmt(PrintStmtNode *PS);
+    void analyzeSleepStmt(SleepStmtNode *SS);
     void analyzeGraphUpdate(GraphUpdateNode *upd);
     void analyzeShowGraph(ShowGraphNode *S);
     void analyzeGraphComprehension(GraphComprehensionNode *GC);

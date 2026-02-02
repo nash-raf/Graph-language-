@@ -76,6 +76,7 @@ private:
         return tmpBuilder.CreateAlloca(ty, nullptr, name);
     }
     llvm::Type *getLLVMTypeForName(const std::string &typeName);
+    llvm::Type *getLLVMTypeFromTypeKind(TypeKind kind);
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
     std::unordered_map<std::string, GraphDeclNode*> GraphAstMap;

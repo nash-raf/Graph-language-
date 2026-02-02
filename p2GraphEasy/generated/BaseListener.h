@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.1
 
 #pragma once
 
@@ -80,11 +80,17 @@ public:
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
 
+  virtual void enterGraphExpr(BaseParser::GraphExprContext *ctx) = 0;
+  virtual void exitGraphExpr(BaseParser::GraphExprContext *ctx) = 0;
+
   virtual void enterGraphLogicalAnd(BaseParser::GraphLogicalAndContext *ctx) = 0;
   virtual void exitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *ctx) = 0;
 
   virtual void enterDegreeCondition(BaseParser::DegreeConditionContext *ctx) = 0;
   virtual void exitDegreeCondition(BaseParser::DegreeConditionContext *ctx) = 0;
+
+  virtual void enterCycleCondition(BaseParser::CycleConditionContext *ctx) = 0;
+  virtual void exitCycleCondition(BaseParser::CycleConditionContext *ctx) = 0;
 
   virtual void enterConnectedCondition(BaseParser::ConnectedConditionContext *ctx) = 0;
   virtual void exitConnectedCondition(BaseParser::ConnectedConditionContext *ctx) = 0;

@@ -183,9 +183,30 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         auto *gc = ctx->graphComprehension();
         std::string target = gc->ID()->getText();
-        std::string gname  = gc->graphID()->getText();
-        auto cond = buildGraphCondition(gc->graphCondition());
-        auto node = std::make_shared<GraphComprehensionNode>(target, gname, cond);
+
+        auto *gexpr = gc->graphExpr();
+        std::string gname = gexpr->graphID(0)->getText();
+        std::vector<GraphExprOp> ops;
+        std::vector<std::string> operands;
+
+        // Parse graphExpr children: graphID (AND/OR graphID)*
+        if (gexpr->children.size() > 1)
+        {
+            for (size_t i = 1; i + 1 < gexpr->children.size(); i += 2)
+            {
+                std::string opText = gexpr->children[i]->getText();
+                GraphExprOp op = (opText == "&&") ? GraphExprOp::And : GraphExprOp::Or;
+                ops.push_back(op);
+                operands.push_back(gexpr->children[i + 1]->getText());
+            }
+        }
+
+        std::shared_ptr<GraphConditionNode> cond = nullptr;
+        if (gc->graphCondition())
+            cond = buildGraphCondition(gc->graphCondition());
+
+        auto node = std::make_shared<GraphComprehensionNode>(
+            target, gname, std::move(ops), std::move(operands), cond);
         return std::static_pointer_cast<ASTNode>(node);
     }
     else if (ctx->showgraph())
@@ -1090,6 +1111,23 @@ std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::
     {
         int nid = std::stoi(connCtx->nodeID()->getText());
         return std::make_shared<GraphConditionNode>(nid);
+    }
+    else if (auto *degCtx = dynamic_cast<BaseParser::DegreeConditionContext*>(ctx))
+    {
+        int val = std::stoi(degCtx->INT()->getText());
+        GraphDegreeOp dop = GraphDegreeOp::None;
+        if (degCtx->EQUAL()) dop = GraphDegreeOp::Eq;
+        else if (degCtx->NOTEQUAL()) dop = GraphDegreeOp::Ne;
+        else if (degCtx->LESSEQUAL()) dop = GraphDegreeOp::Le;
+        else if (degCtx->GREATEREQUAL()) dop = GraphDegreeOp::Ge;
+        else if (degCtx->LESSTHAN()) dop = GraphDegreeOp::Lt;
+        else if (degCtx->GREATERTHAN()) dop = GraphDegreeOp::Gt;
+        return std::make_shared<GraphConditionNode>(dop, val);
+    }
+    else if (auto *cycleCtx = dynamic_cast<BaseParser::CycleConditionContext*>(ctx))
+    {
+        (void)cycleCtx;
+        return std::make_shared<GraphConditionNode>();
     }
     else if (auto *parenCtx = dynamic_cast<BaseParser::ParenGraphConditionContext*>(ctx))
     {

@@ -1,23 +1,10 @@
 #ifndef SEMANTIC_ANALYZER_H
 #define SEMANTIC_ANALYZER_H
 
-#include "ASTNode.h"
+#include "ASTNode.h"  // TypeKind is now defined in ASTNode.h
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-enum class TypeKind
-{
-    Int,
-    Bool,
-    Real,
-    String,
-    IntArray,
-    Graph,
-    WeightedGraph,
-    Void,
-    Unknown
-};
 
 struct FunctionInfo
 {

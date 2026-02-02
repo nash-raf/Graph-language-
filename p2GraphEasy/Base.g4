@@ -69,7 +69,10 @@ condition:
 
 //graphcondition
 graphComprehension:
-	ID '=' '[' graphID 'where' graphCondition ']' ';';
+	ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
+
+graphExpr:
+	graphID ((AND | OR) graphID)*;
 
 graphCondition:
 	graphCondition AND graphCondition	# GraphLogicalAnd
@@ -83,6 +86,7 @@ graphCondition:
 		| GREATERTHAN
 	) INT						# DegreeCondition
 	| 'connected' 'with' nodeID	# ConnectedCondition
+	| 'cycle'					# CycleCondition
 	| '(' graphCondition ')'	# ParenGraphCondition;
 
 //loop

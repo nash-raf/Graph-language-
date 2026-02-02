@@ -2,8 +2,11 @@
 set -euxo pipefail
 
 # ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
-LLVM_CONFIG="llvm-config-20"
-CLANGXX="clang++-20"
+# LLVM_CONFIG="llvm-config-20"
+# CLANGXX="clang++-20"
+LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
+
 # ────────────────────────────────────────────────────────────────────────────────
 
 # Usage: ./run.sh <input.gpl> <dsl-input> [existing-IR.ll]
@@ -50,26 +53,32 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   gcc -c runtime.c -o runtime.o
 
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
-  LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
+
+  LLVM_CXXFLAGS="$RAW_LLVM_CXXFLAGS"
+  # Allow exceptions for our code and ANTLR, but
+  # keep LLVM's -fno-rtti to match its build.
+  LLVM_CXXFLAGS="${LLVM_CXXFLAGS//-fno-exceptions/}"
+
   LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"
-  LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
+  LLVM_LIBS="$($LLVM_CONFIG --libs all)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
   ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
 
   g++ \
-    -g -std=c++17 -fexceptions -fopenmp \
+    -g -std=c++17 -fopenmp \
     $ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
+    -fexceptions \
     -pthread \
     main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp \
     generated/*.cpp runtime.o \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
+    -lPolly -lPollyISL -lisl \
     $LLVM_LIBS \
     $LLVM_SYSTEM_LIBS \
-    -lPolly -lPollyISL -lisl \
     -o GraphProgram
 
   echo ">>> GraphProgram build complete"

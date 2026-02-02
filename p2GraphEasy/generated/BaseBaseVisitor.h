@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.1
 
 #pragma once
 
@@ -103,11 +103,19 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitGraphExpr(BaseParser::GraphExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual std::any visitDegreeCondition(BaseParser::DegreeConditionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitCycleCondition(BaseParser::CycleConditionContext *ctx) override {
     return visitChildren(ctx);
   }
 

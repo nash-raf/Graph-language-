@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.1
 
 #pragma once
 
@@ -63,9 +63,13 @@ public:
 
     virtual std::any visitGraphComprehension(BaseParser::GraphComprehensionContext *context) = 0;
 
+    virtual std::any visitGraphExpr(BaseParser::GraphExprContext *context) = 0;
+
     virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *context) = 0;
 
     virtual std::any visitDegreeCondition(BaseParser::DegreeConditionContext *context) = 0;
+
+    virtual std::any visitCycleCondition(BaseParser::CycleConditionContext *context) = 0;
 
     virtual std::any visitConnectedCondition(BaseParser::ConnectedConditionContext *context) = 0;
 

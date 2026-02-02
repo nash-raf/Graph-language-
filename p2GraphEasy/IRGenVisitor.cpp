@@ -1,8 +1,39 @@
 #include "IRGenVisitor.h"
+#include "SemanticAnalyzer.h"  // For TypeKind enum
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
 #include <stdexcept>
+
+llvm::Type *IRGenVisitor::getLLVMTypeFromTypeKind(TypeKind kind)
+{
+    switch (kind)
+    {
+    case TypeKind::Int:
+        return Builder.getInt32Ty();
+    case TypeKind::Bool:
+        return Builder.getInt1Ty();
+    case TypeKind::Real:
+        return Builder.getDoubleTy();
+    case TypeKind::String:
+        return llvm::PointerType::getUnqual(Builder.getInt8Ty());
+    case TypeKind::IntArray:
+        // For arrays, we'll need the size, so this returns a pointer to i32
+        // The actual array type will be determined at the declaration site
+        return llvm::PointerType::getUnqual(Builder.getInt32Ty());
+    case TypeKind::Graph:
+        return GraphTy->getPointerTo();
+    case TypeKind::WeightedGraph:
+        // Assuming WeightedGraph uses the same struct type for now
+        return GraphTy->getPointerTo();
+    case TypeKind::Void:
+        return llvm::Type::getVoidTy(Context);
+    case TypeKind::Unknown:
+    default:
+        // Fallback to i32 for unknown types
+        return Builder.getInt32Ty();
+    }
+}
 
 llvm::Type *IRGenVisitor::getLLVMTypeForName(const std::string &typeName)
 {
@@ -30,16 +61,31 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         {
             auto *FD = static_cast<FunctionDeclNode *>(node.get());
 
-            // Collect parameter types
+            // Collect parameter types - prefer annotated types, fallback to string parsing
             std::vector<llvm::Type *> paramTys;
             for (size_t i = 0; i < FD->parameters.size(); ++i)
             {
-                paramTys.push_back(getLLVMTypeForName(FD->parameters[i]->typeName));
+                if (FD->parameters[i]->resolvedType != TypeKind::Unknown)
+                {
+                    paramTys.push_back(getLLVMTypeFromTypeKind(FD->parameters[i]->resolvedType));
+                }
+                else
+                {
+                    // Fallback to string parsing for unannotated nodes
+                    paramTys.push_back(getLLVMTypeForName(FD->parameters[i]->typeName));
+                }
             }
 
-            // Determine return type
+            // Determine return type - prefer annotated type, fallback to string parsing
             llvm::Type *retTy;
-            retTy = getLLVMTypeForName(FD->returnType);
+            if (FD->resolvedReturnType != TypeKind::Unknown)
+            {
+                retTy = getLLVMTypeFromTypeKind(FD->resolvedReturnType);
+            }
+            else
+            {
+                retTy = getLLVMTypeForName(FD->returnType);
+            }
 
             // Create the function prototype and insert into the module
             llvm::FunctionType *funcType =
@@ -172,7 +218,7 @@ void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
 
 void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
 {
-    // Lookup source graph
+    // Lookup source graph (base)
     auto it = GraphMap.find(GC->graphName);
     if (it == GraphMap.end())
     {
@@ -193,25 +239,143 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
 
-    // Load source graph CSR
-    llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, srcGraphPtr, 0, "src_n_ptr");
-    llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "src_n");
+    auto buildGraphStruct = [&](llvm::Value *newN, llvm::Value *newM,
+                                llvm::Value *newRP, llvm::Value *newCI) -> llvm::Value * {
+        llvm::FunctionType *mallocFT = llvm::FunctionType::get(
+            llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
+            {i64Ty}, false);
+        llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
+        uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
+        llvm::Value *newGraphRaw = Builder.CreateCall(mallocDecl, llvm::ConstantInt::get(i64Ty, graphSize));
+        llvm::Value *newGraphPtr = Builder.CreateBitCast(newGraphRaw, GraphTy->getPointerTo());
 
-    llvm::Value *rpPtrGEP = Builder.CreateStructGEP(GraphTy, srcGraphPtr, 2, "src_rp_ptr");
-    llvm::Value *rowPtr = Builder.CreateLoad(
-        llvm::PointerType::getUnqual(i64Ty), rpPtrGEP, "src_row_ptr");
+        llvm::Value *newNPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 0);
+        Builder.CreateStore(newN, newNPtr);
+        llvm::Value *newMPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 1);
+        Builder.CreateStore(newM, newMPtr);
+        llvm::Value *newRPPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 2);
+        Builder.CreateStore(newRP, newRPPtr);
+        llvm::Value *newCIPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 3);
+        Builder.CreateStore(newCI, newCIPtr);
 
-    llvm::Value *ciPtrGEP = Builder.CreateStructGEP(GraphTy, srcGraphPtr, 3, "src_ci_ptr");
-    llvm::Value *colPtr = Builder.CreateLoad(
-        llvm::PointerType::getUnqual(i32Ty), ciPtrGEP, "src_col_ptr");
+        return newGraphPtr;
+    };
+
+    auto loadCSR = [&](llvm::Value *graphPtr,
+                       llvm::Value *&nVal,
+                       llvm::Value *&rowPtr,
+                       llvm::Value *&colPtr) {
+        llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
+        nVal = Builder.CreateLoad(i64Ty, nPtr, "g_n");
+
+        llvm::Value *rpPtrGEP = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
+        rowPtr = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i64Ty), rpPtrGEP, "g_row_ptr");
+
+        llvm::Value *ciPtrGEP = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
+        colPtr = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty), ciPtrGEP, "g_col_ptr");
+    };
+
+    // Apply graph operations (AND/OR between graphs) before comprehension
+    if (!GC->graphOperands.empty())
+    {
+        llvm::Function *F = Builder.GetInsertBlock()->getParent();
+        llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+
+        llvm::FunctionType *combFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
+
+        llvm::FunctionCallee unionDecl = Module.getOrInsertFunction("graph_union_runtime", combFT);
+        llvm::FunctionCallee interDecl = Module.getOrInsertFunction("graph_intersection_runtime", combFT);
+
+        for (size_t i = 0; i < GC->graphOperands.size(); ++i)
+        {
+            auto itR = GraphMap.find(GC->graphOperands[i]);
+            if (itR == GraphMap.end())
+            {
+                llvm::errs() << "graphComprehension: graph not found: " << GC->graphOperands[i] << "\n";
+                return;
+            }
+
+            llvm::Value *nL = nullptr;
+            llvm::Value *rpL = nullptr;
+            llvm::Value *ciL = nullptr;
+            loadCSR(srcGraphPtr, nL, rpL, ciL);
+
+            llvm::Value *nR = nullptr;
+            llvm::Value *rpR = nullptr;
+            llvm::Value *ciR = nullptr;
+            loadCSR(itR->second, nR, rpR, ciR);
+
+            llvm::AllocaInst *outN = tmpB.CreateAlloca(i64Ty, nullptr, "op_out_n");
+            llvm::AllocaInst *outM = tmpB.CreateAlloca(i64Ty, nullptr, "op_out_m");
+            llvm::AllocaInst *outRP = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i64Ty), nullptr, "op_out_rp");
+            llvm::AllocaInst *outCI = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i32Ty), nullptr, "op_out_ci");
+
+            llvm::FunctionCallee opDecl = (GC->ops[i] == GraphExprOp::And) ? interDecl : unionDecl;
+            Builder.CreateCall(opDecl, {nL, rpL, ciL, rpR, ciR, outN, outM, outRP, outCI});
+
+            llvm::Value *newN = Builder.CreateLoad(i64Ty, outN, "op_new_n");
+            llvm::Value *newM = Builder.CreateLoad(i64Ty, outM, "op_new_m");
+            llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP, "op_new_rp");
+            llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI, "op_new_ci");
+
+            srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
+        }
+    }
+
+    // Load source graph CSR after operations
+    llvm::Value *nVal = nullptr;
+    llvm::Value *rowPtr = nullptr;
+    llvm::Value *colPtr = nullptr;
+    loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
+
+    if (!GC->condition)
+    {
+        GraphMap[GC->targetName] = srcGraphPtr;
+        return;
+    }
 
     // Flatten condition tree to extract all "connected with" node IDs and determine AND/OR
     std::vector<int> conditionNodeIds;  // original node IDs
     int is_and = 0;  // 0 = OR, 1 = AND
+    bool include_cycle = false;
+    bool has_degree = false;
+    int degree_op = 0;
+    int degree_value = 0;
     
     std::function<void(std::shared_ptr<GraphConditionNode>)> collect = [&](auto cond) {
         if (cond->op == GraphConditionOp::Connected) {
             conditionNodeIds.push_back(cond->nodeId);
+        } else if (cond->op == GraphConditionOp::Cycle) {
+            include_cycle = true;
+        } else if (cond->op == GraphConditionOp::Degree) {
+            if (has_degree) {
+                llvm::errs() << "graphComprehension: multiple degree conditions not supported\n";
+                return;
+            }
+            has_degree = true;
+            switch (cond->degreeOp) {
+                case GraphDegreeOp::Eq: degree_op = 1; break;
+                case GraphDegreeOp::Ne: degree_op = 2; break;
+                case GraphDegreeOp::Le: degree_op = 3; break;
+                case GraphDegreeOp::Ge: degree_op = 4; break;
+                case GraphDegreeOp::Lt: degree_op = 5; break;
+                case GraphDegreeOp::Gt: degree_op = 6; break;
+                default: degree_op = 0; break;
+            }
+            degree_value = cond->degreeValue;
         } else if (cond->op == GraphConditionOp::And) {
             is_and = 1;  // If we see any AND, use AND mode
             if (cond->left) collect(cond->left);
@@ -223,7 +387,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     };
     collect(GC->condition);
 
-    if (conditionNodeIds.empty()) {
+    if (conditionNodeIds.empty() && !include_cycle && !has_degree) {
         llvm::errs() << "graphComprehension: no condition nodes found\n";
         return;
     }
@@ -241,7 +405,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         }
     }
 
-    if (conditionIndices.empty()) {
+    if (conditionIndices.empty() && !include_cycle && !has_degree) {
         llvm::errs() << "graphComprehension: no valid condition indices found\n";
         return;
     }
@@ -251,15 +415,19 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
     
     size_t condCount = conditionIndices.size();
-    llvm::AllocaInst *condNodesAlloca = tmpB.CreateAlloca(
-        llvm::ArrayType::get(i32Ty, condCount), nullptr, GC->targetName + "_cond_indices");
+    llvm::AllocaInst *condNodesAlloca = nullptr;
+    if (condCount > 0)
+    {
+        condNodesAlloca = tmpB.CreateAlloca(
+            llvm::ArrayType::get(i32Ty, condCount), nullptr, GC->targetName + "_cond_indices");
 
-    for (size_t i = 0; i < condCount; ++i) {
-        llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
-        llvm::Value *elemPtr = Builder.CreateGEP(
-            llvm::ArrayType::get(i32Ty, condCount),
-            condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), idx}, "cond_elem_ptr");
-        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, conditionIndices[i]), elemPtr);
+        for (size_t i = 0; i < condCount; ++i) {
+            llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+            llvm::Value *elemPtr = Builder.CreateGEP(
+                llvm::ArrayType::get(i32Ty, condCount),
+                condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), idx}, "cond_elem_ptr");
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, conditionIndices[i]), elemPtr);
+        }
     }
 
     // Allocate output pointers
@@ -268,13 +436,16 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::AllocaInst *outRP = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i64Ty), nullptr, GC->targetName + "_out_rp");
     llvm::AllocaInst *outCI = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i32Ty), nullptr, GC->targetName + "_out_ci");
 
-    // Declare: void graph_comprehension_runtime(int64_t, int64_t*, int32_t*, int32_t*, int32_t, int32_t, int64_t*, int64_t*, int64_t**, int32_t**);
+    // Declare: void graph_comprehension_runtime(int64_t, int64_t*, int32_t*, int32_t*, int32_t, int32_t, int32_t, int32_t, int32_t, int64_t*, int64_t*, int64_t**, int32_t**);
     llvm::FunctionType *compFT = llvm::FunctionType::get(
         llvm::Type::getVoidTy(Context),
         {i64Ty,
          llvm::PointerType::getUnqual(i64Ty),
          llvm::PointerType::getUnqual(i32Ty),
          llvm::PointerType::getUnqual(i32Ty),
+         i32Ty,
+         i32Ty,
+         i32Ty,
          i32Ty,
          i32Ty,
          llvm::PointerType::getUnqual(i64Ty),
@@ -286,15 +457,22 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::FunctionCallee compDecl = Module.getOrInsertFunction("graph_comprehension_runtime", compFT);
 
     // Get pointer to first element of condition indices array
-    llvm::Value *condNodesPtr = Builder.CreateGEP(
-        llvm::ArrayType::get(i32Ty, condCount),
-        condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), llvm::ConstantInt::get(i32Ty, 0)},
-        "cond_indices_ptr");
+    llvm::Value *condNodesPtr = llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty));
+    if (condNodesAlloca)
+    {
+        condNodesPtr = Builder.CreateGEP(
+            llvm::ArrayType::get(i32Ty, condCount),
+            condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), llvm::ConstantInt::get(i32Ty, 0)},
+            "cond_indices_ptr");
+    }
 
     Builder.CreateCall(compDecl, {
         nVal, rowPtr, colPtr,
         condNodesPtr, llvm::ConstantInt::get(i32Ty, condCount),
         llvm::ConstantInt::get(i32Ty, is_and),
+        llvm::ConstantInt::get(i32Ty, include_cycle ? 1 : 0),
+        llvm::ConstantInt::get(i32Ty, degree_op),
+        llvm::ConstantInt::get(i32Ty, degree_value),
         outN, outM, outRP, outCI
     });
 
@@ -304,25 +482,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP, "new_rp");
     llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI, "new_ci");
 
-    // Create a new Graph struct and store it
-    llvm::FunctionType *mallocFT = llvm::FunctionType::get(
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
-        {i64Ty}, false);
-    llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
-    uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
-    llvm::Value *newGraphRaw = Builder.CreateCall(mallocDecl, llvm::ConstantInt::get(i64Ty, graphSize));
-    llvm::Value *newGraphPtr = Builder.CreateBitCast(newGraphRaw, GraphTy->getPointerTo());
-
-    // Store fields
-    llvm::Value *newNPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 0);
-    Builder.CreateStore(newN, newNPtr);
-    llvm::Value *newMPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 1);
-    Builder.CreateStore(newM, newMPtr);
-    llvm::Value *newRPPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 2);
-    Builder.CreateStore(newRP, newRPPtr);
-    llvm::Value *newCIPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 3);
-    Builder.CreateStore(newCI, newCIPtr);
-
+    llvm::Value *newGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
     GraphMap[GC->targetName] = newGraphPtr;
 }
 
@@ -368,14 +528,25 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
     // 6) If no explicit return (and non-void), insert a default
     if (!Builder.GetInsertBlock()->getTerminator())
     {
-        if (funcDecl->returnType == "void")
+        // Use annotated return type if available, fallback to string parsing
+        TypeKind returnTypeKind = funcDecl->resolvedReturnType;
+        if (returnTypeKind == TypeKind::Unknown)
+        {
+            // Fallback: parse from string
+            if (funcDecl->returnType == "void")
+                returnTypeKind = TypeKind::Void;
+            else
+                returnTypeKind = TypeKind::Int; // Default fallback
+        }
+        
+        if (returnTypeKind == TypeKind::Void)
         {
             Builder.CreateRetVoid();
         }
         else
         {
-            Builder.CreateRet(
-                llvm::Constant::getNullValue(getLLVMTypeForName(funcDecl->returnType)));
+            llvm::Type *retTy = getLLVMTypeFromTypeKind(returnTypeKind);
+            Builder.CreateRet(llvm::Constant::getNullValue(retTy));
         }
     }
 
@@ -748,7 +919,17 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
     }
 
     // --- Scalar path ---
-    llvm::Type *declTy = getLLVMTypeForName(decl->typeName);
+    // Prefer annotated type, fallback to string parsing
+    llvm::Type *declTy;
+    if (decl->resolvedType != TypeKind::Unknown)
+    {
+        declTy = getLLVMTypeFromTypeKind(decl->resolvedType);
+    }
+    else
+    {
+        // Fallback to string parsing for unannotated nodes
+        declTy = getLLVMTypeForName(decl->typeName);
+    }
     llvm::AllocaInst *scalarAlloca =
         createEntryBlockAlloca(currentFunction, decl->name, declTy);
 

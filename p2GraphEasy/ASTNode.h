@@ -17,6 +17,21 @@
 #include <unordered_set>
 #include <algorithm>
 
+// Define TypeKind enum here to avoid circular dependency issues
+// SemanticAnalyzer.h will use this definition
+enum class TypeKind
+{
+    Int,
+    Bool,
+    Real,
+    String,
+    IntArray,
+    Graph,
+    WeightedGraph,
+    Void,
+    Unknown
+};
+
 enum class ASTNodeType
 {
     Program,
@@ -51,7 +66,8 @@ enum class ASTNodeType
 };
 
 enum class GraphUpdateKind { Add, Remove };
-enum class GraphConditionOp { And, Or, Connected };
+enum class GraphDegreeOp { None, Eq, Ne, Le, Ge, Lt, Gt };
+enum class GraphConditionOp { And, Or, Connected, Cycle, Degree };
 
 
 template <typename T>
@@ -64,11 +80,9 @@ T safe_any_cast(const std::any &a,
     }
     catch (const std::bad_any_cast &)
     {
-        std::cerr
-            << "[bad_any_cast in " << where << "] "
-            << "stored type = " << a.type().name()
-            << ", requested = " << typeid(T).name()
-            << "\n";
+        // Avoid RTTI-dependent diagnostics so we can
+        // compile with LLVM's -fno-rtti settings.
+        std::cerr << "[bad_any_cast in " << where << "]\n";
         throw;
     }
 }
@@ -95,12 +109,25 @@ class GraphConditionNode : public ASTNode
 public:
     GraphConditionOp op;
     int nodeId = -1;  // for Connected
+    GraphDegreeOp degreeOp = GraphDegreeOp::None;
+    int degreeValue = -1;
     std::shared_ptr<GraphConditionNode> left;   // for And/Or
     std::shared_ptr<GraphConditionNode> right;  // for And/Or
 
     // Connected: 'connected with nodeID'
     GraphConditionNode(int nid)
         : ASTNode(ASTNodeType::GraphComprehension), op(GraphConditionOp::Connected), nodeId(nid) {}
+
+    // Cycle: 'cycle'
+    GraphConditionNode()
+        : ASTNode(ASTNodeType::GraphComprehension), op(GraphConditionOp::Cycle) {}
+
+    // Degree: 'degree <op> k'
+    GraphConditionNode(GraphDegreeOp dop, int val)
+        : ASTNode(ASTNodeType::GraphComprehension),
+          op(GraphConditionOp::Degree),
+          degreeOp(dop),
+          degreeValue(val) {}
 
     // And/Or: binary condition
     GraphConditionNode(GraphConditionOp o,
@@ -109,18 +136,28 @@ public:
         : ASTNode(ASTNodeType::GraphComprehension), op(o), left(l), right(r) {}
 };
 
+enum class GraphExprOp { And, Or };
+
 class GraphComprehensionNode : public ASTNode
 {
 public:
     std::string targetName;   // j
-    std::string graphName;    // g
+    std::string graphName;    // base graph
+    std::vector<GraphExprOp> ops;
+    std::vector<std::string> graphOperands;
     std::shared_ptr<GraphConditionNode> condition;
 
     GraphComprehensionNode(const std::string &t,
                            const std::string &g,
+                           std::vector<GraphExprOp> opList,
+                           std::vector<std::string> operands,
                            std::shared_ptr<GraphConditionNode> cond)
         : ASTNode(ASTNodeType::GraphComprehension),
-          targetName(t), graphName(g), condition(cond) {}
+          targetName(t),
+          graphName(g),
+          ops(std::move(opList)),
+          graphOperands(std::move(operands)),
+          condition(cond) {}
 };
 
 
@@ -211,6 +248,9 @@ public:
     bool isArray = false;
     size_t arraySize = 0; // valid if isArray == true
 
+    // Semantic type annotation (set during semantic analysis)
+    TypeKind resolvedType = TypeKind::Unknown;
+
     VarDeclNode(std::string ty, std::string n, ASTNodePtr init = nullptr, bool isArr = false, size_t arrSz = 0)
         : ASTNode(ASTNodeType::VarDecl),
           typeName(std::move(ty)),
@@ -226,6 +266,9 @@ class VariableNode : public ASTNode
 {
 public:
     std::string name;
+    // Semantic type annotation (set during semantic analysis when variable is looked up)
+    TypeKind resolvedType = TypeKind::Unknown;
+    
     VariableNode(const std::string &n) : ASTNode(ASTNodeType::Variable), name(n) {}
 };
 
@@ -235,6 +278,8 @@ public:
     std::string op;
     ASTNodePtr lhs;
     ASTNodePtr rhs;
+    // Semantic type annotation (set during semantic analysis - result type of expression)
+    TypeKind resolvedType = TypeKind::Unknown;
 
     BinaryExprNode(const std::string &oper, ASTNodePtr l, ASTNodePtr r)
         : ASTNode(ASTNodeType::BinaryExpr), op(oper), lhs(l), rhs(r) {}
@@ -253,6 +298,9 @@ class ArrayAccessNode : public ASTNode
 public:
     ASTNodePtr arrayExpr;
     ASTNodePtr indexExpr;
+    // Semantic type annotation (set during semantic analysis - element type)
+    TypeKind resolvedType = TypeKind::Unknown;
+    
     ArrayAccessNode(ASTNodePtr arr, ASTNodePtr idx)
         : ASTNode(ASTNodeType::ArrayAccess),
           arrayExpr(std::move(arr)),
@@ -287,6 +335,8 @@ class ParamNode : public ASTNode
 public:
     std::string typeName;
     std::string paramName;
+    // Semantic type annotation (set during semantic analysis)
+    TypeKind resolvedType = TypeKind::Unknown;
 
     ParamNode(const std::string &ty, const std::string &nm)
         : ASTNode(ASTNodeType::Param),
@@ -344,6 +394,8 @@ public:
     std::string name;
     std::vector<ParamNodePtr> parameters; // pointer list, not raw ParamNode
     ASTNodePtr body;                      // matches constructor
+    // Semantic type annotation (set during semantic analysis - return type)
+    TypeKind resolvedReturnType = TypeKind::Unknown;
 
     FunctionDeclNode(
         std::string retTy,
@@ -364,6 +416,9 @@ class FunctionCallNode : public ASTNode
 public:
     std::string name;
     std::vector<ASTNodePtr> arguments;
+    // Semantic type annotation (set during semantic analysis - return type of called function)
+    TypeKind resolvedType = TypeKind::Unknown;
+    
     FunctionCallNode(const std::string &n, const std::vector<ASTNodePtr> &args)
         : ASTNode(ASTNodeType::FunctionCall), name(std::move(n)), arguments(std::move(args)) {}
 };

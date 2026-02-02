@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.1
 
 #pragma once
 
@@ -18,11 +18,11 @@ public:
     T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
-    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, GRAPH = 43, WEIGHTS = 44, 
-    EDGE = 45, NODE = 46, TRUE = 47, FALSE = 48, OF = 49, PLUS = 50, MINUS = 51, 
-    TIMES = 52, DIVIDE = 53, AND = 54, OR = 55, EQUAL = 56, NOTEQUAL = 57, 
-    LESSTHAN = 58, GREATERTHAN = 59, LESSEQUAL = 60, GREATEREQUAL = 61, 
-    ID = 62, INT = 63, REAL = 64, STRING = 65, Comment = 66, WS = 67
+    T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, GRAPH = 44, 
+    WEIGHTS = 45, EDGE = 46, NODE = 47, TRUE = 48, FALSE = 49, OF = 50, 
+    PLUS = 51, MINUS = 52, TIMES = 53, DIVIDE = 54, AND = 55, OR = 56, EQUAL = 57, 
+    NOTEQUAL = 58, LESSTHAN = 59, GREATERTHAN = 60, LESSEQUAL = 61, GREATEREQUAL = 62, 
+    ID = 63, INT = 64, REAL = 65, STRING = 66, Comment = 67, WS = 68
   };
 
   explicit BaseLexer(antlr4::CharStream *input);

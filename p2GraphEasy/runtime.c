@@ -232,9 +232,74 @@ static void build_subgraph_runtime(int64_t n_src, int64_t *row_ptr_src, int32_t 
 // For minimal version: condition_nodes is array of node IDs, condition_count is size
 // For AND: intersection of connected components
 // For OR: union of connected components
+static bool *compute_cycle_nodes(int64_t n, int64_t *row_ptr, int32_t *col_idx)
+{
+    int64_t *deg = calloc(n, sizeof(int64_t));
+    bool *removed = calloc(n, sizeof(bool));
+    bool *in_cycle = calloc(n, sizeof(bool));
+    int64_t *queue = calloc(n, sizeof(int64_t));
+    if (!deg || !removed || !in_cycle || !queue)
+    {
+        if (deg) free(deg);
+        if (removed) free(removed);
+        if (in_cycle) free(in_cycle);
+        if (queue) free(queue);
+        return NULL;
+    }
+
+    for (int64_t i = 0; i < n; ++i)
+        deg[i] = row_ptr[i + 1] - row_ptr[i];
+
+    int64_t head = 0, tail = 0;
+    for (int64_t i = 0; i < n; ++i)
+    {
+        if (deg[i] <= 1)
+            queue[tail++] = i;
+    }
+
+    while (head < tail)
+    {
+        int64_t v = queue[head++];
+        if (removed[v]) continue;
+        removed[v] = true;
+        for (int64_t p = row_ptr[v]; p < row_ptr[v + 1]; ++p)
+        {
+            int32_t u = col_idx[p];
+            if (u < 0 || u >= n || removed[u]) continue;
+            deg[u]--;
+            if (deg[u] == 1)
+                queue[tail++] = u;
+        }
+    }
+
+    for (int64_t i = 0; i < n; ++i)
+        in_cycle[i] = !removed[i];
+
+    free(deg);
+    free(removed);
+    free(queue);
+    return in_cycle;
+}
+
+static bool degree_match(int64_t deg, int32_t op, int32_t value)
+{
+    switch (op)
+    {
+        case 1: return deg == value;
+        case 2: return deg != value;
+        case 3: return deg <= value;
+        case 4: return deg >= value;
+        case 5: return deg < value;
+        case 6: return deg > value;
+        default: return true;
+    }
+}
+
 void graph_comprehension_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx,
                                  int32_t *condition_nodes, int32_t condition_count,
                                  int32_t is_and,  // 1 for AND, 0 for OR
+                                 int32_t include_cycle,
+                                 int32_t degree_op, int32_t degree_value,
                                  int64_t *out_n, int64_t *out_m,
                                  int64_t **out_row_ptr, int32_t **out_col_idx)
 {
@@ -244,7 +309,12 @@ void graph_comprehension_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx,
     if (out_row_ptr) *out_row_ptr = NULL;
     if (out_col_idx) *out_col_idx = NULL;
     
-    if (!row_ptr || !col_idx || !condition_nodes || condition_count <= 0 || n <= 0) {
+    if (!row_ptr || !col_idx || n <= 0) {
+        return;
+    }
+
+    bool has_predicates = (condition_nodes && condition_count > 0) || include_cycle || (degree_op != 0);
+    if (!has_predicates) {
         return;
     }
     
@@ -260,41 +330,71 @@ void graph_comprehension_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx,
     }
 
     if (is_and) {
-        // AND: intersection - start with all nodes, then remove those not connected to each seed
+        // AND: intersection - start with all nodes, then remove those not in each predicate set
         for (int64_t i = 0; i < n; ++i) {
             result[i] = true;
         }
-        
-        for (int32_t i = 0; i < condition_count; ++i) {
-            int32_t seed = condition_nodes[i];
-            if (seed >= 0 && seed < n) {
-                bool *component = calloc(n, sizeof(bool));
-                bool *comp_visited = calloc(n, sizeof(bool));
-                bool *seed_array = calloc(n, sizeof(bool));
-                seed_array[seed] = true;
-                collect_connected_nodes(n, row_ptr, col_idx, seed_array, comp_visited, component);
-                
-                // Intersection: keep only nodes in both result and component
-                for (int64_t j = 0; j < n; ++j) {
-                    result[j] = result[j] && component[j];
+    }
+
+    if (condition_nodes && condition_count > 0) {
+        if (is_and) {
+            for (int32_t i = 0; i < condition_count; ++i) {
+                int32_t seed = condition_nodes[i];
+                if (seed >= 0 && seed < n) {
+                    bool *component = calloc(n, sizeof(bool));
+                    bool *comp_visited = calloc(n, sizeof(bool));
+                    bool *seed_array = calloc(n, sizeof(bool));
+                    seed_array[seed] = true;
+                    collect_connected_nodes(n, row_ptr, col_idx, seed_array, comp_visited, component);
+
+                    for (int64_t j = 0; j < n; ++j) {
+                        result[j] = result[j] && component[j];
+                    }
+
+                    free(component);
+                    free(comp_visited);
+                    free(seed_array);
                 }
-                
-                free(component);
-                free(comp_visited);
-                free(seed_array);
+            }
+        } else {
+            for (int32_t i = 0; i < condition_count; ++i) {
+                int32_t seed = condition_nodes[i];
+                if (seed >= 0 && seed < n) {
+                    seeds[seed] = true;
+                }
+            }
+            collect_connected_nodes(n, row_ptr, col_idx, seeds, visited, result);
+        }
+    }
+
+    if (include_cycle) {
+        bool *cycle_nodes = compute_cycle_nodes(n, row_ptr, col_idx);
+        if (cycle_nodes) {
+            if (is_and) {
+                for (int64_t i = 0; i < n; ++i) {
+                    result[i] = result[i] && cycle_nodes[i];
+                }
+            } else {
+                for (int64_t i = 0; i < n; ++i) {
+                    result[i] = result[i] || cycle_nodes[i];
+                }
+            }
+            free(cycle_nodes);
+        }
+    }
+
+    if (degree_op != 0) {
+        if (is_and) {
+            for (int64_t i = 0; i < n; ++i) {
+                int64_t deg = row_ptr[i + 1] - row_ptr[i];
+                result[i] = result[i] && degree_match(deg, degree_op, degree_value);
+            }
+        } else {
+            for (int64_t i = 0; i < n; ++i) {
+                int64_t deg = row_ptr[i + 1] - row_ptr[i];
+                result[i] = result[i] || degree_match(deg, degree_op, degree_value);
             }
         }
-    } else {
-        // OR: union - collect all nodes connected to any seed
-        for (int32_t i = 0; i < condition_count; ++i) {
-            int32_t seed = condition_nodes[i];
-            if (seed >= 0 && seed < n) {
-                seeds[seed] = true;
-            }
-        }
-        
-        // BFS from all seeds
-        collect_connected_nodes(n, row_ptr, col_idx, seeds, visited, result);
     }
 
     // Build subgraph
@@ -303,4 +403,159 @@ void graph_comprehension_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx,
     free(seeds);
     free(visited);
     free(result);
+}
+
+static void build_union_or_intersection(int64_t n,
+                                        int64_t *row_ptr1, int32_t *col_idx1,
+                                        int64_t *row_ptr2, int32_t *col_idx2,
+                                        bool is_union,
+                                        int64_t *out_n, int64_t *out_m,
+                                        int64_t **out_row_ptr, int32_t **out_col_idx)
+{
+    int64_t *deg = calloc(n, sizeof(int64_t));
+    bool *mark = calloc(n, sizeof(bool));
+    bool *added = calloc(n, sizeof(bool));
+    int32_t *tmp1 = malloc(sizeof(int32_t) * n);
+    int32_t *tmp2 = malloc(sizeof(int32_t) * n);
+
+    if (!deg || !mark || !added || !tmp1 || !tmp2) {
+        if (deg) free(deg);
+        if (mark) free(mark);
+        if (added) free(added);
+        if (tmp1) free(tmp1);
+        if (tmp2) free(tmp2);
+        return;
+    }
+
+    // Pass 1: compute degrees
+    for (int64_t i = 0; i < n; ++i) {
+        int64_t c1 = 0, c2 = 0;
+        for (int64_t p = row_ptr1[i]; p < row_ptr1[i + 1]; ++p) {
+            int32_t nb = col_idx1[p];
+            if (nb >= 0 && nb < n && !mark[nb]) {
+                mark[nb] = true;
+                tmp1[c1++] = nb;
+            }
+        }
+        if (is_union) {
+            for (int64_t p = row_ptr2[i]; p < row_ptr2[i + 1]; ++p) {
+                int32_t nb = col_idx2[p];
+                if (nb >= 0 && nb < n && !mark[nb]) {
+                    mark[nb] = true;
+                    tmp1[c1++] = nb;
+                }
+            }
+            deg[i] = c1;
+            for (int64_t k = 0; k < c1; ++k)
+                mark[tmp1[k]] = false;
+        } else {
+            for (int64_t p = row_ptr2[i]; p < row_ptr2[i + 1]; ++p) {
+                int32_t nb = col_idx2[p];
+                if (nb >= 0 && nb < n && mark[nb] && !added[nb]) {
+                    added[nb] = true;
+                    tmp2[c2++] = nb;
+                }
+            }
+            deg[i] = c2;
+            for (int64_t k = 0; k < c1; ++k)
+                mark[tmp1[k]] = false;
+            for (int64_t k = 0; k < c2; ++k)
+                added[tmp2[k]] = false;
+        }
+    }
+
+    int64_t *new_row_ptr = calloc(n + 1, sizeof(int64_t));
+    if (!new_row_ptr) {
+        free(deg); free(mark); free(added); free(tmp1); free(tmp2);
+        return;
+    }
+    for (int64_t i = 0; i < n; ++i)
+        new_row_ptr[i + 1] = new_row_ptr[i] + deg[i];
+    int64_t total = new_row_ptr[n];
+    int32_t *new_col_idx = malloc(sizeof(int32_t) * total);
+    if (!new_col_idx) {
+        free(deg); free(mark); free(added); free(tmp1); free(tmp2); free(new_row_ptr);
+        return;
+    }
+
+    // Pass 2: fill col_idx
+    int64_t *write_ptr = calloc(n, sizeof(int64_t));
+    if (!write_ptr) {
+        free(deg); free(mark); free(added); free(tmp1); free(tmp2); free(new_row_ptr); free(new_col_idx);
+        return;
+    }
+    for (int64_t i = 0; i < n; ++i)
+        write_ptr[i] = new_row_ptr[i];
+
+    for (int64_t i = 0; i < n; ++i) {
+        int64_t c1 = 0, c2 = 0;
+        for (int64_t p = row_ptr1[i]; p < row_ptr1[i + 1]; ++p) {
+            int32_t nb = col_idx1[p];
+            if (nb >= 0 && nb < n && !mark[nb]) {
+                mark[nb] = true;
+                tmp1[c1++] = nb;
+            }
+        }
+        if (is_union) {
+            for (int64_t p = row_ptr2[i]; p < row_ptr2[i + 1]; ++p) {
+                int32_t nb = col_idx2[p];
+                if (nb >= 0 && nb < n && !mark[nb]) {
+                    mark[nb] = true;
+                    tmp1[c1++] = nb;
+                }
+            }
+            for (int64_t k = 0; k < c1; ++k) {
+                new_col_idx[write_ptr[i]++] = tmp1[k];
+                mark[tmp1[k]] = false;
+            }
+        } else {
+            for (int64_t p = row_ptr2[i]; p < row_ptr2[i + 1]; ++p) {
+                int32_t nb = col_idx2[p];
+                if (nb >= 0 && nb < n && mark[nb] && !added[nb]) {
+                    added[nb] = true;
+                    tmp2[c2++] = nb;
+                }
+            }
+            for (int64_t k = 0; k < c1; ++k)
+                mark[tmp1[k]] = false;
+            for (int64_t k = 0; k < c2; ++k) {
+                new_col_idx[write_ptr[i]++] = tmp2[k];
+                added[tmp2[k]] = false;
+            }
+        }
+    }
+
+    free(deg);
+    free(mark);
+    free(added);
+    free(tmp1);
+    free(tmp2);
+    free(write_ptr);
+
+    *out_n = n;
+    *out_m = new_row_ptr[n];
+    *out_row_ptr = new_row_ptr;
+    *out_col_idx = new_col_idx;
+}
+
+void graph_union_runtime(int64_t n,
+                         int64_t *row_ptr1, int32_t *col_idx1,
+                         int64_t *row_ptr2, int32_t *col_idx2,
+                         int64_t *out_n, int64_t *out_m,
+                         int64_t **out_row_ptr, int32_t **out_col_idx)
+{
+    if (!row_ptr1 || !col_idx1 || !row_ptr2 || !col_idx2 || n <= 0) return;
+    build_union_or_intersection(n, row_ptr1, col_idx1, row_ptr2, col_idx2, true,
+                                out_n, out_m, out_row_ptr, out_col_idx);
+}
+
+void graph_intersection_runtime(int64_t n,
+                                int64_t *row_ptr1, int32_t *col_idx1,
+                                int64_t *row_ptr2, int32_t *col_idx2,
+                                int64_t *out_n, int64_t *out_m,
+                                int64_t **out_row_ptr, int32_t **out_col_idx)
+{
+    if (!row_ptr1 || !col_idx1 || !row_ptr2 || !col_idx2 || n <= 0) return;
+    build_union_or_intersection(n, row_ptr1, col_idx1, row_ptr2, col_idx2, false,
+                                out_n, out_m, out_row_ptr, out_col_idx);
 }

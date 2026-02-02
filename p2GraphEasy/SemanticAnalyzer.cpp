@@ -86,6 +86,8 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             error("use of undeclared variable: " + var->name);
         if (sym->isFunction)
             error("function used as variable: " + var->name);
+        // Annotate the variable node with its resolved type
+        var->resolvedType = sym->type;
         return sym->type;
     }
     case ASTNodeType::ArrayLiteral:
@@ -113,6 +115,8 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         TypeKind idxTy = analyzeExpr(acc->indexExpr.get());
         if (idxTy != TypeKind::Int)
             error("array index must be int");
+        // Annotate the array access node with its element type
+        acc->resolvedType = TypeKind::Int;
         return TypeKind::Int;
     }
     case ASTNodeType::BinaryExpr:
@@ -121,42 +125,52 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         TypeKind lt = analyzeExpr(bin->lhs.get());
         TypeKind rt = analyzeExpr(bin->rhs.get());
         const std::string &op = bin->op;
+        TypeKind resultType = TypeKind::Unknown;
         if (op == "&&" || op == "||")
         {
             if (lt != TypeKind::Bool || rt != TypeKind::Bool)
                 error("logical operator requires bool operands: " + op);
-            return TypeKind::Bool;
+            resultType = TypeKind::Bool;
         }
-        if (op == "==" || op == "!=")
+        else if (op == "==" || op == "!=")
         {
             if (lt == rt && (lt == TypeKind::Int || lt == TypeKind::Real || lt == TypeKind::Bool))
-                return TypeKind::Bool;
-            if ((lt == TypeKind::Int || lt == TypeKind::Real) &&
+                resultType = TypeKind::Bool;
+            else if ((lt == TypeKind::Int || lt == TypeKind::Real) &&
                 (rt == TypeKind::Int || rt == TypeKind::Real))
-                return TypeKind::Bool;
-            error("equality requires compatible operands: " + op);
+                resultType = TypeKind::Bool;
+            else
+                error("equality requires compatible operands: " + op);
         }
-        if (op == "<" || op == "<=" || op == ">" || op == ">=")
+        else if (op == "<" || op == "<=" || op == ">" || op == ">=")
         {
             if ((lt == TypeKind::Int || lt == TypeKind::Real) &&
                 (rt == TypeKind::Int || rt == TypeKind::Real))
-                return TypeKind::Bool;
-            error("ordering comparison requires numeric operands: " + op);
+                resultType = TypeKind::Bool;
+            else
+                error("ordering comparison requires numeric operands: " + op);
         }
-        if (op == "%")
+        else if (op == "%")
         {
             if (lt != TypeKind::Int || rt != TypeKind::Int)
                 error("modulo requires int operands");
-            return TypeKind::Int;
+            resultType = TypeKind::Int;
         }
-        if ((lt == TypeKind::Int || lt == TypeKind::Real) &&
+        else if ((lt == TypeKind::Int || lt == TypeKind::Real) &&
             (rt == TypeKind::Int || rt == TypeKind::Real))
         {
             if (lt == TypeKind::Real || rt == TypeKind::Real)
-                return TypeKind::Real;
-            return TypeKind::Int;
+                resultType = TypeKind::Real;
+            else
+                resultType = TypeKind::Int;
         }
-        error("binary operator requires numeric operands: " + op);
+        else
+        {
+            error("binary operator requires numeric operands: " + op);
+        }
+        // Annotate the binary expression node with its result type
+        bin->resolvedType = resultType;
+        return resultType;
     }
     case ASTNodeType::FunctionCall:
     {
@@ -173,6 +187,8 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
                 argTy != sym->func.paramTypes[i])
                 error("argument type mismatch for function: " + call->name);
         }
+        // Annotate the function call node with its return type
+        call->resolvedType = sym->func.returnType;
         return sym->func.returnType;
     }
     case ASTNodeType::QueryNode:
@@ -202,10 +218,16 @@ void SemanticAnalyzer::analyzeProgram(ProgramNodePtr prog)
             Symbol fnSym;
             fnSym.isFunction = true;
             fnSym.type = TypeKind::Unknown;
-            fnSym.func.returnType = typeFromString(FD->returnType);
+            TypeKind returnType = typeFromString(FD->returnType);
+            fnSym.func.returnType = returnType;
+            // Annotate function declaration with return type (may be updated later in full analysis)
+            FD->resolvedReturnType = returnType;
             for (auto &p : FD->parameters)
             {
-                fnSym.func.paramTypes.push_back(typeFromString(p->typeName));
+                TypeKind paramType = typeFromString(p->typeName);
+                fnSym.func.paramTypes.push_back(paramType);
+                // Annotate parameter with its type
+                p->resolvedType = paramType;
             }
             declareSymbol(FD->name, fnSym);
         }
@@ -300,6 +322,8 @@ void SemanticAnalyzer::analyzeVarDecl(VarDeclNode *decl)
         if (sym.type == TypeKind::Unknown)
             error("unknown type in declaration: " + decl->typeName);
     }
+    // Annotate the variable declaration node with its resolved type
+    decl->resolvedType = sym.type;
     declareSymbol(decl->name, sym);
 
     if (decl->initializer)
@@ -391,12 +415,18 @@ void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
 void SemanticAnalyzer::analyzeFunctionDecl(FunctionDeclNode *func)
 {
     enterScope();
-    returnTypeStack.push_back(typeFromString(func->returnType));
+    TypeKind returnType = typeFromString(func->returnType);
+    // Annotate the function declaration node with its return type
+    func->resolvedReturnType = returnType;
+    returnTypeStack.push_back(returnType);
     for (auto &p : func->parameters)
     {
         Symbol sym;
         sym.isFunction = false;
-        sym.type = typeFromString(p->typeName);
+        TypeKind paramType = typeFromString(p->typeName);
+        sym.type = paramType;
+        // Annotate the parameter node with its resolved type
+        p->resolvedType = paramType;
         declareSymbol(p->paramName, sym);
     }
     analyzeBlock(static_cast<BlockStmtNode *>(func->body.get()));
@@ -492,6 +522,8 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
     Symbol *gSym = lookupSymbol(GC->graphName);
     if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
         error("graph comprehension on undeclared graph: " + GC->graphName);
+    if (gSym->type != TypeKind::Graph)
+        error("graph comprehension only supported on unweighted graphs: " + GC->graphName);
 
     Symbol sym;
     sym.isFunction = false;
@@ -505,6 +537,34 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
         if (G)
             validateGraphCondition(GC->condition.get(), G);
     }
+
+    auto countDegree = [](auto *node, auto &self) -> int {
+        if (!node) return 0;
+        int c = (node->op == GraphConditionOp::Degree) ? 1 : 0;
+        if (node->left) c += self(node->left.get(), self);
+        if (node->right) c += self(node->right.get(), self);
+        return c;
+    };
+    if (countDegree(GC->condition.get(), countDegree) > 1)
+        error("graph comprehension supports at most one degree condition");
+
+    if (!GC->graphOperands.empty())
+    {
+        auto *base = dynamic_cast<GraphDeclNode *>(it->second);
+        if (!base)
+            error("graph comprehension base graph not found: " + GC->graphName);
+        for (const auto &rhsName : GC->graphOperands)
+        {
+            auto itR = graphDecls.find(rhsName);
+            if (itR == graphDecls.end())
+                error("graph comprehension uses undeclared graph: " + rhsName);
+            auto *rhs = dynamic_cast<GraphDeclNode *>(itR->second);
+            if (!rhs)
+                error("graph comprehension only supports unweighted graphs: " + rhsName);
+            if (base->materializedNodes != rhs->materializedNodes)
+                error("graph comprehension requires graphs with identical node sets/order");
+        }
+    }
 }
 
 void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDeclNode *G)
@@ -512,6 +572,14 @@ void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDec
     if (!cond || !G)
         return;
 
+    if (cond->op == GraphConditionOp::Cycle)
+    {
+        return;
+    }
+    if (cond->op == GraphConditionOp::Degree)
+    {
+        return;
+    }
     if (cond->op == GraphConditionOp::Connected)
     {
         auto &nodes = G->materializedNodes;

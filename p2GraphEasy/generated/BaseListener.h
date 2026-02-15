@@ -56,6 +56,45 @@ public:
   virtual void enterArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) = 0;
   virtual void exitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) = 0;
 
+  virtual void enterSetDecl(BaseParser::SetDeclContext *ctx) = 0;
+  virtual void exitSetDecl(BaseParser::SetDeclContext *ctx) = 0;
+
+  virtual void enterSetInitializer(BaseParser::SetInitializerContext *ctx) = 0;
+  virtual void exitSetInitializer(BaseParser::SetInitializerContext *ctx) = 0;
+
+  virtual void enterSetOperation(BaseParser::SetOperationContext *ctx) = 0;
+  virtual void exitSetOperation(BaseParser::SetOperationContext *ctx) = 0;
+
+  virtual void enterSetTarget(BaseParser::SetTargetContext *ctx) = 0;
+  virtual void exitSetTarget(BaseParser::SetTargetContext *ctx) = 0;
+
+  virtual void enterSetUnion(BaseParser::SetUnionContext *ctx) = 0;
+  virtual void exitSetUnion(BaseParser::SetUnionContext *ctx) = 0;
+
+  virtual void enterGraphEdgesSet(BaseParser::GraphEdgesSetContext *ctx) = 0;
+  virtual void exitGraphEdgesSet(BaseParser::GraphEdgesSetContext *ctx) = 0;
+
+  virtual void enterSetIntersect(BaseParser::SetIntersectContext *ctx) = 0;
+  virtual void exitSetIntersect(BaseParser::SetIntersectContext *ctx) = 0;
+
+  virtual void enterSetId(BaseParser::SetIdContext *ctx) = 0;
+  virtual void exitSetId(BaseParser::SetIdContext *ctx) = 0;
+
+  virtual void enterSetLiteral(BaseParser::SetLiteralContext *ctx) = 0;
+  virtual void exitSetLiteral(BaseParser::SetLiteralContext *ctx) = 0;
+
+  virtual void enterParenSet(BaseParser::ParenSetContext *ctx) = 0;
+  virtual void exitParenSet(BaseParser::ParenSetContext *ctx) = 0;
+
+  virtual void enterGraphNodesSet(BaseParser::GraphNodesSetContext *ctx) = 0;
+  virtual void exitGraphNodesSet(BaseParser::GraphNodesSetContext *ctx) = 0;
+
+  virtual void enterSetAddMethod(BaseParser::SetAddMethodContext *ctx) = 0;
+  virtual void exitSetAddMethod(BaseParser::SetAddMethodContext *ctx) = 0;
+
+  virtual void enterSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx) = 0;
+  virtual void exitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx) = 0;
+
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
 
@@ -115,6 +154,12 @@ public:
 
   virtual void enterForEachAdj(BaseParser::ForEachAdjContext *ctx) = 0;
   virtual void exitForEachAdj(BaseParser::ForEachAdjContext *ctx) = 0;
+
+  virtual void enterForEachElement(BaseParser::ForEachElementContext *ctx) = 0;
+  virtual void exitForEachElement(BaseParser::ForEachElementContext *ctx) = 0;
+
+  virtual void enterForEachPlain(BaseParser::ForEachPlainContext *ctx) = 0;
+  virtual void exitForEachPlain(BaseParser::ForEachPlainContext *ctx) = 0;
 
   virtual void enterWhileStatement(BaseParser::WhileStatementContext *ctx) = 0;
   virtual void exitWhileStatement(BaseParser::WhileStatementContext *ctx) = 0;
@@ -203,14 +248,26 @@ public:
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
 
+  virtual void enterSetLitExpr(BaseParser::SetLitExprContext *ctx) = 0;
+  virtual void exitSetLitExpr(BaseParser::SetLitExprContext *ctx) = 0;
+
+  virtual void enterSetSizeExpr(BaseParser::SetSizeExprContext *ctx) = 0;
+  virtual void exitSetSizeExpr(BaseParser::SetSizeExprContext *ctx) = 0;
+
   virtual void enterArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
   virtual void exitArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
 
   virtual void enterFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
   virtual void exitFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
 
+  virtual void enterSetContainsExpr(BaseParser::SetContainsExprContext *ctx) = 0;
+  virtual void exitSetContainsExpr(BaseParser::SetContainsExprContext *ctx) = 0;
+
   virtual void enterMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
   virtual void exitMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
+
+  virtual void enterNotExpr(BaseParser::NotExprContext *ctx) = 0;
+  virtual void exitNotExpr(BaseParser::NotExprContext *ctx) = 0;
 
   virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
   virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;

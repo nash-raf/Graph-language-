@@ -59,6 +59,9 @@ private:
     void analyzeShowGraph(ShowGraphNode *S);
     void analyzeGraphComprehension(GraphComprehensionNode *GC);
     void validateGraphCondition(GraphConditionNode *cond, GraphDeclNode *G);
+    void analyzeSetDecl(SetDeclNode *SD);
+    void analyzeSetOperation(SetOperationNode *setOp);
+    void analyzeSetMethodCall(SetMethodCallNode *node);
 
     [[noreturn]] void error(const std::string &msg) const;
 };

@@ -15,6 +15,7 @@ statement:
 	| whileStatement
 	| varDecl
 	| functionCall ';'
+	| sleepStatement
 	| graphComprehension
 	| arrayAssignStatement
 	| assignmentStatement
@@ -124,6 +125,8 @@ type:
 functionCall: ID '(' argumentList? ')';
 argumentList: expr (',' expr)*;
 
+sleepStatement: 'sleep' '(' expr ')' ';';
+
 block: '{' (statement | returnStatement)* '}' | '{' '}';
 returnStatement: 'return' expr ';';
 
@@ -147,7 +150,8 @@ expr:
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
-	| REAL						# RealExpr;
+	| REAL						# RealExpr
+	| 'timer' '(' ')'			# TimerExpr;
 // | nodeID                	# nodeExpr
 
 // Array 

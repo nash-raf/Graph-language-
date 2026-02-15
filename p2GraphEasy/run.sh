@@ -64,15 +64,18 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
   ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
+  # -L/usr/lib64 -lomp \
 
   g++ \
+  -O3 -mavx2 -march=native \
+  -fopenmp \
     -g -std=c++17 -fopenmp \
     $ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -fexceptions \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp \
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp\
     generated/*.cpp runtime.o \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \

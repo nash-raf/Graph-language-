@@ -29,6 +29,7 @@ public:
 
     antlrcpp::Any visitPrintExpr(BaseParser::PrintExprContext *ctx) override;
     antlrcpp::Any visitPrintStatement(BaseParser::PrintStatementContext *ctx) override;
+    antlrcpp::Any visitSleepStatement(BaseParser::SleepStatementContext *ctx) override;
 
 private:
     std::unordered_map<std::string, int> symbolTable;

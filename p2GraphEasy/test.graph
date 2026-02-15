@@ -2,19 +2,180 @@
 
 
 
-// Sleep for 2 seconds
-// sleep(2);
 
-// Measure elapsed time
+/*
+
+graph G { nodes: 0,1,2,3,4; 
+edges: 0->1, 1->2, 2->3, 3->4; 
+};
+int n = numVertices(G);
+int dist[n];
+set visited;
+set frontier = {2};
+int level = 0;
+while (frontier.size() > 0) {
+    set next_frontier = {};
+    for each v in frontier {
+        dist[v] = level;
+        visited.add(v);
+        for each neighbor u of v in G {
+            if (!visited.contains(u)) {
+                next_frontier.add(u);
+            }
+        }
+    }
+    frontier = next_frontier;
+    level = level + 1;
+}
+print dist[1];
+
+
+set a = {1,2,3};
+print a.contains(2);
+print a.contains(5);
+
+set b = {4,5,6};
+
+if (a.contains(2)) {
+    print "yes";
+}
+
+
+
+
+set a = {1,2,3};
+a.remove(10);
+print a;
+
+
+
+set a = {1,1,2,2,3};
+print a;
+
+
+graph G {
+    nodes: 1,2,3;
+    edges: 1->2, 2->3;
+};
+
+set x = G.nodes;
+print x;
+
+set y = G.edges;
+print y;
+
+
+
+set a = {1,2,3,4,5};
+set b = {2,4,6,8};
+set c = {1,3,5,7};
+set d = {5,6,7,8};
+
+set result = ((a intersect b) union (c intersect d)) union a;
+
+print result;
+
+
+
+set a = {1,2,3,4};
+
+a.remove(2);
+a.remove(4);
+
+print a;
+
+
+
+set a = {1,2};
+
+a.add(3);
+a.add(4);
+
+print a;
+
+
+set a = {1,2,3};
+set b = {2,3,4};
+set c = {3,4,5};
+set d = {4,5,6};
+
+set result = (a union b) intersect (c union d);
+
+print result;
+
+
+
+set a = {1,2,3};
+set b = {2,3};
+
+a = a intersect b;
+
+print a;
+
+
+
+set empty = {};
+set a = {1,2,3};
+
+set u = a union empty;
+set i = a intersect empty;
+
+print u;
+print i;
+
+
+
+set a = {1,2,3};
+
+set b = a union a;
+set c = a intersect a;
+
+print b;
+print c;
+
+
+
+set a = {1,2,3};
+set b = {2,3,4};
+set c = {3,4,5};
+
+set d = a union (b intersect c);
+
+print d;
+
+
+set a = {1,2,3};
+set b = {2,3,4};
+set c = {3,4,5};
+
+set d = a union b intersect c;
+
+print d;
+
+
+set a = {1,2,3};
+set b = {3,4,5};
+
+set c = a union b;
+
+print c;
+
+*/
+/*
+
+print 5;
+
+
 real start = timer();
-// ... do some work ...
-sleep(7);
+int j = 0;
+while(j<3){
+  sleep(1);
+  j=j+1;
+}
 real end = timer();
 real elapsed = end - start;
 print elapsed;
 
-
-/*
 int x = 3;
 int y = 7;
 print x + 7;
@@ -66,6 +227,5 @@ print add1(4,5);
 print half(5.0);
 print both(FALSE, FALSE);
 print both1(TRUE, TRUE);
-
 */
 

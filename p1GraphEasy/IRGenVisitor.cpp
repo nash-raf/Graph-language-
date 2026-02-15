@@ -76,6 +76,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::PrintStmt:
             visitPrintStmt(static_cast<PrintStmtNode *>(node.get()));
             break;
+        case ASTNodeType::SleepStmt:
+            visitSleepStmt(static_cast<SleepStmtNode *>(node.get()));
+            break;
         case ASTNodeType::WhileStmt:
             visitWhile(static_cast<WhileStmtNode *>(node.get()));
             break;
@@ -245,6 +248,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         break;
     case ASTNodeType::PrintStmt:
         visitPrintStmt(static_cast<PrintStmtNode *>(node));
+        break;
+    case ASTNodeType::SleepStmt:
+        visitSleepStmt(static_cast<SleepStmtNode *>(node));
         break;
 
     case ASTNodeType::QueryNode:
@@ -830,6 +836,14 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
     case ASTNodeType::FunctionCall:
     {
         auto *FC = static_cast<FunctionCallNode *>(expr);
+
+        if (FC->name == "timer")
+        {
+            llvm::FunctionType *timerFT = llvm::FunctionType::get(Builder.getDoubleTy(), false);
+            llvm::FunctionCallee timerDecl = Module.getOrInsertFunction("timer_runtime", timerFT);
+            return Builder.CreateCall(timerDecl, {}, "timertmp");
+        }
+
         // Lookup the prototype
         llvm::Function *callee = FunctionProtos[FC->name];
         if (!callee)
@@ -1681,6 +1695,25 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
         llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n";
         assert(false && "Unknown query type in QueryNode");
     }
+}
+
+void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
+{
+    llvm::Value *durationVal = visitExpr(SS->duration.get());
+    if (!durationVal->getType()->isIntegerTy())
+    {
+        if (durationVal->getType()->isDoubleTy())
+            durationVal = Builder.CreateFPToSI(durationVal, Builder.getInt32Ty());
+        else
+            throw std::runtime_error("sleep() requires integer argument");
+    }
+    else if (durationVal->getType() != Builder.getInt32Ty())
+        durationVal = Builder.CreateIntCast(durationVal, Builder.getInt32Ty(), true);
+
+    llvm::FunctionType *sleepFT = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(Context), {Builder.getInt32Ty()}, false);
+    llvm::FunctionCallee sleepDecl = Module.getOrInsertFunction("sleep_runtime", sleepFT);
+    Builder.CreateCall(sleepDecl, {durationVal});
 }
 
 void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)

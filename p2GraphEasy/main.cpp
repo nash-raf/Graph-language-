@@ -223,7 +223,8 @@ int main(int argc, char **argv)
     ASTBuilder astB;
     auto progAny = astB.visitProgram(tree);
     auto prog = std::any_cast<ProgramNodePtr>(progAny);
-
+    
+    // exit(0);
     // Semantic analysis (name resolution, type checking, validations)
     try
     {

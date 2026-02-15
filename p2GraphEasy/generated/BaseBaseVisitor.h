@@ -71,6 +71,58 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSetDecl(BaseParser::SetDeclContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetInitializer(BaseParser::SetInitializerContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetOperation(BaseParser::SetOperationContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetTarget(BaseParser::SetTargetContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetUnion(BaseParser::SetUnionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitGraphEdgesSet(BaseParser::GraphEdgesSetContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetIntersect(BaseParser::SetIntersectContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetId(BaseParser::SetIdContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetLiteral(BaseParser::SetLiteralContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitParenSet(BaseParser::ParenSetContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitGraphNodesSet(BaseParser::GraphNodesSetContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetAddMethod(BaseParser::SetAddMethodContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -148,6 +200,14 @@ public:
   }
 
   virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitForEachElement(BaseParser::ForEachElementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitForEachPlain(BaseParser::ForEachPlainContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -267,6 +327,14 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSetLitExpr(BaseParser::SetLitExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetSizeExpr(BaseParser::SetSizeExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -275,7 +343,15 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitNotExpr(BaseParser::NotExprContext *ctx) override {
     return visitChildren(ctx);
   }
 

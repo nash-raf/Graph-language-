@@ -140,6 +140,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitFunctionCall(ctx->functionCall());
     }
+    else if (ctx->sleepStatement())
+    {
+        return visitSleepStatement(ctx->sleepStatement());
+    }
     else if (ctx->graphDef())
     {
 
@@ -324,6 +328,11 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
 
         ASTNodePtr base = std::make_shared<VariableNode>(name);
         return ASTNodePtr(std::make_shared<ArrayAccessNode>(base, indexNode));
+    }
+    else if (dynamic_cast<BaseParser::TimerExprContext *>(ctx))
+    {
+        std::vector<ASTNodePtr> emptyArgs;
+        return ASTNodePtr(std::make_shared<FunctionCallNode>("timer", emptyArgs));
     }
 
     throw std::runtime_error("ASTBuilder Unsupported expr: " + ctx->getText());
@@ -695,4 +704,11 @@ antlrcpp::Any ASTBuilder::visitPrintStatement(BaseParser::PrintStatementContext 
     }
 
     return ASTNodePtr{std::make_shared<PrintStmtNode>(inner)};
+}
+
+antlrcpp::Any ASTBuilder::visitSleepStatement(BaseParser::SleepStatementContext *ctx)
+{
+    ASTNodePtr durationExpr = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
+    auto sleepNode = std::make_shared<SleepStmtNode>(durationExpr);
+    return std::static_pointer_cast<ASTNode>(sleepNode);
 }

@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <time.h>
 
 typedef void (*loop_body_fn)(int64_t i, void *env);
 
@@ -95,4 +96,22 @@ void parallel_for_runtime(int64_t start, int64_t end, int64_t step, loop_body_fn
 
     free(threads);
     free(args);
+}
+
+void sleep_runtime(int32_t seconds)
+{
+    if (seconds < 0) return;
+    struct timespec req, rem;
+    req.tv_sec = (time_t)seconds;
+    req.tv_nsec = 0;
+    while (nanosleep(&req, &rem) == -1)
+        req = rem;
+}
+
+double timer_runtime(void)
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) == 0)
+        return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+    return 0.0;
 }

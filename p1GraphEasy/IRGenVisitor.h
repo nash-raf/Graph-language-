@@ -48,6 +48,7 @@ public:
     void emitDijkstra(QueryNode *Q);
     void emitFloydWarshall(QueryNode *Q);
     void visitPrintStmt(PrintStmtNode *PS);
+    void visitSleepStmt(SleepStmtNode *SS);
     //void visitPrintArray(PrintArrayNode *PA);
     llvm::Value *evaluate(ASTNode *node);
     llvm::Function* getPrintfFunction();

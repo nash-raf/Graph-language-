@@ -171,6 +171,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
                 }
             }
         }
+        
         else
         {
             throw std::runtime_error("nodeEdgeOperation: unknown alternative");
@@ -220,6 +221,18 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         return visitSleepStatement(ctx->sleepStatement());
     }
 
+    else if (ctx->setDecl())
+        {
+            return visitSetDecl(ctx->setDecl());
+        }
+        else if (ctx->setOperation())
+        {
+            return visitSetOperation(ctx->setOperation());
+        }
+        else if (ctx->setMethodCall())
+        {
+            return visitSetMethodCall(ctx->setMethodCall());
+        }
     // std::cerr << " ending statement " << "\n";
     return nullptr;
 }
@@ -333,8 +346,7 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
     {
         auto lhs = safe_any_cast<ASTNodePtr>(visitExpr(mulDivContext->expr(0)));
         auto rhs = safe_any_cast<ASTNodePtr>(visitExpr(mulDivContext->expr(1)));
-        std::string op = mulDivContext->TIMES() ? "*" : "/";
-        // std::cout << "ASTBuilder MulDivExpr: " << op << "\n";
+        std::string op = mulDivContext->TIMES() ? "*" : (mulDivContext->DIVIDE() ? "/" : "%");
         return ASTNodePtr(std::make_shared<BinaryExprNode>(op, lhs, rhs));
     }
     else if (auto fctx = dynamic_cast<BaseParser::FuncExprContext *>(ctx))
@@ -400,6 +412,29 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
         std::vector<ASTNodePtr> emptyArgs;
         return ASTNodePtr(std::make_shared<FunctionCallNode>("timer", emptyArgs));
     }
+    else if (auto containsCtx = dynamic_cast<BaseParser::SetContainsExprContext *>(ctx))
+    {
+        // Delegate to the dedicated visitor which handles setTarget properly
+        return visitSetContainsExpr(containsCtx);
+    }
+    else if (auto setLitCtx = dynamic_cast<BaseParser::SetLitExprContext *>(ctx))
+    {
+        // Set literal used inline in expression, e.g. {1,2,3}
+        return visitSetInitializer(setLitCtx->setInitializer());
+    }
+    else if (auto sizeCtx = dynamic_cast<BaseParser::SetSizeExprContext *>(ctx))
+    {
+        // ID.size() → treat as setSize(ID) built-in function call
+        std::string setName = sizeCtx->ID()->getText();
+        std::vector<ASTNodePtr> args;
+        args.push_back(std::make_shared<VariableNode>(setName));
+        return ASTNodePtr(std::make_shared<FunctionCallNode>("setSize", args));
+    }
+    else if (auto notCtx = dynamic_cast<BaseParser::NotExprContext *>(ctx))
+    {
+        ASTNodePtr operand = safe_any_cast<ASTNodePtr>(visitExpr(notCtx->expr()));
+        return ASTNodePtr(std::make_shared<NotExprNode>(operand));
+    }
 
     throw std::runtime_error("ASTBuilder Unsupported expr: " + ctx->getText());
 
@@ -441,10 +476,16 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
 
         std::string name;
         int size = 0;
+        ASTNodePtr sizeExpr = nullptr;
         if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
         {
             name = sized->ID()->getText();
-            size = std::stoi(sized->INT()->getText());
+            // Size is now an expr — check if literal int or dynamic
+            ASTNodePtr sizeNode = safe_any_cast<ASTNodePtr>(visitExpr(sized->expr()));
+            if (auto *intLit = dynamic_cast<IntLiteralNode *>(sizeNode.get()))
+                size = intLit->value;
+            else
+                sizeExpr = sizeNode; // dynamic (e.g. variable n)
         }
         else if (auto unsized = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
         {
@@ -466,8 +507,8 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
             }
         }
 
-        // If no explicit size was given, infer it from the initializer list
-        if (size == 0)
+        // If no explicit size was given and no dynamic expr, infer from initializer
+        if (size == 0 && !sizeExpr)
         {
             size = static_cast<int>(elems.size());
         }
@@ -475,9 +516,10 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
         // Wrap the element list in an ArrayLiteralNode
         auto arrayLit = std::make_shared<ArrayLiteralNode>(elems);
 
-        // Finally, return a VarDeclNode carrying that literal
+        // Return VarDeclNode with optional dynamic size expression
         return std::static_pointer_cast<ASTNode>(
-            std::make_shared<VarDeclNode>(typeName, name, arrayLit, /*isArr=*/true, static_cast<size_t>(size)));
+            std::make_shared<VarDeclNode>(typeName, name, arrayLit, /*isArr=*/true,
+                                          static_cast<size_t>(size), sizeExpr));
     }
     return nullptr;
 }
@@ -659,90 +701,6 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
     return ASTNodePtr{
         std::make_shared<FunctionCallNode>(callee, std::move(args))};
 }
-
-// antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
-// {
-//     std::string nm = ctx->graphID()->getText();
-
-//     // nodesChild: optional. Build InlineNodeList only if nodes: present and non-empty.
-//     std::unique_ptr<NodeListNode> nd;
-//     if (ctx->nodes())
-//     {
-//         // if nodes: exists, might be empty or contain nodeIDs
-//         auto *nl = ctx->nodes()->nodeList();
-//         if (nl)
-//         {
-//             std::vector<int> ids;
-//             for (auto *idT : nl->nodeID())
-//                 ids.push_back(std::stoi(idT->getText()));
-//             // We still create InlineNodeList even if ids is empty;
-//             // GraphDeclNode constructor will union with edges.
-//             nd = std::make_unique<InlineNodeList>(std::move(ids));
-//         }
-//         else
-//         {
-//             // nodes: exists but no nodeList (shouldn't happen with grammar), leave nd empty
-//             nd = nullptr;
-//         }
-//     }
-//     // else nd remains nullptr -> GraphDeclNode will infer nodes from edges
-
-//     // edgesChild: either fileEdgeList or inline edgeList
-//     std::unique_ptr<EdgeListNode> ed;
-//     std::string filePath; // non-empty if edges came from a file
-//     if (ctx->edges())
-//     {
-//         if (auto *fe = ctx->edges()->fileEdgeList())
-//         {
-//             std::string s = fe->STRING()->getText();
-//             s = s.substr(1, s.size() - 2); // strip quotes
-//             filePath = s;
-//             ed = std::make_unique<FileEdgeList>(std::move(s));
-//         }
-//         else if (auto *el = ctx->edges()->edgeList())
-//         {
-//             std::vector<std::pair<int, int>> edgesVec;
-//             for (auto *eCtx : el->edge())
-//             {
-//                 int u = std::stoi(eCtx->nodeID(0)->getText());
-//                 int v = std::stoi(eCtx->nodeID(1)->getText());
-//                 edgesVec.emplace_back(u, v);
-//             }
-//             ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
-//         }
-//     }
-
-//     if (!ed)
-//     {
-//         throw std::runtime_error("graph must have edges (inline list or file):");
-//     }
-
-//     // Construct GraphDeclNode — its constructor will (for file-backed graphs)
-//     // materialize (read) the edge list. We measure that operation when filePath is set.
-//     std::shared_ptr<GraphDeclNode> gnode;
-//     if (!filePath.empty())
-//     {
-//         auto t0 = std::chrono::high_resolution_clock::now();
-//         gnode = std::make_shared<GraphDeclNode>(
-//             std::move(nm),
-//             std::move(nd),
-//             std::move(ed));
-//         auto t1 = std::chrono::high_resolution_clock::now();
-//         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-//         std::cerr << "[ASTBuilder] loaded edge-list file '" << filePath
-//                   << "' in " << dur.count() << " ms\n";
-//     }
-//     else
-//     {
-//         // inline edges: just construct without timing the file read
-//         gnode = std::make_shared<GraphDeclNode>(
-//             std::move(nm),
-//             std::move(nd),
-//             std::move(ed));
-//     }
-
-//     return std::static_pointer_cast<ASTNode>(gnode);
-// }
 
 antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
@@ -1002,73 +960,12 @@ antlrcpp::Any ASTBuilder::visitSleepStatement(BaseParser::SleepStatementContext 
     return std::static_pointer_cast<ASTNode>(sleepNode);
 }
 
-// antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx) {
-//     std::string var1, var2;
-//     std::string graphName = ctx->graphID()->getText();
-
-//     // Get the loop target context
-//     auto *loopCtx = ctx->loopTarget();
-
-//     // Lookup graph from your stored graphs
-//     auto it = declaredGraphs.find(graphName);
-//     if (it == declaredGraphs.end()) {
-//         throw std::runtime_error("Graph " + graphName + " not declared");
-//     }
-//     auto gnode = it->second; // GraphDeclNode*
-
-//     // ====== foreach vertex v in g ======
-//     if (auto vertexCtx = dynamic_cast<BaseParser::ForEachVertexContext*>(loopCtx)) {
-//         var1 = vertexCtx->ID()->getText();
-
-//         for (int node : gnode->nodes->materializeNodeIds()) {
-//             runtimeVariables[var1] = node;
-//             visit(ctx->block());  // execute loop body
-//         }
-//     }
-
-//     // ====== foreach edge (u,v) in g ======
-//     else if (auto edgeCtx = dynamic_cast<BaseParser::ForEachEdgeContext*>(loopCtx)) {
-//         auto ids = edgeCtx->ID();
-//         var1 = ids[0]->getText();
-//         var2 = ids[1]->getText();
-
-//         for (auto &e : gnode->edges->materializeEdges()) {
-//             runtimeVariables[var1] = e.first;
-//             runtimeVariables[var2] = e.second;
-//             visit(ctx->block());
-//         }
-//     }
-
-//     // ====== foreach neighbor n of x in g ======
-//     else if (auto adjCtx = dynamic_cast<BaseParser::ForEachAdjContext*>(loopCtx)) {
-//         var1 = adjCtx->ID()->getText();
-//         int nodeId = std::stoi(adjCtx->nodeID()->getText());
-
-//         // Build adjacency map
-//         std::unordered_map<int, std::vector<int>> adj;
-//         for (auto &e : gnode->edges->materializeEdges()) {
-//             adj[e.first].push_back(e.second);
-//             adj[e.second].push_back(e.first); // assuming undirected graph
-//         }
-
-//         for (int neighbor : adj[nodeId]) {
-//             runtimeVariables[var1] = neighbor;
-//             visit(ctx->block());
-//         }
-//     }
-
-//     else {
-//         throw std::runtime_error("Unknown loop target in foreachStatement");
-//     }
-
-//     return nullptr;
-// }
 
 antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx)
 {
     ForEachTargetType tgt;
     std::string var1, var2;
-    int adjNodeId = -1;
+    ASTNodePtr adjNodeExpr = nullptr;
 
     // Determine loop type
     auto *loopCtx = ctx->loopTarget();
@@ -1088,7 +985,18 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
     {
         tgt = ForEachTargetType::Neighbor;
         var1 = adjCtx->ID()->getText();
-        adjNodeId = std::stoi(adjCtx->nodeID()->getText());
+        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(adjCtx->expr()));
+    }
+    else if (auto elemCtx = dynamic_cast<BaseParser::ForEachElementContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::Element;
+        var1 = elemCtx->ID()->getText();
+    }
+    else if (auto plainCtx = dynamic_cast<BaseParser::ForEachPlainContext *>(loopCtx))
+    {
+        // "for each v in setOrGraph" — plain variable iteration
+        tgt = ForEachTargetType::Element; // treat as set element iteration
+        var1 = plainCtx->ID()->getText();
     }
     else
     {
@@ -1101,7 +1009,7 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         var1,
         var2,
         ctx->graphID()->getText(),
-        adjNodeId,
+        std::move(adjNodeExpr),
         std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
 
     // Return as ASTNodePtr
@@ -1153,4 +1061,220 @@ std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::
     {
         throw std::runtime_error("buildGraphCondition: unsupported condition type");
     }
+}
+
+
+
+antlrcpp::Any ASTBuilder::visitSetDecl(
+    BaseParser::SetDeclContext *ctx)
+{
+    std::string name = ctx->ID()->getText();
+
+    ASTNodePtr initNode = nullptr;
+
+    // Check if this declaration has an initializer
+    if (ctx->setInitializer())
+    {
+        // Visit the setInitializer to get the SetLiteralNode
+        initNode = safe_any_cast<ASTNodePtr>(
+            visitSetInitializer(ctx->setInitializer()),
+            "visitSetDecl");
+    }
+
+    else if (ctx->setExpr())
+    {
+        initNode = safe_any_cast<ASTNodePtr>(
+            visitSetExpr(ctx->setExpr()),
+            "visitSetDecl");
+    }
+
+    auto node = std::make_shared<SetDeclNode>(name, initNode);
+    //SetKinds[node->name] = inferSetKind(node->initializer.get());
+    //SetKinds[setDecl->name] = inferSetKind(setDecl->initializer.get());
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetInitializer(
+    BaseParser::SetInitializerContext *ctx)
+{
+    std::vector<ASTNodePtr> elements;
+
+    // Get all expressions in the set literal
+    if (ctx->expr().size() > 0)
+    {
+        elements.reserve(ctx->expr().size());
+        for (auto *e : ctx->expr())
+        {
+            elements.push_back(
+                safe_any_cast<ASTNodePtr>(
+                    visitExpr(e),
+                    "visitSetInitializer"));
+        }
+    }
+
+    auto node = std::make_shared<SetLiteralNode>(elements);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetOperation(BaseParser::SetOperationContext *ctx)
+{
+    std::string targetName = ctx->ID()->getText();
+
+    ASTNodePtr setExpr = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr()),
+        "visitSetOperation");
+
+    auto node = std::make_shared<SetOperationNode>(targetName, setExpr);
+    //SetKinds[node->targetName] = inferSetKind(node->expr.get());
+    //SetKinds[setOp->targetName] = inferSetKind(setOp->expr.get());
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetExpr(BaseParser::SetExprContext *ctx)
+{
+    if (auto unionCtx = dynamic_cast<BaseParser::SetUnionContext *>(ctx))
+    {
+        return visitSetUnion(unionCtx);
+    }
+    else if (auto intersectCtx = dynamic_cast<BaseParser::SetIntersectContext *>(ctx))
+    {
+        return visitSetIntersect(intersectCtx);
+    }
+    else if (auto nodesCtx = dynamic_cast<BaseParser::GraphNodesSetContext *>(ctx))
+    {
+        std::string gname = nodesCtx->graphID()->getText();
+        return ASTNodePtr(std::make_shared<GraphMemberSetNode>(gname, GraphMemberKind::Nodes));
+    }
+    else if (auto edgesCtx = dynamic_cast<BaseParser::GraphEdgesSetContext *>(ctx))
+    {
+        std::string gname = edgesCtx->graphID()->getText();
+        return ASTNodePtr(std::make_shared<GraphMemberSetNode>(gname, GraphMemberKind::Edges));
+    }
+    else if (auto idCtx = dynamic_cast<BaseParser::SetIdContext *>(ctx))
+    {
+        return visitSetId(idCtx);
+    }
+    else if (auto literalCtx = dynamic_cast<BaseParser::SetLiteralContext *>(ctx))
+    {
+        return visitSetLiteral(literalCtx);
+    }
+    else if (auto parenCtx = dynamic_cast<BaseParser::ParenSetContext *>(ctx))
+    {
+        return visitParenSet(parenCtx);
+    }
+
+    throw std::runtime_error("Unsupported setExpr: " + ctx->getText());
+}
+
+antlrcpp::Any ASTBuilder::visitSetUnion(BaseParser::SetUnionContext *ctx)
+{
+    ASTNodePtr lhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(0)),
+        "visitSetUnion left");
+
+    ASTNodePtr rhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(1)),
+        "visitSetUnion right");
+
+    auto node = std::make_shared<SetBinaryExprNode>("union", lhs, rhs);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetIntersect(BaseParser::SetIntersectContext *ctx)
+{
+    ASTNodePtr lhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(0)),
+        "visitSetIntersect left");
+
+    ASTNodePtr rhs = safe_any_cast<ASTNodePtr>(
+        visitSetExpr(ctx->setExpr(1)),
+        "visitSetIntersect right");
+
+    auto node = std::make_shared<SetBinaryExprNode>("intersect", lhs, rhs);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetId(BaseParser::SetIdContext *ctx)
+{
+    std::string name = ctx->ID()->getText();
+
+    // Reuse VariableNode or create a dedicated SetIdNode
+    auto node = std::make_shared<VariableNode>(name);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetLiteral(BaseParser::SetLiteralContext *ctx)
+{
+    // SetLiteral in setExpr refers to setInitializer
+    return visitSetInitializer(ctx->setInitializer());
+}
+
+antlrcpp::Any ASTBuilder::visitParenSet(BaseParser::ParenSetContext *ctx)
+{
+    // Just visit the inner expression
+    return visitSetExpr(ctx->setExpr());
+}
+
+antlrcpp::Any ASTBuilder::visitSetMethodCall(BaseParser::SetMethodCallContext *ctx)
+{
+    if (auto addCtx = dynamic_cast<BaseParser::SetAddMethodContext *>(ctx))
+    {
+        return visitSetAddMethod(addCtx);
+    }
+    else if (auto removeCtx = dynamic_cast<BaseParser::SetRemoveMethodContext *>(ctx))
+    {
+        return visitSetRemoveMethod(removeCtx);
+    }
+    return nullptr;
+}
+
+antlrcpp::Any ASTBuilder::visitSetAddMethod(BaseParser::SetAddMethodContext *ctx)
+{
+    auto kind = parseSetTarget(ctx->setTarget());
+    std::string name;
+    if (kind == SetTargetKind::Variable)
+        name = ctx->setTarget()->ID()->getText();
+    else
+        name = ctx->setTarget()->graphID()->getText();
+    ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()), "visitSetAddMethod");
+
+    auto node = std::make_shared<SetMethodCallNode>(kind, name, "add", arg);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx)
+{
+    auto kind = parseSetTarget(ctx->setTarget());
+    std::string name;
+    if (kind == SetTargetKind::Variable)
+        name = ctx->setTarget()->ID()->getText();
+    else
+        name = ctx->setTarget()->graphID()->getText();
+    ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()), "visitSetRemoveMethod");
+
+    auto node = std::make_shared<SetMethodCallNode>(kind, name, "remove", arg);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+antlrcpp::Any ASTBuilder::visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx)
+{
+    auto kind = parseSetTarget(ctx->setTarget());
+    // Extract the proper name (graph name for G.nodes/G.edges, variable name for ID)
+    std::string name;
+    if (kind == SetTargetKind::Variable)
+        name = ctx->setTarget()->ID()->getText();
+    else
+        name = ctx->setTarget()->graphID()->getText();
+    ASTNodePtr arg = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()), "visitSetContainsExpr");
+    auto node = std::make_shared<SetContainsExprNode>(kind, name, arg);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+SetTargetKind ASTBuilder::parseSetTarget(BaseParser::SetTargetContext *ctx)
+{
+    if (ctx->ID() && !ctx->graphID())
+        return SetTargetKind::Variable;
+    if (ctx->NODE()) // 'nodes'
+        return SetTargetKind::GraphNodes;
+    return SetTargetKind::GraphEdges; // falls through to 'edges'
 }

@@ -16,6 +16,7 @@ statement:
 	| whileStatement
 	| foreachStatement
 	| varDecl
+	| setDecl
 	| functionCall ';'
 	| sleepStatement
 	| graphComprehension
@@ -24,6 +25,8 @@ statement:
 	| queryStatement
 	| showgraph
 	| nodeEdgeOperation
+	| setOperation
+	| setMethodCall
 	| ';';
 
 // Graph Definition
@@ -46,6 +49,43 @@ edge: nodeID '->' nodeID;
 varDecl:
 	type ID ('=' expr)? ';'								# SimpleDeclaration
 	| type arrayDeclarator ('=' arrayInitializer)? ';'	# ArrayDeclaration;
+
+setDecl:
+    'set' ID ';'
+    | 'set' ID '=' setInitializer ';'
+    | 'set' ID '=' setExpr ';'
+    ;
+
+setInitializer:
+    '{' (expr (',' expr)*)? '}'
+    ;
+
+// Set operations
+setOperation:
+    ID '=' setExpr ';'
+    ;
+
+setTarget:
+    ID
+    | graphID '.' 'nodes'
+    | graphID '.' 'edges'
+    ;
+
+setExpr:
+    setExpr UNION setExpr          # SetUnion
+    | setExpr INTERSECT setExpr    # SetIntersect
+	| graphID '.' 'nodes'          # GraphNodesSet
+    | graphID '.' 'edges'          # GraphEdgesSet
+    | ID                           # SetId
+    | setInitializer               # SetLiteral
+    | '(' setExpr ')'              # ParenSet
+    ;
+
+// Set method calls
+setMethodCall:
+	setTarget '.' 'add' '(' expr ')' ';'      # SetAddMethod
+    | setTarget '.' 'remove' '(' expr ')' ';' # SetRemoveMethod
+    ;
 
 // if-else
 conditionalStatement:
@@ -96,7 +136,9 @@ foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
 loopTarget:
 	'vertex' ID					# forEachVertex
 	| 'edge' ID ',' ID			# forEachEdge
-	| 'neighbor' ID 'of' nodeID	# forEachAdj;
+	| 'neighbor' ID 'of' expr	# forEachAdj
+	| 'element' ID				# forEachElement
+	| ID						# forEachPlain;
 whileStatement: 'while' '(' condition ')' block;
 
 nodeEdgeOperation: addOperation | removeOperation;
@@ -158,23 +200,34 @@ printgraph:
 // Expressions
 expr:
 	expr (AND | OR) expr		# LogicalExpr
-	| expr (TIMES | DIVIDE) expr	# MulDivExpr
+	| expr (TIMES | DIVIDE | MODULO) expr	# MulDivExpr
 	| expr (PLUS | MINUS) expr	# AddSubExpr
+	| NOT expr					# NotExpr
 	| functionCall				# FuncExpr
 	| INT						# IntExpr
 	| ID						# IdExpr
 	| '(' expr ')'				# ParenExpr
 	| ID '[' expr ']'			# ArrayAccessExpr
+	| setTarget '.' 'contains' '(' expr ')'  # SetContainsExpr
+	| ID '.' 'size' '(' ')'	# SetSizeExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
 	| ID '[]'					# ArrayPrint
 	| REAL						# RealExpr
+	| setInitializer            # SetLitExpr
 	| 'timer' '(' ')'			# TimerExpr;
 // | nodeID                	# nodeExpr
 
+SET: 'set';
+UNION: 'union';
+INTERSECT: 'intersect';
+NOT: '!';
+MODULO: '%';
+
+
 // Array 
 arrayDeclarator:
-	ID '[' INT ']'	# SizedArray
+	ID '[' expr ']'	# SizedArray
 	| ID '[' ']'	# UnsizedArray;
 
 arrayInitializer: '[' expr (',' expr)* ']'; // Array literal

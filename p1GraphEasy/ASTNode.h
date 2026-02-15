@@ -40,7 +40,8 @@ enum class ASTNodeType
     EdgeList,
     NodeList,
     QueryNode,
-    PrintStmt
+    PrintStmt,
+    SleepStmt
 };
 
 template <typename T>
@@ -517,6 +518,15 @@ public:
 
     PrintStmtNode(ASTNodePtr e)
         : ASTNode(ASTNodeType::PrintStmt), expr(std::move(e)) {}
+};
+
+class SleepStmtNode : public ASTNode
+{
+public:
+    ASTNodePtr duration;  // expression (int seconds)
+
+    SleepStmtNode(ASTNodePtr dur)
+        : ASTNode(ASTNodeType::SleepStmt), duration(std::move(dur)) {}
 };
 
 #endif // ASTNODE_H

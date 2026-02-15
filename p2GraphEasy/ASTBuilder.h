@@ -33,7 +33,21 @@ public:
     antlrcpp::Any visitPrintExpr(BaseParser::PrintExprContext *ctx) override;
     antlrcpp::Any visitPrintStatement(BaseParser::PrintStatementContext *ctx) override;
     antlrcpp::Any visitSleepStatement(BaseParser::SleepStatementContext *ctx) override;
-
+    antlrcpp::Any visitSetDecl(BaseParser::SetDeclContext *ctx);
+    antlrcpp::Any visitSetInitializer(BaseParser::SetInitializerContext *ctx);
+    antlrcpp::Any visitSetOperation(BaseParser::SetOperationContext *ctx);
+    antlrcpp::Any visitSetExpr(BaseParser::SetExprContext *ctx);
+    antlrcpp::Any visitSetUnion(BaseParser::SetUnionContext *ctx);
+    antlrcpp::Any visitSetIntersect(BaseParser::SetIntersectContext *ctx);
+    antlrcpp::Any visitSetId(BaseParser::SetIdContext *ctx);
+    antlrcpp::Any visitSetLiteral(BaseParser::SetLiteralContext *ctx);
+    antlrcpp::Any visitParenSet(BaseParser::ParenSetContext *ctx);
+    antlrcpp::Any visitSetAddMethod(BaseParser::SetAddMethodContext *ctx);
+    antlrcpp::Any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx);
+    antlrcpp::Any visitSetMethodCall(BaseParser::SetMethodCallContext *ctx);
+    antlrcpp::Any visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx);
+    SetTargetKind parseSetTarget(BaseParser::SetTargetContext *ctx);
+    
 private:
     std::shared_ptr<GraphConditionNode> buildGraphCondition(BaseParser::GraphConditionContext *ctx);
 };

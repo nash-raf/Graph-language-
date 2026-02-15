@@ -47,6 +47,32 @@ public:
 
     virtual std::any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *context) = 0;
 
+    virtual std::any visitSetDecl(BaseParser::SetDeclContext *context) = 0;
+
+    virtual std::any visitSetInitializer(BaseParser::SetInitializerContext *context) = 0;
+
+    virtual std::any visitSetOperation(BaseParser::SetOperationContext *context) = 0;
+
+    virtual std::any visitSetTarget(BaseParser::SetTargetContext *context) = 0;
+
+    virtual std::any visitSetUnion(BaseParser::SetUnionContext *context) = 0;
+
+    virtual std::any visitGraphEdgesSet(BaseParser::GraphEdgesSetContext *context) = 0;
+
+    virtual std::any visitSetIntersect(BaseParser::SetIntersectContext *context) = 0;
+
+    virtual std::any visitSetId(BaseParser::SetIdContext *context) = 0;
+
+    virtual std::any visitSetLiteral(BaseParser::SetLiteralContext *context) = 0;
+
+    virtual std::any visitParenSet(BaseParser::ParenSetContext *context) = 0;
+
+    virtual std::any visitGraphNodesSet(BaseParser::GraphNodesSetContext *context) = 0;
+
+    virtual std::any visitSetAddMethod(BaseParser::SetAddMethodContext *context) = 0;
+
+    virtual std::any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *context) = 0;
+
     virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
 
     virtual std::any visitExprCondition(BaseParser::ExprConditionContext *context) = 0;
@@ -86,6 +112,10 @@ public:
     virtual std::any visitForEachEdge(BaseParser::ForEachEdgeContext *context) = 0;
 
     virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *context) = 0;
+
+    virtual std::any visitForEachElement(BaseParser::ForEachElementContext *context) = 0;
+
+    virtual std::any visitForEachPlain(BaseParser::ForEachPlainContext *context) = 0;
 
     virtual std::any visitWhileStatement(BaseParser::WhileStatementContext *context) = 0;
 
@@ -145,11 +175,19 @@ public:
 
     virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *context) = 0;
 
+    virtual std::any visitSetLitExpr(BaseParser::SetLitExprContext *context) = 0;
+
+    virtual std::any visitSetSizeExpr(BaseParser::SetSizeExprContext *context) = 0;
+
     virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *context) = 0;
 
     virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
 
+    virtual std::any visitSetContainsExpr(BaseParser::SetContainsExprContext *context) = 0;
+
     virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
+
+    virtual std::any visitNotExpr(BaseParser::NotExprContext *context) = 0;
 
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
 

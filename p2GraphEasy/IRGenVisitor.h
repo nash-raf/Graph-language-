@@ -60,11 +60,25 @@ public:
     void visitShowGraph(ShowGraphNode *S);
     void visitGraphComprehension(GraphComprehensionNode *GC);
 
+    void visitSetDecl(SetDeclNode *SD);
+    void visitSetOperation(SetOperationNode *setOp);
+    llvm::Value *visitSetExpr(ASTNode *expr);
+    llvm::Value *visitSetBinaryExpr(SetBinaryExprNode *binExpr);
+    llvm::SmallVector<ASTNode *, 8> flattenSetOperation(ASTNode *expr, const std::string &targetOp);
+    void visitSetMethodCall(SetMethodCallNode *node);
+    llvm::Value *visitSetContainsExpr(SetContainsExprNode *node);
 
 private:
     llvm::LLVMContext &Context;
     llvm::Module &Module;
     llvm::IRBuilder<> &Builder;
+
+    enum class SetValueKind
+    {
+        Unknown,
+        Nodes,
+        Edges
+    };
 
     std::unordered_map<std::string, llvm::Function *> FunctionProtos;
 
@@ -81,7 +95,22 @@ private:
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
     std::unordered_map<std::string, GraphDeclNode*> GraphAstMap;
-};
+    
+    std::unordered_map<std::string, llvm::Value *> GraphNodesMap;
+    std::unordered_map<std::string, llvm::Value *> GraphEdgesMap;
+    std::unordered_map<std::string, SetValueKind> SetKinds;
+
+    std::unordered_map<uint64_t, uint32_t> EdgePairToId;
+    std::vector<std::pair<int32_t, int32_t>> GlobalEdgePairs;
+    llvm::GlobalVariable *EdgePairsGV = nullptr;
+    uint64_t EdgePairsCount = 0;
+
+    void buildGlobalEdgeTable(ProgramNodePtr prog);
+    void emitEdgePairsGlobal();
+    std::vector<uint8_t> buildEdgeBlobForGraph(GraphDeclNode *G);
+    SetValueKind inferSetKind(ASTNode *expr);
+    uint32_t getOrAddEdgeId(int32_t u, int32_t v);
+};  
 
 
 #endif // IRGENVISITOR_H

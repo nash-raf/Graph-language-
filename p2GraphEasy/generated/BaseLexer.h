@@ -19,11 +19,12 @@ public:
     T__26 = 27, T__27 = 28, T__28 = 29, T__29 = 30, T__30 = 31, T__31 = 32, 
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
     T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, T__43 = 44, 
-    T__44 = 45, GRAPH = 46, WEIGHTS = 47, EDGE = 48, NODE = 49, TRUE = 50, 
-    FALSE = 51, OF = 52, PLUS = 53, MINUS = 54, TIMES = 55, DIVIDE = 56, 
-    AND = 57, OR = 58, EQUAL = 59, NOTEQUAL = 60, LESSTHAN = 61, GREATERTHAN = 62, 
-    LESSEQUAL = 63, GREATEREQUAL = 64, ID = 65, INT = 66, REAL = 67, STRING = 68, 
-    Comment = 69, WS = 70
+    T__44 = 45, T__45 = 46, T__46 = 47, T__47 = 48, T__48 = 49, GRAPH = 50, 
+    WEIGHTS = 51, SET = 52, UNION = 53, INTERSECT = 54, NOT = 55, MODULO = 56, 
+    EDGE = 57, NODE = 58, TRUE = 59, FALSE = 60, OF = 61, PLUS = 62, MINUS = 63, 
+    TIMES = 64, DIVIDE = 65, AND = 66, OR = 67, EQUAL = 68, NOTEQUAL = 69, 
+    LESSTHAN = 70, GREATERTHAN = 71, LESSEQUAL = 72, GREATEREQUAL = 73, 
+    ID = 74, INT = 75, REAL = 76, STRING = 77, Comment = 78, WS = 79
   };
 
   explicit BaseLexer(antlr4::CharStream *input);

@@ -1,0 +1,11 @@
+
+set a = {1,2,3};
+print a.contains(2);
+print a.contains(5);
+
+set b = {4,5,6};
+
+if (a.contains(2)) {
+    print "yes";
+}
+

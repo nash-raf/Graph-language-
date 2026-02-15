@@ -192,6 +192,39 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Real;
             return TypeKind::Real;
         }
+        // Built-in: numVertices(G) -> int
+        if (call->name == "numVertices" || call->name == "numEdges")
+        {
+            if (call->arguments.size() != 1)
+                error(call->name + " requires exactly 1 argument (graph)");
+            // Don't fully analyze the graph arg (it's looked up by name in IRGen)
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        // Built-in: degree(G, v) -> int
+        if (call->name == "degree")
+        {
+            if (call->arguments.size() != 2)
+                error("degree requires exactly 2 arguments (graph, vertex)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        // Built-in: hasEdge(G, u, v) -> bool
+        if (call->name == "hasEdge")
+        {
+            if (call->arguments.size() != 3)
+                error("hasEdge requires exactly 3 arguments (graph, u, v)");
+            call->resolvedType = TypeKind::Bool;
+            return TypeKind::Bool;
+        }
+        // Built-in: setSize(s) -> int
+        if (call->name == "setSize")
+        {
+            if (call->arguments.size() != 1)
+                error("setSize requires exactly 1 argument (set)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
         // Fall through to normal function call handling
         Symbol *sym = lookupSymbol(call->name);
         if (!sym || !sym->isFunction)
@@ -209,6 +242,41 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         call->resolvedType = sym->func.returnType;
         return sym->func.returnType;
     }
+    case ASTNodeType::SetContainsExpr:
+    {
+        auto *sc = static_cast<SetContainsExprNode *>(expr);
+        // Validate that the target set exists
+        if (sc->targetKind == SetTargetKind::Variable)
+        {
+            Symbol *sym = lookupSymbol(sc->targetName);
+            if (!sym)
+                error("set contains on undeclared variable: " + sc->targetName);
+        }
+        else
+        {
+            Symbol *gSym = lookupSymbol(sc->targetName);
+            if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
+                error("set contains on undeclared graph: " + sc->targetName);
+        }
+        if (sc->argument)
+            analyzeExpr(sc->argument.get());
+        return TypeKind::Bool;
+    }
+    case ASTNodeType::NotExpr:
+    {
+        auto *ne = static_cast<NotExprNode *>(expr);
+        TypeKind opTy = analyzeExpr(ne->operand.get());
+        if (opTy != TypeKind::Bool)
+            error("! (NOT) operator requires bool operand");
+        ne->resolvedType = TypeKind::Bool;
+        return TypeKind::Bool;
+    }
+    case ASTNodeType::SetLiteral:
+        return TypeKind::Set;
+    case ASTNodeType::SetBinaryExpr:
+        return TypeKind::Set;
+    case ASTNodeType::GraphMemberSet:
+        return TypeKind::Set;
     default:
         return TypeKind::Unknown;
     }
@@ -306,6 +374,15 @@ void SemanticAnalyzer::analyzeStatement(ASTNode *node)
         break;
     case ASTNodeType::FunctionCall:
         (void)analyzeExpr(node);
+        break;
+    case ASTNodeType::SetDecl:
+        analyzeSetDecl(static_cast<SetDeclNode *>(node));
+        break;
+    case ASTNodeType::SetOperation:
+        analyzeSetOperation(static_cast<SetOperationNode *>(node));
+        break;
+    case ASTNodeType::SetMethodCall:
+        analyzeSetMethodCall(static_cast<SetMethodCallNode *>(node));
         break;
     default:
         break;
@@ -407,6 +484,23 @@ void SemanticAnalyzer::analyzeWhile(WhileStmtNode *ws)
 
 void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
 {
+    if (fs->targetType == ForEachTargetType::Element)
+    {
+        // for each element v in setVar — the graphName field holds the set variable name
+        Symbol *sSym = lookupSymbol(fs->graphName);
+        if (!sSym || sSym->type != TypeKind::Set)
+            error("foreach element over non-set variable: " + fs->graphName);
+
+        enterScope();
+        Symbol varSym;
+        varSym.isFunction = false;
+        varSym.type = TypeKind::Int; // elements are uint32 -> int
+        declareSymbol(fs->var1, varSym);
+        analyzeBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        exitScope();
+        return;
+    }
+
     Symbol *gSym = lookupSymbol(fs->graphName);
     if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
         error("foreach over undeclared graph: " + fs->graphName);
@@ -416,9 +510,16 @@ void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
     varSym.isFunction = false;
     varSym.type = TypeKind::Int;
 
-    if (fs->targetType == ForEachTargetType::Vertex || fs->targetType == ForEachTargetType::Neighbor)
+    if (fs->targetType == ForEachTargetType::Vertex)
     {
         declareSymbol(fs->var1, varSym);
+    }
+    else if (fs->targetType == ForEachTargetType::Neighbor)
+    {
+        declareSymbol(fs->var1, varSym);
+        // Analyze the neighbor-of expression
+        if (fs->adjNodeExpr)
+            analyzeExpr(fs->adjNodeExpr.get());
     }
     else if (fs->targetType == ForEachTargetType::Edge)
     {
@@ -493,8 +594,9 @@ void SemanticAnalyzer::analyzeQuery(QueryNode *Q)
 void SemanticAnalyzer::analyzePrintStmt(PrintStmtNode *PS)
 {
     TypeKind t = analyzeExpr(PS->expr.get());
-    if (t == TypeKind::Void || t == TypeKind::Unknown)
-        error("print expects int, string, or array");
+    if (t == TypeKind::Void)
+        error("print expects int, string, array, or set");
+    // Allow Unknown (e.g. query arrays) and Set types through
 }
 
 void SemanticAnalyzer::analyzeReturnStmt(ReturnStmtNode *ret)
@@ -565,23 +667,23 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
     if (countDegree(GC->condition.get(), countDegree) > 1)
         error("graph comprehension supports at most one degree condition");
 
-    if (!GC->graphOperands.empty())
-    {
-        auto *base = dynamic_cast<GraphDeclNode *>(it->second);
-        if (!base)
-            error("graph comprehension base graph not found: " + GC->graphName);
-        for (const auto &rhsName : GC->graphOperands)
-        {
-            auto itR = graphDecls.find(rhsName);
-            if (itR == graphDecls.end())
-                error("graph comprehension uses undeclared graph: " + rhsName);
-            auto *rhs = dynamic_cast<GraphDeclNode *>(itR->second);
-            if (!rhs)
-                error("graph comprehension only supports unweighted graphs: " + rhsName);
-            if (base->materializedNodes != rhs->materializedNodes)
-                error("graph comprehension requires graphs with identical node sets/order");
-        }
-    }
+    // if (!GC->graphOperands.empty())
+    // {
+    //     auto *base = dynamic_cast<GraphDeclNode *>(it->second);
+    //     if (!base)
+    //         error("graph comprehension base graph not found: " + GC->graphName);
+    //     for (const auto &rhsName : GC->graphOperands)
+    //     {
+    //         auto itR = graphDecls.find(rhsName);
+    //         if (itR == graphDecls.end())
+    //             error("graph comprehension uses undeclared graph: " + rhsName);
+    //         auto *rhs = dynamic_cast<GraphDeclNode *>(itR->second);
+    //         if (!rhs)
+    //             error("graph comprehension only supports unweighted graphs: " + rhsName);
+    //         if (base->materializedNodes != rhs->materializedNodes)
+    //             error("graph comprehension requires graphs with identical node sets/order");
+    //     }
+    // }
 }
 
 void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDeclNode *G)
@@ -597,19 +699,56 @@ void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDec
     {
         return;
     }
-    if (cond->op == GraphConditionOp::Connected)
-    {
-        auto &nodes = G->materializedNodes;
-        if (std::find(nodes.begin(), nodes.end(), cond->nodeId) == nodes.end())
-        {
-            error("graph comprehension references missing node id: " + std::to_string(cond->nodeId));
-        }
-        return;
-    }
+    // if (cond->op == GraphConditionOp::Connected)
+    // {
+    //     auto &nodes = G->materializedNodes;
+    //     if (std::find(nodes.begin(), nodes.end(), cond->nodeId) == nodes.end())
+    //     {
+    //         error("graph comprehension references missing node id: " + std::to_string(cond->nodeId));
+    //     }
+    //     return;
+    // }
     if (cond->left)
         validateGraphCondition(cond->left.get(), G);
     if (cond->right)
         validateGraphCondition(cond->right.get(), G);
+}
+
+void SemanticAnalyzer::analyzeSetDecl(SetDeclNode *SD)
+{
+    Symbol sym;
+    sym.isFunction = false;
+    sym.type = TypeKind::Set;
+    declareSymbol(SD->name, sym);
+    // Initializer is a set literal or set binary expr — no deep validation needed
+}
+
+void SemanticAnalyzer::analyzeSetOperation(SetOperationNode *setOp)
+{
+    Symbol *sym = lookupSymbol(setOp->targetName);
+    if (!sym)
+        error("set operation on undeclared variable: " + setOp->targetName);
+    if (sym->type != TypeKind::Set)
+        error("set operation on non-set variable: " + setOp->targetName);
+}
+
+void SemanticAnalyzer::analyzeSetMethodCall(SetMethodCallNode *node)
+{
+    if (node->targetKind == SetTargetKind::Variable)
+    {
+        Symbol *sym = lookupSymbol(node->targetName);
+        if (!sym)
+            error("set method call on undeclared variable: " + node->targetName);
+    }
+    else
+    {
+        // GraphNodes or GraphEdges — verify graph exists
+        Symbol *gSym = lookupSymbol(node->targetName);
+        if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
+            error("set method on undeclared graph: " + node->targetName);
+    }
+    if (node->argument)
+        analyzeExpr(node->argument.get());
 }
 
 [[noreturn]] void SemanticAnalyzer::error(const std::string &msg) const

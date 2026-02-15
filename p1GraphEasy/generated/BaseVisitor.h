@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.0
+// Generated from Base.g4 by ANTLR 4.13.1
 
 #pragma once
 
@@ -109,6 +109,8 @@ public:
 
     virtual std::any visitArgumentList(BaseParser::ArgumentListContext *context) = 0;
 
+    virtual std::any visitSleepStatement(BaseParser::SleepStatementContext *context) = 0;
+
     virtual std::any visitBlock(BaseParser::BlockContext *context) = 0;
 
     virtual std::any visitReturnStatement(BaseParser::ReturnStatementContext *context) = 0;
@@ -124,6 +126,8 @@ public:
     virtual std::any visitGraphPrint(BaseParser::GraphPrintContext *context) = 0;
 
     virtual std::any visitBoolTrueExpr(BaseParser::BoolTrueExprContext *context) = 0;
+
+    virtual std::any visitTimerExpr(BaseParser::TimerExprContext *context) = 0;
 
     virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
 

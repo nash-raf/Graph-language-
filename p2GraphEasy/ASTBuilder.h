@@ -23,6 +23,7 @@ public:
     antlrcpp::Any visitForeachStatement(BaseParser::ForeachStatementContext *ctx) override;
 
     antlrcpp::Any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) override;
+    antlrcpp::Any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx);
     antlrcpp::Any visitFunction(BaseParser::FunctionContext *ctx) override;
     antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
     antlrcpp::Any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override;

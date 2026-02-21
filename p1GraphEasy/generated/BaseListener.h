@@ -20,8 +20,11 @@ public:
   virtual void enterStatement(BaseParser::StatementContext *ctx) = 0;
   virtual void exitStatement(BaseParser::StatementContext *ctx) = 0;
 
-  virtual void enterGraphDef(BaseParser::GraphDefContext *ctx) = 0;
-  virtual void exitGraphDef(BaseParser::GraphDefContext *ctx) = 0;
+  virtual void enterWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) = 0;
+  virtual void exitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) = 0;
+
+  virtual void enterUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) = 0;
+  virtual void exitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) = 0;
 
   virtual void enterNodes(BaseParser::NodesContext *ctx) = 0;
   virtual void exitNodes(BaseParser::NodesContext *ctx) = 0;
@@ -53,8 +56,50 @@ public:
   virtual void enterArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) = 0;
   virtual void exitArrayDeclaration(BaseParser::ArrayDeclarationContext *ctx) = 0;
 
+  virtual void enterSetDecl(BaseParser::SetDeclContext *ctx) = 0;
+  virtual void exitSetDecl(BaseParser::SetDeclContext *ctx) = 0;
+
+  virtual void enterSetInitializer(BaseParser::SetInitializerContext *ctx) = 0;
+  virtual void exitSetInitializer(BaseParser::SetInitializerContext *ctx) = 0;
+
+  virtual void enterSetOperation(BaseParser::SetOperationContext *ctx) = 0;
+  virtual void exitSetOperation(BaseParser::SetOperationContext *ctx) = 0;
+
+  virtual void enterSetTarget(BaseParser::SetTargetContext *ctx) = 0;
+  virtual void exitSetTarget(BaseParser::SetTargetContext *ctx) = 0;
+
+  virtual void enterSetUnion(BaseParser::SetUnionContext *ctx) = 0;
+  virtual void exitSetUnion(BaseParser::SetUnionContext *ctx) = 0;
+
+  virtual void enterGraphEdgesSet(BaseParser::GraphEdgesSetContext *ctx) = 0;
+  virtual void exitGraphEdgesSet(BaseParser::GraphEdgesSetContext *ctx) = 0;
+
+  virtual void enterSetIntersect(BaseParser::SetIntersectContext *ctx) = 0;
+  virtual void exitSetIntersect(BaseParser::SetIntersectContext *ctx) = 0;
+
+  virtual void enterSetId(BaseParser::SetIdContext *ctx) = 0;
+  virtual void exitSetId(BaseParser::SetIdContext *ctx) = 0;
+
+  virtual void enterSetLiteral(BaseParser::SetLiteralContext *ctx) = 0;
+  virtual void exitSetLiteral(BaseParser::SetLiteralContext *ctx) = 0;
+
+  virtual void enterParenSet(BaseParser::ParenSetContext *ctx) = 0;
+  virtual void exitParenSet(BaseParser::ParenSetContext *ctx) = 0;
+
+  virtual void enterGraphNodesSet(BaseParser::GraphNodesSetContext *ctx) = 0;
+  virtual void exitGraphNodesSet(BaseParser::GraphNodesSetContext *ctx) = 0;
+
+  virtual void enterSetAddMethod(BaseParser::SetAddMethodContext *ctx) = 0;
+  virtual void exitSetAddMethod(BaseParser::SetAddMethodContext *ctx) = 0;
+
+  virtual void enterSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx) = 0;
+  virtual void exitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx) = 0;
+
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext *ctx) = 0;
+
+  virtual void enterExprCondition(BaseParser::ExprConditionContext *ctx) = 0;
+  virtual void exitExprCondition(BaseParser::ExprConditionContext *ctx) = 0;
 
   virtual void enterNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
   virtual void exitNodeCheck(BaseParser::NodeCheckContext *ctx) = 0;
@@ -74,11 +119,17 @@ public:
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
 
+  virtual void enterGraphExpr(BaseParser::GraphExprContext *ctx) = 0;
+  virtual void exitGraphExpr(BaseParser::GraphExprContext *ctx) = 0;
+
   virtual void enterGraphLogicalAnd(BaseParser::GraphLogicalAndContext *ctx) = 0;
   virtual void exitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *ctx) = 0;
 
   virtual void enterDegreeCondition(BaseParser::DegreeConditionContext *ctx) = 0;
   virtual void exitDegreeCondition(BaseParser::DegreeConditionContext *ctx) = 0;
+
+  virtual void enterCycleCondition(BaseParser::CycleConditionContext *ctx) = 0;
+  virtual void exitCycleCondition(BaseParser::CycleConditionContext *ctx) = 0;
 
   virtual void enterConnectedCondition(BaseParser::ConnectedConditionContext *ctx) = 0;
   virtual void exitConnectedCondition(BaseParser::ConnectedConditionContext *ctx) = 0;
@@ -103,6 +154,12 @@ public:
 
   virtual void enterForEachAdj(BaseParser::ForEachAdjContext *ctx) = 0;
   virtual void exitForEachAdj(BaseParser::ForEachAdjContext *ctx) = 0;
+
+  virtual void enterForEachElement(BaseParser::ForEachElementContext *ctx) = 0;
+  virtual void exitForEachElement(BaseParser::ForEachElementContext *ctx) = 0;
+
+  virtual void enterForEachPlain(BaseParser::ForEachPlainContext *ctx) = 0;
+  virtual void exitForEachPlain(BaseParser::ForEachPlainContext *ctx) = 0;
 
   virtual void enterWhileStatement(BaseParser::WhileStatementContext *ctx) = 0;
   virtual void exitWhileStatement(BaseParser::WhileStatementContext *ctx) = 0;
@@ -158,11 +215,20 @@ public:
   virtual void enterReturnStatement(BaseParser::ReturnStatementContext *ctx) = 0;
   virtual void exitReturnStatement(BaseParser::ReturnStatementContext *ctx) = 0;
 
+  virtual void enterBreakStatement(BaseParser::BreakStatementContext *ctx) = 0;
+  virtual void exitBreakStatement(BaseParser::BreakStatementContext *ctx) = 0;
+
+  virtual void enterContinueStatement(BaseParser::ContinueStatementContext *ctx) = 0;
+  virtual void exitContinueStatement(BaseParser::ContinueStatementContext *ctx) = 0;
+
   virtual void enterPrintStatement(BaseParser::PrintStatementContext *ctx) = 0;
   virtual void exitPrintStatement(BaseParser::PrintStatementContext *ctx) = 0;
 
   virtual void enterPrintExpr(BaseParser::PrintExprContext *ctx) = 0;
   virtual void exitPrintExpr(BaseParser::PrintExprContext *ctx) = 0;
+
+  virtual void enterPrintArrayStatement(BaseParser::PrintArrayStatementContext *ctx) = 0;
+  virtual void exitPrintArrayStatement(BaseParser::PrintArrayStatementContext *ctx) = 0;
 
   virtual void enterEdgePrint(BaseParser::EdgePrintContext *ctx) = 0;
   virtual void exitEdgePrint(BaseParser::EdgePrintContext *ctx) = 0;
@@ -179,9 +245,6 @@ public:
   virtual void enterTimerExpr(BaseParser::TimerExprContext *ctx) = 0;
   virtual void exitTimerExpr(BaseParser::TimerExprContext *ctx) = 0;
 
-  virtual void enterMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
-  virtual void exitMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
-
   virtual void enterIdExpr(BaseParser::IdExprContext *ctx) = 0;
   virtual void exitIdExpr(BaseParser::IdExprContext *ctx) = 0;
 
@@ -191,20 +254,53 @@ public:
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext *ctx) = 0;
 
+  virtual void enterSetLitExpr(BaseParser::SetLitExprContext *ctx) = 0;
+  virtual void exitSetLitExpr(BaseParser::SetLitExprContext *ctx) = 0;
+
+  virtual void enterSetSizeExpr(BaseParser::SetSizeExprContext *ctx) = 0;
+  virtual void exitSetSizeExpr(BaseParser::SetSizeExprContext *ctx) = 0;
+
+  virtual void enterArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) = 0;
+  virtual void exitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) = 0;
+
+  virtual void enterArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
+  virtual void exitArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
+
+  virtual void enterInfExpr(BaseParser::InfExprContext *ctx) = 0;
+  virtual void exitInfExpr(BaseParser::InfExprContext *ctx) = 0;
+
+  virtual void enterFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
+  virtual void exitFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
+
+  virtual void enterSetContainsExpr(BaseParser::SetContainsExprContext *ctx) = 0;
+  virtual void exitSetContainsExpr(BaseParser::SetContainsExprContext *ctx) = 0;
+
+  virtual void enterMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
+  virtual void exitMulDivExpr(BaseParser::MulDivExprContext *ctx) = 0;
+
+  virtual void enterNotExpr(BaseParser::NotExprContext *ctx) = 0;
+  virtual void exitNotExpr(BaseParser::NotExprContext *ctx) = 0;
+
   virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
   virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;
 
   virtual void enterParenExpr(BaseParser::ParenExprContext *ctx) = 0;
   virtual void exitParenExpr(BaseParser::ParenExprContext *ctx) = 0;
 
-  virtual void enterFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
-  virtual void exitFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
-
   virtual void enterRealExpr(BaseParser::RealExprContext *ctx) = 0;
   virtual void exitRealExpr(BaseParser::RealExprContext *ctx) = 0;
 
+  virtual void enterLogicalExpr(BaseParser::LogicalExprContext *ctx) = 0;
+  virtual void exitLogicalExpr(BaseParser::LogicalExprContext *ctx) = 0;
+
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
+
+  virtual void enterUnaryMinusExpr(BaseParser::UnaryMinusExprContext *ctx) = 0;
+  virtual void exitUnaryMinusExpr(BaseParser::UnaryMinusExprContext *ctx) = 0;
+
+  virtual void enterSized2DArray(BaseParser::Sized2DArrayContext *ctx) = 0;
+  virtual void exitSized2DArray(BaseParser::Sized2DArrayContext *ctx) = 0;
 
   virtual void enterSizedArray(BaseParser::SizedArrayContext *ctx) = 0;
   virtual void exitSizedArray(BaseParser::SizedArrayContext *ctx) = 0;
@@ -218,8 +314,14 @@ public:
   virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
   virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
 
+  virtual void enterArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) = 0;
+  virtual void exitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) = 0;
+
   virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
   virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
+
+  virtual void enterWeights(BaseParser::WeightsContext *ctx) = 0;
+  virtual void exitWeights(BaseParser::WeightsContext *ctx) = 0;
 
 
 };

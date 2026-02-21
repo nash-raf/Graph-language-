@@ -5,6 +5,8 @@ synth_graphs/*
 synth_graphs_weighted/*
 synth_graphs_weighted_graphit/*
 synth_graphs_violin/*
+synth_graphs_unweighted/*
 *.wel
 p2GraphEasy/final_program
 p2GraphEasy/GraphProgram 
+

@@ -1,0 +1,24 @@
+graph G {
+
+    edges: file '../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt';
+
+};
+int n = numVertices(G);
+int dist[n];
+set visited;
+set frontier = {0};
+int level = 0;
+while (frontier.size() > 0) {
+    set next_frontier = {};
+    for each v in frontier {
+        dist[v] = level;
+        visited.add(v);
+        for each neighbor u of v in G {
+            if (!visited.contains(u)) {
+                next_frontier.add(u);
+            }
+        }
+    }
+    frontier = next_frontier;
+    level = level + 1;
+}

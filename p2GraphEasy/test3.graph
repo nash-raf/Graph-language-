@@ -1,0 +1,7 @@
+graph G {
+
+    edges: file '../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt';
+
+};
+
+query k : "bfs" of G;

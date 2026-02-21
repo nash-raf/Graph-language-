@@ -100,6 +100,19 @@ private:
     std::unordered_map<std::string, llvm::Value *> GraphEdgesMap;
     std::unordered_map<std::string, SetValueKind> SetKinds;
 
+    // Loop stack for break/continue support
+    struct LoopInfo {
+        llvm::BasicBlock *condBB;   // where continue jumps to
+        llvm::BasicBlock *mergeBB;  // where break jumps to
+    };
+    std::vector<LoopInfo> LoopStack;
+
+    // 2D array metadata: name -> {cols alloca}
+    struct Array2DMeta {
+        llvm::Value *colsVal;  // number of columns (i32)
+    };
+    std::unordered_map<std::string, Array2DMeta> Array2DMap;
+
     std::unordered_map<uint64_t, uint32_t> EdgePairToId;
     std::vector<std::pair<int32_t, int32_t>> GlobalEdgePairs;
     llvm::GlobalVariable *EdgePairsGV = nullptr;

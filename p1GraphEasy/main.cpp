@@ -42,6 +42,8 @@
 
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
+#include "SemanticAnalyzer.h"
+
 
 using namespace antlr4;
 using namespace llvm;
@@ -88,6 +90,20 @@ int main(int argc, char **argv)
 
     LLVMContext Ctx;
     auto M = std::make_unique<Module>("my_module", Ctx);
+
+
+    // exit(0);
+    try
+    {
+        SemanticAnalyzer sema(prog);
+        sema.analyze();
+    }
+    catch (const std::exception &ex)
+    {
+        errs() << ex.what() << "\n";
+        return 1;
+    }
+    
     IRBuilder<> IRB(Ctx);
 
     IRGenVisitor irgen(Ctx, *M, IRB);

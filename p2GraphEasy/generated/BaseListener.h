@@ -215,6 +215,12 @@ public:
   virtual void enterReturnStatement(BaseParser::ReturnStatementContext *ctx) = 0;
   virtual void exitReturnStatement(BaseParser::ReturnStatementContext *ctx) = 0;
 
+  virtual void enterBreakStatement(BaseParser::BreakStatementContext *ctx) = 0;
+  virtual void exitBreakStatement(BaseParser::BreakStatementContext *ctx) = 0;
+
+  virtual void enterContinueStatement(BaseParser::ContinueStatementContext *ctx) = 0;
+  virtual void exitContinueStatement(BaseParser::ContinueStatementContext *ctx) = 0;
+
   virtual void enterPrintStatement(BaseParser::PrintStatementContext *ctx) = 0;
   virtual void exitPrintStatement(BaseParser::PrintStatementContext *ctx) = 0;
 
@@ -254,8 +260,14 @@ public:
   virtual void enterSetSizeExpr(BaseParser::SetSizeExprContext *ctx) = 0;
   virtual void exitSetSizeExpr(BaseParser::SetSizeExprContext *ctx) = 0;
 
+  virtual void enterArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) = 0;
+  virtual void exitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *ctx) = 0;
+
   virtual void enterArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
   virtual void exitArrayPrint(BaseParser::ArrayPrintContext *ctx) = 0;
+
+  virtual void enterInfExpr(BaseParser::InfExprContext *ctx) = 0;
+  virtual void exitInfExpr(BaseParser::InfExprContext *ctx) = 0;
 
   virtual void enterFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
   virtual void exitFuncExpr(BaseParser::FuncExprContext *ctx) = 0;
@@ -284,6 +296,12 @@ public:
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext *ctx) = 0;
 
+  virtual void enterUnaryMinusExpr(BaseParser::UnaryMinusExprContext *ctx) = 0;
+  virtual void exitUnaryMinusExpr(BaseParser::UnaryMinusExprContext *ctx) = 0;
+
+  virtual void enterSized2DArray(BaseParser::Sized2DArrayContext *ctx) = 0;
+  virtual void exitSized2DArray(BaseParser::Sized2DArrayContext *ctx) = 0;
+
   virtual void enterSizedArray(BaseParser::SizedArrayContext *ctx) = 0;
   virtual void exitSizedArray(BaseParser::SizedArrayContext *ctx) = 0;
 
@@ -295,6 +313,9 @@ public:
 
   virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
   virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext *ctx) = 0;
+
+  virtual void enterArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) = 0;
+  virtual void exitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx) = 0;
 
   virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;
   virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx) = 0;

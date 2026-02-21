@@ -23,7 +23,9 @@ public:
 
     virtual std::any visitStatement(BaseParser::StatementContext *context) = 0;
 
-    virtual std::any visitGraphDef(BaseParser::GraphDefContext *context) = 0;
+    virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *context) = 0;
+
+    virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
 
     virtual std::any visitNodes(BaseParser::NodesContext *context) = 0;
 
@@ -45,7 +47,35 @@ public:
 
     virtual std::any visitArrayDeclaration(BaseParser::ArrayDeclarationContext *context) = 0;
 
+    virtual std::any visitSetDecl(BaseParser::SetDeclContext *context) = 0;
+
+    virtual std::any visitSetInitializer(BaseParser::SetInitializerContext *context) = 0;
+
+    virtual std::any visitSetOperation(BaseParser::SetOperationContext *context) = 0;
+
+    virtual std::any visitSetTarget(BaseParser::SetTargetContext *context) = 0;
+
+    virtual std::any visitSetUnion(BaseParser::SetUnionContext *context) = 0;
+
+    virtual std::any visitGraphEdgesSet(BaseParser::GraphEdgesSetContext *context) = 0;
+
+    virtual std::any visitSetIntersect(BaseParser::SetIntersectContext *context) = 0;
+
+    virtual std::any visitSetId(BaseParser::SetIdContext *context) = 0;
+
+    virtual std::any visitSetLiteral(BaseParser::SetLiteralContext *context) = 0;
+
+    virtual std::any visitParenSet(BaseParser::ParenSetContext *context) = 0;
+
+    virtual std::any visitGraphNodesSet(BaseParser::GraphNodesSetContext *context) = 0;
+
+    virtual std::any visitSetAddMethod(BaseParser::SetAddMethodContext *context) = 0;
+
+    virtual std::any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *context) = 0;
+
     virtual std::any visitConditionalStatement(BaseParser::ConditionalStatementContext *context) = 0;
+
+    virtual std::any visitExprCondition(BaseParser::ExprConditionContext *context) = 0;
 
     virtual std::any visitNodeCheck(BaseParser::NodeCheckContext *context) = 0;
 
@@ -59,9 +89,13 @@ public:
 
     virtual std::any visitGraphComprehension(BaseParser::GraphComprehensionContext *context) = 0;
 
+    virtual std::any visitGraphExpr(BaseParser::GraphExprContext *context) = 0;
+
     virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *context) = 0;
 
     virtual std::any visitDegreeCondition(BaseParser::DegreeConditionContext *context) = 0;
+
+    virtual std::any visitCycleCondition(BaseParser::CycleConditionContext *context) = 0;
 
     virtual std::any visitConnectedCondition(BaseParser::ConnectedConditionContext *context) = 0;
 
@@ -78,6 +112,10 @@ public:
     virtual std::any visitForEachEdge(BaseParser::ForEachEdgeContext *context) = 0;
 
     virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *context) = 0;
+
+    virtual std::any visitForEachElement(BaseParser::ForEachElementContext *context) = 0;
+
+    virtual std::any visitForEachPlain(BaseParser::ForEachPlainContext *context) = 0;
 
     virtual std::any visitWhileStatement(BaseParser::WhileStatementContext *context) = 0;
 
@@ -115,9 +153,15 @@ public:
 
     virtual std::any visitReturnStatement(BaseParser::ReturnStatementContext *context) = 0;
 
+    virtual std::any visitBreakStatement(BaseParser::BreakStatementContext *context) = 0;
+
+    virtual std::any visitContinueStatement(BaseParser::ContinueStatementContext *context) = 0;
+
     virtual std::any visitPrintStatement(BaseParser::PrintStatementContext *context) = 0;
 
     virtual std::any visitPrintExpr(BaseParser::PrintExprContext *context) = 0;
+
+    virtual std::any visitPrintArrayStatement(BaseParser::PrintArrayStatementContext *context) = 0;
 
     virtual std::any visitEdgePrint(BaseParser::EdgePrintContext *context) = 0;
 
@@ -129,23 +173,43 @@ public:
 
     virtual std::any visitTimerExpr(BaseParser::TimerExprContext *context) = 0;
 
-    virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
-
     virtual std::any visitIdExpr(BaseParser::IdExprContext *context) = 0;
 
     virtual std::any visitBoolFalseExpr(BaseParser::BoolFalseExprContext *context) = 0;
 
     virtual std::any visitArrayAccessExpr(BaseParser::ArrayAccessExprContext *context) = 0;
 
+    virtual std::any visitSetLitExpr(BaseParser::SetLitExprContext *context) = 0;
+
+    virtual std::any visitSetSizeExpr(BaseParser::SetSizeExprContext *context) = 0;
+
+    virtual std::any visitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *context) = 0;
+
+    virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *context) = 0;
+
+    virtual std::any visitInfExpr(BaseParser::InfExprContext *context) = 0;
+
+    virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
+
+    virtual std::any visitSetContainsExpr(BaseParser::SetContainsExprContext *context) = 0;
+
+    virtual std::any visitMulDivExpr(BaseParser::MulDivExprContext *context) = 0;
+
+    virtual std::any visitNotExpr(BaseParser::NotExprContext *context) = 0;
+
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
 
     virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
 
-    virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
-
     virtual std::any visitRealExpr(BaseParser::RealExprContext *context) = 0;
 
+    virtual std::any visitLogicalExpr(BaseParser::LogicalExprContext *context) = 0;
+
     virtual std::any visitAddSubExpr(BaseParser::AddSubExprContext *context) = 0;
+
+    virtual std::any visitUnaryMinusExpr(BaseParser::UnaryMinusExprContext *context) = 0;
+
+    virtual std::any visitSized2DArray(BaseParser::Sized2DArrayContext *context) = 0;
 
     virtual std::any visitSizedArray(BaseParser::SizedArrayContext *context) = 0;
 
@@ -155,7 +219,11 @@ public:
 
     virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *context) = 0;
 
+    virtual std::any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *context) = 0;
+
     virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *context) = 0;
+
+    virtual std::any visitWeights(BaseParser::WeightsContext *context) = 0;
 
 
 };

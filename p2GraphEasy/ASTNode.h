@@ -74,7 +74,11 @@ enum class ASTNodeType
     SetMethodCall,
     GraphMemberSet,
     SetContainsExpr,
-    NotExpr
+    NotExpr,
+    BreakStmt,
+    ContinueStmt,
+    UnaryMinusExpr,
+    Array2DAccess
 };
 
 enum class GraphUpdateKind { Add, Remove };
@@ -260,6 +264,13 @@ public:
     bool isArray = false;
     size_t arraySize = 0;          // static size (0 = unknown at compile time)
     ASTNodePtr arraySizeExpr;      // dynamic size expression (e.g. int arr[n])
+
+    // 2D array support
+    bool isArray2D = false;
+    size_t array2DRows = 0;
+    size_t array2DCols = 0;
+    ASTNodePtr array2DRowsExpr;    // dynamic rows
+    ASTNodePtr array2DColsExpr;    // dynamic cols
 
     // Semantic type annotation (set during semantic analysis)
     TypeKind resolvedType = TypeKind::Unknown;
@@ -1043,5 +1054,53 @@ public:
         : ASTNode(ASTNodeType::NotExpr), operand(std::move(op)) {}
 };
 
+class BreakStmtNode : public ASTNode
+{
+public:
+    BreakStmtNode() : ASTNode(ASTNodeType::BreakStmt) {}
+};
+
+class ContinueStmtNode : public ASTNode
+{
+public:
+    ContinueStmtNode() : ASTNode(ASTNodeType::ContinueStmt) {}
+};
+
+class UnaryMinusExprNode : public ASTNode
+{
+public:
+    ASTNodePtr operand;
+    TypeKind resolvedType = TypeKind::Unknown;
+
+    UnaryMinusExprNode(ASTNodePtr op)
+        : ASTNode(ASTNodeType::UnaryMinusExpr), operand(std::move(op)) {}
+};
+
+class Array2DAccessNode : public ASTNode
+{
+public:
+    ASTNodePtr arrayExpr;   // the base variable
+    ASTNodePtr rowExpr;     // first index
+    ASTNodePtr colExpr;     // second index
+    TypeKind resolvedType = TypeKind::Unknown;
+
+    Array2DAccessNode(ASTNodePtr arr, ASTNodePtr row, ASTNodePtr col)
+        : ASTNode(ASTNodeType::Array2DAccess),
+          arrayExpr(std::move(arr)),
+          rowExpr(std::move(row)),
+          colExpr(std::move(col)) {}
+};
+
+// Extended VarDeclNode to support 2D arrays
+// isArray2D flag + rows/cols for 2D
+class VarDecl2DInfo
+{
+public:
+    bool is2D = false;
+    size_t rows = 0;        // static row count
+    size_t cols = 0;        // static col count
+    ASTNodePtr rowsExpr;    // dynamic row expression
+    ASTNodePtr colsExpr;    // dynamic col expression
+};
 
 #endif // ASTNODE_H

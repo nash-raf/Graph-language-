@@ -1,5 +1,5 @@
 
- // this one : g++ -c roaring_bitmap.cpp -O3 -mavx2 -o roaring_bitmap.o
+ // this one : `g++ -c roaring_bitmap.cpp -O3 -mavx2 -o roaring_bitmap.o`
 g++ -c roaring_bitmap.cpp -O3 -march=native -o roaring_bitmap.o
 
 

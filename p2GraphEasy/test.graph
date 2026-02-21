@@ -3,11 +3,23 @@
 
 
 
+
 /*
 
-graph G { nodes: 0,1,2,3,4; 
+graph mmm { nodes: 0,1,2,3,4; 
 edges: 0->1, 1->2, 2->3, 3->4; 
 };
+*/ 
+
+graph G{
+  //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
+  edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1.txt";
+};
+
+query k : "bfs" of G;
+/*
+real t0 = timer();
+
 int n = numVertices(G);
 int dist[n];
 set visited;
@@ -27,7 +39,14 @@ while (frontier.size() > 0) {
     frontier = next_frontier;
     level = level + 1;
 }
+
+real t1 = timer();
+real elapsed = t1 - t0;
 print dist[1];
+print elapsed;
+*/
+
+/*
 
 
 set a = {1,2,3};
@@ -212,6 +231,24 @@ fn int add1(int a, int b) {
 }
 
 fn real half(real x) {
+  return x / 2.0;
+}
+
+fn bool both(bool x, bool y) {
+  return x || y ;
+}
+
+fn bool both1(bool x, bool y) {
+  return x && y ;
+}
+
+print add1(4,5);
+print half(5.0);
+print both(FALSE, FALSE);
+print both1(TRUE, TRUE);
+*/
+
+l half(real x) {
   return x / 2.0;
 }
 

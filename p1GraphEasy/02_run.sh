@@ -63,11 +63,12 @@ if [[ -z "$IR_OVERRIDE" ]]; then
 
   g++ \
     -g -std=c++17 -fexceptions \
+    -mavx2 -march=native \
     $ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp\
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp\
     generated/*.cpp \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \

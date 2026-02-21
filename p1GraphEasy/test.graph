@@ -1,24 +1,244 @@
 
-int j = 0;
-int arr[10]= [1,2,3,4,5,6,7,8,9,10];
 
-while(j<10){
-    arr[j] = j+1;
-    j =j+1;
+
+
+
+
+
+/*
+graph mmm { nodes: 0,1,2,3,4; 
+edges: 0->1, 1->2, 2->3, 3->4; 
+};
+query k : "bfs" of G;
+
+*/
+
+graph G{
+  //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
+  edges: file "../synth_graphs_unweighted/synth_v_50000_e_50000.txt";
+};
+real t0 = timer();
+int n = numVertices(G);
+int dist[n];
+set visited;
+set frontier = {2};
+int level = 0;
+while (frontier.size() > 0) {
+    set next_frontier = {};
+    for each v in frontier {
+        dist[v] = level;
+        visited.add(v);
+        for each neighbor u of v in G {
+            if (!visited.contains(u)) {
+                next_frontier.add(u);
+            }
+        }
+    }
+    frontier = next_frontier;
+    level = level + 1;
 }
-int i = 0;
-int k = 0;
-while(i<10){
-    k = arr[i];
-    // print k;
-    i=i+1;
-}
-print k;
+real t1 = timer();
+real elapsed = t1 - t0;
+print dist[1];
+print elapsed;
+
+
+
+
+
 /*
 
-graph g {
-    edges: file '../real_graphs/ia-dbpedia.txt';
+graph G {
+    nodes: 1,2,3;
+    edges: 1->2, 2->3;
 };
-query k: 'dfs' of g;
+
+set x = G.nodes;
+print x;
+
+set y = G.edges;
+print y;
+
+
+
+set a = {1,2,3,4,5};
+set b = {2,4,6,8};
+set c = {1,3,5,7};
+set d = {5,6,7,8};
+
+set result = ((a intersect b) union (c intersect d)) union a;
+
+print result;
+
+
+
+set a = {1,2,3,4};
+
+a.remove(2);
+a.remove(4);
+
+print a;
+
+
+
+set a = {1,2};
+
+a.add(3);
+a.add(4);
+
+print a;
+
+
+set a = {1,2,3};
+set b = {2,3,4};
+set c = {3,4,5};
+set d = {4,5,6};
+
+set result = (a union b) intersect (c union d);
+
+print result;
+
+
+
+set a = {1,2,3};
+set b = {2,3};
+
+a = a intersect b;
+
+print a;
+
+
+
+set empty = {};
+set a = {1,2,3};
+
+set u = a union empty;
+set i = a intersect empty;
+
+print u;
+print i;
+
+
+
+set a = {1,2,3};
+
+set b = a union a;
+set c = a intersect a;
+
+print b;
+print c;
+
+
+
+set a = {1,2,3};
+set b = {2,3,4};
+set c = {3,4,5};
+
+set d = a union (b intersect c);
+
+print d;
+
+
+set a = {1,2,3};
+set b = {2,3,4};
+set c = {3,4,5};
+
+set d = a union b intersect c;
+
+print d;
+
+
+set a = {1,2,3};
+set b = {3,4,5};
+
+set c = a union b;
+
+print c;
+
+*/
+/*
+
+print 5;
+
+
+real start = timer();
+int j = 0;
+while(j<3){
+  sleep(1);
+  j=j+1;
+}
+real end = timer();
+real elapsed = end - start;
+print elapsed;
+
+int x = 3;
+int y = 7;
+print x + 7;
+
+bool b = TRUE;
+print b;
+
+real r = 3.5;
+real s = 2.0;
+print r + s;
+
+//int x = 0;
+bool ok = TRUE;
+
+if (ok == TRUE) { 
+    print 1;
+     }
+if (ok){
+    print 1;
+}
+
+while (x < 3) {
+  print x;
+  x = x + 1;
+}
+
+int a[5] = [1,2,3,4,5];
+print a[0];
+int k = a[0];
+print k;
+
+fn int add1(int a, int b) {
+  return a + b;
+}
+
+fn real half(real x) {
+  return x / 2.0;
+}
+
+fn bool both(bool x, bool y) {
+  return x || y ;
+}
+
+fn bool both1(bool x, bool y) {
+  return x && y ;
+}
+
+print add1(4,5);
+print half(5.0);
+print both(FALSE, FALSE);
+print both1(TRUE, TRUE);
+
+
+half(real x) {
+  return x / 2.0;
+}
+
+fn bool both(bool x, bool y) {
+  return x || y ;
+}
+
+fn bool both1(bool x, bool y) {
+  return x && y ;
+}
+
+print add1(4,5);
+print half(5.0);
+print both(FALSE, FALSE);
+print both1(TRUE, TRUE);
 */
 

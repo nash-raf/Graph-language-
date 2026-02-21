@@ -153,6 +153,10 @@ public:
 
     virtual std::any visitReturnStatement(BaseParser::ReturnStatementContext *context) = 0;
 
+    virtual std::any visitBreakStatement(BaseParser::BreakStatementContext *context) = 0;
+
+    virtual std::any visitContinueStatement(BaseParser::ContinueStatementContext *context) = 0;
+
     virtual std::any visitPrintStatement(BaseParser::PrintStatementContext *context) = 0;
 
     virtual std::any visitPrintExpr(BaseParser::PrintExprContext *context) = 0;
@@ -179,7 +183,11 @@ public:
 
     virtual std::any visitSetSizeExpr(BaseParser::SetSizeExprContext *context) = 0;
 
+    virtual std::any visitArray2DAccessExpr(BaseParser::Array2DAccessExprContext *context) = 0;
+
     virtual std::any visitArrayPrint(BaseParser::ArrayPrintContext *context) = 0;
+
+    virtual std::any visitInfExpr(BaseParser::InfExprContext *context) = 0;
 
     virtual std::any visitFuncExpr(BaseParser::FuncExprContext *context) = 0;
 
@@ -199,6 +207,10 @@ public:
 
     virtual std::any visitAddSubExpr(BaseParser::AddSubExprContext *context) = 0;
 
+    virtual std::any visitUnaryMinusExpr(BaseParser::UnaryMinusExprContext *context) = 0;
+
+    virtual std::any visitSized2DArray(BaseParser::Sized2DArrayContext *context) = 0;
+
     virtual std::any visitSizedArray(BaseParser::SizedArrayContext *context) = 0;
 
     virtual std::any visitUnsizedArray(BaseParser::UnsizedArrayContext *context) = 0;
@@ -206,6 +218,8 @@ public:
     virtual std::any visitArrayInitializer(BaseParser::ArrayInitializerContext *context) = 0;
 
     virtual std::any visitAssignmentStatement(BaseParser::AssignmentStatementContext *context) = 0;
+
+    virtual std::any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *context) = 0;
 
     virtual std::any visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *context) = 0;
 

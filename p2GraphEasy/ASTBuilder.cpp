@@ -71,8 +71,11 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     }
     else if (ctx->arrayAssignStatement())
     {
-        // ctx->arrayAssignStatement() returns BaseParser::ArrayAssignStatementContext*
-        // but our visitArrayAssignStmt expects BaseParser::ArrayAssignStmtContext* (the labeled alt).
+        // Check if it's a 2D array assignment first
+        if (auto *arr2DAlt = dynamic_cast<BaseParser::Array2DAssignStmtContext *>(ctx->arrayAssignStatement()))
+        {
+            return visitArray2DAssignStmt(arr2DAlt);
+        }
         auto *arrAlt = dynamic_cast<BaseParser::ArrayAssignStmtContext *>(ctx->arrayAssignStatement());
         if (!arrAlt)
         {
@@ -256,6 +259,14 @@ antlrcpp::Any ASTBuilder::visitBlock(BaseParser::BlockContext *ctx)
             auto retStmtNode = std::make_shared<ReturnStmtNode>(exprNode);
             stmts.push_back(retStmtNode);
         }
+        else if (dynamic_cast<BaseParser::BreakStatementContext *>(ctx->children[i]))
+        {
+            stmts.push_back(std::make_shared<BreakStmtNode>());
+        }
+        else if (dynamic_cast<BaseParser::ContinueStatementContext *>(ctx->children[i]))
+        {
+            stmts.push_back(std::make_shared<ContinueStmtNode>());
+        }
         // Ignore tokens like '{' and '}'
     }
     auto blockNode = std::make_shared<BlockStmtNode>(std::move(stmts));
@@ -435,6 +446,24 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
         ASTNodePtr operand = safe_any_cast<ASTNodePtr>(visitExpr(notCtx->expr()));
         return ASTNodePtr(std::make_shared<NotExprNode>(operand));
     }
+    else if (auto unaryMinusCtx = dynamic_cast<BaseParser::UnaryMinusExprContext *>(ctx))
+    {
+        ASTNodePtr operand = safe_any_cast<ASTNodePtr>(visitExpr(unaryMinusCtx->expr()));
+        return ASTNodePtr(std::make_shared<UnaryMinusExprNode>(operand));
+    }
+    else if (dynamic_cast<BaseParser::InfExprContext *>(ctx))
+    {
+        // INF → max int value (2147483647)
+        return ASTNodePtr(std::make_shared<IntLiteralNode>(2147483647));
+    }
+    else if (auto arr2DCtx = dynamic_cast<BaseParser::Array2DAccessExprContext *>(ctx))
+    {
+        std::string name = arr2DCtx->ID()->getText();
+        ASTNodePtr rowIdx = safe_any_cast<ASTNodePtr>(visitExpr(arr2DCtx->expr(0)));
+        ASTNodePtr colIdx = safe_any_cast<ASTNodePtr>(visitExpr(arr2DCtx->expr(1)));
+        ASTNodePtr base = std::make_shared<VariableNode>(name);
+        return ASTNodePtr(std::make_shared<Array2DAccessNode>(base, rowIdx, colIdx));
+    }
 
     throw std::runtime_error("ASTBuilder Unsupported expr: " + ctx->getText());
 
@@ -477,20 +506,40 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
         std::string name;
         int size = 0;
         ASTNodePtr sizeExpr = nullptr;
-        if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
+        if (auto sized2D = dynamic_cast<BaseParser::Sized2DArrayContext *>(declarator))
+        {
+            // 2D array: int arr[rows][cols];
+            name = sized2D->ID()->getText();
+            ASTNodePtr rowNode = safe_any_cast<ASTNodePtr>(visitExpr(sized2D->expr(0)));
+            ASTNodePtr colNode = safe_any_cast<ASTNodePtr>(visitExpr(sized2D->expr(1)));
+
+            auto node = std::make_shared<VarDeclNode>(typeName, name, nullptr, true, 0, nullptr);
+            node->isArray2D = true;
+
+            if (auto *rowLit = dynamic_cast<IntLiteralNode *>(rowNode.get()))
+                node->array2DRows = rowLit->value;
+            else
+                node->array2DRowsExpr = rowNode;
+
+            if (auto *colLit = dynamic_cast<IntLiteralNode *>(colNode.get()))
+                node->array2DCols = colLit->value;
+            else
+                node->array2DColsExpr = colNode;
+
+            return std::static_pointer_cast<ASTNode>(node);
+        }
+        else if (auto sized = dynamic_cast<BaseParser::SizedArrayContext *>(declarator))
         {
             name = sized->ID()->getText();
-            // Size is now an expr — check if literal int or dynamic
             ASTNodePtr sizeNode = safe_any_cast<ASTNodePtr>(visitExpr(sized->expr()));
             if (auto *intLit = dynamic_cast<IntLiteralNode *>(sizeNode.get()))
                 size = intLit->value;
             else
-                sizeExpr = sizeNode; // dynamic (e.g. variable n)
+                sizeExpr = sizeNode;
         }
         else if (auto unsized = dynamic_cast<BaseParser::UnsizedArrayContext *>(declarator))
         {
             name = unsized->ID()->getText();
-            // For now, we’ll treat unsized like sized=0 (must have initializer to infer size)
         }
         else
         {
@@ -583,7 +632,6 @@ antlrcpp::Any ASTBuilder::visitFunction(BaseParser::FunctionContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContext *ctx)
 {
-    // Example body you already have:
     std::string arrayName = ctx->ID()->getText();
     ASTNodePtr base = std::make_shared<VariableNode>(arrayName);
     ASTNodePtr indexNode = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(0)));
@@ -591,6 +639,19 @@ antlrcpp::Any ASTBuilder::visitArrayAssignStmt(BaseParser::ArrayAssignStmtContex
 
     ASTNodePtr arrAccess = std::make_shared<ArrayAccessNode>(base, indexNode);
     ASTNodePtr assignNode = std::make_shared<AssignmentStmtNode>(arrAccess, valueNode);
+    return std::static_pointer_cast<ASTNode>(assignNode);
+}
+
+antlrcpp::Any ASTBuilder::visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx)
+{
+    std::string arrayName = ctx->ID()->getText();
+    ASTNodePtr base = std::make_shared<VariableNode>(arrayName);
+    ASTNodePtr rowIdx = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(0)));
+    ASTNodePtr colIdx = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(1)));
+    ASTNodePtr valueNode = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(2)));
+
+    ASTNodePtr arr2DAccess = std::make_shared<Array2DAccessNode>(base, rowIdx, colIdx);
+    ASTNodePtr assignNode = std::make_shared<AssignmentStmtNode>(arr2DAccess, valueNode);
     return std::static_pointer_cast<ASTNode>(assignNode);
 }
 
@@ -705,7 +766,7 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
 antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
+    // std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
@@ -767,7 +828,7 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    std::cerr << "[ASTBuilder] Declaring Weighted graph: " << nm << std::endl;
+    // std::cerr << "[ASTBuilder] Declaring Weighted graph: " << nm << std::endl;
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");

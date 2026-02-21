@@ -22,8 +22,11 @@ public:
   virtual void enterStatement(BaseParser::StatementContext * /*ctx*/) override { }
   virtual void exitStatement(BaseParser::StatementContext * /*ctx*/) override { }
 
-  virtual void enterGraphDef(BaseParser::GraphDefContext * /*ctx*/) override { }
-  virtual void exitGraphDef(BaseParser::GraphDefContext * /*ctx*/) override { }
+  virtual void enterWeightedGraphDef(BaseParser::WeightedGraphDefContext * /*ctx*/) override { }
+  virtual void exitWeightedGraphDef(BaseParser::WeightedGraphDefContext * /*ctx*/) override { }
+
+  virtual void enterUnweightedGraphDef(BaseParser::UnweightedGraphDefContext * /*ctx*/) override { }
+  virtual void exitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext * /*ctx*/) override { }
 
   virtual void enterNodes(BaseParser::NodesContext * /*ctx*/) override { }
   virtual void exitNodes(BaseParser::NodesContext * /*ctx*/) override { }
@@ -55,8 +58,50 @@ public:
   virtual void enterArrayDeclaration(BaseParser::ArrayDeclarationContext * /*ctx*/) override { }
   virtual void exitArrayDeclaration(BaseParser::ArrayDeclarationContext * /*ctx*/) override { }
 
+  virtual void enterSetDecl(BaseParser::SetDeclContext * /*ctx*/) override { }
+  virtual void exitSetDecl(BaseParser::SetDeclContext * /*ctx*/) override { }
+
+  virtual void enterSetInitializer(BaseParser::SetInitializerContext * /*ctx*/) override { }
+  virtual void exitSetInitializer(BaseParser::SetInitializerContext * /*ctx*/) override { }
+
+  virtual void enterSetOperation(BaseParser::SetOperationContext * /*ctx*/) override { }
+  virtual void exitSetOperation(BaseParser::SetOperationContext * /*ctx*/) override { }
+
+  virtual void enterSetTarget(BaseParser::SetTargetContext * /*ctx*/) override { }
+  virtual void exitSetTarget(BaseParser::SetTargetContext * /*ctx*/) override { }
+
+  virtual void enterSetUnion(BaseParser::SetUnionContext * /*ctx*/) override { }
+  virtual void exitSetUnion(BaseParser::SetUnionContext * /*ctx*/) override { }
+
+  virtual void enterGraphEdgesSet(BaseParser::GraphEdgesSetContext * /*ctx*/) override { }
+  virtual void exitGraphEdgesSet(BaseParser::GraphEdgesSetContext * /*ctx*/) override { }
+
+  virtual void enterSetIntersect(BaseParser::SetIntersectContext * /*ctx*/) override { }
+  virtual void exitSetIntersect(BaseParser::SetIntersectContext * /*ctx*/) override { }
+
+  virtual void enterSetId(BaseParser::SetIdContext * /*ctx*/) override { }
+  virtual void exitSetId(BaseParser::SetIdContext * /*ctx*/) override { }
+
+  virtual void enterSetLiteral(BaseParser::SetLiteralContext * /*ctx*/) override { }
+  virtual void exitSetLiteral(BaseParser::SetLiteralContext * /*ctx*/) override { }
+
+  virtual void enterParenSet(BaseParser::ParenSetContext * /*ctx*/) override { }
+  virtual void exitParenSet(BaseParser::ParenSetContext * /*ctx*/) override { }
+
+  virtual void enterGraphNodesSet(BaseParser::GraphNodesSetContext * /*ctx*/) override { }
+  virtual void exitGraphNodesSet(BaseParser::GraphNodesSetContext * /*ctx*/) override { }
+
+  virtual void enterSetAddMethod(BaseParser::SetAddMethodContext * /*ctx*/) override { }
+  virtual void exitSetAddMethod(BaseParser::SetAddMethodContext * /*ctx*/) override { }
+
+  virtual void enterSetRemoveMethod(BaseParser::SetRemoveMethodContext * /*ctx*/) override { }
+  virtual void exitSetRemoveMethod(BaseParser::SetRemoveMethodContext * /*ctx*/) override { }
+
   virtual void enterConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
   virtual void exitConditionalStatement(BaseParser::ConditionalStatementContext * /*ctx*/) override { }
+
+  virtual void enterExprCondition(BaseParser::ExprConditionContext * /*ctx*/) override { }
+  virtual void exitExprCondition(BaseParser::ExprConditionContext * /*ctx*/) override { }
 
   virtual void enterNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
   virtual void exitNodeCheck(BaseParser::NodeCheckContext * /*ctx*/) override { }
@@ -76,11 +121,17 @@ public:
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
 
+  virtual void enterGraphExpr(BaseParser::GraphExprContext * /*ctx*/) override { }
+  virtual void exitGraphExpr(BaseParser::GraphExprContext * /*ctx*/) override { }
+
   virtual void enterGraphLogicalAnd(BaseParser::GraphLogicalAndContext * /*ctx*/) override { }
   virtual void exitGraphLogicalAnd(BaseParser::GraphLogicalAndContext * /*ctx*/) override { }
 
   virtual void enterDegreeCondition(BaseParser::DegreeConditionContext * /*ctx*/) override { }
   virtual void exitDegreeCondition(BaseParser::DegreeConditionContext * /*ctx*/) override { }
+
+  virtual void enterCycleCondition(BaseParser::CycleConditionContext * /*ctx*/) override { }
+  virtual void exitCycleCondition(BaseParser::CycleConditionContext * /*ctx*/) override { }
 
   virtual void enterConnectedCondition(BaseParser::ConnectedConditionContext * /*ctx*/) override { }
   virtual void exitConnectedCondition(BaseParser::ConnectedConditionContext * /*ctx*/) override { }
@@ -105,6 +156,12 @@ public:
 
   virtual void enterForEachAdj(BaseParser::ForEachAdjContext * /*ctx*/) override { }
   virtual void exitForEachAdj(BaseParser::ForEachAdjContext * /*ctx*/) override { }
+
+  virtual void enterForEachElement(BaseParser::ForEachElementContext * /*ctx*/) override { }
+  virtual void exitForEachElement(BaseParser::ForEachElementContext * /*ctx*/) override { }
+
+  virtual void enterForEachPlain(BaseParser::ForEachPlainContext * /*ctx*/) override { }
+  virtual void exitForEachPlain(BaseParser::ForEachPlainContext * /*ctx*/) override { }
 
   virtual void enterWhileStatement(BaseParser::WhileStatementContext * /*ctx*/) override { }
   virtual void exitWhileStatement(BaseParser::WhileStatementContext * /*ctx*/) override { }
@@ -160,11 +217,20 @@ public:
   virtual void enterReturnStatement(BaseParser::ReturnStatementContext * /*ctx*/) override { }
   virtual void exitReturnStatement(BaseParser::ReturnStatementContext * /*ctx*/) override { }
 
+  virtual void enterBreakStatement(BaseParser::BreakStatementContext * /*ctx*/) override { }
+  virtual void exitBreakStatement(BaseParser::BreakStatementContext * /*ctx*/) override { }
+
+  virtual void enterContinueStatement(BaseParser::ContinueStatementContext * /*ctx*/) override { }
+  virtual void exitContinueStatement(BaseParser::ContinueStatementContext * /*ctx*/) override { }
+
   virtual void enterPrintStatement(BaseParser::PrintStatementContext * /*ctx*/) override { }
   virtual void exitPrintStatement(BaseParser::PrintStatementContext * /*ctx*/) override { }
 
   virtual void enterPrintExpr(BaseParser::PrintExprContext * /*ctx*/) override { }
   virtual void exitPrintExpr(BaseParser::PrintExprContext * /*ctx*/) override { }
+
+  virtual void enterPrintArrayStatement(BaseParser::PrintArrayStatementContext * /*ctx*/) override { }
+  virtual void exitPrintArrayStatement(BaseParser::PrintArrayStatementContext * /*ctx*/) override { }
 
   virtual void enterEdgePrint(BaseParser::EdgePrintContext * /*ctx*/) override { }
   virtual void exitEdgePrint(BaseParser::EdgePrintContext * /*ctx*/) override { }
@@ -181,9 +247,6 @@ public:
   virtual void enterTimerExpr(BaseParser::TimerExprContext * /*ctx*/) override { }
   virtual void exitTimerExpr(BaseParser::TimerExprContext * /*ctx*/) override { }
 
-  virtual void enterMulDivExpr(BaseParser::MulDivExprContext * /*ctx*/) override { }
-  virtual void exitMulDivExpr(BaseParser::MulDivExprContext * /*ctx*/) override { }
-
   virtual void enterIdExpr(BaseParser::IdExprContext * /*ctx*/) override { }
   virtual void exitIdExpr(BaseParser::IdExprContext * /*ctx*/) override { }
 
@@ -193,20 +256,53 @@ public:
   virtual void enterArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
   virtual void exitArrayAccessExpr(BaseParser::ArrayAccessExprContext * /*ctx*/) override { }
 
+  virtual void enterSetLitExpr(BaseParser::SetLitExprContext * /*ctx*/) override { }
+  virtual void exitSetLitExpr(BaseParser::SetLitExprContext * /*ctx*/) override { }
+
+  virtual void enterSetSizeExpr(BaseParser::SetSizeExprContext * /*ctx*/) override { }
+  virtual void exitSetSizeExpr(BaseParser::SetSizeExprContext * /*ctx*/) override { }
+
+  virtual void enterArray2DAccessExpr(BaseParser::Array2DAccessExprContext * /*ctx*/) override { }
+  virtual void exitArray2DAccessExpr(BaseParser::Array2DAccessExprContext * /*ctx*/) override { }
+
+  virtual void enterArrayPrint(BaseParser::ArrayPrintContext * /*ctx*/) override { }
+  virtual void exitArrayPrint(BaseParser::ArrayPrintContext * /*ctx*/) override { }
+
+  virtual void enterInfExpr(BaseParser::InfExprContext * /*ctx*/) override { }
+  virtual void exitInfExpr(BaseParser::InfExprContext * /*ctx*/) override { }
+
+  virtual void enterFuncExpr(BaseParser::FuncExprContext * /*ctx*/) override { }
+  virtual void exitFuncExpr(BaseParser::FuncExprContext * /*ctx*/) override { }
+
+  virtual void enterSetContainsExpr(BaseParser::SetContainsExprContext * /*ctx*/) override { }
+  virtual void exitSetContainsExpr(BaseParser::SetContainsExprContext * /*ctx*/) override { }
+
+  virtual void enterMulDivExpr(BaseParser::MulDivExprContext * /*ctx*/) override { }
+  virtual void exitMulDivExpr(BaseParser::MulDivExprContext * /*ctx*/) override { }
+
+  virtual void enterNotExpr(BaseParser::NotExprContext * /*ctx*/) override { }
+  virtual void exitNotExpr(BaseParser::NotExprContext * /*ctx*/) override { }
+
   virtual void enterIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
   virtual void exitIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
 
   virtual void enterParenExpr(BaseParser::ParenExprContext * /*ctx*/) override { }
   virtual void exitParenExpr(BaseParser::ParenExprContext * /*ctx*/) override { }
 
-  virtual void enterFuncExpr(BaseParser::FuncExprContext * /*ctx*/) override { }
-  virtual void exitFuncExpr(BaseParser::FuncExprContext * /*ctx*/) override { }
-
   virtual void enterRealExpr(BaseParser::RealExprContext * /*ctx*/) override { }
   virtual void exitRealExpr(BaseParser::RealExprContext * /*ctx*/) override { }
 
+  virtual void enterLogicalExpr(BaseParser::LogicalExprContext * /*ctx*/) override { }
+  virtual void exitLogicalExpr(BaseParser::LogicalExprContext * /*ctx*/) override { }
+
   virtual void enterAddSubExpr(BaseParser::AddSubExprContext * /*ctx*/) override { }
   virtual void exitAddSubExpr(BaseParser::AddSubExprContext * /*ctx*/) override { }
+
+  virtual void enterUnaryMinusExpr(BaseParser::UnaryMinusExprContext * /*ctx*/) override { }
+  virtual void exitUnaryMinusExpr(BaseParser::UnaryMinusExprContext * /*ctx*/) override { }
+
+  virtual void enterSized2DArray(BaseParser::Sized2DArrayContext * /*ctx*/) override { }
+  virtual void exitSized2DArray(BaseParser::Sized2DArrayContext * /*ctx*/) override { }
 
   virtual void enterSizedArray(BaseParser::SizedArrayContext * /*ctx*/) override { }
   virtual void exitSizedArray(BaseParser::SizedArrayContext * /*ctx*/) override { }
@@ -220,8 +316,14 @@ public:
   virtual void enterAssignmentStatement(BaseParser::AssignmentStatementContext * /*ctx*/) override { }
   virtual void exitAssignmentStatement(BaseParser::AssignmentStatementContext * /*ctx*/) override { }
 
+  virtual void enterArray2DAssignStmt(BaseParser::Array2DAssignStmtContext * /*ctx*/) override { }
+  virtual void exitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext * /*ctx*/) override { }
+
   virtual void enterArrayAssignStmt(BaseParser::ArrayAssignStmtContext * /*ctx*/) override { }
   virtual void exitArrayAssignStmt(BaseParser::ArrayAssignStmtContext * /*ctx*/) override { }
+
+  virtual void enterWeights(BaseParser::WeightsContext * /*ctx*/) override { }
+  virtual void exitWeights(BaseParser::WeightsContext * /*ctx*/) override { }
 
 
   virtual void enterEveryRule(antlr4::ParserRuleContext * /*ctx*/) override { }

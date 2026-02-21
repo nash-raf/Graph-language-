@@ -4,6 +4,7 @@ grammar Base;
 program: (statement | function)* EOF;
 
 GRAPH: 'graph';
+WEIGHTS : 'weights' ;
 
 
 // Statements
@@ -13,7 +14,9 @@ statement:
 	| printStatement
 	//| loopStatement
 	| whileStatement
+	| foreachStatement
 	| varDecl
+	| setDecl
 	| functionCall ';'
 	| sleepStatement
 	| graphComprehension
@@ -22,13 +25,18 @@ statement:
 	| queryStatement
 	| showgraph
 	| nodeEdgeOperation
+	| setOperation
+	| setMethodCall
 	| ';';
 
 // Graph Definition
-graphDef: GRAPH graphID '{' nodes? edges? '}' ';';
+graphDef
+    : GRAPH graphID '{' nodes? edges? 'TRUE' '}' ';'   # WeightedGraphDef
+    | GRAPH graphID '{' nodes? edges? '}' ';'          # UnweightedGraphDef
+;
 
 //in graphDef
-nodes: 'nodes:' nodeList? ';';
+nodes: 'nodes:' nodeList ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
 nodeList: nodeID (',' nodeID)*;
 edgeList: edge (',' edge)*;
@@ -41,6 +49,43 @@ edge: nodeID '->' nodeID;
 varDecl:
 	type ID ('=' expr)? ';'								# SimpleDeclaration
 	| type arrayDeclarator ('=' arrayInitializer)? ';'	# ArrayDeclaration;
+
+setDecl:
+    'set' ID ';'
+    | 'set' ID '=' setInitializer ';'
+    | 'set' ID '=' setExpr ';'
+    ;
+
+setInitializer:
+    '{' (expr (',' expr)*)? '}'
+    ;
+
+// Set operations
+setOperation:
+    ID '=' setExpr ';'
+    ;
+
+setTarget:
+    ID
+    | graphID '.' 'nodes'
+    | graphID '.' 'edges'
+    ;
+
+setExpr:
+    setExpr UNION setExpr          # SetUnion
+    | setExpr INTERSECT setExpr    # SetIntersect
+	| graphID '.' 'nodes'          # GraphNodesSet
+    | graphID '.' 'edges'          # GraphEdgesSet
+    | ID                           # SetId
+    | setInitializer               # SetLiteral
+    | '(' setExpr ')'              # ParenSet
+    ;
+
+// Set method calls
+setMethodCall:
+	setTarget '.' 'add' '(' expr ')' ';'      # SetAddMethod
+    | setTarget '.' 'remove' '(' expr ')' ';' # SetRemoveMethod
+    ;
 
 // if-else
 conditionalStatement:
@@ -60,11 +105,15 @@ condition:
 		| GREATERTHAN
 	) expr					# Relational
 	| nodeID 'in' graphID	# NodeCheck
-	| edge 'in' graphID		# EdgeCheck;
+	| edge 'in' graphID		# EdgeCheck
+	| expr					# ExprCondition;
 
 //graphcondition
 graphComprehension:
-	ID '=' '[' graphID 'where' graphCondition ']' ';';
+	ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
+
+graphExpr:
+	graphID ((AND | OR) graphID)*;
 
 graphCondition:
 	graphCondition AND graphCondition	# GraphLogicalAnd
@@ -78,6 +127,7 @@ graphCondition:
 		| GREATERTHAN
 	) INT						# DegreeCondition
 	| 'connected' 'with' nodeID	# ConnectedCondition
+	| 'cycle'					# CycleCondition
 	| '(' graphCondition ')'	# ParenGraphCondition;
 
 //loop
@@ -86,7 +136,9 @@ foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
 loopTarget:
 	'vertex' ID					# forEachVertex
 	| 'edge' ID ',' ID			# forEachEdge
-	| 'neighbor' ID 'of' nodeID	# forEachAdj;
+	| 'neighbor' ID 'of' expr	# forEachAdj
+	| 'element' ID				# forEachElement
+	| ID						# forEachPlain;
 whileStatement: 'while' '(' condition ')' block;
 
 nodeEdgeOperation: addOperation | removeOperation;
@@ -98,7 +150,7 @@ removeTargets: nodeID | edge | nodeList | edgeList;
 
 
 
-queryStatement: 'query' ID ':' STRING 'of' graphID ';';
+queryStatement: 'query' ID ':' STRING INT? 'of' graphID ';';
 
 showgraph: 'show' graphID ';';
 //functions
@@ -109,8 +161,11 @@ returnType:
 	| 'vertex'
 	| 'edge'
 	| 'int'
+	| 'real'
+	| 'bool'
 	| 'void'
-	| 'string';
+	| 'string'
+	| 'set';
 paramList: '(' (param (',' param)*)? ')';
 param: type ID;
 type:
@@ -120,19 +175,26 @@ type:
 	| 'int'
 	| 'string'
 	| 'real'
-	| 'bool';
+	| 'bool'
+	| 'set';
 
 functionCall: ID '(' argumentList? ')';
 argumentList: expr (',' expr)*;
 
+// Sleep statement
 sleepStatement: 'sleep' '(' expr ')' ';';
 
-block: '{' (statement | returnStatement)* '}' | '{' '}';
+block: '{' (statement | returnStatement | breakStatement | continueStatement)* '}' | '{' '}';
 returnStatement: 'return' expr ';';
+breakStatement: 'break' ';';
+continueStatement: 'continue' ';';
 
 // Print
-printStatement: 'print' printExpr ';' | printgraph;
+printStatement: 'print' printExpr ';' | printArrayStatement | printgraph;
 printExpr: STRING | expr | printExpr '+' printExpr;
+printArrayStatement
+    : 'print' ID '[' expr ']' ';'
+    ;
 
 printgraph:
 	'print' EDGE OF graphID ';'		# edgePrint
@@ -141,23 +203,40 @@ printgraph:
 
 // Expressions
 expr:
-	expr (TIMES | DIVIDE) expr	# MulDivExpr
+	expr (AND | OR) expr		# LogicalExpr
+	| expr (TIMES | DIVIDE | MODULO) expr	# MulDivExpr
 	| expr (PLUS | MINUS) expr	# AddSubExpr
+	| MINUS expr				# UnaryMinusExpr
+	| NOT expr					# NotExpr
 	| functionCall				# FuncExpr
 	| INT						# IntExpr
 	| ID						# IdExpr
 	| '(' expr ')'				# ParenExpr
+	| ID '[' expr ']' '[' expr ']'  # Array2DAccessExpr
 	| ID '[' expr ']'			# ArrayAccessExpr
+	| setTarget '.' 'contains' '(' expr ')'  # SetContainsExpr
+	| ID '.' 'size' '(' ')'	# SetSizeExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
+	| ID '[]'					# ArrayPrint
 	| REAL						# RealExpr
+	| setInitializer            # SetLitExpr
+	| 'INF'					# InfExpr
 	| 'timer' '(' ')'			# TimerExpr;
 // | nodeID                	# nodeExpr
 
+SET: 'set';
+UNION: 'union';
+INTERSECT: 'intersect';
+NOT: '!';
+MODULO: '%';
+
+
 // Array 
 arrayDeclarator:
-	ID '[' INT ']'	# SizedArray
-	| ID '[' ']'	# UnsizedArray;
+	ID '[' expr ']' '[' expr ']'	# Sized2DArray
+	| ID '[' expr ']'				# SizedArray
+	| ID '[' ']'					# UnsizedArray;
 
 arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
 
@@ -165,7 +244,8 @@ arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
 assignmentStatement: ID '=' expr ';' | ID ';';
 
 arrayAssignStatement:
-	ID '[' expr ']' '=' expr ';' # ArrayAssignStmt;
+	ID '[' expr ']' '[' expr ']' '=' expr ';' # Array2DAssignStmt
+	| ID '[' expr ']' '=' expr ';' # ArrayAssignStmt;
 
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';
@@ -185,7 +265,7 @@ LESSTHAN: '<';
 GREATERTHAN: '>';
 LESSEQUAL: '<=';
 GREATEREQUAL: '>=';
-
+weights: 'TRUE' | 'FALSE';
 ID: [a-zA-Z_][a-zA-Z0-9_]*;
 INT: [0-9]+;
 REAL: [0-9]+ '.' [0-9]+;

@@ -12,7 +12,7 @@ seeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] 
 # Template for test.graph
 graph_template = """graph g {{
 
-    edges: file '../synth_graphs_weighted/synth_v_{v}_e_{e}_seed_{s}_w.txt';
+    edges: file '../synth_graphs/synth_v_{v}_e_{e}_seed_{s}.txt';
 }};
 
 query k: '{algo}' of g; 
@@ -21,7 +21,7 @@ query k: '{algo}' of g;
 def run_experiment(algo, v, e, s):
     # Step 1: Write test.graph
     test_graph_content = graph_template.format(v=v, e=e, algo=algo, s=s)
-    with open("test.graph", "w") as f:
+    with open("test2.graph", "w") as f:
         f.write(test_graph_content)
 
     # Debug: show contents of test.graph

@@ -164,7 +164,8 @@ returnType:
 	| 'real'
 	| 'bool'
 	| 'void'
-	| 'string';
+	| 'string'
+	| 'set';
 paramList: '(' (param (',' param)*)? ')';
 param: type ID;
 type:
@@ -174,7 +175,8 @@ type:
 	| 'int'
 	| 'string'
 	| 'real'
-	| 'bool';
+	| 'bool'
+	| 'set';
 
 functionCall: ID '(' argumentList? ')';
 argumentList: expr (',' expr)*;
@@ -182,8 +184,10 @@ argumentList: expr (',' expr)*;
 // Sleep statement
 sleepStatement: 'sleep' '(' expr ')' ';';
 
-block: '{' (statement | returnStatement)* '}' | '{' '}';
+block: '{' (statement | returnStatement | breakStatement | continueStatement)* '}' | '{' '}';
 returnStatement: 'return' expr ';';
+breakStatement: 'break' ';';
+continueStatement: 'continue' ';';
 
 // Print
 printStatement: 'print' printExpr ';' | printArrayStatement | printgraph;
@@ -202,11 +206,13 @@ expr:
 	expr (AND | OR) expr		# LogicalExpr
 	| expr (TIMES | DIVIDE | MODULO) expr	# MulDivExpr
 	| expr (PLUS | MINUS) expr	# AddSubExpr
+	| MINUS expr				# UnaryMinusExpr
 	| NOT expr					# NotExpr
 	| functionCall				# FuncExpr
 	| INT						# IntExpr
 	| ID						# IdExpr
 	| '(' expr ')'				# ParenExpr
+	| ID '[' expr ']' '[' expr ']'  # Array2DAccessExpr
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| setTarget '.' 'contains' '(' expr ')'  # SetContainsExpr
 	| ID '.' 'size' '(' ')'	# SetSizeExpr
@@ -215,6 +221,7 @@ expr:
 	| ID '[]'					# ArrayPrint
 	| REAL						# RealExpr
 	| setInitializer            # SetLitExpr
+	| 'INF'					# InfExpr
 	| 'timer' '(' ')'			# TimerExpr;
 // | nodeID                	# nodeExpr
 
@@ -227,8 +234,9 @@ MODULO: '%';
 
 // Array 
 arrayDeclarator:
-	ID '[' expr ']'	# SizedArray
-	| ID '[' ']'	# UnsizedArray;
+	ID '[' expr ']' '[' expr ']'	# Sized2DArray
+	| ID '[' expr ']'				# SizedArray
+	| ID '[' ']'					# UnsizedArray;
 
 arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
 
@@ -236,7 +244,8 @@ arrayInitializer: '[' expr (',' expr)* ']'; // Array literal
 assignmentStatement: ID '=' expr ';' | ID ';';
 
 arrayAssignStatement:
-	ID '[' expr ']' '=' expr ';' # ArrayAssignStmt;
+	ID '[' expr ']' '[' expr ']' '=' expr ';' # Array2DAssignStmt
+	| ID '[' expr ']' '=' expr ';' # ArrayAssignStmt;
 
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';

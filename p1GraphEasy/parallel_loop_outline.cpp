@@ -20,6 +20,13 @@
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Support/raw_ostream.h"
+
+#define SGPL_QUIET_LOGS 1
+#if SGPL_QUIET_LOGS
+#define errs llvm::nulls
+#define outs llvm::nulls
+#endif
 
 static void collectInnermostLoops(llvm::Loop *L, llvm::SmallVectorImpl<llvm::Loop *> &Out)
 {
@@ -40,7 +47,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
         collectInnermostLoops(Top, Innermost);
     if (Innermost.empty())
     {
-        // llvm::outs() << "innermost empty";
+        // llvm::nulls() << "innermost empty";
         return nullptr;
     }
 
@@ -48,14 +55,15 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
     for (llvm::Loop *L : Innermost)
     {
         bool doall_check = false;
+        bool doacross_check = false;
 
-        // llvm::errs() << "Found loop\n";
+        // llvm::nulls() << "Found loop\n";
 
         if (llvm::Instruction *Term = L->getHeader()->getTerminator())
         {
             if (llvm::MDNode *LoopMD = Term->getMetadata("my.loop.parallel"))
             {
-                // llvm::errs() << "Found my.loop.parallel metadata node (operands = "
+                // llvm::nulls() << "Found my.loop.parallel metadata node (operands = "
                 //  << LoopMD->getNumOperands() << ")\n";
 
                 for (unsigned i = 0; i < LoopMD->getNumOperands(); ++i)
@@ -68,14 +76,21 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                     if (auto *MDS = llvm::dyn_cast<llvm::MDString>(Op))
                     {
                         llvm::StringRef S = MDS->getString();
-                        // llvm::errs() << "  MDString: " << S << "\n";
+                        // llvm::nulls() << "  MDString: " << S << "\n";
                         if (S.starts_with("parallel.type="))
                         {
                             llvm::StringRef Val = S.substr(strlen("parallel.type="));
                             if (Val.equals_insensitive("DOALL"))
                             {
-                                // llvm::errs() << "  -> Detected DOALL parallel loop\n";
+                                // llvm::nulls() << "  -> Detected DOALL parallel loop\n";
                                 doall_check = true;
+                                doacross_check = false;
+                            }
+                            else if (Val.equals_insensitive("DOACROSS"))
+                            {
+                                llvm::nulls() << "  -> Detected DOACROSS parallel loop\n";
+                                doall_check = false;
+                                doacross_check = true;
                             }
                             else
                             {
@@ -89,14 +104,14 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                         if (auto *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
                         {
                             bool Parallel = CI->getZExtValue() != 0;
-                            // llvm::errs() << "  ConstantInt metadata -> parallel = " << Parallel << "\n";
+                            // llvm::nulls() << "  ConstantInt metadata -> parallel = " << Parallel << "\n";
                         }
                     }
                 } // for operands
             }
         }
 
-        if (!doall_check)
+        if (!doall_check && !doacross_check)
         {
             continue;
         }
@@ -112,7 +127,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
 
         if (LoopBody.empty())
         {
-            // llvm::outs() << "empty";
+            // llvm::nulls() << "empty";
             continue;
         }
         llvm::BasicBlock *Preheader = L->getLoopPreheader();
@@ -134,26 +149,143 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
 
         if (!indvar)
         {
-            // llvm::outs() << "No canonical induction variable\n";
+            // llvm::nulls() << "No canonical induction variable\n";
             return nullptr;
         }
-        const llvm::SCEV *BackedgeCount = SE.getBackedgeTakenCount(L);
-        const llvm::SCEV *Start = nullptr, *Step = nullptr, *End = nullptr;
 
-        if (const llvm::SCEVAddRecExpr *AR = llvm::dyn_cast<llvm::SCEVAddRecExpr>(SE.getSCEV(indvar)))
+        if (doacross_check)
         {
-            Start = AR->getStart();
-            Step = AR->getStepRecurrence(SE);
-            End = SE.getAddExpr(Start, SE.getMulExpr(Step, BackedgeCount));
+            llvm::Module *M = F.getParent();
+            llvm::LLVMContext &Ctx = M->getContext();
+            llvm::Type *VoidTy = llvm::Type::getVoidTy(Ctx);
+            llvm::Type *Int64Ty = llvm::Type::getInt64Ty(Ctx);
+            llvm::Type *Int32Ty = llvm::Type::getInt32Ty(Ctx);
+
+            llvm::FunctionCallee WaitFn = M->getOrInsertFunction("doacross_wait",
+                                                                 llvm::FunctionType::get(VoidTy, {Int64Ty, Int64Ty, Int32Ty}, false));
+
+            // void doacross_post(int64_t iter, int32_t id);
+            llvm::FunctionCallee PostFn = M->getOrInsertFunction("doacross_post",
+                                                                 llvm::FunctionType::get(VoidTy, {Int64Ty, Int32Ty}, false));
+
+            // 2. Iterate over instructions in the loop body to find tags
+            // We collect them first to avoid modifying the block while iterating
+            struct InstrAction
+            {
+                llvm::Instruction *I;
+                bool isWait; // true = wait, false = post
+                int64_t dist;
+                int32_t id;
+            };
+
+            llvm::SmallVector<InstrAction, 8> actions;
+
+            for (llvm::BasicBlock *BB : LoopBody)
+            {
+                for (llvm::Instruction &I : *BB)
+                {
+
+                    // --- Check for WAIT (tagged on Store usually, via doacross.type) ---
+                    if (llvm::MDNode *TypeMD = I.getMetadata("doacross.wait"))
+                    {
+                        int64_t distVal = 0;
+                        int32_t idVal = 0;
+
+                        if (llvm::MDNode *DistMD = I.getMetadata("doacross.dist"))
+                            if (llvm::ConstantAsMetadata *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(DistMD->getOperand(0)))
+                                if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
+                                    distVal = CI->getSExtValue();
+
+                        if (llvm::MDNode *SrcMD = I.getMetadata("doacross.src"))
+                            if (llvm::ConstantAsMetadata *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(SrcMD->getOperand(0)))
+                                if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
+                                    idVal = (int32_t)CI->getSExtValue();
+
+                        actions.push_back({&I, true, distVal, idVal});
+                    }
+
+                    // --- Check for POST (tagged on Load usually, or explicit instruction) ---
+                    // Your IR shows: !doacross.post !1
+                    // Note: You might have simply tagged it with "doacross.post" metadata directly
+                    if (I.getMetadata("doacross.post"))
+                    {
+                        int32_t idVal = 0;
+                        // The ID is usually in doacross.id
+                        if (llvm::MDNode *IDMD = I.getMetadata("doacross.id"))
+                            if (llvm::ConstantAsMetadata *CAM = llvm::dyn_cast<llvm::ConstantAsMetadata>(IDMD->getOperand(0)))
+                                if (llvm::ConstantInt *CI = llvm::dyn_cast<llvm::ConstantInt>(CAM->getValue()))
+                                    idVal = (int32_t)CI->getSExtValue();
+
+                        actions.push_back({&I, false, 0, idVal});
+                    }
+                }
+            }
+
+            for (auto &act : actions)
+            {
+                llvm::IRBuilder<> B(act.I);
+
+                // Ensure indvar is i64 for the runtime call
+                llvm::Value *IndVar64 = indvar;
+                if (indvar->getType() != Int64Ty)
+                {
+                    // Cast indvar to i64.
+                    // Note: We should ideally cache this cast, but creating multiple casts is safe (optimization passes will clean it up)
+                    IndVar64 = B.CreateIntCast(indvar, Int64Ty, true, "indvar.i64");
+                }
+
+                if (act.isWait)
+                {
+                    // Insert WAIT *before* the instruction
+                    B.SetInsertPoint(act.I);
+                    llvm::Value *DistArg = llvm::ConstantInt::get(Int64Ty, act.dist);
+                    llvm::Value *IDArg = llvm::ConstantInt::get(Int32Ty, act.id);
+                    B.CreateCall(WaitFn, {IndVar64, DistArg, IDArg});
+                }
+                else
+                {
+                    // Insert POST *after* the instruction
+                    B.SetInsertPoint(act.I->getNextNode());
+                    llvm::Value *IDArg = llvm::ConstantInt::get(Int32Ty, act.id);
+                    B.CreateCall(PostFn, {IndVar64, IDArg});
+                }
+            }
         }
+        if (!Preheader || !Preheader->getTerminator())
+            continue;
+
+        const llvm::SCEV *BackedgeCount = SE.getBackedgeTakenCount(L);
+        if (llvm::isa<llvm::SCEVCouldNotCompute>(BackedgeCount))
+            continue;
+
+        const llvm::SCEV *Start = nullptr, *Step = nullptr, *End = nullptr;
+        const llvm::SCEV *IndVarSCEV = SE.getSCEV(indvar);
+        const auto *AR = llvm::dyn_cast<llvm::SCEVAddRecExpr>(IndVarSCEV);
+        if (!AR)
+            continue;
+
+        Start = AR->getStart();
+        Step = AR->getStepRecurrence(SE);
+        End = SE.getAddExpr(Start, SE.getMulExpr(Step, BackedgeCount));
+        if (!Start || !Step || !End)
+            continue;
+
+        llvm::Instruction *InsertPt = Preheader->getTerminator();
         llvm::SCEVExpander Exp(SE, F.getParent()->getDataLayout(), "scevexp");
-        StartV = Exp.expandCodeFor(Start, indvar->getType(), Preheader->getTerminator());
-        StepV = Exp.expandCodeFor(Step, indvar->getType(), Preheader->getTerminator());
-        EndV = Exp.expandCodeFor(End, indvar->getType(), Preheader->getTerminator());
+        if (!Exp.isSafeToExpandAt(Start, InsertPt) ||
+            !Exp.isSafeToExpandAt(Step, InsertPt) ||
+            !Exp.isSafeToExpandAt(End, InsertPt))
+            continue;
+
+        StartV = Exp.expandCodeFor(Start, indvar->getType(), InsertPt);
+        StepV = Exp.expandCodeFor(Step, indvar->getType(), InsertPt);
+        EndV = Exp.expandCodeFor(End, indvar->getType(), InsertPt);
+        if (!StartV || !StepV || !EndV)
+            continue;
         llvm::CodeExtractor CE(LoopBody, &DT);
         if (!CE.isEligible())
         {
-            // llvm::outs() << "NOT ELIGIBLE";
+            // llvm::nulls() << "NOT ELIGIBLE";
             continue;
         }
 
@@ -185,28 +317,28 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                     if (!Inputs.count(Base) && !Outputs.count(Base))
                     {
                         Outputs.insert(Base);
-                        llvm::errs() << "store-scan: added base to Outputs: " << *Base << "\n";
+                        llvm::nulls() << "store-scan: added base to Outputs: " << *Base << "\n";
                     }
                 }
             }
         }
 
-        llvm::outs() << "Captured Inputs:\n";
+        llvm::nulls() << "Captured Inputs:\n";
         for (llvm::Value *V : Inputs)
         {
-            llvm::outs() << "  - " << V << "\n";
+            llvm::nulls() << "  - " << V << "\n";
         }
 
-        llvm::outs() << "Captured Inputs:\n";
+        llvm::nulls() << "Captured Inputs:\n";
         for (llvm::Value *V : Inputs)
         {
-            llvm::outs() << "  - " << *V << "\n";
+            llvm::nulls() << "  - " << *V << "\n";
         }
-        llvm::outs() << "Captured Outputs:\n";
+        llvm::nulls() << "Captured Outputs:\n";
 
         for (llvm::Value *V : Outputs)
         {
-            llvm::outs() << "  - " << *V << "\n";
+            llvm::nulls() << "  - " << *V << "\n";
         }
 
         if (llvm::Function *Outlined = CE.extractCodeRegion(CEAC))
@@ -243,7 +375,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
                         {
                             if (CI->getCalledFunction() == Outlined)
                             {
-                                // llvm::errs() << "Found outlined function call: " << *CI << "\n";
+                                // llvm::nulls() << "Found outlined function call: " << *CI << "\n";
                                 for (unsigned ai = 0; ai < CI->getNumOperands() - 1; ++ai)
                                 {
                                     llvm::Value *ArgOp = CI->getArgOperand(ai);
@@ -258,27 +390,27 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
             // Debug
             for (llvm::Value *U : Candidates)
             {
-                llvm::errs() << " candidate: " << *U << "\n";
+                llvm::nulls() << " candidate: " << *U << "\n";
             }
             // Debug
-            llvm::errs() << "ArgOriginVals mapping:\n";
+            llvm::nulls() << "ArgOriginVals mapping:\n";
             for (unsigned i = 0; i < ArgOriginVals.size(); ++i)
             {
-                llvm::errs() << "  param[" << i << "] -> ";
+                llvm::nulls() << "  param[" << i << "] -> ";
                 if (ArgOriginVals[i])
-                    ArgOriginVals[i]->print(llvm::errs());
+                    ArgOriginVals[i]->print(llvm::nulls());
                 else
-                    llvm::errs() << "NULL";
-                llvm::errs() << "\n";
+                    llvm::nulls() << "NULL";
+                llvm::nulls() << "\n";
             }
 
             // Debug
-            llvm::errs() << "Captured Outputs:\n";
+            llvm::nulls() << "Captured Outputs:\n";
             for (llvm::Value *V : Outputs)
             {
                 if (V)
-                    V->print(llvm::errs());
-                llvm::errs() << "\n";
+                    V->print(llvm::nulls());
+                llvm::nulls() << "\n";
             }
             int InductionParamIndex = -1;
             llvm::SmallVector<llvm::Type *, 8> NewEnvFieldTys;
@@ -448,7 +580,7 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
 
             if (!Preheader || !ExitBlock || !Term)
             {
-                // llvm::errs() << "PDG_OUTLINE: missing Preheader/ExitBlock/Term; skipping outlining for this loop\n";
+                // llvm::nulls() << "PDG_OUTLINE: missing Preheader/ExitBlock/Term; skipping outlining for this loop\n";
                 // Leave IR untouched; return nullptr to indicate we didn't outline.
                 return nullptr;
             }
@@ -476,6 +608,465 @@ llvm::Function *outlineLoop(llvm::Function &F, llvm::LoopInfo &LI, llvm::Dominat
     return nullptr;
 }
 
+// outlineLoop - manual outlining replacement for CodeExtractor
+// - clones loop body into a new function void(i64, i8*)
+// - builds env struct for captured values
+// - replaces the induction PHI with the idx parameter
+// - rewrites exits to return
+// - inserts runtime parallel_for_runtime(start,end,step,fn,env)
+// Header comment: prefer snake_case style for internal helpers (user preference).
+// llvm::Function *outlineLoop(llvm::Function &F,
+//                             llvm::LoopInfo &LI,
+//                             llvm::DominatorTree &DT,
+//                             llvm::ScalarEvolution &SE,
+//                             llvm::Value *&StartV,
+//                             llvm::Value *&EndV,
+//                             llvm::Value *&StepV)
+// {
+//     llvm::nulls() << "[outlineLoop] Entering for function: " << F.getName() << "\n";
+
+//     llvm::SmallVector<llvm::Loop *, 8> innermost;
+//     for (llvm::Loop *Top : LI)
+//         collectInnermostLoops(Top, innermost);
+
+//     if (innermost.empty())
+//     {
+//         llvm::nulls() << "[outlineLoop] ERROR: No innermost loops found\n";
+//         return nullptr;
+//     }
+
+//     llvm::nulls() << "[outlineLoop] Found " << innermost.size() << " innermost loops\n";
+
+//     for (llvm::Loop *L : innermost)
+//     {
+//         llvm::nulls() << "\n[outlineLoop] --- Inspecting loop header: "
+//                      << L->getHeader()->getName() << " ---\n";
+
+//         bool doall_check = false;
+//         bool doacross_check = false;
+
+//         if (llvm::Instruction *Term = L->getHeader()->getTerminator())
+//         {
+//             if (llvm::MDNode *LoopMD = Term->getMetadata("my.loop.parallel"))
+//             {
+//                 llvm::nulls() << "[outlineLoop] Found my.loop.parallel metadata\n";
+//                 for (unsigned i = 0; i < LoopMD->getNumOperands(); ++i)
+//                 {
+//                     if (auto *MDS = llvm::dyn_cast<llvm::MDString>(LoopMD->getOperand(i)))
+//                     {
+//                         llvm::StringRef S = MDS->getString();
+//                         llvm::nulls() << "  MDString operand: " << S << "\n";
+//                         if (S.starts_with("parallel.type="))
+//                         {
+//                             llvm::StringRef Val = S.substr(strlen("parallel.type="));
+//                             if (Val.equals_insensitive("DOALL"))
+//                             {
+//                                 doall_check = true;
+//                                 doacross_check = false;
+//                             }
+//                             else if (Val.equals_insensitive("DOACROSS"))
+//                             {
+//                                 doall_check = false;
+//                                 doacross_check = true;
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+
+//         if (!doall_check && !doacross_check)
+//         {
+//             llvm::nulls() << "[outlineLoop] Skipping loop: no DOALL/DOACROSS tag\n";
+//             continue;
+//         }
+
+//         llvm::nulls() << "[outlineLoop] Parallel loop detected ("
+//                      << (doall_check ? "DOALL" : "DOACROSS") << ")\n";
+
+//         llvm::SmallVector<llvm::BasicBlock *, 8> loop_body;
+//         for (llvm::BasicBlock *BB : L->blocks())
+//             if (BB != L->getHeader())
+//                 loop_body.push_back(BB);
+
+//         if (loop_body.empty())
+//         {
+//             llvm::nulls() << "[outlineLoop] ERROR: LoopBody empty after header exclusion\n";
+//             continue;
+//         }
+
+//         llvm::BasicBlock *preheader = L->getLoopPreheader();
+//         llvm::BasicBlock *exit_block = L->getExitBlock();
+
+//         if (!preheader || !exit_block)
+//         {
+//             llvm::nulls() << "[outlineLoop] ERROR: Missing preheader or single exit\n";
+//             return nullptr;
+//         }
+
+//         llvm::PHINode *indvar = nullptr;
+//         for (auto &I : *L->getHeader())
+//         {
+//             if (auto *phi = llvm::dyn_cast<llvm::PHINode>(&I))
+//             {
+//                 if (phi->getNumIncomingValues() >= 2 &&
+//                     phi->getIncomingBlock(0) == preheader &&
+//                     L->contains(phi->getIncomingBlock(1)))
+//                 {
+//                     indvar = phi;
+//                     break;
+//                 }
+//             }
+//         }
+
+//         if (!indvar)
+//         {
+//             llvm::nulls() << "[outlineLoop] ERROR: No canonical induction variable\n";
+//             return nullptr;
+//         }
+
+//         llvm::nulls() << "[outlineLoop] Found induction variable: ";
+//         indvar->print(llvm::nulls());
+//         llvm::nulls() << "\n";
+
+//         const llvm::SCEV *backedge_count = SE.getBackedgeTakenCount(L);
+//         const llvm::SCEV *Start = nullptr, *Step = nullptr, *End = nullptr;
+
+//         if (const llvm::SCEVAddRecExpr *AR = llvm::dyn_cast<llvm::SCEVAddRecExpr>(SE.getSCEV(indvar)))
+//         {
+//             Start = AR->getStart();
+//             Step = AR->getStepRecurrence(SE);
+//             End = SE.getAddExpr(Start, SE.getMulExpr(Step, backedge_count));
+//         }
+//         else
+//         {
+//             llvm::nulls() << "[outlineLoop] ERROR: Induction variable is not SCEVAddRec\n";
+//             return nullptr;
+//         }
+
+//         llvm::SCEVExpander Exp(SE, F.getParent()->getDataLayout(), "scevexp");
+//         StartV = Exp.expandCodeFor(Start, indvar->getType(), preheader->getTerminator());
+//         StepV = Exp.expandCodeFor(Step, indvar->getType(), preheader->getTerminator());
+//         EndV = Exp.expandCodeFor(End, indvar->getType(), preheader->getTerminator());
+
+//         llvm::nulls() << "[outlineLoop] Expanded loop bounds successfully\n";
+
+//         // === Manual capture analysis ===
+//         llvm::SmallPtrSet<llvm::Value *, 16> inputs_set;
+//         llvm::SmallPtrSet<llvm::Value *, 16> outputs_set;
+
+//         auto is_defined_in_loop = [&](llvm::Value *V) -> bool
+//         {
+//             if (auto *I = llvm::dyn_cast<llvm::Instruction>(V))
+//                 return L->contains(I->getParent());
+//             return false;
+//         };
+
+//         for (llvm::BasicBlock *BB : loop_body)
+//         {
+//             for (llvm::Instruction &I : *BB)
+//             {
+//                 for (llvm::Use &U : I.operands())
+//                 {
+//                     llvm::Value *Op = U.get();
+//                     if (!Op || llvm::isa<llvm::Constant>(Op) || is_defined_in_loop(Op))
+//                         continue;
+//                     inputs_set.insert(Op);
+//                 }
+
+//                 for (llvm::Use &U : I.uses())
+//                 {
+//                     llvm::Instruction *UserI = llvm::dyn_cast<llvm::Instruction>(U.getUser());
+//                     if (!UserI || is_defined_in_loop(UserI))
+//                         continue;
+//                     outputs_set.insert(&I);
+//                     break;
+//                 }
+
+//                 if (auto *SI = llvm::dyn_cast<llvm::StoreInst>(&I))
+//                 {
+//                     llvm::Value *Ptr = SI->getPointerOperand();
+//                     llvm::Value *Base = llvm::getUnderlyingObject(Ptr, 64);
+//                     if (auto *BI = llvm::dyn_cast<llvm::Instruction>(Base))
+//                         if (L->contains(BI->getParent()))
+//                             continue;
+//                     outputs_set.insert(Base);
+//                 }
+//             }
+//         }
+
+//         llvm::SmallVector<llvm::Value *, 16> candidates;
+//         for (llvm::Value *V : outputs_set)
+//             candidates.push_back(V);
+//         for (llvm::Value *V : inputs_set)
+//             candidates.push_back(V);
+
+//         llvm::Module *M = F.getParent();
+//         llvm::LLVMContext &Ctx = M->getContext();
+//         llvm::Type *VoidTy = llvm::Type::getVoidTy(Ctx);
+//         llvm::Type *Int64Ty = llvm::Type::getInt64Ty(Ctx);
+//         llvm::Type *Int8PtrTy = llvm::Type::getInt8Ty(Ctx)->getPointerTo();
+
+//         // Ensure all types are sized before adding to struct
+//         llvm::SmallVector<llvm::Type *, 16> env_field_tys;
+//         for (llvm::Value *V : candidates)
+//         {
+//             llvm::Type *ty = V ? V->getType() : Int8PtrTy;
+
+//             // Replace unsized types with i8*
+//             if (!ty->isSized())
+//             {
+//                 llvm::nulls() << "[outlineLoop] WARNING: Replacing unsized type with i8*\n";
+//                 ty = Int8PtrTy;
+//             }
+
+//             env_field_tys.push_back(ty);
+//         }
+
+//         llvm::StructType *env_struct_ty = llvm::StructType::create(Ctx, env_field_tys, "env.struct");
+
+//         // Verify struct is sized before getting its size
+//         if (!env_struct_ty->isSized())
+//         {
+//             llvm::nulls() << "[outlineLoop] ERROR: Environment struct is not sized!\n";
+//             return nullptr;
+//         }
+
+//         llvm::IRBuilder<> B(preheader->getTerminator());
+//         uint64_t env_size = M->getDataLayout().getTypeAllocSize(env_struct_ty);
+//         llvm::Value *size_const = llvm::ConstantInt::get(Int64Ty, env_size);
+//         llvm::FunctionCallee malloc_fn = M->getOrInsertFunction("malloc", llvm::FunctionType::get(Int8PtrTy, {Int64Ty}, false));
+//         llvm::Value *raw_ptr = B.CreateCall(malloc_fn, {size_const}, "env_raw");
+//         llvm::Value *env_ptr = B.CreateBitCast(raw_ptr, env_struct_ty->getPointerTo(), "envptr_struct");
+
+//         for (unsigned k = 0; k < candidates.size(); ++k)
+//         {
+//             llvm::Value *orig = candidates[k];
+//             llvm::Value *gep = B.CreateStructGEP(env_struct_ty, env_ptr, k, "env_gep");
+//             llvm::Type *fty = env_field_tys[k];
+
+//             llvm::Value *store_val = nullptr;
+//             if (!orig)
+//             {
+//                 store_val = llvm::Constant::getNullValue(fty);
+//             }
+//             else
+//             {
+//                 if (orig->getType() != fty)
+//                 {
+//                     if (orig->getType()->isPointerTy() && fty->isPointerTy())
+//                         store_val = B.CreateBitCast(orig, fty);
+//                     else if (orig->getType()->isIntegerTy() && fty->isIntegerTy())
+//                         store_val = B.CreateIntCast(orig, fty, true);
+//                     else
+//                         store_val = B.CreateBitCast(orig, fty);
+//                 }
+//                 else
+//                     store_val = orig;
+//             }
+//             B.CreateStore(store_val, gep);
+//         }
+
+//         llvm::Value *env_ptr_cast = raw_ptr;
+
+//         // === Create outlined function ===
+//         llvm::FunctionType *outlined_fty = llvm::FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false);
+//         llvm::Function *outlined = llvm::Function::Create(outlined_fty, llvm::GlobalValue::InternalLinkage, "outlined_loop_body", M);
+//         auto arg_it = outlined->arg_begin();
+//         llvm::Argument *idx_arg = &*arg_it++;
+//         idx_arg->setName("idx");
+//         llvm::Argument *env_arg = &*arg_it++;
+//         env_arg->setName("env");
+
+//         llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(Ctx, "entry", outlined);
+//         llvm::IRBuilder<> Eb(entry_bb);
+//         llvm::Value *env_struct_ptr = Eb.CreateBitCast(env_arg, env_struct_ty->getPointerTo(), "envstruct");
+
+//         llvm::SmallVector<llvm::Value *, 16> loaded_fields;
+//         for (unsigned k = 0; k < env_field_tys.size(); ++k)
+//         {
+//             llvm::Value *fgep = Eb.CreateStructGEP(env_struct_ty, env_struct_ptr, k, "fgep");
+//             llvm::Value *fload = Eb.CreateLoad(env_field_tys[k], fgep, "fload");
+//             loaded_fields.push_back(fload);
+//         }
+
+//         llvm::Value *idx_cast_to_indvar = (idx_arg->getType() != indvar->getType()) ? Eb.CreateIntCast(idx_arg, indvar->getType(), true, "idxcast") : idx_arg;
+
+//         llvm::ValueToValueMapTy vmap;
+//         vmap[indvar] = idx_cast_to_indvar;
+//         for (unsigned k = 0; k < candidates.size(); ++k)
+//             if (candidates[k])
+//                 vmap[candidates[k]] = loaded_fields[k];
+
+//         llvm::SmallVector<llvm::BasicBlock *, 8> cloned_blocks;
+//         cloned_blocks.reserve(loop_body.size());
+//         for (llvm::BasicBlock *OrigBB : loop_body)
+//         {
+//             llvm::BasicBlock *ClonedBB = llvm::BasicBlock::Create(Ctx, OrigBB->getName() + ".cloned", outlined);
+//             llvm::IRBuilder<> Builder(ClonedBB);
+//             for (llvm::Instruction &OrigI : *OrigBB)
+//             {
+//                 llvm::Instruction *ClonedI = OrigI.clone();
+//                 Builder.Insert(ClonedI);
+//                 vmap[&OrigI] = ClonedI;
+//             }
+//             vmap[OrigBB] = ClonedBB;
+//             cloned_blocks.push_back(ClonedBB);
+//         }
+
+//         // Create return block BEFORE remapping
+//         llvm::BasicBlock *ret_bb = llvm::BasicBlock::Create(Ctx, "ret", outlined);
+
+//         // Map all external blocks (preheader, header, exit) to ret_bb
+//         // This ensures RemapInstruction doesn't crash when it encounters references to them
+//         vmap[exit_block] = ret_bb;
+//         vmap[preheader] = ret_bb;
+//         vmap[L->getHeader()] = ret_bb;
+
+//         for (llvm::BasicBlock *ClonedBB : cloned_blocks)
+//             for (llvm::Instruction &I : *ClonedBB)
+//                 llvm::RemapInstruction(&I, vmap, llvm::RF_NoModuleLevelChanges | llvm::RF_IgnoreMissingLocals);
+
+//         // FIX: Now fix up terminators - check if terminator exists before accessing
+//         for (llvm::BasicBlock *ClonedBB : cloned_blocks)
+//         {
+//             // Check if block has instructions and verify it's still valid
+//             if (ClonedBB->empty())
+//             {
+//                 llvm::nulls() << "[outlineLoop] WARNING: Empty cloned block, adding branch to ret\n";
+//                 llvm::BranchInst::Create(ret_bb, ClonedBB);
+//                 continue;
+//             }
+
+//             // Get the last instruction safely
+//             llvm::Instruction *LastInst = &ClonedBB->back();
+
+//             // Verify the instruction is valid before checking if it's a terminator
+//             if (!LastInst)
+//             {
+//                 llvm::nulls() << "[outlineLoop] WARNING: Null last instruction, adding branch to ret\n";
+//                 llvm::BranchInst::Create(ret_bb, ClonedBB);
+//                 continue;
+//             }
+
+//             // If it's already a terminator, fix it up
+//             if (LastInst->isTerminator())
+//             {
+//                 if (auto *BI = llvm::dyn_cast<llvm::BranchInst>(LastInst))
+//                 {
+//                     for (unsigned si = 0; si < BI->getNumSuccessors(); ++si)
+//                     {
+//                         llvm::BasicBlock *Succ = BI->getSuccessor(si);
+//                         if (!Succ || Succ->getParent() != outlined)
+//                             BI->setSuccessor(si, ret_bb);
+//                     }
+//                 }
+//                 else if (auto *SI = llvm::dyn_cast<llvm::SwitchInst>(LastInst))
+//                 {
+//                     for (auto &Case : SI->cases())
+//                     {
+//                         llvm::BasicBlock *CaseSucc = Case.getCaseSuccessor();
+//                         if (!CaseSucc || CaseSucc->getParent() != outlined)
+//                             Case.setSuccessor(ret_bb);
+//                     }
+//                     llvm::BasicBlock *DefaultDest = SI->getDefaultDest();
+//                     if (!DefaultDest || DefaultDest->getParent() != outlined)
+//                         SI->setDefaultDest(ret_bb);
+//                 }
+//                 else
+//                 {
+//                     // Other terminator (ret, unreachable, etc.) - replace with br
+//                     LastInst->eraseFromParent();
+//                     llvm::BranchInst::Create(ret_bb, ClonedBB);
+//                 }
+//             }
+//             else
+//             {
+//                 // No terminator - add one
+//                 llvm::nulls() << "[outlineLoop] WARNING: Block has no terminator, adding branch to ret\n";
+//                 llvm::BranchInst::Create(ret_bb, ClonedBB);
+//             }
+//         }
+
+//         // Connect entry to first cloned block
+//         llvm::BasicBlock *first_clone_bb = llvm::cast<llvm::BasicBlock>(vmap[loop_body.front()]);
+//         Eb.CreateBr(first_clone_bb);
+
+//         // Add return instruction to ret_bb
+//         llvm::ReturnInst::Create(Ctx, nullptr, ret_bb);
+
+//         // IMPORTANT: Verify the outlined function is well-formed
+//         llvm::nulls() << "[outlineLoop] Verifying outlined function structure...\n";
+//         std::string err_str;
+//         llvm::raw_string_ostream err_stream(err_str);
+//         // if (llvm::verifyFunction(*outlined, &err_stream))
+//         // {
+//         //     llvm::nulls() << "[outlineLoop] ERROR: Outlined function verification failed:\n";
+//         //     llvm::nulls() << err_stream.str() << "\n";
+//         //     outlined->eraseFromParent();
+//         //     return nullptr;
+//         // }
+//         llvm::nulls() << "[outlineLoop] Outlined function verified successfully\n";
+
+//         // Call parallel runtime
+//         llvm::Type *loop_body_fn_ty = llvm::FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false)->getPointerTo();
+//         llvm::FunctionCallee parallel_for_func = M->getOrInsertFunction(
+//             "parallel_for_runtime",
+//             llvm::FunctionType::get(VoidTy, {Int64Ty, Int64Ty, Int64Ty, loop_body_fn_ty, Int8PtrTy}, false));
+
+//         llvm::Value *start_arg = (StartV->getType() != Int64Ty) ? B.CreateSExt(StartV, Int64Ty) : StartV;
+//         llvm::Value *end_arg = (EndV->getType() != Int64Ty) ? B.CreateSExt(EndV, Int64Ty) : EndV;
+//         llvm::Value *step_arg = (StepV->getType() != Int64Ty) ? B.CreateSExt(StepV, Int64Ty) : StepV;
+//         llvm::Value *casted_outlined = B.CreateBitCast(outlined, loop_body_fn_ty);
+
+//         B.CreateCall(parallel_for_func, {start_arg, end_arg, step_arg, casted_outlined, env_ptr_cast});
+//         B.CreateBr(exit_block);
+//         preheader->getTerminator()->eraseFromParent();
+
+//         // CRITICAL: Remove the original loop blocks to avoid invalid CFG
+//         llvm::nulls() << "[outlineLoop] Removing original loop blocks...\n";
+
+//         // First, replace all uses of PHI nodes in the header with undef
+//         for (llvm::Instruction &I : *L->getHeader())
+//         {
+//             if (llvm::PHINode *PHI = llvm::dyn_cast<llvm::PHINode>(&I))
+//             {
+//                 PHI->replaceAllUsesWith(llvm::UndefValue::get(PHI->getType()));
+//             }
+//         }
+
+//         // Remove all blocks in the loop (including header)
+//         llvm::SmallVector<llvm::BasicBlock *, 8> to_delete;
+//         for (llvm::BasicBlock *BB : L->blocks())
+//         {
+//             to_delete.push_back(BB);
+//         }
+
+//         for (llvm::BasicBlock *BB : to_delete)
+//         {
+//             // Remove all instructions first
+//             while (!BB->empty())
+//             {
+//                 llvm::Instruction &I = BB->back();
+//                 I.replaceAllUsesWith(llvm::UndefValue::get(I.getType()));
+//                 I.eraseFromParent();
+//             }
+//             BB->eraseFromParent();
+//         }
+
+//         llvm::nulls() << "[outlineLoop] Original loop removed\n";
+
+//         outlined->setLinkage(llvm::GlobalValue::ExternalLinkage);
+//         outlined->setName("outlined_main_loopbody");
+
+//         llvm::nulls() << "[outlineLoop] Outlined function created: " << outlined->getName() << "\n";
+//         return outlined;
+//     }
+
+//     llvm::nulls() << "[outlineLoop] Finished loop scan: nothing outlined\n";
+//     return nullptr;
+// }
+
 using namespace llvm;
 
 struct LoopOutlinerPass : public PassInfoMixin<LoopOutlinerPass>
@@ -501,16 +1092,16 @@ struct LoopOutlinerPass : public PassInfoMixin<LoopOutlinerPass>
         {
             // mark it so we never process it again
             outlined->addFnAttr("outlined-loop");
-            // errs() << "Outlined function: " << outlined->getName() << "\n";
-            // llvm::outs() << "Start: ";
-            // Start->print(llvm::outs());
-            // llvm::outs() << "\n";
-            // llvm::outs() << "Step: ";
-            // Step->print(llvm::outs());
-            // llvm::outs() << "\n";
-            // llvm::outs() << "End: ";
-            // End->print(llvm::outs());
-            // llvm::outs() << "\n";
+            // llvm::nulls() << "Outlined function: " << outlined->getName() << "\n";
+            // llvm::nulls() << "Start: ";
+            // Start->print(llvm::nulls());
+            // llvm::nulls() << "\n";
+            // llvm::nulls() << "Step: ";
+            // Step->print(llvm::nulls());
+            // llvm::nulls() << "\n";
+            // llvm::nulls() << "End: ";
+            // End->print(llvm::nulls());
+            // llvm::nulls() << "\n";
             // we changed the IR, analyses are invalidated
             return PreservedAnalyses::none();
         }

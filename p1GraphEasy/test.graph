@@ -15,7 +15,7 @@ query k : "bfs" of G;
 
 graph G{
   //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
-  edges: file "../synth_graphs_unweighted/synth_v_50000_e_50000.txt";
+  edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1.txt";
 };
 real t0 = timer();
 int n = numVertices(G);

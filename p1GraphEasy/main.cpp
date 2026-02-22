@@ -44,7 +44,6 @@
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "SemanticAnalyzer.h"
 
-
 using namespace antlr4;
 using namespace llvm;
 
@@ -91,7 +90,6 @@ int main(int argc, char **argv)
     LLVMContext Ctx;
     auto M = std::make_unique<Module>("my_module", Ctx);
 
-
     // exit(0);
     try
     {
@@ -103,7 +101,7 @@ int main(int argc, char **argv)
         errs() << ex.what() << "\n";
         return 1;
     }
-    
+
     IRBuilder<> IRB(Ctx);
 
     IRGenVisitor irgen(Ctx, *M, IRB);
@@ -165,7 +163,16 @@ int main(int argc, char **argv)
 
         // run PDG (you already do this)
         dependencyGraph pdg = runPDGOnModule(*M);
-        (void)pdg;
+        TaskGraph TG = performMinCutAndCreateTaskGraph(pdg);
+        SmallVector<SmallVector<unsigned>> taskLevels = topologicalSortTaskGraph(TG);
+
+        // ====================================================================
+
+        // PARALLEL IR RECONSTRUCTION
+
+        // ====================================================================
+
+        reconstructParallelIR(*M, pdg, TG, taskLevels);
 
         // optional: you can still call your helper which creates its own managers
         runLoopOutlinerOnModule(*M);
@@ -183,7 +190,7 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
-    M->print(outs(), nullptr);
+    // M->print(outs(), nullptr);
 
     {
         LoopAnalysisManager LAM;

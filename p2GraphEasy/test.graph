@@ -9,13 +9,13 @@
 graph mmm { nodes: 0,1,2,3,4; 
 edges: 0->1, 1->2, 2->3, 3->4; 
 };
-*/ 
+*/
 
 graph G{
   //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
-  edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1.txt";
+  edges: file "/home/kazisahib/sgpl/Graph-language-/synth_graphs_violin/synth_v_50000_e_1000000_seed_1.txt";
 };
-
+ 
 query k : "bfs" of G;
 /*
 real t0 = timer();

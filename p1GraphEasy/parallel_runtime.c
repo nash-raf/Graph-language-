@@ -46,7 +46,7 @@ static void *worker_main(void *_arg)
         for (i = start + (int64_t)tid * step; i < end; i += (int64_t)nthreads * step)
         {
             // exit(0); // temp
-            printf("Iteration %d by thread %d\n", (int)i, tid);
+            // printf("Iteration %d by thread %d\n", (int)i, tid);
             if (a->body)
                 a->body(i, a->env);
         }
@@ -97,4 +97,3 @@ void parallel_for_runtime(int64_t start, int64_t end, int64_t step, loop_body_fn
     free(threads);
     free(args);
 }
-

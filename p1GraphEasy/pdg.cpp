@@ -2576,346 +2576,333 @@ namespace llvm
             llvm::nulls() << "  Created wrapper for task " << taskId << "\n";
         }
 
-        // Create parallel main
-        FunctionType *MainFT = FunctionType::get(Int32Ty, false);
-        Function *ParallelMain = Function::Create(MainFT, Function::ExternalLinkage,
-                                                  "main_parallel", M);
-
-        BasicBlock *EntryBB = BasicBlock::Create(Ctx, "entry", ParallelMain);
-        IRBuilder<> Builder(EntryBB);
-
-        // Value *HeaderMsg = Builder.CreateGlobalStringPtr(
-        //     "\n========== PARALLEL EXECUTION START ==========\n");
-        // Builder.CreateCall(Printf, {HeaderMsg});
-        // Map to track cloned values
-        ValueToValueMapTy VMap;
-
-        auto getDefaultValueForType = [&](Type *Ty) -> Value *
+        // Region-aware, in-place scheduling (preserves original CFG/loop semantics).
+        struct TaskRegionInfo
         {
-            if (Ty->isPointerTy())
-                return ConstantPointerNull::get(cast<PointerType>(Ty));
-            if (Ty->isIntegerTy())
-                return ConstantInt::get(Ty, 0);
-            if (Ty->isFloatingPointTy())
-                return ConstantFP::get(Ty, 0.0);
-            return UndefValue::get(Ty);
+            unsigned taskId = 0;
+            const Loop *regionLoop = nullptr; // nullptr => ROOT
+            SmallVector<CallInst *> anchorCallsites;
+            bool ambiguousRegion = false;
+        };
+        struct LevelPlan
+        {
+            SmallVector<unsigned> parallelTasks;
+            SmallVector<unsigned> serialTasks;
+        };
+        struct RegionSchedule
+        {
+            const Loop *regionLoop = nullptr;
+            std::vector<LevelPlan> levels;
+        };
+        struct CallGroup
+        {
+            unsigned levelIdx = 0;
+            const Loop *regionLoop = nullptr;
+            BasicBlock *bb = nullptr;
+            SmallVector<unsigned> taskIds;
+            SmallVector<CallInst *> calls;
         };
 
-        DenseSet<Value *> MaterializeInProgress;
-        std::function<Value *(Value *)> rematerializeValue = [&](Value *Src) -> Value *
-        {
-            if (!Src)
-                return nullptr;
-
-            if (VMap.count(Src))
-                return VMap[Src];
-
-            if (isa<Constant>(Src))
-                return Src;
-
-            if (auto *A = dyn_cast<Argument>(Src))
-            {
-                // main has no formal args in this pipeline; if this appears, we cannot rematerialize.
-                if (A->getParent() == ParallelMain)
-                    return A;
-                return nullptr;
-            }
-
-            auto *I = dyn_cast<Instruction>(Src);
-            if (!I || I->getFunction() != mainFunc)
-                return nullptr;
-
-            // Prevent recursive cycles (e.g. PHI/self-references in loop-carried values).
-            if (!MaterializeInProgress.insert(Src).second)
-                return nullptr;
-
-            auto removeInProgress = [&]()
-            { MaterializeInProgress.erase(Src); };
-
-            // Resolve PHI by selecting the first rematerializable incoming value.
-            // We cannot legally insert cross-block PHIs in the linearized main_parallel entry.
-            if (auto *PN = dyn_cast<PHINode>(I))
-            {
-                for (unsigned i = 0; i < PN->getNumIncomingValues(); ++i)
-                {
-                    Value *Inc = PN->getIncomingValue(i);
-                    Value *MatInc = rematerializeValue(Inc);
-                    if (MatInc && MatInc->getType() == PN->getType())
-                    {
-                        VMap[Src] = MatInc;
-                        removeInProgress();
-                        return MatInc;
-                    }
-                }
-                removeInProgress();
-                return nullptr;
-            }
-
-            // Only clone instructions that are safe/value-producing in this context.
-            if (I->isTerminator())
-            {
-                removeInProgress();
-                return nullptr;
-            }
-
-            if (auto *CI = dyn_cast<CallInst>(I))
-            {
-                Function *CF = CI->getCalledFunction();
-                bool allowKnownRuntimeCtor = false;
-                if (CF)
-                {
-                    StringRef N = CF->getName();
-                    allowKnownRuntimeCtor =
-                        N == "malloc" || N == "calloc" || N == "realloc" ||
-                        N == "roaring_bitmap_create" || N == "roaring_from_serialized" ||
-                        N == "roaring_bitmap_union" || N == "roaring_bitmap_intersect";
-                }
-                if (!allowKnownRuntimeCtor)
-                {
-                    removeInProgress();
-                    return nullptr;
-                }
-            }
-            else if (I->mayHaveSideEffects())
-            {
-                removeInProgress();
-                return nullptr;
-            }
-
-            Instruction *Clone = I->clone();
-            for (unsigned opIdx = 0; opIdx < Clone->getNumOperands(); ++opIdx)
-            {
-                Value *OrigOp = Clone->getOperand(opIdx);
-                if (VMap.count(OrigOp))
-                {
-                    Clone->setOperand(opIdx, VMap[OrigOp]);
-                    continue;
-                }
-
-                Value *MatOp = rematerializeValue(OrigOp);
-                if (!MatOp)
-                {
-                    removeInProgress();
-                    Clone->deleteValue();
-                    return nullptr;
-                }
-                Clone->setOperand(opIdx, MatOp);
-            }
-
-            Builder.Insert(Clone);
-            VMap[Src] = Clone;
-            removeInProgress();
-            return Clone;
-        };
-
-        auto materializeInParallelMain = [&](Value *OrigVal, Type *ExpectedTy) -> Value *
-        {
-            Value *V = rematerializeValue(OrigVal);
-            if (!V)
-                V = getDefaultValueForType(ExpectedTy);
-
-            if (V->getType() == ExpectedTy)
-                return V;
-
-            if (V->getType()->isPointerTy() && ExpectedTy->isPointerTy())
-                return Builder.CreateBitCast(V, ExpectedTy);
-
-            if (V->getType()->isIntegerTy() && ExpectedTy->isIntegerTy())
-                return Builder.CreateIntCast(V, ExpectedTy, /*isSigned=*/true);
-
-            if (V->getType()->isFloatingPointTy() && ExpectedTy->isFloatingPointTy())
-                return Builder.CreateFPCast(V, ExpectedTy);
-
-            return getDefaultValueForType(ExpectedTy);
-        };
-
-        // Clone initialization code from original main
-        llvm::nulls() << "Cloning initialization code from original main...\n";
-
-        // Find the first extracted function to know when to stop cloning
-        Function *firstExtractedFunc = nullptr;
+        DenseMap<Function *, unsigned> extractedFuncToTaskId;
         for (unsigned taskId = 0; taskId < extractedFunctions.size(); ++taskId)
         {
-            if (extractedFunctions[taskId])
-            {
-                firstExtractedFunc = extractedFunctions[taskId];
-                break;
-            }
+            if (Function *F = extractedFunctions[taskId])
+                extractedFuncToTaskId[F] = taskId;
         }
 
-        if (firstExtractedFunc)
-        {
-            BasicBlock &OrigEntry = mainFunc->getEntryBlock();
-            for (Instruction &I : OrigEntry)
-            {
-                // Never clone terminators into main_parallel; we keep a linear builder flow here.
-                if (I.isTerminator())
-                    break;
+        DominatorTree DT(*mainFunc);
+        LoopInfo LI(DT);
 
-                // Skip calls to extracted task functions; they do not belong in init clone.
-                if (CallInst *CI = dyn_cast<CallInst>(&I))
-                {
-                    if (CI->getCalledFunction() &&
-                        std::find(extractedFunctions.begin(), extractedFunctions.end(),
-                                  CI->getCalledFunction()) != extractedFunctions.end())
-                    {
-                        continue;
-                    }
-                }
-
-                // Clone the instruction
-                Instruction *ClonedInst = I.clone();
-
-                // Remap operands
-                for (unsigned i = 0; i < ClonedInst->getNumOperands(); ++i)
-                {
-                    Value *Op = ClonedInst->getOperand(i);
-                    if (VMap.count(Op))
-                    {
-                        ClonedInst->setOperand(i, VMap[Op]);
-                    }
-                }
-
-                Builder.Insert(ClonedInst);
-                VMap[&I] = ClonedInst;
-            }
-        }
-
-        llvm::nulls() << "  Cloned " << VMap.size() << " initialization instructions\n";
-
-        // Create argument structs for each task
-        SmallVector<AllocaInst *> argStructAllocs(TG.tasks.size(), nullptr);
-
+        SmallVector<TaskRegionInfo> taskRegions(TG.tasks.size());
         for (unsigned taskId = 0; taskId < TG.tasks.size(); ++taskId)
+            taskRegions[taskId].taskId = taskId;
+
+        for (BasicBlock &BB : *mainFunc)
         {
-            TaskArgumentInfo &argInfo = taskArgInfo[taskId];
-            if (!argInfo.argStructType)
-                continue;
-
-            // Allocate struct
-            AllocaInst *ArgStruct = Builder.CreateAlloca(argInfo.argStructType, nullptr,
-                                                         "task_" + Twine(taskId) + "_args");
-            argStructAllocs[taskId] = ArgStruct;
-
-            // Populate struct with cloned values
-            for (unsigned i = 0; i < argInfo.originalValues.size(); ++i)
+            for (Instruction &I : BB)
             {
-                Value *OrigVal = argInfo.originalValues[i];
-                Type *FieldTy = argInfo.types[i];
-                Value *ActualVal = materializeInParallelMain(OrigVal, FieldTy);
+                auto *CI = dyn_cast<CallInst>(&I);
+                if (!CI)
+                    continue;
+                Function *Callee = CI->getCalledFunction();
+                if (!Callee)
+                    continue;
+                auto it = extractedFuncToTaskId.find(Callee);
+                if (it == extractedFuncToTaskId.end())
+                    continue;
 
-                Value *FieldPtr = Builder.CreateStructGEP(argInfo.argStructType, ArgStruct, i);
-                Builder.CreateStore(ActualVal, FieldPtr);
+                unsigned taskId = it->second;
+                TaskRegionInfo &TR = taskRegions[taskId];
+                TR.anchorCallsites.push_back(CI);
+
+                const Loop *L = LI.getLoopFor(CI->getParent());
+                if (TR.anchorCallsites.size() == 1)
+                {
+                    TR.regionLoop = L;
+                }
+                else if (TR.regionLoop != L)
+                {
+                    TR.ambiguousRegion = true;
+                }
             }
-
-            llvm::nulls() << "  Populated argument struct for task " << taskId << "\n";
         }
 
-        // Execute level by level
-        llvm::nulls()
-            << "Generating threaded execution for " << levels.size() << " levels:\n";
+        DenseMap<const Loop *, RegionSchedule> schedules;
+        SmallVector<CallGroup> groups;
+
+        auto ensureRegionSchedule = [&](const Loop *L) -> RegionSchedule &
+        {
+            auto it = schedules.find(L);
+            if (it != schedules.end())
+                return it->second;
+            RegionSchedule RS;
+            RS.regionLoop = L;
+            RS.levels.resize(levels.size());
+            schedules[L] = std::move(RS);
+            return schedules.find(L)->second;
+        };
+
+        auto addToGroup = [&](unsigned levelIdx, const Loop *L, BasicBlock *BB,
+                              unsigned taskId, CallInst *CI)
+        {
+            for (CallGroup &G : groups)
+            {
+                if (G.levelIdx == levelIdx && G.regionLoop == L && G.bb == BB)
+                {
+                    G.taskIds.push_back(taskId);
+                    G.calls.push_back(CI);
+                    return;
+                }
+            }
+            CallGroup NewG;
+            NewG.levelIdx = levelIdx;
+            NewG.regionLoop = L;
+            NewG.bb = BB;
+            NewG.taskIds.push_back(taskId);
+            NewG.calls.push_back(CI);
+            groups.push_back(std::move(NewG));
+        };
 
         for (unsigned levelIdx = 0; levelIdx < levels.size(); ++levelIdx)
         {
-            const auto &level = levels[levelIdx];
-
-            // Separate into extractable and non-extractable tasks
-            SmallVector<unsigned> parallelTasks;
-            SmallVector<unsigned> serialTasks;
-
-            for (unsigned taskId : level)
+            for (unsigned taskId : levels[levelIdx])
             {
-                if (extractedFunctions[taskId])
+                if (taskId >= extractedFunctions.size() || !extractedFunctions[taskId])
                 {
-                    parallelTasks.push_back(taskId);
+                    ensureRegionSchedule(nullptr).levels[levelIdx].serialTasks.push_back(taskId);
+                    continue;
                 }
-                else
+
+                const TaskRegionInfo &TR = taskRegions[taskId];
+                if (TR.anchorCallsites.size() != 1 || TR.ambiguousRegion)
                 {
-                    serialTasks.push_back(taskId);
+                    ensureRegionSchedule(nullptr).levels[levelIdx].serialTasks.push_back(taskId);
+                    continue;
                 }
+
+                CallInst *CI = TR.anchorCallsites[0];
+                ensureRegionSchedule(TR.regionLoop).levels[levelIdx].parallelTasks.push_back(taskId);
+                addToGroup(levelIdx, TR.regionLoop, CI->getParent(), taskId, CI);
             }
-
-            llvm::nulls() << "  Level " << levelIdx << ": " << parallelTasks.size()
-                          << " parallel, " << serialTasks.size() << " serial tasks\n";
-
-            if (parallelTasks.empty() && serialTasks.empty())
-                continue;
-
-            // Value *LevelMsg = Builder.CreateGlobalStringPtr(
-            //     "[LEVEL " + std::to_string(levelIdx) + "] Spawning " +
-            //     std::to_string(parallelTasks.size()) + " parallel thread(s)...\n");
-            // Builder.CreateCall(Printf, {LevelMsg});
-
-            // Execute parallel tasks with pthreads
-            if (!parallelTasks.empty())
-            {
-                ArrayType *ThreadArrayTy = ArrayType::get(PthreadTy, parallelTasks.size());
-                AllocaInst *ThreadArray = Builder.CreateAlloca(ThreadArrayTy, nullptr, "threads");
-
-                // Spawn threads
-                for (unsigned i = 0; i < parallelTasks.size(); ++i)
-                {
-                    unsigned taskId = parallelTasks[i];
-                    Function *wrapper = wrapperFunctions[taskId];
-
-                    Value *ThreadPtr = Builder.CreateGEP(
-                        ThreadArrayTy, ThreadArray,
-                        {Builder.getInt32(0), Builder.getInt32(i)});
-
-                    Value *ThreadArg = ConstantPointerNull::get(VoidPtrTy);
-                    if (argStructAllocs[taskId])
-                    {
-                        ThreadArg = Builder.CreateBitCast(argStructAllocs[taskId], VoidPtrTy);
-                    }
-
-                    Builder.CreateCall(PthreadCreate, {
-                                                          ThreadPtr,
-                                                          ConstantPointerNull::get(VoidPtrTy),
-                                                          wrapper,
-                                                          ThreadArg // Pass actual arguments!
-                                                      });
-                }
-
-                // Join threads
-                for (unsigned i = 0; i < parallelTasks.size(); ++i)
-                {
-                    Value *ThreadHandle = Builder.CreateLoad(
-                        PthreadTy,
-                        Builder.CreateGEP(ThreadArrayTy, ThreadArray,
-                                          {Builder.getInt32(0), Builder.getInt32(i)}));
-
-                    Builder.CreateCall(PthreadJoin, {ThreadHandle, ConstantPointerNull::get(VoidPtrTy)});
-                }
-            }
-
-            // Value *LevelDoneMsg = Builder.CreateGlobalStringPtr(
-            //     "[LEVEL " + std::to_string(levelIdx) + "] All tasks completed\n");
-            // Builder.CreateCall(Printf, {LevelDoneMsg});
         }
 
-        // Value *FooterMsg = Builder.CreateGlobalStringPtr(
-        //     "========== PARALLEL EXECUTION END ==========\n\n");
-        // Builder.CreateCall(Printf, {FooterMsg});
+        auto castValueForStore = [&](IRBuilder<> &B, Value *V, Type *Ty) -> Value *
+        {
+            if (V->getType() == Ty)
+                return V;
+            if (V->getType()->isPointerTy() && Ty->isPointerTy())
+                return B.CreateBitCast(V, Ty);
+            if (V->getType()->isIntegerTy() && Ty->isIntegerTy())
+                return B.CreateIntCast(V, Ty, true);
+            if (V->getType()->isFloatingPointTy() && Ty->isFloatingPointTy())
+                return B.CreateFPCast(V, Ty);
+            if (V->getType()->isIntegerTy() && Ty->isFloatingPointTy())
+                return B.CreateSIToFP(V, Ty);
+            if (V->getType()->isFloatingPointTy() && Ty->isIntegerTy())
+                return B.CreateFPToSI(V, Ty);
+            return nullptr;
+        };
 
-        Builder.CreateRet(ConstantInt::get(Int32Ty, 0));
+        auto isContiguousCallCluster = [&](CallGroup &G,
+                                           const DenseMap<Instruction *, unsigned> &idxMap) -> bool
+        {
+            SmallVector<std::pair<unsigned, CallInst *>> ordered;
+            ordered.reserve(G.calls.size());
+            for (CallInst *CI : G.calls)
+            {
+                auto it = idxMap.find(CI);
+                if (it == idxMap.end())
+                    return false;
+                ordered.push_back({it->second, CI});
+            }
+            llvm::sort(ordered, [](const auto &a, const auto &b)
+                       { return a.first < b.first; });
 
-        // llvm::nulls() << "✓ Parallel main with " << levels.size() << " levels created\n";
-        // llvm::nulls() << "  (" << numExtracted << " parallel, " << (TG.tasks.size() - numExtracted)
-        //               << " serial)\n\n";
+            DenseSet<Instruction *> callSet;
+            for (auto &P : ordered)
+                callSet.insert(P.second);
 
-        // llvm::nulls() << "=======================================================\n";
-        // llvm::nulls() << "       Parallel IR Reconstruction Complete\n";
-        // llvm::nulls() << "=======================================================\n\n";
+            unsigned firstIdx = ordered.front().first;
+            unsigned lastIdx = ordered.back().first;
+            for (Instruction &I : *G.bb)
+            {
+                auto it = idxMap.find(&I);
+                if (it == idxMap.end())
+                    continue;
+                unsigned idx = it->second;
+                if (idx < firstIdx || idx > lastIdx)
+                    continue;
+                if (callSet.count(&I))
+                    continue;
+                if (isa<DbgInfoIntrinsic>(&I))
+                    continue;
+                return false;
+            }
+            return true;
+        };
 
-        // Swap main functions
-        llvm::nulls() << "Swapping main functions...\n";
-        mainFunc->setName("main_original");
-        ParallelMain->setName("main");
+        unsigned transformedGroups = 0;
+        for (CallGroup &G : groups)
+        {
+            if (G.calls.size() < 2)
+                continue;
 
-        // llvm::nulls() << "  Renamed original main -> main_original\n";
-        // llvm::nulls() << "  Renamed main_parallel -> main (new entry point)\n\n";
-        // llvm::nulls() << "✓ Entry point is now the parallel version!\n";
-        // llvm::nulls() << "✓ Original sequential code preserved as main_original\n\n";
+            DenseMap<Instruction *, unsigned> idxMap;
+            unsigned idx = 0;
+            for (Instruction &I : *G.bb)
+                idxMap[&I] = idx++;
+
+            if (!isContiguousCallCluster(G, idxMap))
+                continue;
+
+            SmallVector<std::pair<unsigned, unsigned>> order; // (bb index, local i)
+            order.reserve(G.calls.size());
+            for (unsigned i = 0; i < G.calls.size(); ++i)
+                order.push_back({idxMap[G.calls[i]], i});
+            llvm::sort(order, [](const auto &a, const auto &b)
+                       { return a.first < b.first; });
+
+            CallInst *anchorCall = G.calls[order.front().second];
+            bool safe = true;
+
+            for (auto &ord : order)
+            {
+                unsigned localIdx = ord.second;
+                unsigned taskId = G.taskIds[localIdx];
+                CallInst *CI = G.calls[localIdx];
+                Function *wrapper = wrapperFunctions[taskId];
+                if (!wrapper)
+                {
+                    safe = false;
+                    break;
+                }
+                if (!(CI->getType()->isVoidTy() || CI->use_empty()))
+                {
+                    safe = false;
+                    break;
+                }
+
+                TaskArgumentInfo &argInfo = taskArgInfo[taskId];
+                if (argInfo.argStructType)
+                {
+                    if (argInfo.types.size() != CI->arg_size())
+                    {
+                        safe = false;
+                        break;
+                    }
+                    for (unsigned a = 0; a < CI->arg_size(); ++a)
+                    {
+                        Value *op = CI->getArgOperand(a);
+                        if (auto *defI = dyn_cast<Instruction>(op))
+                        {
+                            if (!DT.dominates(defI, anchorCall))
+                            {
+                                safe = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (CI->arg_size() > 0)
+                {
+                    safe = false;
+                    break;
+                }
+                if (!safe)
+                    break;
+            }
+
+            if (!safe)
+                continue;
+
+            IRBuilder<> B(anchorCall);
+            ArrayType *ThreadArrayTy = ArrayType::get(PthreadTy, G.calls.size());
+            AllocaInst *ThreadArray = B.CreateAlloca(ThreadArrayTy, nullptr,
+                                                     "level_" + Twine(G.levelIdx) + "_threads");
+
+            for (unsigned ordPos = 0; ordPos < order.size(); ++ordPos)
+            {
+                unsigned localIdx = order[ordPos].second;
+                unsigned taskId = G.taskIds[localIdx];
+                CallInst *CI = G.calls[localIdx];
+
+                Value *ThreadPtr = B.CreateGEP(
+                    ThreadArrayTy, ThreadArray,
+                    {B.getInt32(0), B.getInt32(ordPos)});
+
+                Value *ThreadArg = ConstantPointerNull::get(VoidPtrTy);
+                TaskArgumentInfo &argInfo = taskArgInfo[taskId];
+                if (argInfo.argStructType)
+                {
+                    AllocaInst *ArgStruct = B.CreateAlloca(argInfo.argStructType, nullptr,
+                                                           "task_" + Twine(taskId) + "_args");
+                    for (unsigned a = 0; a < CI->arg_size(); ++a)
+                    {
+                        Value *FieldPtr = B.CreateStructGEP(argInfo.argStructType, ArgStruct, a);
+                        Value *stored = castValueForStore(B, CI->getArgOperand(a), argInfo.types[a]);
+                        if (!stored)
+                        {
+                            safe = false;
+                            break;
+                        }
+                        B.CreateStore(stored, FieldPtr);
+                    }
+                    if (!safe)
+                        break;
+                    ThreadArg = B.CreateBitCast(ArgStruct, VoidPtrTy);
+                }
+
+                B.CreateCall(PthreadCreate,
+                             {ThreadPtr,
+                              ConstantPointerNull::get(VoidPtrTy),
+                              wrapperFunctions[taskId],
+                              ThreadArg});
+            }
+
+            if (!safe)
+                continue;
+
+            for (unsigned ordPos = 0; ordPos < order.size(); ++ordPos)
+            {
+                Value *ThreadHandle = B.CreateLoad(
+                    PthreadTy,
+                    B.CreateGEP(ThreadArrayTy, ThreadArray,
+                                {B.getInt32(0), B.getInt32(ordPos)}));
+                B.CreateCall(PthreadJoin, {ThreadHandle, ConstantPointerNull::get(VoidPtrTy)});
+            }
+
+            SmallVector<CallInst *> eraseOrder;
+            eraseOrder.reserve(order.size());
+            for (auto &ord : order)
+                eraseOrder.push_back(G.calls[ord.second]);
+            for (auto it = eraseOrder.rbegin(); it != eraseOrder.rend(); ++it)
+                (*it)->eraseFromParent();
+
+            transformedGroups++;
+        }
+
+        llvm::nulls() << "✓ CFG-preserving scheduler applied in-place: "
+                      << transformedGroups << " grouped parallel regions transformed\n";
     }
 
 } // namespace llvm

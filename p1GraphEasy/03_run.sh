@@ -1,4 +1,7 @@
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$0")"
-./GraphProgram test.graph > graph.ll
+
+./GraphProgram > graph.ll test.graph
+
+clang++ -fopenmp=libomp -O3 program.o parallel_runtime.o roaring_bitmap.o runtime.o -o final_program
+
+export OMP_NUM_THREADS=4
+LD_LIBRARY_PATH=/usr/lib64 ./final_program

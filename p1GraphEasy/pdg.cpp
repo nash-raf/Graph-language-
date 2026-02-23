@@ -20,6 +20,7 @@
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include <algorithm>
 #include <utility>
+#include <functional>
 #include "llvm/ADT/SCCIterator.h"
 #include <string>
 
@@ -1263,7 +1264,7 @@ namespace llvm
             if (entry.second > 0)
             {
                 llvm::nulls() << "Warning: Cycle detected in PDG! Node " << entry.first
-                       << " has remaining in-degree " << entry.second << "\n";
+                              << " has remaining in-degree " << entry.second << "\n";
             }
         }
 
@@ -1571,7 +1572,7 @@ namespace llvm
             if (isLoop)
             {
                 llvm::nulls() << "  SCC " << sccId << " is a loop with "
-                       << sccBlocks.size() << " blocks\n";
+                              << sccBlocks.size() << " blocks\n";
             }
         }
 
@@ -1832,7 +1833,7 @@ namespace llvm
             if (entry.second > 0)
             {
                 llvm::nulls() << "Warning: Cycle detected in task graph! Task " << entry.first
-                       << " has remaining in-degree " << entry.second << "\n";
+                              << " has remaining in-degree " << entry.second << "\n";
             }
         }
 
@@ -1936,24 +1937,24 @@ namespace llvm
         LLVMContext &Ctx = M.getContext();
 
         // DEBUG: Print what we're trying to outline
-        llvm::nulls() << "\n[DEBUG] Outlining Task " << task.taskId << ":\n";
-        llvm::nulls() << "  Vertices: " << task.vertices.size() << "\n";
-        for (unsigned vertexId : task.vertices)
-        {
-            Instruction *I = getInstructionFromVertex(vertexId, PDG);
-            if (I)
-            {
-                llvm::nulls() << "    Vertex " << vertexId << ": ";
-                I->print(llvm::nulls());
-                llvm::nulls() << " (in block: " << I->getParent()->getName() << ")\n";
-            }
-            else
-            {
-                llvm::nulls() << "    Vertex " << vertexId << ": NULL instruction!\n";
-            }
-        }
-        llvm::nulls() << "  Live-ins: " << liveIns.size() << "\n";
-        llvm::nulls() << "  Live-outs: " << liveOuts.size() << "\n";
+        // llvm::nulls() << "\n[DEBUG] Outlining Task " << task.taskId << ":\n";
+        // llvm::nulls() << "  Vertices: " << task.vertices.size() << "\n";
+        // for (unsigned vertexId : task.vertices)
+        // {
+        //     Instruction *I = getInstructionFromVertex(vertexId, PDG);
+        //     if (I)
+        //     {
+        //         llvm::nulls() << "    Vertex " << vertexId << ": ";
+        //         I->print(llvm::nulls());
+        //         llvm::nulls() << " (in block: " << I->getParent()->getName() << ")\n";
+        //     }
+        //     else
+        //     {
+        //         llvm::nulls() << "    Vertex " << vertexId << ": NULL instruction!\n";
+        //     }
+        // }
+        // llvm::nulls() << "  Live-ins: " << liveIns.size() << "\n";
+        // llvm::nulls() << "  Live-outs: " << liveOuts.size() << "\n";
 
         // Create struct types for arguments and results
         SmallVector<Type *> argTypes, resultTypes;
@@ -2273,9 +2274,9 @@ namespace llvm
                                const SmallVector<SmallVector<unsigned>> &levels)
     {
 
-        llvm::nulls() << "\n=======================================================\n";
-        llvm::nulls() << "       Parallel IR Reconstruction (SCC-Aware)\n";
-        llvm::nulls() << "=======================================================\n\n";
+        // llvm::nulls() << "\n=======================================================\n";
+        // llvm::nulls() << "       Parallel IR Reconstruction (SCC-Aware)\n";
+        // llvm::nulls() << "=======================================================\n\n";
 
         Function *mainFunc = M.getFunction("main");
         if (!mainFunc)
@@ -2317,15 +2318,15 @@ namespace llvm
                 }
             }
 
-            llvm::nulls() << "Task " << taskId << ": " << blocks.size() << " blocks"
-                   << (isLoopTask[taskId] ? " [LOOP]" : "") << "\n";
+            // llvm::nulls() << "Task " << taskId << ": " << blocks.size() << " blocks"
+            //<< (isLoopTask[taskId] ? " [LOOP]" : "") << "\n";
         }
 
         // Step 2: Extract tasks using CodeExtractor
         LLVMContext &Ctx = M.getContext();
         SmallVector<Function *> extractedFunctions(TG.tasks.size(), nullptr);
 
-        llvm::nulls() << "\nExtracting tasks using CodeExtractor...\n";
+        // llvm::nulls() << "\nExtracting tasks using CodeExtractor...\n";
 
         for (unsigned taskId = 0; taskId < TG.tasks.size(); ++taskId)
         {
@@ -2398,7 +2399,7 @@ namespace llvm
             }
 
             // Debug: print what we're trying to extract
-            llvm::nulls() << "  [DEBUG] Task " << taskId << " blocks to extract:\n";
+            // llvm::nulls() << "  [DEBUG] Task " << taskId << " blocks to extract:\n";
             for (BasicBlock *BB : blockVec)
             {
                 llvm::nulls() << "    - " << BB->getName() << "\n";
@@ -2415,12 +2416,12 @@ namespace llvm
                 if (isLoopTask[taskId])
                 {
                     llvm::nulls() << "  Task " << taskId << ": Extracted as " << extracted->getName()
-                           << " (LOOP with " << blockVec.size() << " blocks)\n";
+                                  << " (LOOP with " << blockVec.size() << " blocks)\n";
                 }
                 else
                 {
                     llvm::nulls() << "  Task " << taskId << ": Extracted as " << extracted->getName()
-                           << " (" << extracted->arg_size() << " args)\n";
+                                  << " (" << extracted->arg_size() << " args)\n";
                 }
             }
             else
@@ -2444,13 +2445,13 @@ namespace llvm
             }
         }
 
-        llvm::nulls() << "Successfully extracted " << numExtracted << " tasks\n";
-        llvm::nulls() << "  - " << numLoops << " loop tasks\n";
-        llvm::nulls() << "  - " << (numExtracted - numLoops) << " non-loop tasks\n\n";
+        // llvm::nulls() << "Successfully extracted " << numExtracted << " tasks\n";
+        // llvm::nulls() << "  - " << numLoops << " loop tasks\n";
+        // llvm::nulls() << "  - " << (numExtracted - numLoops) << " non-loop tasks\n\n";
 
-        // Step 3: Generate parallel wrapper with pthread support
-        llvm::nulls()
-            << "Generating parallel wrapper with pthread support...\n";
+        // // Step 3: Generate parallel wrapper with pthread support
+        // llvm::nulls()
+        //     << "Generating parallel wrapper with pthread support...\n";
 
         Type *Int32Ty = Type::getInt32Ty(Ctx);
         Type *Int64Ty = Type::getInt64Ty(Ctx);
@@ -2489,8 +2490,8 @@ namespace llvm
             if (!taskArgInfo[taskId].originalValues.empty())
             {
                 llvm::nulls() << "  Task " << taskId << ": "
-                       << taskArgInfo[taskId].originalValues.size()
-                       << " arguments captured\n";
+                              << taskArgInfo[taskId].originalValues.size()
+                              << " arguments captured\n";
             }
         }
 
@@ -2600,23 +2601,118 @@ namespace llvm
             return UndefValue::get(Ty);
         };
 
+        DenseSet<Value *> MaterializeInProgress;
+        std::function<Value *(Value *)> rematerializeValue = [&](Value *Src) -> Value *
+        {
+            if (!Src)
+                return nullptr;
+
+            if (VMap.count(Src))
+                return VMap[Src];
+
+            if (isa<Constant>(Src))
+                return Src;
+
+            if (auto *A = dyn_cast<Argument>(Src))
+            {
+                // main has no formal args in this pipeline; if this appears, we cannot rematerialize.
+                if (A->getParent() == ParallelMain)
+                    return A;
+                return nullptr;
+            }
+
+            auto *I = dyn_cast<Instruction>(Src);
+            if (!I || I->getFunction() != mainFunc)
+                return nullptr;
+
+            // Prevent recursive cycles (e.g. PHI/self-references in loop-carried values).
+            if (!MaterializeInProgress.insert(Src).second)
+                return nullptr;
+
+            auto removeInProgress = [&]()
+            { MaterializeInProgress.erase(Src); };
+
+            // Resolve PHI by selecting the first rematerializable incoming value.
+            // We cannot legally insert cross-block PHIs in the linearized main_parallel entry.
+            if (auto *PN = dyn_cast<PHINode>(I))
+            {
+                for (unsigned i = 0; i < PN->getNumIncomingValues(); ++i)
+                {
+                    Value *Inc = PN->getIncomingValue(i);
+                    Value *MatInc = rematerializeValue(Inc);
+                    if (MatInc && MatInc->getType() == PN->getType())
+                    {
+                        VMap[Src] = MatInc;
+                        removeInProgress();
+                        return MatInc;
+                    }
+                }
+                removeInProgress();
+                return nullptr;
+            }
+
+            // Only clone instructions that are safe/value-producing in this context.
+            if (I->isTerminator())
+            {
+                removeInProgress();
+                return nullptr;
+            }
+
+            if (auto *CI = dyn_cast<CallInst>(I))
+            {
+                Function *CF = CI->getCalledFunction();
+                bool allowKnownRuntimeCtor = false;
+                if (CF)
+                {
+                    StringRef N = CF->getName();
+                    allowKnownRuntimeCtor =
+                        N == "malloc" || N == "calloc" || N == "realloc" ||
+                        N == "roaring_bitmap_create" || N == "roaring_from_serialized" ||
+                        N == "roaring_bitmap_union" || N == "roaring_bitmap_intersect";
+                }
+                if (!allowKnownRuntimeCtor)
+                {
+                    removeInProgress();
+                    return nullptr;
+                }
+            }
+            else if (I->mayHaveSideEffects())
+            {
+                removeInProgress();
+                return nullptr;
+            }
+
+            Instruction *Clone = I->clone();
+            for (unsigned opIdx = 0; opIdx < Clone->getNumOperands(); ++opIdx)
+            {
+                Value *OrigOp = Clone->getOperand(opIdx);
+                if (VMap.count(OrigOp))
+                {
+                    Clone->setOperand(opIdx, VMap[OrigOp]);
+                    continue;
+                }
+
+                Value *MatOp = rematerializeValue(OrigOp);
+                if (!MatOp)
+                {
+                    removeInProgress();
+                    Clone->deleteValue();
+                    return nullptr;
+                }
+                Clone->setOperand(opIdx, MatOp);
+            }
+
+            Builder.Insert(Clone);
+            VMap[Src] = Clone;
+            removeInProgress();
+            return Clone;
+        };
+
         auto materializeInParallelMain = [&](Value *OrigVal, Type *ExpectedTy) -> Value *
         {
-            Value *V = OrigVal;
-            if (VMap.count(OrigVal))
-                V = VMap[OrigVal];
-
-            // Reject values still owned by another function (main_original/task funcs).
-            if (auto *I = dyn_cast<Instruction>(V))
-            {
-                if (I->getFunction() != ParallelMain)
-                    V = getDefaultValueForType(ExpectedTy);
-            }
-            else if (auto *A = dyn_cast<Argument>(V))
-            {
-                if (A->getParent() != ParallelMain)
-                    V = getDefaultValueForType(ExpectedTy);
-            }
+            Value *V = rematerializeValue(OrigVal);
+            if (!V)
+                V = getDefaultValueForType(ExpectedTy);
 
             if (V->getType() == ExpectedTy)
                 return V;
@@ -2626,6 +2722,9 @@ namespace llvm
 
             if (V->getType()->isIntegerTy() && ExpectedTy->isIntegerTy())
                 return Builder.CreateIntCast(V, ExpectedTy, /*isSigned=*/true);
+
+            if (V->getType()->isFloatingPointTy() && ExpectedTy->isFloatingPointTy())
+                return Builder.CreateFPCast(V, ExpectedTy);
 
             return getDefaultValueForType(ExpectedTy);
         };
@@ -2653,14 +2752,14 @@ namespace llvm
                 if (I.isTerminator())
                     break;
 
-                // Stop when we hit a call to an extracted function
+                // Skip calls to extracted task functions; they do not belong in init clone.
                 if (CallInst *CI = dyn_cast<CallInst>(&I))
                 {
                     if (CI->getCalledFunction() &&
                         std::find(extractedFunctions.begin(), extractedFunctions.end(),
                                   CI->getCalledFunction()) != extractedFunctions.end())
                     {
-                        break;
+                        continue;
                     }
                 }
 
@@ -2737,7 +2836,7 @@ namespace llvm
             }
 
             llvm::nulls() << "  Level " << levelIdx << ": " << parallelTasks.size()
-                   << " parallel, " << serialTasks.size() << " serial tasks\n";
+                          << " parallel, " << serialTasks.size() << " serial tasks\n";
 
             if (parallelTasks.empty() && serialTasks.empty())
                 continue;
@@ -2800,23 +2899,23 @@ namespace llvm
 
         Builder.CreateRet(ConstantInt::get(Int32Ty, 0));
 
-        llvm::nulls() << "✓ Parallel main with " << levels.size() << " levels created\n";
-        llvm::nulls() << "  (" << numExtracted << " parallel, " << (TG.tasks.size() - numExtracted)
-               << " serial)\n\n";
+        // llvm::nulls() << "✓ Parallel main with " << levels.size() << " levels created\n";
+        // llvm::nulls() << "  (" << numExtracted << " parallel, " << (TG.tasks.size() - numExtracted)
+        //               << " serial)\n\n";
 
-        llvm::nulls() << "=======================================================\n";
-        llvm::nulls() << "       Parallel IR Reconstruction Complete\n";
-        llvm::nulls() << "=======================================================\n\n";
+        // llvm::nulls() << "=======================================================\n";
+        // llvm::nulls() << "       Parallel IR Reconstruction Complete\n";
+        // llvm::nulls() << "=======================================================\n\n";
 
         // Swap main functions
         llvm::nulls() << "Swapping main functions...\n";
         mainFunc->setName("main_original");
         ParallelMain->setName("main");
 
-        llvm::nulls() << "  Renamed original main -> main_original\n";
-        llvm::nulls() << "  Renamed main_parallel -> main (new entry point)\n\n";
-        llvm::nulls() << "✓ Entry point is now the parallel version!\n";
-        llvm::nulls() << "✓ Original sequential code preserved as main_original\n\n";
+        // llvm::nulls() << "  Renamed original main -> main_original\n";
+        // llvm::nulls() << "  Renamed main_parallel -> main (new entry point)\n\n";
+        // llvm::nulls() << "✓ Entry point is now the parallel version!\n";
+        // llvm::nulls() << "✓ Original sequential code preserved as main_original\n\n";
     }
 
 } // namespace llvm

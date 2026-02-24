@@ -1538,6 +1538,47 @@ extern "C" uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm)
     return total;
 }
 
+extern "C" uint32_t roaring_bitmap_pop(RoaringBitmap *bm)
+{
+    if (!bm || bm->num_containers == 0)
+        return 0;
+
+    Container &last = bm->containers[bm->num_containers - 1];
+    uint32_t base = static_cast<uint32_t>(last.key) << 16;
+
+    if (last.type == ARRAY_CONTAINER && last.array.cardinality > 0)
+    {
+        uint32_t val = base + last.array.values[last.array.cardinality - 1];
+        last.array.cardinality--;
+        if (last.array.cardinality == 0)
+            bm->num_containers--;
+        note_bitmap_mutation(bm);
+        return val;
+    }
+    else if (last.type == BITMAP_CONTAINER)
+    {
+        uint64_t *words = reinterpret_cast<uint64_t *>(last.bitmap.bits);
+        for (int w = 1023; w >= 0; --w)
+        {
+            if (words[w] != 0)
+            {
+                int bit = 63 - __builtin_clzll(words[w]);
+                uint32_t val = base + (w * 64 + bit);
+                words[w] &= ~(1ULL << bit);
+                if (last.bitmap.cardinality > 0)
+                    last.bitmap.cardinality--;
+                note_bitmap_mutation(bm);
+                return val;
+            }
+        }
+        bm->num_containers--;
+        note_bitmap_mutation(bm);
+        return 0;
+    }
+
+    return 0;
+}
+
 extern "C" uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t index)
 {
     if (!bm)

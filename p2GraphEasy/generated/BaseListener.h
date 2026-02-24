@@ -284,6 +284,9 @@ public:
   virtual void enterIntExpr(BaseParser::IntExprContext *ctx) = 0;
   virtual void exitIntExpr(BaseParser::IntExprContext *ctx) = 0;
 
+  virtual void enterSetPopExpr(BaseParser::SetPopExprContext *ctx) = 0;
+  virtual void exitSetPopExpr(BaseParser::SetPopExprContext *ctx) = 0;
+
   virtual void enterParenExpr(BaseParser::ParenExprContext *ctx) = 0;
   virtual void exitParenExpr(BaseParser::ParenExprContext *ctx) = 0;
 

@@ -216,6 +216,7 @@ expr:
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| setTarget '.' 'contains' '(' expr ')'  # SetContainsExpr
 	| ID '.' 'size' '(' ')'	# SetSizeExpr
+	| ID '.' 'pop' '(' ')'		# SetPopExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
 	| ID '[]'					# ArrayPrint

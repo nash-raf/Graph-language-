@@ -2209,6 +2209,12 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         return visitSetContainsExpr(sc);
     }
 
+    case ASTNodeType::SetPopExpr:
+    {
+        auto *sp = static_cast<SetPopExprNode *>(expr);
+        return visitSetPopExpr(sp);
+    }
+
     case ASTNodeType::NotExpr:
     {
         auto *ne = static_cast<NotExprNode *>(expr);
@@ -4115,4 +4121,20 @@ llvm::Value *IRGenVisitor::visitSetContainsExpr(SetContainsExprNode *node)
     llvm::Value *result = Builder.CreateCall(containsFn, {bitmapPtr, argValue}, "contains.result");
 
     return Builder.CreateICmpNE(result, llvm::ConstantInt::get(i32Ty, 0), "contains.bool");
+}
+
+llvm::Value *IRGenVisitor::visitSetPopExpr(SetPopExprNode *node)
+{
+    auto *BitmapPtrTy = getBitmapPtrTy(Context);
+    auto *i32Ty = Builder.getInt32Ty();
+
+    auto it = NamedValues.find(node->setName);
+    if (it == NamedValues.end())
+        throw std::runtime_error("Undefined set variable in pop: " + node->setName);
+
+    llvm::Value *bitmapPtr = Builder.CreateLoad(BitmapPtrTy, it->second, node->setName + ".bm");
+
+    llvm::FunctionType *popFT = llvm::FunctionType::get(i32Ty, {BitmapPtrTy}, false);
+    auto popFn = Module.getOrInsertFunction("roaring_bitmap_pop", popFT);
+    return Builder.CreateCall(popFn, {bitmapPtr}, "set.pop");
 }

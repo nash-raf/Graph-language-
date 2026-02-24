@@ -67,6 +67,7 @@ public:
     llvm::SmallVector<ASTNode *, 8> flattenSetOperation(ASTNode *expr, const std::string &targetOp);
     void visitSetMethodCall(SetMethodCallNode *node);
     llvm::Value *visitSetContainsExpr(SetContainsExprNode *node);
+    llvm::Value *visitSetPopExpr(SetPopExprNode *node);
 
 private:
     llvm::LLVMContext &Context;

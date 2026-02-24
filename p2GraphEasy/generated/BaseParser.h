@@ -20,12 +20,12 @@ public:
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
     T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, T__43 = 44, 
     T__44 = 45, T__45 = 46, T__46 = 47, T__47 = 48, T__48 = 49, T__49 = 50, 
-    T__50 = 51, T__51 = 52, GRAPH = 53, WEIGHTS = 54, SET = 55, UNION = 56, 
-    INTERSECT = 57, NOT = 58, MODULO = 59, EDGE = 60, NODE = 61, TRUE = 62, 
-    FALSE = 63, OF = 64, PLUS = 65, MINUS = 66, TIMES = 67, DIVIDE = 68, 
-    AND = 69, OR = 70, EQUAL = 71, NOTEQUAL = 72, LESSTHAN = 73, GREATERTHAN = 74, 
-    LESSEQUAL = 75, GREATEREQUAL = 76, ID = 77, INT = 78, REAL = 79, STRING = 80, 
-    Comment = 81, WS = 82
+    T__50 = 51, T__51 = 52, T__52 = 53, GRAPH = 54, WEIGHTS = 55, SET = 56, 
+    UNION = 57, INTERSECT = 58, NOT = 59, MODULO = 60, EDGE = 61, NODE = 62, 
+    TRUE = 63, FALSE = 64, OF = 65, PLUS = 66, MINUS = 67, TIMES = 68, DIVIDE = 69, 
+    AND = 70, OR = 71, EQUAL = 72, NOTEQUAL = 73, LESSTHAN = 74, GREATERTHAN = 75, 
+    LESSEQUAL = 76, GREATEREQUAL = 77, ID = 78, INT = 79, REAL = 80, STRING = 81, 
+    Comment = 82, WS = 83
   };
 
   enum {
@@ -1543,6 +1543,17 @@ public:
     IntExprContext(ExprContext *ctx);
 
     antlr4::tree::TerminalNode *INT();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetPopExprContext : public ExprContext {
+  public:
+    SetPopExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 

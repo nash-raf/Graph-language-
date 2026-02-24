@@ -199,6 +199,8 @@ public:
 
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
 
+    virtual std::any visitSetPopExpr(BaseParser::SetPopExprContext *context) = 0;
+
     virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
 
     virtual std::any visitRealExpr(BaseParser::RealExprContext *context) = 0;

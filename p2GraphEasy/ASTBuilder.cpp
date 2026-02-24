@@ -441,6 +441,11 @@ antlrcpp::Any ASTBuilder::visitExpr(BaseParser::ExprContext *ctx)
         args.push_back(std::make_shared<VariableNode>(setName));
         return ASTNodePtr(std::make_shared<FunctionCallNode>("setSize", args));
     }
+    else if (auto popCtx = dynamic_cast<BaseParser::SetPopExprContext *>(ctx))
+    {
+        std::string setName = popCtx->ID()->getText();
+        return ASTNodePtr(std::make_shared<SetPopExprNode>(setName));
+    }
     else if (auto notCtx = dynamic_cast<BaseParser::NotExprContext *>(ctx))
     {
         ASTNodePtr operand = safe_any_cast<ASTNodePtr>(visitExpr(notCtx->expr()));

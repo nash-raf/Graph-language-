@@ -375,6 +375,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSetPopExpr(BaseParser::SetPopExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitParenExpr(BaseParser::ParenExprContext *ctx) override {
     return visitChildren(ctx);
   }

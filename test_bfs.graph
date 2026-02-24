@@ -1,9 +1,9 @@
-real t0 = timer();
 graph G{
   //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
   edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
   //edges: file "edgelist.txt";
 };
+real t0 = timer();
 int n = numVertices(G);
 int dist[n];
 set visited;
@@ -32,5 +32,7 @@ print dist[3];
 print dist[4];
 print dist[9];
 print elapsed;
+
+
 
 

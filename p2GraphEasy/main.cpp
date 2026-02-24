@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #include "antlr4-runtime.h"
 #include "BaseLexer.h"
@@ -19,6 +20,7 @@
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Format.h>
 #include <llvm/TargetParser/Host.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
@@ -214,18 +216,22 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    auto t_start = std::chrono::high_resolution_clock::now();
+
     ANTLRInputStream input(in);
     BaseLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     BaseParser parser(&tokens);
     auto tree = parser.program();
 
+    auto t_parse = std::chrono::high_resolution_clock::now();
+
     ASTBuilder astB;
     auto progAny = astB.visitProgram(tree);
     auto prog = std::any_cast<ProgramNodePtr>(progAny);
-    
-    // exit(0);
-    // Semantic analysis (name resolution, type checking, validations)
+
+    auto t_ast = std::chrono::high_resolution_clock::now();
+
     try
     {
         SemanticAnalyzer sema(prog);
@@ -237,13 +243,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // --- Now LLVM IR generation/linking and running passes ---
+    auto t_sema = std::chrono::high_resolution_clock::now();
+
     LLVMContext Ctx;
     auto M = std::make_unique<Module>("my_module", Ctx);
     IRBuilder<> IRB(Ctx);
 
     IRGenVisitor irgen(Ctx, *M, IRB);
     irgen.visitProgram(prog);
+
+    auto t_irgen = std::chrono::high_resolution_clock::now();
 
     // M->print(outs(), nullptr);
 
@@ -490,13 +499,12 @@ int main(int argc, char **argv)
         // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
     }
 
-    // Run the constructed ModulePassManager
-    // Run the standard O3 optimization pipeline first (programmatic).
-    OptMPM.run(*M, MAM);
-    // after OptMPM.run(*M, MAM)  (or MPM.run)
+    auto t_link = std::chrono::high_resolution_clock::now();
 
-    // Then run the constructed ModulePassManager (which may include other passes).
+    OptMPM.run(*M, MAM);
     MPM.run(*M, MAM);
+
+    auto t_opt = std::chrono::high_resolution_clock::now();
     InitializeAllTargetInfos();
     InitializeAllTargets();
     InitializeAllTargetMCs();
@@ -551,6 +559,23 @@ int main(int argc, char **argv)
 
     codeGenPass.run(*M);
     dest.flush();
+
+    auto t_codegen = std::chrono::high_resolution_clock::now();
+
+    auto ms = [](auto a, auto b) {
+        return std::chrono::duration<double, std::milli>(b - a).count();
+    };
+    errs() << "\n=== Compiler Phase Timings ===\n";
+    errs() << "  Lexing + Parsing : " << llvm::format("%8.2f", ms(t_start, t_parse))  << " ms\n";
+    errs() << "  AST Building     : " << llvm::format("%8.2f", ms(t_parse, t_ast))     << " ms\n";
+    errs() << "  Semantic Analysis: " << llvm::format("%8.2f", ms(t_ast, t_sema))      << " ms\n";
+    errs() << "  IR Generation    : " << llvm::format("%8.2f", ms(t_sema, t_irgen))    << " ms\n";
+    errs() << "  IR Linking       : " << llvm::format("%8.2f", ms(t_irgen, t_link))    << " ms\n";
+    errs() << "  Optimization (O3): " << llvm::format("%8.2f", ms(t_link, t_opt))      << " ms\n";
+    errs() << "  CodeGen (.o)     : " << llvm::format("%8.2f", ms(t_opt, t_codegen))   << " ms\n";
+    errs() << "  ─────────────────────────────\n";
+    errs() << "  Total            : " << llvm::format("%8.2f", ms(t_start, t_codegen)) << " ms\n\n";
+
     // errs() << "=== Named metadata in module ===\n";
     // for (auto &N : M->named_metadata())
     // {

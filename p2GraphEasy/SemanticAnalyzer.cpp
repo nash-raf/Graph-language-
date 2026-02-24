@@ -311,6 +311,14 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             analyzeExpr(sc->argument.get());
         return TypeKind::Bool;
     }
+    case ASTNodeType::SetPopExpr:
+    {
+        auto *sp = static_cast<SetPopExprNode *>(expr);
+        Symbol *sym = lookupSymbol(sp->setName);
+        if (!sym)
+            error("set pop on undeclared variable: " + sp->setName);
+        return TypeKind::Int;
+    }
     case ASTNodeType::NotExpr:
     {
         auto *ne = static_cast<NotExprNode *>(expr);

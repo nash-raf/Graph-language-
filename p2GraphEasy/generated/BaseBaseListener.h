@@ -286,6 +286,9 @@ public:
   virtual void enterIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
   virtual void exitIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
 
+  virtual void enterSetPopExpr(BaseParser::SetPopExprContext * /*ctx*/) override { }
+  virtual void exitSetPopExpr(BaseParser::SetPopExprContext * /*ctx*/) override { }
+
   virtual void enterParenExpr(BaseParser::ParenExprContext * /*ctx*/) override { }
   virtual void exitParenExpr(BaseParser::ParenExprContext * /*ctx*/) override { }
 

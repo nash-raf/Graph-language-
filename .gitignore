@@ -9,4 +9,11 @@ synth_graphs_unweighted/*
 *.wel
 p2GraphEasy/final_program
 p2GraphEasy/GraphProgram 
-
+p1GraphEasy/final_program
+p1GraphEasy/GraphProgram 
+p1GraphEasy/01_run.sh
+p1GraphEasy/02_run.sh
+p1GraphEasy/03_run.sh
+p2GraphEasy/final_run.sh
+p1GraphEasy/*.o*
+p2GraphEasy/*.o*

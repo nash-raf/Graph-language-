@@ -52,11 +52,11 @@ struct MemoryArena
             current->offset += n;
 
             // Log large allocations
-            if (n >= 8192)
-            {
-                ARENA_LOG("[Arena] Allocated %zu bytes from current block (block has %zu/%zu used)\n",
-                        n, current->offset, current->capacity);
-            }
+            // if (n >= 8192)
+            // {
+            //     ARENA_LOG("[Arena] Allocated %zu bytes from current block (block has %zu/%zu used)\n",
+            //             n, current->offset, current->capacity);
+            // }
 
             return ptr;
         }
@@ -64,11 +64,11 @@ struct MemoryArena
         // Need a new block
         size_t new_block_size = (n > default_block_size) ? n : default_block_size;
 
-        ARENA_LOG("\n[Arena] *** CREATING NEW BLOCK ***\n");
-        ARENA_LOG("[Arena]   Reason: Request for %zu bytes, current block has %zu free\n",
-                n, current ? (current->capacity - current->offset) : 0);
-        ARENA_LOG("[Arena]   New block size: %zu bytes (%.1f MB)\n",
-                new_block_size, new_block_size / (1024.0 * 1024.0));
+        // ARENA_LOG("\n[Arena] *** CREATING NEW BLOCK ***\n");
+        // ARENA_LOG("[Arena]   Reason: Request for %zu bytes, current block has %zu free\n",
+        //         n, current ? (current->capacity - current->offset) : 0);
+        // ARENA_LOG("[Arena]   New block size: %zu bytes (%.1f MB)\n",
+        //         new_block_size, new_block_size / (1024.0 * 1024.0));
 
         ArenaBlock *new_block = new ArenaBlock();
         new_block->buffer = new uint8_t[new_block_size];
@@ -82,12 +82,12 @@ struct MemoryArena
         if (current)
         {
             current->next = new_block;
-            ARENA_LOG("[Arena]   Chained to existing block (now have %zu blocks)\n", blocks_created);
+            // ARENA_LOG("[Arena]   Chained to existing block (now have %zu blocks)\n", blocks_created);
         }
         else
         {
             head = new_block;
-            ARENA_LOG("[Arena]   Created first block\n");
+            // ARENA_LOG("[Arena]   Created first block\n");
         }
         current = new_block;
 
@@ -95,18 +95,18 @@ struct MemoryArena
         uint8_t *ptr = current->buffer + current->offset;
         current->offset += n;
 
-        ARENA_LOG("[Arena]   Allocated %zu bytes from new block\n\n", n);
+        // ARENA_LOG("[Arena]   Allocated %zu bytes from new block\n\n", n);
 
         return ptr;
     }
 
     void free_all()
     {
-        ARENA_LOG("\n[Arena] Freeing all arena blocks...\n");
-        ARENA_LOG("[Arena]   Total allocations made: %zu\n", total_allocations);
-        ARENA_LOG("[Arena]   Total bytes allocated: %zu (%.1f MB)\n",
-                total_bytes_allocated, total_bytes_allocated / (1024.0 * 1024.0));
-        ARENA_LOG("[Arena]   Blocks created: %zu\n", blocks_created);
+        // ARENA_LOG("\n[Arena] Freeing all arena blocks...\n");
+        // ARENA_LOG("[Arena]   Total allocations made: %zu\n", total_allocations);
+        // ARENA_LOG("[Arena]   Total bytes allocated: %zu (%.1f MB)\n",
+        //         total_bytes_allocated, total_bytes_allocated / (1024.0 * 1024.0));
+        // ARENA_LOG("[Arena]   Blocks created: %zu\n", blocks_created);
 
         ArenaBlock *block = head;
         int count = 0;
@@ -119,7 +119,7 @@ struct MemoryArena
             block = next;
         }
 
-        ARENA_LOG("[Arena]   Freed %d blocks\n\n", count);
+        // ARENA_LOG("[Arena]   Freed %d blocks\n\n", count);
 
         head = nullptr;
         current = nullptr;

@@ -1,0 +1,24 @@
+digraph {
+	tooltip=" "
+	graph [fontname=Arial, nodesep=0.125, ranksep=0.25];
+	node [fontcolor=white, fontname=Arial, height=0, shape=box, style=filled, width=0];
+	edge [fontname=Arial];
+	"(below main)" [color="#fe0300", fontcolor="#ffffff", fontsize="10.00", label="final_program\n(below main)\n99.67%\n(0.00%)\n2×"];
+	"(below main)" -> main [arrowsize="1.00", color="#fe0300", fontcolor="#fe0300", fontsize="10.00", label="99.67%\n1×", labeldistance="3.99", penwidth="3.99"];
+	"0x000000000001f540" [color="#ff0000", fontcolor="#ffffff", fontsize="10.00", label="ld-linux-x86-64.so.2\n0x000000000001f540\n100.00%\n(0.00%)\n0×"];
+	"0x000000000001f540" -> "(below main)" [arrowsize="1.00", color="#fe0300", fontcolor="#fe0300", fontsize="10.00", label="99.67%\n1×", labeldistance="3.99", penwidth="3.99"];
+	"__memcpy_avx_unaligned_erms" [color="#0c5a87", fontcolor="#ffffff", fontsize="10.00", label="libc.so.6\n__memcpy_avx_unaligned_erms\n15.83%\n(15.83%)\n544494×"];
+	"add_to_array(RoaringBitmap*, Container*, unsigned short)" [color="#0c9981", fontcolor="#ffffff", fontsize="10.00", label="final_program\nadd_to_array(RoaringBitmap*, Container*, unsigned short)\n29.32%\n(13.58%)\n560636×"];
+	"add_to_array(RoaringBitmap*, Container*, unsigned short)" -> "__memcpy_avx_unaligned_erms" [arrowsize="0.39", color="#0c5987", fontcolor="#0c5987", fontsize="10.00", label="15.57%\n539375×", labeldistance="0.62", penwidth="0.62"];
+	main [color="#fe0300", fontcolor="#ffffff", fontsize="10.00", label="final_program\nmain\n99.67%\n(6.58%)\n1×"];
+	main -> "__memcpy_avx_unaligned_erms" [arrowsize="0.35", color="#0d0e73", fontcolor="#0d0e73", fontsize="10.00", label="0.26%\n2×", labeldistance="0.50", penwidth="0.50"];
+	main -> "roaring_bitmap_add" [arrowsize="0.76", color="#42c108", fontcolor="#42c108", fontsize="10.00", label="57.80%\n1891870×", labeldistance="2.31", penwidth="2.31"];
+	main -> "roaring_bitmap_contains" [arrowsize="0.54", color="#0c9980", fontcolor="#0c9980", fontsize="10.00", label="29.48%\n2230824×", labeldistance="1.18", penwidth="1.18"];
+	main -> "roaring_bitmap_get_at_index" [arrowsize="0.35", color="#0d257a", fontcolor="#0d257a", fontsize="10.00", label="5.50%\n899587×", labeldistance="0.50", penwidth="0.50"];
+	"promote_to_bitmap(RoaringBitmap*, Container*)" [color="#0d1074", fontcolor="#ffffff", fontsize="10.00", label="final_program\npromote_to_bitmap(RoaringBitmap*, Container*)\n0.70%\n(0.66%)\n92×"];
+	"roaring_bitmap_add" [color="#42c108", fontcolor="#ffffff", fontsize="10.00", label="final_program\nroaring_bitmap_add\n57.80%\n(27.77%)\n1891870×"];
+	"roaring_bitmap_add" -> "add_to_array(RoaringBitmap*, Container*, unsigned short)" [arrowsize="0.54", color="#0c9981", fontcolor="#0c9981", fontsize="10.00", label="29.32%\n560636×", labeldistance="1.17", penwidth="1.17"];
+	"roaring_bitmap_add" -> "promote_to_bitmap(RoaringBitmap*, Container*)" [arrowsize="0.35", color="#0d1074", fontcolor="#0d1074", fontsize="10.00", label="0.70%\n92×", labeldistance="0.50", penwidth="0.50"];
+	"roaring_bitmap_contains" [color="#0c9980", fontcolor="#ffffff", fontsize="10.00", label="final_program\nroaring_bitmap_contains\n29.48%\n(29.48%)\n2230824×"];
+	"roaring_bitmap_get_at_index" [color="#0d257a", fontcolor="#ffffff", fontsize="10.00", label="final_program\nroaring_bitmap_get_at_index\n5.50%\n(5.49%)\n899587×"];
+}

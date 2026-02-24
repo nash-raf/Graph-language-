@@ -2,13 +2,13 @@
 set -euxo pipefail
 
 # ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
-LLVM_CONFIG="llvm-config-20"
-OPT_BIN="opt-20"
-CLANGXX="clang++-20"
+# LLVM_CONFIG="llvm-config-20"
+# OPT_BIN="opt-20"
+# CLANGXX="clang++-20"
 
-# LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
-# OPT_BIN=/usr/local/llvm-20-polly-rtti/bin/opt
-# CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
+LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+OPT_BIN=/usr/local/llvm-20-polly-rtti/bin/opt
+CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
 # ────────────────────────────────────────────────────────────────────────────────
 
 # Usage: ./run.sh <input.gpl> <dsl-input> [existing-IR.ll]
@@ -59,7 +59,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
-  ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
+  ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
 
   g++ \
     -g -std=c++17 -fexceptions \

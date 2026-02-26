@@ -119,6 +119,9 @@ private:
     llvm::GlobalVariable *EdgePairsGV = nullptr;
     uint64_t EdgePairsCount = 0;
 
+    llvm::Value *RuntimeEdgePairsPtr = nullptr;
+    llvm::Value *RuntimeEdgePairsCount = nullptr;
+
     void buildGlobalEdgeTable(ProgramNodePtr prog);
     void emitEdgePairsGlobal();
     std::vector<uint8_t> buildEdgeBlobForGraph(GraphDeclNode *G);

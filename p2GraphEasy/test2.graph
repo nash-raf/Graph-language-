@@ -1,31 +1,38 @@
 graph G{
-  //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
-  //edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-  edges: file "edgelist.txt";
+  //edges: file "../synth_graphs_unweighted/synth_v_50000_e_1000000.txt       ";
+  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
+  //edges: file "edgelist.txt";
 };
-
-
-set stack = {2};
+real t0 = timer();
+int n = numVertices(G);
+int dist[n];
 set visited;
-int j = numVertices(G);
-int arr[j];
-int i=0;
-while (stack.size() > 0) {
-    int v = stack.pop();     
-    visited.add(v);
-    arr[i]=v;
-    for each neighbor u of v in G {
-        if (!visited.contains(u)) {
-            stack.add(u);
+set frontier = {0};
+int level = 0;
+while (frontier.size() > 0) {
+    set next_frontier = {};
+    for each v in frontier {
+        dist[v] = level;
+        visited.add(v);
+        for each neighbor u of v in G {
+            if (!visited.contains(u)) {
+                next_frontier.add(u);
+            }
         }
     }
-    i=i+1;
+    frontier = next_frontier;
+    level = level + 1;
 }
-print visited;
-int m =0;
-while(m<j){
-    print arr[m];
-    m=m+1;
-}
+real t1 = timer();
+real elapsed = t1 - t0;
+print dist[0];
+print dist[1];
+print dist[2];
+print dist[3];
+print dist[4];
+print dist[9];
+print elapsed;
+
+
 
 

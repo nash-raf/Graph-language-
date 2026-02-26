@@ -31,6 +31,7 @@ void IRGenVisitor::buildGlobalEdgeTable(ProgramNodePtr prog)
         if (node->type == ASTNodeType::GraphDecl)
         {
             auto *G = static_cast<GraphDeclNode *>(node.get());
+            if (G->isFileGraph) continue;
             for (auto &e : G->edge_list)
             {
                 getOrAddEdgeId(static_cast<int32_t>(e.first), static_cast<int32_t>(e.second));
@@ -2614,7 +2615,52 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
 {
     auto *I64 = llvm::Type::getInt64Ty(Context);
     auto *I32 = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *graphPtrTy = llvm::PointerType::get(GraphTy, 0);
 
+    // ── File-based graph: load at runtime ──────────────────────────────
+    if (G->isFileGraph)
+    {
+        llvm::Value *fnameStr = Builder.CreateGlobalStringPtr(
+            G->edgeFileName, G->name + "_filename");
+
+        llvm::FunctionType *loadFT = llvm::FunctionType::get(
+            graphPtrTy, {i8PtrTy}, false);
+        auto loadFn = Module.getOrInsertFunction("load_graph_from_file", loadFT);
+        llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "graph_ptr");
+
+        GraphMap[G->name] = graphPtr;
+        GraphAstMap[G->name] = G;
+
+        // G.nodes bitmap: call graph_get_node_bitmap(graphPtr)
+        llvm::FunctionType *getBmFT = llvm::FunctionType::get(
+            i8PtrTy, {graphPtrTy}, false);
+        auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+        GraphNodesMap[G->name] = Builder.CreateCall(getNodeBmFn, {graphPtr},
+                                                    G->name + "_nodes_bm");
+
+        // G.edges bitmap: call graph_get_edge_bitmap(graphPtr)
+        auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+        GraphEdgesMap[G->name] = Builder.CreateCall(getEdgeBmFn, {graphPtr},
+                                                    G->name + "_edges_bm");
+
+        // Edge pairs for print: call graph_get_edge_pairs / graph_get_num_edge_pairs
+        auto *i32PtrTy = llvm::PointerType::getUnqual(I32);
+        llvm::FunctionType *getPairsFT = llvm::FunctionType::get(
+            i32PtrTy, {graphPtrTy}, false);
+        auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+        RuntimeEdgePairsPtr = Builder.CreateCall(getPairsFn, {graphPtr}, "edge_pairs_ptr");
+
+        llvm::FunctionType *getCountFT = llvm::FunctionType::get(
+            i64Ty, {graphPtrTy}, false);
+        auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
+        RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
+
+        return graphPtr;
+    }
+
+    // ── Inline graph: embed CSR as constants (original path) ───────────
     unsigned rpLen = static_cast<unsigned>(G->n + 1);
     auto *arrRP = llvm::ArrayType::get(I64, rpLen);
     llvm::SmallVector<llvm::Constant *, 16> rpConsts;
@@ -2643,11 +2689,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         Module, arrCI, true, llvm::GlobalValue::InternalLinkage,
         CIArray, G->name + "_csr_col");
 
-    auto *mallocTy = llvm::FunctionType::get(
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
-        {llvm::Type::getInt64Ty(Context)},
-        false);
-
+    auto *mallocTy = llvm::FunctionType::get(i8PtrTy, {I64}, false);
     llvm::FunctionCallee mallocCalle = Module.getOrInsertFunction("malloc", mallocTy);
     llvm::Function *mallocFn = llvm::cast<llvm::Function>(mallocCalle.getCallee());
 
@@ -2664,94 +2706,40 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     llvm::Value *colPtr = Builder.CreateBitCast(
         ciRaw, llvm::PointerType::getUnqual(I32), "col_ptr");
 
-    llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr,
-                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr,
-                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    llvm::Value *src_rp = Builder.CreateBitCast(GV_RP,
-                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
-                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr, i8PtrTy);
+    llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr, i8PtrTy);
+    llvm::Value *src_rp = Builder.CreateBitCast(GV_RP, i8PtrTy);
+    llvm::Value *src_ci = Builder.CreateBitCast(GV_CI, i8PtrTy);
 
-    // Define the memcpy intrinsic type
-    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-    auto *i64Ty = llvm::Type::getInt64Ty(Context);
     auto *memcpyFn = llvm::Intrinsic::getOrInsertDeclaration(
-    &Module, llvm::Intrinsic::memcpy, {i8PtrTy, i8PtrTy, i64Ty});
-
-    // Define the volatility flag as i1
+        &Module, llvm::Intrinsic::memcpy, {i8PtrTy, i8PtrTy, i64Ty});
     auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
 
-    // Perform the memcpy calls with correct argument types
     Builder.CreateCall(memcpyFn, {rp_i8, src_rp, llvm::ConstantInt::get(I64, rowBytes), volatileFlag}, "");
     Builder.CreateCall(memcpyFn, {ci_i8, src_ci, llvm::ConstantInt::get(I64, colBytes), volatileFlag}, "");
 
-    // Build the malloc prototype for allocating the Graph struct
-    llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)), // returns i8*
-        {Builder.getInt64Ty()},                                       // takes an i64 size
-        false);
+    llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(i8PtrTy, {I64}, false);
+    llvm::FunctionCallee mallocCalleeG = Module.getOrInsertFunction("malloc", mallocFT_graph);
+    llvm::Function *mallocFnG = llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
 
-    llvm::FunctionCallee mallocCalleeG =
-        Module.getOrInsertFunction("malloc", mallocFT_graph);
-    llvm::Function *mallocFnG =
-        llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
-
-    // Compute sizeof(struct.Graph)
     uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
-    llvm::Value *graphSizeC =
-        llvm::ConstantInt::get(Builder.getInt64Ty(), graphSize);
-
-    // Call malloc(graphSize)
     llvm::Value *rawGraph = Builder.CreateCall(
-        mallocFnG,
-        graphSizeC,
-        "graph_raw");
-
-    auto *graphPtrTy = llvm::PointerType::get(GraphTy, 0);    
-    // Cast i8* → %struct.Graph*
+        mallocFnG, llvm::ConstantInt::get(I64, graphSize), "graph_raw");
     llvm::Value *graphPtr = Builder.CreateBitCast(rawGraph, graphPtrTy, "graph_ptr");
 
-    // GEP + store into field 0: n
-    {
-        // element 0 is the vertex count 'n'
-        llvm::Value *nPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 0, "g_n_ptr");
-        Builder.CreateStore(
-            llvm::ConstantInt::get(Builder.getInt64Ty(), G->n),
-            nPtr);
-    }
-
-    // GEP + store into field 1: m
-    {
-        llvm::Value *mPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 1, "g_m_ptr");
-        Builder.CreateStore(
-            llvm::ConstantInt::get(Builder.getInt64Ty(), G->m),
-            mPtr);
-    }
-
-    // GEP + store into field 2: row_ptr
-    {
-        llvm::Value *rpPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 2, "g_rp_ptr");
-        Builder.CreateStore(rowPtr, rpPtr);
-    }
-
-    // GEP + store into field 3: col_idx
-    {
-        llvm::Value *ciPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 3, "g_ci_ptr");
-        Builder.CreateStore(colPtr, ciPtr);
-    }
+    Builder.CreateStore(llvm::ConstantInt::get(I64, G->n),
+        Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr"));
+    Builder.CreateStore(llvm::ConstantInt::get(I64, G->m),
+        Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr"));
+    Builder.CreateStore(rowPtr,
+        Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr"));
+    Builder.CreateStore(colPtr,
+        Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
 
     GraphMap[G->name] = graphPtr;
     GraphAstMap[G->name] = G;
 
     auto *i8Ty = llvm::Type::getInt8Ty(Context);
-    //auto *i8PtrTy = llvm::PointerType::get(Context, 0);
-    //auto *i64Ty = Builder.getInt64Ty();
-
     llvm::FunctionType *deserializeFT =
         llvm::FunctionType::get(i8PtrTy, {i8PtrTy, i64Ty}, false);
     auto deserializeFn =
@@ -3560,29 +3548,41 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
             auto kindIt = SetKinds.find(var->name);
             auto kind = (kindIt == SetKinds.end()) ? SetValueKind::Unknown : kindIt->second;
 
-            if (kind == SetValueKind::Edges && EdgePairsGV && EdgePairsCount > 0)
+            if (kind == SetValueKind::Edges)
             {
                 auto *i32Ty = Builder.getInt32Ty();
                 auto *i64Ty = Builder.getInt64Ty();
                 auto *i32PtrTy = llvm::PointerType::get(i32Ty, 0);
 
-                llvm::Value *zero = Builder.getInt32(0);
-                llvm::Value *pairsPtr = Builder.CreateInBoundsGEP(
-                    EdgePairsGV->getValueType(),
-                    EdgePairsGV,
-                    {zero, zero},
-                    "edge_pairs.ptr");
+                llvm::Value *pairsPtr = nullptr;
+                llvm::Value *countVal = nullptr;
 
-                llvm::Value *countVal = llvm::ConstantInt::get(i64Ty, EdgePairsCount);
+                if (RuntimeEdgePairsPtr && RuntimeEdgePairsCount)
+                {
+                    pairsPtr = RuntimeEdgePairsPtr;
+                    countVal = RuntimeEdgePairsCount;
+                }
+                else if (EdgePairsGV && EdgePairsCount > 0)
+                {
+                    llvm::Value *zero = Builder.getInt32(0);
+                    pairsPtr = Builder.CreateInBoundsGEP(
+                        EdgePairsGV->getValueType(),
+                        EdgePairsGV,
+                        {zero, zero},
+                        "edge_pairs.ptr");
+                    countVal = llvm::ConstantInt::get(i64Ty, EdgePairsCount);
+                }
 
-                llvm::FunctionType *printEdgesFT = llvm::FunctionType::get(
-                    Builder.getVoidTy(),
-                    {BitmapPtrTy, i32PtrTy, i64Ty},
-                    false);
-
-                auto printEdgesFn = Module.getOrInsertFunction("roaring_print_edges", printEdgesFT);
-                Builder.CreateCall(printEdgesFn, {ptr, pairsPtr, countVal});
-                return;
+                if (pairsPtr && countVal)
+                {
+                    llvm::FunctionType *printEdgesFT = llvm::FunctionType::get(
+                        Builder.getVoidTy(),
+                        {BitmapPtrTy, i32PtrTy, i64Ty},
+                        false);
+                    auto printEdgesFn = Module.getOrInsertFunction("roaring_print_edges", printEdgesFT);
+                    Builder.CreateCall(printEdgesFn, {ptr, pairsPtr, countVal});
+                    return;
+                }
             }
 
             llvm::FunctionType *printFT = llvm::FunctionType::get(

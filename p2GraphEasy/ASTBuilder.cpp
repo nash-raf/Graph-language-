@@ -776,16 +776,18 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
 
-    // Materialize edges exactly once
-    std::vector<std::pair<int, int>> edgesVec;
+    // File-based graph: defer loading to runtime for performance
     if (auto *fe = ctx->edges()->fileEdgeList())
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        FileEdgeList tmpFile(std::move(s));
-        edgesVec = tmpFile.materializeEdges(); // file read happens here once
+        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s));
+        return std::static_pointer_cast<ASTNode>(gnode);
     }
-    else if (auto *el = ctx->edges()->edgeList())
+
+    // Inline graph: build CSR at compile time (small graphs defined in DSL)
+    std::vector<std::pair<int, int>> edgesVec;
+    if (auto *el = ctx->edges()->edgeList())
     {
         for (auto *eCtx : el->edge())
         {
@@ -795,7 +797,6 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
         }
     }
 
-    // Build node id set: explicit nodes (if any) U nodes from edges
     llvm::DenseSet<int> idset;
     if (ctx->nodes())
     {
@@ -818,7 +819,6 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
         nodeIds.push_back(x);
     std::sort(nodeIds.begin(), nodeIds.end());
 
-    // Construct InlineNodeList / InlineEdgeList and pass them to GraphDeclNode
     auto nd = std::make_unique<InlineNodeList>(std::move(nodeIds));
     auto ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
 

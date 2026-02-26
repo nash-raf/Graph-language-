@@ -676,7 +676,10 @@ public:
     std::unique_ptr<NodeListNode> nodes;
     std::unique_ptr<EdgeListNode> edges;
 
-    size_t n, m;
+    bool isFileGraph = false;
+    std::string edgeFileName;
+
+    size_t n = 0, m = 0;
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
@@ -685,11 +688,17 @@ public:
     std::vector<std::pair<int, int>> edge_id_map;
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
-    // roaring_bitmap_t *node_bitmap = nullptr;
-    // roaring_bitmap_t *edge_bitmap = nullptr;
-    // roaring_bitmap_t *adjacency_bitmap = nullptr;
-    // roaring_bitmap_t *edge_id_bitmap = nullptr;
 
+    // File-based graph: defer all loading to runtime
+    GraphDeclNode(std::string nm, std::string fileName)
+        : ASTNode(ASTNodeType::GraphDecl),
+          name(std::move(nm)),
+          isFileGraph(true),
+          edgeFileName(std::move(fileName))
+    {
+    }
+
+    // Inline graph: build CSR at compile time (for small inline edge lists)
     GraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
@@ -732,9 +741,9 @@ public:
             col_idx[next[v]++] = static_cast<int32_t>(u);
         }
 
-                node_ids = nodeIds;
+        node_ids = nodeIds;
         edge_list = edgeList;
-        edge_id_map = edgeList; // id -> (u, v) mapping
+        edge_id_map = edgeList;
 
         // Build roaring bitmap for nodes
         {

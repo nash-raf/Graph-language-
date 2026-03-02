@@ -23,6 +23,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSwapStatement(BaseParser::SwapStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override {
     return visitChildren(ctx);
   }

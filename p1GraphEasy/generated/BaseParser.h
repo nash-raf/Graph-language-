@@ -20,31 +20,31 @@ public:
     T__32 = 33, T__33 = 34, T__34 = 35, T__35 = 36, T__36 = 37, T__37 = 38, 
     T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, T__43 = 44, 
     T__44 = 45, T__45 = 46, T__46 = 47, T__47 = 48, T__48 = 49, T__49 = 50, 
-    T__50 = 51, T__51 = 52, GRAPH = 53, WEIGHTS = 54, SET = 55, UNION = 56, 
-    INTERSECT = 57, NOT = 58, MODULO = 59, EDGE = 60, NODE = 61, TRUE = 62, 
-    FALSE = 63, OF = 64, PLUS = 65, MINUS = 66, TIMES = 67, DIVIDE = 68, 
-    AND = 69, OR = 70, EQUAL = 71, NOTEQUAL = 72, LESSTHAN = 73, GREATERTHAN = 74, 
-    LESSEQUAL = 75, GREATEREQUAL = 76, ID = 77, INT = 78, REAL = 79, STRING = 80, 
-    Comment = 81, WS = 82
+    T__50 = 51, T__51 = 52, T__52 = 53, T__53 = 54, GRAPH = 55, WEIGHTS = 56, 
+    SET = 57, UNION = 58, INTERSECT = 59, NOT = 60, MODULO = 61, EDGE = 62, 
+    NODE = 63, TRUE = 64, FALSE = 65, OF = 66, PLUS = 67, MINUS = 68, TIMES = 69, 
+    DIVIDE = 70, AND = 71, OR = 72, EQUAL = 73, NOTEQUAL = 74, LESSTHAN = 75, 
+    GREATERTHAN = 76, LESSEQUAL = 77, GREATEREQUAL = 78, ID = 79, INT = 80, 
+    REAL = 81, STRING = 82, Comment = 83, WS = 84
   };
 
   enum {
-    RuleProgram = 0, RuleStatement = 1, RuleGraphDef = 2, RuleNodes = 3, 
-    RuleEdges = 4, RuleNodeList = 5, RuleEdgeList = 6, RuleGraphID = 7, 
-    RuleNodeID = 8, RuleFileEdgeList = 9, RuleEdge = 10, RuleVarDecl = 11, 
-    RuleSetDecl = 12, RuleSetInitializer = 13, RuleSetOperation = 14, RuleSetTarget = 15, 
-    RuleSetExpr = 16, RuleSetMethodCall = 17, RuleConditionalStatement = 18, 
-    RuleCondition = 19, RuleGraphComprehension = 20, RuleGraphExpr = 21, 
-    RuleGraphCondition = 22, RuleLoopStatement = 23, RuleForeachStatement = 24, 
-    RuleLoopTarget = 25, RuleWhileStatement = 26, RuleNodeEdgeOperation = 27, 
-    RuleAddOperation = 28, RuleRemoveOperation = 29, RuleAddTargets = 30, 
-    RuleRemoveTargets = 31, RuleQueryStatement = 32, RuleShowgraph = 33, 
-    RuleFunction = 34, RuleReturnType = 35, RuleParamList = 36, RuleParam = 37, 
-    RuleType = 38, RuleFunctionCall = 39, RuleArgumentList = 40, RuleSleepStatement = 41, 
-    RuleBlock = 42, RuleReturnStatement = 43, RuleBreakStatement = 44, RuleContinueStatement = 45, 
-    RulePrintStatement = 46, RulePrintExpr = 47, RulePrintArrayStatement = 48, 
-    RulePrintgraph = 49, RuleExpr = 50, RuleArrayDeclarator = 51, RuleArrayInitializer = 52, 
-    RuleAssignmentStatement = 53, RuleArrayAssignStatement = 54, RuleWeights = 55
+    RuleProgram = 0, RuleStatement = 1, RuleSwapStatement = 2, RuleGraphDef = 3, 
+    RuleNodes = 4, RuleEdges = 5, RuleNodeList = 6, RuleEdgeList = 7, RuleGraphID = 8, 
+    RuleNodeID = 9, RuleFileEdgeList = 10, RuleEdge = 11, RuleVarDecl = 12, 
+    RuleSetDecl = 13, RuleSetInitializer = 14, RuleSetOperation = 15, RuleSetTarget = 16, 
+    RuleSetExpr = 17, RuleSetMethodCall = 18, RuleConditionalStatement = 19, 
+    RuleCondition = 20, RuleGraphComprehension = 21, RuleGraphExpr = 22, 
+    RuleGraphCondition = 23, RuleLoopStatement = 24, RuleForeachStatement = 25, 
+    RuleLoopTarget = 26, RuleWhileStatement = 27, RuleNodeEdgeOperation = 28, 
+    RuleAddOperation = 29, RuleRemoveOperation = 30, RuleAddTargets = 31, 
+    RuleRemoveTargets = 32, RuleQueryStatement = 33, RuleShowgraph = 34, 
+    RuleFunction = 35, RuleReturnType = 36, RuleParamList = 37, RuleParam = 38, 
+    RuleType = 39, RuleFunctionCall = 40, RuleArgumentList = 41, RuleSleepStatement = 42, 
+    RuleBlock = 43, RuleReturnStatement = 44, RuleBreakStatement = 45, RuleContinueStatement = 46, 
+    RulePrintStatement = 47, RulePrintExpr = 48, RulePrintArrayStatement = 49, 
+    RulePrintgraph = 50, RuleExpr = 51, RuleArrayDeclarator = 52, RuleArrayInitializer = 53, 
+    RuleAssignmentStatement = 54, RuleArrayAssignStatement = 55, RuleWeights = 56
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -66,6 +66,7 @@ public:
 
   class ProgramContext;
   class StatementContext;
+  class SwapStatementContext;
   class GraphDefContext;
   class NodesContext;
   class EdgesContext;
@@ -161,6 +162,7 @@ public:
     NodeEdgeOperationContext *nodeEdgeOperation();
     SetOperationContext *setOperation();
     SetMethodCallContext *setMethodCall();
+    SwapStatementContext *swapStatement();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -170,6 +172,22 @@ public:
   };
 
   StatementContext* statement();
+
+  class  SwapStatementContext : public antlr4::ParserRuleContext {
+  public:
+    SwapStatementContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<antlr4::tree::TerminalNode *> ID();
+    antlr4::tree::TerminalNode* ID(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  SwapStatementContext* swapStatement();
 
   class  GraphDefContext : public antlr4::ParserRuleContext {
   public:
@@ -1543,6 +1561,17 @@ public:
     IntExprContext(ExprContext *ctx);
 
     antlr4::tree::TerminalNode *INT();
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
+  class  SetPopExprContext : public ExprContext {
+  public:
+    SetPopExprContext(ExprContext *ctx);
+
+    antlr4::tree::TerminalNode *ID();
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
 

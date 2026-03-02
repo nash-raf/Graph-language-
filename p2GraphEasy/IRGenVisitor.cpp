@@ -320,8 +320,14 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::FunctionCall:
             visitExpr(node.get());
             break;
+        case ASTNodeType::SwapStmt:
+            visitSwapStmt(static_cast<SwapStmtNode *>(node.get()));
+            break;
+        case ASTNodeType::BreakStmt:
+        case ASTNodeType::ContinueStmt:
+            break;
         default:
-            // ignore or handle other kinds
+            visitStatement(node.get());
             break;
         }
     }
@@ -868,6 +874,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         Builder.SetInsertPoint(deadBB);
         break;
     }
+    case ASTNodeType::SwapStmt:
+        visitSwapStmt(static_cast<SwapStmtNode *>(node));
+        break;
     default:
         std::cerr << "Unsupported statement type: " << static_cast<int>(node->type) << "\n";
         break;
@@ -1007,7 +1016,25 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         if (idxVal->getType() != Builder.getInt32Ty())
             idxVal = Builder.CreateIntCast(idxVal, Builder.getInt32Ty(), true);
 
-        // If it's a static array allocated on stack
+        // Indirect (dynamic) array: alloca ptr → load → GEP
+        if (IndirectArrays.count(baseVar->name))
+        {
+            auto *i32Ty = Builder.getInt32Ty();
+            llvm::Value *dataPtr = Builder.CreateLoad(Builder.getPtrTy(), baseAlloca, baseVar->name + ".ptr");
+            llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, dataPtr, {idxVal}, baseVar->name + "_elemptr");
+
+            if (rhsVal->getType() != i32Ty)
+            {
+                if (rhsVal->getType()->isIntegerTy())
+                    rhsVal = Builder.CreateIntCast(rhsVal, i32Ty, true);
+                else
+                    throw std::runtime_error("IRGenVisitor: type mismatch in indirect array assignment");
+            }
+            Builder.CreateStore(rhsVal, elemPtr);
+            return;
+        }
+
+        // Static array: alloca [N x i32]
         if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(baseAlloca->getAllocatedType()))
         {
             llvm::Value *elemPtr = Builder.CreateGEP(
@@ -1030,7 +1057,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
             return;
         }
 
-        // Dynamic array case: alloca i32, i32 %n → allocatedType is i32
+        // Legacy dynamic array case (should not be reached with new indirect approach)
         else if (baseAlloca->getAllocatedType()->isIntegerTy(32))
         {
             auto *i32Ty = Builder.getInt32Ty();
@@ -1050,7 +1077,6 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
             return;
         }
 
-        // If it's a pointer to dynamically allocated array
         else if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseAlloca->getAllocatedType()))
         {
             llvm::Type *elemTy = ptrTy->getContainedType(0);
@@ -1173,24 +1199,29 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
     if (decl->isArray)
     {
         // --- Dynamic array: int arr[n] where n is a runtime expression ---
+        // Uses pointer indirection so that swap(a,b) is O(1).
+        // Layout: alloca ptr  →  points to  →  alloca i32, i32 %n  (zero-filled)
         if (decl->arraySizeExpr)
         {
             llvm::Value *sizeVal = visitExpr(decl->arraySizeExpr.get());
             if (sizeVal->getType() != Builder.getInt32Ty())
                 sizeVal = Builder.CreateIntCast(sizeVal, Builder.getInt32Ty(), true);
 
-            // Use alloca with dynamic count: alloca i32, i32 %n
             auto *i32Ty = Builder.getInt32Ty();
-            llvm::AllocaInst *arrAlloca = Builder.CreateAlloca(i32Ty, sizeVal, decl->name);
+            llvm::AllocaInst *dataAlloca = Builder.CreateAlloca(i32Ty, sizeVal, decl->name + ".data");
 
-            // Zero-initialize with memset
-            auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
             llvm::Value *sizeBytes = Builder.CreateMul(sizeVal, Builder.getInt32(4), "size_bytes");
             llvm::Value *sizeBytes64 = Builder.CreateZExt(sizeBytes, Builder.getInt64Ty());
-            Builder.CreateMemSet(arrAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(4));
+            Builder.CreateMemSet(dataAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(4));
 
-            NamedValues[decl->name] = arrAlloca;
-            return arrAlloca;
+            auto *ptrTy = Builder.getPtrTy();
+            llvm::AllocaInst *ptrAlloca = Builder.CreateAlloca(ptrTy, nullptr, decl->name);
+            Builder.CreateStore(dataAlloca, ptrAlloca);
+
+            NamedValues[decl->name] = ptrAlloca;
+            IndirectArrays.insert(decl->name);
+            ArraySizes[decl->name] = sizeVal;
+            return ptrAlloca;
         }
 
         // --- Static array: int arr[5] or int arr[] = [1,2,3] ---
@@ -2165,6 +2196,15 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         if (idxVal->getType() != Builder.getInt32Ty())
             idxVal = Builder.CreateIntCast(idxVal, Builder.getInt32Ty(), true);
 
+        if (IndirectArrays.count(baseVar->name))
+        {
+            llvm::Value *dataPtr = Builder.CreateLoad(Builder.getPtrTy(), baseAlloca, baseVar->name + ".ptr");
+            llvm::Value *elemPtr = Builder.CreateGEP(
+                Builder.getInt32Ty(), dataPtr, {idxVal},
+                baseVar->name + "_elemptr");
+            return Builder.CreateLoad(Builder.getInt32Ty(), elemPtr, baseVar->name + "_loadelem");
+        }
+
         auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(baseAlloca->getAllocatedType());
         if (arrTy)
         {
@@ -2180,8 +2220,6 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         {
             llvm::Type *baseTy = baseAlloca->getAllocatedType();
 
-            // Dynamic array case: alloca i32, i32 %n → allocatedType is i32
-            // The alloca IS the base pointer to i32 elements
             if (baseTy->isIntegerTy(32))
             {
                 llvm::Value *elemPtr = Builder.CreateGEP(
@@ -2190,7 +2228,6 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
                 return Builder.CreateLoad(baseTy, elemPtr, baseVar->name + "_loadelem");
             }
 
-            // pointer case: baseAlloca holds a pointer to elements
             if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseTy))
             {
                 llvm::Type *elemTy = ptrTy->getContainedType(0);
@@ -4137,4 +4174,23 @@ llvm::Value *IRGenVisitor::visitSetPopExpr(SetPopExprNode *node)
     llvm::FunctionType *popFT = llvm::FunctionType::get(i32Ty, {BitmapPtrTy}, false);
     auto popFn = Module.getOrInsertFunction("roaring_bitmap_pop", popFT);
     return Builder.CreateCall(popFn, {bitmapPtr}, "set.pop");
+}
+
+void IRGenVisitor::visitSwapStmt(SwapStmtNode *node)
+{
+    auto itA = NamedValues.find(node->name1);
+    auto itB = NamedValues.find(node->name2);
+    if (itA == NamedValues.end())
+        throw std::runtime_error("swap: undefined array: " + node->name1);
+    if (itB == NamedValues.end())
+        throw std::runtime_error("swap: undefined array: " + node->name2);
+
+    if (!IndirectArrays.count(node->name1) || !IndirectArrays.count(node->name2))
+        throw std::runtime_error("swap() only works with dynamic arrays");
+
+    auto *ptrTy = Builder.getPtrTy();
+    llvm::Value *ptrA = Builder.CreateLoad(ptrTy, itA->second, node->name1 + ".swap");
+    llvm::Value *ptrB = Builder.CreateLoad(ptrTy, itB->second, node->name2 + ".swap");
+    Builder.CreateStore(ptrB, itA->second);
+    Builder.CreateStore(ptrA, itB->second);
 }

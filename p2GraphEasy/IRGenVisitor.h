@@ -5,6 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ASTNode.h"
 
@@ -68,6 +69,7 @@ public:
     void visitSetMethodCall(SetMethodCallNode *node);
     llvm::Value *visitSetContainsExpr(SetContainsExprNode *node);
     llvm::Value *visitSetPopExpr(SetPopExprNode *node);
+    void visitSwapStmt(SwapStmtNode *node);
 
 private:
     llvm::LLVMContext &Context;
@@ -113,6 +115,10 @@ private:
         llvm::Value *colsVal;  // number of columns (i32)
     };
     std::unordered_map<std::string, Array2DMeta> Array2DMap;
+
+    // Dynamic arrays use pointer indirection (alloca ptr -> data) so swap is O(1)
+    std::unordered_set<std::string> IndirectArrays;
+    std::unordered_map<std::string, llvm::Value *> ArraySizes;
 
     std::unordered_map<uint64_t, uint32_t> EdgePairToId;
     std::vector<std::pair<int32_t, int32_t>> GlobalEdgePairs;

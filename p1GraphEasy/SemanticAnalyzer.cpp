@@ -311,6 +311,14 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             analyzeExpr(sc->argument.get());
         return TypeKind::Bool;
     }
+    case ASTNodeType::SetPopExpr:
+    {
+        auto *sp = static_cast<SetPopExprNode *>(expr);
+        Symbol *sym = lookupSymbol(sp->setName);
+        if (!sym)
+            error("set pop on undeclared variable: " + sp->setName);
+        return TypeKind::Int;
+    }
     case ASTNodeType::NotExpr:
     {
         auto *ne = static_cast<NotExprNode *>(expr);
@@ -466,6 +474,19 @@ void SemanticAnalyzer::analyzeStatement(ASTNode *node)
         if (loopDepth <= 0)
             error("continue statement outside of loop");
         break;
+    case ASTNodeType::SwapStmt:
+    {
+        auto *sw = static_cast<SwapStmtNode *>(node);
+        Symbol *s1 = lookupSymbol(sw->name1);
+        if (!s1)
+            error("swap: undeclared variable: " + sw->name1);
+        Symbol *s2 = lookupSymbol(sw->name2);
+        if (!s2)
+            error("swap: undeclared variable: " + sw->name2);
+        if (s1->type != TypeKind::IntArray || s2->type != TypeKind::IntArray)
+            error("swap() requires two array arguments");
+        break;
+    }
     default:
         break;
     }

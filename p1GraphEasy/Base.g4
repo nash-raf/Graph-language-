@@ -27,7 +27,10 @@ statement:
 	| nodeEdgeOperation
 	| setOperation
 	| setMethodCall
+	| swapStatement
 	| ';';
+
+swapStatement: 'swap' '(' ID ',' ID ')' ';';
 
 // Graph Definition
 graphDef
@@ -216,6 +219,7 @@ expr:
 	| ID '[' expr ']'			# ArrayAccessExpr
 	| setTarget '.' 'contains' '(' expr ')'  # SetContainsExpr
 	| ID '.' 'size' '(' ')'	# SetSizeExpr
+	| ID '.' 'pop' '(' ')'		# SetPopExpr
 	| TRUE						# BoolTrueExpr
 	| FALSE						# BoolFalseExpr
 	| ID '[]'					# ArrayPrint

@@ -22,6 +22,9 @@ public:
   virtual void enterStatement(BaseParser::StatementContext * /*ctx*/) override { }
   virtual void exitStatement(BaseParser::StatementContext * /*ctx*/) override { }
 
+  virtual void enterSwapStatement(BaseParser::SwapStatementContext * /*ctx*/) override { }
+  virtual void exitSwapStatement(BaseParser::SwapStatementContext * /*ctx*/) override { }
+
   virtual void enterWeightedGraphDef(BaseParser::WeightedGraphDefContext * /*ctx*/) override { }
   virtual void exitWeightedGraphDef(BaseParser::WeightedGraphDefContext * /*ctx*/) override { }
 
@@ -285,6 +288,9 @@ public:
 
   virtual void enterIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
   virtual void exitIntExpr(BaseParser::IntExprContext * /*ctx*/) override { }
+
+  virtual void enterSetPopExpr(BaseParser::SetPopExprContext * /*ctx*/) override { }
+  virtual void exitSetPopExpr(BaseParser::SetPopExprContext * /*ctx*/) override { }
 
   virtual void enterParenExpr(BaseParser::ParenExprContext * /*ctx*/) override { }
   virtual void exitParenExpr(BaseParser::ParenExprContext * /*ctx*/) override { }

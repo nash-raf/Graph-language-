@@ -236,6 +236,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         {
             return visitSetMethodCall(ctx->setMethodCall());
         }
+        else if (ctx->swapStatement())
+        {
+            return visitSwapStatement(ctx->swapStatement());
+        }
     // std::cerr << " ending statement " << "\n";
     return nullptr;
 }
@@ -1343,4 +1347,12 @@ SetTargetKind ASTBuilder::parseSetTarget(BaseParser::SetTargetContext *ctx)
     if (ctx->NODE()) // 'nodes'
         return SetTargetKind::GraphNodes;
     return SetTargetKind::GraphEdges; // falls through to 'edges'
+}
+
+antlrcpp::Any ASTBuilder::visitSwapStatement(BaseParser::SwapStatementContext *ctx)
+{
+    std::string a = ctx->ID(0)->getText();
+    std::string b = ctx->ID(1)->getText();
+    auto node = std::make_shared<SwapStmtNode>(a, b);
+    return std::static_pointer_cast<ASTNode>(node);
 }

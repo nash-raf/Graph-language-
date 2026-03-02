@@ -79,7 +79,8 @@ enum class ASTNodeType
     ContinueStmt,
     UnaryMinusExpr,
     Array2DAccess,
-    SetPopExpr
+    SetPopExpr,
+    SwapStmt
 };
 
 enum class GraphUpdateKind { Add, Remove };
@@ -1061,6 +1062,16 @@ public:
 
     SetPopExprNode(const std::string &name)
         : ASTNode(ASTNodeType::SetPopExpr), setName(name) {}
+};
+
+class SwapStmtNode : public ASTNode
+{
+public:
+    std::string name1;
+    std::string name2;
+
+    SwapStmtNode(const std::string &a, const std::string &b)
+        : ASTNode(ASTNodeType::SwapStmt), name1(a), name2(b) {}
 };
 
 class NotExprNode : public ASTNode

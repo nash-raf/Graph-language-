@@ -27,7 +27,10 @@ statement:
 	| nodeEdgeOperation
 	| setOperation
 	| setMethodCall
+	| swapStatement
 	| ';';
+
+swapStatement: 'swap' '(' ID ',' ID ')' ';';
 
 // Graph Definition
 graphDef

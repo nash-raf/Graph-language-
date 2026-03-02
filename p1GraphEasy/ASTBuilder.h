@@ -46,6 +46,7 @@ public:
     antlrcpp::Any visitSetAddMethod(BaseParser::SetAddMethodContext *ctx);
     antlrcpp::Any visitSetRemoveMethod(BaseParser::SetRemoveMethodContext *ctx);
     antlrcpp::Any visitSetMethodCall(BaseParser::SetMethodCallContext *ctx);
+    antlrcpp::Any visitSwapStatement(BaseParser::SwapStatementContext *ctx);
     antlrcpp::Any visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx);
     SetTargetKind parseSetTarget(BaseParser::SetTargetContext *ctx);
     

@@ -23,6 +23,8 @@ public:
 
     virtual std::any visitStatement(BaseParser::StatementContext *context) = 0;
 
+    virtual std::any visitSwapStatement(BaseParser::SwapStatementContext *context) = 0;
+
     virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *context) = 0;
 
     virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
@@ -198,6 +200,8 @@ public:
     virtual std::any visitNotExpr(BaseParser::NotExprContext *context) = 0;
 
     virtual std::any visitIntExpr(BaseParser::IntExprContext *context) = 0;
+
+    virtual std::any visitSetPopExpr(BaseParser::SetPopExprContext *context) = 0;
 
     virtual std::any visitParenExpr(BaseParser::ParenExprContext *context) = 0;
 

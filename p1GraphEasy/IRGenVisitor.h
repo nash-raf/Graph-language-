@@ -5,6 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ASTNode.h"
 
@@ -67,6 +68,8 @@ public:
     llvm::SmallVector<ASTNode *, 8> flattenSetOperation(ASTNode *expr, const std::string &targetOp);
     void visitSetMethodCall(SetMethodCallNode *node);
     llvm::Value *visitSetContainsExpr(SetContainsExprNode *node);
+    llvm::Value *visitSetPopExpr(SetPopExprNode *node);
+    void visitSwapStmt(SwapStmtNode *node);
 
 private:
     llvm::LLVMContext &Context;
@@ -113,10 +116,17 @@ private:
     };
     std::unordered_map<std::string, Array2DMeta> Array2DMap;
 
+    // Dynamic arrays use pointer indirection (alloca ptr -> data) so swap is O(1)
+    std::unordered_set<std::string> IndirectArrays;
+    std::unordered_map<std::string, llvm::Value *> ArraySizes;
+
     std::unordered_map<uint64_t, uint32_t> EdgePairToId;
     std::vector<std::pair<int32_t, int32_t>> GlobalEdgePairs;
     llvm::GlobalVariable *EdgePairsGV = nullptr;
     uint64_t EdgePairsCount = 0;
+
+    llvm::Value *RuntimeEdgePairsPtr = nullptr;
+    llvm::Value *RuntimeEdgePairsCount = nullptr;
 
     void buildGlobalEdgeTable(ProgramNodePtr prog);
     void emitEdgePairsGlobal();

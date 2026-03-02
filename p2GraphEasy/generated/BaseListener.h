@@ -20,6 +20,9 @@ public:
   virtual void enterStatement(BaseParser::StatementContext *ctx) = 0;
   virtual void exitStatement(BaseParser::StatementContext *ctx) = 0;
 
+  virtual void enterSwapStatement(BaseParser::SwapStatementContext *ctx) = 0;
+  virtual void exitSwapStatement(BaseParser::SwapStatementContext *ctx) = 0;
+
   virtual void enterWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) = 0;
   virtual void exitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) = 0;
 

@@ -1,5 +1,5 @@
 #include "IRGenVisitor.h"
-#include "SemanticAnalyzer.h" // For TypeKind enum
+#include "SemanticAnalyzer.h"  // For TypeKind enum
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
@@ -31,6 +31,7 @@ void IRGenVisitor::buildGlobalEdgeTable(ProgramNodePtr prog)
         if (node->type == ASTNodeType::GraphDecl)
         {
             auto *G = static_cast<GraphDeclNode *>(node.get());
+            if (G->isFileGraph) continue;
             for (auto &e : G->edge_list)
             {
                 getOrAddEdgeId(static_cast<int32_t>(e.first), static_cast<int32_t>(e.second));
@@ -142,6 +143,7 @@ llvm::Type *getBitmapPtrTy(llvm::LLVMContext &Context)
 {
     return llvm::PointerType::get(Context, 0);
 }
+
 
 llvm::Type *IRGenVisitor::getLLVMTypeFromTypeKind(TypeKind kind)
 {
@@ -318,8 +320,14 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::FunctionCall:
             visitExpr(node.get());
             break;
+        case ASTNodeType::SwapStmt:
+            visitSwapStmt(static_cast<SwapStmtNode *>(node.get()));
+            break;
+        case ASTNodeType::BreakStmt:
+        case ASTNodeType::ContinueStmt:
+            break;
         default:
-            // ignore or handle other kinds
+            visitStatement(node.get());
             break;
         }
     }
@@ -514,7 +522,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     // bool has_degree = false;
     // int degree_op = 0;
     // int degree_value = 0;
-
+    
     // std::function<void(std::shared_ptr<GraphConditionNode>)> collect = [&](auto cond) {
     //     if (cond->op == GraphConditionOp::Connected) {
     //         conditionNodeIds.push_back(cond->nodeId);
@@ -570,9 +578,10 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     //     return;
     // }
 
+
     // llvm::Function *F = Builder.GetInsertBlock()->getParent();
     // llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
-
+    
     // size_t condCount = conditionIndices.size();
     // llvm::AllocaInst *condNodesAlloca = nullptr;
     // if (condCount > 0)
@@ -704,7 +713,7 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
             else
                 returnTypeKind = TypeKind::Int;
         }
-
+        
         if (returnTypeKind == TypeKind::Void)
         {
             Builder.CreateRetVoid();
@@ -726,6 +735,8 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
     if (savedInsertPoint)
         Builder.SetInsertPoint(savedInsertPoint);
 }
+
+
 
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
@@ -819,13 +830,13 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         visitQuery(static_cast<QueryNode *>(node));
         break;
     case ASTNodeType::GraphUpdate:
-        visitGraphUpdate(static_cast<GraphUpdateNode *>(node));
+        visitGraphUpdate(static_cast<GraphUpdateNode*>(node));
         break;
     case ASTNodeType::ShowGraph:
-        visitShowGraph(static_cast<ShowGraphNode *>(node));
+        visitShowGraph(static_cast<ShowGraphNode*>(node));
         break;
     case ASTNodeType::GraphComprehension:
-        visitGraphComprehension(static_cast<GraphComprehensionNode *>(node));
+        visitGraphComprehension(static_cast<GraphComprehensionNode*>(node));
         break;
     case ASTNodeType::SetDecl:
         visitSetDecl(static_cast<SetDeclNode *>(node));
@@ -863,6 +874,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         Builder.SetInsertPoint(deadBB);
         break;
     }
+    case ASTNodeType::SwapStmt:
+        visitSwapStmt(static_cast<SwapStmtNode *>(node));
+        break;
     default:
         std::cerr << "Unsupported statement type: " << static_cast<int>(node->type) << "\n";
         break;
@@ -1002,7 +1016,25 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         if (idxVal->getType() != Builder.getInt32Ty())
             idxVal = Builder.CreateIntCast(idxVal, Builder.getInt32Ty(), true);
 
-        // If it's a static array allocated on stack
+        // Indirect (dynamic) array: alloca ptr → load → GEP
+        if (IndirectArrays.count(baseVar->name))
+        {
+            auto *i32Ty = Builder.getInt32Ty();
+            llvm::Value *dataPtr = Builder.CreateLoad(Builder.getPtrTy(), baseAlloca, baseVar->name + ".ptr");
+            llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, dataPtr, {idxVal}, baseVar->name + "_elemptr");
+
+            if (rhsVal->getType() != i32Ty)
+            {
+                if (rhsVal->getType()->isIntegerTy())
+                    rhsVal = Builder.CreateIntCast(rhsVal, i32Ty, true);
+                else
+                    throw std::runtime_error("IRGenVisitor: type mismatch in indirect array assignment");
+            }
+            Builder.CreateStore(rhsVal, elemPtr);
+            return;
+        }
+
+        // Static array: alloca [N x i32]
         if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(baseAlloca->getAllocatedType()))
         {
             llvm::Value *elemPtr = Builder.CreateGEP(
@@ -1025,7 +1057,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
             return;
         }
 
-        // Dynamic array case: alloca i32, i32 %n → allocatedType is i32
+        // Legacy dynamic array case (should not be reached with new indirect approach)
         else if (baseAlloca->getAllocatedType()->isIntegerTy(32))
         {
             auto *i32Ty = Builder.getInt32Ty();
@@ -1045,7 +1077,6 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
             return;
         }
 
-        // If it's a pointer to dynamically allocated array
         else if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseAlloca->getAllocatedType()))
         {
             llvm::Type *elemTy = ptrTy->getContainedType(0);
@@ -1168,24 +1199,29 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
     if (decl->isArray)
     {
         // --- Dynamic array: int arr[n] where n is a runtime expression ---
+        // Uses pointer indirection so that swap(a,b) is O(1).
+        // Layout: alloca ptr  →  points to  →  alloca i32, i32 %n  (zero-filled)
         if (decl->arraySizeExpr)
         {
             llvm::Value *sizeVal = visitExpr(decl->arraySizeExpr.get());
             if (sizeVal->getType() != Builder.getInt32Ty())
                 sizeVal = Builder.CreateIntCast(sizeVal, Builder.getInt32Ty(), true);
 
-            // Use alloca with dynamic count: alloca i32, i32 %n
             auto *i32Ty = Builder.getInt32Ty();
-            llvm::AllocaInst *arrAlloca = Builder.CreateAlloca(i32Ty, sizeVal, decl->name);
+            llvm::AllocaInst *dataAlloca = Builder.CreateAlloca(i32Ty, sizeVal, decl->name + ".data");
 
-            // Zero-initialize with memset
-            auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
             llvm::Value *sizeBytes = Builder.CreateMul(sizeVal, Builder.getInt32(4), "size_bytes");
             llvm::Value *sizeBytes64 = Builder.CreateZExt(sizeBytes, Builder.getInt64Ty());
-            Builder.CreateMemSet(arrAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(4));
+            Builder.CreateMemSet(dataAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(4));
 
-            NamedValues[decl->name] = arrAlloca;
-            return arrAlloca;
+            auto *ptrTy = Builder.getPtrTy();
+            llvm::AllocaInst *ptrAlloca = Builder.CreateAlloca(ptrTy, nullptr, decl->name);
+            Builder.CreateStore(dataAlloca, ptrAlloca);
+
+            NamedValues[decl->name] = ptrAlloca;
+            IndirectArrays.insert(decl->name);
+            ArraySizes[decl->name] = sizeVal;
+            return ptrAlloca;
         }
 
         // --- Static array: int arr[5] or int arr[] = [1,2,3] ---
@@ -1290,9 +1326,9 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
                 i8PtrTy, {i64Ty, i64Ty}, false);
             auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
             llvm::Value *emptyBm = Builder.CreateCall(createFn,
-                                                      {llvm::ConstantInt::get(i64Ty, 256),
-                                                       llvm::ConstantInt::get(i64Ty, 8)},
-                                                      decl->name + ".empty");
+                {llvm::ConstantInt::get(i64Ty, 256),
+                 llvm::ConstantInt::get(i64Ty, 8)},
+                decl->name + ".empty");
             Builder.CreateStore(emptyBm, scalarAlloca);
         }
         else
@@ -1925,7 +1961,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
     case ASTNodeType::FunctionCall:
     {
         auto *FC = static_cast<FunctionCallNode *>(expr);
-
+        
         // Handle built-in timer() function
         if (FC->name == "timer")
         {
@@ -1965,7 +2001,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Value *mPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr");
             llvm::Value *mVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), mPtr, "m_val");
             llvm::Value *mHalf = Builder.CreateUDiv(mVal,
-                                                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
             return Builder.CreateTrunc(mHalf, Builder.getInt32Ty(), "numEdges");
         }
 
@@ -2030,8 +2066,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
                 if (!b->getType()->isDoubleTy())
                     b = Builder.CreateSIToFP(b, Builder.getDoubleTy());
                 llvm::Value *cmp = (FC->name == "min")
-                                       ? Builder.CreateFCmpOLT(a, b, "min.cmp")
-                                       : Builder.CreateFCmpOGT(a, b, "max.cmp");
+                    ? Builder.CreateFCmpOLT(a, b, "min.cmp")
+                    : Builder.CreateFCmpOGT(a, b, "max.cmp");
                 return Builder.CreateSelect(cmp, a, b, FC->name + ".val");
             }
             else
@@ -2041,8 +2077,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
                 if (b->getType() != Builder.getInt32Ty())
                     b = Builder.CreateIntCast(b, Builder.getInt32Ty(), true);
                 llvm::Value *cmp = (FC->name == "min")
-                                       ? Builder.CreateICmpSLT(a, b, "min.cmp")
-                                       : Builder.CreateICmpSGT(a, b, "max.cmp");
+                    ? Builder.CreateICmpSLT(a, b, "min.cmp")
+                    : Builder.CreateICmpSGT(a, b, "max.cmp");
                 return Builder.CreateSelect(cmp, a, b, FC->name + ".val");
             }
         }
@@ -2104,7 +2140,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             // Body
             Builder.SetInsertPoint(bodyBB);
             llvm::Value *colVal = Builder.CreateLoad(i32Ty,
-                                                     Builder.CreateGEP(i32Ty, ciBase, Builder.CreateLoad(i64Ty, idxAlloca)));
+                Builder.CreateGEP(i32Ty, ciBase, Builder.CreateLoad(i64Ty, idxAlloca)));
             llvm::Value *match = Builder.CreateICmpEQ(colVal, v, "he.match");
             auto *incBB = llvm::BasicBlock::Create(Context, "hasedge.inc", parent);
             Builder.CreateCondBr(match, foundBB, incBB);
@@ -2128,7 +2164,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             phi->addIncoming(Builder.getFalse(), notFoundBB);
             return phi;
         }
-
+        
         // Lookup the prototype
         llvm::Function *callee = FunctionProtos[FC->name];
         if (!callee)
@@ -2160,6 +2196,15 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         if (idxVal->getType() != Builder.getInt32Ty())
             idxVal = Builder.CreateIntCast(idxVal, Builder.getInt32Ty(), true);
 
+        if (IndirectArrays.count(baseVar->name))
+        {
+            llvm::Value *dataPtr = Builder.CreateLoad(Builder.getPtrTy(), baseAlloca, baseVar->name + ".ptr");
+            llvm::Value *elemPtr = Builder.CreateGEP(
+                Builder.getInt32Ty(), dataPtr, {idxVal},
+                baseVar->name + "_elemptr");
+            return Builder.CreateLoad(Builder.getInt32Ty(), elemPtr, baseVar->name + "_loadelem");
+        }
+
         auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(baseAlloca->getAllocatedType());
         if (arrTy)
         {
@@ -2175,8 +2220,6 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         {
             llvm::Type *baseTy = baseAlloca->getAllocatedType();
 
-            // Dynamic array case: alloca i32, i32 %n → allocatedType is i32
-            // The alloca IS the base pointer to i32 elements
             if (baseTy->isIntegerTy(32))
             {
                 llvm::Value *elemPtr = Builder.CreateGEP(
@@ -2185,7 +2228,6 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
                 return Builder.CreateLoad(baseTy, elemPtr, baseVar->name + "_loadelem");
             }
 
-            // pointer case: baseAlloca holds a pointer to elements
             if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseTy))
             {
                 llvm::Type *elemTy = ptrTy->getContainedType(0);
@@ -2203,6 +2245,12 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
     {
         auto *sc = static_cast<SetContainsExprNode *>(expr);
         return visitSetContainsExpr(sc);
+    }
+
+    case ASTNodeType::SetPopExpr:
+    {
+        auto *sp = static_cast<SetPopExprNode *>(expr);
+        return visitSetPopExpr(sp);
     }
 
     case ASTNodeType::NotExpr:
@@ -2266,9 +2314,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             BitmapPtrTy, {i64Ty, i64Ty}, false);
         auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
         llvm::Value *bm = Builder.CreateCall(createFn,
-                                             {llvm::ConstantInt::get(i64Ty, 64 * 1024),
-                                              llvm::ConstantInt::get(i64Ty, 8)},
-                                             "set.lit");
+            {llvm::ConstantInt::get(i64Ty, 64 * 1024),
+             llvm::ConstantInt::get(i64Ty, 8)}, "set.lit");
 
         // Add each element
         llvm::FunctionType *addFT = llvm::FunctionType::get(
@@ -2605,7 +2652,52 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
 {
     auto *I64 = llvm::Type::getInt64Ty(Context);
     auto *I32 = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *graphPtrTy = llvm::PointerType::get(GraphTy, 0);
 
+    // ── File-based graph: load at runtime ──────────────────────────────
+    if (G->isFileGraph)
+    {
+        llvm::Value *fnameStr = Builder.CreateGlobalStringPtr(
+            G->edgeFileName, G->name + "_filename");
+
+        llvm::FunctionType *loadFT = llvm::FunctionType::get(
+            graphPtrTy, {i8PtrTy}, false);
+        auto loadFn = Module.getOrInsertFunction("load_graph_from_file", loadFT);
+        llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "graph_ptr");
+
+        GraphMap[G->name] = graphPtr;
+        GraphAstMap[G->name] = G;
+
+        // G.nodes bitmap: call graph_get_node_bitmap(graphPtr)
+        llvm::FunctionType *getBmFT = llvm::FunctionType::get(
+            i8PtrTy, {graphPtrTy}, false);
+        auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+        GraphNodesMap[G->name] = Builder.CreateCall(getNodeBmFn, {graphPtr},
+                                                    G->name + "_nodes_bm");
+
+        // G.edges bitmap: call graph_get_edge_bitmap(graphPtr)
+        auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+        GraphEdgesMap[G->name] = Builder.CreateCall(getEdgeBmFn, {graphPtr},
+                                                    G->name + "_edges_bm");
+
+        // Edge pairs for print: call graph_get_edge_pairs / graph_get_num_edge_pairs
+        auto *i32PtrTy = llvm::PointerType::getUnqual(I32);
+        llvm::FunctionType *getPairsFT = llvm::FunctionType::get(
+            i32PtrTy, {graphPtrTy}, false);
+        auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+        RuntimeEdgePairsPtr = Builder.CreateCall(getPairsFn, {graphPtr}, "edge_pairs_ptr");
+
+        llvm::FunctionType *getCountFT = llvm::FunctionType::get(
+            i64Ty, {graphPtrTy}, false);
+        auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
+        RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
+
+        return graphPtr;
+    }
+
+    // ── Inline graph: embed CSR as constants (original path) ───────────
     unsigned rpLen = static_cast<unsigned>(G->n + 1);
     auto *arrRP = llvm::ArrayType::get(I64, rpLen);
     llvm::SmallVector<llvm::Constant *, 16> rpConsts;
@@ -2634,11 +2726,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         Module, arrCI, true, llvm::GlobalValue::InternalLinkage,
         CIArray, G->name + "_csr_col");
 
-    auto *mallocTy = llvm::FunctionType::get(
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
-        {llvm::Type::getInt64Ty(Context)},
-        false);
-
+    auto *mallocTy = llvm::FunctionType::get(i8PtrTy, {I64}, false);
     llvm::FunctionCallee mallocCalle = Module.getOrInsertFunction("malloc", mallocTy);
     llvm::Function *mallocFn = llvm::cast<llvm::Function>(mallocCalle.getCallee());
 
@@ -2655,102 +2743,47 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     llvm::Value *colPtr = Builder.CreateBitCast(
         ciRaw, llvm::PointerType::getUnqual(I32), "col_ptr");
 
-    llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr,
-                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr,
-                                               llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    llvm::Value *src_rp = Builder.CreateBitCast(GV_RP,
-                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
-    llvm::Value *src_ci = Builder.CreateBitCast(GV_CI,
-                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
+    llvm::Value *rp_i8 = Builder.CreateBitCast(rowPtr, i8PtrTy);
+    llvm::Value *ci_i8 = Builder.CreateBitCast(colPtr, i8PtrTy);
+    llvm::Value *src_rp = Builder.CreateBitCast(GV_RP, i8PtrTy);
+    llvm::Value *src_ci = Builder.CreateBitCast(GV_CI, i8PtrTy);
 
-    // Define the memcpy intrinsic type
-    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-    auto *i64Ty = llvm::Type::getInt64Ty(Context);
     auto *memcpyFn = llvm::Intrinsic::getOrInsertDeclaration(
         &Module, llvm::Intrinsic::memcpy, {i8PtrTy, i8PtrTy, i64Ty});
-
-    // Define the volatility flag as i1
     auto *volatileFlag = llvm::ConstantInt::get(llvm::Type::getInt1Ty(Context), 0);
 
-    // Perform the memcpy calls with correct argument types
     Builder.CreateCall(memcpyFn, {rp_i8, src_rp, llvm::ConstantInt::get(I64, rowBytes), volatileFlag}, "");
     Builder.CreateCall(memcpyFn, {ci_i8, src_ci, llvm::ConstantInt::get(I64, colBytes), volatileFlag}, "");
 
-    // Build the malloc prototype for allocating the Graph struct
-    llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(
-        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)), // returns i8*
-        {Builder.getInt64Ty()},                                       // takes an i64 size
-        false);
+    llvm::FunctionType *mallocFT_graph = llvm::FunctionType::get(i8PtrTy, {I64}, false);
+    llvm::FunctionCallee mallocCalleeG = Module.getOrInsertFunction("malloc", mallocFT_graph);
+    llvm::Function *mallocFnG = llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
 
-    llvm::FunctionCallee mallocCalleeG =
-        Module.getOrInsertFunction("malloc", mallocFT_graph);
-    llvm::Function *mallocFnG =
-        llvm::cast<llvm::Function>(mallocCalleeG.getCallee());
-
-    // Compute sizeof(struct.Graph)
     uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
-    llvm::Value *graphSizeC =
-        llvm::ConstantInt::get(Builder.getInt64Ty(), graphSize);
-
-    // Call malloc(graphSize)
     llvm::Value *rawGraph = Builder.CreateCall(
-        mallocFnG,
-        graphSizeC,
-        "graph_raw");
-
-    auto *graphPtrTy = llvm::PointerType::get(GraphTy, 0);
-    // Cast i8* → %struct.Graph*
+        mallocFnG, llvm::ConstantInt::get(I64, graphSize), "graph_raw");
     llvm::Value *graphPtr = Builder.CreateBitCast(rawGraph, graphPtrTy, "graph_ptr");
 
-    // GEP + store into field 0: n
-    {
-        // element 0 is the vertex count 'n'
-        llvm::Value *nPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 0, "g_n_ptr");
-        Builder.CreateStore(
-            llvm::ConstantInt::get(Builder.getInt64Ty(), G->n),
-            nPtr);
-    }
-
-    // GEP + store into field 1: m
-    {
-        llvm::Value *mPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 1, "g_m_ptr");
-        Builder.CreateStore(
-            llvm::ConstantInt::get(Builder.getInt64Ty(), G->m),
-            mPtr);
-    }
-
-    // GEP + store into field 2: row_ptr
-    {
-        llvm::Value *rpPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 2, "g_rp_ptr");
-        Builder.CreateStore(rowPtr, rpPtr);
-    }
-
-    // GEP + store into field 3: col_idx
-    {
-        llvm::Value *ciPtr = Builder.CreateStructGEP(
-            GraphTy, graphPtr, 3, "g_ci_ptr");
-        Builder.CreateStore(colPtr, ciPtr);
-    }
+    Builder.CreateStore(llvm::ConstantInt::get(I64, G->n),
+        Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr"));
+    Builder.CreateStore(llvm::ConstantInt::get(I64, G->m),
+        Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr"));
+    Builder.CreateStore(rowPtr,
+        Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr"));
+    Builder.CreateStore(colPtr,
+        Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
 
     GraphMap[G->name] = graphPtr;
     GraphAstMap[G->name] = G;
 
     auto *i8Ty = llvm::Type::getInt8Ty(Context);
-    // auto *i8PtrTy = llvm::PointerType::get(Context, 0);
-    // auto *i64Ty = Builder.getInt64Ty();
-
     llvm::FunctionType *deserializeFT =
         llvm::FunctionType::get(i8PtrTy, {i8PtrTy, i64Ty}, false);
     auto deserializeFn =
         Module.getOrInsertFunction("roaring_from_serialized", deserializeFT);
 
     auto emitBitmapFromBlob = [&](const std::vector<uint8_t> &blob,
-                                  const std::string &name) -> llvm::Value *
-    {
+                                  const std::string &name) -> llvm::Value * {
         llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blob.size());
         llvm::SmallVector<llvm::Constant *, 128> bytes;
         bytes.reserve(blob.size());
@@ -2777,6 +2810,8 @@ llvm::Value *zero64(llvm::IRBuilder<> &B, llvm::LLVMContext &C)
 {
     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), 0);
 }
+
+
 
 llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 {
@@ -2960,11 +2995,11 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
     Builder.CreateStore(graphPtr, graphAlloca);
     NamedValues[G->name] = graphAlloca;
     // debug
-    // llvm::errs() << "[visitWeightedGraphDecl] G->n (declared) = " << G->n << "\n";
-    // llvm::errs() << "[visitWeightedGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
+    llvm::errs() << "[visitWeightedGraphDecl] G->n (declared) = " << G->n << "\n";
+    llvm::errs() << "[visitWeightedGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
     if (G->n > 0)
         llvm::errs() << "[visitWeightedGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
-    // llvm::errs() << "[visitWeightedGraphDecl] G->col_idx entries = " << G->m << "\n";
+    llvm::errs() << "[visitWeightedGraphDecl] G->col_idx entries = " << G->m << "\n";
 
     // Emit roaring bitmaps for nodes and edges
     {
@@ -2978,8 +3013,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
             Module.getOrInsertFunction("roaring_from_serialized", deserializeFT_w);
 
         auto emitBitmapFromBlob = [&](const std::vector<uint8_t> &blob,
-                                      const std::string &name) -> llvm::Value *
-        {
+                                      const std::string &name) -> llvm::Value * {
             llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blob.size());
             llvm::SmallVector<llvm::Constant *, 128> bytes;
             bytes.reserve(blob.size());
@@ -3143,8 +3177,8 @@ void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
     Builder.CreateStore(llvm::ConstantInt::get(i32Ty, 0), indexAlloca);
 
     // Blocks
-    llvm::BasicBlock *condBB = llvm::BasicBlock::Create(Context, "print_array.cond", F);
-    llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create(Context, "print_array.body", F);
+    llvm::BasicBlock *condBB  = llvm::BasicBlock::Create(Context, "print_array.cond", F);
+    llvm::BasicBlock *bodyBB  = llvm::BasicBlock::Create(Context, "print_array.body", F);
     llvm::BasicBlock *afterBB = llvm::BasicBlock::Create(Context, "print_array.after", F);
 
     // jump to cond
@@ -3159,7 +3193,7 @@ void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
     // body: print element, i++
     Builder.SetInsertPoint(bodyBB);
     llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, arrPtr, iVal, node->arrayName + "_elemptr");
-    llvm::Value *elem = Builder.CreateLoad(i32Ty, elemPtr, node->arrayName + "_elem");
+    llvm::Value *elem    = Builder.CreateLoad(i32Ty, elemPtr, node->arrayName + "_elem");
     llvm::Value *fmtElem = Builder.CreateGlobalStringPtr("%d ");
     Builder.CreateCall(printfFunc, {fmtElem, elem});
 
@@ -3443,21 +3477,17 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
     {
         emitChromacity(Q);
     }
-    else if (Q->queryDesc == "dijkstra")
+    else if(Q->queryDesc == "dijkstra")
     {
-
+        
         emitDijkstra(Q);
-    }
-    else if (Q->queryDesc == "bfs_src")
+    }else if (Q->queryDesc == "bfs_src")
     {
         // llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n\n";
         emitBFSSrc(Q);
-    }
-    else if (Q->queryDesc == "min_cut")
-    {
+    }else if (Q->queryDesc == "min_cut"){
         emitMinCut(Q);
-    }
-    else if (Q->queryDesc == "dfs_src")
+    }else if (Q->queryDesc == "dfs_src")
     {
         // llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n\n";
         emitDFSSrc(Q);
@@ -3473,7 +3503,7 @@ void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
 {
     // Evaluate the duration expression
     llvm::Value *durationVal = visitExpr(SS->duration.get());
-
+    
     // Ensure it's an integer (i32)
     if (!durationVal->getType()->isIntegerTy())
     {
@@ -3486,7 +3516,7 @@ void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
     {
         durationVal = Builder.CreateIntCast(durationVal, Builder.getInt32Ty(), true);
     }
-
+    
     // Declare: void sleep_runtime(int32_t seconds);
     llvm::FunctionType *sleepFT = llvm::FunctionType::get(
         llvm::Type::getVoidTy(Context),
@@ -3494,7 +3524,7 @@ void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
         false);
     llvm::FunctionCallee sleepDecl =
         Module.getOrInsertFunction("sleep_runtime", sleepFT);
-
+    
     // Call sleep_runtime(duration)
     Builder.CreateCall(sleepDecl, {durationVal});
 }
@@ -3527,7 +3557,7 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         auto *var = static_cast<VariableNode *>(exprNode);
 
         // 1) Check for query-array result first (e.g., k_ptr / k_size)
-        auto ptrIt = NamedValues.find(var->name + "_ptr");
+        auto ptrIt  = NamedValues.find(var->name + "_ptr");
         auto sizeIt = NamedValues.find(var->name + "_size");
         if (ptrIt != NamedValues.end() && sizeIt != NamedValues.end())
         {
@@ -3555,29 +3585,41 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
             auto kindIt = SetKinds.find(var->name);
             auto kind = (kindIt == SetKinds.end()) ? SetValueKind::Unknown : kindIt->second;
 
-            if (kind == SetValueKind::Edges && EdgePairsGV && EdgePairsCount > 0)
+            if (kind == SetValueKind::Edges)
             {
                 auto *i32Ty = Builder.getInt32Ty();
                 auto *i64Ty = Builder.getInt64Ty();
                 auto *i32PtrTy = llvm::PointerType::get(i32Ty, 0);
 
-                llvm::Value *zero = Builder.getInt32(0);
-                llvm::Value *pairsPtr = Builder.CreateInBoundsGEP(
-                    EdgePairsGV->getValueType(),
-                    EdgePairsGV,
-                    {zero, zero},
-                    "edge_pairs.ptr");
+                llvm::Value *pairsPtr = nullptr;
+                llvm::Value *countVal = nullptr;
 
-                llvm::Value *countVal = llvm::ConstantInt::get(i64Ty, EdgePairsCount);
+                if (RuntimeEdgePairsPtr && RuntimeEdgePairsCount)
+                {
+                    pairsPtr = RuntimeEdgePairsPtr;
+                    countVal = RuntimeEdgePairsCount;
+                }
+                else if (EdgePairsGV && EdgePairsCount > 0)
+                {
+                    llvm::Value *zero = Builder.getInt32(0);
+                    pairsPtr = Builder.CreateInBoundsGEP(
+                        EdgePairsGV->getValueType(),
+                        EdgePairsGV,
+                        {zero, zero},
+                        "edge_pairs.ptr");
+                    countVal = llvm::ConstantInt::get(i64Ty, EdgePairsCount);
+                }
 
-                llvm::FunctionType *printEdgesFT = llvm::FunctionType::get(
-                    Builder.getVoidTy(),
-                    {BitmapPtrTy, i32PtrTy, i64Ty},
-                    false);
-
-                auto printEdgesFn = Module.getOrInsertFunction("roaring_print_edges", printEdgesFT);
-                Builder.CreateCall(printEdgesFn, {ptr, pairsPtr, countVal});
-                return;
+                if (pairsPtr && countVal)
+                {
+                    llvm::FunctionType *printEdgesFT = llvm::FunctionType::get(
+                        Builder.getVoidTy(),
+                        {BitmapPtrTy, i32PtrTy, i64Ty},
+                        false);
+                    auto printEdgesFn = Module.getOrInsertFunction("roaring_print_edges", printEdgesFT);
+                    Builder.CreateCall(printEdgesFn, {ptr, pairsPtr, countVal});
+                    return;
+                }
             }
 
             llvm::FunctionType *printFT = llvm::FunctionType::get(
@@ -3663,6 +3705,12 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
     throw std::runtime_error("print: unsupported expression type");
 }
 
+
+
+
+
+
+
 void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
 {
     std::string baseName = setDecl->name;
@@ -3688,9 +3736,9 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
             i8PtrTy, {i64Ty, i64Ty}, false);
         auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
         llvm::Value *emptyBm = Builder.CreateCall(createFn,
-                                                  {llvm::ConstantInt::get(i64Ty, 256),
-                                                   llvm::ConstantInt::get(i64Ty, 8)},
-                                                  baseName + ".empty");
+            {llvm::ConstantInt::get(i64Ty, 256),
+             llvm::ConstantInt::get(i64Ty, 8)},
+            baseName + ".empty");
         Builder.CreateStore(emptyBm, bitmapAlloca);
         return;
     }
@@ -3791,6 +3839,7 @@ void IRGenVisitor::visitSetOperation(SetOperationNode *setOp)
 
     // Evaluate the set expression to get the resulting bitmap pointer
     llvm::Value *resultBitmap = visitSetExpr(setOp->expr.get());
+
 
     // Store the result ONLY into the local alloca (no global update!)
     Builder.CreateStore(resultBitmap, targetAlloca);
@@ -4017,7 +4066,7 @@ void IRGenVisitor::visitSetMethodCall(SetMethodCallNode *node)
     auto *BitmapPtrTy = getBitmapPtrTy(Context);
     auto *i32Ty = Builder.getInt32Ty();
     auto *voidTy = Builder.getVoidTy();
-    llvm::Value *bitmapPtr = nullptr;
+        llvm::Value *bitmapPtr = nullptr;
     if (node->targetKind == SetTargetKind::Variable)
     {
         auto it = NamedValues.find(node->targetName);
@@ -4109,4 +4158,39 @@ llvm::Value *IRGenVisitor::visitSetContainsExpr(SetContainsExprNode *node)
     llvm::Value *result = Builder.CreateCall(containsFn, {bitmapPtr, argValue}, "contains.result");
 
     return Builder.CreateICmpNE(result, llvm::ConstantInt::get(i32Ty, 0), "contains.bool");
+}
+
+llvm::Value *IRGenVisitor::visitSetPopExpr(SetPopExprNode *node)
+{
+    auto *BitmapPtrTy = getBitmapPtrTy(Context);
+    auto *i32Ty = Builder.getInt32Ty();
+
+    auto it = NamedValues.find(node->setName);
+    if (it == NamedValues.end())
+        throw std::runtime_error("Undefined set variable in pop: " + node->setName);
+
+    llvm::Value *bitmapPtr = Builder.CreateLoad(BitmapPtrTy, it->second, node->setName + ".bm");
+
+    llvm::FunctionType *popFT = llvm::FunctionType::get(i32Ty, {BitmapPtrTy}, false);
+    auto popFn = Module.getOrInsertFunction("roaring_bitmap_pop", popFT);
+    return Builder.CreateCall(popFn, {bitmapPtr}, "set.pop");
+}
+
+void IRGenVisitor::visitSwapStmt(SwapStmtNode *node)
+{
+    auto itA = NamedValues.find(node->name1);
+    auto itB = NamedValues.find(node->name2);
+    if (itA == NamedValues.end())
+        throw std::runtime_error("swap: undefined array: " + node->name1);
+    if (itB == NamedValues.end())
+        throw std::runtime_error("swap: undefined array: " + node->name2);
+
+    if (!IndirectArrays.count(node->name1) || !IndirectArrays.count(node->name2))
+        throw std::runtime_error("swap() only works with dynamic arrays");
+
+    auto *ptrTy = Builder.getPtrTy();
+    llvm::Value *ptrA = Builder.CreateLoad(ptrTy, itA->second, node->name1 + ".swap");
+    llvm::Value *ptrB = Builder.CreateLoad(ptrTy, itB->second, node->name2 + ".swap");
+    Builder.CreateStore(ptrB, itA->second);
+    Builder.CreateStore(ptrA, itB->second);
 }

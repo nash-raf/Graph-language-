@@ -78,7 +78,9 @@ enum class ASTNodeType
     BreakStmt,
     ContinueStmt,
     UnaryMinusExpr,
-    Array2DAccess
+    Array2DAccess,
+    SetPopExpr,
+    SwapStmt
 };
 
 enum class GraphUpdateKind { Add, Remove };
@@ -675,7 +677,10 @@ public:
     std::unique_ptr<NodeListNode> nodes;
     std::unique_ptr<EdgeListNode> edges;
 
-    size_t n, m;
+    bool isFileGraph = false;
+    std::string edgeFileName;
+
+    size_t n = 0, m = 0;
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
@@ -684,11 +689,17 @@ public:
     std::vector<std::pair<int, int>> edge_id_map;
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
-    // roaring_bitmap_t *node_bitmap = nullptr;
-    // roaring_bitmap_t *edge_bitmap = nullptr;
-    // roaring_bitmap_t *adjacency_bitmap = nullptr;
-    // roaring_bitmap_t *edge_id_bitmap = nullptr;
 
+    // File-based graph: defer all loading to runtime
+    GraphDeclNode(std::string nm, std::string fileName)
+        : ASTNode(ASTNodeType::GraphDecl),
+          name(std::move(nm)),
+          isFileGraph(true),
+          edgeFileName(std::move(fileName))
+    {
+    }
+
+    // Inline graph: build CSR at compile time (for small inline edge lists)
     GraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
@@ -731,9 +742,9 @@ public:
             col_idx[next[v]++] = static_cast<int32_t>(u);
         }
 
-                node_ids = nodeIds;
+        node_ids = nodeIds;
         edge_list = edgeList;
-        edge_id_map = edgeList; // id -> (u, v) mapping
+        edge_id_map = edgeList;
 
         // Build roaring bitmap for nodes
         {
@@ -793,7 +804,7 @@ public:
 
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
-        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
+        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
 
         // Map arbitrary IDs → contiguous [0..n-1]
         // std::unordered_map<int, int> id2idx;
@@ -805,7 +816,7 @@ public:
         llvm::DenseMap<std::pair<int, int>, int> weightMap;
         edges->materializeEdges(edgeList, weightMap);
         m = 2 * edgeList.size();
-        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
+        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
         // 1) degree counts go into row_ptr[i+1]
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
@@ -847,10 +858,10 @@ public:
         // std::cerr << "\n";
         auto t1 = std::chrono::high_resolution_clock::now();
         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        // std::cerr << "[ASTBuilder] fulledge '"
-        //           << "' in " << dur.count() << " ms\n";
+        std::cerr << "[ASTBuilder] fulledge '"
+                  << "' in " << dur.count() << " ms\n";
 
-        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
+        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
 
         node_ids = nodeIds;
         edge_list = edgeList;
@@ -1042,6 +1053,25 @@ public:
           targetKind(kind),
           targetName(name),
           argument(std::move(arg)) {}
+};
+
+class SetPopExprNode : public ASTNode
+{
+public:
+    std::string setName;
+
+    SetPopExprNode(const std::string &name)
+        : ASTNode(ASTNodeType::SetPopExpr), setName(name) {}
+};
+
+class SwapStmtNode : public ASTNode
+{
+public:
+    std::string name1;
+    std::string name2;
+
+    SwapStmtNode(const std::string &a, const std::string &b)
+        : ASTNode(ASTNodeType::SwapStmt), name1(a), name2(b) {}
 };
 
 class NotExprNode : public ASTNode

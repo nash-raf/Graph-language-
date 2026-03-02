@@ -23,6 +23,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitSwapStatement(BaseParser::SwapStatementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -372,6 +376,10 @@ public:
   }
 
   virtual std::any visitIntExpr(BaseParser::IntExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitSetPopExpr(BaseParser::SetPopExprContext *ctx) override {
     return visitChildren(ctx);
   }
 

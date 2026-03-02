@@ -48,6 +48,14 @@ def main():
     elapsed = t1 - t0
 
     print(f"dist[1] = {dist[1]}")
+    print(f"dist[2] = {dist[2]}")
+    print(f"dist[3] = {dist[3]}")
+    print(f"dist[4] = {dist[4]}")
+    print(f"dist[5] = {dist[5]}")
+    print(f"dist[6] = {dist[6]}")
+    print(f"dist[7] = {dist[7]}")
+    print(f"dist[8] = {dist[8]}")
+    print(f"dist[9] = {dist[9]}")
     print(f"BFS time: {elapsed:.6f} seconds")
     print(f"Vertices: {n}, Edges: {sum(len(v) for v in adj.values()) // 2}")
 

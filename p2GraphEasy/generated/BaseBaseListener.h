@@ -22,6 +22,9 @@ public:
   virtual void enterStatement(BaseParser::StatementContext * /*ctx*/) override { }
   virtual void exitStatement(BaseParser::StatementContext * /*ctx*/) override { }
 
+  virtual void enterSwapStatement(BaseParser::SwapStatementContext * /*ctx*/) override { }
+  virtual void exitSwapStatement(BaseParser::SwapStatementContext * /*ctx*/) override { }
+
   virtual void enterWeightedGraphDef(BaseParser::WeightedGraphDefContext * /*ctx*/) override { }
   virtual void exitWeightedGraphDef(BaseParser::WeightedGraphDefContext * /*ctx*/) override { }
 

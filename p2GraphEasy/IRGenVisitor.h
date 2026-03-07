@@ -30,7 +30,7 @@ public:
     /// Entry point: lower the AST root into LLVM IR
     void visitProgram(ProgramNodePtr prog);
 
-    llvm::AllocaInst *visitVarDecl(VarDeclNode *decl);
+    llvm::Value *visitVarDecl(VarDeclNode *decl);
     llvm::Value *visitExpr(ASTNode *expr);
     void visitAssignment(AssignmentStmtNode *assign);
     void visitConditional(ConditionalNode *ifs);
@@ -85,7 +85,7 @@ private:
 
     std::unordered_map<std::string, llvm::Function *> FunctionProtos;
 
-    std::unordered_map<std::string, llvm::AllocaInst *> NamedValues;
+    std::unordered_map<std::string, llvm::Value *> NamedValues;
     llvm::AllocaInst *createEntryBlockAlloca(llvm::Function *function, const std::string &name, llvm::Type *ty = nullptr)
     {
         llvm::IRBuilder<> tmpBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());
@@ -95,6 +95,9 @@ private:
     }
     llvm::Type *getLLVMTypeForName(const std::string &typeName);
     llvm::Type *getLLVMTypeFromTypeKind(TypeKind kind);
+    llvm::Type *getStorageValueType(llvm::Value *storage);
+    llvm::Value *lookupNamedStorage(const std::string &name);
+    llvm::Value *loadGraphValue(const std::string &name);
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
     std::unordered_map<std::string, GraphDeclNode*> GraphAstMap;
@@ -127,6 +130,7 @@ private:
 
     llvm::Value *RuntimeEdgePairsPtr = nullptr;
     llvm::Value *RuntimeEdgePairsCount = nullptr;
+    bool EmittingTopLevel = false;
 
     void buildGlobalEdgeTable(ProgramNodePtr prog);
     void emitEdgePairsGlobal();

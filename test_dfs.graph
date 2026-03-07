@@ -1,31 +1,22 @@
 graph G{
-  //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
-  //edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-  edges: file "edgelist.txt";
+  //edges: file "edgelist.txt";
+  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
 };
 
+int n = numVertices(G);
+int visited[n];
+int arr[n];
+int idx = 0;
 
-set stack = {2};
-set visited;
-int j = numVertices(G);
-int arr[j];
-int i=0;
-while (stack.size() > 0) {
-    int v = stack.pop();     
-    visited.add(v);
-    arr[i]=v;
-    for each neighbor u of v in G {
-        if (!visited.contains(u)) {
-            stack.add(u);
-        }
+fn void dfs(int v) {
+  visited[v] = 1;
+  arr[idx] = v;
+  idx = idx + 1;
+  for each neighbor u of v in G {
+    if (visited[u] == 0) {
+      dfs(u);
     }
-    i=i+1;
-}
-print visited;
-int m =0;
-while(m<j){
-    print arr[m];
-    m=m+1;
+  }
 }
 
-
+dfs(0);

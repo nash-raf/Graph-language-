@@ -1,35 +1,99 @@
-/*
-
 graph G{
-  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
+    edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
 };
+
 int n = numVertices(G);
 int visited[n];
 int dist[n];
 int frontier[n];
 int next_frontier[n];
+int frontier_bitmap[n];
+int next_frontier_bitmap[n];
+
 int frontier_size = 1;
 int next_size = 0;
 int level = 0;
+
+// initialize arrays
+int i = 0;
+while (i < n) {
+    visited[i] = 0;
+    frontier_bitmap[i] = 0;
+    next_frontier_bitmap[i] = 0;
+    i = i + 1;
+}
+
+// start from source 0
 frontier[0] = 0;
 visited[0] = 1;
+frontier_bitmap[0] = 1;
+
+// simple threshold: when frontier is big, switch to pull
+int threshold = n / 20;
 
 while (frontier_size > 0) {
-    next_size = 0;
-    int i = 0;
-    while (i < frontier_size) {
-        int v = frontier[i];
-        dist[v] = level;
-        for each neighbor u of v in G {
-            if (visited[u] == 0) {
-                visited[u] = 1;
-                next_frontier[next_size] = u;
-                next_size = next_size + 1;
+
+    if (frontier_size < threshold) {
+        // PUSH phase (like your original array BFS)
+        next_size = 0;
+        i = 0;
+
+        while (i < frontier_size) {
+            int v = frontier[i];
+            dist[v] = level;
+
+            for each neighbor u of v in G {
+                if (visited[u] == 0) {
+                    visited[u] = 1;
+                    next_frontier[next_size] = u;
+                    next_frontier_bitmap[u] = 1;
+                    next_size = next_size + 1;
+                }
             }
+
+            i = i + 1;
         }
+
+    } else {
+        // PULL phase (bottom-up)
+        next_size = 0;
+        i = 0;
+
+        while (i < n) {
+            if (visited[i] == 0) {
+                int v = i;
+                int discovered = 0;
+
+                for each neighbor u of v in G {
+                    if (frontier_bitmap[u] == 1 && discovered == 0) {
+                        visited[v] = 1;
+                        dist[v] = level;
+                        next_frontier[next_size] = v;
+                        next_frontier_bitmap[v] = 1;
+                        next_size = next_size + 1;
+                        discovered = 1;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+    }
+
+    // update frontier bitmaps for next level
+    i = 0;
+    while (i < n) {
+        frontier_bitmap[i] = next_frontier_bitmap[i];
+        next_frontier_bitmap[i] = 0;
         i = i + 1;
     }
-    swap(frontier, next_frontier);
+
+    // copy next_frontier into frontier (logical swap using sizes)
+    i = 0;
+    while (i < next_size) {
+        frontier[i] = next_frontier[i];
+        i = i + 1;
+    }
+
     frontier_size = next_size;
     level = level + 1;
 }
@@ -38,40 +102,3 @@ print dist[0];
 print dist[1];
 print dist[2];
 print dist[3];
-print dist[4];
-print dist[5];
-print dist[6];
-print dist[7];
-print dist[8];
-print dist[9];
-
-
-
-*/
-
-
-graph G{
-  //edges: file "../synth_graphs_unweighted/synth_v_50000_e_1000000.txt";
-  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-  //edges: file "edgelist.txt";
-};
-int n = numVertices(G);
-int dist[n];
-set visited;
-set frontier = {0};
-int level = 0;
-while (frontier.size() > 0) {
-    set next_frontier = {};
-    for each v in frontier {
-        dist[v] = level;
-        visited.add(v);
-        for each neighbor u of v in G {
-            if (!visited.contains(u)) {
-                next_frontier.add(u);
-            }
-        }
-    }
-    frontier = next_frontier;
-    level = level + 1;
-}
-

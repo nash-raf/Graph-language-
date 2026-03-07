@@ -1,33 +1,6 @@
-graph G { nodes: 0,1,2,3,4; 
-edges: 0->1, 1->2, 2->3, 3->4; 
+graph G{
+  //edges: file "edgelist.txt";
+  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
 };
- 
-//query k : "bfs" of G;
+query k: 'bfs' of G; 
 
-real t0 = timer();
-
-int n = numVertices(G);
-int dist[n];
-set visited;
-set frontier = {2};
-int level = 0;
-while (frontier.size() > 0) {
-    set next_frontier = {};
-    for each v in frontier {
-        dist[v] = level;
-        visited.add(v);
-        for each neighbor u of v in G {
-            if (!visited.contains(u)) {
-                next_frontier.add(u);
-            }
-        }
-    }
-    frontier = next_frontier;
-    level = level + 1;
-}
-
-real t1 = timer();
-real elapsed = t1 - t0;
-print "sdsssssssssssssssss";
-print dist[0];
-print elapsed;

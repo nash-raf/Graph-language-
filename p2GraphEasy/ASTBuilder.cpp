@@ -12,26 +12,26 @@ antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 {
     std::vector<ASTNodePtr> items;
 
-    // 1) collect function declarations
-    for (auto funcCtx : ctx->function())
+    // Preserve top-level source order from: (statement | function)* EOF
+    for (auto *child : ctx->children)
     {
-        auto fnAny = visitFunction(funcCtx);
-        auto fnNode = safe_any_cast<ASTNodePtr>(fnAny, "visitProgram");
-        items.push_back(fnNode);
-    }
-
-    // 2) collect top‑level statements
-    for (auto stmtCtx : ctx->statement())
-    {
-        auto stAny = visitStatement(stmtCtx);
-        
-        if (stAny.has_value() && stAny.type() == typeid(ASTNodePtr))
+        if (auto *funcCtx = dynamic_cast<BaseParser::FunctionContext *>(child))
         {
-            items.push_back(safe_any_cast<ASTNodePtr>(stAny, "visitProgram"));
+            auto fnAny = visitFunction(funcCtx);
+            items.push_back(safe_any_cast<ASTNodePtr>(fnAny, "visitProgram"));
+            continue;
+        }
+        if (auto *stmtCtx = dynamic_cast<BaseParser::StatementContext *>(child))
+        {
+            auto stAny = visitStatement(stmtCtx);
+            if (stAny.has_value() && stAny.type() == typeid(ASTNodePtr))
+            {
+                items.push_back(safe_any_cast<ASTNodePtr>(stAny, "visitProgram"));
+            }
         }
     }
 
-    // 3) package into your root
+    // Package top-level nodes into program root.
     auto prog = std::make_shared<ProgramNode>(std::move(items));
     return prog;
 }

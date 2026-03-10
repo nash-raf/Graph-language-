@@ -1,6 +1,6 @@
 graph G{
-  //edges: file "edgelist.txt";
-  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
+  edges: file "edgelist.txt";
+
 };
 
 int n = numVertices(G);

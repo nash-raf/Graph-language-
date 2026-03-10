@@ -1,9 +1,6 @@
 graph G{
-  //edges: file "../synth_graphs_violin/synth_v_50000_e_1000000_seed_1";
-  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-  //edges: file "edgelist.txt";
+  edges: file "edgelist.txt";
 };
-real t0 = timer();
 int n = numVertices(G);
 int dist[n];
 set visited;
@@ -23,15 +20,7 @@ while (frontier.size() > 0) {
     frontier = next_frontier;
     level = level + 1;
 }
-real t1 = timer();
-real elapsed = t1 - t0;
-print dist[0];
-print dist[1];
-print dist[2];
-print dist[3];
-print dist[4];
-print dist[9];
-print elapsed;
+
 
 
 

@@ -1,7 +1,7 @@
-
 graph G{
-  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
+    edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
 };
+
 int n = numVertices(G);
 int visited[n];
 int dist[n];
@@ -10,15 +10,18 @@ int next_frontier[n];
 int frontier_size = 1;
 int next_size = 0;
 int level = 0;
+
 frontier[0] = 0;
 visited[0] = 1;
 
 while (frontier_size > 0) {
     next_size = 0;
     int i = 0;
+
     while (i < frontier_size) {
         int v = frontier[i];
         dist[v] = level;
+
         for each neighbor u of v in G {
             if (visited[u] == 0) {
                 visited[u] = 1;
@@ -28,51 +31,8 @@ while (frontier_size > 0) {
         }
         i = i + 1;
     }
+
     swap(frontier, next_frontier);
     frontier_size = next_size;
     level = level + 1;
 }
-
-print dist[0];
-print dist[1];
-print dist[2];
-print dist[3];
-print dist[4];
-print dist[5];
-print dist[6];
-print dist[7];
-print dist[8];
-print dist[9];
-/*
-
-
-
-
-
-graph G{
-  //edges: file "../synth_graphs_unweighted/synth_v_50000_e_1000000.txt";
-  edges: file "../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-  //edges: file "edgelist.txt";
-};
-int n = numVertices(G);
-int dist[n];
-set visited;
-set frontier = {0};
-int level = 0;
-while (frontier.size() > 0) {
-    set next_frontier = {};
-    for each v in frontier {
-        dist[v] = level;
-        visited.add(v);
-        for each neighbor u of v in G {
-            if (!visited.contains(u)) {
-                next_frontier.add(u);
-            }
-        }
-    }
-    frontier = next_frontier;
-    level = level + 1;
-}
-
-
-*/

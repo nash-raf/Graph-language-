@@ -196,6 +196,31 @@ llvm::Type *IRGenVisitor::getLLVMTypeForName(const std::string &typeName)
     return Builder.getInt32Ty();
 }
 
+llvm::Type *IRGenVisitor::getStorageValueType(llvm::Value *storage)
+{
+    if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(storage))
+        return alloca->getAllocatedType();
+    if (auto *global = llvm::dyn_cast<llvm::GlobalVariable>(storage))
+        return global->getValueType();
+    throw std::runtime_error("IRGenVisitor: unsupported storage value");
+}
+
+llvm::Value *IRGenVisitor::lookupNamedStorage(const std::string &name)
+{
+    auto it = NamedValues.find(name);
+    if (it == NamedValues.end())
+        throw std::runtime_error("Undefined variable: " + name);
+    return it->second;
+}
+
+llvm::Value *IRGenVisitor::loadGraphValue(const std::string &name)
+{
+    auto it = GraphMap.find(name);
+    if (it == GraphMap.end())
+        throw std::runtime_error("Graph not allocated: " + name);
+    return Builder.CreateLoad(GraphTy->getPointerTo(), it->second, name + ".graph");
+}
+
 void IRGenVisitor::visitProgram(ProgramNodePtr prog)
 {
 
@@ -262,6 +287,7 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
     Builder.SetInsertPoint(BB);
 
     // Lower every top‑level AST node
+    EmittingTopLevel = true;
     for (auto &node : prog->topLevel)
     {
         switch (node->type)
@@ -320,6 +346,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::FunctionCall:
             visitExpr(node.get());
             break;
+        case ASTNodeType::FunctionDecl:
+            // Function bodies are lowered in the dedicated post-pass below.
+            break;
         case ASTNodeType::SwapStmt:
             visitSwapStmt(static_cast<SwapStmtNode *>(node.get()));
             break;
@@ -331,6 +360,7 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
             break;
         }
     }
+    EmittingTopLevel = false;
 
     // Return 0
     Builder.CreateRet(llvm::ConstantInt::get(intTy, 0));
@@ -347,13 +377,7 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
 
 void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
 {
-    auto it = GraphMap.find(S->graphName);
-    if (it == GraphMap.end())
-    {
-        llvm::errs() << "show: graph not found: " << S->graphName << "\n";
-        return;
-    }
-    llvm::Value *graphPtr = it->second;
+    llvm::Value *graphPtr = loadGraphValue(S->graphName);
 
     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
@@ -670,7 +694,6 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
     auto savedInsertPoint = Builder.GetInsertBlock();
 
     Builder.SetInsertPoint(BB);
-    NamedValues.clear();
 
     // 4) Allocate space for each parameter and store the incoming arg
     //    For graph parameters, also register in GraphMap so for-each works
@@ -973,12 +996,8 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
     if (assign->lhs->type == ASTNodeType::Variable)
     {
         auto *varNode = static_cast<VariableNode *>(assign->lhs.get());
-        auto it = NamedValues.find(varNode->name);
-        if (it == NamedValues.end())
-            throw std::runtime_error("IRGenVisitor: undefined variable in assignment: " + varNode->name);
-
-        llvm::AllocaInst *alloca = it->second;
-        llvm::Type *allocTy = alloca->getAllocatedType();
+        llvm::Value *storage = lookupNamedStorage(varNode->name);
+        llvm::Type *allocTy = getStorageValueType(storage);
 
         // Cast RHS if needed
         if (rhsVal->getType() != allocTy)
@@ -993,7 +1012,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
                 throw std::runtime_error("IRGenVisitor: type mismatch in scalar assignment");
         }
 
-        Builder.CreateStore(rhsVal, alloca);
+        Builder.CreateStore(rhsVal, storage);
         return;
     }
 
@@ -1005,11 +1024,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         if (!baseVar)
             throw std::runtime_error("IRGenVisitor: unsupported array base expression");
 
-        auto it = NamedValues.find(baseVar->name);
-        if (it == NamedValues.end())
-            throw std::runtime_error("IRGenVisitor: undefined array in assignment: " + baseVar->name);
-
-        llvm::AllocaInst *baseAlloca = it->second;
+        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
 
         // Evaluate the index
         llvm::Value *idxVal = visitExpr(A->indexExpr.get());
@@ -1035,7 +1050,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         }
 
         // Static array: alloca [N x i32]
-        if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(baseAlloca->getAllocatedType()))
+        if (auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(getStorageValueType(baseAlloca)))
         {
             llvm::Value *elemPtr = Builder.CreateGEP(
                 arrTy,      // pointee type
@@ -1058,7 +1073,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         }
 
         // Legacy dynamic array case (should not be reached with new indirect approach)
-        else if (baseAlloca->getAllocatedType()->isIntegerTy(32))
+        else if (getStorageValueType(baseAlloca)->isIntegerTy(32))
         {
             auto *i32Ty = Builder.getInt32Ty();
             llvm::Value *elemPtr = Builder.CreateGEP(
@@ -1077,7 +1092,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
             return;
         }
 
-        else if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(baseAlloca->getAllocatedType()))
+        else if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(getStorageValueType(baseAlloca)))
         {
             llvm::Type *elemTy = ptrTy->getContainedType(0);
 
@@ -1113,10 +1128,6 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         if (!baseVar)
             throw std::runtime_error("2D array base must be variable in assignment");
 
-        auto it = NamedValues.find(baseVar->name);
-        if (it == NamedValues.end())
-            throw std::runtime_error("Undefined 2D array in assignment: " + baseVar->name);
-
         auto metaIt = Array2DMap.find(baseVar->name);
         if (metaIt == Array2DMap.end())
             throw std::runtime_error("2D array metadata not found: " + baseVar->name);
@@ -1141,7 +1152,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
                 throw std::runtime_error("2D array assignment requires int value");
         }
 
-        llvm::AllocaInst *baseAlloca = it->second;
+        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
         llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, baseAlloca, {flatIdx}, baseVar->name + "_2d_ptr");
         Builder.CreateStore(rhsVal, elemPtr);
         return;
@@ -1154,7 +1165,7 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
     }
 }
 
-llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
+llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
 {
     llvm::Function *currentFunction = Builder.GetInsertBlock()->getParent();
 
@@ -1190,9 +1201,22 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
         llvm::Value *sizeBytes64 = Builder.CreateZExt(sizeBytes, Builder.getInt64Ty());
         Builder.CreateMemSet(arrAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(4));
 
-        NamedValues[decl->name] = arrAlloca;
+        llvm::Value *storage = arrAlloca;
+        if (EmittingTopLevel)
+        {
+            auto *global = new llvm::GlobalVariable(
+                Module,
+                arrAlloca->getType(),
+                false,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(arrAlloca->getType())),
+                decl->name);
+            Builder.CreateStore(arrAlloca, global);
+            storage = global;
+        }
+        NamedValues[decl->name] = storage;
         Array2DMap[decl->name] = {colsVal};
-        return arrAlloca;
+        return storage;
     }
 
     // --- Array path (explicit array or array-initializer) ---
@@ -1218,10 +1242,24 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             llvm::AllocaInst *ptrAlloca = Builder.CreateAlloca(ptrTy, nullptr, decl->name);
             Builder.CreateStore(dataAlloca, ptrAlloca);
 
-            NamedValues[decl->name] = ptrAlloca;
+            llvm::Value *storage = ptrAlloca;
+            if (EmittingTopLevel)
+            {
+                auto *global = new llvm::GlobalVariable(
+                    Module,
+                    ptrTy,
+                    false,
+                    llvm::GlobalValue::InternalLinkage,
+                    llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(ptrTy)),
+                    decl->name);
+                Builder.CreateStore(dataAlloca, global);
+                storage = global;
+            }
+
+            NamedValues[decl->name] = storage;
             IndirectArrays.insert(decl->name);
             ArraySizes[decl->name] = sizeVal;
-            return ptrAlloca;
+            return storage;
         }
 
         // --- Static array: int arr[5] or int arr[] = [1,2,3] ---
@@ -1279,8 +1317,37 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             }
         }
 
-        NamedValues[decl->name] = arrAlloca;
-        return arrAlloca;
+        llvm::Value *storage = arrAlloca;
+        if (EmittingTopLevel)
+        {
+            auto *global = new llvm::GlobalVariable(
+                Module,
+                arrTy,
+                false,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantAggregateZero::get(arrTy),
+                decl->name);
+            storage = global;
+            if (decl->initializer && decl->initializer->type == ASTNodeType::ArrayLiteral)
+            {
+                auto *arrLit = static_cast<ArrayLiteralNode *>(decl->initializer.get());
+                size_t M = arrLit->elements.size();
+                for (size_t i = 0; i < M && i < N; ++i)
+                {
+                    llvm::Value *val = visitExpr(arrLit->elements[i].get());
+                    if (val->getType() != Builder.getInt32Ty() && val->getType()->isIntegerTy())
+                        val = Builder.CreateIntCast(val, Builder.getInt32Ty(), true);
+                    llvm::Value *gep = Builder.CreateGEP(
+                        arrTy, global,
+                        {Builder.getInt32(0), Builder.getInt32(static_cast<int>(i))},
+                        decl->name + "_global_elem");
+                    Builder.CreateStore(val, gep);
+                }
+            }
+        }
+
+        NamedValues[decl->name] = storage;
+        return storage;
     }
 
     // --- Scalar path ---
@@ -1295,8 +1362,18 @@ llvm::AllocaInst *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
         // Fallback to string parsing for unannotated nodes
         declTy = getLLVMTypeForName(decl->typeName);
     }
-    llvm::AllocaInst *scalarAlloca =
-        createEntryBlockAlloca(currentFunction, decl->name, declTy);
+    llvm::Value *scalarAlloca = createEntryBlockAlloca(currentFunction, decl->name, declTy);
+    if (EmittingTopLevel)
+    {
+        auto *global = new llvm::GlobalVariable(
+            Module,
+            declTy,
+            false,
+            llvm::GlobalValue::InternalLinkage,
+            llvm::Constant::getNullValue(declTy),
+            decl->name);
+        scalarAlloca = global;
+    }
 
     if (decl->initializer)
     {
@@ -1560,12 +1637,9 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     if (fs->targetType == ForEachTargetType::Element)
     {
         // Look up the set variable
-        auto it = NamedValues.find(fs->graphName); // graphName holds set name
-        if (it == NamedValues.end())
-            throw std::runtime_error("forEach element: undefined set " + fs->graphName);
-
         auto *BitmapPtrTy = getBitmapPtrTy(Context);
-        llvm::Value *bm = Builder.CreateLoad(BitmapPtrTy, it->second, fs->graphName + ".bm");
+        llvm::Value *setStorage = lookupNamedStorage(fs->graphName);
+        llvm::Value *bm = Builder.CreateLoad(BitmapPtrTy, setStorage, fs->graphName + ".bm");
 
         // Get cardinality
         llvm::FunctionType *cardFT = llvm::FunctionType::get(i64Ty, {BitmapPtrTy}, false);
@@ -1620,9 +1694,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     }
 
     // --- Graph-based foreach (vertex, edge, neighbor) ---
-    llvm::Value *graphPtr = GraphMap[fs->graphName];
-    if (!graphPtr)
-        throw std::runtime_error("Graph not allocated: " + fs->graphName);
+    llvm::Value *graphPtr = loadGraphValue(fs->graphName);
 
     if (!GraphTy)
         throw std::runtime_error("GraphTy not initialized");
@@ -1897,12 +1969,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
     case ASTNodeType::Variable:
     {
         auto *varNode = static_cast<VariableNode *>(expr);
-        auto it = NamedValues.find(varNode->name);
-        if (it == NamedValues.end())
-        {
-            throw std::runtime_error("Undefined variable: " + varNode->name);
-        }
-        return Builder.CreateLoad(it->second->getAllocatedType(), it->second, varNode->name);
+        llvm::Value *storage = lookupNamedStorage(varNode->name);
+        return Builder.CreateLoad(getStorageValueType(storage), storage, varNode->name);
     }
     case ASTNodeType::BinaryExpr:
     {
@@ -1979,10 +2047,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
             if (!varArg)
                 throw std::runtime_error("numVertices argument must be a graph name");
-            auto it = GraphMap.find(varArg->name);
-            if (it == GraphMap.end())
-                throw std::runtime_error("numVertices: unknown graph " + varArg->name);
-            llvm::Value *graphPtr = it->second;
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
             llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
             llvm::Value *nVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), nPtr, "n_val");
             return Builder.CreateTrunc(nVal, Builder.getInt32Ty(), "numVertices");
@@ -1994,10 +2059,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
             if (!varArg)
                 throw std::runtime_error("numEdges argument must be a graph name");
-            auto it = GraphMap.find(varArg->name);
-            if (it == GraphMap.end())
-                throw std::runtime_error("numEdges: unknown graph " + varArg->name);
-            llvm::Value *graphPtr = it->second;
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
             llvm::Value *mPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr");
             llvm::Value *mVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), mPtr, "m_val");
             llvm::Value *mHalf = Builder.CreateUDiv(mVal,
@@ -2011,10 +2073,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
             if (!varArg)
                 throw std::runtime_error("degree first argument must be a graph name");
-            auto it = GraphMap.find(varArg->name);
-            if (it == GraphMap.end())
-                throw std::runtime_error("degree: unknown graph " + varArg->name);
-            llvm::Value *graphPtr = it->second;
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
             auto *i64Ty = llvm::Type::getInt64Ty(Context);
             auto *i64PtrTy = llvm::PointerType::get(i64Ty, 0);
             // Load row_ptr pointer (field 2)
@@ -2041,12 +2100,10 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
             if (!varArg)
                 throw std::runtime_error("setSize argument must be a set variable name");
-            auto it = NamedValues.find(varArg->name);
-            if (it == NamedValues.end())
-                throw std::runtime_error("setSize: undefined set " + varArg->name);
+            llvm::Value *storage = lookupNamedStorage(varArg->name);
             auto *BitmapPtrTy = getBitmapPtrTy(Context);
             auto *i64Ty = llvm::Type::getInt64Ty(Context);
-            llvm::Value *bm = Builder.CreateLoad(BitmapPtrTy, it->second, varArg->name + ".bm");
+            llvm::Value *bm = Builder.CreateLoad(BitmapPtrTy, storage, varArg->name + ".bm");
             llvm::FunctionType *cardFT = llvm::FunctionType::get(i64Ty, {BitmapPtrTy}, false);
             auto cardFn = Module.getOrInsertFunction("roaring_bitmap_get_cardinality", cardFT);
             llvm::Value *card64 = Builder.CreateCall(cardFn, {bm}, "card64");
@@ -2089,10 +2146,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
             if (!varArg)
                 throw std::runtime_error("hasEdge first argument must be a graph name");
-            auto it = GraphMap.find(varArg->name);
-            if (it == GraphMap.end())
-                throw std::runtime_error("hasEdge: unknown graph " + varArg->name);
-            llvm::Value *graphPtr = it->second;
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
             auto *i64Ty = llvm::Type::getInt64Ty(Context);
             auto *i32Ty = Builder.getInt32Ty();
             auto *i64PtrTy = llvm::PointerType::get(i64Ty, 0);
@@ -2177,6 +2231,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             args.push_back(visitExpr(argNode.get()));
         }
 
+        if (callee->getReturnType()->isVoidTy())
+            return Builder.CreateCall(callee, args);
         return Builder.CreateCall(callee, args, "calltmp");
     }
 
@@ -2187,10 +2243,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         if (!baseVar)
             throw std::runtime_error("Array base must be variable");
 
-        auto it = NamedValues.find(baseVar->name);
-        if (it == NamedValues.end())
-            throw std::runtime_error("Undefined array in access: " + baseVar->name);
-        llvm::AllocaInst *baseAlloca = it->second;
+        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
 
         llvm::Value *idxVal = visitExpr(A->indexExpr.get());
         if (idxVal->getType() != Builder.getInt32Ty())
@@ -2205,7 +2258,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             return Builder.CreateLoad(Builder.getInt32Ty(), elemPtr, baseVar->name + "_loadelem");
         }
 
-        auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(baseAlloca->getAllocatedType());
+        auto *arrTy = llvm::dyn_cast<llvm::ArrayType>(getStorageValueType(baseAlloca));
         if (arrTy)
         {
             llvm::Value *elemPtr = Builder.CreateGEP(
@@ -2218,7 +2271,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         }
         else
         {
-            llvm::Type *baseTy = baseAlloca->getAllocatedType();
+            llvm::Type *baseTy = getStorageValueType(baseAlloca);
 
             if (baseTy->isIntegerTy(32))
             {
@@ -2276,10 +2329,6 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         if (!baseVar)
             throw std::runtime_error("2D array base must be variable");
 
-        auto it = NamedValues.find(baseVar->name);
-        if (it == NamedValues.end())
-            throw std::runtime_error("Undefined 2D array: " + baseVar->name);
-
         auto metaIt = Array2DMap.find(baseVar->name);
         if (metaIt == Array2DMap.end())
             throw std::runtime_error("2D array metadata not found: " + baseVar->name);
@@ -2295,7 +2344,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         llvm::Value *offset = Builder.CreateMul(rowIdx, cols, "row_offset");
         llvm::Value *flatIdx = Builder.CreateAdd(offset, colIdx, "flat_idx");
 
-        llvm::AllocaInst *baseAlloca = it->second;
+        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
         auto *i32Ty = Builder.getInt32Ty();
         llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, baseAlloca, {flatIdx}, baseVar->name + "_2d_ptr");
         return Builder.CreateLoad(i32Ty, elemPtr, baseVar->name + "_2d_val");
@@ -2667,7 +2716,24 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         auto loadFn = Module.getOrInsertFunction("load_graph_from_file", loadFT);
         llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "graph_ptr");
 
-        GraphMap[G->name] = graphPtr;
+        llvm::Value *graphStorage = nullptr;
+        if (EmittingTopLevel)
+        {
+            graphStorage = new llvm::GlobalVariable(
+                Module,
+                graphPtrTy,
+                false,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(graphPtrTy)),
+                G->name);
+        }
+        else
+        {
+            graphStorage = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(), G->name, graphPtrTy);
+        }
+        Builder.CreateStore(graphPtr, graphStorage);
+        GraphMap[G->name] = graphStorage;
+        NamedValues[G->name] = graphStorage;
         GraphAstMap[G->name] = G;
 
         // G.nodes bitmap: call graph_get_node_bitmap(graphPtr)
@@ -2773,7 +2839,24 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     Builder.CreateStore(colPtr,
         Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
 
-    GraphMap[G->name] = graphPtr;
+    llvm::Value *graphStorage = nullptr;
+    if (EmittingTopLevel)
+    {
+        graphStorage = new llvm::GlobalVariable(
+            Module,
+            graphPtrTy,
+            false,
+            llvm::GlobalValue::InternalLinkage,
+            llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(graphPtrTy)),
+            G->name);
+    }
+    else
+    {
+        graphStorage = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(), G->name, graphPtrTy);
+    }
+    Builder.CreateStore(graphPtr, graphStorage);
+    GraphMap[G->name] = graphStorage;
+    NamedValues[G->name] = graphStorage;
     GraphAstMap[G->name] = G;
 
     auto *i8Ty = llvm::Type::getInt8Ty(Context);
@@ -2988,12 +3071,25 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         Builder.CreateStore(wPtr, wtPtr);
     }
 
-    GraphMap[G->name] = graphPtr;
-
-    llvm::Function *F = Builder.GetInsertBlock()->getParent();
-    llvm::AllocaInst *graphAlloca = createEntryBlockAlloca(F, G->name, GraphTy->getPointerTo());
-    Builder.CreateStore(graphPtr, graphAlloca);
-    NamedValues[G->name] = graphAlloca;
+    llvm::Value *graphStorage = nullptr;
+    if (EmittingTopLevel)
+    {
+        graphStorage = new llvm::GlobalVariable(
+            Module,
+            GraphTy->getPointerTo(),
+            false,
+            llvm::GlobalValue::InternalLinkage,
+            llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(GraphTy->getPointerTo())),
+            G->name);
+    }
+    else
+    {
+        llvm::Function *F = Builder.GetInsertBlock()->getParent();
+        graphStorage = createEntryBlockAlloca(F, G->name, GraphTy->getPointerTo());
+    }
+    Builder.CreateStore(graphPtr, graphStorage);
+    GraphMap[G->name] = graphStorage;
+    NamedValues[G->name] = graphStorage;
     // debug
     llvm::errs() << "[visitWeightedGraphDecl] G->n (declared) = " << G->n << "\n";
     llvm::errs() << "[visitWeightedGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
@@ -3040,7 +3136,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 // void IRGenVisitor::emitBFS(QueryNode *Q)
 // {
 //     // Grab the Graph* value
-//     llvm::Value *graphPtr = GraphMap[Q->graphName];
+//     llvm::Value *graphPtr = loadGraphValue(Q->graphName);
 //     assert(graphPtr && "Graph not found in IRGenVisitor::emitBFS");
 
 //     // Declare the runtime function:
@@ -3061,7 +3157,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 // void IRGenVisitor::emitDFS(QueryNode *Q)
 // {
 //     // Grab the Graph* value
-//     llvm::Value *graphPtr = GraphMap[Q->graphName];
+//     llvm::Value *graphPtr = loadGraphValue(Q->graphName);
 //     assert(graphPtr && "Graph not found in IRGenVisitor::emitDFS");
 
 //     // Declare the runtime function:
@@ -3082,7 +3178,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 
 void IRGenVisitor::emitBFS(QueryNode *Q)
 {
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitBFS");
 
     // types
@@ -3112,7 +3208,7 @@ void IRGenVisitor::emitBFS(QueryNode *Q)
 
 void IRGenVisitor::emitDFS(QueryNode *Q)
 {
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitDFS");
 
     llvm::Type *int32Ty = llvm::Type::getInt32Ty(Context);
@@ -3209,7 +3305,7 @@ void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
 void IRGenVisitor::emitFloydWarshall(QueryNode *Q)
 {
     // Grab the Graph* value
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitFloydWarshall");
 
     // Declare the runtime function:
@@ -3231,7 +3327,7 @@ void IRGenVisitor::emitFloydWarshall(QueryNode *Q)
 void IRGenVisitor::emitBK(QueryNode *Q)
 {
     // Grab the Graph* value
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitBK");
 
     // Declare the runtime function:
@@ -3252,7 +3348,7 @@ void IRGenVisitor::emitBK(QueryNode *Q)
 
 void IRGenVisitor::emitDijkstra(QueryNode *Q)
 {
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitDijkstra");
 
     llvm::Type *int32Ty = llvm::Type::getInt32Ty(Context);
@@ -3289,7 +3385,7 @@ void IRGenVisitor::emitDijkstra(QueryNode *Q)
 // void IRGenVisitor::emitChromacity(QueryNode *Q)
 // {
 //     // Grab the Graph* value
-//     llvm::Value *graphPtr = GraphMap[Q->graphName];
+//     llvm::Value *graphPtr = loadGraphValue(Q->graphName);
 //     assert(graphPtr && "Graph not found in IRGenVisitor::emitChromacity");
 
 //     // Declare the runtime function:
@@ -3311,7 +3407,7 @@ void IRGenVisitor::emitDijkstra(QueryNode *Q)
 void IRGenVisitor::emitChromacity(QueryNode *Q)
 {
     // 1. Grab the Graph* value
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitChromacity");
 
     // 2. Declare the runtime function:
@@ -3326,7 +3422,7 @@ void IRGenVisitor::emitChromacity(QueryNode *Q)
     llvm::Value *retVal = Builder.CreateCall(chromDecl, {graphPtr}, "chromacity_result");
 
     // 4. Allocate space for query result in NamedValues if not already present
-    llvm::AllocaInst *varPtr = nullptr;
+    llvm::Value *varPtr = nullptr;
     auto it = NamedValues.find(Q->queryName);
     if (it == NamedValues.end())
     {
@@ -3347,7 +3443,7 @@ void IRGenVisitor::emitChromacity(QueryNode *Q)
 void IRGenVisitor::emitMinCut(QueryNode *Q)
 {
     // 1. Grab the Graph* value
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitMinCut");
 
     // 2. Declare the runtime function:
@@ -3362,7 +3458,7 @@ void IRGenVisitor::emitMinCut(QueryNode *Q)
     llvm::Value *retVal = Builder.CreateCall(minCutDecl, {graphPtr}, "min_cut_result");
 
     // 4. Allocate space for query result in NamedValues if not already present
-    llvm::AllocaInst *varPtr = nullptr;
+    llvm::Value *varPtr = nullptr;
     auto it = NamedValues.find(Q->queryName);
     if (it == NamedValues.end())
     {
@@ -3383,7 +3479,7 @@ void IRGenVisitor::emitMinCut(QueryNode *Q)
 // ...existing code...
 void IRGenVisitor::emitDFSSrc(QueryNode *Q)
 {
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     assert(graphPtr && "Graph not found in IRGenVisitor::emitDFSSrc");
 
     llvm::Type *int32Ty = llvm::Type::getInt32Ty(Context);
@@ -3419,7 +3515,7 @@ void IRGenVisitor::emitDFSSrc(QueryNode *Q)
 
 void IRGenVisitor::emitBFSSrc(QueryNode *Q)
 {
-    llvm::Value *graphPtr = GraphMap[Q->graphName];
+    llvm::Value *graphPtr = loadGraphValue(Q->graphName);
     // llvm::errs() << "Unsupported query type: " << Q->queryDesc;
     assert(graphPtr && "Graph not found in IRGenVisitor::emitBFSSrc");
     // llvm::errs() << "Unsupported query type: " << Q->queryDesc;
@@ -3573,14 +3669,14 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
             throw std::runtime_error("Undefined variable in print: " + var->name);
         }
 
-        llvm::AllocaInst *alloca = it->second;
-        llvm::Type *allocatedTy = alloca->getAllocatedType();
+        llvm::Value *storage = it->second;
+        llvm::Type *allocatedTy = getStorageValueType(storage);
 
         // 3) Set variable (allocated type is pointer → bitmap)
         if (llvm::isa<llvm::PointerType>(allocatedTy))
         {
             auto *BitmapPtrTy = getBitmapPtrTy(Context);
-            llvm::Value *ptr = Builder.CreateLoad(BitmapPtrTy, alloca, var->name + ".bitmap");
+            llvm::Value *ptr = Builder.CreateLoad(BitmapPtrTy, storage, var->name + ".bitmap");
 
             auto kindIt = SetKinds.find(var->name);
             auto kind = (kindIt == SetKinds.end()) ? SetValueKind::Unknown : kindIt->second;
@@ -3635,14 +3731,14 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         // 4) Real (double) variable
         if (allocatedTy->isDoubleTy())
         {
-            llvm::Value *val = Builder.CreateLoad(Builder.getDoubleTy(), alloca, var->name);
+            llvm::Value *val = Builder.CreateLoad(Builder.getDoubleTy(), storage, var->name);
             llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%f\n");
             Builder.CreateCall(printfFn, {strPtr, val});
             return;
         }
 
         // 5) Plain integer variable
-        llvm::Value *val = Builder.CreateLoad(Builder.getInt32Ty(), alloca, var->name);
+        llvm::Value *val = Builder.CreateLoad(Builder.getInt32Ty(), storage, var->name);
         llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%d\n");
         Builder.CreateCall(printfFn, {strPtr, val});
         return;
@@ -3835,7 +3931,7 @@ void IRGenVisitor::visitSetOperation(SetOperationNode *setOp)
                                  setOp->targetName);
     }
 
-    llvm::AllocaInst *targetAlloca = it->second;
+    llvm::Value *targetAlloca = it->second;
 
     // Evaluate the set expression to get the resulting bitmap pointer
     llvm::Value *resultBitmap = visitSetExpr(setOp->expr.get());
@@ -4131,7 +4227,7 @@ llvm::Value *IRGenVisitor::visitSetContainsExpr(SetContainsExprNode *node)
             throw std::runtime_error("Undefined set variable: " + node->targetName);
         }
 
-        llvm::AllocaInst *setAlloca = it->second;
+        llvm::Value *setAlloca = it->second;
         bitmapPtr = Builder.CreateLoad(BitmapPtrTy, setAlloca, node->targetName + ".load");
     }
     else if (node->targetKind == SetTargetKind::GraphNodes)

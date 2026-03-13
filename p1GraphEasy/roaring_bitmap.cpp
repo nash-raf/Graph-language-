@@ -352,6 +352,22 @@ RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_capacity)
     return bm;
 }
 
+extern "C" RoaringBitmap *roaring_bitmap_create_like(const RoaringBitmap *prototype)
+{
+    size_t arena_size = 64 * 1024;
+    size_t initial_capacity = 8;
+
+    if (prototype)
+    {
+        if (prototype->arena.default_block_size != 0)
+            arena_size = prototype->arena.default_block_size;
+        if (prototype->max_containers != 0)
+            initial_capacity = prototype->max_containers;
+    }
+
+    return roaring_bitmap_create(arena_size, initial_capacity);
+}
+
 size_t find_insert_position(RoaringBitmap *bm, uint16_t key)
 {
     size_t left = 0;
@@ -1167,6 +1183,39 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
 
     delete P;
     return T;
+}
+
+extern "C" void roaring_bitmap_or_inplace(RoaringBitmap *dst, RoaringBitmap *src)
+{
+    if (!dst || !src)
+        return;
+
+    for (size_t i = 0; i < src->num_containers; ++i)
+    {
+        const Container *c = &src->containers[i];
+        uint32_t base = static_cast<uint32_t>(c->key) << 16;
+
+        if (c->type == ARRAY_CONTAINER)
+        {
+            for (size_t j = 0; j < c->array.cardinality; ++j)
+            {
+                roaring_bitmap_add(dst, base + c->array.values[j]);
+            }
+            continue;
+        }
+
+        const uint64_t *words = reinterpret_cast<const uint64_t *>(c->bitmap.bits);
+        for (uint32_t w = 0; w < 1024; ++w)
+        {
+            uint64_t word = words[w];
+            while (word)
+            {
+                int bit = __builtin_ctzll(word);
+                roaring_bitmap_add(dst, base + (w * 64u + static_cast<uint32_t>(bit)));
+                word &= word - 1;
+            }
+        }
+    }
 }
 
 // -------------------------------

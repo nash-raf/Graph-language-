@@ -6,12 +6,14 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
+#include <optional>
 #include <string>
 
 namespace llvm
@@ -29,6 +31,29 @@ namespace llvm
         SmallVector<depEdge> edges;
         Instruction *memoryBarrier = nullptr;
         SmallVector<Instruction *> controlBarriers;
+        struct LoopRegionInfo
+        {
+            unsigned loopRegionId = 0;
+            Loop *loop = nullptr;
+            BasicBlock *header = nullptr;
+            BasicBlock *preheader = nullptr;
+            BasicBlock *latch = nullptr;
+            BasicBlock *exitBlock = nullptr;
+            SmallVector<BasicBlock *> blocks;
+            std::string parallelClass;
+            bool isExtractionRegion = false;
+            unsigned nestedSubloopCount = 0;
+        };
+        SmallVector<LoopRegionInfo> loopRegions;
+        DenseMap<BasicBlock *, unsigned> blockToLoopRegion;
+        DenseMap<unsigned, unsigned> vertexToLoopRegion;
+    };
+
+    enum class TaskKind
+    {
+        Regular,
+        LoopRegion,
+        CutVertex
     };
 
     // Structure to represent a partition/component in the task graph
@@ -36,8 +61,11 @@ namespace llvm
     {
         unsigned taskId;
         SmallVector<unsigned> vertices; // Original PDG vertices in this component
-        bool isCutVertex = false;       // True if this represents a single cut vertex
-        unsigned originalVertex = 0;    // If isCutVertex, the original PDG vertex ID
+        TaskKind kind = TaskKind::Regular;
+        std::optional<unsigned> loopRegionId;
+        SmallVector<BasicBlock *> blocks;
+        bool isCutVertex = false;    // True if this represents a single cut vertex
+        unsigned originalVertex = 0; // If isCutVertex, the original PDG vertex ID
     };
 
     // Task graph after min-cut partitioning

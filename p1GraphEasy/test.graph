@@ -36,3 +36,11 @@ while (frontier_size > 0) {
     frontier_size = next_size;
     level = level + 1;
 }
+
+
+print dist[0];
+print dist[1];
+print dist[2];
+print dist[3];
+print dist[4];
+print dist[5];

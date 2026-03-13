@@ -45,7 +45,7 @@ struct MemoryArena
             // if (n >= 8192)
             // {
             //     // fprintf(stderr, "[Arena] Allocated %zu bytes from current block (block has %zu/%zu used)\n",
-            //     //         n, current->offset, current->capacity);
+            //             n, current->offset, current->capacity);
             // }
 
             return ptr;
@@ -175,6 +175,8 @@ extern "C"
     void roaring_bitmap_portable_serialize(RoaringBitmap *bm, uint8_t *buf);
     RoaringBitmap *roaring_bitmap_portable_deserialize(const uint8_t *data, size_t size);
     RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t count);
+    RoaringBitmap *roaring_bitmap_create_like(const RoaringBitmap *prototype);
+    void roaring_bitmap_or_inplace(RoaringBitmap *dst, RoaringBitmap *src);
     RoaringBitmap *roaring_bitmap_intersect(RoaringBitmap *bm1, RoaringBitmap *bm2);
     void roaring_print(uint8_t *ptr);
     void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value);

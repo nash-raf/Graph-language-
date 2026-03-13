@@ -26,6 +26,7 @@
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 #define SGPL_QUIET_LOGS 1
 #if SGPL_QUIET_LOGS
@@ -135,6 +136,172 @@ static llvm::Instruction *getInstructionFromVertex(unsigned vertexId, const llvm
         }
     }
     return nullptr;
+}
+
+namespace
+{
+    enum class DistanceProofKind
+    {
+        ProvenZero,
+        ProvenPositiveConstant,
+        ProvenPositiveUnknown,
+        ProvenNonPositiveConstant,
+        ProvenNonZeroUnknownSign,
+        Unknown
+    };
+
+    enum class CarrierKind
+    {
+        IntraIteration,
+        ProvenLevel,
+        Unknown
+    };
+
+    struct DistanceProof
+    {
+        DistanceProofKind kind = DistanceProofKind::Unknown;
+        int64_t constantValue = 0;
+    };
+
+    struct CarrierInfo
+    {
+        CarrierKind kind = CarrierKind::Unknown;
+        unsigned level = 0; // 1-based if ProvenLevel, earliest unknown prefix if Unknown
+        DistanceProof carriedDistance;
+    };
+
+    struct LoopCarrierSummary
+    {
+        bool hasProvenCarriedDep = false;
+        bool hasUnschedulableCarriedDep = false;
+        bool hasUnknownAttributedDep = false;
+        bool hasProofOfNoCarriedDeps = true;
+        llvm::SmallVector<int64_t, 4> constantDistances;
+    };
+
+    static bool isSchedulableAtCarrier(const DistanceProof &Proof)
+    {
+        return Proof.kind == DistanceProofKind::ProvenPositiveConstant;
+    }
+
+    static std::string distanceProofToString(const DistanceProof &Proof)
+    {
+        switch (Proof.kind)
+        {
+        case DistanceProofKind::ProvenZero:
+            return "zero";
+        case DistanceProofKind::ProvenPositiveConstant:
+            return ("positive constant distance=" + std::to_string(Proof.constantValue));
+        case DistanceProofKind::ProvenPositiveUnknown:
+            return "positive but unknown distance";
+        case DistanceProofKind::ProvenNonPositiveConstant:
+            return ("non-positive constant distance=" + std::to_string(Proof.constantValue));
+        case DistanceProofKind::ProvenNonZeroUnknownSign:
+            return "non-zero but unknown sign/distance";
+        case DistanceProofKind::Unknown:
+            return "unknown";
+        }
+        return "unknown";
+    }
+
+    static DistanceProof classifyDistanceComponent(const llvm::Dependence &Dep,
+                                                   unsigned Level)
+    {
+        using namespace llvm;
+        DistanceProof Proof;
+        const SCEV *Dist = Dep.getDistance(Level);
+        unsigned Dir = Dep.getDirection(Level);
+
+        if (Dist)
+        {
+            if (const auto *C = dyn_cast<SCEVConstant>(Dist))
+            {
+                if (const auto *CI = dyn_cast<ConstantInt>(C->getValue()))
+                {
+                    Proof.constantValue = CI->getSExtValue();
+                    if (Proof.constantValue == 0)
+                    {
+                        Proof.kind = DistanceProofKind::ProvenZero;
+                    }
+                    else if (Proof.constantValue > 0)
+                    {
+                        Proof.kind = DistanceProofKind::ProvenPositiveConstant;
+                    }
+                    else
+                    {
+                        Proof.kind = DistanceProofKind::ProvenNonPositiveConstant;
+                    }
+                    return Proof;
+                }
+            }
+        }
+
+        switch (Dir)
+        {
+        case Dependence::DVEntry::EQ:
+            Proof.kind = DistanceProofKind::ProvenZero;
+            return Proof;
+        case Dependence::DVEntry::LT:
+            Proof.kind = DistanceProofKind::ProvenPositiveUnknown;
+            return Proof;
+        case Dependence::DVEntry::GT:
+            Proof.kind = DistanceProofKind::ProvenNonPositiveConstant;
+            Proof.constantValue = -1;
+            return Proof;
+        case Dependence::DVEntry::NE:
+            Proof.kind = DistanceProofKind::ProvenNonZeroUnknownSign;
+            return Proof;
+        case Dependence::DVEntry::LE:
+        case Dependence::DVEntry::GE:
+        case Dependence::DVEntry::ALL:
+        case Dependence::DVEntry::NONE:
+        default:
+            Proof.kind = DistanceProofKind::Unknown;
+            return Proof;
+        }
+    }
+
+    // Bug to avoid:
+    // It is incorrect to conclude "loop k is not DOALL if dk > 0" without
+    // first proving d1..d(k-1) are all zero.
+    static CarrierInfo proveCarrierForDependence(const llvm::Dependence &Dep,
+                                                 llvm::Loop *L)
+    {
+        CarrierInfo Info;
+        unsigned Depth = L->getLoopDepth();
+        unsigned Levels = std::min<unsigned>(Depth, Dep.getLevels());
+
+        for (unsigned Level = 1; Level <= Levels; ++Level)
+        {
+            DistanceProof Proof = classifyDistanceComponent(Dep, Level);
+            if (Proof.kind == DistanceProofKind::ProvenZero)
+            {
+                continue;
+            }
+
+            if (Proof.kind == DistanceProofKind::Unknown)
+            {
+                Info.kind = CarrierKind::Unknown;
+                Info.level = Level;
+                return Info;
+            }
+
+            Info.kind = CarrierKind::ProvenLevel;
+            Info.level = Level;
+            Info.carriedDistance = Proof;
+            return Info;
+        }
+
+        if (Levels < Depth)
+        {
+            Info.kind = CarrierKind::Unknown;
+            Info.level = Levels + 1;
+            return Info;
+        }
+
+        Info.kind = CarrierKind::IntraIteration;
+        return Info;
+    }
 }
 
 void createEdge(llvm::Instruction *I1, llvm::Instruction *I2, llvm::dependencyGraph &G, std::string type)
@@ -327,20 +494,26 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         }
     }
 
-    bool sawLoopCarried = false;
-    bool allCarriedHaveConstantPositiveDistance = true; // constant and >= 1 required for DOACROSS
-    bool anyUnknown = false;
-    bool hasZeroDistance = false;
-    bool hasNonPositiveDistance = false;
     bool phiCarry = false;
+    LoopCarrierSummary Summary;
+    auto printInstToStderr = [](llvm::Instruction *Inst)
+    {
+        llvm::raw_os_ostream OS(std::cerr);
+        Inst->print(OS);
+        OS.flush();
+    };
+    auto logLoopClassify = [&](StringRef Msg)
+    {
+        (void)Msg;
+        /* Debug logging disabled. Restore std::cerr logging here to re-enable loop-classify traces. */
+    };
 
     // --- PHI handling: only mark phiCarry when the PHI is NOT an induction variable (SCEV AddRec) ---
 
-    for (BasicBlock *BB : L->blocks())
+    if (BasicBlock *Header = L->getHeader())
     {
-        for (Instruction &I : *BB)
+        for (Instruction &I : *Header)
         {
-
             if (PHINode *PN = dyn_cast<PHINode>(&I))
             {
                 // Use ScalarEvolution to decide if PN is a canonical induction (AddRec for this loop).
@@ -361,15 +534,19 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                     if (IncBB && L->contains(IncBB) && IncBB != L->getLoopPreheader())
                     {
                         phiCarry = true;
+                        logLoopClassify("phi-carry detected on non-induction phi");
+                        /* Debug logging disabled: phi print */
                         break;
                     }
                 }
                 if (phiCarry)
                     break;
             }
+            else
+            {
+                break;
+            }
         }
-        if (phiCarry)
-            break;
     }
 
     // 33
@@ -399,77 +576,74 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
             {
                 continue;
             }
-
-            // llvm::nulls() << "trigger4\n";
-            // llvm::nulls() << G.nodes[edge.first] << " " << G.nodes[edge.second] << "\n";
-
-            sawLoopCarried = true;
-
-            const SCEV *Dist = Dep->getDistance(1); // innermost
-            if (!Dist)
+            CarrierInfo Info = proveCarrierForDependence(*Dep, L);
+            if (Info.kind == CarrierKind::IntraIteration)
             {
-                anyUnknown = true;
-                allCarriedHaveConstantPositiveDistance = false;
-                // llvm::nulls() << "  -> distance unknown\n";
+                logLoopClassify("ignored intra-iteration dependence");
                 continue;
             }
 
-            // llvm::nulls() << "  -> Distance SCEV: ";
-            // Dist->print(llvm::nulls());
-            // llvm::nulls() << "\n";
+            /* Debug logging disabled: dependence src/dst print */
 
-            if (const SCEVConstant *C = dyn_cast<SCEVConstant>(Dist))
+            if (Info.kind == CarrierKind::Unknown)
             {
-                if (const ConstantInt *CI = dyn_cast<ConstantInt>(C->getValue()))
+                if (Info.level == L->getLoopDepth())
                 {
-                    int64_t d = CI->getSExtValue();
-                    // llvm::nulls() << "  -> constant distance = " << d << "\n";
-                    if (d == 0)
-                    {
-                        hasZeroDistance = true;
-                        allCarriedHaveConstantPositiveDistance = false;
-                        // llvm::nulls() << "    -> zero distance => sequential\n";
-                    }
-                    else if (d < 1)
-                    {
-                        hasNonPositiveDistance = true;
-                        allCarriedHaveConstantPositiveDistance = false;
-                        // llvm::nulls() << "    -> non-positive distance => sequential/unsupported for DOACROSS\n";
-                    }
-                    else
-                    {
-                        llvm::LLVMContext &Ctx = F.getContext();
-                        int srcID = G.nodes[edge.first];
-                        llvm::Metadata *IDVal = llvm::ConstantAsMetadata::get(
-                            llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), srcID));
-                        llvm::MDNode *IDNode = llvm::MDNode::get(Ctx, IDVal);
-
-                        llvm::MDNode *postNode = llvm::MDNode::get(
-                            Ctx, llvm::MDString::get(Ctx, "doacross.post"));
-                        edge.first->setMetadata("doacross.post", postNode);
-                        edge.first->setMetadata("doacross.id", IDNode);
-
-                        llvm::MDNode *waitNode = llvm::MDNode::get(
-                            Ctx, llvm::MDString::get(Ctx, "doacross.wait"));
-                        Metadata *DistVal = ConstantAsMetadata::get(ConstantInt::get(Type::getInt64Ty(Ctx), d));
-                        MDNode *DistNode = MDNode::get(Ctx, DistVal);
-                        edge.second->setMetadata("doacross.wait", waitNode);
-                        edge.second->setMetadata("doacross.dist", DistNode);
-                        edge.second->setMetadata("doacross.src", IDNode);
-                    }
+                    Summary.hasUnknownAttributedDep = true;
+                    Summary.hasProofOfNoCarriedDeps = false;
+                    logLoopClassify((Twine("carrier=UNKNOWN earliest_unknown_prefix=") + Twine(Info.level) +
+                                     " attributed to current loop")
+                                        .str());
                 }
                 else
                 {
-                    anyUnknown = true;
-                    allCarriedHaveConstantPositiveDistance = false;
-                    // llvm::nulls() << "  -> SCEVConstant but not ConstantInt -> unknown\n";
+                    logLoopClassify((Twine("ignored for loop depth=") + Twine(L->getLoopDepth()) +
+                                     " because carrier=UNKNOWN at prefix=" + Twine(Info.level))
+                                        .str());
                 }
+                continue;
             }
-            else
+
+            if (Info.level != L->getLoopDepth())
             {
-                allCarriedHaveConstantPositiveDistance = false;
-                // llvm::nulls() << "  -> distance not a SCEVConstant (non-constant) => treat as unknown/non-DOACROSS\n";
+                logLoopClassify((Twine("ignored for loop depth=") + Twine(L->getLoopDepth()) +
+                                 " because carrier=" + Twine(Info.level))
+                                    .str());
+                continue;
             }
+
+            Summary.hasProvenCarriedDep = true;
+            Summary.hasProofOfNoCarriedDeps = false;
+            logLoopClassify((Twine("carrier=") + Twine(Info.level) + " " +
+                             distanceProofToString(Info.carriedDistance))
+                                .str());
+
+            if (!isSchedulableAtCarrier(Info.carriedDistance))
+            {
+                Summary.hasUnschedulableCarriedDep = true;
+                continue;
+            }
+
+            Summary.constantDistances.push_back(Info.carriedDistance.constantValue);
+            llvm::LLVMContext &Ctx = F.getContext();
+            int srcID = G.nodes[edge.first];
+            llvm::Metadata *IDVal = llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), srcID));
+            llvm::MDNode *IDNode = llvm::MDNode::get(Ctx, IDVal);
+
+            llvm::MDNode *postNode = llvm::MDNode::get(
+                Ctx, llvm::MDString::get(Ctx, "doacross.post"));
+            edge.first->setMetadata("doacross.post", postNode);
+            edge.first->setMetadata("doacross.id", IDNode);
+
+            llvm::MDNode *waitNode = llvm::MDNode::get(
+                Ctx, llvm::MDString::get(Ctx, "doacross.wait"));
+            Metadata *DistVal = ConstantAsMetadata::get(
+                ConstantInt::get(Type::getInt64Ty(Ctx), Info.carriedDistance.constantValue));
+            MDNode *DistNode = MDNode::get(Ctx, DistVal);
+            edge.second->setMetadata("doacross.wait", waitNode);
+            edge.second->setMetadata("doacross.dist", DistNode);
+            edge.second->setMetadata("doacross.src", IDNode);
         }
     }
 
@@ -561,17 +735,17 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     {
         classification = "SEQUENTIAL";
     }
-    else if (anyUnknown || hasZeroDistance || hasNonPositiveDistance || !allCarriedHaveConstantPositiveDistance)
+    else if (Summary.hasProofOfNoCarriedDeps)
+    {
+        classification = "DOALL";
+    }
+    else if (Summary.hasUnschedulableCarriedDep || Summary.hasUnknownAttributedDep)
     {
         classification = "SEQUENTIAL";
     }
-    else if (sawLoopCarried && allCarriedHaveConstantPositiveDistance)
-    {
-        classification = "DOACROSS";
-    }
     else
     {
-        classification = "DOALL";
+        classification = "DOACROSS";
     }
     // llvm::nulls()() << "\n\n\nLoop header ";
     // llvm::nulls()() << " classified as " << classification << "\n";
@@ -589,6 +763,14 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         }
     };
 
+    logLoopClassify((Twine("classification=") + classification +
+                     " hasProvenCarriedDep=" + Twine(Summary.hasProvenCarriedDep ? 1 : 0) +
+                     " hasUnschedulableCarriedDep=" + Twine(Summary.hasUnschedulableCarriedDep ? 1 : 0) +
+                     " hasUnknownAttributedDep=" + Twine(Summary.hasUnknownAttributedDep ? 1 : 0) +
+                     " hasProofOfNoCarriedDeps=" + Twine(Summary.hasProofOfNoCarriedDeps ? 1 : 0) +
+                     " phiCarry=" + Twine(phiCarry ? 1 : 0))
+                        .str());
+
     // llvm::nulls()() << "Loop header ";
     // L->getHeader()->printAsOperand(llvm::nulls(), false);
     // llvm::nulls() << " classified as " << classification << "\n";
@@ -600,6 +782,114 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
                                           llvm::ScalarEvolution &SE,
                                           llvm::dependencyGraph &G);
+
+static bool getLoopParallelClass(const llvm::Loop *L, std::string &ParallelClass)
+{
+    if (!L || !L->getHeader())
+        return false;
+
+    llvm::Instruction *Term = L->getHeader()->getTerminator();
+    if (!Term)
+        return false;
+
+    llvm::MDNode *LoopMD = Term->getMetadata("my.loop.parallel");
+    if (!LoopMD)
+        return false;
+
+    for (unsigned i = 0; i < LoopMD->getNumOperands(); ++i)
+    {
+        auto *MDS = llvm::dyn_cast<llvm::MDString>(LoopMD->getOperand(i));
+        if (!MDS)
+            continue;
+
+        llvm::StringRef S = MDS->getString();
+        if (!S.starts_with("parallel.type="))
+            continue;
+
+        ParallelClass = S.substr(strlen("parallel.type=")).str();
+        return true;
+    }
+
+    return false;
+}
+
+static const llvm::dependencyGraph::LoopRegionInfo *findLoopRegionInfo(
+    const llvm::dependencyGraph &G,
+    unsigned LoopRegionId)
+{
+    for (const auto &Region : G.loopRegions)
+    {
+        if (Region.loopRegionId == LoopRegionId)
+            return &Region;
+    }
+    return nullptr;
+}
+
+static unsigned countNestedSubloops(llvm::Loop *L)
+{
+    unsigned Count = 0;
+    for (llvm::Loop *SubLoop : L->getSubLoops())
+    {
+        Count += 1;
+        Count += countNestedSubloops(SubLoop);
+    }
+    return Count;
+}
+
+static void collectTopLevelLoopRegions(llvm::Function &F,
+                                       llvm::LoopInfo &LI,
+                                       llvm::dependencyGraph &G)
+{
+    unsigned NextLoopRegionId = G.loopRegions.size();
+    for (llvm::Loop *TopLoop : LI)
+    {
+        llvm::dependencyGraph::LoopRegionInfo Region;
+        Region.loopRegionId = NextLoopRegionId++;
+        Region.loop = TopLoop;
+        Region.header = TopLoop->getHeader();
+        Region.preheader = TopLoop->getLoopPreheader();
+        Region.latch = TopLoop->getLoopLatch();
+        Region.exitBlock = TopLoop->getExitBlock();
+        getLoopParallelClass(TopLoop, Region.parallelClass);
+        Region.isExtractionRegion = true;
+        Region.nestedSubloopCount = countNestedSubloops(TopLoop);
+        Region.blocks.append(TopLoop->block_begin(), TopLoop->block_end());
+
+        bool OverlapDetected = false;
+        for (llvm::BasicBlock *BB : Region.blocks)
+        {
+            if (G.blockToLoopRegion.count(BB))
+            {
+                OverlapDetected = true;
+                /* Debug logging disabled: overlapping loop region */
+                break;
+            }
+        }
+        if (OverlapDetected)
+            continue;
+
+        G.loopRegions.push_back(Region);
+
+        /* Debug logging disabled: created top-level loop region */
+
+        for (llvm::BasicBlock *BB : Region.blocks)
+        {
+            G.blockToLoopRegion[BB] = Region.loopRegionId;
+            for (llvm::Instruction &I : *BB)
+            {
+                unsigned VertexId = G.nodes.lookup(&I);
+                if (!VertexId)
+                    continue;
+                if (G.vertexToLoopRegion.count(VertexId))
+                {
+                    /* Debug logging disabled: overlapping loop vertex */
+                    continue;
+                }
+                G.vertexToLoopRegion[VertexId] = Region.loopRegionId;
+            }
+        }
+    }
+}
 
 void buildGraph(llvm::Function &F,
                 llvm::DependenceInfo &DI,
@@ -866,6 +1156,8 @@ void buildGraph(llvm::Function &F,
                 worklist.push_back(SL);
         }
     }
+
+    collectTopLevelLoopRegions(F, LI, G);
 }
 
 // void buildGraph(llvm::Function &F,
@@ -1542,77 +1834,62 @@ namespace llvm
             allVertices.insert(node.second);
         }
 
-        // Step 4: For each SCC, determine if it's a loop and collect blocks
-        DenseMap<unsigned, SmallPtrSet<BasicBlock *, 16>> sccToBlocks;
-        DenseMap<unsigned, bool> sccIsLoop;
+        // Step 5: Group vertices by task
+        // - Each loop region becomes one task first
+        // - Each SCC becomes one task for remaining vertices
+        // - Vertices not in any SCC are grouped by basic block
+        DenseMap<unsigned, unsigned> vertexToTask;
+        SmallPtrSet<BasicBlock *, 16> loopTaskBlocks;
+        unsigned nextTaskId = 0;
 
-        for (unsigned sccId = 0; sccId < sccs.size(); ++sccId)
+        for (const auto &Region : G.loopRegions)
         {
-            const auto &scc = sccs[sccId];
+            if (!Region.isExtractionRegion)
+                continue;
 
-            // Get all blocks involved in this SCC
-            SmallPtrSet<BasicBlock *, 16> sccBlocks = getBasicBlocksForSCC(scc, G);
+            TaskNode task;
+            task.taskId = nextTaskId;
+            task.kind = TaskKind::LoopRegion;
+            task.loopRegionId = Region.loopRegionId;
+            task.blocks = Region.blocks;
 
-            // Check if this looks like a loop (has loop-like block names)
-            bool isLoop = false;
-            for (BasicBlock *BB : sccBlocks)
+            DenseSet<unsigned> addedVertices;
+            for (BasicBlock *BB : Region.blocks)
             {
-                if (BB->getName().contains("loop"))
+                loopTaskBlocks.insert(BB);
+                for (Instruction &I : *BB)
                 {
-                    isLoop = true;
-                    break;
+                    unsigned VertexId = G.nodes.lookup(&I);
+                    if (!VertexId)
+                        continue;
+                    if (!addedVertices.insert(VertexId).second)
+                        continue;
+
+                    task.vertices.push_back(VertexId);
+                    vertexToTask[VertexId] = nextTaskId;
                 }
             }
 
-            // For loops, just use the SCC blocks directly
-            // Don't walk CFG as that can pull in blocks from other loops
-            sccToBlocks[sccId] = sccBlocks;
-            sccIsLoop[sccId] = isLoop;
-
-            if (isLoop)
+            if (!task.vertices.empty())
             {
-                llvm::nulls() << "  SCC " << sccId << " is a loop with "
-                              << sccBlocks.size() << " blocks\n";
+                /* Debug logging disabled: created loop extraction task */
+                TG.tasks.push_back(task);
+                nextTaskId++;
             }
         }
-
-        // Step 5: Group vertices by task
-        // - Each SCC becomes one task
-        // - Vertices not in any SCC are grouped by basic block
-        DenseMap<unsigned, unsigned> vertexToTask;
-        unsigned nextTaskId = 0;
 
         // Create tasks for SCCs
         for (unsigned sccId = 0; sccId < sccs.size(); ++sccId)
         {
             TaskNode task;
             task.taskId = nextTaskId;
-            task.isCutVertex = false;
+            task.kind = TaskKind::Regular;
 
-            // Add all vertices in this SCC
-            task.vertices = sccs[sccId];
-
-            // If this is a loop, add ALL vertices from ALL loop blocks
-            if (sccIsLoop.lookup(sccId))
+            for (unsigned VertexId : sccs[sccId])
             {
-                DenseSet<unsigned> addedVertices;
-                for (unsigned v : sccs[sccId])
-                {
-                    addedVertices.insert(v);
-                }
-
-                // Add any vertices from loop blocks that weren't in the SCC
-                for (BasicBlock *BB : sccToBlocks[sccId])
-                {
-                    for (Instruction &I : *BB)
-                    {
-                        unsigned vId = G.nodes.lookup(&I);
-                        if (vId && addedVertices.insert(vId).second)
-                        {
-                            task.vertices.push_back(vId);
-                        }
-                    }
-                }
+                if (vertexToTask.find(VertexId) != vertexToTask.end())
+                    continue;
+                task.vertices.push_back(VertexId);
             }
 
             // Map all vertices to this task
@@ -1621,8 +1898,11 @@ namespace llvm
                 vertexToTask[v] = nextTaskId;
             }
 
-            TG.tasks.push_back(task);
-            nextTaskId++;
+            if (!task.vertices.empty())
+            {
+                TG.tasks.push_back(task);
+                nextTaskId++;
+            }
         }
 
         // Create tasks for non-SCC vertices (group by basic block)
@@ -1638,6 +1918,8 @@ namespace llvm
                     continue;
 
                 BasicBlock *BB = I->getParent();
+                if (loopTaskBlocks.count(BB))
+                    continue;
 
                 // Check if we already have a task for this block
                 if (blockToTask.find(BB) == blockToTask.end())
@@ -1645,7 +1927,8 @@ namespace llvm
                     // Create new task for this block
                     TaskNode task;
                     task.taskId = nextTaskId;
-                    task.isCutVertex = false;
+                    task.kind = TaskKind::Regular;
+                    task.blocks.push_back(BB);
 
                     // Add all vertices from this block that aren't in SCCs
                     for (Instruction &Inst : *BB)
@@ -2266,6 +2549,58 @@ namespace llvm
         }
     }
 
+    static void orderLoopTaskBlocks(const TaskNode &task,
+                                    const dependencyGraph &PDG,
+                                    SmallVector<BasicBlock *> &blockVec)
+    {
+        if (task.kind != TaskKind::LoopRegion || !task.loopRegionId)
+            return;
+
+        const auto *Region = findLoopRegionInfo(PDG, *task.loopRegionId);
+        if (!Region || !Region->header)
+            return;
+
+        SmallPtrSet<BasicBlock *, 16> blockSet(blockVec.begin(), blockVec.end());
+        if (!blockSet.count(Region->header))
+            return;
+
+        SmallVector<BasicBlock *> ordered;
+        SmallPtrSet<BasicBlock *, 16> visited;
+
+        std::function<void(BasicBlock *)> visit = [&](BasicBlock *BB)
+        {
+            if (!BB || !blockSet.count(BB) || !visited.insert(BB).second)
+                return;
+
+            ordered.push_back(BB);
+
+            SmallVector<BasicBlock *, 4> succs;
+            for (BasicBlock *Succ : successors(BB))
+            {
+                if (blockSet.count(Succ))
+                    succs.push_back(Succ);
+            }
+
+            llvm::sort(succs, [](BasicBlock *A, BasicBlock *B)
+                       { return A->getName() < B->getName(); });
+            for (BasicBlock *Succ : succs)
+                visit(Succ);
+        };
+
+        visit(Region->header);
+
+        SmallVector<BasicBlock *> remaining;
+        for (BasicBlock *BB : blockVec)
+        {
+            if (!visited.count(BB))
+                remaining.push_back(BB);
+        }
+        llvm::sort(remaining, [](BasicBlock *A, BasicBlock *B)
+                   { return A->getName() < B->getName(); });
+        ordered.append(remaining.begin(), remaining.end());
+        blockVec = std::move(ordered);
+    }
+
     // COMPLETE REPLACEMENT for reconstructParallelIR
     // COMPLETE REPLACEMENT for reconstructParallelIR
     void reconstructParallelIR(Module &M,
@@ -2299,24 +2634,26 @@ namespace llvm
             const TaskNode &task = TG.tasks[taskId];
             SmallPtrSet<BasicBlock *, 16> &blocks = taskBlocks[taskId];
 
-            // Collect all blocks containing vertices in this task
-            for (unsigned vertexId : task.vertices)
+            if (!task.blocks.empty())
             {
-                if (Instruction *I = getInstructionFromVertex(vertexId, PDG))
+                for (BasicBlock *BB : task.blocks)
                 {
-                    blocks.insert(I->getParent());
+                    blocks.insert(BB);
+                }
+            }
+            else
+            {
+                // Collect all blocks containing vertices in this task
+                for (unsigned vertexId : task.vertices)
+                {
+                    if (Instruction *I = getInstructionFromVertex(vertexId, PDG))
+                    {
+                        blocks.insert(I->getParent());
+                    }
                 }
             }
 
-            // Check if this task represents a loop
-            for (BasicBlock *BB : blocks)
-            {
-                if (BB->getName().contains("loop"))
-                {
-                    isLoopTask[taskId] = true;
-                    break;
-                }
-            }
+            isLoopTask[taskId] = task.kind == TaskKind::LoopRegion;
 
             // llvm::nulls() << "Task " << taskId << ": " << blocks.size() << " blocks"
             //<< (isLoopTask[taskId] ? " [LOOP]" : "") << "\n";
@@ -2363,38 +2700,48 @@ namespace llvm
             // Convert to vector for CodeExtractor
             SmallVector<BasicBlock *> blockVec(blocks.begin(), blocks.end());
 
-            // Sort blocks to ensure a valid CFG (entry block first)
-            BasicBlock *entryBlock = nullptr;
-            for (BasicBlock *BB : blockVec)
+            if (TG.tasks[taskId].kind == TaskKind::LoopRegion)
             {
-                bool hasExternalPred = false;
-                for (BasicBlock *Pred : predecessors(BB))
+                orderLoopTaskBlocks(TG.tasks[taskId], PDG, blockVec);
+                const auto *Region = findLoopRegionInfo(PDG, *TG.tasks[taskId].loopRegionId);
+                (void)Region;
+                /* Debug logging disabled: extracting loop nest task */
+            }
+            else
+            {
+                // Sort blocks to ensure a valid CFG (entry block first)
+                BasicBlock *entryBlock = nullptr;
+                for (BasicBlock *BB : blockVec)
                 {
-                    if (!blocks.count(Pred))
+                    bool hasExternalPred = false;
+                    for (BasicBlock *Pred : predecessors(BB))
                     {
-                        hasExternalPred = true;
+                        if (!blocks.count(Pred))
+                        {
+                            hasExternalPred = true;
+                            break;
+                        }
+                    }
+                    if (hasExternalPred || BB == &mainFunc->getEntryBlock())
+                    {
+                        entryBlock = BB;
                         break;
                     }
                 }
-                if (hasExternalPred || BB == &mainFunc->getEntryBlock())
+
+                if (!entryBlock && !blockVec.empty())
                 {
-                    entryBlock = BB;
-                    break;
+                    entryBlock = blockVec[0];
                 }
-            }
 
-            if (!entryBlock && !blockVec.empty())
-            {
-                entryBlock = blockVec[0];
-            }
-
-            // Reorder so entry is first
-            if (entryBlock)
-            {
-                auto it = std::find(blockVec.begin(), blockVec.end(), entryBlock);
-                if (it != blockVec.begin() && it != blockVec.end())
+                // Reorder so entry is first
+                if (entryBlock)
                 {
-                    std::swap(*it, blockVec[0]);
+                    auto it = std::find(blockVec.begin(), blockVec.end(), entryBlock);
+                    if (it != blockVec.begin() && it != blockVec.end())
+                    {
+                        std::swap(*it, blockVec[0]);
+                    }
                 }
             }
 

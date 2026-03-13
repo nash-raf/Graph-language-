@@ -1,5 +1,5 @@
 #include "IRGenVisitor.h"
-#include "SemanticAnalyzer.h"  // For TypeKind enum
+#include "SemanticAnalyzer.h" // For TypeKind enum
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
@@ -31,7 +31,8 @@ void IRGenVisitor::buildGlobalEdgeTable(ProgramNodePtr prog)
         if (node->type == ASTNodeType::GraphDecl)
         {
             auto *G = static_cast<GraphDeclNode *>(node.get());
-            if (G->isFileGraph) continue;
+            if (G->isFileGraph)
+                continue;
             for (auto &e : G->edge_list)
             {
                 getOrAddEdgeId(static_cast<int32_t>(e.first), static_cast<int32_t>(e.second));
@@ -143,7 +144,6 @@ llvm::Type *getBitmapPtrTy(llvm::LLVMContext &Context)
 {
     return llvm::PointerType::get(Context, 0);
 }
-
 
 llvm::Type *IRGenVisitor::getLLVMTypeFromTypeKind(TypeKind kind)
 {
@@ -546,7 +546,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     // bool has_degree = false;
     // int degree_op = 0;
     // int degree_value = 0;
-    
+
     // std::function<void(std::shared_ptr<GraphConditionNode>)> collect = [&](auto cond) {
     //     if (cond->op == GraphConditionOp::Connected) {
     //         conditionNodeIds.push_back(cond->nodeId);
@@ -602,10 +602,9 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     //     return;
     // }
 
-
     // llvm::Function *F = Builder.GetInsertBlock()->getParent();
     // llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
-    
+
     // size_t condCount = conditionIndices.size();
     // llvm::AllocaInst *condNodesAlloca = nullptr;
     // if (condCount > 0)
@@ -736,7 +735,7 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
             else
                 returnTypeKind = TypeKind::Int;
         }
-        
+
         if (returnTypeKind == TypeKind::Void)
         {
             Builder.CreateRetVoid();
@@ -758,8 +757,6 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
     if (savedInsertPoint)
         Builder.SetInsertPoint(savedInsertPoint);
 }
-
-
 
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
@@ -853,13 +850,13 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         visitQuery(static_cast<QueryNode *>(node));
         break;
     case ASTNodeType::GraphUpdate:
-        visitGraphUpdate(static_cast<GraphUpdateNode*>(node));
+        visitGraphUpdate(static_cast<GraphUpdateNode *>(node));
         break;
     case ASTNodeType::ShowGraph:
-        visitShowGraph(static_cast<ShowGraphNode*>(node));
+        visitShowGraph(static_cast<ShowGraphNode *>(node));
         break;
     case ASTNodeType::GraphComprehension:
-        visitGraphComprehension(static_cast<GraphComprehensionNode*>(node));
+        visitGraphComprehension(static_cast<GraphComprehensionNode *>(node));
         break;
     case ASTNodeType::SetDecl:
         visitSetDecl(static_cast<SetDeclNode *>(node));
@@ -1403,9 +1400,9 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
                 i8PtrTy, {i64Ty, i64Ty}, false);
             auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
             llvm::Value *emptyBm = Builder.CreateCall(createFn,
-                {llvm::ConstantInt::get(i64Ty, 256),
-                 llvm::ConstantInt::get(i64Ty, 8)},
-                decl->name + ".empty");
+                                                      {llvm::ConstantInt::get(i64Ty, 256),
+                                                       llvm::ConstantInt::get(i64Ty, 8)},
+                                                      decl->name + ".empty");
             Builder.CreateStore(emptyBm, scalarAlloca);
         }
         else
@@ -1727,32 +1724,31 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *endPtr = Builder.CreateGEP(i64Ty, rowPtrBase, {vPlus1}, "rp_end_ptr");
         llvm::Value *endVal = Builder.CreateLoad(i64Ty, endPtr, "rp_end");
 
-        // Allocate loop index and user variable
+        // Allocate the user-visible neighbor variable. Keep the induction variable in SSA
+        // so ScalarEvolution can prove a simple affine recurrence for the loop.
         llvm::IRBuilder<> TmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
-        auto *idxAlloca = TmpB.CreateAlloca(i64Ty, nullptr, fs->var1 + ".nbr_idx");
         auto *userAlloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
         NamedValues[fs->var1] = userAlloca;
-
-        // idx = start
-        Builder.CreateStore(startVal, idxAlloca);
 
         auto *condBB = llvm::BasicBlock::Create(Context, "foreach_nbr.cond", parent);
         auto *bodyBB = llvm::BasicBlock::Create(Context, "foreach_nbr.body", parent);
         auto *incBB = llvm::BasicBlock::Create(Context, "foreach_nbr.inc", parent);
         auto *mergeBB = llvm::BasicBlock::Create(Context, "foreach_nbr.merge", parent);
         LoopStack.push_back({incBB, mergeBB});
+
+        llvm::BasicBlock *preheaderBB = Builder.GetInsertBlock();
         Builder.CreateBr(condBB);
 
         // Condition: idx < end
         Builder.SetInsertPoint(condBB);
-        llvm::Value *curIdx = Builder.CreateLoad(i64Ty, idxAlloca, "nbr_idx");
-        llvm::Value *cmp = Builder.CreateICmpSLT(curIdx, endVal, "nbr_cond");
+        auto *idxPhi = Builder.CreatePHI(i64Ty, 2, fs->var1 + ".nbr_idx");
+        idxPhi->addIncoming(startVal, preheaderBB);
+        llvm::Value *cmp = Builder.CreateICmpSLT(idxPhi, endVal, "nbr_cond");
         Builder.CreateCondBr(cmp, bodyBB, mergeBB);
 
         // Body: u = col_idx[idx]
         Builder.SetInsertPoint(bodyBB);
-        llvm::Value *curIdx2 = Builder.CreateLoad(i64Ty, idxAlloca, "nbr_idx2");
-        llvm::Value *neighborPtr = Builder.CreateGEP(i32Ty, colIdxBase, {curIdx2}, "col_idx_ptr");
+        llvm::Value *neighborPtr = Builder.CreateGEP(i32Ty, colIdxBase, {idxPhi}, "col_idx_ptr");
         llvm::Value *neighborVal = Builder.CreateLoad(i32Ty, neighborPtr, "neighbor_val");
         Builder.CreateStore(neighborVal, userAlloca);
 
@@ -1764,10 +1760,10 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         // Increment
         Builder.SetInsertPoint(incBB);
         llvm::Value *nextIdx = Builder.CreateAdd(
-            Builder.CreateLoad(i64Ty, idxAlloca, "nbr_idx_inc"),
+            idxPhi,
             llvm::ConstantInt::get(i64Ty, 1), "nbr_next");
-        Builder.CreateStore(nextIdx, idxAlloca);
         Builder.CreateBr(condBB);
+        idxPhi->addIncoming(nextIdx, incBB);
 
         LoopStack.pop_back();
         Builder.SetInsertPoint(mergeBB);
@@ -2029,7 +2025,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
     case ASTNodeType::FunctionCall:
     {
         auto *FC = static_cast<FunctionCallNode *>(expr);
-        
+
         // Handle built-in timer() function
         if (FC->name == "timer")
         {
@@ -2063,7 +2059,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Value *mPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr");
             llvm::Value *mVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), mPtr, "m_val");
             llvm::Value *mHalf = Builder.CreateUDiv(mVal,
-                llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
+                                                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
             return Builder.CreateTrunc(mHalf, Builder.getInt32Ty(), "numEdges");
         }
 
@@ -2123,8 +2119,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
                 if (!b->getType()->isDoubleTy())
                     b = Builder.CreateSIToFP(b, Builder.getDoubleTy());
                 llvm::Value *cmp = (FC->name == "min")
-                    ? Builder.CreateFCmpOLT(a, b, "min.cmp")
-                    : Builder.CreateFCmpOGT(a, b, "max.cmp");
+                                       ? Builder.CreateFCmpOLT(a, b, "min.cmp")
+                                       : Builder.CreateFCmpOGT(a, b, "max.cmp");
                 return Builder.CreateSelect(cmp, a, b, FC->name + ".val");
             }
             else
@@ -2134,8 +2130,8 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
                 if (b->getType() != Builder.getInt32Ty())
                     b = Builder.CreateIntCast(b, Builder.getInt32Ty(), true);
                 llvm::Value *cmp = (FC->name == "min")
-                    ? Builder.CreateICmpSLT(a, b, "min.cmp")
-                    : Builder.CreateICmpSGT(a, b, "max.cmp");
+                                       ? Builder.CreateICmpSLT(a, b, "min.cmp")
+                                       : Builder.CreateICmpSGT(a, b, "max.cmp");
                 return Builder.CreateSelect(cmp, a, b, FC->name + ".val");
             }
         }
@@ -2194,7 +2190,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             // Body
             Builder.SetInsertPoint(bodyBB);
             llvm::Value *colVal = Builder.CreateLoad(i32Ty,
-                Builder.CreateGEP(i32Ty, ciBase, Builder.CreateLoad(i64Ty, idxAlloca)));
+                                                     Builder.CreateGEP(i32Ty, ciBase, Builder.CreateLoad(i64Ty, idxAlloca)));
             llvm::Value *match = Builder.CreateICmpEQ(colVal, v, "he.match");
             auto *incBB = llvm::BasicBlock::Create(Context, "hasedge.inc", parent);
             Builder.CreateCondBr(match, foundBB, incBB);
@@ -2218,7 +2214,7 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             phi->addIncoming(Builder.getFalse(), notFoundBB);
             return phi;
         }
-        
+
         // Lookup the prototype
         llvm::Function *callee = FunctionProtos[FC->name];
         if (!callee)
@@ -2363,8 +2359,9 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             BitmapPtrTy, {i64Ty, i64Ty}, false);
         auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
         llvm::Value *bm = Builder.CreateCall(createFn,
-            {llvm::ConstantInt::get(i64Ty, 64 * 1024),
-             llvm::ConstantInt::get(i64Ty, 8)}, "set.lit");
+                                             {llvm::ConstantInt::get(i64Ty, 64 * 1024),
+                                              llvm::ConstantInt::get(i64Ty, 8)},
+                                             "set.lit");
 
         // Add each element
         llvm::FunctionType *addFT = llvm::FunctionType::get(
@@ -2831,13 +2828,13 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     llvm::Value *graphPtr = Builder.CreateBitCast(rawGraph, graphPtrTy, "graph_ptr");
 
     Builder.CreateStore(llvm::ConstantInt::get(I64, G->n),
-        Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr"));
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr"));
     Builder.CreateStore(llvm::ConstantInt::get(I64, G->m),
-        Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr"));
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr"));
     Builder.CreateStore(rowPtr,
-        Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr"));
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr"));
     Builder.CreateStore(colPtr,
-        Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
 
     llvm::Value *graphStorage = nullptr;
     if (EmittingTopLevel)
@@ -2866,7 +2863,8 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         Module.getOrInsertFunction("roaring_from_serialized", deserializeFT);
 
     auto emitBitmapFromBlob = [&](const std::vector<uint8_t> &blob,
-                                  const std::string &name) -> llvm::Value * {
+                                  const std::string &name) -> llvm::Value *
+    {
         llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blob.size());
         llvm::SmallVector<llvm::Constant *, 128> bytes;
         bytes.reserve(blob.size());
@@ -2893,8 +2891,6 @@ llvm::Value *zero64(llvm::IRBuilder<> &B, llvm::LLVMContext &C)
 {
     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), 0);
 }
-
-
 
 llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 {
@@ -3091,11 +3087,11 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
     GraphMap[G->name] = graphStorage;
     NamedValues[G->name] = graphStorage;
     // debug
-    llvm::errs() << "[visitWeightedGraphDecl] G->n (declared) = " << G->n << "\n";
-    llvm::errs() << "[visitWeightedGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
+    // llvm::errs() << "[visitWeightedGraphDecl] G->n (declared) = " << G->n << "\n";
+    // llvm::errs() << "[visitWeightedGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
     if (G->n > 0)
-        llvm::errs() << "[visitWeightedGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
-    llvm::errs() << "[visitWeightedGraphDecl] G->col_idx entries = " << G->m << "\n";
+        // llvm::errs() << "[visitWeightedGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
+    // llvm::errs() << "[visitWeightedGraphDecl] G->col_idx entries = " << G->m << "\n";
 
     // Emit roaring bitmaps for nodes and edges
     {
@@ -3109,7 +3105,8 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
             Module.getOrInsertFunction("roaring_from_serialized", deserializeFT_w);
 
         auto emitBitmapFromBlob = [&](const std::vector<uint8_t> &blob,
-                                      const std::string &name) -> llvm::Value * {
+                                      const std::string &name) -> llvm::Value *
+        {
             llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blob.size());
             llvm::SmallVector<llvm::Constant *, 128> bytes;
             bytes.reserve(blob.size());
@@ -3273,8 +3270,8 @@ void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
     Builder.CreateStore(llvm::ConstantInt::get(i32Ty, 0), indexAlloca);
 
     // Blocks
-    llvm::BasicBlock *condBB  = llvm::BasicBlock::Create(Context, "print_array.cond", F);
-    llvm::BasicBlock *bodyBB  = llvm::BasicBlock::Create(Context, "print_array.body", F);
+    llvm::BasicBlock *condBB = llvm::BasicBlock::Create(Context, "print_array.cond", F);
+    llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create(Context, "print_array.body", F);
     llvm::BasicBlock *afterBB = llvm::BasicBlock::Create(Context, "print_array.after", F);
 
     // jump to cond
@@ -3289,7 +3286,7 @@ void IRGenVisitor::visitPrintArray(PrintArrayNode *node)
     // body: print element, i++
     Builder.SetInsertPoint(bodyBB);
     llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, arrPtr, iVal, node->arrayName + "_elemptr");
-    llvm::Value *elem    = Builder.CreateLoad(i32Ty, elemPtr, node->arrayName + "_elem");
+    llvm::Value *elem = Builder.CreateLoad(i32Ty, elemPtr, node->arrayName + "_elem");
     llvm::Value *fmtElem = Builder.CreateGlobalStringPtr("%d ");
     Builder.CreateCall(printfFunc, {fmtElem, elem});
 
@@ -3573,17 +3570,21 @@ void IRGenVisitor::visitQuery(QueryNode *Q)
     {
         emitChromacity(Q);
     }
-    else if(Q->queryDesc == "dijkstra")
+    else if (Q->queryDesc == "dijkstra")
     {
-        
+
         emitDijkstra(Q);
-    }else if (Q->queryDesc == "bfs_src")
+    }
+    else if (Q->queryDesc == "bfs_src")
     {
         // llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n\n";
         emitBFSSrc(Q);
-    }else if (Q->queryDesc == "min_cut"){
+    }
+    else if (Q->queryDesc == "min_cut")
+    {
         emitMinCut(Q);
-    }else if (Q->queryDesc == "dfs_src")
+    }
+    else if (Q->queryDesc == "dfs_src")
     {
         // llvm::errs() << "Unsupported query type: " << Q->queryDesc << "\n\n";
         emitDFSSrc(Q);
@@ -3599,7 +3600,7 @@ void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
 {
     // Evaluate the duration expression
     llvm::Value *durationVal = visitExpr(SS->duration.get());
-    
+
     // Ensure it's an integer (i32)
     if (!durationVal->getType()->isIntegerTy())
     {
@@ -3612,7 +3613,7 @@ void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
     {
         durationVal = Builder.CreateIntCast(durationVal, Builder.getInt32Ty(), true);
     }
-    
+
     // Declare: void sleep_runtime(int32_t seconds);
     llvm::FunctionType *sleepFT = llvm::FunctionType::get(
         llvm::Type::getVoidTy(Context),
@@ -3620,7 +3621,7 @@ void IRGenVisitor::visitSleepStmt(SleepStmtNode *SS)
         false);
     llvm::FunctionCallee sleepDecl =
         Module.getOrInsertFunction("sleep_runtime", sleepFT);
-    
+
     // Call sleep_runtime(duration)
     Builder.CreateCall(sleepDecl, {durationVal});
 }
@@ -3653,7 +3654,7 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         auto *var = static_cast<VariableNode *>(exprNode);
 
         // 1) Check for query-array result first (e.g., k_ptr / k_size)
-        auto ptrIt  = NamedValues.find(var->name + "_ptr");
+        auto ptrIt = NamedValues.find(var->name + "_ptr");
         auto sizeIt = NamedValues.find(var->name + "_size");
         if (ptrIt != NamedValues.end() && sizeIt != NamedValues.end())
         {
@@ -3801,12 +3802,6 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
     throw std::runtime_error("print: unsupported expression type");
 }
 
-
-
-
-
-
-
 void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
 {
     std::string baseName = setDecl->name;
@@ -3832,9 +3827,9 @@ void IRGenVisitor::visitSetDecl(SetDeclNode *setDecl)
             i8PtrTy, {i64Ty, i64Ty}, false);
         auto createFn = Module.getOrInsertFunction("roaring_bitmap_create", createFT);
         llvm::Value *emptyBm = Builder.CreateCall(createFn,
-            {llvm::ConstantInt::get(i64Ty, 256),
-             llvm::ConstantInt::get(i64Ty, 8)},
-            baseName + ".empty");
+                                                  {llvm::ConstantInt::get(i64Ty, 256),
+                                                   llvm::ConstantInt::get(i64Ty, 8)},
+                                                  baseName + ".empty");
         Builder.CreateStore(emptyBm, bitmapAlloca);
         return;
     }
@@ -3935,7 +3930,6 @@ void IRGenVisitor::visitSetOperation(SetOperationNode *setOp)
 
     // Evaluate the set expression to get the resulting bitmap pointer
     llvm::Value *resultBitmap = visitSetExpr(setOp->expr.get());
-
 
     // Store the result ONLY into the local alloca (no global update!)
     Builder.CreateStore(resultBitmap, targetAlloca);
@@ -4162,7 +4156,7 @@ void IRGenVisitor::visitSetMethodCall(SetMethodCallNode *node)
     auto *BitmapPtrTy = getBitmapPtrTy(Context);
     auto *i32Ty = Builder.getInt32Ty();
     auto *voidTy = Builder.getVoidTy();
-        llvm::Value *bitmapPtr = nullptr;
+    llvm::Value *bitmapPtr = nullptr;
     if (node->targetKind == SetTargetKind::Variable)
     {
         auto it = NamedValues.find(node->targetName);

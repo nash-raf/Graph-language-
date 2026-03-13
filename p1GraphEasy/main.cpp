@@ -1,6 +1,8 @@
 // main.cpp
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
+#include <cstring>
 
 #include "antlr4-runtime.h"
 #include "BaseLexer.h"
@@ -52,6 +54,105 @@ static cl::opt<std::string> InputFilename(
     cl::desc("<input-graph-file>"),
     cl::Required);
 
+static cl::opt<std::string> IRBackendOption(
+    "ir-backend",
+    cl::desc("IR backend to select: auto|cpu|gpu"),
+    cl::value_desc("auto|cpu|gpu"),
+    cl::init("auto"));
+
+static cl::opt<bool> EmitIRBackendChoice(
+    "print-ir-backend",
+    cl::desc("Print selected IR backend path to stderr"),
+    cl::init(false));
+
+static cl::opt<std::string> EmitIRTo(
+    "emit-ir-to",
+    cl::desc("Optional path to additionally dump emitted LLVM IR"),
+    cl::init(""));
+
+// Compatibility alias used by existing scripts.
+static cl::opt<bool> PrintIRAlias(
+    "print-ir",
+    cl::desc("Compatibility alias with existing run scripts."),
+    cl::init(false),
+    cl::Hidden);
+
+static bool isTruthyEnv(const char *name)
+{
+    const char *raw = std::getenv(name);
+    if (!raw)
+        return false;
+
+    const char *truthy[] = {"1", "true", "TRUE", "yes", "YES", "on", "ON"};
+    for (const char *value : truthy)
+    {
+        if (std::strcmp(raw, value) == 0)
+            return true;
+    }
+    return false;
+}
+
+static bool commandSucceeds(const std::string &command)
+{
+    const std::string probe = command + " >/dev/null 2>&1";
+    return std::system(probe.c_str()) == 0;
+}
+
+static bool detectUsableGPU()
+{
+    return commandSucceeds("nvidia-smi -L") ||
+           commandSucceeds("rocm-smi -i 0 --showproductname") ||
+           commandSucceeds("clinfo");
+}
+
+static std::string resolveBackend(std::string &backendReason)
+{
+    const std::string chosen = IRBackendOption;
+    const bool forceCPU = isTruthyEnv("FORCE_CPU");
+    const bool forceGPU = isTruthyEnv("FORCE_GPU");
+    const bool usableGpu = detectUsableGPU();
+
+    bool requestGpu = false;
+    if (forceCPU && forceGPU)
+    {
+        requestGpu = false;
+        backendReason = "FORCE_CPU=1 (takes precedence over FORCE_GPU=1 and --ir-backend)";
+    }
+    else if (forceCPU)
+    {
+        requestGpu = false;
+        backendReason = "FORCE_CPU=1";
+    }
+    else if (forceGPU)
+    {
+        requestGpu = true;
+        backendReason = "FORCE_GPU=1";
+    }
+    else if (chosen == "cpu")
+    {
+        requestGpu = false;
+        backendReason = "--ir-backend=cpu (forced)";
+    }
+    else if (chosen == "gpu")
+    {
+        requestGpu = true;
+        backendReason = "--ir-backend=gpu (forced)";
+    }
+    else
+    {
+        requestGpu = usableGpu;
+        backendReason = requestGpu ? "--ir-backend=auto (GPU detected)" : "--ir-backend=auto (CPU default)";
+    }
+
+    if (requestGpu && !usableGpu)
+    {
+        backendReason += "; requested GPU backend but no usable GPU detected, falling back to CPU";
+        return "cpu";
+    }
+
+    return requestGpu ? "gpu" : "cpu";
+}
+
 static void writeBitcodeToFile(Module &M, const std::string &path)
 {
     std::error_code EC;
@@ -69,6 +170,17 @@ int main(int argc, char **argv)
 {
     InitLLVM initLLVM(argc, argv);
     cl::ParseCommandLineOptions(argc, argv);
+
+    std::string backendSelectionReason;
+    const std::string activeIRBackend = resolveBackend(backendSelectionReason);
+
+    errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
+
+    const bool usingGpuIR = activeIRBackend == "gpu";
+    if (usingGpuIR)
+    {
+        errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
+    }
 
     std::ifstream in(InputFilename);
     if (!in.good())
@@ -89,6 +201,11 @@ int main(int argc, char **argv)
 
     LLVMContext Ctx;
     auto M = std::make_unique<Module>("my_module", Ctx);
+    {
+        auto *backendName = llvm::MDString::get(Ctx, activeIRBackend);
+        auto *backendMD = llvm::MDNode::get(Ctx, backendName);
+        M->getOrInsertNamedMetadata("graph.ir.backend")->addOperand(backendMD);
+    }
 
     // exit(0);
     try
@@ -104,7 +221,7 @@ int main(int argc, char **argv)
 
     IRBuilder<> IRB(Ctx);
 
-    IRGenVisitor irgen(Ctx, *M, IRB);
+    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend);
     irgen.visitProgram(prog);
 
     {
@@ -163,8 +280,206 @@ int main(int argc, char **argv)
 
         // run PDG (you already do this)
         dependencyGraph pdg = runPDGOnModule(*M);
+        // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
+
+        //        << pdg.edges.size() << " edges\n\n";
+
+        // // Step 2: Perform min-cut partitioning and create task graph
+
+        // errs() << "Performing global min-cut partitioning...\n";
+
         TaskGraph TG = performMinCutAndCreateTaskGraph(pdg);
+
+        // errs() << "✓ Created task graph with " << TG.tasks.size() << " tasks\n";
+
+        // errs() << "✓ Identified " << TG.cutVertices.size()
+
+        //        << " cut vertices (serial bottlenecks)\n\n";
+
+        // // Step 3: Perform topological sort on task graph
+
+        // errs() << "Computing task schedule...\n";
+
         SmallVector<SmallVector<unsigned>> taskLevels = topologicalSortTaskGraph(TG);
+
+        // errs() << "✓ Scheduled into " << taskLevels.size() << " levels\n\n";
+
+        // // Step 4: Analyze parallelism potential
+
+        // errs() << "Parallelism Analysis:\n";
+
+        // errs() << "---------------------\n";
+
+        unsigned totalVertices = pdg.nodes.size();
+
+        unsigned numCutVertices = TG.cutVertices.size();
+
+        unsigned numComponents = TG.tasks.size() - numCutVertices;
+
+        // errs() << "  Total IR instructions: " << totalVertices << "\n";
+
+        // errs() << "  Serial bottlenecks (cut vertices): " << numCutVertices
+
+        //        << " (" << (100.0 * numCutVertices / totalVertices) << "%)\n";
+
+        // errs() << "  Parallel components: " << numComponents << "\n";
+
+        // errs() << "  Critical path length: " << taskLevels.size() << " levels\n\n";
+
+        // // Step 5: Print task schedule with details
+
+        // errs() << "Task Schedule (Level-by-Level):\n";
+
+        // errs() << "--------------------------------\n";
+
+        for (unsigned i = 0; i < taskLevels.size(); ++i)
+
+        {
+
+            errs() << "Level " << i << " (" << taskLevels[i].size() << " tasks):\n";
+
+            // Separate cut vertices and components for clarity
+
+            SmallVector<unsigned> cutTasks, componentTasks;
+
+            for (unsigned taskId : taskLevels[i])
+
+            {
+
+                if (TG.tasks[taskId].isCutVertex)
+
+                    cutTasks.push_back(taskId);
+
+                else
+
+                    componentTasks.push_back(taskId);
+            }
+
+            // Print cut vertices first (these must execute serially)
+
+            for (unsigned taskId : cutTasks)
+
+            {
+
+                const TaskNode &task = TG.tasks[taskId];
+
+                errs() << "  [SERIAL] Task " << taskId << ": Cut Vertex (order="
+
+                       << TG.cutVertexOrder.lookup(task.originalVertex)
+
+                       << ", vertex=" << task.originalVertex << ")\n";
+            }
+
+            // Print components (these can potentially run in parallel)
+
+            for (unsigned taskId : componentTasks)
+
+            {
+
+                const TaskNode &task = TG.tasks[taskId];
+
+                errs() << "  [PARALLEL] Task " << taskId << ": Component with "
+
+                       << task.vertices.size() << " instruction(s)\n";
+            }
+
+            errs() << "\n";
+        }
+
+        unsigned maxParallelTasks = 0;
+
+        unsigned totalParallelOps = 0;
+
+        unsigned totalSerialOps = 0;
+
+        for (const auto &level : taskLevels)
+
+        {
+
+            unsigned parallelOpsInLevel = 0;
+
+            unsigned serialOpsInLevel = 0;
+
+            for (unsigned taskId : level)
+
+            {
+
+                const TaskNode &task = TG.tasks[taskId];
+
+                if (task.isCutVertex)
+
+                {
+
+                    serialOpsInLevel += task.vertices.size();
+                }
+
+                else
+
+                {
+
+                    parallelOpsInLevel += task.vertices.size();
+                }
+            }
+
+            totalParallelOps += parallelOpsInLevel;
+
+            totalSerialOps += serialOpsInLevel;
+
+            // Count parallel tasks (non-cut vertices)
+
+            unsigned parallelTasksInLevel = 0;
+
+            for (unsigned taskId : level)
+
+            {
+
+                if (!TG.tasks[taskId].isCutVertex)
+
+                    parallelTasksInLevel++;
+            }
+
+            maxParallelTasks = std::max(maxParallelTasks, parallelTasksInLevel);
+        }
+
+        errs() << "Detailed Metrics:\n";
+
+        errs() << "-----------------\n";
+
+        errs() << "  Instructions in parallel regions: " << totalParallelOps
+
+               << " (" << (100.0 * totalParallelOps / totalVertices) << "%)\n";
+
+        errs() << "  Instructions in serial regions: " << totalSerialOps
+
+               << " (" << (100.0 * totalSerialOps / totalVertices) << "%)\n";
+
+        errs() << "  Maximum parallel tasks per level: " << maxParallelTasks << "\n";
+
+        errs() << "  Average tasks per level: "
+
+               << (TG.tasks.size() / (float)taskLevels.size()) << "\n\n";
+
+        // Step 7: Identify critical bottlenecks
+
+        if (numCutVertices > 0)
+
+        {
+
+            errs() << "Serial Bottlenecks (in execution order):\n";
+
+            errs() << "----------------------------------------\n";
+
+            for (unsigned i = 0; i < TG.cutVertices.size(); ++i)
+
+            {
+
+                unsigned cv = TG.cutVertices[i];
+
+                errs() << "  " << i << ". Vertex " << cv << " (must execute at specific point)\n";
+            }
+
+            errs() << "\n";
+        }
 
         // ====================================================================
 
@@ -191,6 +506,20 @@ int main(int argc, char **argv)
     }
 
     // M->print(outs(), nullptr);
+    if (!EmitIRTo.empty())
+    {
+        std::error_code EC;
+        raw_fd_ostream IROut(EmitIRTo, EC, sys::fs::OF_None);
+        if (EC)
+        {
+            errs() << "Could not open IR output file '" << EmitIRTo << "': " << EC.message() << "\n";
+        }
+        else
+        {
+            M->print(IROut, nullptr);
+            IROut.flush();
+        }
+    }
 
     {
         LoopAnalysisManager LAM;

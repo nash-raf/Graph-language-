@@ -100,22 +100,24 @@ private:
     llvm::Value *loadGraphValue(const std::string &name);
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
-    std::unordered_map<std::string, GraphDeclNode*> GraphAstMap;
-    
+    std::unordered_map<std::string, GraphDeclNode *> GraphAstMap;
+
     std::unordered_map<std::string, llvm::Value *> GraphNodesMap;
     std::unordered_map<std::string, llvm::Value *> GraphEdgesMap;
     std::unordered_map<std::string, SetValueKind> SetKinds;
 
     // Loop stack for break/continue support
-    struct LoopInfo {
-        llvm::BasicBlock *condBB;   // where continue jumps to
-        llvm::BasicBlock *mergeBB;  // where break jumps to
+    struct LoopInfo
+    {
+        llvm::BasicBlock *condBB;  // where continue jumps to
+        llvm::BasicBlock *mergeBB; // where break jumps to
     };
     std::vector<LoopInfo> LoopStack;
 
     // 2D array metadata: name -> {cols alloca}
-    struct Array2DMeta {
-        llvm::Value *colsVal;  // number of columns (i32)
+    struct Array2DMeta
+    {
+        llvm::Value *colsVal; // number of columns (i32)
     };
     std::unordered_map<std::string, Array2DMeta> Array2DMap;
 
@@ -137,7 +139,6 @@ private:
     std::vector<uint8_t> buildEdgeBlobForGraph(GraphDeclNode *G);
     SetValueKind inferSetKind(ASTNode *expr);
     uint32_t getOrAddEdgeId(int32_t u, int32_t v);
-};  
-
+};
 
 #endif // IRGENVISITOR_H

@@ -1,1 +1,0 @@
-valgrind --tool=callgrind ./final_program

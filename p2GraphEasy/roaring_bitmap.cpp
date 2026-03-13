@@ -670,7 +670,7 @@ void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value)
             }
             if (!container->bitmap.bits)
             {
-                fprintf(stderr, "ERROR: Promotion succeeded but bitmap.bits is NULL!\n");
+                // fprintf(stderr, "ERROR: Promotion succeeded but bitmap.bits is NULL!\n");
                 exit(1);
             }
             // fprintf(stderr, "Promotion successful, bitmap.bits = %p\n",
@@ -681,11 +681,11 @@ void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value)
     {
         if (!container->bitmap.bits)
         {
-            fprintf(stderr, "ERROR: About to set bit in NULL bitmap! value=%u, high=%u, low=%u\n",
-                    value, high, low);
-            fprintf(stderr, "Container key=%u, type=%d\n",
-                    container->key, (int)container->type);
-            fprintf(stderr, "This should never happen - bitmap container must have valid bits!\n");
+            // fprintf(stderr, "ERROR: About to set bit in NULL bitmap! value=%u, high=%u, low=%u\n",
+            //         value, high, low);
+            // fprintf(stderr, "Container key=%u, type=%d\n",
+            //         container->key, (int)container->type);
+            // fprintf(stderr, "This should never happen - bitmap container must have valid bits!\n");
             exit(1);
         }
         if (set_bit(container->bitmap, low))

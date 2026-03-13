@@ -42,5 +42,6 @@ print dist[1];
 print dist[2];
 print dist[3];
 print dist[4];
+print dist[5];
 
 

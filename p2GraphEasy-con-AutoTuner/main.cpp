@@ -14,6 +14,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/CommandLine.h>
@@ -272,6 +273,13 @@ int main(int argc, char **argv)
         ModulePassManager TuneMPM;
         TuneMPM.addPass(AutoTunerModulePass());
         TuneMPM.run(*M, LocalMAM);
+
+        if (llvm::verifyModule(*M, &llvm::errs()))
+        {
+            llvm::errs() << "Module verification failed after autotuner pass\n";
+            M->print(llvm::errs(), nullptr);
+            return 1;
+        }
     }
 
     // M->print(outs(), nullptr);
@@ -559,6 +567,16 @@ int main(int argc, char **argv)
 
     OptMPM.run(*M, MAM);
     MPM.run(*M, MAM);
+
+    if (llvm::verifyModule(*M, &llvm::errs()))
+    {
+        llvm::errs() << "Module verification failed after optimization pipeline\n";
+        M->print(llvm::errs(), nullptr);
+        return 1;
+    }
+
+    if (std::getenv("GRAPH_DEBUG_DUMP_LL"))
+        M->print(llvm::outs(), nullptr);
 
     auto t_opt = std::chrono::high_resolution_clock::now();
     InitializeAllTargetInfos();

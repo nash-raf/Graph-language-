@@ -1,11 +1,51 @@
 // Expected shape:
+// - I contains only edge 1-2
+// - U contains edges 0-1, 1-2, 2-3
+
+/*
+// - UF keeps the component connected with 1 from that union
+graph A {
+  nodes: 0,1,2,3;
+  edges: 0->1, 1->2;
+};
+
+graph B {
+  nodes: 0,1,2,3;
+  edges: 1->2, 2->3;
+};
+
+I = [A && B];
+U = [A || B];
+UF = [A || B where connected with 1];
+
+show I;
+show U;
+show UF;
+
+
+// Expected shape:
+// - H keeps only the 0-1-2 cycle
+// - tail edge 2-3 should not survive
+
+
+
+
+// Expected shape:
 // - H keeps the triangle component around 0,1,2
 // - node 3 and 4 should be filtered out
 
 graph G {
-  nodes: 0,1,2,3,4;
-  edges: 0->1, 1->2, 2->0, 3->4;
+  edges: file "edgelist.txt";
 };
 
 H = [G where connected with 0 && degree >= 2];
+show H;
+*/
+
+graph G {
+  nodes: 0,1,2,3;
+  edges: 0->1, 1->2, 2->0, 2->3;
+};
+
+H = [G where cycle];
 show H;

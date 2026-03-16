@@ -3266,44 +3266,6 @@ define dso_local range(i32 0, 2) i32 @autograph_get_meta_handles(ptr noundef rea
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @autograph_update_edge_pairs_table(ptr noundef %0, i64 noundef %1) local_unnamed_addr #0 {
-  %3 = load i32, ptr @g_meta_count, align 4, !tbaa !24
-  %4 = icmp sgt i32 %3, 0
-  br i1 %4, label %5, label %7
-
-5:                                                ; preds = %2
-  %6 = zext nneg i32 %3 to i64
-  br label %8
-
-7:                                                ; preds = %18, %2
-  ret void
-
-8:                                                ; preds = %5, %18
-  %9 = phi i64 [ 0, %5 ], [ %19, %18 ]
-  %10 = getelementptr inbounds nuw [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %9
-  %11 = getelementptr inbounds nuw i8, ptr %10, i64 32
-  store ptr %0, ptr %11, align 8, !tbaa !44
-  %12 = getelementptr inbounds nuw i8, ptr %10, i64 40
-  store i64 %1, ptr %12, align 8, !tbaa !55
-  %13 = getelementptr inbounds nuw [64 x ptr], ptr @g_static_edge_hash, i64 0, i64 %9
-  %14 = load ptr, ptr %13, align 8, !tbaa !118
-  %15 = icmp eq ptr %14, null
-  br i1 %15, label %18, label %16
-
-16:                                               ; preds = %8
-  %17 = load ptr, ptr %14, align 8, !tbaa !120
-  tail call void @free(ptr noundef %17) #18
-  tail call void @free(ptr noundef nonnull %14) #18
-  store ptr null, ptr %13, align 8, !tbaa !118
-  br label %18
-
-18:                                               ; preds = %8, %16
-  %19 = add nuw nsw i64 %9, 1
-  %20 = icmp eq i64 %19, %6
-  br i1 %20, label %7, label %8, !llvm.loop !123
-}
-
-; Function Attrs: nounwind uwtable
 define dso_local range(i32 0, 2) i32 @autograph_canonical_add_node(ptr noundef readnone %0, i32 noundef %1) local_unnamed_addr #0 {
   %3 = load i32, ptr @g_meta_count, align 4, !tbaa !24
   %4 = icmp sgt i32 %3, 0
@@ -3421,7 +3383,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_node(ptr nounde
   %51 = add nuw nsw i64 %38, 1
   %52 = load i64, ptr %27, align 8, !tbaa !55
   %53 = icmp slt i64 %51, %52
-  br i1 %53, label %37, label %30, !llvm.loop !124
+  br i1 %53, label %37, label %30, !llvm.loop !118
 
 54:                                               ; preds = %34, %74
   %55 = phi i64 [ %32, %34 ], [ %75, %74 ]
@@ -3456,7 +3418,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_node(ptr nounde
   %75 = phi i64 [ %55, %67 ], [ %73, %72 ], [ %55, %54 ]
   %76 = add nuw nsw i64 %56, 1
   %77 = icmp slt i64 %76, %75
-  br i1 %77, label %54, label %78, !llvm.loop !125
+  br i1 %77, label %54, label %78, !llvm.loop !119
 
 78:                                               ; preds = %7, %74, %30, %2, %15, %19
   %79 = phi i32 [ 0, %19 ], [ 0, %15 ], [ 0, %2 ], [ 1, %30 ], [ 1, %74 ], [ 0, %7 ]
@@ -3655,17 +3617,17 @@ define internal fastcc i32 @canonical_pair_find_static(ptr noundef nonnull reado
 16:                                               ; preds = %12
   %17 = add nuw nsw i64 %13, 1
   %18 = icmp eq i64 %17, %11
-  br i1 %18, label %136, label %12, !llvm.loop !126
+  br i1 %18, label %136, label %12, !llvm.loop !120
 
 19:                                               ; preds = %12
   %20 = and i64 %13, 4294967295
   %21 = getelementptr inbounds nuw [64 x ptr], ptr @g_static_edge_hash, i64 0, i64 %20
-  %22 = load ptr, ptr %21, align 8, !tbaa !118
+  %22 = load ptr, ptr %21, align 8, !tbaa !121
   %23 = icmp eq ptr %22, null
   br i1 %23, label %26, label %24
 
 24:                                               ; preds = %19
-  %25 = load ptr, ptr %22, align 8, !tbaa !120
+  %25 = load ptr, ptr %22, align 8, !tbaa !123
   br label %91
 
 26:                                               ; preds = %19
@@ -3686,10 +3648,10 @@ define internal fastcc i32 @canonical_pair_find_static(ptr noundef nonnull reado
 37:                                               ; preds = %33
   %38 = sext i32 %34 to i64
   %39 = getelementptr inbounds nuw i8, ptr %29, i64 8
-  store i64 %38, ptr %39, align 8, !tbaa !127
+  store i64 %38, ptr %39, align 8, !tbaa !126
   %40 = tail call noalias ptr @calloc(i64 noundef %38, i64 noundef 24) #17
-  store ptr %40, ptr %29, align 8, !tbaa !120
-  store ptr %29, ptr %21, align 8, !tbaa !118
+  store ptr %40, ptr %29, align 8, !tbaa !123
+  store ptr %29, ptr %21, align 8, !tbaa !121
   %41 = icmp sgt i64 %28, 0
   br i1 %41, label %42, label %91
 
@@ -3758,7 +3720,7 @@ define internal fastcc i32 @canonical_pair_find_static(ptr noundef nonnull reado
 88:                                               ; preds = %83, %74
   %89 = add nuw nsw i64 %45, 1
   %90 = icmp eq i64 %89, %28
-  br i1 %90, label %91, label %44, !llvm.loop !128
+  br i1 %90, label %91, label %44, !llvm.loop !127
 
 91:                                               ; preds = %88, %24, %37
   %92 = phi ptr [ %40, %37 ], [ %25, %24 ], [ %40, %88 ]
@@ -3768,7 +3730,7 @@ define internal fastcc i32 @canonical_pair_find_static(ptr noundef nonnull reado
 
 95:                                               ; preds = %91
   %96 = getelementptr inbounds nuw i8, ptr %93, i64 8
-  %97 = load i64, ptr %96, align 8, !tbaa !127
+  %97 = load i64, ptr %96, align 8, !tbaa !126
   %98 = icmp slt i64 %97, 1
   br i1 %98, label %136, label %99
 
@@ -3908,110 +3870,113 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_edge(ptr nounde
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @autograph_init(ptr noundef %0, i64 noundef %1, i64 noundef %2, ptr noundef %3, ptr noundef %4, ptr noundef %5, i64 noundef %6) local_unnamed_addr #0 {
-  %8 = load i32, ptr @g_meta_count, align 4, !tbaa !24
-  %9 = icmp sgt i32 %8, 0
-  br i1 %9, label %10, label %22
+define dso_local void @autograph_init(ptr noundef %0, i64 noundef %1, i64 noundef %2, ptr noundef %3, ptr noundef %4, ptr noundef %5) local_unnamed_addr #0 {
+  %7 = load i32, ptr @g_meta_count, align 4, !tbaa !24
+  %8 = icmp sgt i32 %7, 0
+  br i1 %8, label %9, label %21
 
-10:                                               ; preds = %7
-  %11 = zext nneg i32 %8 to i64
-  br label %15
+9:                                                ; preds = %6
+  %10 = zext nneg i32 %7 to i64
+  br label %14
 
-12:                                               ; preds = %15
-  %13 = add nuw nsw i64 %16, 1
-  %14 = icmp eq i64 %13, %11
-  br i1 %14, label %20, label %15, !llvm.loop !36
+11:                                               ; preds = %14
+  %12 = add nuw nsw i64 %15, 1
+  %13 = icmp eq i64 %12, %10
+  br i1 %13, label %19, label %14, !llvm.loop !36
 
-15:                                               ; preds = %12, %10
-  %16 = phi i64 [ 0, %10 ], [ %13, %12 ]
-  %17 = getelementptr inbounds nuw [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %16
-  %18 = load ptr, ptr %17, align 8, !tbaa !37
-  %19 = icmp eq ptr %18, %0
-  br i1 %19, label %27, label %12
+14:                                               ; preds = %11, %9
+  %15 = phi i64 [ 0, %9 ], [ %12, %11 ]
+  %16 = getelementptr inbounds nuw [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %15
+  %17 = load ptr, ptr %16, align 8, !tbaa !37
+  %18 = icmp eq ptr %17, %0
+  br i1 %18, label %26, label %11
 
-20:                                               ; preds = %12
-  %21 = icmp sgt i32 %8, 63
-  br i1 %21, label %64, label %22
+19:                                               ; preds = %11
+  %20 = icmp sgt i32 %7, 63
+  br i1 %20, label %66, label %21
 
-22:                                               ; preds = %20, %7
-  %23 = add nsw i32 %8, 1
-  store i32 %23, ptr @g_meta_count, align 4, !tbaa !24
-  %24 = sext i32 %8 to i64
-  %25 = getelementptr inbounds [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %24
-  %26 = getelementptr inbounds nuw i8, ptr %25, i64 8
-  tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(168) %26, i8 0, i64 160, i1 false)
-  store ptr %0, ptr %25, align 8, !tbaa !37
-  store i32 3, ptr %26, align 8, !tbaa !45
-  br label %27
+21:                                               ; preds = %19, %6
+  %22 = add nsw i32 %7, 1
+  store i32 %22, ptr @g_meta_count, align 4, !tbaa !24
+  %23 = sext i32 %7 to i64
+  %24 = getelementptr inbounds [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %23
+  %25 = getelementptr inbounds nuw i8, ptr %24, i64 8
+  tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(168) %25, i8 0, i64 160, i1 false)
+  store ptr %0, ptr %24, align 8, !tbaa !37
+  store i32 3, ptr %25, align 8, !tbaa !45
+  br label %26
 
-27:                                               ; preds = %15, %22
-  %28 = phi i32 [ %23, %22 ], [ %8, %15 ]
-  %29 = phi ptr [ %25, %22 ], [ %17, %15 ]
-  %30 = icmp sgt i32 %28, 0
-  br i1 %30, label %31, label %47
+26:                                               ; preds = %14, %21
+  %27 = phi i32 [ %22, %21 ], [ %7, %14 ]
+  %28 = phi ptr [ %24, %21 ], [ %16, %14 ]
+  %29 = icmp sgt i32 %27, 0
+  br i1 %29, label %30, label %46
 
-31:                                               ; preds = %27
-  %32 = zext nneg i32 %28 to i64
-  br label %33
+30:                                               ; preds = %26
+  %31 = zext nneg i32 %27 to i64
+  br label %32
 
-33:                                               ; preds = %37, %31
-  %34 = phi i64 [ 0, %31 ], [ %38, %37 ]
-  %35 = getelementptr inbounds nuw [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %34
-  %36 = icmp eq ptr %35, %29
-  br i1 %36, label %40, label %37
+32:                                               ; preds = %36, %30
+  %33 = phi i64 [ 0, %30 ], [ %37, %36 ]
+  %34 = getelementptr inbounds nuw [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %33
+  %35 = icmp eq ptr %34, %28
+  br i1 %35, label %39, label %36
 
-37:                                               ; preds = %33
-  %38 = add nuw nsw i64 %34, 1
-  %39 = icmp eq i64 %38, %32
-  br i1 %39, label %47, label %33, !llvm.loop !126
+36:                                               ; preds = %32
+  %37 = add nuw nsw i64 %33, 1
+  %38 = icmp eq i64 %37, %31
+  br i1 %38, label %46, label %32, !llvm.loop !120
 
-40:                                               ; preds = %33
-  %41 = and i64 %34, 4294967295
-  %42 = getelementptr inbounds nuw [64 x ptr], ptr @g_static_edge_hash, i64 0, i64 %41
-  %43 = load ptr, ptr %42, align 8, !tbaa !118
-  %44 = icmp eq ptr %43, null
-  br i1 %44, label %47, label %45
+39:                                               ; preds = %32
+  %40 = and i64 %33, 4294967295
+  %41 = getelementptr inbounds nuw [64 x ptr], ptr @g_static_edge_hash, i64 0, i64 %40
+  %42 = load ptr, ptr %41, align 8, !tbaa !121
+  %43 = icmp eq ptr %42, null
+  br i1 %43, label %46, label %44
 
-45:                                               ; preds = %40
-  %46 = load ptr, ptr %43, align 8, !tbaa !120
-  tail call void @free(ptr noundef %46) #18
-  tail call void @free(ptr noundef nonnull %43) #18
-  store ptr null, ptr %42, align 8, !tbaa !118
-  br label %47
+44:                                               ; preds = %39
+  %45 = load ptr, ptr %42, align 8, !tbaa !123
+  tail call void @free(ptr noundef %45) #18
+  tail call void @free(ptr noundef nonnull %42) #18
+  store ptr null, ptr %41, align 8, !tbaa !121
+  br label %46
 
-47:                                               ; preds = %37, %27, %45, %40
-  %48 = getelementptr inbounds nuw i8, ptr %29, i64 16
-  store ptr %3, ptr %48, align 8, !tbaa !42
-  %49 = getelementptr inbounds nuw i8, ptr %29, i64 24
-  store ptr %4, ptr %49, align 8, !tbaa !43
-  %50 = getelementptr inbounds nuw i8, ptr %29, i64 32
-  store ptr %5, ptr %50, align 8, !tbaa !44
-  %51 = getelementptr inbounds nuw i8, ptr %29, i64 40
-  store i64 %6, ptr %51, align 8, !tbaa !55
-  %52 = getelementptr inbounds nuw i8, ptr %29, i64 64
-  %53 = getelementptr inbounds nuw i8, ptr %29, i64 48
-  tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %52, i8 0, i64 16, i1 false)
-  %54 = load ptr, ptr %53, align 8, !tbaa !80
-  tail call void @free(ptr noundef %54) #18
-  %55 = getelementptr inbounds nuw i8, ptr %29, i64 56
-  %56 = load ptr, ptr %55, align 8, !tbaa !57
+46:                                               ; preds = %36, %26, %44, %39
+  %47 = getelementptr inbounds nuw i8, ptr %28, i64 16
+  store ptr %3, ptr %47, align 8, !tbaa !42
+  %48 = getelementptr inbounds nuw i8, ptr %28, i64 24
+  store ptr %4, ptr %48, align 8, !tbaa !43
+  %49 = getelementptr inbounds nuw i8, ptr %28, i64 32
+  store ptr %5, ptr %49, align 8, !tbaa !44
+  %50 = icmp sgt i64 %2, 1
+  %51 = zext i1 %50 to i64
+  %52 = lshr i64 %2, %51
+  %53 = getelementptr inbounds nuw i8, ptr %28, i64 40
+  store i64 %52, ptr %53, align 8, !tbaa !55
+  %54 = getelementptr inbounds nuw i8, ptr %28, i64 64
+  %55 = getelementptr inbounds nuw i8, ptr %28, i64 48
+  tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %54, i8 0, i64 16, i1 false)
+  %56 = load ptr, ptr %55, align 8, !tbaa !80
   tail call void @free(ptr noundef %56) #18
-  %57 = getelementptr inbounds nuw i8, ptr %29, i64 96
-  tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %53, i8 0, i64 16, i1 false)
-  store i64 %1, ptr %57, align 8, !tbaa !46
-  %58 = getelementptr inbounds nuw i8, ptr %29, i64 104
-  store i64 %2, ptr %58, align 8, !tbaa !47
-  %59 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %60 = getelementptr inbounds nuw i8, ptr %29, i64 80
-  %61 = load <2 x ptr>, ptr %59, align 8, !tbaa !96
-  store <2 x ptr> %61, ptr %60, align 8, !tbaa !96
-  %62 = getelementptr inbounds nuw i8, ptr %29, i64 112
-  store i32 0, ptr %62, align 8, !tbaa !48
-  %63 = getelementptr inbounds nuw i8, ptr %29, i64 8
-  store i32 0, ptr %63, align 8, !tbaa !45
-  br label %64
+  %57 = getelementptr inbounds nuw i8, ptr %28, i64 56
+  %58 = load ptr, ptr %57, align 8, !tbaa !57
+  tail call void @free(ptr noundef %58) #18
+  %59 = getelementptr inbounds nuw i8, ptr %28, i64 96
+  tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %55, i8 0, i64 16, i1 false)
+  store i64 %1, ptr %59, align 8, !tbaa !46
+  %60 = getelementptr inbounds nuw i8, ptr %28, i64 104
+  store i64 %2, ptr %60, align 8, !tbaa !47
+  %61 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %62 = getelementptr inbounds nuw i8, ptr %28, i64 80
+  %63 = load <2 x ptr>, ptr %61, align 8, !tbaa !96
+  store <2 x ptr> %63, ptr %62, align 8, !tbaa !96
+  %64 = getelementptr inbounds nuw i8, ptr %28, i64 112
+  store i32 0, ptr %64, align 8, !tbaa !48
+  %65 = getelementptr inbounds nuw i8, ptr %28, i64 8
+  store i32 0, ptr %65, align 8, !tbaa !45
+  br label %66
 
-64:                                               ; preds = %20, %47
+66:                                               ; preds = %19, %46
   ret void
 }
 
@@ -4192,14 +4157,13 @@ attributes #20 = { nounwind allocsize(1) }
 !115 = distinct !{!115, !12}
 !116 = distinct !{!116, !12}
 !117 = distinct !{!117, !12}
-!118 = !{!119, !119, i64 0}
-!119 = !{!"p1 _ZTS13EdgeHashMap_s", !21, i64 0}
-!120 = !{!121, !122, i64 0}
-!121 = !{!"EdgeHashMap_s", !122, i64 0, !14, i64 8}
-!122 = !{!"p1 _ZTS15EdgeHashEntry_s", !21, i64 0}
-!123 = distinct !{!123, !12}
-!124 = distinct !{!124, !12}
-!125 = distinct !{!125, !12}
-!126 = distinct !{!126, !12}
-!127 = !{!121, !14, i64 8}
-!128 = distinct !{!128, !12}
+!118 = distinct !{!118, !12}
+!119 = distinct !{!119, !12}
+!120 = distinct !{!120, !12}
+!121 = !{!122, !122, i64 0}
+!122 = !{!"p1 _ZTS13EdgeHashMap_s", !21, i64 0}
+!123 = !{!124, !125, i64 0}
+!124 = !{!"EdgeHashMap_s", !125, i64 0, !14, i64 8}
+!125 = !{!"p1 _ZTS15EdgeHashEntry_s", !21, i64 0}
+!126 = !{!124, !14, i64 8}
+!127 = distinct !{!127, !12}

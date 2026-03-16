@@ -123,7 +123,7 @@ bool isInsertCall(StringRef fn) {
 bool isQueryCall(StringRef fn) {
   return fn == "roaring_bitmap_contains" || fn == "roaring_bitmap_get_cardinality" ||
          fn == "roaring_bitmap_union" || fn == "roaring_bitmap_intersect" ||
-         fn == "roaring_from_serialized" || fn == "numVertices_runtime" ||
+         fn == "numVertices_runtime" ||
          fn == "numEdges_runtime";
 }
 

@@ -19,3 +19,6 @@ p2GraphEasy/final_run.sh
 p1GraphEasy/*.o*
 p2GraphEasy/*.o*
 vgcore.*
+left/*
+test/*
+p2GraphEasy-con-AutoTuner/test/*

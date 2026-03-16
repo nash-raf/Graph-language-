@@ -1129,9 +1129,9 @@ int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v) {
 /* ══════════════════════════════════════════════════════════════════
  *  Initial Registration (Called once by compiled IR)
  * ══════════════════════════════════════════════════════════════════ */
-void autograph_init(void *graph_ptr, int64_t n, int64_t m, 
-                    void *nodes_bmp, void *edges_bmp, 
-                    void *edge_pairs_table) 
+void autograph_init(void *graph_ptr, int64_t n, int64_t m,
+                    void *nodes_bmp, void *edges_bmp,
+                    void *edge_pairs_table)
 {
     AutoGraphMeta *meta = find_or_create_meta(graph_ptr);
     if (!meta) return;

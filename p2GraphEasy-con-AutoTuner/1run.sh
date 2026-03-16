@@ -6,6 +6,7 @@ set -euxo pipefail
 # CLANGXX="clang++-20"
 LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
 CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
+CLANG_BIN=/usr/local/llvm-20-polly-rtti/bin/clang
 
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,12 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
   gcc -c runtime.c -o runtime.o
 
+  echo "=== [2/5] Build runtime LLVM IR ==="
+  "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
+  "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
+
+
+
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
 
   LLVM_CXXFLAGS="$RAW_LLVM_CXXFLAGS"
@@ -75,7 +82,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     $LLVM_CXXFLAGS \
     -fexceptions \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp\
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp AutoTunerPass.cpp\
     generated/*.cpp runtime.o \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
@@ -99,3 +106,13 @@ echo ">>> IR written to $IR_SRC"
 # -----------------------------------------------------------------------------
 echo "=== [4] Running GraphProgram on DSL input ${GP_INPUT} ==="
 ./GraphProgram "$GP_INPUT"
+
+
+
+
+
+
+
+
+
+

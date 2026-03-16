@@ -123,6 +123,6 @@ void convert_bcsr_to_csr(int64_t n, int32_t nblocks, int32_t block_size,
 #endif /* AUTOTUNER_RUNTIME_H */
 
 /* Register a new graph with the Set-Base Architecture */
-void autograph_init(void *graph_ptr, int64_t n, int64_t m, 
-                    void *nodes_bmp, void *edges_bmp, 
+void autograph_init(void *graph_ptr, int64_t n, int64_t m,
+                    void *nodes_bmp, void *edges_bmp,
                     void *edge_pairs_table);

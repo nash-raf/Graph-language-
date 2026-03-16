@@ -4,8 +4,12 @@ set -euxo pipefail
 # ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
 # LLVM_CONFIG="llvm-config-20"
 # CLANGXX="clang++-20"
-LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
-CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
+#LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+#CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
+LLVM_CONFIG="${LLVM_CONFIG_BIN:-llvm-config-20}"
+CLANGXX="${CLANGXX_BIN:-clang++-20}"
+CLANG_BIN="${CLANG_BIN:-clang-20}"
+CXX_BIN="${CXX_BIN:-g++}"
 
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -63,7 +67,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_LIBS="$($LLVM_CONFIG --libs all)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
-  ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
+  ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
   # -L/usr/lib64 -lomp \
 
   g++ \

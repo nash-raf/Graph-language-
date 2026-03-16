@@ -1,0 +1,8 @@
+graph g1 {
+    edges: file "../synth_graphs/synth_v_50000_e_50000.txt";
+};
+
+query bfs_boot: "bfs" of g1;
+add 1->2 to g1;
+add 3->4 to g1;
+query bfs_final: "bfs" of g1;

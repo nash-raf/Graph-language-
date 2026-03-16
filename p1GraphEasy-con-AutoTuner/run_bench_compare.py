@@ -201,6 +201,9 @@ def main():
 
     templates = [
         ("simple", TEMPLATE_DIR / "simple_trigger.graph.tmpl"),
+        ("query_burst_after_mut", TEMPLATE_DIR / "query_burst_after_mut.graph.tmpl"),
+        ("massive_insert_burst", TEMPLATE_DIR / "massive_insert_burst.graph.tmpl"),
+        ("set_query_mutation", TEMPLATE_DIR / "set_query_mutation.graph.tmpl"),
         ("complex_multi", TEMPLATE_DIR / "complex_multi_graph.graph.tmpl"),
         ("complex_loop", TEMPLATE_DIR / "complex_loop_graph.graph.tmpl"),
         ("mut_heavy", TEMPLATE_DIR / "mutation_heavy.graph.tmpl"),

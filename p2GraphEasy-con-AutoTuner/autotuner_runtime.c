@@ -591,7 +591,8 @@ void convert_pcsr_to_csr(int64_t n, int64_t pcsr_cap __attribute__((unused)),
     int64_t end = pcsr_rp[u + 1];
     int64_t count = 0;
     for (int64_t j = start; j < end; j++) {
-      if (pcsr_ci[j] != GAP)
+      int32_t v = pcsr_ci[j];
+      if (v != GAP && v >= 0 && v < n)
         count++;
     }
     rp[u + 1] = count;
@@ -608,8 +609,9 @@ void convert_pcsr_to_csr(int64_t n, int64_t pcsr_cap __attribute__((unused)),
     int64_t start = pcsr_rp[u];
     int64_t end = pcsr_rp[u + 1];
     for (int64_t j = start; j < end; j++) {
-      if (pcsr_ci[j] != GAP) {
-        ci[next[u]++] = pcsr_ci[j];
+      int32_t v = pcsr_ci[j];
+      if (v != GAP && v >= 0 && v < n) {
+        ci[next[u]++] = v;
       }
     }
   }

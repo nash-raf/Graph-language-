@@ -1,0 +1,5 @@
+Graph,Profile,Seeds,RunsPerSeed,Time_NoAuto_ms,Time_Auto_ms,Delta_Time_ms,Speedup_pct,RSS_NoAuto_KB,RSS_Auto_KB,Delta_RSS_KB,Switches_NoAuto_Avg,Switches_Auto_Avg
+50K_edges,multi_switch_complex,3,3,3258.889,2984.444,274.444,8.4,8552,10778,2225,0,7.0
+200K_edges,multi_switch_complex,3,3,2514.444,2556.667,-42.222,-1.7,14326,19845,5519,0,7.0
+500K_edges,multi_switch_complex,3,3,2057.778,2071.111,-13.333,-0.6,25368,37764,12396,0,10.0
+1M_edges,multi_switch_complex,3,3,2433.333,2207.778,225.556,9.3,33520,45979,12458,0,10.0

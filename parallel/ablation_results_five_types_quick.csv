@@ -1,0 +1,7 @@
+Graph,Profile,Seeds,user,sys,real
+parallel,multi_switch_complex,50k,44.205,3.353,3.338
+parallel noauto,multi_switch_complex,50k,59.433,4.232,4.66
+p1,multi_switch_complex,50k,0.153,0.018,0.018
+p1 con,multi_switch_complex,50k,0.331,0.039,0.103
+p2 ,multi_switch_complex,50k,0.313,0.006,0.035
+p2 con,multi_switch_complex,50k,0.287,0.007,0.036

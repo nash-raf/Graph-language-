@@ -669,17 +669,12 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
 
   std::map<Value *, GraphMeta> metaByGraphPtr;
   if (!collectGraphMeta(*mainFn, metaByGraphPtr)) {
-    errs() << "[AutoTuner] No autograph_init() calls found; skipping.\n";
     return PreservedAnalyses::all();
   }
 
-  errs() << "[AutoTuner] Found " << metaByGraphPtr.size() << " graph(s) with autograph_init\n";
-
   std::vector<OpEvent> allEvents;
   collectOpEvents(*mainFn, metaByGraphPtr, allEvents);
-  errs() << "[AutoTuner] Collected " << allEvents.size() << " operation events\n";
   if (allEvents.empty()) {
-    errs() << "[AutoTuner] No candidate regions found; skipping.\n";
     return PreservedAnalyses::all();
   }
 
@@ -705,35 +700,14 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     if (regions.empty())
       continue;
 
-    errs() << "[AutoTuner] Graph " << graphKey << " (estN=" << estN
-           << ", estM=" << estM << "): " << regions.size() << " regions\n";
-    static const char *layoutName[] = {"CSR", "PCSR", "BCSR", "SET"};
-    static const char *regionName[] = {"Traverse", "Insert", "Query", "Compute"};
-    for (size_t ri = 0; ri < regions.size(); ++ri) {
-      const Region &RR = regions[ri];
-      errs() << "  region[" << ri << "] " << regionName[opIndex(RR.dominant)]
-             << " ops=" << RR.totalOps << " execCount=" << RR.execCount << "\n";
-    }
-
     LayoutSchedule S = solveDP(regions, estN, estM);
     const double chosenCost = estimateChosenScheduleCost(regions, S.chosen, estN, estM);
     const double allCSR = estimateAllCSRPathCost(regions, estN, estM);
-
-    errs() << "[AutoTuner] DP schedule: [";
-    for (size_t ri = 0; ri < S.chosen.size(); ++ri) {
-      if (ri) errs() << ", ";
-      errs() << layoutName[S.chosen[ri]];
-    }
-    errs() << "]  cost=" << chosenCost << " vs allCSR=" << allCSR << "\n";
 
     bool shouldSkip = false;
     if (chosenCost < kInf / 2.0 && allCSR < kInf / 2.0) {
       const double required = allCSR * (1.0 - kMinScheduleImprovement);
       if (!(chosenCost < required)) {
-        errs() << "[AutoTuner] Graph " << graphKey
-               << " schedule improvement below threshold ("
-               << chosenCost << " >= " << required
-               << "); NO conversions injected.\n";
         shouldSkip = true;
       }
     }
@@ -742,15 +716,13 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       if (c != LAYOUT_CSR) { allCSRSchedule = false; break; }
     }
     if (allCSRSchedule) {
-      errs() << "[AutoTuner] Graph " << graphKey
-             << " DP chose all-CSR; no conversions needed.\n";
       shouldSkip = true;
     }
     if (!shouldSkip)
       totalInjected += injectConversions(M, regions, S, metaByGraphPtr, estN, estM);
   }
 
-  errs() << "[AutoTuner] Injected " << totalInjected << " layout conversions total\n";
+  (void)totalInjected;
   return PreservedAnalyses::none();
 }
 

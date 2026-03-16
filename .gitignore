@@ -22,3 +22,5 @@ vgcore.*
 left/*
 test/*
 p2GraphEasy-con-AutoTuner/test/*
+callgrind*
+final_program_*

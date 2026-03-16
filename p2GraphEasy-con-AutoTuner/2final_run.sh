@@ -5,7 +5,7 @@ set -euxo pipefail
 
 g++ -c -O2 -std=c++17 -fopenmp graph_loader_runtime.cpp -o graph_loader_runtime.o
 
-./GraphProgram test.graph
+./GraphProgram test3.graph
 # ./GraphProgram --debug-polly test.graph
 # ./GraphProgram test.graph -polly-parallel -polly-vectorizer=stripmine
 

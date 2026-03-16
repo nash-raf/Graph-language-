@@ -13,9 +13,3 @@ g++ -c -O2 -std=c++17 -fopenmp graph_loader_runtime.cpp -o graph_loader_runtime.
 gcc -c -O2 parallel_runtime.c -o parallel_runtime.o
 
 ld -r parallel_runtime.o -o runtime.o
-
-
-
-
-
-

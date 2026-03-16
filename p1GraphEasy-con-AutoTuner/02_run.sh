@@ -6,10 +6,10 @@ set -euxo pipefail
 # OPT_BIN="opt-20"
 # CLANGXX="clang++-20"
 
-LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
-OPT_BIN=/usr/local/llvm-20-polly-rtti/bin/opt
-CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
-CLANG_BIN=/usr/local/llvm-20-polly-rtti/bin/clang
+LLVM_CONFIG="${LLVM_CONFIG_BIN:-llvm-config-20}"
+CLANGXX="${CLANGXX_BIN:-clang++-20}"
+CLANG_BIN="${CLANG_BIN:-clang-20}"
+CXX_BIN="${CXX_BIN:-g++}"
 # ────────────────────────────────────────────────────────────────────────────────
 
 # Usage: ./run.sh <input.gpl> <dsl-input> [existing-IR.ll]
@@ -51,12 +51,11 @@ fi
 # ----------------------------------------------------------------------------- 
 # 2) Compile GraphProgram
 # -----------------------------------------------------------------------------
+
+
+
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
-
-  echo "=== [2/5] Build runtime LLVM IR ==="
-  "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
-  "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
 
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
   LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
@@ -65,7 +64,11 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
   # ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
-  ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
+  ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
+
+  echo "=== [2/5] Build runtime LLVM IR ==="
+  "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
+  "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
 
 
   g++ \
@@ -86,20 +89,3 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   echo ">>> GraphProgram build complete"
 fi
 ./GraphProgram test.graph
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

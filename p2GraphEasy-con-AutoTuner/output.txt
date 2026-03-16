@@ -1,0 +1,68 @@
+--------------------------------------------------------------------------------
+Profile data file 'callgrind.out.24683' (creator: callgrind-3.22.0)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 116620855
+Trigger: Program termination
+Profiled target:  ./final_program (PID 24683, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                   
+--------------------------------------------------------------------------------
+639,184,116 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                    file:function
+--------------------------------------------------------------------------------
+
+188,428,300 (29.48%)  *  ???:roaring_bitmap_contains [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+
+177,481,948 (27.77%)  *  ???:roaring_bitmap_add [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+187,424,232 (29.32%)  >   ???:add_to_array(RoaringBitmap*, Container*, unsigned short) (560,636x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+  4,499,797 ( 0.70%)  >   ???:promote_to_bitmap(RoaringBitmap*, Container*) (92x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+     68,492 ( 0.01%)  >   ???:create_container(RoaringBitmap*, unsigned short, ContainerType) (434x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+
+101,208,411 (15.83%)  *  ./string/../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:__memcpy_avx_unaligned_erms [/usr/lib/x86_64-linux-gnu/libc.so.6]
+
+ 86,824,496 (13.58%)  *  ???:add_to_array(RoaringBitmap*, Container*, unsigned short) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+ 99,493,067 (15.57%)  >   ./string/../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:__memcpy_avx_unaligned_erms (539,375x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+  1,002,334 ( 0.16%)  >   ./debug/./debug/fprintf_chk.c:__fprintf_chk (775x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+     37,936 ( 0.01%)  >   ./libio/./libio/iofwrite.c:fwrite (156x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+     33,951 ( 0.01%)  >   ???:operator new[](unsigned long) (156x) [/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33]
+     32,448 ( 0.01%)  >   ???:operator new(unsigned long) (156x) [/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33]
+
+ 42,039,036 ( 6.58%)  *  ???:main [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+369,474,469 (57.80%)  >   ???:roaring_bitmap_add (1,891,870x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+188,428,300 (29.48%)  >   ???:roaring_bitmap_contains (2,230,824x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+ 35,124,072 ( 5.50%)  >   ???:roaring_bitmap_get_at_index (899,587x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+  1,640,625 ( 0.26%)  >   ./string/../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:__memcpy_avx_unaligned_erms (2x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    321,036 ( 0.05%)  >   ???:roaring_from_serialized (2x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+     33,309 ( 0.01%)  >   ???:roaring_bitmap_create (42x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+      7,160 ( 0.00%)  >   ???:roaring_bitmap_get_cardinality (81x) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+      1,952 ( 0.00%)  >   ./elf/../sysdeps/x86_64/dl-trampoline.h:_dl_runtime_resolve_xsave (2x) [/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2]
+        848 ( 0.00%)  >   ./malloc/./malloc/malloc.c:malloc (3x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+
+ 35,113,926 ( 5.49%)  *  ???:roaring_bitmap_get_at_index [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+      9,372 ( 0.00%)  >   ./malloc/./malloc/malloc.c:realloc (40x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+        774 ( 0.00%)  >   ./elf/../sysdeps/x86_64/dl-trampoline.h:_dl_runtime_resolve_xsave (1x) [/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2]
+
+  4,247,726 ( 0.66%)  *  ???:promote_to_bitmap(RoaringBitmap*, Container*) [/home/user/Course/msk1/Graph-language-/p2GraphEasy/final_program]
+    234,436 ( 0.04%)  >   ./debug/./debug/fprintf_chk.c:__fprintf_chk (170x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+      6,318 ( 0.00%)  >   ./libio/./libio/iofwrite.c:fwrite (26x) [/usr/lib/x86_64-linux-gnu/libc.so.6]
+      5,760 ( 0.00%)  >   ???:operator new[](unsigned long) (26x) [/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33]
+      5,557 ( 0.00%)  >   ???:operator new(unsigned long) (26x) [/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33]
+
+--------------------------------------------------------------------------------
+The following files chosen for auto-annotation could not be found:
+--------------------------------------------------------------------------------
+  ./string/../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S
+

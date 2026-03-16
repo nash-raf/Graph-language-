@@ -61,6 +61,11 @@ if [[ -z "$IR_OVERRIDE" ]]; then
 
   ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
 
+  # Compile autotuner runtime to LLVM IR Added ON
+  echo "=== [2a] Compiling autotuner runtime ==="
+  clang-20 -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
+  clang-20 -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
+
   g++ \
     -g -std=c++17 -fexceptions \
     -mavx2 -march=native \
@@ -68,7 +73,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp\
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp AutoTunerPass.cpp \
     generated/*.cpp \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \

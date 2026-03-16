@@ -1,6 +1,7 @@
 log/*
 log/csv/*
 csv/*
+generated/*
 synth_graphs/*
 synth_graphs_weighted/*
 synth_graphs_weighted_graphit/*
@@ -17,3 +18,4 @@ p1GraphEasy/03_run.sh
 p2GraphEasy/final_run.sh
 p1GraphEasy/*.o*
 p2GraphEasy/*.o*
+vgcore.*

@@ -1,0 +1,22 @@
+graph g1 {
+    edges: file "/home/osamanadeem/Downloads/GPL-2026/Graph-language-/synth_graphs/synth_v_50000_e_50000.txt";
+};
+
+query bfs_a: "bfs" of g1;
+
+add 500001 to g1;
+add 500002 to g1;
+add 2->500001 to g1;
+add 3->500002 to g1;
+remove 1 from g1;
+remove 2->3 from g1;
+
+set s_nodes = g1.nodes;
+set s_mix = s_nodes intersect g1.nodes;
+if (s_mix.contains(500002)) {
+    print 1;
+} else {
+    print 0;
+}
+
+query bfs_b: "bfs" of g1;

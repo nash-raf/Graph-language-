@@ -49,9 +49,6 @@ public:
     antlrcpp::Any visitSwapStatement(BaseParser::SwapStatementContext *ctx);
     antlrcpp::Any visitSetContainsExpr(BaseParser::SetContainsExprContext *ctx);
     SetTargetKind parseSetTarget(BaseParser::SetTargetContext *ctx);
-    antlrcpp::Any visitNodeEdgeOperation(BaseParser::NodeEdgeOperationContext *ctx) override;
-    antlrcpp::Any visitAddOperation(BaseParser::AddOperationContext *ctx) override;
-    antlrcpp::Any visitRemoveOperation(BaseParser::RemoveOperationContext *ctx) override;
     
 private:
     std::shared_ptr<GraphConditionNode> buildGraphCondition(BaseParser::GraphConditionContext *ctx);

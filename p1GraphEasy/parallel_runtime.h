@@ -39,6 +39,22 @@ typedef struct
     int64_t reserved5;
 } sgpl_loop_profile_desc;
 
+typedef void *(*sgpl_tdg_task_fn_t)(void *);
+
+typedef struct
+{
+    sgpl_tdg_task_fn_t fn;
+    void *arg;
+    int32_t profile_id;
+    int32_t static_work_units;
+    int32_t num_loop_sites;
+    const int32_t *loop_site_ids;
+} sgpl_tdg_task_desc;
+
+int32_t sgpl_current_thread_budget(void);
+void sgpl_push_thread_budget(int32_t max_threads);
+void sgpl_pop_thread_budget(void);
+
 uint64_t sgpl_now_ns(void);
 
 int32_t sgpl_should_parallelize_doall(
@@ -74,6 +90,17 @@ int32_t sgpl_should_parallelize_doacross(
     int64_t start,
     int64_t end,
     int64_t step);
+
+int32_t sgpl_choose_tdg_threads(
+    int64_t work_units,
+    int64_t span_units,
+    int32_t task_count);
+
+void sgpl_run_tdg_level(
+    const sgpl_tdg_task_desc *tasks,
+    int32_t task_count,
+    int64_t work_units,
+    int64_t span_units);
 
 void sgpl_doacross_profile_enter(const sgpl_loop_profile_desc *desc);
 void sgpl_doacross_profile_exit(const sgpl_loop_profile_desc *desc);

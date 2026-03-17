@@ -12,7 +12,6 @@
 #include "IRGenVisitor.h"
 
 #include "pdg.h"
-#include "AutoTunerPass.h"
 #include "parallel_loop_outline.h"
 
 #include <llvm/IR/LLVMContext.h>
@@ -544,24 +543,6 @@ int main(int argc, char **argv)
     }
 
     {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
-
-        PassBuilder PB;
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-        ModulePassManager MPM;
-        MPM.addPass(AutoTunerModulePass());
-        MPM.run(*M, MAM);
-    }
-
-    {
         llvm::SMDiagnostic Err;
         // Parse textual IR file into a new Module
         std::unique_ptr<llvm::Module> BfsMod = llvm::parseIRFile("bfs_runtime.ll", Err, Ctx);
@@ -703,58 +684,6 @@ int main(int argc, char **argv)
         }
 
         // llvm::outs() << "Successfully linked floyd_runtime.ll into module\n";
-    }
-
-    // ── Link graph_mutation_runtime.ll ──
-    {
-        llvm::SMDiagnostic Err;
-        std::unique_ptr<llvm::Module> MutMod =
-            llvm::parseIRFile("graph_mutation_runtime.ll", Err, Ctx);
-        if (!MutMod) {
-        Err.print("GraphProgram", llvm::errs());
-        llvm::errs() << "Failed to parse graph_mutation_runtime.ll\n";
-        return 1;
-        }
-
-        const std::string M_DL = M->getDataLayout().getStringRepresentation();
-        const std::string Mut_DL = MutMod->getDataLayout().getStringRepresentation();
-        if (M_DL.empty() && !Mut_DL.empty())
-        M->setDataLayout(MutMod->getDataLayout());
-
-        if (M->getTargetTriple().empty() && !MutMod->getTargetTriple().empty())
-        M->setTargetTriple(MutMod->getTargetTriple());
-
-        llvm::Linker L(*M);
-        if (L.linkInModule(std::move(MutMod))) {
-        llvm::errs() << "Linking graph_mutation_runtime.ll into main module failed\n";
-        return 1;
-        }
-    }
-
-    // ── Link autotuner_runtime.ll ──
-    {
-        llvm::SMDiagnostic Err;
-        std::unique_ptr<llvm::Module> ATMod =
-            llvm::parseIRFile("autotuner_runtime.ll", Err, Ctx);
-        if (!ATMod) {
-        Err.print("GraphProgram", llvm::errs());
-        llvm::errs() << "Failed to parse autotuner_runtime.ll\n";
-        return 1;
-        }
-
-        const std::string M_DL = M->getDataLayout().getStringRepresentation();
-        const std::string AT_DL = ATMod->getDataLayout().getStringRepresentation();
-        if (M_DL.empty() && !AT_DL.empty())
-        M->setDataLayout(ATMod->getDataLayout());
-
-        if (M->getTargetTriple().empty() && !ATMod->getTargetTriple().empty())
-        M->setTargetTriple(ATMod->getTargetTriple());
-
-        llvm::Linker L(*M);
-        if (L.linkInModule(std::move(ATMod))) {
-        llvm::errs() << "Linking autotuner_runtime.ll into main module failed\n";
-        return 1;
-        }
     }
 
     InitializeAllTargetInfos();

@@ -3,7 +3,6 @@
 #include "ASTNode.h"
 #include <stdexcept>
 #include <vector>
-#include <unordered_set>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/DenseSet.h>
 #include <cstring> // for std::memcpy
@@ -106,7 +105,83 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     }
     else if (ctx->nodeEdgeOperation())
     {
-        return visitNodeEdgeOperation(ctx->nodeEdgeOperation());
+        auto *op = ctx->nodeEdgeOperation();
+
+        std::vector<int> nodes;
+        std::vector<std::pair<int,int>> edges;
+        std::string gname;
+        GraphUpdateKind kind;
+
+        if (auto *add = op->addOperation())
+        {
+            kind = GraphUpdateKind::Add;
+            gname = add->graphID()->getText();
+            auto *t = add->addTargets();
+
+            if (t->nodeID())
+            {
+                nodes.push_back(std::stoi(t->nodeID()->getText()));
+            }
+            else if (t->edge())
+            {
+                int u = std::stoi(t->edge()->nodeID(0)->getText());
+                int v = std::stoi(t->edge()->nodeID(1)->getText());
+                edges.emplace_back(u, v);
+            }
+            else if (t->nodeList())
+            {
+                for (auto *idT : t->nodeList()->nodeID())
+                    nodes.push_back(std::stoi(idT->getText()));
+            }
+            else if (t->edgeList())
+            {
+                for (auto *eCtx : t->edgeList()->edge())
+                {
+                    int u = std::stoi(eCtx->nodeID(0)->getText());
+                    int v = std::stoi(eCtx->nodeID(1)->getText());
+                    edges.emplace_back(u, v);
+                }
+            }
+        }
+        else if (auto *rem = op->removeOperation())
+        {
+            kind = GraphUpdateKind::Remove;
+            gname = rem->graphID()->getText();
+            auto *t = rem->removeTargets();
+
+            if (t->nodeID())
+            {
+                nodes.push_back(std::stoi(t->nodeID()->getText()));
+            }
+            else if (t->edge())
+            {
+                int u = std::stoi(t->edge()->nodeID(0)->getText());
+                int v = std::stoi(t->edge()->nodeID(1)->getText());
+                edges.emplace_back(u, v);
+            }
+            else if (t->nodeList())
+            {
+                for (auto *idT : t->nodeList()->nodeID())
+                    nodes.push_back(std::stoi(idT->getText()));
+            }
+            else if (t->edgeList())
+            {
+                for (auto *eCtx : t->edgeList()->edge())
+                {
+                    int u = std::stoi(eCtx->nodeID(0)->getText());
+                    int v = std::stoi(eCtx->nodeID(1)->getText());
+                    edges.emplace_back(u, v);
+                }
+            }
+        }
+        
+        else
+        {
+            throw std::runtime_error("nodeEdgeOperation: unknown alternative");
+        }
+
+        auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
+        return std::static_pointer_cast<ASTNode>(up);
     }
     else if (ctx->graphComprehension())
     {
@@ -762,30 +837,22 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    // std::cerr << "[ASTBuilder] Declaring Weighted graph: " << nm << std::endl;
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
 
-    // Materialize edges exactly once
-    std::vector<std::pair<int, int>> edgesVec;
-    llvm::DenseMap<std::pair<int, int>, int> weightMap;
     if (auto *fe = ctx->edges()->fileEdgeList())
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        WeightedFileEdgeList tmpFile(std::move(s));
-        tmpFile.materializeEdges(edgesVec, weightMap); // file read happens here once
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s));
+        return std::static_pointer_cast<ASTNode>(gnode);
     }
-    // for inline !!!!NOT SUPPORTED YET!!!!!!
-    else if (auto *el = ctx->edges()->edgeList())
+
+    std::vector<std::pair<int, int>> edgesVec;
+    llvm::DenseMap<std::pair<int, int>, int> weightMap;
+    if (auto *el = ctx->edges()->edgeList())
     {
-        // for (auto *eCtx : el->edge())
-        // {
-        //     int u = std::stoi(eCtx->nodeID(0)->getText());
-        //     int v = std::stoi(eCtx->nodeID(1)->getText());
-        //     edgesVec.emplace_back(u, v);
-        // }
         throw std::runtime_error("inline weighted edges not yet supported");
     }
 
@@ -1272,105 +1339,6 @@ SetTargetKind ASTBuilder::parseSetTarget(BaseParser::SetTargetContext *ctx)
     if (ctx->NODE()) // 'nodes'
         return SetTargetKind::GraphNodes;
     return SetTargetKind::GraphEdges; // falls through to 'edges'
-}
-
-antlrcpp::Any
-ASTBuilder::visitNodeEdgeOperation(BaseParser::NodeEdgeOperationContext *ctx)
-{
-    if (ctx->addOperation())
-        return visitAddOperation(ctx->addOperation());
-    if (ctx->removeOperation())
-        return visitRemoveOperation(ctx->removeOperation());
-    throw std::runtime_error("Unsupported nodeEdgeOperation");
-}
-
-antlrcpp::Any ASTBuilder::visitAddOperation(BaseParser::AddOperationContext *ctx)
-{
-    auto node = std::make_shared<GraphMutationNode>(
-        GraphMutationKind::AddNode, ctx->graphID()->getText());
-
-    auto *targets = ctx->addTargets();
-    if (targets->edge())
-    {
-        int u = std::stoi(targets->edge()->nodeID(0)->getText());
-        int v = std::stoi(targets->edge()->nodeID(1)->getText());
-        node->kind = GraphMutationKind::AddEdge;
-        node->edges.push_back({u, v});
-    }
-    else if (targets->edgeList())
-    {
-        node->kind = GraphMutationKind::AddEdge;
-        for (auto *e : targets->edgeList()->edge())
-        {
-            int u = std::stoi(e->nodeID(0)->getText());
-            int v = std::stoi(e->nodeID(1)->getText());
-            node->edges.push_back({u, v});
-        }
-    }
-    else if (targets->nodeID())
-    {
-        node->kind = GraphMutationKind::AddNode;
-        node->nodes.push_back(std::stoi(targets->nodeID()->getText()));
-    }
-    else if (targets->nodeList())
-    {
-        node->kind = GraphMutationKind::AddNode;
-        for (auto *nid : targets->nodeList()->nodeID())
-        {
-            node->nodes.push_back(std::stoi(nid->getText()));
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported addTargets in addOperation");
-    }
-
-    return std::static_pointer_cast<ASTNode>(node);
-}
-
-antlrcpp::Any
-ASTBuilder::visitRemoveOperation(BaseParser::RemoveOperationContext *ctx)
-{
-    auto node = std::make_shared<GraphMutationNode>(
-        GraphMutationKind::RemoveNode, ctx->graphID()->getText());
-
-    auto *targets = ctx->removeTargets();
-    if (targets->edge())
-    {
-        int u = std::stoi(targets->edge()->nodeID(0)->getText());
-        int v = std::stoi(targets->edge()->nodeID(1)->getText());
-        node->kind = GraphMutationKind::RemoveEdge;
-        node->edges.push_back({u, v});
-    }
-    else if (targets->edgeList())
-    {
-        node->kind = GraphMutationKind::RemoveEdge;
-        for (auto *e : targets->edgeList()->edge())
-        {
-            int u = std::stoi(e->nodeID(0)->getText());
-            int v = std::stoi(e->nodeID(1)->getText());
-            node->edges.push_back({u, v});
-        }
-    }
-    else if (targets->nodeID())
-    {
-        node->kind = GraphMutationKind::RemoveNode;
-        node->nodes.push_back(std::stoi(targets->nodeID()->getText()));
-    }
-    else if (targets->nodeList())
-    {
-        node->kind = GraphMutationKind::RemoveNode;
-        for (auto *nid : targets->nodeList()->nodeID())
-        {
-            node->nodes.push_back(std::stoi(nid->getText()));
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported removeTargets in removeOperation");
-    }
-
-    return std::static_pointer_cast<ASTNode>(node);
 }
 
 antlrcpp::Any ASTBuilder::visitSwapStatement(BaseParser::SwapStatementContext *ctx)

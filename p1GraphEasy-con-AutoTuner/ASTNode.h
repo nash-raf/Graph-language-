@@ -67,6 +67,7 @@ enum class ASTNodeType
     GraphUpdate,
     ShowGraph,
     GraphComprehension,
+    GraphMutation,
     SetDecl,
     SetLiteral,
     SetOperation,
@@ -80,11 +81,11 @@ enum class ASTNodeType
     UnaryMinusExpr,
     Array2DAccess,
     SetPopExpr,
-    SwapStmt,
-    GraphMutation
+    SwapStmt
 };
 
 enum class GraphUpdateKind { Add, Remove };
+enum class GraphMutationKind { AddNode, RemoveNode, AddEdge, RemoveEdge };
 enum class GraphDegreeOp { None, Eq, Ne, Le, Ge, Lt, Gt };
 enum class GraphConditionOp { And, Or, Connected, Cycle, Degree };
 
@@ -199,6 +200,27 @@ class GraphUpdateNode : public ASTNode {
               edges(e)
         {}
     };
+
+class GraphMutationNode : public ASTNode
+{
+public:
+    GraphMutationKind kind;
+    std::string graphName;
+    std::vector<int> nodes;
+    std::vector<std::pair<int, int>> edges;
+
+    GraphMutationNode(GraphMutationKind k,
+                      const std::string &g,
+                      std::vector<int> nodeIds = {},
+                      std::vector<std::pair<int, int>> edgePairs = {})
+        : ASTNode(ASTNodeType::GraphMutation),
+          kind(k),
+          graphName(g),
+          nodes(std::move(nodeIds)),
+          edges(std::move(edgePairs))
+    {
+    }
+};
 
 class ProgramNode : public ASTNode
 {
@@ -781,7 +803,10 @@ public:
     std::unique_ptr<NodeListNode> nodes;
     std::unique_ptr<WeightedEdgeListNode> edges;
 
-    size_t n, m; // number of nodes and edges
+    bool isFileGraph = false;
+    std::string edgeFileName;
+
+    size_t n = 0, m = 0; // number of nodes and edges
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
     int32_t *weights = nullptr;
@@ -791,6 +816,14 @@ public:
     std::vector<std::pair<int, int>> edge_id_map;
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
+
+    WeightedGraphDeclNode(std::string nm, std::string fileName)
+        : ASTNode(ASTNodeType::WeightedGraphDecl),
+          name(std::move(nm)),
+          isFileGraph(true),
+          edgeFileName(std::move(fileName))
+    {
+    }
 
     WeightedGraphDeclNode(
         std::string nm,
@@ -1132,30 +1165,6 @@ public:
     size_t cols = 0;        // static col count
     ASTNodePtr rowsExpr;    // dynamic row expression
     ASTNodePtr colsExpr;    // dynamic col expression
-};
-
-enum class GraphMutationKind
-{
-    AddNode,
-    RemoveNode,
-    AddEdge,
-    RemoveEdge
-};
-
-class GraphMutationNode : public ASTNode
-{
-public:
-    GraphMutationKind kind;
-    std::string graphName;
-
-    /* For node mutations */
-    std::vector<int> nodes;
-
-    /* For edge mutations */
-    std::vector<std::pair<int, int>> edges;
-
-    GraphMutationNode(GraphMutationKind k, const std::string &g)
-        : ASTNode(ASTNodeType::GraphMutation), kind(k), graphName(g) {}
 };
 
 #endif // ASTNODE_H

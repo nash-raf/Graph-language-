@@ -837,30 +837,22 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    // std::cerr << "[ASTBuilder] Declaring Weighted graph: " << nm << std::endl;
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
 
-    // Materialize edges exactly once
-    std::vector<std::pair<int, int>> edgesVec;
-    llvm::DenseMap<std::pair<int, int>, int> weightMap;
     if (auto *fe = ctx->edges()->fileEdgeList())
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        WeightedFileEdgeList tmpFile(std::move(s));
-        tmpFile.materializeEdges(edgesVec, weightMap); // file read happens here once
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s));
+        return std::static_pointer_cast<ASTNode>(gnode);
     }
-    // for inline !!!!NOT SUPPORTED YET!!!!!!
-    else if (auto *el = ctx->edges()->edgeList())
+
+    std::vector<std::pair<int, int>> edgesVec;
+    llvm::DenseMap<std::pair<int, int>, int> weightMap;
+    if (auto *el = ctx->edges()->edgeList())
     {
-        // for (auto *eCtx : el->edge())
-        // {
-        //     int u = std::stoi(eCtx->nodeID(0)->getText());
-        //     int v = std::stoi(eCtx->nodeID(1)->getText());
-        //     edgesVec.emplace_back(u, v);
-        // }
         throw std::runtime_error("inline weighted edges not yet supported");
     }
 

@@ -10,6 +10,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -19,14 +20,17 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include <algorithm>
+#include <limits>
 #include <utility>
 #include <functional>
 #include "llvm/ADT/SCCIterator.h"
 #include <string>
+#include "parallel_runtime.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include <cstdlib>
 
 #define SGPL_QUIET_LOGS 1
 #if SGPL_QUIET_LOGS
@@ -93,6 +97,24 @@ static void analyzeTaskArguments(llvm::Function *extractedFunc,
             Ctx, info.types,
             extractedFunc->getName().str() + "_args");
     }
+}
+
+static bool tdgDebugEnabled()
+{
+    static int cached = -1;
+    if (cached != -1)
+        return cached != 0;
+
+    const char *raw = std::getenv("SGPL_TDG_DEBUG");
+    if (!raw || raw[0] == '\0')
+    {
+        cached = 0;
+        return false;
+    }
+
+    std::string value(raw);
+    cached = (value != "0" && value != "false" && value != "FALSE") ? 1 : 0;
+    return cached != 0;
 }
 
 // global collector (keeps a single combined graph you can print later)
@@ -2601,6 +2623,166 @@ namespace llvm
         blockVec = std::move(ordered);
     }
 
+    static int64_t estimateInstructionWorkUnits(Instruction *I)
+    {
+        if (!I)
+            return 1;
+
+        if (auto *II = dyn_cast<IntrinsicInst>(I))
+        {
+            switch (II->getIntrinsicID())
+            {
+            case Intrinsic::memcpy:
+            case Intrinsic::memmove:
+            case Intrinsic::memset:
+                return 14;
+            case Intrinsic::lifetime_start:
+            case Intrinsic::lifetime_end:
+                return 0;
+            default:
+                return 6;
+            }
+        }
+
+        if (auto *CB = dyn_cast<CallBase>(I))
+        {
+            Function *callee = CB->getCalledFunction();
+            if (callee)
+            {
+                StringRef name = callee->getName();
+                if (name.starts_with("graph_"))
+                    return 18;
+                if (name.contains("roaring") || name.contains("bitmap"))
+                    return 16;
+                if (name.starts_with("malloc") || name.starts_with("calloc") ||
+                    name.starts_with("realloc") || name.starts_with("free"))
+                    return 12;
+                if (name.starts_with("sgpl_") || name.starts_with("parallel_"))
+                    return 8;
+            }
+            return 10;
+        }
+
+        switch (I->getOpcode())
+        {
+        case Instruction::Load:
+        case Instruction::Store:
+            return 5;
+        case Instruction::AtomicCmpXchg:
+        case Instruction::AtomicRMW:
+        case Instruction::Fence:
+            return 18;
+        case Instruction::Alloca:
+            return 3;
+        case Instruction::PHI:
+        case Instruction::Br:
+        case Instruction::Switch:
+        case Instruction::IndirectBr:
+        case Instruction::Select:
+            return 2;
+        case Instruction::ICmp:
+        case Instruction::FCmp:
+            return 2;
+        case Instruction::GetElementPtr:
+        case Instruction::Trunc:
+        case Instruction::ZExt:
+        case Instruction::SExt:
+        case Instruction::FPToUI:
+        case Instruction::FPToSI:
+        case Instruction::UIToFP:
+        case Instruction::SIToFP:
+        case Instruction::FPTrunc:
+        case Instruction::FPExt:
+        case Instruction::PtrToInt:
+        case Instruction::IntToPtr:
+        case Instruction::BitCast:
+        case Instruction::AddrSpaceCast:
+            return 1;
+        case Instruction::UDiv:
+        case Instruction::SDiv:
+        case Instruction::FDiv:
+        case Instruction::URem:
+        case Instruction::SRem:
+        case Instruction::FRem:
+            return 4;
+        case Instruction::Mul:
+        case Instruction::FMul:
+        case Instruction::Add:
+        case Instruction::FAdd:
+        case Instruction::Sub:
+        case Instruction::FSub:
+        case Instruction::Shl:
+        case Instruction::LShr:
+        case Instruction::AShr:
+        case Instruction::And:
+        case Instruction::Or:
+        case Instruction::Xor:
+            return 2;
+        default:
+            return 3;
+        }
+    }
+
+    static int64_t estimateTaskWorkUnits(const TaskNode &task, const dependencyGraph &PDG)
+    {
+        DenseSet<unsigned> vertexSet;
+        int64_t work = 0;
+        int64_t memOps = 0;
+        int64_t callOps = 0;
+        int64_t controlOps = 0;
+
+        for (unsigned vertex : task.vertices)
+            vertexSet.insert(vertex);
+
+        for (const auto &entry : PDG.nodes)
+        {
+            Instruction *I = entry.first;
+            unsigned vertexId = (unsigned)entry.second;
+
+            if (!vertexSet.count(vertexId))
+                continue;
+
+            work += estimateInstructionWorkUnits(I);
+            if (I->mayReadOrWriteMemory())
+                ++memOps;
+            if (isa<CallBase>(I))
+                ++callOps;
+            if (isa<PHINode>(I) || I->isTerminator())
+                ++controlOps;
+        }
+
+        if (work == 0)
+            work = task.vertices.empty() ? 1 : (int64_t)task.vertices.size() * 2;
+
+        work += (int64_t)task.blocks.size() * 2;
+        work += callOps * 2;
+        work += controlOps;
+
+        if (task.kind == TaskKind::LoopRegion)
+        {
+            work += 12;
+            work += memOps * 2;
+            if (task.loopRegionId)
+            {
+                for (const auto &region : PDG.loopRegions)
+                {
+                    if (region.loopRegionId != *task.loopRegionId)
+                        continue;
+                    work += (int64_t)region.blocks.size() * 2;
+                    work += (int64_t)region.nestedSubloopCount * 8;
+                    break;
+                }
+            }
+        }
+
+        if (task.kind == TaskKind::CutVertex || task.isCutVertex)
+            work += 2;
+
+        if (work < 1)
+            work = 1;
+        return work;
+    }
+
     // COMPLETE REPLACEMENT for reconstructParallelIR
     // COMPLETE REPLACEMENT for reconstructParallelIR
     void reconstructParallelIR(Module &M,
@@ -2802,25 +2984,8 @@ namespace llvm
 
         Type *Int32Ty = Type::getInt32Ty(Ctx);
         Type *Int64Ty = Type::getInt64Ty(Ctx);
+        Type *VoidTy = Type::getVoidTy(Ctx);
         PointerType *VoidPtrTy = PointerType::get(Ctx, 0);
-        PointerType *CharPtrTy = PointerType::get(Type::getInt8Ty(Ctx), 0);
-        PointerType *PthreadTy = PointerType::get(Ctx, 0);
-
-        // pthread functions
-        FunctionType *PthreadCreateFT = FunctionType::get(
-            Int32Ty,
-            {PthreadTy, VoidPtrTy, PointerType::get(FunctionType::get(VoidPtrTy, {VoidPtrTy}, false), 0), VoidPtrTy},
-            false);
-        FunctionCallee PthreadCreate = M.getOrInsertFunction("pthread_create", PthreadCreateFT);
-
-        FunctionType *PthreadJoinFT = FunctionType::get(Int32Ty, {PthreadTy, VoidPtrTy}, false);
-        FunctionCallee PthreadJoin = M.getOrInsertFunction("pthread_join", PthreadJoinFT);
-
-        FunctionType *PrintfFT = FunctionType::get(Int32Ty, {CharPtrTy}, true);
-        FunctionCallee Printf = M.getOrInsertFunction("printf", PrintfFT);
-
-        FunctionType *PthreadSelfFT = FunctionType::get(Int64Ty, false);
-        FunctionCallee PthreadSelf = M.getOrInsertFunction("pthread_self", PthreadSelfFT);
 
         // Step 3: Analyze arguments for each extracted task
         SmallVector<TaskArgumentInfo> taskArgInfo(TG.tasks.size());
@@ -2931,21 +3096,13 @@ namespace llvm
             SmallVector<CallInst *> anchorCallsites;
             bool ambiguousRegion = false;
         };
-        struct LevelPlan
-        {
-            SmallVector<unsigned> parallelTasks;
-            SmallVector<unsigned> serialTasks;
-        };
-        struct RegionSchedule
-        {
-            const Loop *regionLoop = nullptr;
-            std::vector<LevelPlan> levels;
-        };
         struct CallGroup
         {
             unsigned levelIdx = 0;
             const Loop *regionLoop = nullptr;
             BasicBlock *bb = nullptr;
+            int64_t workUnits = 0;
+            int64_t spanUnits = 0;
             SmallVector<unsigned> taskIds;
             SmallVector<CallInst *> calls;
         };
@@ -2959,6 +3116,15 @@ namespace llvm
 
         DominatorTree DT(*mainFunc);
         LoopInfo LI(DT);
+        DenseMap<Instruction *, unsigned> globalInstIndex;
+        {
+            unsigned globalIdx = 0;
+            for (BasicBlock &BB : *mainFunc)
+            {
+                for (Instruction &I : BB)
+                    globalInstIndex[&I] = globalIdx++;
+            }
+        }
 
         SmallVector<TaskRegionInfo> taskRegions(TG.tasks.size());
         for (unsigned taskId = 0; taskId < TG.tasks.size(); ++taskId)
@@ -2994,63 +3160,30 @@ namespace llvm
             }
         }
 
-        DenseMap<const Loop *, RegionSchedule> schedules;
         SmallVector<CallGroup> groups;
-
-        auto ensureRegionSchedule = [&](const Loop *L) -> RegionSchedule &
-        {
-            auto it = schedules.find(L);
-            if (it != schedules.end())
-                return it->second;
-            RegionSchedule RS;
-            RS.regionLoop = L;
-            RS.levels.resize(levels.size());
-            schedules[L] = std::move(RS);
-            return schedules.find(L)->second;
-        };
-
-        auto addToGroup = [&](unsigned levelIdx, const Loop *L, BasicBlock *BB,
-                              unsigned taskId, CallInst *CI)
-        {
-            for (CallGroup &G : groups)
-            {
-                if (G.levelIdx == levelIdx && G.regionLoop == L && G.bb == BB)
-                {
-                    G.taskIds.push_back(taskId);
-                    G.calls.push_back(CI);
-                    return;
-                }
-            }
-            CallGroup NewG;
-            NewG.levelIdx = levelIdx;
-            NewG.regionLoop = L;
-            NewG.bb = BB;
-            NewG.taskIds.push_back(taskId);
-            NewG.calls.push_back(CI);
-            groups.push_back(std::move(NewG));
-        };
-
+        groups.reserve(levels.size());
         for (unsigned levelIdx = 0; levelIdx < levels.size(); ++levelIdx)
         {
+            CallGroup G;
+            G.levelIdx = levelIdx;
             for (unsigned taskId : levels[levelIdx])
             {
                 if (taskId >= extractedFunctions.size() || !extractedFunctions[taskId])
-                {
-                    ensureRegionSchedule(nullptr).levels[levelIdx].serialTasks.push_back(taskId);
                     continue;
-                }
 
                 const TaskRegionInfo &TR = taskRegions[taskId];
                 if (TR.anchorCallsites.size() != 1 || TR.ambiguousRegion)
-                {
-                    ensureRegionSchedule(nullptr).levels[levelIdx].serialTasks.push_back(taskId);
                     continue;
-                }
 
-                CallInst *CI = TR.anchorCallsites[0];
-                ensureRegionSchedule(TR.regionLoop).levels[levelIdx].parallelTasks.push_back(taskId);
-                addToGroup(levelIdx, TR.regionLoop, CI->getParent(), taskId, CI);
+                int64_t taskWork = estimateTaskWorkUnits(TG.tasks[taskId], PDG);
+                G.taskIds.push_back(taskId);
+                G.calls.push_back(TR.anchorCallsites[0]);
+                G.workUnits += taskWork;
+                if (taskWork > G.spanUnits)
+                    G.spanUnits = taskWork;
             }
+            if (!G.calls.empty())
+                groups.push_back(std::move(G));
         }
 
         auto castValueForStore = [&](IRBuilder<> &B, Value *V, Type *Ty) -> Value *
@@ -3070,186 +3203,458 @@ namespace llvm
             return nullptr;
         };
 
-        auto isContiguousCallCluster = [&](CallGroup &G,
-                                           const DenseMap<Instruction *, unsigned> &idxMap) -> bool
+        auto isLocallyLaunchable = [&](unsigned taskId, CallInst *CI) -> bool
         {
-            SmallVector<std::pair<unsigned, CallInst *>> ordered;
-            ordered.reserve(G.calls.size());
-            for (CallInst *CI : G.calls)
-            {
-                auto it = idxMap.find(CI);
-                if (it == idxMap.end())
-                    return false;
-                ordered.push_back({it->second, CI});
-            }
-            llvm::sort(ordered, [](const auto &a, const auto &b)
-                       { return a.first < b.first; });
-
-            DenseSet<Instruction *> callSet;
-            for (auto &P : ordered)
-                callSet.insert(P.second);
-
-            unsigned firstIdx = ordered.front().first;
-            unsigned lastIdx = ordered.back().first;
-            for (Instruction &I : *G.bb)
-            {
-                auto it = idxMap.find(&I);
-                if (it == idxMap.end())
-                    continue;
-                unsigned idx = it->second;
-                if (idx < firstIdx || idx > lastIdx)
-                    continue;
-                if (callSet.count(&I))
-                    continue;
-                if (isa<DbgInfoIntrinsic>(&I))
-                    continue;
+            if (!CI || !wrapperFunctions[taskId])
                 return false;
+            if (!(CI->getType()->isVoidTy() || CI->use_empty()))
+                return false;
+
+            TaskArgumentInfo &argInfo = taskArgInfo[taskId];
+            if (argInfo.argStructType)
+                return argInfo.types.size() == CI->arg_size();
+            return CI->arg_size() == 0;
+        };
+
+        auto isHoistSafe = [&](unsigned taskId, CallInst *CI, Instruction *launchPoint) -> bool
+        {
+            if (!isLocallyLaunchable(taskId, CI))
+                return false;
+
+            TaskArgumentInfo &argInfo = taskArgInfo[taskId];
+            if (!argInfo.argStructType)
+                return true;
+
+            for (unsigned a = 0; a < CI->arg_size(); ++a)
+            {
+                Value *op = CI->getArgOperand(a);
+                if (auto *defI = dyn_cast<Instruction>(op))
+                {
+                    if (!DT.dominates(defI, launchPoint))
+                        return false;
+                }
             }
             return true;
         };
 
+        auto getInstOrder = [&](Instruction *I) -> unsigned
+        {
+            auto it = globalInstIndex.find(I);
+            if (it == globalInstIndex.end())
+                return std::numeric_limits<unsigned>::max();
+            return it->second;
+        };
+
+        struct SlotSetupInfo
+        {
+            AllocaInst *slotAlloca = nullptr;
+            IntrinsicInst *lifetimeStart = nullptr;
+            Instruction *firstConsumer = nullptr;
+        };
+
+        auto analyzePointerSlot = [&](Value *ptrValue,
+                                      CallInst *producerCall,
+                                      SlotSetupInfo &info) -> bool
+        {
+            Value *base = ptrValue ? ptrValue->stripPointerCasts() : nullptr;
+            auto *AI = dyn_cast_or_null<AllocaInst>(base);
+            if (!AI)
+                return true;
+
+            info.slotAlloca = AI;
+
+            SmallVector<Instruction *, 4> starts;
+            SmallVector<Instruction *, 4> ends;
+            SmallVector<Instruction *, 8> consumers;
+            SmallVector<Value *, 8> worklist;
+            DenseSet<Value *> visited;
+            worklist.push_back(AI);
+
+            while (!worklist.empty())
+            {
+                Value *V = worklist.pop_back_val();
+                if (!visited.insert(V).second)
+                    continue;
+
+                for (User *U : V->users())
+                {
+                    if (auto *II = dyn_cast<IntrinsicInst>(U))
+                    {
+                        if (II->getIntrinsicID() == Intrinsic::lifetime_start)
+                            starts.push_back(II);
+                        else if (II->getIntrinsicID() == Intrinsic::lifetime_end)
+                            ends.push_back(II);
+                        continue;
+                    }
+
+                    auto *I = dyn_cast<Instruction>(U);
+                    if (!I)
+                        continue;
+
+                    if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I) ||
+                        isa<AddrSpaceCastInst>(I) || isa<PHINode>(I) || isa<SelectInst>(I))
+                    {
+                        worklist.push_back(I);
+                        continue;
+                    }
+
+                    if ((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+                        getInstOrder(I) > getInstOrder(producerCall))
+                        consumers.push_back(I);
+                }
+            }
+
+            bool hasManagedLifetime = !starts.empty() || !ends.empty() || !consumers.empty();
+            if (!hasManagedLifetime)
+                return true;
+
+            llvm::sort(starts, [&](Instruction *A, Instruction *B)
+                       { return getInstOrder(A) < getInstOrder(B); });
+            llvm::sort(ends, [&](Instruction *A, Instruction *B)
+                       { return getInstOrder(A) < getInstOrder(B); });
+            llvm::sort(consumers, [&](Instruction *A, Instruction *B)
+                       { return getInstOrder(A) < getInstOrder(B); });
+
+            if (starts.size() != 1 || ends.empty())
+                return false;
+
+            unsigned firstEndOrder = getInstOrder(ends.front());
+            for (Instruction *startI : starts)
+            {
+                if (startI != starts.front() && getInstOrder(startI) < firstEndOrder)
+                    return false;
+            }
+
+            info.lifetimeStart = cast<IntrinsicInst>(starts.front());
+            info.firstConsumer = ends.front();
+            if (!consumers.empty() &&
+                getInstOrder(consumers.front()) < getInstOrder(info.firstConsumer))
+                info.firstConsumer = consumers.front();
+
+            return getInstOrder(info.firstConsumer) > getInstOrder(info.lifetimeStart);
+        };
+
+        auto collectLaunchSetups = [&](unsigned taskId,
+                                       CallInst *CI,
+                                       Instruction *launchPoint,
+                                       SmallVectorImpl<IntrinsicInst *> &requiredStarts) -> bool
+        {
+            if (!isHoistSafe(taskId, CI, launchPoint))
+                return false;
+
+            for (unsigned a = 0; a < CI->arg_size(); ++a)
+            {
+                Value *op = CI->getArgOperand(a);
+                if (!op || !op->getType()->isPointerTy())
+                    continue;
+
+                SlotSetupInfo slotInfo;
+                if (!analyzePointerSlot(op, CI, slotInfo))
+                    return false;
+                if (!slotInfo.lifetimeStart)
+                    continue;
+                if (slotInfo.firstConsumer &&
+                    getInstOrder(slotInfo.firstConsumer) <= getInstOrder(launchPoint))
+                    return false;
+
+                if (std::find(requiredStarts.begin(), requiredStarts.end(), slotInfo.lifetimeStart) == requiredStarts.end())
+                    requiredStarts.push_back(slotInfo.lifetimeStart);
+            }
+            return true;
+        };
+
+        auto collectTaskLoopIds = [&](llvm::Function *Root) {
+            llvm::SmallVector<int32_t, 4> loopIds;
+            llvm::DenseSet<int32_t> seenLoopIds;
+            llvm::DenseSet<llvm::Function *> visitedFunctions;
+            const llvm::StringRef LoopDescPrefix = "sgpl.loop.desc.";
+            std::function<void(llvm::Value *)> inspectValue;
+            std::function<void(llvm::Function *)> inspectFunction;
+
+            inspectValue = [&](llvm::Value *V) {
+                if (!V)
+                    return;
+
+                if (auto *GV = llvm::dyn_cast<llvm::GlobalVariable>(V))
+                {
+                    llvm::StringRef Name = GV->getName();
+                    if (Name.starts_with(LoopDescPrefix))
+                    {
+                        llvm::StringRef Suffix = Name.substr(LoopDescPrefix.size());
+                        unsigned loopId = 0;
+                        if (!Suffix.getAsInteger(10, loopId) && seenLoopIds.insert((int32_t)loopId).second)
+                            loopIds.push_back((int32_t)loopId);
+                    }
+                    return;
+                }
+
+                if (auto *C = llvm::dyn_cast<llvm::Constant>(V))
+                {
+                    for (llvm::Value *Op : C->operands())
+                        inspectValue(Op);
+                }
+            };
+
+            inspectFunction = [&](llvm::Function *F) {
+                if (!F || F->isDeclaration() || !visitedFunctions.insert(F).second)
+                    return;
+
+                for (llvm::BasicBlock &BB : *F)
+                {
+                    for (llvm::Instruction &I : BB)
+                    {
+                        for (llvm::Value *Op : I.operands())
+                            inspectValue(Op);
+                        if (auto *CB = llvm::dyn_cast<llvm::CallBase>(&I))
+                            inspectFunction(CB->getCalledFunction());
+                    }
+                }
+            };
+
+            inspectFunction(Root);
+            llvm::sort(loopIds);
+            return loopIds;
+        };
+
+        llvm::DenseMap<unsigned, llvm::SmallVector<int32_t, 4>> taskLoopIdCache;
+        PointerType *Int32PtrTy = Int32Ty->getPointerTo();
+        StructType *TDGTaskDescTy = StructType::get(Ctx, {VoidPtrTy, VoidPtrTy, Int32Ty, Int32Ty, Int32Ty, Int32PtrTy});
+        FunctionType *RunTDGLevelFT = FunctionType::get(
+            VoidTy,
+            {VoidPtrTy, Int32Ty, Int64Ty, Int64Ty},
+            false);
+        FunctionCallee RunTDGLevel = M.getOrInsertFunction("sgpl_run_tdg_level", RunTDGLevelFT);
+
         unsigned transformedGroups = 0;
         for (CallGroup &G : groups)
         {
-            if (G.calls.size() < 2)
-                continue;
+            SmallVector<std::pair<unsigned, unsigned>> order;
+            SmallVector<unsigned> includedTaskIds;
+            SmallVector<CallInst *> includedCalls;
+            SmallVector<int64_t> includedWorks;
+            SmallVector<IntrinsicInst *> requiredStarts;
+            Instruction *launchAnchor = nullptr;
+            int64_t launchWorkUnits = 0;
+            int64_t launchSpanUnits = 0;
 
-            DenseMap<Instruction *, unsigned> idxMap;
-            unsigned idx = 0;
-            for (Instruction &I : *G.bb)
-                idxMap[&I] = idx++;
-
-            if (!isContiguousCallCluster(G, idxMap))
-                continue;
-
-            SmallVector<std::pair<unsigned, unsigned>> order; // (bb index, local i)
             order.reserve(G.calls.size());
             for (unsigned i = 0; i < G.calls.size(); ++i)
-                order.push_back({idxMap[G.calls[i]], i});
+            {
+                auto it = globalInstIndex.find(G.calls[i]);
+                if (it == globalInstIndex.end())
+                    continue;
+                order.push_back({it->second, i});
+            }
+            if (order.empty())
+                continue;
+
             llvm::sort(order, [](const auto &a, const auto &b)
                        { return a.first < b.first; });
 
-            CallInst *anchorCall = G.calls[order.front().second];
-            bool safe = true;
-
-            for (auto &ord : order)
+            for (const auto &ord : order)
             {
                 unsigned localIdx = ord.second;
                 unsigned taskId = G.taskIds[localIdx];
                 CallInst *CI = G.calls[localIdx];
-                Function *wrapper = wrapperFunctions[taskId];
-                if (!wrapper)
+                if (isLocallyLaunchable(taskId, CI))
                 {
-                    safe = false;
+                    launchAnchor = CI;
                     break;
                 }
-                if (!(CI->getType()->isVoidTy() || CI->use_empty()))
-                {
-                    safe = false;
-                    break;
-                }
-
-                TaskArgumentInfo &argInfo = taskArgInfo[taskId];
-                if (argInfo.argStructType)
-                {
-                    if (argInfo.types.size() != CI->arg_size())
-                    {
-                        safe = false;
-                        break;
-                    }
-                    for (unsigned a = 0; a < CI->arg_size(); ++a)
-                    {
-                        Value *op = CI->getArgOperand(a);
-                        if (auto *defI = dyn_cast<Instruction>(op))
-                        {
-                            if (!DT.dominates(defI, anchorCall))
-                            {
-                                safe = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-                else if (CI->arg_size() > 0)
-                {
-                    safe = false;
-                    break;
-                }
-                if (!safe)
-                    break;
             }
 
-            if (!safe)
+            if (!launchAnchor)
                 continue;
 
-            IRBuilder<> B(anchorCall);
-            ArrayType *ThreadArrayTy = ArrayType::get(PthreadTy, G.calls.size());
-            AllocaInst *ThreadArray = B.CreateAlloca(ThreadArrayTy, nullptr,
-                                                     "level_" + Twine(G.levelIdx) + "_threads");
-
-            for (unsigned ordPos = 0; ordPos < order.size(); ++ordPos)
+            for (const auto &ord : order)
             {
-                unsigned localIdx = order[ordPos].second;
+                unsigned localIdx = ord.second;
                 unsigned taskId = G.taskIds[localIdx];
                 CallInst *CI = G.calls[localIdx];
+                int64_t taskWork = estimateTaskWorkUnits(TG.tasks[taskId], PDG);
+                SmallVector<IntrinsicInst *, 4> taskStarts;
 
-                Value *ThreadPtr = B.CreateGEP(
-                    ThreadArrayTy, ThreadArray,
-                    {B.getInt32(0), B.getInt32(ordPos)});
+                if (!collectLaunchSetups(taskId, CI, launchAnchor, taskStarts))
+                    continue;
 
-                Value *ThreadArg = ConstantPointerNull::get(VoidPtrTy);
+                includedTaskIds.push_back(taskId);
+                includedCalls.push_back(CI);
+                includedWorks.push_back(taskWork);
+                launchWorkUnits += taskWork;
+                if (taskWork > launchSpanUnits)
+                    launchSpanUnits = taskWork;
+
+                for (IntrinsicInst *startI : taskStarts)
+                {
+                    if (std::find(requiredStarts.begin(), requiredStarts.end(), startI) == requiredStarts.end())
+                        requiredStarts.push_back(startI);
+                }
+            }
+
+            if (includedCalls.empty())
+                continue;
+
+            if (tdgDebugEnabled())
+            {
+                errs() << "[tdg.group] level=" << G.levelIdx
+                       << " grouped_tasks=" << includedCalls.size()
+                       << " total_calls=" << G.calls.size()
+                       << " work=" << launchWorkUnits
+                       << " span=" << launchSpanUnits
+                       << " anchor=";
+                launchAnchor->print(errs());
+                errs() << "\n";
+
+                for (unsigned idx = 0; idx < includedTaskIds.size(); ++idx)
+                {
+                    errs() << "[tdg.static] level=" << G.levelIdx
+                           << " idx=" << idx
+                           << " task_id=" << includedTaskIds[idx]
+                           << " static_work=" << includedWorks[idx]
+                           << " call=";
+                    includedCalls[idx]->print(errs());
+                    errs() << "\n";
+                }
+            }
+
+            llvm::sort(requiredStarts, [&](Instruction *A, Instruction *B)
+                       { return getInstOrder(A) < getInstOrder(B); });
+
+            IRBuilder<> B(launchAnchor);
+            SmallVector<Instruction *, 8> eraseStarts;
+            for (IntrinsicInst *startI : requiredStarts)
+            {
+                if (!startI)
+                    continue;
+                if (getInstOrder(startI) <= getInstOrder(launchAnchor))
+                    continue;
+                Instruction *cloned = startI->clone();
+                B.Insert(cloned);
+                eraseStarts.push_back(startI);
+            }
+
+            ArrayType *TDGTaskArrayTy = ArrayType::get(TDGTaskDescTy, includedCalls.size());
+            AllocaInst *TDGTaskArray = B.CreateAlloca(
+                TDGTaskArrayTy,
+                nullptr,
+                "tdg_level_" + Twine(G.levelIdx) + "_tasks");
+
+            for (unsigned idx = 0; idx < includedCalls.size(); ++idx)
+            {
+                unsigned taskId = includedTaskIds[idx];
+                CallInst *CI = includedCalls[idx];
                 TaskArgumentInfo &argInfo = taskArgInfo[taskId];
+
+                Value *TaskDescPtr = B.CreateGEP(
+                    TDGTaskArrayTy, TDGTaskArray,
+                    {B.getInt32(0), B.getInt32((int)idx)});
+                Value *FnFieldPtr = B.CreateStructGEP(TDGTaskDescTy, TaskDescPtr, 0);
+                Value *ArgFieldPtr = B.CreateStructGEP(TDGTaskDescTy, TaskDescPtr, 1);
+                Value *ProfileFieldPtr = B.CreateStructGEP(TDGTaskDescTy, TaskDescPtr, 2);
+                Value *WorkFieldPtr = B.CreateStructGEP(TDGTaskDescTy, TaskDescPtr, 3);
+                Value *LoopCountFieldPtr = B.CreateStructGEP(TDGTaskDescTy, TaskDescPtr, 4);
+                Value *LoopIdsFieldPtr = B.CreateStructGEP(TDGTaskDescTy, TaskDescPtr, 5);
+                Value *LoopIdsPtr = ConstantPointerNull::get(Int32PtrTy);
+                int32_t LoopIdCount = 0;
+
+                Value *TaskArg = ConstantPointerNull::get(VoidPtrTy);
                 if (argInfo.argStructType)
                 {
-                    AllocaInst *ArgStruct = B.CreateAlloca(argInfo.argStructType, nullptr,
-                                                           "task_" + Twine(taskId) + "_args");
+                    AllocaInst *ArgStruct = B.CreateAlloca(
+                        argInfo.argStructType,
+                        nullptr,
+                        "task_" + Twine(taskId) + "_args");
+                    bool argSafe = true;
                     for (unsigned a = 0; a < CI->arg_size(); ++a)
                     {
                         Value *FieldPtr = B.CreateStructGEP(argInfo.argStructType, ArgStruct, a);
                         Value *stored = castValueForStore(B, CI->getArgOperand(a), argInfo.types[a]);
                         if (!stored)
                         {
-                            safe = false;
+                            argSafe = false;
                             break;
                         }
                         B.CreateStore(stored, FieldPtr);
                     }
-                    if (!safe)
-                        break;
-                    ThreadArg = B.CreateBitCast(ArgStruct, VoidPtrTy);
+                    if (!argSafe)
+                    {
+                        includedCalls[idx] = nullptr;
+                        continue;
+                    }
+                    TaskArg = B.CreateBitCast(ArgStruct, VoidPtrTy);
                 }
 
-                B.CreateCall(PthreadCreate,
-                             {ThreadPtr,
-                              ConstantPointerNull::get(VoidPtrTy),
-                              wrapperFunctions[taskId],
-                              ThreadArg});
+                if (!taskLoopIdCache.count(taskId))
+                    taskLoopIdCache[taskId] = collectTaskLoopIds(wrapperFunctions[taskId]);
+
+                if (!taskLoopIdCache[taskId].empty())
+                {
+                    ArrayType *LoopIdsTy = ArrayType::get(Int32Ty, taskLoopIdCache[taskId].size());
+                    AllocaInst *LoopIdsAlloca = B.CreateAlloca(LoopIdsTy, nullptr, "task_" + Twine(taskId) + "_loop_ids");
+                    for (unsigned loopIdx = 0; loopIdx < taskLoopIdCache[taskId].size(); ++loopIdx)
+                    {
+                        Value *LoopIdPtr = B.CreateGEP(LoopIdsTy,
+                                                       LoopIdsAlloca,
+                                                       {B.getInt32(0), B.getInt32((int)loopIdx)});
+                        B.CreateStore(B.getInt32(taskLoopIdCache[taskId][loopIdx]), LoopIdPtr);
+                    }
+                    LoopIdsPtr = B.CreateGEP(LoopIdsTy,
+                                             LoopIdsAlloca,
+                                             {B.getInt32(0), B.getInt32(0)});
+                    LoopIdCount = (int32_t)taskLoopIdCache[taskId].size();
+                }
+
+                B.CreateStore(B.CreateBitCast(wrapperFunctions[taskId], VoidPtrTy), FnFieldPtr);
+                B.CreateStore(TaskArg, ArgFieldPtr);
+                B.CreateStore(B.getInt32((int32_t)taskId), ProfileFieldPtr);
+                B.CreateStore(B.getInt32((int32_t)std::min<int64_t>(includedWorks[idx], (int64_t)std::numeric_limits<int32_t>::max())), WorkFieldPtr);
+                B.CreateStore(B.getInt32(LoopIdCount), LoopCountFieldPtr);
+                B.CreateStore(LoopIdsPtr, LoopIdsFieldPtr);
             }
 
-            if (!safe)
+            SmallVector<CallInst *> eraseCalls;
+            eraseCalls.reserve(includedCalls.size());
+            unsigned actualCount = 0;
+            launchWorkUnits = 0;
+            launchSpanUnits = 0;
+
+            for (unsigned idx = 0; idx < includedCalls.size(); ++idx)
+            {
+                if (!includedCalls[idx])
+                    continue;
+                eraseCalls.push_back(includedCalls[idx]);
+                actualCount++;
+                launchWorkUnits += includedWorks[idx];
+                if (includedWorks[idx] > launchSpanUnits)
+                    launchSpanUnits = includedWorks[idx];
+            }
+
+            if (actualCount == 0)
                 continue;
 
-            for (unsigned ordPos = 0; ordPos < order.size(); ++ordPos)
-            {
-                Value *ThreadHandle = B.CreateLoad(
-                    PthreadTy,
-                    B.CreateGEP(ThreadArrayTy, ThreadArray,
-                                {B.getInt32(0), B.getInt32(ordPos)}));
-                B.CreateCall(PthreadJoin, {ThreadHandle, ConstantPointerNull::get(VoidPtrTy)});
-            }
+            Value *TDGTaskBase = B.CreateGEP(
+                TDGTaskArrayTy, TDGTaskArray,
+                {B.getInt32(0), B.getInt32(0)});
+            B.CreateCall(
+                RunTDGLevel,
+                {B.CreateBitCast(TDGTaskBase, VoidPtrTy),
+                 B.getInt32((int32_t)actualCount),
+                 ConstantInt::get(Int64Ty, launchWorkUnits),
+                 ConstantInt::get(Int64Ty, launchSpanUnits)});
 
-            SmallVector<CallInst *> eraseOrder;
-            eraseOrder.reserve(order.size());
-            for (auto &ord : order)
-                eraseOrder.push_back(G.calls[ord.second]);
-            for (auto it = eraseOrder.rbegin(); it != eraseOrder.rend(); ++it)
+            llvm::sort(eraseStarts, [&](Instruction *A, Instruction *B)
+                       { return getInstOrder(A) > getInstOrder(B); });
+            for (Instruction *I : eraseStarts)
+                I->eraseFromParent();
+
+            for (auto it = eraseCalls.rbegin(); it != eraseCalls.rend(); ++it)
                 (*it)->eraseFromParent();
 
             transformedGroups++;
         }
 
         llvm::nulls() << "✓ CFG-preserving scheduler applied in-place: "
-                      << transformedGroups << " grouped parallel regions transformed\n";
+                      << transformedGroups << " runtime TDG regions transformed\n";
     }
 
 } // namespace llvm

@@ -459,271 +459,275 @@ void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
 
 void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
 {
-    // // Lookup source graph (base)
-    // auto it = GraphMap.find(GC->graphName);
-    // if (it == GraphMap.end())
-    // {
-    //     llvm::errs() << "graphComprehension: graph not found: " << GC->graphName << "\n";
-    //     return;
-    // }
-    // llvm::Value *srcGraphPtr = it->second;
+    llvm::Value *srcGraphPtr = loadGraphValue(GC->graphName);
+    GraphDeclNode *astGraph = nullptr;
+    auto astIt = GraphAstMap.find(GC->graphName);
+    if (astIt != GraphAstMap.end())
+        astGraph = astIt->second;
 
-    // // Also lookup AST graph to get node ID -> index mapping
-    // auto astIt = GraphAstMap.find(GC->graphName);
-    // if (astIt == GraphAstMap.end())
-    // {
-    //     llvm::errs() << "graphComprehension: AST graph not found: " << GC->graphName << "\n";
-    //     return;
-    // }
-    // GraphDeclNode *astGraph = astIt->second;
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *i32Ty = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *graphPtrTy = GraphTy->getPointerTo();
 
-    // llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
-    // llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
+    llvm::Function *fn = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> tmpB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
 
-    // auto buildGraphStruct = [&](llvm::Value *newN, llvm::Value *newM,
-    //                             llvm::Value *newRP, llvm::Value *newCI) -> llvm::Value * {
-    //     llvm::FunctionType *mallocFT = llvm::FunctionType::get(
-    //         llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)),
-    //         {i64Ty}, false);
-    //     llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
-    //     uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
-    //     llvm::Value *newGraphRaw = Builder.CreateCall(mallocDecl, llvm::ConstantInt::get(i64Ty, graphSize));
-    //     llvm::Value *newGraphPtr = Builder.CreateBitCast(newGraphRaw, GraphTy->getPointerTo());
+    auto buildGraphStruct = [&](llvm::Value *newN, llvm::Value *newM,
+                                llvm::Value *newRP, llvm::Value *newCI) -> llvm::Value * {
+        llvm::FunctionType *mallocFT = llvm::FunctionType::get(i8PtrTy, {i64Ty}, false);
+        llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
+        uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
+        llvm::Value *newGraphRaw = Builder.CreateCall(mallocDecl, {llvm::ConstantInt::get(i64Ty, graphSize)});
+        llvm::Value *newGraphPtr = Builder.CreateBitCast(newGraphRaw, graphPtrTy);
 
-    //     llvm::Value *newNPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 0);
-    //     Builder.CreateStore(newN, newNPtr);
-    //     llvm::Value *newMPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 1);
-    //     Builder.CreateStore(newM, newMPtr);
-    //     llvm::Value *newRPPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 2);
-    //     Builder.CreateStore(newRP, newRPPtr);
-    //     llvm::Value *newCIPtr = Builder.CreateStructGEP(GraphTy, newGraphPtr, 3);
-    //     Builder.CreateStore(newCI, newCIPtr);
+        Builder.CreateStore(newN, Builder.CreateStructGEP(GraphTy, newGraphPtr, 0));
+        Builder.CreateStore(newM, Builder.CreateStructGEP(GraphTy, newGraphPtr, 1));
+        Builder.CreateStore(newRP, Builder.CreateStructGEP(GraphTy, newGraphPtr, 2));
+        Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
+        Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
+                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
+        return newGraphPtr;
+    };
 
-    //     return newGraphPtr;
-    // };
+    auto loadCSR = [&](llvm::Value *graphPtr,
+                       llvm::Value *&nVal,
+                       llvm::Value *&rowPtr,
+                       llvm::Value *&colPtr) {
+        nVal = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "g_n");
+        rowPtr = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty),
+                                    Builder.CreateStructGEP(GraphTy, graphPtr, 2),
+                                    "g_row_ptr");
+        colPtr = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty),
+                                    Builder.CreateStructGEP(GraphTy, graphPtr, 3),
+                                    "g_col_ptr");
+    };
 
-    // auto loadCSR = [&](llvm::Value *graphPtr,
-    //                    llvm::Value *&nVal,
-    //                    llvm::Value *&rowPtr,
-    //                    llvm::Value *&colPtr) {
-    //     llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
-    //     nVal = Builder.CreateLoad(i64Ty, nPtr, "g_n");
+    auto allocOutGraph = [&](const std::string &name) {
+        llvm::AllocaInst *outN = tmpB.CreateAlloca(i64Ty, nullptr, name + "_out_n");
+        llvm::AllocaInst *outM = tmpB.CreateAlloca(i64Ty, nullptr, name + "_out_m");
+        llvm::AllocaInst *outRP = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i64Ty), nullptr, name + "_out_rp");
+        llvm::AllocaInst *outCI = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i32Ty), nullptr, name + "_out_ci");
+        return std::make_tuple(outN, outM, outRP, outCI);
+    };
 
-    //     llvm::Value *rpPtrGEP = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr");
-    //     rowPtr = Builder.CreateLoad(
-    //         llvm::PointerType::getUnqual(i64Ty), rpPtrGEP, "g_row_ptr");
+    if (!GC->graphOperands.empty())
+    {
+        llvm::FunctionType *combFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
 
-    //     llvm::Value *ciPtrGEP = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr");
-    //     colPtr = Builder.CreateLoad(
-    //         llvm::PointerType::getUnqual(i32Ty), ciPtrGEP, "g_col_ptr");
-    // };
+        llvm::FunctionCallee unionDecl = Module.getOrInsertFunction("graph_union_runtime", combFT);
+        llvm::FunctionCallee interDecl = Module.getOrInsertFunction("graph_intersection_runtime", combFT);
 
-    // // Apply graph operations (AND/OR between graphs) before comprehension
-    // if (!GC->graphOperands.empty())
-    // {
-    //     llvm::Function *F = Builder.GetInsertBlock()->getParent();
-    //     llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+        for (size_t i = 0; i < GC->graphOperands.size(); ++i)
+        {
+            llvm::Value *rhsGraphPtr = loadGraphValue(GC->graphOperands[i]);
 
-    //     llvm::FunctionType *combFT = llvm::FunctionType::get(
-    //         llvm::Type::getVoidTy(Context),
-    //         {i64Ty,
-    //          llvm::PointerType::getUnqual(i64Ty),
-    //          llvm::PointerType::getUnqual(i32Ty),
-    //          llvm::PointerType::getUnqual(i64Ty),
-    //          llvm::PointerType::getUnqual(i32Ty),
-    //          llvm::PointerType::getUnqual(i64Ty),
-    //          llvm::PointerType::getUnqual(i64Ty),
-    //          llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
-    //          llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
-    //         false);
+            llvm::Value *nL = nullptr;
+            llvm::Value *rpL = nullptr;
+            llvm::Value *ciL = nullptr;
+            loadCSR(srcGraphPtr, nL, rpL, ciL);
 
-    //     llvm::FunctionCallee unionDecl = Module.getOrInsertFunction("graph_union_runtime", combFT);
-    //     llvm::FunctionCallee interDecl = Module.getOrInsertFunction("graph_intersection_runtime", combFT);
+            llvm::Value *nR = nullptr;
+            llvm::Value *rpR = nullptr;
+            llvm::Value *ciR = nullptr;
+            loadCSR(rhsGraphPtr, nR, rpR, ciR);
+            (void)nR;
 
-    //     for (size_t i = 0; i < GC->graphOperands.size(); ++i)
-    //     {
-    //         auto itR = GraphMap.find(GC->graphOperands[i]);
-    //         if (itR == GraphMap.end())
-    //         {
-    //             llvm::errs() << "graphComprehension: graph not found: " << GC->graphOperands[i] << "\n";
-    //             return;
-    //         }
+            auto [outN, outM, outRP, outCI] = allocOutGraph(GC->targetName + "_combine_" + std::to_string(i));
+            llvm::FunctionCallee opDecl = (GC->ops[i] == GraphExprOp::And) ? interDecl : unionDecl;
+            Builder.CreateCall(opDecl, {nL, rpL, ciL, rpR, ciR, outN, outM, outRP, outCI});
 
-    //         llvm::Value *nL = nullptr;
-    //         llvm::Value *rpL = nullptr;
-    //         llvm::Value *ciL = nullptr;
-    //         loadCSR(srcGraphPtr, nL, rpL, ciL);
+            llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
+            llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
+            llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP);
+            llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI);
+            srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
+        }
+    }
 
-    //         llvm::Value *nR = nullptr;
-    //         llvm::Value *rpR = nullptr;
-    //         llvm::Value *ciR = nullptr;
-    //         loadCSR(itR->second, nR, rpR, ciR);
+    if (GC->condition)
+    {
+        std::vector<int32_t> tokenKinds;
+        std::vector<int32_t> tokenArg1;
+        std::vector<int32_t> tokenArg2;
 
-    //         llvm::AllocaInst *outN = tmpB.CreateAlloca(i64Ty, nullptr, "op_out_n");
-    //         llvm::AllocaInst *outM = tmpB.CreateAlloca(i64Ty, nullptr, "op_out_m");
-    //         llvm::AllocaInst *outRP = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i64Ty), nullptr, "op_out_rp");
-    //         llvm::AllocaInst *outCI = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i32Ty), nullptr, "op_out_ci");
+        std::function<void(const std::shared_ptr<GraphConditionNode> &)> emitPostfix =
+            [&](const std::shared_ptr<GraphConditionNode> &cond) {
+                if (!cond)
+                    return;
+                emitPostfix(cond->left);
+                emitPostfix(cond->right);
 
-    //         llvm::FunctionCallee opDecl = (GC->ops[i] == GraphExprOp::And) ? interDecl : unionDecl;
-    //         Builder.CreateCall(opDecl, {nL, rpL, ciL, rpR, ciR, outN, outM, outRP, outCI});
+                switch (cond->op)
+                {
+                case GraphConditionOp::Connected:
+                {
+                    int mappedId = cond->nodeId;
+                    if (astGraph && !astGraph->isFileGraph)
+                    {
+                        auto it = std::find(astGraph->node_ids.begin(), astGraph->node_ids.end(), cond->nodeId);
+                        if (it != astGraph->node_ids.end())
+                            mappedId = static_cast<int>(std::distance(astGraph->node_ids.begin(), it));
+                    }
+                    tokenKinds.push_back(1);
+                    tokenArg1.push_back(mappedId);
+                    tokenArg2.push_back(0);
+                    break;
+                }
+                case GraphConditionOp::Cycle:
+                    tokenKinds.push_back(2);
+                    tokenArg1.push_back(0);
+                    tokenArg2.push_back(0);
+                    break;
+                case GraphConditionOp::Degree:
+                {
+                    int opCode = 0;
+                    switch (cond->degreeOp)
+                    {
+                    case GraphDegreeOp::Eq: opCode = 1; break;
+                    case GraphDegreeOp::Ne: opCode = 2; break;
+                    case GraphDegreeOp::Le: opCode = 3; break;
+                    case GraphDegreeOp::Ge: opCode = 4; break;
+                    case GraphDegreeOp::Lt: opCode = 5; break;
+                    case GraphDegreeOp::Gt: opCode = 6; break;
+                    default: break;
+                    }
+                    tokenKinds.push_back(3);
+                    tokenArg1.push_back(opCode);
+                    tokenArg2.push_back(cond->degreeValue);
+                    break;
+                }
+                case GraphConditionOp::And:
+                    tokenKinds.push_back(4);
+                    tokenArg1.push_back(0);
+                    tokenArg2.push_back(0);
+                    break;
+                case GraphConditionOp::Or:
+                    tokenKinds.push_back(5);
+                    tokenArg1.push_back(0);
+                    tokenArg2.push_back(0);
+                    break;
+                }
+            };
+        emitPostfix(GC->condition);
 
-    //         llvm::Value *newN = Builder.CreateLoad(i64Ty, outN, "op_new_n");
-    //         llvm::Value *newM = Builder.CreateLoad(i64Ty, outM, "op_new_m");
-    //         llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP, "op_new_rp");
-    //         llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI, "op_new_ci");
+        llvm::ArrayType *tokenArrTy = llvm::ArrayType::get(i32Ty, tokenKinds.size());
+        llvm::AllocaInst *kindsAlloca = tmpB.CreateAlloca(tokenArrTy, nullptr, GC->targetName + "_gc_kinds");
+        llvm::AllocaInst *arg1Alloca = tmpB.CreateAlloca(tokenArrTy, nullptr, GC->targetName + "_gc_arg1");
+        llvm::AllocaInst *arg2Alloca = tmpB.CreateAlloca(tokenArrTy, nullptr, GC->targetName + "_gc_arg2");
 
-    //         srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
-    //     }
-    // }
+        for (size_t i = 0; i < tokenKinds.size(); ++i)
+        {
+            llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+            llvm::Value *kindPtr = Builder.CreateGEP(tokenArrTy, kindsAlloca, {Builder.getInt32(0), idx});
+            llvm::Value *arg1Ptr = Builder.CreateGEP(tokenArrTy, arg1Alloca, {Builder.getInt32(0), idx});
+            llvm::Value *arg2Ptr = Builder.CreateGEP(tokenArrTy, arg2Alloca, {Builder.getInt32(0), idx});
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, tokenKinds[i]), kindPtr);
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, tokenArg1[i]), arg1Ptr);
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, tokenArg2[i]), arg2Ptr);
+        }
 
-    // // Load source graph CSR after operations
-    // llvm::Value *nVal = nullptr;
-    // llvm::Value *rowPtr = nullptr;
-    // llvm::Value *colPtr = nullptr;
-    // loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
+        llvm::FunctionType *compFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             i32Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
 
-    // if (!GC->condition)
-    // {
-    //     GraphMap[GC->targetName] = srcGraphPtr;
-    //     return;
-    // }
+        llvm::FunctionCallee compDecl = Module.getOrInsertFunction("graph_comprehension_runtime", compFT);
 
-    // // Flatten condition tree to extract all "connected with" node IDs and determine AND/OR
-    // std::vector<int> conditionNodeIds;  // original node IDs
-    // int is_and = 0;  // 0 = OR, 1 = AND
-    // bool include_cycle = false;
-    // bool has_degree = false;
-    // int degree_op = 0;
-    // int degree_value = 0;
+        llvm::Value *nVal = nullptr;
+        llvm::Value *rowPtr = nullptr;
+        llvm::Value *colPtr = nullptr;
+        loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
 
-    // std::function<void(std::shared_ptr<GraphConditionNode>)> collect = [&](auto cond) {
-    //     if (cond->op == GraphConditionOp::Connected) {
-    //         conditionNodeIds.push_back(cond->nodeId);
-    //     } else if (cond->op == GraphConditionOp::Cycle) {
-    //         include_cycle = true;
-    //     } else if (cond->op == GraphConditionOp::Degree) {
-    //         if (has_degree) {
-    //             llvm::errs() << "graphComprehension: multiple degree conditions not supported\n";
-    //             return;
-    //         }
-    //         has_degree = true;
-    //         switch (cond->degreeOp) {
-    //             case GraphDegreeOp::Eq: degree_op = 1; break;
-    //             case GraphDegreeOp::Ne: degree_op = 2; break;
-    //             case GraphDegreeOp::Le: degree_op = 3; break;
-    //             case GraphDegreeOp::Ge: degree_op = 4; break;
-    //             case GraphDegreeOp::Lt: degree_op = 5; break;
-    //             case GraphDegreeOp::Gt: degree_op = 6; break;
-    //             default: degree_op = 0; break;
-    //         }
-    //         degree_value = cond->degreeValue;
-    //     } else if (cond->op == GraphConditionOp::And) {
-    //         is_and = 1;  // If we see any AND, use AND mode
-    //         if (cond->left) collect(cond->left);
-    //         if (cond->right) collect(cond->right);
-    //     } else if (cond->op == GraphConditionOp::Or) {
-    //         if (cond->left) collect(cond->left);
-    //         if (cond->right) collect(cond->right);
-    //     }
-    // };
-    // collect(GC->condition);
+        auto [outN, outM, outRP, outCI] = allocOutGraph(GC->targetName + "_filter");
+        llvm::Value *kindsPtr = Builder.CreateGEP(tokenArrTy, kindsAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        llvm::Value *arg1Ptr = Builder.CreateGEP(tokenArrTy, arg1Alloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        llvm::Value *arg2Ptr = Builder.CreateGEP(tokenArrTy, arg2Alloca, {Builder.getInt32(0), Builder.getInt32(0)});
 
-    // if (conditionNodeIds.empty() && !include_cycle && !has_degree) {
-    //     llvm::errs() << "graphComprehension: no condition nodes found\n";
-    //     return;
-    // }
+        Builder.CreateCall(compDecl,
+                           {nVal, rowPtr, colPtr,
+                            kindsPtr, arg1Ptr, arg2Ptr,
+                            llvm::ConstantInt::get(i32Ty, tokenKinds.size()),
+                            outN, outM, outRP, outCI});
 
-    // // Map original node IDs to CSR indices
-    // std::vector<int> conditionIndices;
-    // const auto &materializedNodes = astGraph->materializedNodes;
-    // for (int nodeId : conditionNodeIds) {
-    //     auto it = std::find(materializedNodes.begin(), materializedNodes.end(), nodeId);
-    //     if (it != materializedNodes.end()) {
-    //         int csrIndex = std::distance(materializedNodes.begin(), it);
-    //         conditionIndices.push_back(csrIndex);
-    //     } else {
-    //         llvm::errs() << "graphComprehension: node ID " << nodeId << " not found in graph\n";
-    //     }
-    // }
+        llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
+        llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
+        llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP);
+        llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI);
+        srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
+    }
 
-    // if (conditionIndices.empty() && !include_cycle && !has_degree) {
-    //     llvm::errs() << "graphComprehension: no valid condition indices found\n";
-    //     return;
-    // }
+    llvm::Value *graphStorage = nullptr;
+    if (EmittingTopLevel)
+    {
+        graphStorage = new llvm::GlobalVariable(
+            Module,
+            graphPtrTy,
+            false,
+            llvm::GlobalValue::InternalLinkage,
+            llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(graphPtrTy)),
+            GC->targetName);
+    }
+    else
+    {
+        graphStorage = createEntryBlockAlloca(fn, GC->targetName, graphPtrTy);
+    }
 
-    // llvm::Function *F = Builder.GetInsertBlock()->getParent();
-    // llvm::IRBuilder<> tmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+    Builder.CreateStore(srcGraphPtr, graphStorage);
+    GraphMap[GC->targetName] = graphStorage;
+    NamedValues[GC->targetName] = graphStorage;
 
-    // size_t condCount = conditionIndices.size();
-    // llvm::AllocaInst *condNodesAlloca = nullptr;
-    // if (condCount > 0)
-    // {
-    //     condNodesAlloca = tmpB.CreateAlloca(
-    //         llvm::ArrayType::get(i32Ty, condCount), nullptr, GC->targetName + "_cond_indices");
+    llvm::FunctionType *registerFT = llvm::FunctionType::get(Builder.getVoidTy(), {graphPtrTy}, false);
+    auto registerFn = Module.getOrInsertFunction("graph_register_csr_metadata", registerFT);
+    Builder.CreateCall(registerFn, {srcGraphPtr});
 
-    //     for (size_t i = 0; i < condCount; ++i) {
-    //         llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
-    //         llvm::Value *elemPtr = Builder.CreateGEP(
-    //             llvm::ArrayType::get(i32Ty, condCount),
-    //             condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), idx}, "cond_elem_ptr");
-    //         Builder.CreateStore(llvm::ConstantInt::get(i32Ty, conditionIndices[i]), elemPtr);
-    //     }
-    // }
+    llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
+    auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+    auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+    GraphNodesMap[GC->targetName] = Builder.CreateCall(getNodeBmFn, {srcGraphPtr}, GC->targetName + "_nodes_bm");
+    GraphEdgesMap[GC->targetName] = Builder.CreateCall(getEdgeBmFn, {srcGraphPtr}, GC->targetName + "_edges_bm");
 
-    // // Allocate output pointers
-    // llvm::AllocaInst *outN = tmpB.CreateAlloca(i64Ty, nullptr, GC->targetName + "_out_n");
-    // llvm::AllocaInst *outM = tmpB.CreateAlloca(i64Ty, nullptr, GC->targetName + "_out_m");
-    // llvm::AllocaInst *outRP = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i64Ty), nullptr, GC->targetName + "_out_rp");
-    // llvm::AllocaInst *outCI = tmpB.CreateAlloca(llvm::PointerType::getUnqual(i32Ty), nullptr, GC->targetName + "_out_ci");
+    auto *i32PtrTy = llvm::PointerType::getUnqual(i32Ty);
+    llvm::FunctionType *getPairsFT = llvm::FunctionType::get(i32PtrTy, {graphPtrTy}, false);
+    auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+    RuntimeEdgePairsPtr = Builder.CreateCall(getPairsFn, {srcGraphPtr}, GC->targetName + "_edge_pairs_ptr");
+    GraphEdgePairsPtrMap[GC->targetName] = RuntimeEdgePairsPtr;
 
-    // // Declare: void graph_comprehension_runtime(int64_t, int64_t*, int32_t*, int32_t*, int32_t, int32_t, int32_t, int32_t, int32_t, int64_t*, int64_t*, int64_t**, int32_t**);
-    // llvm::FunctionType *compFT = llvm::FunctionType::get(
-    //     llvm::Type::getVoidTy(Context),
-    //     {i64Ty,
-    //      llvm::PointerType::getUnqual(i64Ty),
-    //      llvm::PointerType::getUnqual(i32Ty),
-    //      llvm::PointerType::getUnqual(i32Ty),
-    //      i32Ty,
-    //      i32Ty,
-    //      i32Ty,
-    //      i32Ty,
-    //      i32Ty,
-    //      llvm::PointerType::getUnqual(i64Ty),
-    //      llvm::PointerType::getUnqual(i64Ty),
-    //      llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
-    //      llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
-    //     false);
+    llvm::FunctionType *getCountFT = llvm::FunctionType::get(i64Ty, {graphPtrTy}, false);
+    auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
+    RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {srcGraphPtr}, GC->targetName + "_edge_pairs_count");
+    GraphEdgePairsCountMap[GC->targetName] = RuntimeEdgePairsCount;
 
-    // llvm::FunctionCallee compDecl = Module.getOrInsertFunction("graph_comprehension_runtime", compFT);
-
-    // // Get pointer to first element of condition indices array
-    // llvm::Value *condNodesPtr = llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty));
-    // if (condNodesAlloca)
-    // {
-    //     condNodesPtr = Builder.CreateGEP(
-    //         llvm::ArrayType::get(i32Ty, condCount),
-    //         condNodesAlloca, {llvm::ConstantInt::get(i32Ty, 0), llvm::ConstantInt::get(i32Ty, 0)},
-    //         "cond_indices_ptr");
-    // }
-
-    // Builder.CreateCall(compDecl, {
-    //     nVal, rowPtr, colPtr,
-    //     condNodesPtr, llvm::ConstantInt::get(i32Ty, condCount),
-    //     llvm::ConstantInt::get(i32Ty, is_and),
-    //     llvm::ConstantInt::get(i32Ty, include_cycle ? 1 : 0),
-    //     llvm::ConstantInt::get(i32Ty, degree_op),
-    //     llvm::ConstantInt::get(i32Ty, degree_value),
-    //     outN, outM, outRP, outCI
-    // });
-
-    // // Load results
-    // llvm::Value *newN = Builder.CreateLoad(i64Ty, outN, "new_n");
-    // llvm::Value *newM = Builder.CreateLoad(i64Ty, outM, "new_m");
-    // llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP, "new_rp");
-    // llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI, "new_ci");
-
-    // llvm::Value *newGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
-    // GraphMap[GC->targetName] = newGraphPtr;
+    llvm::FunctionType *initFT = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(Context),
+        {graphPtrTy, i64Ty, i64Ty, i8PtrTy, i8PtrTy, i32PtrTy},
+        false);
+    auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+    llvm::Value *nVal = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, srcGraphPtr, 0));
+    llvm::Value *mVal = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, srcGraphPtr, 1));
+    Builder.CreateCall(initFn, {srcGraphPtr, nVal, mVal, GraphNodesMap[GC->targetName],
+                                GraphEdgesMap[GC->targetName], RuntimeEdgePairsPtr});
 }
 
 void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
@@ -2349,6 +2353,51 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             return phi;
         }
 
+        if (FC->name == "weight")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error("weight first argument must be a graph name");
+
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
+            llvm::Value *u = visitExpr(FC->arguments[1].get());
+            llvm::Value *v = visitExpr(FC->arguments[2].get());
+            auto *i32TyLocal = Builder.getInt32Ty();
+            if (u->getType() != i32TyLocal)
+                u = Builder.CreateIntCast(u, i32TyLocal, true);
+            if (v->getType() != i32TyLocal)
+                v = Builder.CreateIntCast(v, i32TyLocal, true);
+
+            llvm::FunctionType *weightFT =
+                llvm::FunctionType::get(i32TyLocal, {GraphTy->getPointerTo(), i32TyLocal, i32TyLocal}, false);
+            auto weightFn = Module.getOrInsertFunction("graph_get_edge_weight", weightFT);
+            return Builder.CreateCall(weightFn, {graphPtr, u, v}, "weighttmp");
+        }
+
+        if (FC->name == "edgeWeight" || FC->name == "edgeSrc" || FC->name == "edgeDst")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error(FC->name + " first argument must be a graph name");
+
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
+            llvm::Value *eid = visitExpr(FC->arguments[1].get());
+            auto *i32TyLocal = Builder.getInt32Ty();
+            if (eid->getType() != i32TyLocal)
+                eid = Builder.CreateIntCast(eid, i32TyLocal, true);
+
+            const char *runtimeName = "graph_get_edge_weight_by_id";
+            if (FC->name == "edgeSrc")
+                runtimeName = "graph_get_edge_src_by_id";
+            else if (FC->name == "edgeDst")
+                runtimeName = "graph_get_edge_dst_by_id";
+
+            llvm::FunctionType *edgeFT =
+                llvm::FunctionType::get(i32TyLocal, {GraphTy->getPointerTo(), i32TyLocal}, false);
+            auto edgeFn = Module.getOrInsertFunction(runtimeName, edgeFT);
+            return Builder.CreateCall(edgeFn, {graphPtr, eid}, FC->name + ".tmp");
+        }
+
         // Lookup the prototype
         llvm::Function *callee = FunctionProtos[FC->name];
         if (!callee)
@@ -3005,6 +3054,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     GraphMap[G->name] = graphStorage;
     NamedValues[G->name] = graphStorage;
     GraphAstMap[G->name] = G;
+    GraphAstMap[G->name] = G;
 
     auto *i8Ty = llvm::Type::getInt8Ty(Context);
     llvm::FunctionType *deserializeFT =
@@ -3089,17 +3139,70 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 {
     auto *I64 = llvm::Type::getInt64Ty(Context);
     auto *I32 = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *graphPtrTy = llvm::PointerType::get(GraphTy, 0);
 
-    GraphTy = llvm::StructType::create(
-        Context,
+    if (G->isFileGraph)
+    {
+        llvm::Value *fnameStr = Builder.CreateGlobalStringPtr(
+            G->edgeFileName, G->name + "_filename");
+
+        llvm::FunctionType *loadFT = llvm::FunctionType::get(
+            graphPtrTy, {i8PtrTy}, false);
+        auto loadFn = Module.getOrInsertFunction("load_weighted_graph_from_file", loadFT);
+        llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "weighted_graph_ptr");
+
+        llvm::Value *graphStorage = nullptr;
+        if (EmittingTopLevel)
         {
-            llvm::Type::getInt64Ty(Context),                               // n
-            llvm::Type::getInt64Ty(Context),                               // m
-            llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(Context)), // row_ptr
-            llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context)), // col_idx
-            llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context))  // weights
-        },
-        "struct.Graph");
+            graphStorage = new llvm::GlobalVariable(
+                Module,
+                graphPtrTy,
+                false,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(graphPtrTy)),
+                G->name);
+        }
+        else
+        {
+            graphStorage = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(), G->name, graphPtrTy);
+        }
+        Builder.CreateStore(graphPtr, graphStorage);
+        GraphMap[G->name] = graphStorage;
+        NamedValues[G->name] = graphStorage;
+
+        llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
+        auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+        auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+        GraphNodesMap[G->name] = Builder.CreateCall(getNodeBmFn, {graphPtr}, G->name + "_nodes_bm");
+        GraphEdgesMap[G->name] = Builder.CreateCall(getEdgeBmFn, {graphPtr}, G->name + "_edges_bm");
+
+        auto *i32PtrTy = llvm::PointerType::getUnqual(I32);
+        llvm::FunctionType *getPairsFT = llvm::FunctionType::get(i32PtrTy, {graphPtrTy}, false);
+        auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+        RuntimeEdgePairsPtr = Builder.CreateCall(getPairsFn, {graphPtr}, "edge_pairs_ptr");
+        GraphEdgePairsPtrMap[G->name] = RuntimeEdgePairsPtr;
+
+        llvm::FunctionType *getCountFT = llvm::FunctionType::get(i64Ty, {graphPtrTy}, false);
+        auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
+        RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
+        GraphEdgePairsCountMap[G->name] = RuntimeEdgePairsCount;
+
+        llvm::FunctionType *initFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {graphPtrTy, i64Ty, i64Ty, i8PtrTy, i8PtrTy,
+             llvm::PointerType::getUnqual(I32)},
+            false);
+        auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+
+        llvm::Value *nVal = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0));
+        llvm::Value *mVal = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 1));
+        Builder.CreateCall(initFn, {graphPtr, nVal, mVal, GraphNodesMap[G->name],
+                                    GraphEdgesMap[G->name], RuntimeEdgePairsPtr});
+
+        return graphPtr;
+    }
 
     unsigned rpLen = static_cast<unsigned>(G->n + 1);
     auto *arrRP = llvm::ArrayType::get(I64, rpLen);
@@ -3178,8 +3281,6 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
 
     // Define the memcpy intrinsic type
-    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-    auto *i64Ty = llvm::Type::getInt64Ty(Context);
     auto *memcpyTy = llvm::Intrinsic::getDeclaration(
         &Module, llvm::Intrinsic::memcpy,
         {i8PtrTy, i8PtrTy, i64Ty});
@@ -3319,6 +3420,48 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         GraphNodesMap[G->name] = emitBitmapFromBlob(G->nodes_blob, G->name + "_nodes_blob");
         GraphEdgesMap[G->name] = emitBitmapFromBlob(G->edges_blob, G->name + "_edges_blob");
     }
+
+    auto *pairsArrTy =
+        llvm::ArrayType::get(I32, std::max<size_t>(1, G->edge_list.size() * 2));
+    std::vector<llvm::Constant *> pairVals;
+    pairVals.reserve(std::max<size_t>(1, G->edge_list.size() * 2));
+    if (G->edge_list.empty())
+    {
+        pairVals.push_back(llvm::ConstantInt::get(I32, 0));
+    }
+    else
+    {
+        for (const auto &e : G->edge_list)
+        {
+            pairVals.push_back(llvm::ConstantInt::get(I32, static_cast<int32_t>(e.first)));
+            pairVals.push_back(llvm::ConstantInt::get(I32, static_cast<int32_t>(e.second)));
+        }
+    }
+
+    auto *pairsConst = llvm::ConstantArray::get(pairsArrTy, pairVals);
+    auto *pairsGV = new llvm::GlobalVariable(
+        Module, pairsArrTy, true, llvm::GlobalValue::PrivateLinkage,
+        pairsConst, G->name + "_edge_pairs_flat");
+    llvm::Value *zero = Builder.getInt32(0);
+    RuntimeEdgePairsPtr =
+        Builder.CreateInBoundsGEP(pairsArrTy, pairsGV, {zero, zero}, G->name + "_pairs_ptr");
+    RuntimeEdgePairsCount =
+        llvm::ConstantInt::get(i64Ty, static_cast<uint64_t>(G->edge_list.size()));
+    GraphEdgePairsPtrMap[G->name] = RuntimeEdgePairsPtr;
+    GraphEdgePairsCountMap[G->name] = RuntimeEdgePairsCount;
+
+    llvm::FunctionType *initFT = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(Context),
+        {graphPtrTy, i64Ty, i64Ty, i8PtrTy, i8PtrTy,
+         llvm::PointerType::getUnqual(I32)},
+        false);
+    auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+    Builder.CreateCall(initFn, {graphPtr,
+                                llvm::ConstantInt::get(i64Ty, G->n),
+                                llvm::ConstantInt::get(i64Ty, G->m),
+                                GraphNodesMap[G->name],
+                                GraphEdgesMap[G->name],
+                                RuntimeEdgePairsPtr});
 
     return graphPtr;
 }

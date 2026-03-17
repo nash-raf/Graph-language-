@@ -671,6 +671,7 @@ int main(int argc, char **argv)
     auto ms = [](auto a, auto b) {
         return std::chrono::duration<double, std::milli>(b - a).count();
     };
+    
     errs() << "\n=== Compiler Phase Timings ===\n";
     errs() << "  Lexing + Parsing : " << llvm::format("%8.2f", ms(t_start, t_parse))  << " ms\n";
     errs() << "  AST Building     : " << llvm::format("%8.2f", ms(t_parse, t_ast))     << " ms\n";

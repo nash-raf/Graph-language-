@@ -1,8 +1,50 @@
 #include "roaring_bitmap.h"
+#include "parallel_runtime.h"
 #include <immintrin.h>
+#include <cstdlib>
 #include <cstdio>
 #include <omp.h>
 #include <iostream>
+
+static int roaring_budget_debug_enabled()
+{
+    static int cached = -1;
+    if (cached != -1)
+        return cached;
+
+    const char *budget = std::getenv("SGPL_BUDGET_DEBUG");
+    const char *tdg = std::getenv("SGPL_TDG_DEBUG");
+    cached = ((budget && budget[0] != '0') || (tdg && tdg[0] != '0')) ? 1 : 0;
+    return cached;
+}
+
+static int roaring_script_thread_count()
+{
+    static int cached = -2;
+    if (cached != -2)
+        return cached;
+
+    const char *raw = std::getenv("SGPL_ROARING_THREADS");
+    if (!raw || raw[0] == '\0')
+    {
+        cached = 0;
+        return cached;
+    }
+
+    char *end = nullptr;
+    long parsed = std::strtol(raw, &end, 10);
+    if (end == raw || (end && *end != '\0') || parsed <= 0)
+    {
+        cached = 0;
+        return cached;
+    }
+
+    if (parsed > 2147483647L)
+        parsed = 2147483647L;
+
+    cached = static_cast<int>(parsed);
+    return cached;
+}
 
 static inline size_t compute_bitmap_cardinality(const uint8_t *bits)
 {
@@ -1065,6 +1107,46 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
             std::vector<uint8_t *> temp_bitmaps(Q_size);
             std::vector<bool> needs_cleanup(Q_size, false);
 
+            int rb_threads = roaring_script_thread_count();
+            if (rb_threads > 0)
+            {
+                if (roaring_budget_debug_enabled())
+                {
+                    std::fprintf(stderr,
+                                 "[roaring.omp] region=temp-bitmaps mode=script-config threads=%d q_size=%zu\n",
+                                 rb_threads,
+                                 Q_size);
+                }
+#pragma omp parallel for num_threads(rb_threads) schedule(dynamic)
+            for (size_t i = 0; i < Q_size; ++i)
+            {
+                if (Q[i]->type == BITMAP_CONTAINER)
+                {
+                    temp_bitmaps[i] = Q[i]->bitmap.bits;
+                    needs_cleanup[i] = false;
+                }
+                else
+                {
+                    uint8_t *temp = new uint8_t[8192];
+                    std::memset(temp, 0, 8192);
+                    for (size_t j = 0; j < Q[i]->array.cardinality; ++j)
+                    {
+                        uint16_t v = Q[i]->array.values[j];
+                        temp[v >> 3] |= (1u << (v & 7));
+                    }
+                    temp_bitmaps[i] = temp;
+                    needs_cleanup[i] = true;
+                }
+            }
+            }
+            else
+            {
+                if (roaring_budget_debug_enabled())
+                {
+                    std::fprintf(stderr,
+                                 "[roaring.omp] region=temp-bitmaps mode=default q_size=%zu\n",
+                                 Q_size);
+                }
 #pragma omp parallel for schedule(dynamic)
             for (size_t i = 0; i < Q_size; ++i)
             {
@@ -1086,7 +1168,40 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
                     needs_cleanup[i] = true;
                 }
             }
+            }
 
+            rb_threads = roaring_script_thread_count();
+            if (rb_threads > 0)
+            {
+                if (roaring_budget_debug_enabled())
+                {
+                    std::fprintf(stderr,
+                                 "[roaring.omp] region=word-or mode=script-config threads=%d words=%d\n",
+                                 rb_threads,
+                                 256);
+                }
+#pragma omp parallel for num_threads(rb_threads) schedule(static)
+            for (size_t word_idx = 0; word_idx < 256; ++word_idx)
+            {
+                __m256i result = _mm256_loadu_si256((__m256i const *)(temp_bitmaps[0] + word_idx * 32));
+
+                for (size_t i = 1; i < Q_size; ++i)
+                {
+                    __m256i vec = _mm256_loadu_si256((__m256i const *)(temp_bitmaps[i] + word_idx * 32));
+                    result = _mm256_or_si256(result, vec);
+                }
+
+                _mm256_storeu_si256((__m256i *)(A->bitmap.bits + word_idx * 32), result);
+            }
+            }
+            else
+            {
+                if (roaring_budget_debug_enabled())
+                {
+                    std::fprintf(stderr,
+                                 "[roaring.omp] region=word-or mode=default words=%d\n",
+                                 256);
+                }
 #pragma omp parallel for schedule(static)
             for (size_t word_idx = 0; word_idx < 256; ++word_idx)
             {
@@ -1099,6 +1214,7 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
                 }
 
                 _mm256_storeu_si256((__m256i *)(A->bitmap.bits + word_idx * 32), result);
+            }
             }
 
             // Clean up temporary bitmaps

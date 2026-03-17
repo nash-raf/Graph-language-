@@ -1,5 +1,5 @@
 graph G{
-    edges: file "/home/osamanadeem/Downloads/GPL-2026/Graph-language-/p1GraphEasy-con-AutoTuner/synth_v_50000_e_500000.txt";
+    edges: file "../../../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
 };
 
 int n = numVertices(G);

@@ -219,6 +219,20 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Bool;
             return TypeKind::Bool;
         }
+        if (call->name == "weight")
+        {
+            if (call->arguments.size() != 3)
+                error("weight requires exactly 3 arguments (graph, u, v)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        if (call->name == "edgeWeight" || call->name == "edgeSrc" || call->name == "edgeDst")
+        {
+            if (call->arguments.size() != 2)
+                error(call->name + " requires exactly 2 arguments (graph, edge_id)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
         // Built-in: setSize(s) -> int
         if (call->name == "setSize")
         {
@@ -788,23 +802,32 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
     if (countDegree(GC->condition.get(), countDegree) > 1)
         error("graph comprehension supports at most one degree condition");
 
-    // if (!GC->graphOperands.empty())
-    // {
-    //     auto *base = dynamic_cast<GraphDeclNode *>(it->second);
-    //     if (!base)
-    //         error("graph comprehension base graph not found: " + GC->graphName);
-    //     for (const auto &rhsName : GC->graphOperands)
-    //     {
-    //         auto itR = graphDecls.find(rhsName);
-    //         if (itR == graphDecls.end())
-    //             error("graph comprehension uses undeclared graph: " + rhsName);
-    //         auto *rhs = dynamic_cast<GraphDeclNode *>(itR->second);
-    //         if (!rhs)
-    //             error("graph comprehension only supports unweighted graphs: " + rhsName);
-    //         if (base->materializedNodes != rhs->materializedNodes)
-    //             error("graph comprehension requires graphs with identical node sets/order");
-    //     }
-    // }
+    if (!GC->graphOperands.empty())
+    {
+        auto *base = dynamic_cast<GraphDeclNode *>(it->second);
+        if (!base)
+            error("graph comprehension base graph not found: " + GC->graphName);
+
+        for (const auto &rhsName : GC->graphOperands)
+        {
+            Symbol *rhsSym = lookupSymbol(rhsName);
+            if (!rhsSym || (rhsSym->type != TypeKind::Graph && rhsSym->type != TypeKind::WeightedGraph))
+                error("graph comprehension uses undeclared graph: " + rhsName);
+            if (rhsSym->type != TypeKind::Graph)
+                error("graph comprehension only supports unweighted graphs: " + rhsName);
+
+            auto itR = graphDecls.find(rhsName);
+            if (itR == graphDecls.end())
+                continue;
+
+            auto *rhs = dynamic_cast<GraphDeclNode *>(itR->second);
+            if (!rhs)
+                error("graph comprehension only supports unweighted graphs: " + rhsName);
+
+            if (!base->isFileGraph && !rhs->isFileGraph && base->node_ids != rhs->node_ids)
+                error("graph comprehension requires graphs with identical node sets/order");
+        }
+    }
 }
 
 void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDeclNode *G)
@@ -820,15 +843,18 @@ void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDec
     {
         return;
     }
-    // if (cond->op == GraphConditionOp::Connected)
-    // {
-    //     auto &nodes = G->materializedNodes;
-    //     if (std::find(nodes.begin(), nodes.end(), cond->nodeId) == nodes.end())
-    //     {
-    //         error("graph comprehension references missing node id: " + std::to_string(cond->nodeId));
-    //     }
-    //     return;
-    // }
+    if (cond->op == GraphConditionOp::Connected)
+    {
+        if (!G->isFileGraph)
+        {
+            auto &nodes = G->node_ids;
+            if (std::find(nodes.begin(), nodes.end(), cond->nodeId) == nodes.end())
+            {
+                error("graph comprehension references missing node id: " + std::to_string(cond->nodeId));
+            }
+        }
+        return;
+    }
     if (cond->left)
         validateGraphCondition(cond->left.get(), G);
     if (cond->right)
@@ -876,4 +902,3 @@ void SemanticAnalyzer::analyzeSetMethodCall(SetMethodCallNode *node)
 {
     throw std::runtime_error("Semantic error: " + msg);
 }
-

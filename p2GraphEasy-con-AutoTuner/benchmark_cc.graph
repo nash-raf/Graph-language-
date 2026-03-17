@@ -1,0 +1,35 @@
+graph G {
+  edges: file "/home/user/Course/msk1/synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
+  //edges: file "../../../synth_graphs_unweighted/synth_v_50000_e_50000.txt";
+  TRUE
+};
+
+real t0 = timer();
+int n = numVertices(G);
+int id[n];
+set frontier;
+set next;
+
+for each vertex v in G {
+  id[v] = v;
+}
+
+frontier = G.nodes;
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    for each neighbor v of u in G {
+      if (id[u] < id[v]) {
+        id[v] = id[u];
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+}
+
+real t1 = timer();
+real elapsed = t1 - t0;
+print elapsed;
+//print id[0];

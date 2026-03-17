@@ -1,44 +1,38 @@
-graph G {
-  edges: file "../../../synth_graphs_weighted/synth_v_1000000_e_1000000_w.txt";
-  //edges: file "../../../synth_graphs_weighted/edgelist2.txt";
-  TRUE
+graph G{
+    edges: file "../../../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
 };
 
 int n = numVertices(G);
-int inf = 2147483647;
+int visited[n];
 int dist[n];
-set frontier;
-set next;
-int src = 1;
-int rounds = 0;
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 1;
+int next_size = 0;
+int level = 0;
 
-for each vertex v in G {
-  dist[v] = inf;
-}
+frontier[0] = 0;
+visited[0] = 1;
 
-dist[src] = 0;
-frontier = {1};
+while (frontier_size > 0) {
+    next_size = 0;
+    int i = 0;
 
-while (setSize(frontier) > 0) {
-  if (rounds == n) {
-    print "negative cycle";
-    break;
-  }
+    while (i < frontier_size) {
+        int v = frontier[i];
+        dist[v] = level;
 
-  next = {};
-  for each element u in frontier {
-    if (dist[u] != inf) {
-      for each neighbor v of u in G {
-        int nd = dist[u] + weight(G, u, v);
-        if (nd < dist[v]) {
-          dist[v] = nd;
-          next.add(v);
+        for each neighbor u of v in G {
+            if (visited[u] == 0) {
+                visited[u] = 1;
+                next_frontier[next_size] = u;
+                next_size = next_size + 1;
+            }
         }
-      }
+        i = i + 1;
     }
-  }
-  frontier = next;
-  rounds = rounds + 1;
-}
 
-//print dist[0];
+    swap(frontier, next_frontier);
+    frontier_size = next_size;
+    level = level + 1;
+}

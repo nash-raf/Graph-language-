@@ -1,6 +1,5 @@
 graph G{
     edges: file "../../../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-    //edges: file "synth_v_1000000_e_1000000.txt";
 };
 
 int n = numVertices(G);
@@ -37,5 +36,3 @@ while (frontier_size > 0) {
     frontier_size = next_size;
     level = level + 1;
 }
-
-

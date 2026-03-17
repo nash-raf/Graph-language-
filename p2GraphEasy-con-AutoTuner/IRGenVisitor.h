@@ -17,13 +17,13 @@ public:
                  llvm::IRBuilder<> &B)
         : Context(C), Module(M), Builder(B)
     {
-        // Build the Graph struct type: { i64, i64, i64*, i32* }
+        // Build the Graph struct type: { i64, i64, i64*, i32*, i32* }
         llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
         llvm::Type *I32P = llvm::PointerType::get(llvm::Type::getInt32Ty(Context), 0);
         llvm::Type *I64P = llvm::PointerType::get(llvm::Type::getInt64Ty(Context), 0);
         GraphTy = llvm::StructType::create(
             Context,
-            {I64, I64, I64P, I32P},
+            {I64, I64, I64P, I32P, I32P},
             "struct.Graph");
     }
 

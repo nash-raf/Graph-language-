@@ -780,7 +780,10 @@ public:
     std::unique_ptr<NodeListNode> nodes;
     std::unique_ptr<WeightedEdgeListNode> edges;
 
-    size_t n, m; // number of nodes and edges
+    bool isFileGraph = false;
+    std::string edgeFileName;
+
+    size_t n = 0, m = 0; // number of nodes and edges
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
     int32_t *weights = nullptr;
@@ -790,6 +793,14 @@ public:
     std::vector<std::pair<int, int>> edge_id_map;
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
+
+    WeightedGraphDeclNode(std::string nm, std::string fileName)
+        : ASTNode(ASTNodeType::WeightedGraphDecl),
+          name(std::move(nm)),
+          isFileGraph(true),
+          edgeFileName(std::move(fileName))
+    {
+    }
 
     WeightedGraphDeclNode(
         std::string nm,

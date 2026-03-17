@@ -219,6 +219,20 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Bool;
             return TypeKind::Bool;
         }
+        if (call->name == "weight")
+        {
+            if (call->arguments.size() != 3)
+                error("weight requires exactly 3 arguments (graph, u, v)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        if (call->name == "edgeWeight" || call->name == "edgeSrc" || call->name == "edgeDst")
+        {
+            if (call->arguments.size() != 2)
+                error(call->name + " requires exactly 2 arguments (graph, edge_id)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
         // Built-in: setSize(s) -> int
         if (call->name == "setSize")
         {
@@ -791,10 +805,13 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
     if (!GC->graphOperands.empty())
     {
         auto *base = dynamic_cast<GraphDeclNode *>(it->second);
+        if (!base)
+            error("graph comprehension base graph not found: " + GC->graphName);
+
         for (const auto &rhsName : GC->graphOperands)
         {
             Symbol *rhsSym = lookupSymbol(rhsName);
-            if (!rhsSym)
+            if (!rhsSym || (rhsSym->type != TypeKind::Graph && rhsSym->type != TypeKind::WeightedGraph))
                 error("graph comprehension uses undeclared graph: " + rhsName);
             if (rhsSym->type != TypeKind::Graph)
                 error("graph comprehension only supports unweighted graphs: " + rhsName);
@@ -807,11 +824,8 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
             if (!rhs)
                 error("graph comprehension only supports unweighted graphs: " + rhsName);
 
-            if (base && !base->isFileGraph && rhs && !rhs->isFileGraph &&
-                base->node_ids != rhs->node_ids)
-            {
+            if (!base->isFileGraph && !rhs->isFileGraph && base->node_ids != rhs->node_ids)
                 error("graph comprehension requires graphs with identical node sets/order");
-            }
         }
     }
 }

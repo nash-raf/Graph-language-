@@ -1,5 +1,5 @@
 graph G {
-  edges: file "../../../synth_graphs_weighted/synth_v_1000000_e_1000000_w.txt";
+  edges: file "/home/user/Course/msk1/synth_graphs_weighted/synth_v_1000000_e_1000000_w.txt";
   //edges: file "../../../synth_graphs_weighted/edgelist2.txt";
   TRUE
 };

@@ -219,6 +219,20 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Bool;
             return TypeKind::Bool;
         }
+        if (call->name == "weight")
+        {
+            if (call->arguments.size() != 3)
+                error("weight requires exactly 3 arguments (graph, u, v)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        if (call->name == "edgeWeight" || call->name == "edgeSrc" || call->name == "edgeDst")
+        {
+            if (call->arguments.size() != 2)
+                error(call->name + " requires exactly 2 arguments (graph, edge_id)");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
         // Built-in: setSize(s) -> int
         if (call->name == "setSize")
         {

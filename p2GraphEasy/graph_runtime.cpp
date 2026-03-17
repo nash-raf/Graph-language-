@@ -1,4 +1,5 @@
 #include "roaring_bitmap.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
@@ -117,7 +118,9 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
     sub->col_idx = totalEdges > 0
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
         : nullptr;
-    sub->weights = nullptr;
+    sub->weights = (G->weights && totalEdges > 0)
+        ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
+        : nullptr;
 
     // Build row_ptr via prefix sum
     sub->row_ptr[0] = 0;
@@ -141,6 +144,8 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
             {
                 int64_t pos = sub->row_ptr[i] + offset[i];
                 sub->col_idx[pos] = newId[v];
+                if (sub->weights)
+                    sub->weights[pos] = G->weights[j];
                 offset[i]++;
             }
         }
@@ -189,7 +194,9 @@ extern "C" void *graph_orient(void *graphRaw, int32_t *order)
     dag->col_idx = totalEdges > 0
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
         : nullptr;
-    dag->weights = nullptr;
+    dag->weights = (G->weights && totalEdges > 0)
+        ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
+        : nullptr;
 
     // Build row_ptr
     dag->row_ptr[0] = 0;
@@ -211,6 +218,8 @@ extern "C" void *graph_orient(void *graphRaw, int32_t *order)
             {
                 int64_t pos = dag->row_ptr[u] + offset[u];
                 dag->col_idx[pos] = v;
+                if (dag->weights)
+                    dag->weights[pos] = G->weights[j];
                 offset[u]++;
             }
         }

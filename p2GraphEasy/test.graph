@@ -1,45 +1,33 @@
-// Expected shape:
-// - I contains only edge 1-2
-// - U contains edges 0-1, 1-2, 2-3
-// - UF keeps the component connected with 1 from that union
-/*
-graph A {
-  nodes: 0,1,2,3;
-  edges: 0->1, 1->2;
-};
-
-graph B {
-  nodes: 0,1,2,3;
-  edges: 1->2, 2->3;
-};
-
-I = [A && B];
-U = [A || B];
-UF = [A || B where connected with 1];
-
-
-
-// Expected shape:
-// - H keeps only the 0-1-2 cycle
-// - tail edge 2-3 should not survive
-
 graph G {
-  nodes: 0,1,2,3;
-  edges: 0->1, 1->2, 2->0, 2->3;
+  edges: file "edgelistw.txt";
+  TRUE
 };
 
-H = [G where cycle];
-show H;
+int dist[8];
+set frontier;
+set next;
+int src = 1;
 
-*/
+for each vertex v in G {
+  dist[v] = 2147483647;
+}
 
-// Expected shape:
-// - H keeps the triangle component around 0,1,2
-// - node 3 and 4 should be filtered out
+dist[src] = 0;
+frontier = {1};
 
-graph G {
-  edges: file "edgelist.txt";
-};
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    for each neighbor v of u in G {
+      int nd = dist[u] + weight(G, u, v);
+      if (nd < dist[v]) {
+        dist[v] = nd;
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+}
 
-H = [G where connected with 0 && degree >= 2];
-show H;
+print dist[4];
+print dist[7];

@@ -42,6 +42,8 @@ void IRGenVisitor::buildGlobalEdgeTable(ProgramNodePtr prog)
         else if (node->type == ASTNodeType::WeightedGraphDecl)
         {
             auto *G = static_cast<WeightedGraphDeclNode *>(node.get());
+            if (G->isFileGraph)
+                continue;
             for (auto &e : G->edge_list)
             {
                 getOrAddEdgeId(static_cast<int32_t>(e.first), static_cast<int32_t>(e.second));
@@ -437,6 +439,8 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         Builder.CreateStore(newM, Builder.CreateStructGEP(GraphTy, newGraphPtr, 1));
         Builder.CreateStore(newRP, Builder.CreateStructGEP(GraphTy, newGraphPtr, 2));
         Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
+        Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
+                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
         return newGraphPtr;
     };
 
@@ -648,15 +652,15 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     GraphMap[GC->targetName] = graphStorage;
     NamedValues[GC->targetName] = graphStorage;
 
-    llvm::FunctionType *nodeBmFT = llvm::FunctionType::get(i8PtrTy, {i64Ty}, false);
-    llvm::FunctionType *edgeBmFT = llvm::FunctionType::get(i8PtrTy, {i64Ty}, false);
-    auto buildNodeBmFn = Module.getOrInsertFunction("graph_build_node_bitmap_runtime", nodeBmFT);
-    auto buildEdgeBmFn = Module.getOrInsertFunction("graph_build_edge_bitmap_runtime", edgeBmFT);
+    llvm::FunctionType *registerFT = llvm::FunctionType::get(Builder.getVoidTy(), {graphPtrTy}, false);
+    auto registerFn = Module.getOrInsertFunction("graph_register_csr_metadata", registerFT);
+    Builder.CreateCall(registerFn, {srcGraphPtr});
 
-    llvm::Value *finalN = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, srcGraphPtr, 0));
-    llvm::Value *finalM = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, srcGraphPtr, 1));
-    GraphNodesMap[GC->targetName] = Builder.CreateCall(buildNodeBmFn, {finalN}, GC->targetName + "_nodes_bm");
-    GraphEdgesMap[GC->targetName] = Builder.CreateCall(buildEdgeBmFn, {finalM}, GC->targetName + "_edges_bm");
+    llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
+    auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+    auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+    GraphNodesMap[GC->targetName] = Builder.CreateCall(getNodeBmFn, {srcGraphPtr}, GC->targetName + "_nodes_bm");
+    GraphEdgesMap[GC->targetName] = Builder.CreateCall(getEdgeBmFn, {srcGraphPtr}, GC->targetName + "_edges_bm");
 }
 
 void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
@@ -2197,6 +2201,51 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             return phi;
         }
 
+        if (FC->name == "weight")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error("weight first argument must be a graph name");
+
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
+            llvm::Value *u = visitExpr(FC->arguments[1].get());
+            llvm::Value *v = visitExpr(FC->arguments[2].get());
+            auto *i32TyLocal = Builder.getInt32Ty();
+            if (u->getType() != i32TyLocal)
+                u = Builder.CreateIntCast(u, i32TyLocal, true);
+            if (v->getType() != i32TyLocal)
+                v = Builder.CreateIntCast(v, i32TyLocal, true);
+
+            llvm::FunctionType *weightFT =
+                llvm::FunctionType::get(i32TyLocal, {GraphTy->getPointerTo(), i32TyLocal, i32TyLocal}, false);
+            auto weightFn = Module.getOrInsertFunction("graph_get_edge_weight", weightFT);
+            return Builder.CreateCall(weightFn, {graphPtr, u, v}, "weighttmp");
+        }
+
+        if (FC->name == "edgeWeight" || FC->name == "edgeSrc" || FC->name == "edgeDst")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error(FC->name + " first argument must be a graph name");
+
+            llvm::Value *graphPtr = loadGraphValue(varArg->name);
+            llvm::Value *eid = visitExpr(FC->arguments[1].get());
+            auto *i32TyLocal = Builder.getInt32Ty();
+            if (eid->getType() != i32TyLocal)
+                eid = Builder.CreateIntCast(eid, i32TyLocal, true);
+
+            const char *runtimeName = "graph_get_edge_weight_by_id";
+            if (FC->name == "edgeSrc")
+                runtimeName = "graph_get_edge_src_by_id";
+            else if (FC->name == "edgeDst")
+                runtimeName = "graph_get_edge_dst_by_id";
+
+            llvm::FunctionType *edgeFT =
+                llvm::FunctionType::get(i32TyLocal, {GraphTy->getPointerTo(), i32TyLocal}, false);
+            auto edgeFn = Module.getOrInsertFunction(runtimeName, edgeFT);
+            return Builder.CreateCall(edgeFn, {graphPtr, eid}, FC->name + ".tmp");
+        }
+
         // Lookup the prototype
         llvm::Function *callee = FunctionProtos[FC->name];
         if (!callee)
@@ -2817,6 +2866,8 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
                         Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr"));
     Builder.CreateStore(colPtr,
                         Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
+    Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(I32)),
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 4, "g_w_ptr"));
 
     llvm::Value *graphStorage = nullptr;
     if (EmittingTopLevel)
@@ -2838,34 +2889,15 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     NamedValues[G->name] = graphStorage;
     GraphAstMap[G->name] = G;
 
-    auto *i8Ty = llvm::Type::getInt8Ty(Context);
-    llvm::FunctionType *deserializeFT =
-        llvm::FunctionType::get(i8PtrTy, {i8PtrTy, i64Ty}, false);
-    auto deserializeFn =
-        Module.getOrInsertFunction("roaring_from_serialized", deserializeFT);
+    llvm::FunctionType *registerFT = llvm::FunctionType::get(Builder.getVoidTy(), {graphPtrTy}, false);
+    auto registerFn = Module.getOrInsertFunction("graph_register_csr_metadata", registerFT);
+    Builder.CreateCall(registerFn, {graphPtr});
 
-    auto emitBitmapFromBlob = [&](const std::vector<uint8_t> &blob,
-                                  const std::string &name) -> llvm::Value *
-    {
-        llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blob.size());
-        llvm::SmallVector<llvm::Constant *, 128> bytes;
-        bytes.reserve(blob.size());
-        for (uint8_t b : blob)
-            bytes.push_back(llvm::ConstantInt::get(i8Ty, b));
-
-        llvm::Constant *blobConst = llvm::ConstantArray::get(blobTy, bytes);
-        auto *blobGV = new llvm::GlobalVariable(
-            Module, blobTy, true, llvm::GlobalValue::PrivateLinkage, blobConst, name);
-
-        llvm::Value *zero = Builder.getInt32(0);
-        llvm::Value *blobPtr = Builder.CreateInBoundsGEP(blobTy, blobGV, {zero, zero}, name + ".ptr");
-        llvm::Value *sizeVal = llvm::ConstantInt::get(i64Ty, blob.size());
-        return Builder.CreateCall(deserializeFn, {blobPtr, sizeVal}, name + ".bitmap");
-    };
-
-    auto edgesBlob = buildEdgeBlobForGraph(G);
-    GraphNodesMap[G->name] = emitBitmapFromBlob(G->nodes_blob, G->name + "_nodes_blob");
-    GraphEdgesMap[G->name] = emitBitmapFromBlob(edgesBlob, G->name + "_edges_blob");
+    llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
+    auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+    auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+    GraphNodesMap[G->name] = Builder.CreateCall(getNodeBmFn, {graphPtr}, G->name + "_nodes_bm");
+    GraphEdgesMap[G->name] = Builder.CreateCall(getEdgeBmFn, {graphPtr}, G->name + "_edges_bm");
 
     return graphPtr;
 }
@@ -2878,17 +2910,56 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 {
     auto *I64 = llvm::Type::getInt64Ty(Context);
     auto *I32 = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto *i64Ty = llvm::Type::getInt64Ty(Context);
+    auto *graphPtrTy = llvm::PointerType::get(GraphTy, 0);
 
-    GraphTy = llvm::StructType::create(
-        Context,
+    if (G->isFileGraph)
+    {
+        llvm::Value *fnameStr = Builder.CreateGlobalStringPtr(
+            G->edgeFileName, G->name + "_filename");
+
+        llvm::FunctionType *loadFT = llvm::FunctionType::get(
+            graphPtrTy, {i8PtrTy}, false);
+        auto loadFn = Module.getOrInsertFunction("load_weighted_graph_from_file", loadFT);
+        llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "weighted_graph_ptr");
+
+        llvm::Value *graphStorage = nullptr;
+        if (EmittingTopLevel)
         {
-            llvm::Type::getInt64Ty(Context),                               // n
-            llvm::Type::getInt64Ty(Context),                               // m
-            llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(Context)), // row_ptr
-            llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context)), // col_idx
-            llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context))  // weights
-        },
-        "struct.Graph");
+            graphStorage = new llvm::GlobalVariable(
+                Module,
+                graphPtrTy,
+                false,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(graphPtrTy)),
+                G->name);
+        }
+        else
+        {
+            graphStorage = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(), G->name, graphPtrTy);
+        }
+        Builder.CreateStore(graphPtr, graphStorage);
+        GraphMap[G->name] = graphStorage;
+        NamedValues[G->name] = graphStorage;
+
+        llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
+        auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+        auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+        GraphNodesMap[G->name] = Builder.CreateCall(getNodeBmFn, {graphPtr}, G->name + "_nodes_bm");
+        GraphEdgesMap[G->name] = Builder.CreateCall(getEdgeBmFn, {graphPtr}, G->name + "_edges_bm");
+
+        auto *i32PtrTy = llvm::PointerType::getUnqual(I32);
+        llvm::FunctionType *getPairsFT = llvm::FunctionType::get(i32PtrTy, {graphPtrTy}, false);
+        auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+        RuntimeEdgePairsPtr = Builder.CreateCall(getPairsFn, {graphPtr}, "edge_pairs_ptr");
+
+        llvm::FunctionType *getCountFT = llvm::FunctionType::get(i64Ty, {graphPtrTy}, false);
+        auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
+        RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
+
+        return graphPtr;
+    }
 
     unsigned rpLen = static_cast<unsigned>(G->n + 1);
     auto *arrRP = llvm::ArrayType::get(I64, rpLen);
@@ -2966,9 +3037,6 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
     llvm::Value *src_w = Builder.CreateBitCast(GV_W,
                                                llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));
 
-    // Define the memcpy intrinsic type
-    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
-    auto *i64Ty = llvm::Type::getInt64Ty(Context);
     auto *memcpyTy = llvm::Intrinsic::getDeclaration(
         &Module, llvm::Intrinsic::memcpy,
         {i8PtrTy, i8PtrTy, i64Ty});
@@ -3068,46 +3136,16 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
     Builder.CreateStore(graphPtr, graphStorage);
     GraphMap[G->name] = graphStorage;
     NamedValues[G->name] = graphStorage;
-    // debug
-    llvm::errs() << "[visitWeightedGraphDecl] G->n (declared) = " << G->n << "\n";
-    llvm::errs() << "[visitWeightedGraphDecl] G->row_ptr entries = " << (G->n + 1) << "\n";
-    if (G->n > 0)
-        llvm::errs() << "[visitWeightedGraphDecl] row_ptr[n] = " << G->row_ptr[G->n] << "\n";
-    llvm::errs() << "[visitWeightedGraphDecl] G->col_idx entries = " << G->m << "\n";
 
-    // Emit roaring bitmaps for nodes and edges
-    {
-        auto *i8Ty = llvm::Type::getInt8Ty(Context);
-        auto *bitmapPtrTy = llvm::PointerType::get(Context, 0);
-        auto *i64BitmapTy = Builder.getInt64Ty();
+    llvm::FunctionType *registerFT = llvm::FunctionType::get(Builder.getVoidTy(), {graphPtrTy}, false);
+    auto registerFn = Module.getOrInsertFunction("graph_register_csr_metadata", registerFT);
+    Builder.CreateCall(registerFn, {graphPtr});
 
-        llvm::FunctionType *deserializeFT_w =
-            llvm::FunctionType::get(bitmapPtrTy, {bitmapPtrTy, i64BitmapTy}, false);
-        auto deserializeFn_w =
-            Module.getOrInsertFunction("roaring_from_serialized", deserializeFT_w);
-
-        auto emitBitmapFromBlob = [&](const std::vector<uint8_t> &blob,
-                                      const std::string &name) -> llvm::Value *
-        {
-            llvm::ArrayType *blobTy = llvm::ArrayType::get(i8Ty, blob.size());
-            llvm::SmallVector<llvm::Constant *, 128> bytes;
-            bytes.reserve(blob.size());
-            for (uint8_t b : blob)
-                bytes.push_back(llvm::ConstantInt::get(i8Ty, b));
-
-            llvm::Constant *blobConst = llvm::ConstantArray::get(blobTy, bytes);
-            auto *blobGV = new llvm::GlobalVariable(
-                Module, blobTy, true, llvm::GlobalValue::PrivateLinkage, blobConst, name);
-
-            llvm::Value *zero = Builder.getInt32(0);
-            llvm::Value *blobPtr = Builder.CreateInBoundsGEP(blobTy, blobGV, {zero, zero}, name + ".ptr");
-            llvm::Value *sizeVal = llvm::ConstantInt::get(i64BitmapTy, blob.size());
-            return Builder.CreateCall(deserializeFn_w, {blobPtr, sizeVal}, name + ".bitmap");
-        };
-
-        GraphNodesMap[G->name] = emitBitmapFromBlob(G->nodes_blob, G->name + "_nodes_blob");
-        GraphEdgesMap[G->name] = emitBitmapFromBlob(G->edges_blob, G->name + "_edges_blob");
-    }
+    llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
+    auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
+    auto getEdgeBmFn = Module.getOrInsertFunction("graph_get_edge_bitmap", getBmFT);
+    GraphNodesMap[G->name] = Builder.CreateCall(getNodeBmFn, {graphPtr}, G->name + "_nodes_bm");
+    GraphEdgesMap[G->name] = Builder.CreateCall(getEdgeBmFn, {graphPtr}, G->name + "_edges_bm");
 
     return graphPtr;
 }

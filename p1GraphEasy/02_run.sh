@@ -3,13 +3,12 @@ set -euxo pipefail
 
 # ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
 # LLVM_CONFIG="llvm-config-20"
+# OPT_BIN="opt-20"
 # CLANGXX="clang++-20"
-#LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
-#CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
-LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
-CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
-CLANG_BIN=/usr/local/llvm-20-polly-rtti/bin/clang
 
+LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+OPT_BIN=/usr/local/llvm-20-polly-rtti/bin/opt
+CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
 # ────────────────────────────────────────────────────────────────────────────────
 
 # Usage: ./run.sh <input.gpl> <dsl-input> [existing-IR.ll]
@@ -40,65 +39,45 @@ echo ">>> DSL input: ${GP_INPUT}"
 # 1) ANTLR generation (if needed)
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
-  if [[ ! -d generated ]] || [[ Base.g4 -nt generated/BaseParser.h ]]; then
+  if [[ ! -d generated ]]; then
     echo "=== [1] Generating ANTLR parser/lexer ==="
     antlr4 -Dlanguage=Cpp -visitor Base.g4 -o generated
   else
-    echo "=== [1] Skipping ANTLR generation (generated/ up-to-date)"
+    echo "=== [1] Skipping ANTLR generation (generated/ exists)"
   fi
 fi
 
 # ----------------------------------------------------------------------------- 
-# 2) Compile GraphProgram (with Polly support)
+# 2) Compile GraphProgram
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
-  gcc -c runtime.c -o runtime.o
 
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
-
-  LLVM_CXXFLAGS="$RAW_LLVM_CXXFLAGS"
-  # Allow exceptions for our code and ANTLR, but
-  # keep LLVM's -fno-rtti to match its build.
-  LLVM_CXXFLAGS="${LLVM_CXXFLAGS//-fno-exceptions/}"
-
+  LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
   LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"
-  LLVM_LIBS="$($LLVM_CONFIG --libs all)"
+  LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
+  # ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
   ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
-  # -L/usr/lib64 -lomp \
+
 
   g++ \
-  -O3 -mavx2 -march=native \
-  -fopenmp \
-    -g -std=c++17 -fopenmp \
+    -g -std=c++17 -fexceptions \
+    -mavx2 -march=native \
     $ANTLR_INCLUDE \
     -Igenerated -I. \
     $LLVM_CXXFLAGS \
-    -fexceptions \
     -pthread \
-    main.cpp IRGenVisitor.cpp ASTBuilder.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp\
-    generated/*.cpp runtime.o \
+    main.cpp IRGenVisitor.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp SemanticAnalyzer.cpp roaring_bitmap.cpp\
+    generated/*.cpp \
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
-    -lPolly -lPollyISL -lisl \
     $LLVM_LIBS \
     $LLVM_SYSTEM_LIBS \
     -o GraphProgram
 
   echo ">>> GraphProgram build complete"
 fi
-
-# ----------------------------------------------------------------------------- 
-# 3) Run GraphProgram
-# -----------------------------------------------------------------------------
-echo "=== [3] Running GraphProgram ==="
-./GraphProgram "$GPL_SRC" > "$IR_SRC"
-echo ">>> IR written to $IR_SRC"
-
-# ----------------------------------------------------------------------------- 
-# 4) Run DSL input through GraphProgram (with Polly inside main)
-# -----------------------------------------------------------------------------
-echo "=== [4] Running GraphProgram on DSL input ${GP_INPUT} ==="
-./GraphProgram "$GP_INPUT"
+./GraphProgram test.graph

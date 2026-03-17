@@ -1,0 +1,9 @@
+// Expected shape:
+// - H keeps the full triangle from the file-backed graph
+
+graph G {
+  edges: file "test/graphcompre_triangle.edgelist";
+};
+
+H = [G where connected with 0 && degree >= 2];
+show H;

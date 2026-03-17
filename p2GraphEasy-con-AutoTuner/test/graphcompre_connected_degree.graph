@@ -1,0 +1,11 @@
+// Expected shape:
+// - H keeps the triangle component around 0,1,2
+// - node 3 and 4 should be filtered out
+
+graph G {
+  nodes: 0,1,2,3,4;
+  edges: 0->1, 1->2, 2->0, 3->4;
+};
+
+H = [G where connected with 0 && degree >= 2];
+show H;

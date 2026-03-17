@@ -1,0 +1,22 @@
+// Expected shape:
+// - I contains only edge 1-2
+// - U contains edges 0-1, 1-2, 2-3
+// - UF keeps the component connected with 1 from that union
+
+graph A {
+  nodes: 0,1,2,3;
+  edges: 0->1, 1->2;
+};
+
+graph B {
+  nodes: 0,1,2,3;
+  edges: 1->2, 2->3;
+};
+
+I = [A && B];
+U = [A || B];
+UF = [A || B where connected with 1];
+
+show I;
+show U;
+show UF;

@@ -53,6 +53,34 @@ static cl::opt<std::string> InputFilename(
     cl::desc("<input-file>"),
     cl::init(""));
 
+static bool isTruthyEnvVar(const char *name)
+{
+    const char *value = std::getenv(name);
+    if (!value)
+        return false;
+
+    std::string v(value);
+    for (char &ch : v)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+
+    return v == "1" || v == "true" || v == "yes" || v == "on";
+}
+
+static void stripTBAAMetadata(Module &M)
+{
+    for (Function &F : M)
+    {
+        for (BasicBlock &BB : F)
+        {
+            for (Instruction &I : BB)
+            {
+                I.setMetadata(LLVMContext::MD_tbaa, nullptr);
+                I.setMetadata(LLVMContext::MD_tbaa_struct, nullptr);
+            }
+        }
+    }
+}
+
 static void writeBitcodeToFile(Module &M, const std::string &path)
 {
     std::error_code EC;
@@ -565,6 +593,10 @@ int main(int argc, char **argv)
 
     auto t_link = std::chrono::high_resolution_clock::now();
 
+    // Some linked runtime .ll files carry TBAA metadata that newer LLVM rejects.
+    // Strip it so the compiler stays quiet and codegen proceeds consistently.
+    stripTBAAMetadata(*M);
+
     OptMPM.run(*M, MAM);
     MPM.run(*M, MAM);
 
@@ -575,7 +607,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (std::getenv("GRAPH_DEBUG_DUMP_LL"))
+    if (isTruthyEnvVar("GRAPH_DEBUG_DUMP_LL"))
         M->print(llvm::outs(), nullptr);
 
     auto t_opt = std::chrono::high_resolution_clock::now();

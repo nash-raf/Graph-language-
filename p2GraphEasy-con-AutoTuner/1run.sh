@@ -63,7 +63,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_LIBS="$($LLVM_CONFIG --libs all)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
-  ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
+  ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
   # -L/usr/lib64 -lomp \
 
   g++ \
@@ -99,13 +99,3 @@ echo ">>> IR written to $IR_SRC"
 # -----------------------------------------------------------------------------
 echo "=== [4] Running GraphProgram on DSL input ${GP_INPUT} ==="
 ./GraphProgram "$GP_INPUT"
-
-
-
-
-
-
-
-
-
-

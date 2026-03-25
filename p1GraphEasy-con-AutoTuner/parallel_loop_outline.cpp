@@ -344,8 +344,67 @@ namespace
 
     static std::optional<std::string> precheckSharedSetPattern(const LoopCandidateAnalysis &Candidate)
     {
-        SmallPtrSet<Value *, 8> Reads;
-        SmallPtrSet<Value *, 8> Writes;
+        struct SharedSetRef
+        {
+            enum class Kind
+            {
+                Unsupported,
+                Parameter,
+                DirectGlobal,
+            };
+
+            Kind kind = Kind::Unsupported;
+            unsigned param_index = 0;
+            GlobalVariable *global = nullptr;
+            Type *value_ty = nullptr;
+        };
+
+        auto classifySharedSetRef = [&](Value *SetArg) -> SharedSetRef {
+            SharedSetRef Ref;
+            if (!SetArg)
+                return Ref;
+
+            SetArg = SetArg->stripPointerCasts();
+            if (auto *Arg = dyn_cast<Argument>(SetArg))
+            {
+                Ref.kind = SharedSetRef::Kind::Parameter;
+                Ref.param_index = Arg->getArgNo();
+                Ref.value_ty = Arg->getType();
+                return Ref;
+            }
+
+            if (auto *LI = dyn_cast<LoadInst>(SetArg))
+            {
+                Value *Storage = getUnderlyingObject(LI->getPointerOperand(), 64);
+                if (auto *GV = dyn_cast<GlobalVariable>(Storage))
+                {
+                    Ref.kind = SharedSetRef::Kind::DirectGlobal;
+                    Ref.global = GV;
+                    Ref.value_ty = LI->getType();
+                    return Ref;
+                }
+            }
+
+            return Ref;
+        };
+
+        auto sameSharedSetRef = [](const SharedSetRef &A, const SharedSetRef &B) -> bool {
+            if (A.kind != B.kind)
+                return false;
+            switch (A.kind)
+            {
+            case SharedSetRef::Kind::Parameter:
+                return A.param_index == B.param_index;
+            case SharedSetRef::Kind::DirectGlobal:
+                return A.global == B.global;
+            case SharedSetRef::Kind::Unsupported:
+                break;
+            }
+            return false;
+        };
+
+        SmallVector<SharedSetRef, 8> Reads;
+        SmallVector<SharedSetRef, 8> Writes;
 
         for (BasicBlock *BB : Candidate.LoopBlocks)
         {
@@ -362,24 +421,31 @@ namespace
                 if (Name != "roaring_bitmap_add" && Name != "roaring_bitmap_contains")
                     continue;
 
-                Value *SetArg = CI->getArgOperand(0)->stripPointerCasts();
+                SharedSetRef Ref = classifySharedSetRef(CI->getArgOperand(0));
                 if (Name == "roaring_bitmap_add")
                 {
+                    if (Ref.kind == SharedSetRef::Kind::Unsupported)
+                        return std::string("shared-set-unsupported-storage");
                     if (Candidate.Mode != ParallelMode::DoAll)
                         return std::string("shared-set-privatization-requires-doall");
-                    Writes.insert(SetArg);
+                    Writes.push_back(Ref);
                 }
                 else
                 {
-                    Reads.insert(SetArg);
+                    if (Ref.kind == SharedSetRef::Kind::Unsupported)
+                        return std::string("shared-set-unsupported-storage");
+                    Reads.push_back(Ref);
                 }
             }
         }
 
-        for (Value *V : Writes)
+        for (const SharedSetRef &WriteRef : Writes)
         {
-            if (Reads.contains(V))
-                return std::string("shared-set-read-write-same-object");
+            for (const SharedSetRef &ReadRef : Reads)
+            {
+                if (sameSharedSetRef(WriteRef, ReadRef))
+                    return std::string("shared-set-read-write-same-object");
+            }
         }
 
         return std::nullopt;
@@ -487,6 +553,75 @@ namespace
         return std::nullopt;
     }
 
+    static std::optional<const SCEV *> deriveHalfOpenLoopEndFromExitICmp(const LoopCandidateAnalysis &Candidate,
+                                                                         ScalarEvolution &SE)
+    {
+        if (!Candidate.ExitingBlock || !Candidate.IndVar)
+            return std::nullopt;
+
+        auto *BI = dyn_cast<BranchInst>(Candidate.ExitingBlock->getTerminator());
+        if (!BI || !BI->isConditional())
+            return std::nullopt;
+
+        auto *Cmp = dyn_cast<ICmpInst>(BI->getCondition());
+        if (!Cmp)
+            return std::nullopt;
+
+        const SCEV *IndVarSCEV = SE.getSCEV(Candidate.IndVar);
+        auto matchIndVarOperand = [&](Value *V) -> bool {
+            Value *Base = V->stripPointerCasts();
+            if (Base == Candidate.IndVar)
+                return true;
+            if (auto *Cast = dyn_cast<CastInst>(Base))
+                return Cast->getOperand(0)->stripPointerCasts() == Candidate.IndVar;
+            return SE.getSCEV(V) == IndVarSCEV;
+        };
+
+        auto getBoundSCEV = [&](Value *V) -> const SCEV * {
+            if (!Candidate.LoopObj->isLoopInvariant(V))
+                return nullptr;
+            return SE.getSCEV(V);
+        };
+
+        Value *LHS = Cmp->getOperand(0);
+        Value *RHS = Cmp->getOperand(1);
+        bool LHSIsIndVar = matchIndVarOperand(LHS);
+        bool RHSIsIndVar = matchIndVarOperand(RHS);
+        Type *CmpTy = Cmp->getOperand(0)->getType();
+
+        switch (Cmp->getPredicate())
+        {
+        case CmpInst::ICMP_SLT:
+        case CmpInst::ICMP_ULT:
+            if (LHSIsIndVar)
+                if (const SCEV *Bound = getBoundSCEV(RHS))
+                    return Bound;
+            break;
+        case CmpInst::ICMP_SLE:
+        case CmpInst::ICMP_ULE:
+            if (LHSIsIndVar)
+                if (const SCEV *Bound = getBoundSCEV(RHS))
+                    return SE.getAddExpr(Bound, SE.getOne(CmpTy));
+            break;
+        case CmpInst::ICMP_SGT:
+        case CmpInst::ICMP_UGT:
+            if (RHSIsIndVar)
+                if (const SCEV *Bound = getBoundSCEV(LHS))
+                    return Bound;
+            break;
+        case CmpInst::ICMP_SGE:
+        case CmpInst::ICMP_UGE:
+            if (RHSIsIndVar)
+                if (const SCEV *Bound = getBoundSCEV(LHS))
+                    return SE.getAddExpr(Bound, SE.getOne(CmpTy));
+            break;
+        default:
+            break;
+        }
+
+        return std::nullopt;
+    }
+
     static std::optional<std::string> precheckObviousUnprofitableLoop(const LoopCandidateAnalysis &Candidate,
                                                                       ScalarEvolution &SE)
     {
@@ -582,6 +717,8 @@ namespace
         Candidate.End = SE.getAddExpr(
             Candidate.Start,
             SE.getMulExpr(Candidate.Step, TripCount));
+        if (std::optional<const SCEV *> ExitBound = deriveHalfOpenLoopEndFromExitICmp(Candidate, SE))
+            Candidate.End = *ExitBound;
         Candidate.ConstantTripCount = getConstantTripCount(Candidate, SE);
         Candidate.EffectiveBodyInstCount = countEffectiveLoopBodyInstructions(Candidate);
 
@@ -997,7 +1134,56 @@ namespace
         SmallVector<bool, 8> ParamReadsSharedSet(ArgOriginVals.size(), false);
         SmallVector<bool, 8> ParamWritesSharedSet(ArgOriginVals.size(), false);
         SmallVector<bool, 8> ParamUsesPrivatizedSet(ArgOriginVals.size(), false);
+        SmallVector<GlobalVariable *, 4> GlobalWriteSharedSets;
+        SmallVector<GlobalVariable *, 4> GlobalReadSharedSets;
+        SmallVector<Type *, 4> GlobalWriteSharedSetValueTys;
+        DenseMap<GlobalVariable *, unsigned> GlobalWriteSetIndices;
+        DenseMap<GlobalVariable *, unsigned> GlobalWriteSetEnvFieldIndices;
         int InductionParamIndex = -1;
+
+        struct OutlinedSharedSetRef
+        {
+            enum class Kind
+            {
+                Unsupported,
+                Parameter,
+                DirectGlobal,
+            };
+
+            Kind kind = Kind::Unsupported;
+            unsigned param_index = 0;
+            GlobalVariable *global = nullptr;
+            Type *value_ty = nullptr;
+        };
+
+        auto classifyOutlinedSharedSetRef = [&](Value *SetArg) -> OutlinedSharedSetRef {
+            OutlinedSharedSetRef Ref;
+            if (!SetArg)
+                return Ref;
+
+            SetArg = SetArg->stripPointerCasts();
+            if (auto *Arg = dyn_cast<Argument>(SetArg))
+            {
+                Ref.kind = OutlinedSharedSetRef::Kind::Parameter;
+                Ref.param_index = Arg->getArgNo();
+                Ref.value_ty = Arg->getType();
+                return Ref;
+            }
+
+            if (auto *LI = dyn_cast<LoadInst>(SetArg))
+            {
+                Value *Storage = getUnderlyingObject(LI->getPointerOperand(), 64);
+                if (auto *GV = dyn_cast<GlobalVariable>(Storage))
+                {
+                    Ref.kind = OutlinedSharedSetRef::Kind::DirectGlobal;
+                    Ref.global = GV;
+                    Ref.value_ty = LI->getType();
+                    return Ref;
+                }
+            }
+
+            return Ref;
+        };
 
         for (BasicBlock &OutlinedBB : *Outlined)
         {
@@ -1013,22 +1199,54 @@ namespace
                 if (CalleeName != "roaring_bitmap_add" && CalleeName != "roaring_bitmap_contains")
                     continue;
 
-                auto *Arg = dyn_cast<Argument>(CI->getArgOperand(0)->stripPointerCasts());
-                if (!Arg)
+                OutlinedSharedSetRef Ref = classifyOutlinedSharedSetRef(CI->getArgOperand(0));
+                if (Ref.kind == OutlinedSharedSetRef::Kind::Unsupported)
+                {
+                    logLoopState(F, Target.Header, Target.Depth, "skip:shared-set-unsupported-storage");
+                    return Result;
+                }
+
+                if (Ref.kind == OutlinedSharedSetRef::Kind::Parameter)
+                {
+                    unsigned ParamIndex = Ref.param_index;
+                    if (ParamIndex >= ParamReadsSharedSet.size())
+                        continue;
+
+                    if (CalleeName == "roaring_bitmap_add")
+                    {
+                        ParamWritesSharedSet[ParamIndex] = true;
+                        /* Debug logging disabled: set-write */
+                    }
+                    else
+                    {
+                        ParamReadsSharedSet[ParamIndex] = true;
+                        /* Debug logging disabled: set-read */
+                    }
                     continue;
-                unsigned ParamIndex = Arg->getArgNo();
-                if (ParamIndex >= ParamReadsSharedSet.size())
-                    continue;
+                }
 
                 if (CalleeName == "roaring_bitmap_add")
                 {
-                    ParamWritesSharedSet[ParamIndex] = true;
-                    /* Debug logging disabled: set-write */
+                    if (!GlobalWriteSetIndices.count(Ref.global))
+                    {
+                        GlobalWriteSetIndices[Ref.global] = GlobalWriteSharedSets.size();
+                        GlobalWriteSharedSets.push_back(Ref.global);
+                        GlobalWriteSharedSetValueTys.push_back(Ref.value_ty);
+                    }
                 }
                 else
                 {
-                    ParamReadsSharedSet[ParamIndex] = true;
-                    /* Debug logging disabled: set-read */
+                    bool Seen = false;
+                    for (GlobalVariable *GV : GlobalReadSharedSets)
+                    {
+                        if (GV == Ref.global)
+                        {
+                            Seen = true;
+                            break;
+                        }
+                    }
+                    if (!Seen)
+                        GlobalReadSharedSets.push_back(Ref.global);
                 }
             }
         }
@@ -1088,6 +1306,35 @@ namespace
             /* Debug logging disabled: privatize-set-output param */
         }
 
+        if (!UnsupportedSharedSet)
+        {
+            for (GlobalVariable *GV : GlobalWriteSharedSets)
+            {
+                if (!IsDoAll)
+                {
+                    UnsupportedSharedSet = true;
+                    logLoopState(F, Target.Header, Target.Depth, "skip:shared-set-privatization-requires-doall");
+                    break;
+                }
+
+                bool ReadSameGlobal = false;
+                for (GlobalVariable *ReadGV : GlobalReadSharedSets)
+                {
+                    if (ReadGV == GV)
+                    {
+                        ReadSameGlobal = true;
+                        break;
+                    }
+                }
+                if (ReadSameGlobal)
+                {
+                    UnsupportedSharedSet = true;
+                    logLoopState(F, Target.Header, Target.Depth, "skip:shared-set-read-write-same-object");
+                    break;
+                }
+            }
+        }
+
         if (UnsupportedSharedSet)
             return Result;
 
@@ -1097,6 +1344,16 @@ namespace
         Type *Int64Ty = Type::getInt64Ty(Ctx);
         Type *Int8PtrTy = Type::getInt8Ty(Ctx)->getPointerTo();
         Type *LoopBodyFnTy = FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false)->getPointerTo();
+
+        for (unsigned GlobalIndex = 0; GlobalIndex < GlobalWriteSharedSets.size(); ++GlobalIndex)
+        {
+            GlobalVariable *GV = GlobalWriteSharedSets[GlobalIndex];
+            Type *FieldTy = GlobalWriteSharedSetValueTys[GlobalIndex];
+            unsigned EnvFieldIndex = NewEnvFieldTys.size();
+            GlobalWriteSetEnvFieldIndices[GV] = EnvFieldIndex;
+            NewEnvFieldTys.push_back(FieldTy);
+            NewEnvOriginVals.push_back(B.CreateLoad(FieldTy, GV, GV->getName() + ".captured"));
+        }
 
         StructType *NewEnvStructTy = StructType::create(Ctx, NewEnvFieldTys, "env.struct");
         uint64_t NewEnvSize = M->getDataLayout().getTypeAllocSize(NewEnvStructTy);
@@ -1146,6 +1403,11 @@ namespace
             if (!ParamUsesPrivatizedSet[ParamIndex])
                 continue;
             unsigned EnvFieldIndex = (unsigned)ParamToEnvFieldIndex[ParamIndex];
+            PrivatizedEnvFieldOffsets.push_back(EnvLayout->getElementOffset(EnvFieldIndex));
+        }
+        for (GlobalVariable *GV : GlobalWriteSharedSets)
+        {
+            unsigned EnvFieldIndex = GlobalWriteSetEnvFieldIndices.lookup(GV);
             PrivatizedEnvFieldOffsets.push_back(EnvLayout->getElementOffset(EnvFieldIndex));
         }
         /* Debug logging disabled: privatize-set-output count */

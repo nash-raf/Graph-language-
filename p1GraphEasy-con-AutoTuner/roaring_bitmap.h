@@ -179,6 +179,10 @@ extern "C"
     RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t count);
     RoaringBitmap *roaring_bitmap_create_like(const RoaringBitmap *prototype);
     void roaring_bitmap_or_inplace(RoaringBitmap *dst, RoaringBitmap *src);
+    void roaring_bitmap_set_thread_local_overrides(RoaringBitmap **originals,
+                                                   RoaringBitmap **replacements,
+                                                   int32_t count);
+    void roaring_bitmap_clear_thread_local_overrides(void);
     RoaringBitmap *roaring_bitmap_intersect(RoaringBitmap *bm1, RoaringBitmap *bm2);
     void roaring_print(uint8_t *ptr);
     void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value);

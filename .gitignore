@@ -19,3 +19,6 @@ left/*
 test/*
 callgrind*
 final_program_*
+p1GraphEasy-con-AutoTuner/synth_v_1000000_e_1000000_w.txt
+p1GraphEasy-con-AutoTuner/synth_v_1000000_e_1000000.txt
+p1GraphEasy-con-AutoTuner/synth_v_50000_e_500000.txt

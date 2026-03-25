@@ -16,6 +16,10 @@ extern RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_ca
 extern RoaringBitmap *roaring_bitmap_create_like(const RoaringBitmap *prototype);
 extern void roaring_bitmap_or_inplace(RoaringBitmap *dst, RoaringBitmap *src);
 extern void roaring_bitmap_free(RoaringBitmap *bm);
+extern void roaring_bitmap_set_thread_local_overrides(RoaringBitmap **originals,
+                                                      RoaringBitmap **replacements,
+                                                      int32_t count);
+extern void roaring_bitmap_clear_thread_local_overrides(void);
 
 #define SYNC_WINDOW 4096
 #define SGPL_MAX_PROFILED_LOOPS 4096
@@ -45,6 +49,9 @@ typedef struct
     int nthreads;
     int ncpus;
     sgpl_doacross_state *doacross_state;
+    RoaringBitmap **override_originals;
+    RoaringBitmap **override_replacements;
+    int32_t num_override_targets;
 } workers_args_t;
 
 typedef struct
@@ -318,6 +325,12 @@ static void *worker_main(void *_arg)
         return NULL;
 
     g_tls_doacross_state = a->doacross_state;
+    if (a->override_originals && a->override_replacements && a->num_override_targets > 0)
+    {
+        roaring_bitmap_set_thread_local_overrides(a->override_originals,
+                                                  a->override_replacements,
+                                                  a->num_override_targets);
+    }
 
     if (step < 0)
     {
@@ -339,6 +352,8 @@ static void *worker_main(void *_arg)
     }
 
     g_tls_doacross_state = NULL;
+    if (a->override_originals && a->override_replacements && a->num_override_targets > 0)
+        roaring_bitmap_clear_thread_local_overrides();
     return NULL;
 }
 
@@ -391,6 +406,9 @@ static void sgpl_parallel_launch_plain_raw(int64_t start,
         args[i].nthreads = nthreads;
         args[i].ncpus = nthreads;
         args[i].doacross_state = doacross_state;
+        args[i].override_originals = NULL;
+        args[i].override_replacements = NULL;
+        args[i].num_override_targets = 0;
         pthread_create(&threads[i], NULL, worker_main, &args[i]);
     }
 
@@ -420,6 +438,8 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
     workers_args_t *args = NULL;
     void **thread_envs = NULL;
     RoaringBitmap ***priv_bitmaps = NULL;
+    RoaringBitmap **priv_originals = NULL;
+    RoaringBitmap ***thread_override_replacements = NULL;
     sgpl_doacross_state *doacross_state = NULL;
     int target = 0;
     int tid = 0;
@@ -448,13 +468,17 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
     args = (workers_args_t *)malloc((size_t)nthreads * sizeof(workers_args_t));
     thread_envs = (void **)calloc((size_t)nthreads, sizeof(void *));
     priv_bitmaps = (RoaringBitmap ***)calloc((size_t)num_priv_targets, sizeof(RoaringBitmap **));
-    if (!threads || !args || !thread_envs || !priv_bitmaps)
+    priv_originals = (RoaringBitmap **)calloc((size_t)num_priv_targets, sizeof(RoaringBitmap *));
+    thread_override_replacements = (RoaringBitmap ***)calloc((size_t)nthreads, sizeof(RoaringBitmap **));
+    if (!threads || !args || !thread_envs || !priv_bitmaps || !priv_originals || !thread_override_replacements)
     {
         sgpl_free_doacross_state(doacross_state);
         free(threads);
         free(args);
         free(thread_envs);
         free(priv_bitmaps);
+        free(priv_originals);
+        free(thread_override_replacements);
         return;
     }
 
@@ -483,6 +507,12 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
         void *env_copy = malloc((size_t)env_size);
         if (!env_copy)
             break;
+        thread_override_replacements[tid] = (RoaringBitmap **)calloc((size_t)num_priv_targets, sizeof(RoaringBitmap *));
+        if (!thread_override_replacements[tid])
+        {
+            free(env_copy);
+            break;
+        }
 
         memcpy(env_copy, env, (size_t)env_size);
         thread_envs[tid] = env_copy;
@@ -493,7 +523,9 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
             RoaringBitmap **slot = (RoaringBitmap **)((char *)env_copy + offset);
             RoaringBitmap *original = *(RoaringBitmap **)((char *)env + offset);
             RoaringBitmap *local = roaring_bitmap_create_like(original);
+            priv_originals[target] = original;
             priv_bitmaps[target][tid] = local;
+            thread_override_replacements[tid][target] = local;
             *slot = local;
         }
 
@@ -506,6 +538,9 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
         args[tid].nthreads = nthreads;
         args[tid].ncpus = nthreads;
         args[tid].doacross_state = doacross_state;
+        args[tid].override_originals = priv_originals;
+        args[tid].override_replacements = thread_override_replacements[tid];
+        args[tid].num_override_targets = num_priv_targets;
         pthread_create(&threads[tid], NULL, worker_main, &args[tid]);
     }
 
@@ -541,6 +576,7 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
     for (tid = 0; tid < nthreads; ++tid)
     {
         free(thread_envs[tid]);
+        free(thread_override_replacements[tid]);
     }
 
     for (target = 0; target < num_priv_targets; ++target)
@@ -552,6 +588,8 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
     free(args);
     free(thread_envs);
     free(priv_bitmaps);
+    free(priv_originals);
+    free(thread_override_replacements);
     sgpl_free_doacross_state(doacross_state);
 }
 

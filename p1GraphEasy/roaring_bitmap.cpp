@@ -46,6 +46,40 @@ static int roaring_script_thread_count()
     return cached;
 }
 
+static thread_local RoaringBitmap **g_thread_override_originals = nullptr;
+static thread_local RoaringBitmap **g_thread_override_replacements = nullptr;
+static thread_local int32_t g_thread_override_count = 0;
+
+static inline RoaringBitmap *resolve_thread_local_bitmap_override(RoaringBitmap *bm)
+{
+    if (!bm || !g_thread_override_originals || !g_thread_override_replacements || g_thread_override_count <= 0)
+        return bm;
+
+    for (int32_t i = 0; i < g_thread_override_count; ++i)
+    {
+        if (g_thread_override_originals[i] == bm && g_thread_override_replacements[i])
+            return g_thread_override_replacements[i];
+    }
+
+    return bm;
+}
+
+extern "C" void roaring_bitmap_set_thread_local_overrides(RoaringBitmap **originals,
+                                                          RoaringBitmap **replacements,
+                                                          int32_t count)
+{
+    g_thread_override_originals = originals;
+    g_thread_override_replacements = replacements;
+    g_thread_override_count = count;
+}
+
+extern "C" void roaring_bitmap_clear_thread_local_overrides(void)
+{
+    g_thread_override_originals = nullptr;
+    g_thread_override_replacements = nullptr;
+    g_thread_override_count = 0;
+}
+
 static inline size_t compute_bitmap_cardinality(const uint8_t *bits)
 {
     const uint64_t *words = reinterpret_cast<const uint64_t *>(bits);
@@ -685,6 +719,7 @@ inline bool set_bit(BitmapContainer &b, uint16_t value)
 
 void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value)
 {
+    bm = resolve_thread_local_bitmap_override(bm);
     if (!bm)
         return;
     uint16_t high = (uint16_t)(value >> 16);
@@ -1590,6 +1625,7 @@ extern "C" void roaring_print_edges(uint8_t *ptr, const int32_t *pairs, uint64_t
 
 extern "C" int roaring_bitmap_contains(RoaringBitmap *bm, uint32_t value)
 {
+    bm = resolve_thread_local_bitmap_override(bm);
     if (!bm)
         return 0;
 
@@ -1630,6 +1666,7 @@ extern "C" int roaring_bitmap_contains(RoaringBitmap *bm, uint32_t value)
 // 2. Remove function
 extern "C" void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value)
 {
+    bm = resolve_thread_local_bitmap_override(bm);
     if (!bm)
         return;
 
@@ -1684,6 +1721,7 @@ extern "C" void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value)
 // 3. Get cardinality function
 extern "C" uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm)
 {
+    bm = resolve_thread_local_bitmap_override(bm);
     if (!bm)
         return 0;
 
@@ -1705,6 +1743,7 @@ extern "C" uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm)
 
 extern "C" uint32_t roaring_bitmap_pop(RoaringBitmap *bm)
 {
+    bm = resolve_thread_local_bitmap_override(bm);
     if (!bm || bm->num_containers == 0)
         return 0;
 
@@ -1746,6 +1785,7 @@ extern "C" uint32_t roaring_bitmap_pop(RoaringBitmap *bm)
 
 extern "C" uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t index)
 {
+    bm = resolve_thread_local_bitmap_override(bm);
     if (!bm)
     {
         fprintf(stderr, "Error: roaring_bitmap_get_at_index called with NULL bitmap\n");

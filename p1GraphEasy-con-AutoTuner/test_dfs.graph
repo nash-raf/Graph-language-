@@ -1,0 +1,22 @@
+graph G{
+  edges: file "edgelist.txt";
+
+};
+
+int n = numVertices(G);
+int visited[n];
+int arr[n];
+int idx = 0;
+
+fn void dfs(int v) {
+  visited[v] = 1;
+  arr[idx] = v;
+  idx = idx + 1;
+  for each neighbor u of v in G {
+    if (visited[u] == 0) {
+      dfs(u);
+    }
+  }
+}
+
+dfs(0);

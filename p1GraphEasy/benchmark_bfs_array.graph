@@ -1,5 +1,5 @@
 graph G {
-  edges: file '/tmp/p1_bench_unweighted/synth_v_50000_e_50000.txt';
+  edges: file 'edgelist.txt';
 };
 
 int n = numVertices(G);

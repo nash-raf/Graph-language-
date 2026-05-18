@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 
 GRAPH_FILE="${GRAPH_FILE:-test.graph}"
+GRAPH_PROGRAM="${GRAPH_PROGRAM:-./GraphProgram}"
 
-# g++ -c -O2 -std=c++17 graph_loader_runtime.cpp -o graph_loader_runtime.o
+if [[ ! -x "$GRAPH_PROGRAM" && -x ./GraphProgram_mmap ]]; then
+  GRAPH_PROGRAM="./GraphProgram_mmap"
+fi
 
-g++ -c -O2 -std=c++17 -fopenmp graph_loader_runtime.cpp -o graph_loader_runtime.o
+g++ -c -O2 -std=c++17 -fopenmp graph_loader_runtime_mmap.cpp -o graph_loader_runtime_mmap.o
 g++ -c -O2 -std=c++17 graph_runtime.cpp -o graph_runtime.o
 
-./GraphProgram "$GRAPH_FILE"
-# ./GraphProgram --debug-polly "$GRAPH_FILE"
-# ./GraphProgram "$GRAPH_FILE" -polly-parallel -polly-vectorizer=stripmine
+"$GRAPH_PROGRAM" "$GRAPH_FILE" >/dev/null
 
-g++ program.o runtime.o roaring_bitmap.o graph_loader_runtime.o graph_runtime.o -fopenmp -no-pie -o final_program
-export OMP_NUM_THREADS=4
+g++ program.o runtime.o roaring_bitmap.o graph_loader_runtime_mmap.o graph_runtime.o -fopenmp -no-pie -o final_program_mmap
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 ulimit -s unlimited
-time ./final_program
+time ./final_program_mmap

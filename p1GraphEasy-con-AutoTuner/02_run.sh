@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-# ─── LLVM-18 toolchain ─────────────────────────────────────────────────────────
-LLVM_CONFIG="llvm-config-20"
-OPT_BIN="opt-20"
-CLANGXX="clang++-20"
-
-# LLVM_CONFIG="${LLVM_CONFIG_BIN:-llvm-config-20}"
-# CLANGXX="${CLANGXX_BIN:-clang++-20}"
-CLANG_BIN="${CLANG_BIN:-clang-20}"
+# ─── LLVM toolchain ────────────────────────────────────────────────────────────
+LLVM_PREFIX="${LLVM_PREFIX:-/usr/local/llvm-20-polly-rtti}"
+if [[ -x "$LLVM_PREFIX/bin/llvm-config" ]]; then
+  LLVM_CONFIG="${LLVM_CONFIG_BIN:-$LLVM_PREFIX/bin/llvm-config}"
+  OPT_BIN="${OPT_BIN:-$LLVM_PREFIX/bin/opt}"
+  CLANGXX="${CLANGXX_BIN:-$LLVM_PREFIX/bin/clang++}"
+  CLANG_BIN="${CLANG_BIN:-$LLVM_PREFIX/bin/clang}"
+else
+  LLVM_CONFIG="${LLVM_CONFIG_BIN:-llvm-config-20}"
+  OPT_BIN="${OPT_BIN:-opt-20}"
+  CLANGXX="${CLANGXX_BIN:-clang++-20}"
+  CLANG_BIN="${CLANG_BIN:-clang-20}"
+fi
 CXX_BIN="${CXX_BIN:-g++}"
-
-# LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
-# OPT_BIN=/usr/local/llvm-20-polly-rtti/bin/opt
-# CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
-# CLANG_BIN=/usr/local/llvm-20-polly-rtti/bin/clang
 
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -69,15 +69,20 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
-  ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
-  # ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
+  if [[ -n "${ANTLR_INCLUDE:-}" ]]; then
+    :
+  elif [[ -d /usr/local/include/antlr4-runtime ]]; then
+    ANTLR_INCLUDE="-I/usr/local/include/antlr4-runtime"
+  else
+    ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
+  fi
 
   echo "=== [2/5] Build runtime LLVM IR ==="
   "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
   "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
 
 
-  g++ \
+  "$CXX_BIN" \
     -g -std=c++17 -fexceptions \
     -mavx2 -march=native \
     $ANTLR_INCLUDE \

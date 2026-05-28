@@ -71,7 +71,8 @@ struct LayoutSchedule {
 constexpr double kInf = 1.0e100;
 constexpr double kSafetyMargin = 1.05;
 constexpr uint64_t kMinRegionOpsToSwitch = 2;
-constexpr double kMinScheduleImprovement = 0.005;
+// Only switch when model predicts at least 1.2x benefit over staying baseline.
+constexpr double kMinBenefitRatio = 1.2;
 
 int opIndex(RegionType t) {
   switch (t) {
@@ -123,7 +124,7 @@ bool isInsertCall(StringRef fn) {
 bool isQueryCall(StringRef fn) {
   return fn == "roaring_bitmap_contains" || fn == "roaring_bitmap_get_cardinality" ||
          fn == "roaring_bitmap_union" || fn == "roaring_bitmap_intersect" ||
-         fn == "roaring_from_serialized" || fn == "numVertices_runtime" ||
+         fn == "numVertices_runtime" ||
          fn == "numEdges_runtime";
 }
 
@@ -225,6 +226,18 @@ double estimateAllCSRPathCost(const std::vector<Region> &regions, double estN, d
     current = LAYOUT_CSR;
   }
   return total;
+}
+
+Function *resolveCallee(CallBase *CB) {
+  if (!CB)
+    return nullptr;
+  if (Function *F = CB->getCalledFunction())
+    return F;
+  Value *called = CB->getCalledOperand();
+  if (!called)
+    return nullptr;
+  called = called->stripPointerCasts();
+  return dyn_cast<Function>(called);
 }
 
 double estimateChosenScheduleCost(const std::vector<Region> &regions,
@@ -344,12 +357,23 @@ LayoutSchedule solveDP(const std::vector<Region> &regions, double estN, double e
 
 bool collectGraphMeta(Function &mainFn, std::map<Value *, GraphMeta> &metaByGraphPtr) {
   bool found = false;
+  std::vector<Value *> initGraphPtrs;
+
+  auto registerGraphValue = [&](Value *graphPtr, const GraphMeta &G) {
+    metaByGraphPtr[graphPtr] = G;
+    if (Value *stripped = graphPtr->stripPointerCasts()) {
+      metaByGraphPtr[stripped] = G;
+      if (auto *LI = dyn_cast<LoadInst>(stripped))
+        metaByGraphPtr[LI->getPointerOperand()] = G;
+    }
+  };
+
   for (BasicBlock &BB : mainFn) {
     for (Instruction &I : BB) {
       auto *CB = dyn_cast<CallBase>(&I);
       if (!CB)
         continue;
-      Function *Callee = CB->getCalledFunction();
+      Function *Callee = resolveCallee(CB);
       if (!Callee)
         continue;
       if (Callee->getName() != "autograph_init" || CB->arg_size() < 6)
@@ -362,11 +386,33 @@ bool collectGraphMeta(Function &mainFn, std::map<Value *, GraphMeta> &metaByGrap
       G.nodesBmp = CB->getArgOperand(3);
       G.edgesBmp = CB->getArgOperand(4);
       G.edgePairs = CB->getArgOperand(5);
-      metaByGraphPtr[G.graphPtr] = G;
+      registerGraphValue(G.graphPtr, G);
+      initGraphPtrs.push_back(G.graphPtr->stripPointerCasts());
       found = true;
     }
   }
-  return found;
+
+  if (!found)
+    return false;
+
+  // File-loaded graphs are stored in a global (e.g. @G); neighbor loops reload it.
+  for (BasicBlock &BB : mainFn) {
+    for (Instruction &I : BB) {
+      auto *SI = dyn_cast<StoreInst>(&I);
+      if (!SI)
+        continue;
+      Value *stored = SI->getValueOperand()->stripPointerCasts();
+      for (Value *initPtr : initGraphPtrs) {
+        if (stored != initPtr)
+          continue;
+        Value *slot = SI->getPointerOperand()->stripPointerCasts();
+        const GraphMeta &G = metaByGraphPtr.at(initPtr);
+        metaByGraphPtr[slot] = G;
+      }
+    }
+  }
+
+  return true;
 }
 
 bool classifyCall(StringRef name, RegionType &outType, bool &usesGraphArg0) {
@@ -464,7 +510,7 @@ void collectOpEvents(Function &mainFn, const std::map<Value *, GraphMeta> &metaB
       auto *CB = dyn_cast<CallBase>(&I);
       if (!CB)
         continue;
-      Function *Callee = CB->getCalledFunction();
+      Function *Callee = resolveCallee(CB);
       if (!Callee)
         continue;
       StringRef name = Callee->getName();
@@ -476,6 +522,12 @@ void collectOpEvents(Function &mainFn, const std::map<Value *, GraphMeta> &metaB
       Value *graphPtr = nullptr;
       if (usesGraphArg0 && CB->arg_size() > 0)
         graphPtr = CB->getArgOperand(0);
+
+      // Normalize graph pointer SSA values to improve matching against autograph_init keys.
+      if (graphPtr && !metaByGraphPtr.count(graphPtr)) {
+        if (Value *stripped = graphPtr->stripPointerCasts())
+          graphPtr = stripped;
+      }
 
       if (graphPtr && !metaByGraphPtr.count(graphPtr)) {
         Value *stripped = graphPtr->stripPointerCasts();
@@ -489,8 +541,16 @@ void collectOpEvents(Function &mainFn, const std::map<Value *, GraphMeta> &metaB
 
       if (graphPtr && metaByGraphPtr.count(graphPtr)) {
         lastGraph = graphPtr;
+      } else if (graphPtr && !metaByGraphPtr.count(graphPtr) && metaByGraphPtr.size() == 1) {
+        // Some pipelines carry graph through aliases that do not map 1:1 in IR values.
+        graphPtr = metaByGraphPtr.begin()->first;
+        lastGraph = graphPtr;
       } else if (!graphPtr && lastGraph && metaByGraphPtr.count(lastGraph)) {
         graphPtr = lastGraph;
+      } else if (!graphPtr && metaByGraphPtr.size() == 1) {
+        // Single-graph programs often have bitmap-only ops with no explicit graph arg.
+        graphPtr = metaByGraphPtr.begin()->first;
+        lastGraph = graphPtr;
       } else {
         continue; // strict provenance: skip unresolved/unknown graph pointers
       }
@@ -643,7 +703,8 @@ int injectConversions(Module &M, const std::vector<Region> &regions, const Layou
         conv *= uncertainty;
       }
       const double sw = kSafetyMargin * conv + S.suffixCost[i][target];
-      if (!(sw < stay))
+      const double required = stay / kMinBenefitRatio;
+      if (!(sw < required))
         continue;
     }
 
@@ -656,6 +717,80 @@ int injectConversions(Module &M, const std::vector<Region> &regions, const Layou
     ++injected;
   }
   return injected;
+}
+
+Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr) {
+  for (int depth = 0; depth < 12 && V; ++depth) {
+    V = V->stripPointerCasts();
+    if (metaByGraphPtr.count(V))
+      return V;
+    if (auto *LI = dyn_cast<LoadInst>(V)) {
+      V = LI->getPointerOperand();
+      continue;
+    }
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+      V = GEP->getPointerOperand();
+      continue;
+    }
+    if (auto *AI = dyn_cast<AllocaInst>(V)) {
+      if (metaByGraphPtr.count(AI))
+        return AI;
+      break;
+    }
+    break;
+  }
+  return nullptr;
+}
+
+bool moduleRequiresCSRLayout(Module &M,
+                             const std::map<Value *, GraphMeta> &metaByGraphPtr) {
+  auto csrRuntimeCall = [](StringRef fn) {
+    return fn == "graph_get_edge_weight" || fn == "graph_get_edge_weight_by_id" ||
+           fn == "graph_get_edge_src_by_id" || fn == "graph_get_edge_dst_by_id";
+  };
+
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (auto *CB = dyn_cast<CallBase>(&I)) {
+          if (Function *Callee = resolveCallee(CB)) {
+            if (csrRuntimeCall(Callee->getName()))
+              return true;
+          }
+        }
+
+        auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+        if (!GEP)
+          continue;
+        if (!resolveGraphRoot(GEP->getPointerOperand(), metaByGraphPtr))
+          continue;
+
+        // Opaque-pointer IRGen: row_ptr +16, col_idx +24, weights +32 bytes.
+        if (GEP->getNumIndices() == 1) {
+          if (auto *byteOff = dyn_cast<ConstantInt>(GEP->getOperand(2))) {
+            const int64_t off = byteOff->getSExtValue();
+            if (off == 16 || off == 24 || off == 32)
+              return true;
+          }
+          continue;
+        }
+
+        if (GEP->getNumIndices() < 2)
+          continue;
+        auto idxIt = GEP->idx_begin();
+        ++idxIt;
+        auto *fieldIdx = dyn_cast<ConstantInt>(idxIt);
+        if (!fieldIdx)
+          continue;
+        const int field = static_cast<int>(fieldIdx->getSExtValue());
+        if (field == 2 || field == 3 || field == 4)
+          return true;
+      }
+    }
+  }
+  return false;
 }
 
 } // namespace
@@ -673,10 +808,16 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   }
 
   std::vector<OpEvent> allEvents;
-  collectOpEvents(*mainFn, metaByGraphPtr, allEvents);
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    collectOpEvents(F, metaByGraphPtr, allEvents);
+  }
   if (allEvents.empty()) {
     return PreservedAnalyses::all();
   }
+
+  const bool pinCSR = moduleRequiresCSRLayout(M, metaByGraphPtr);
 
   // Build per-graph event sequences while preserving order.
   std::map<Value *, std::vector<OpEvent>> eventsByGraph;
@@ -706,7 +847,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
 
     bool shouldSkip = false;
     if (chosenCost < kInf / 2.0 && allCSR < kInf / 2.0) {
-      const double required = allCSR * (1.0 - kMinScheduleImprovement);
+      const double required = allCSR / kMinBenefitRatio;
       if (!(chosenCost < required)) {
         shouldSkip = true;
       }
@@ -716,6 +857,10 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       if (c != LAYOUT_CSR) { allCSRSchedule = false; break; }
     }
     if (allCSRSchedule) {
+      shouldSkip = true;
+    }
+    // Neighbor loops read row_ptr/col_idx directly from the Graph struct; keep CSR.
+    if (pinCSR) {
       shouldSkip = true;
     }
     if (!shouldSkip)

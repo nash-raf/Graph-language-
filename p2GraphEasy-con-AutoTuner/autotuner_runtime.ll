@@ -725,7 +725,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %10, label %11, label %100
 
 11:                                               ; preds = %7
-  %12 = load i64, ptr %2, align 8, !tbaa !11
+  %12 = load i64, ptr %2, align 8, !tbaa !13
   %13 = insertelement <2 x i64> poison, i64 %0, i64 0
   %14 = shufflevector <2 x i64> %13, <2 x i64> poison, <2 x i32> zeroinitializer
   br label %24
@@ -749,7 +749,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %27 = phi i64 [ %28, %68 ], [ 0, %11 ]
   %28 = add nuw nsw i64 %27, 1
   %29 = getelementptr inbounds nuw i64, ptr %2, i64 %28
-  %30 = load i64, ptr %29, align 8, !tbaa !11
+  %30 = load i64, ptr %29, align 8, !tbaa !13
   %31 = icmp slt i64 %25, %30
   br i1 %31, label %32, label %68
 
@@ -770,8 +770,8 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %42 = phi <2 x i64> [ zeroinitializer, %35 ], [ %58, %39 ]
   %43 = getelementptr i32, ptr %38, i64 %40
   %44 = getelementptr inbounds nuw i8, ptr %43, i64 8
-  %45 = load <2 x i32>, ptr %43, align 4, !tbaa !22
-  %46 = load <2 x i32>, ptr %44, align 4, !tbaa !22
+  %45 = load <2 x i32>, ptr %43, align 4, !tbaa !24
+  %46 = load <2 x i32>, ptr %44, align 4, !tbaa !24
   %47 = icmp sgt <2 x i32> %45, splat (i32 -1)
   %48 = icmp sgt <2 x i32> %46, splat (i32 -1)
   %49 = zext nneg <2 x i32> %45 to <2 x i64>
@@ -786,7 +786,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %58 = add <2 x i64> %42, %56
   %59 = add nuw i64 %40, 4
   %60 = icmp eq i64 %59, %36
-  br i1 %60, label %61, label %39, !llvm.loop !59
+  br i1 %60, label %61, label %39, !llvm.loop !61
 
 61:                                               ; preds = %39
   %62 = add <2 x i64> %58, %57
@@ -802,16 +802,16 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
 68:                                               ; preds = %73, %61, %24
   %69 = phi i64 [ 0, %24 ], [ %63, %61 ], [ %83, %73 ]
   %70 = getelementptr inbounds nuw i64, ptr %9, i64 %28
-  store i64 %69, ptr %70, align 8, !tbaa !11
+  store i64 %69, ptr %70, align 8, !tbaa !13
   %71 = add nuw nsw i64 %69, %26
   %72 = icmp eq i64 %28, %0
-  br i1 %72, label %15, label %24, !llvm.loop !62
+  br i1 %72, label %15, label %24, !llvm.loop !64
 
 73:                                               ; preds = %65, %73
   %74 = phi i64 [ %83, %73 ], [ %66, %65 ]
   %75 = phi i64 [ %84, %73 ], [ %67, %65 ]
   %76 = getelementptr inbounds i32, ptr %3, i64 %75
-  %77 = load i32, ptr %76, align 4, !tbaa !22
+  %77 = load i32, ptr %76, align 4, !tbaa !24
   %78 = icmp sgt i32 %77, -1
   %79 = zext nneg i32 %77 to i64
   %80 = icmp sgt i64 %0, %79
@@ -820,7 +820,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %83 = add nuw nsw i64 %74, %82
   %84 = add nsw i64 %75, 1
   %85 = icmp eq i64 %84, %30
-  br i1 %85, label %68, label %73, !llvm.loop !63
+  br i1 %85, label %68, label %73, !llvm.loop !65
 
 86:                                               ; preds = %109, %15
   %87 = phi i64 [ %16, %15 ], [ %124, %109 ]
@@ -833,13 +833,13 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %92 = phi i64 [ %97, %90 ], [ %88, %86 ]
   %93 = phi i64 [ %98, %90 ], [ 0, %86 ]
   %94 = getelementptr i64, ptr %9, i64 %92
-  %95 = load i64, ptr %94, align 8, !tbaa !11
+  %95 = load i64, ptr %94, align 8, !tbaa !13
   %96 = add nsw i64 %95, %91
-  store i64 %96, ptr %94, align 8, !tbaa !11
+  store i64 %96, ptr %94, align 8, !tbaa !13
   %97 = add nuw i64 %92, 1
   %98 = add i64 %93, 1
   %99 = icmp eq i64 %98, %17
-  br i1 %99, label %100, label %90, !llvm.loop !64
+  br i1 %99, label %100, label %90, !llvm.loop !66
 
 100:                                              ; preds = %86, %90, %7
   %101 = phi i64 [ 0, %7 ], [ %71, %90 ], [ %71, %86 ]
@@ -851,7 +851,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %10, label %106, label %130
 
 106:                                              ; preds = %100
-  %107 = load i64, ptr %2, align 8, !tbaa !11
+  %107 = load i64, ptr %2, align 8, !tbaa !13
   %108 = getelementptr i8, ptr %3, i64 4
   br label %131
 
@@ -860,35 +860,35 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %111 = phi i64 [ 1, %19 ], [ %125, %109 ]
   %112 = phi i64 [ 0, %19 ], [ %126, %109 ]
   %113 = getelementptr i64, ptr %9, i64 %111
-  %114 = load i64, ptr %113, align 8, !tbaa !11
+  %114 = load i64, ptr %113, align 8, !tbaa !13
   %115 = add nsw i64 %114, %110
-  store i64 %115, ptr %113, align 8, !tbaa !11
+  store i64 %115, ptr %113, align 8, !tbaa !13
   %116 = getelementptr i64, ptr %21, i64 %111
-  %117 = load i64, ptr %116, align 8, !tbaa !11
+  %117 = load i64, ptr %116, align 8, !tbaa !13
   %118 = add nsw i64 %117, %115
-  store i64 %118, ptr %116, align 8, !tbaa !11
+  store i64 %118, ptr %116, align 8, !tbaa !13
   %119 = getelementptr i64, ptr %22, i64 %111
-  %120 = load i64, ptr %119, align 8, !tbaa !11
+  %120 = load i64, ptr %119, align 8, !tbaa !13
   %121 = add nsw i64 %120, %118
-  store i64 %121, ptr %119, align 8, !tbaa !11
+  store i64 %121, ptr %119, align 8, !tbaa !13
   %122 = getelementptr i64, ptr %23, i64 %111
-  %123 = load i64, ptr %122, align 8, !tbaa !11
+  %123 = load i64, ptr %122, align 8, !tbaa !13
   %124 = add nsw i64 %123, %121
-  store i64 %124, ptr %122, align 8, !tbaa !11
+  store i64 %124, ptr %122, align 8, !tbaa !13
   %125 = add nuw i64 %111, 4
   %126 = add i64 %112, 4
   %127 = icmp eq i64 %126, %20
-  br i1 %127, label %86, label %109, !llvm.loop !65
+  br i1 %127, label %86, label %109, !llvm.loop !67
 
 128:                                              ; preds = %157, %183, %131
   %129 = icmp eq i64 %134, %0
-  br i1 %129, label %130, label %131, !llvm.loop !66
+  br i1 %129, label %130, label %131, !llvm.loop !68
 
 130:                                              ; preds = %128, %100
   tail call void @free(ptr noundef %105) #18
-  store ptr %9, ptr %4, align 8, !tbaa !17
-  store ptr %103, ptr %5, align 8, !tbaa !20
-  store i64 %101, ptr %6, align 8, !tbaa !11
+  store ptr %9, ptr %4, align 8, !tbaa !19
+  store ptr %103, ptr %5, align 8, !tbaa !22
+  store i64 %101, ptr %6, align 8, !tbaa !13
   ret void
 
 131:                                              ; preds = %106, %128
@@ -896,7 +896,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   %133 = phi i64 [ %134, %128 ], [ 0, %106 ]
   %134 = add nuw nsw i64 %133, 1
   %135 = getelementptr inbounds nuw i64, ptr %2, i64 %134
-  %136 = load i64, ptr %135, align 8, !tbaa !11
+  %136 = load i64, ptr %135, align 8, !tbaa !13
   %137 = icmp slt i64 %132, %136
   br i1 %137, label %138, label %128
 
@@ -910,7 +910,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
 
 144:                                              ; preds = %138
   %145 = getelementptr inbounds i32, ptr %3, i64 %132
-  %146 = load i32, ptr %145, align 4, !tbaa !22
+  %146 = load i32, ptr %145, align 4, !tbaa !24
   %147 = icmp sgt i32 %146, -1
   %148 = zext nneg i32 %146 to i64
   %149 = icmp sgt i64 %0, %148
@@ -918,11 +918,11 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %150, label %151, label %155
 
 151:                                              ; preds = %144
-  %152 = load i64, ptr %139, align 8, !tbaa !11
+  %152 = load i64, ptr %139, align 8, !tbaa !13
   %153 = add nsw i64 %152, 1
-  store i64 %153, ptr %139, align 8, !tbaa !11
+  store i64 %153, ptr %139, align 8, !tbaa !13
   %154 = getelementptr inbounds i32, ptr %103, i64 %152
-  store i32 %146, ptr %154, align 4, !tbaa !22
+  store i32 %146, ptr %154, align 4, !tbaa !24
   br label %155
 
 155:                                              ; preds = %151, %144
@@ -937,7 +937,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
 160:                                              ; preds = %157, %183
   %161 = phi i64 [ %184, %183 ], [ %158, %157 ]
   %162 = getelementptr inbounds i32, ptr %3, i64 %161
-  %163 = load i32, ptr %162, align 4, !tbaa !22
+  %163 = load i32, ptr %162, align 4, !tbaa !24
   %164 = icmp sgt i32 %163, -1
   %165 = zext nneg i32 %163 to i64
   %166 = icmp sgt i64 %0, %165
@@ -945,16 +945,16 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %167, label %168, label %172
 
 168:                                              ; preds = %160
-  %169 = load i64, ptr %139, align 8, !tbaa !11
+  %169 = load i64, ptr %139, align 8, !tbaa !13
   %170 = add nsw i64 %169, 1
-  store i64 %170, ptr %139, align 8, !tbaa !11
+  store i64 %170, ptr %139, align 8, !tbaa !13
   %171 = getelementptr inbounds i32, ptr %103, i64 %169
-  store i32 %163, ptr %171, align 4, !tbaa !22
+  store i32 %163, ptr %171, align 4, !tbaa !24
   br label %172
 
 172:                                              ; preds = %168, %160
   %173 = getelementptr i32, ptr %108, i64 %161
-  %174 = load i32, ptr %173, align 4, !tbaa !22
+  %174 = load i32, ptr %173, align 4, !tbaa !24
   %175 = icmp sgt i32 %174, -1
   %176 = zext nneg i32 %174 to i64
   %177 = icmp sgt i64 %0, %176
@@ -962,17 +962,17 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %178, label %179, label %183
 
 179:                                              ; preds = %172
-  %180 = load i64, ptr %139, align 8, !tbaa !11
+  %180 = load i64, ptr %139, align 8, !tbaa !13
   %181 = add nsw i64 %180, 1
-  store i64 %181, ptr %139, align 8, !tbaa !11
+  store i64 %181, ptr %139, align 8, !tbaa !13
   %182 = getelementptr inbounds i32, ptr %103, i64 %180
-  store i32 %174, ptr %182, align 4, !tbaa !22
+  store i32 %174, ptr %182, align 4, !tbaa !24
   br label %183
 
 183:                                              ; preds = %179, %172
   %184 = add nsw i64 %161, 2
   %185 = icmp eq i64 %184, %136
-  br i1 %185, label %128, label %160, !llvm.loop !67
+  br i1 %185, label %128, label %160, !llvm.loop !69
 }
 
 ; Function Attrs: nounwind uwtable

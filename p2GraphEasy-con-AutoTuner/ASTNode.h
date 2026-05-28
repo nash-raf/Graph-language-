@@ -28,6 +28,7 @@ enum class TypeKind
     Real,
     String,
     IntArray,
+    RealArray,
     Graph,
     WeightedGraph,
     Set,

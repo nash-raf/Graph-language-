@@ -6,6 +6,7 @@ set -euxo pipefail
 # CLANGXX="clang++-20"
 LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
 CLANGXX=/usr/local/llvm-20-polly-rtti/bin/clang++
+CLANG_BIN=/usr/local/llvm-20-polly-rtti/bin/clang
 
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,10 @@ fi
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
   gcc -c runtime.c -o runtime.o
+
+  echo "=== [2/5] Build autotuner runtime LLVM IR ==="
+  "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
+  "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
 
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
 

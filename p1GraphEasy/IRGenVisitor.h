@@ -126,6 +126,7 @@ private:
 
     // Dynamic arrays use pointer indirection (alloca ptr -> data) so swap is O(1)
     std::unordered_set<std::string> IndirectArrays;
+    std::unordered_set<std::string> IndirectRealArrays;
     std::unordered_map<std::string, llvm::Value *> ArraySizes;
 
     std::unordered_map<uint64_t, uint32_t> EdgePairToId;

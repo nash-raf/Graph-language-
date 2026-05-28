@@ -1,0 +1,84 @@
+graph G { edges: file "edgelist.txt"; };
+int n = numVertices(G);
+real damp = 0.85;
+real one_over_n = 1.0 / n;
+real beta = (1.0 - damp) / n;
+real eps = 0.0000001;
+real eps2 = 0.01;
+real cur_rank[n];
+real ngh_sum[n];
+real delta[n];
+int out_degree[n];
+set frontier;
+set next;
+int round = 0;
+int max_rounds = 100;
+
+for each vertex v in G {
+  cur_rank[v] = 0.0;
+  ngh_sum[v] = 0.0;
+  delta[v] = one_over_n;
+  out_degree[v] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    out_degree[u] = out_degree[u] + 1;
+  }
+}
+
+frontier = G.nodes;
+
+while (round < max_rounds) {
+  round = round + 1;
+
+  for each element u in frontier {
+    real du = delta[u];
+    int outd = out_degree[u];
+    if (outd > 0) {
+      real contrib = du / outd;
+      for each neighbor v of u in G {
+        ngh_sum[v] = ngh_sum[v] + contrib;
+      }
+    }
+  }
+
+  next = {};
+  if (round == 1) {
+    for each vertex v in G {
+      real nd = damp * ngh_sum[v] + beta;
+      cur_rank[v] = cur_rank[v] + nd;
+      delta[v] = nd - one_over_n;
+      real pv = cur_rank[v];
+      real dv = delta[v];
+      if (dv < 0) { dv = 0 - dv; }
+      if (dv > eps2 * pv) { next.add(v); }
+      ngh_sum[v] = 0.0;
+    }
+  } else {
+    for each vertex v in G {
+      real nd = ngh_sum[v] * damp;
+      delta[v] = nd;
+      real pv = cur_rank[v];
+      real dv = nd;
+      if (dv < 0) { dv = 0 - dv; }
+      if (dv > eps2 * pv) {
+        cur_rank[v] = cur_rank[v] + nd;
+        next.add(v);
+      }
+      ngh_sum[v] = 0.0;
+    }
+  }
+
+  real l1 = 0.0;
+  for each vertex v in G {
+    real dv = delta[v];
+    if (dv < 0) { dv = 0 - dv; }
+    l1 = l1 + dv;
+  }
+  if (l1 < eps) { break; }
+
+  frontier = next;
+}
+
+for each vertex v in G { print cur_rank[v]; }

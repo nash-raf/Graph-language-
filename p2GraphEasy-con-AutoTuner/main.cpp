@@ -284,7 +284,7 @@ int main(int argc, char **argv)
 
     auto t_irgen = std::chrono::high_resolution_clock::now();
 
-    // Match p1-con behavior: run autotuner on user IR before linking runtime IR modules.
+    // Run autotuner on user IR before linking runtime IR modules.
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;

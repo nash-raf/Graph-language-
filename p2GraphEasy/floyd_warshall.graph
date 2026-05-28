@@ -1,0 +1,45 @@
+graph G {
+  edges: file "edgelistw.txt";
+  TRUE
+};
+
+fn void floydWarshall() {
+  int n = numVertices(G);
+  int dist[n][n];
+  int inf = 1000000000;
+
+  for (int i = 0; i < n; i = i + 1) {
+    for (int j = 0; j < n; j = j + 1) {
+      if (i == j) {
+        dist[i][j] = 0;
+      } else {
+        dist[i][j] = inf;
+      }
+    }
+  }
+
+  for each edge u, v in G {
+    int w = weight(G, u, v);
+    if (w < dist[u][v]) {
+      dist[u][v] = w;
+      dist[v][u] = w;
+    }
+  }
+
+  for (int k = 0; k < n; k = k + 1) {
+    for (int i = 0; i < n; i = i + 1) {
+      for (int j = 0; j < n; j = j + 1) {
+        if (dist[i][k] != inf && dist[k][j] != inf) {
+          int nd = dist[i][k] + dist[k][j];
+          if (nd < dist[i][j]) {
+            dist[i][j] = nd;
+          }
+        }
+      }
+    }
+  }
+
+  print dist[1][4];
+}
+
+floydWarshall();

@@ -72,7 +72,6 @@ public:
     llvm::Value *visitSetContainsExpr(SetContainsExprNode *node);
     llvm::Value *visitSetPopExpr(SetPopExprNode *node);
     void visitSwapStmt(SwapStmtNode *node);
-    void visitGraphMutation(GraphMutationNode *node);
 
 private:
     llvm::LLVMContext &Context;
@@ -108,11 +107,7 @@ private:
 
     std::unordered_map<std::string, llvm::Value *> GraphNodesMap;
     std::unordered_map<std::string, llvm::Value *> GraphEdgesMap;
-    std::unordered_map<std::string, llvm::Value *> GraphEdgePairsPtrMap;
-    std::unordered_map<std::string, llvm::Value *> GraphEdgePairsCountMap;
     std::unordered_map<std::string, SetValueKind> SetKinds;
-    std::unordered_map<std::string, llvm::Value *> SetEdgePairsPtrMap;
-    std::unordered_map<std::string, llvm::Value *> SetEdgePairsCountMap;
 
     // Loop stack for break/continue support
     struct LoopInfo
@@ -131,6 +126,7 @@ private:
 
     // Dynamic arrays use pointer indirection (alloca ptr -> data) so swap is O(1)
     std::unordered_set<std::string> IndirectArrays;
+    std::unordered_set<std::string> IndirectRealArrays;
     std::unordered_map<std::string, llvm::Value *> ArraySizes;
 
     std::unordered_map<uint64_t, uint32_t> EdgePairToId;
@@ -146,7 +142,6 @@ private:
     void emitEdgePairsGlobal();
     std::vector<uint8_t> buildEdgeBlobForGraph(GraphDeclNode *G);
     SetValueKind inferSetKind(ASTNode *expr);
-    bool resolveEdgePairsMeta(ASTNode *expr, llvm::Value *&pairsPtr, llvm::Value *&pairsCount);
     uint32_t getOrAddEdgeId(int32_t u, int32_t v);
 };
 

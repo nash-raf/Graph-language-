@@ -1,0 +1,47 @@
+graph G { edges: file "edgelist.txt"; };
+int n = numVertices(G);
+int k = 2;
+int deg[n];
+int alive[n];
+set frontier;
+set next;
+
+for each vertex v in G {
+  deg[v] = 0;
+  alive[v] = 1;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    deg[u] = deg[u] + 1;
+  }
+}
+
+frontier = {};
+for each vertex v in G {
+  if (deg[v] < k) {
+    frontier.add(v);
+  }
+}
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    if (alive[u] == 1) {
+      alive[u] = 0;
+      for each neighbor v of u in G {
+        if (alive[v] == 1) {
+          deg[v] = deg[v] - 1;
+          if (deg[v] < k) {
+            next.add(v);
+          }
+        }
+      }
+    }
+  }
+  frontier = next;
+}
+
+for each vertex v in G {
+  print alive[v];
+}

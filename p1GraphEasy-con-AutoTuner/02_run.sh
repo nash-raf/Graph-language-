@@ -99,4 +99,3 @@ if [[ -z "$IR_OVERRIDE" ]]; then
 
   echo ">>> GraphProgram build complete"
 fi
-./GraphProgram test.graph

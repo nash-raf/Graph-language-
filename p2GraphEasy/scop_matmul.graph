@@ -1,0 +1,20 @@
+// O(n^3) matmul nest — pure loops, no graph traversal.
+graph G {
+  edges: file "edgelist_scop_512.txt";
+};
+
+int n = numVertices(G);
+int a[n][n];
+int b[n][n];
+int c[n][n];
+
+for (int i = 0; i < n; i = i + 1) {
+  for (int j = 0; j < n; j = j + 1) {
+    c[i][j] = 0;
+    for (int k = 0; k < n; k = k + 1) {
+      c[i][j] = c[i][j] + a[i][k] * b[k][j];
+    }
+  }
+}
+
+print c[0][0];

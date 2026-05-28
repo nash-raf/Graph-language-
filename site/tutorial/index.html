@@ -1,224 +1,1571 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="light">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="An Efficient, Easy-to-Use DSL for Solving Graph Problems">
+      
+      
+      
+        <link rel="canonical" href="https://nash-raf.github.io/Graph-language-/tutorial/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+      
         
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Tutorial - GraphEasy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
         
-        
-        <link rel="shortcut icon" href="../img/favicon.ico">
-        <title>Tutorial: Using the language - My Docs</title>
-        <link href="../css/bootstrap.min.css" rel="stylesheet">
-        <link href="../css/fontawesome.min.css" rel="stylesheet">
-        <link href="../css/brands.min.css" rel="stylesheet">
-        <link href="../css/solid.min.css" rel="stylesheet">
-        <link href="../css/v4-font-face.min.css" rel="stylesheet">
-        <link href="../css/base.css" rel="stylesheet">
-        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
-        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-        <script>hljs.highlightAll();</script> 
-    </head>
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
 
-    <body>
-        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
-            <div class="container">
-                <a class="navbar-brand" href="..">My Docs</a>
-                <!-- Expander button -->
-                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <!-- Expanded navigation -->
-                <div id="navbar-collapse" class="navbar-collapse collapse">
-                        <!-- Main navigation -->
-                        <ul class="nav navbar-nav">
-                            <li class="nav-item">
-                                <a href=".." class="nav-link">Graph Language</a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="./" class="nav-link active" aria-current="page">Tutorial: Using the language</a>
-                            </li>
-                        </ul>
-
-                    <ul class="nav navbar-nav ms-md-auto">
-                        <li class="nav-item">
-                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
-                                <i class="fa fa-search"></i> Search
-                            </a>
-                        </li>
-                            <li class="nav-item">
-                                <a rel="prev" href=".." class="nav-link">
-                                    <i class="fa fa-arrow-left"></i> Previous
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a rel="next" class="nav-link disabled">
-                                    Next <i class="fa fa-arrow-right"></i>
-                                </a>
-                            </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="container">
-            <div class="row">
-                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
-    <div class="navbar-header">
-        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
-            <span class="fa fa-angle-down"></span>
-        </button>
-    </div>
 
     
-    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
-        <ul class="nav flex-column">
-            
-            <li class="nav-item" data-bs-level="1"><a href="#tutorial-using-the-language" class="nav-link">Tutorial: Using the language</a>
-              <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#1-loading-a-graph" class="nav-link">1. Loading a graph :</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#2-using-built-in-functions-of-the-dsl" class="nav-link">2. Using built-in functions of the DSL:</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#3-using-for-each-loop-in-the-graph" class="nav-link">3. Using for-each loop in the graph:</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#4-using-if-else-while-loops" class="nav-link">4. Using if else, while loops:</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-              </ul>
-            </li>
-        </ul>
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tutorial-using-the-language" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
-</div></div>
-                    <div class="col-md-9" role="main">
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="GraphEasy" class="md-header__button md-logo" aria-label="GraphEasy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GraphEasy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tutorial
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="GraphEasy" class="md-nav__button md-logo" aria-label="GraphEasy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    GraphEasy
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-loading-a-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Loading a graph
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Loading a graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inline-nodes-and-edges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inline nodes and edges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weighted-graphs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weighted graphs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-built-in-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Built-in queries
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Built-in queries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#query-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query syntax
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-variables-and-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Variables and arrays
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Variables and arrays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arrays
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Sets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Sets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declaration-and-literals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declaration and literals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set size
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-for-each-loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. For-each loops
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. For-each loops">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vertices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vertices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neighbors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neighbors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-traversal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set traversal
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-while-loops-if-else-break-and-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. While loops, if-else, break, and continue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-built-in-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Built-in functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-print-and-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Print and show
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-graph-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Graph updates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-graph-comprehensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Graph comprehensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-user-defined-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. User-defined functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-other-statements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Other statements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Other statements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sleep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sleep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#swap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#return-break-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Return, break, continue
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-example-bfs-with-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Example: BFS with arrays
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-example-bfs-with-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Example: BFS with sets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-example-shortest-paths-sssp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Example: shortest paths (SSSP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-loading-a-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Loading a graph
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Loading a graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inline-nodes-and-edges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inline nodes and edges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weighted-graphs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weighted graphs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-built-in-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Built-in queries
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Built-in queries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#query-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query syntax
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-variables-and-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Variables and arrays
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Variables and arrays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arrays
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Sets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Sets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declaration-and-literals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declaration and literals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set size
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-for-each-loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. For-each loops
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. For-each loops">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vertices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vertices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neighbors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neighbors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-traversal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set traversal
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-while-loops-if-else-break-and-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. While loops, if-else, break, and continue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-built-in-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Built-in functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-print-and-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Print and show
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-graph-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Graph updates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-graph-comprehensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Graph comprehensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-user-defined-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. User-defined functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-other-statements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Other statements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Other statements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sleep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sleep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#swap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#return-break-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Return, break, continue
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-example-bfs-with-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Example: BFS with arrays
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-example-bfs-with-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Example: BFS with sets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-example-shortest-paths-sssp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Example: shortest paths (SSSP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
 
 <h1 id="tutorial-using-the-language">Tutorial: Using the language</h1>
-<p>This language will let you describe graphs and load them from a simple edgelist file.</p>
-<h2 id="1-loading-a-graph">1. Loading a graph :</h2>
-<p>Suppose we have an 'edgelist.txt' file with the following edegs: </p>
+<p>This language lets you describe graphs, load them from edgelist files, run built-in queries, or write your own graph algorithms.</p>
+<h2 id="1-loading-a-graph">1. Loading a graph</h2>
+<p>Suppose we have an <code>edgelist.txt</code> file with the following edges:</p>
 <pre><code>0 1
 1 2
 1 3
 2 4
 </code></pre>
-<p>We can define and load  the graph like this:</p>
+<p>We can define and load the graph like this:</p>
 <pre><code>graph g {
-    edges: file 'edgelist.txt'; 
+  edges: file 'edgelist.txt';
 };
 </code></pre>
-<p>This would tell the language to create a graph <code>g</code> and load its edges from the file <code>edgelist.txt</code></p>
-<h2 id="2-using-built-in-functions-of-the-dsl">2. Using built-in functions of the DSL:</h2>
-<p>Suppose we want to find the bfs path of the graph <code>g</code> we previously had. In order to use the built-in function of the GraphEasy we can simply query it using : </p>
-<pre><code>query k : 'bfs' of g;
+<p>This tells the language to create a graph <code>g</code> and load its edges from <code>edgelist.txt</code>. Each line is two integers <code>u v</code> for an undirected edge.</p>
+<h3 id="inline-nodes-and-edges">Inline nodes and edges</h3>
+<p>You can also define a graph directly in the program:</p>
+<pre><code>graph G {
+  nodes: 0, 1, 2, 3, 4;
+  edges: 0-&gt;1, 1-&gt;2, 2-&gt;0, 2-&gt;3;
+};
 </code></pre>
-<p>This would perform bfs on the graph g and load the path in k.</p>
-<p>If we want to print the path we can do it in the following way.</p>
+<h3 id="weighted-graphs">Weighted graphs</h3>
+<p>For weighted graphs, add <code>TRUE</code> inside the graph block and use a weighted edgelist file (<code>u v weight</code> per line):</p>
+<pre><code>graph G {
+  edges: file &quot;edgelistw.txt&quot;;
+  TRUE
+};
+</code></pre>
+<h2 id="2-built-in-queries">2. Built-in queries</h2>
+<p>Suppose we want to run BFS on graph <code>g</code>. We can use a built-in query:</p>
+<pre><code>query k : &quot;bfs&quot; of g;
+</code></pre>
+<p>This performs BFS on <code>g</code> and stores the result in <code>k</code>. To print it:</p>
 <pre><code>print k;
 </code></pre>
-<h2 id="3-using-for-each-loop-in-the-graph">3. Using for-each loop in the graph:</h2>
-<p>Our language provides user to iterate the graph in a simple, intuitive manner using the for-each method.</p>
-<pre><code>for each vertex v in g{
-
-} 
+<h3 id="query-syntax">Query syntax</h3>
+<pre><code>query &lt;name&gt; : &quot;&lt;algorithm&gt;&quot; [&lt;source&gt;] of &lt;graph&gt;;
 </code></pre>
-<h2 id="4-using-if-else-while-loops">4. Using if else, while loops:</h2>
-<p>Using if else and basic while loops is similar to C++ syntax.</p>
-<pre><code>if(condition){
-
-}
-else{
-
+<p>Supported query strings include:</p>
+<table>
+<thead>
+<tr>
+<th>Query string</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"bfs"</code></td>
+<td>Breadth-first search</td>
+</tr>
+<tr>
+<td><code>"dfs"</code></td>
+<td>Depth-first search</td>
+</tr>
+<tr>
+<td><code>"bfs_src"</code></td>
+<td>BFS from a source vertex (use optional source integer)</td>
+</tr>
+<tr>
+<td><code>"dfs_src"</code></td>
+<td>DFS from a source vertex (use optional source integer)</td>
+</tr>
+<tr>
+<td><code>"dijkstra"</code></td>
+<td>Single-source shortest paths (weighted graph)</td>
+</tr>
+<tr>
+<td><code>"bk"</code></td>
+<td>Bron–Kerbosch</td>
+</tr>
+<tr>
+<td><code>"transitive_closure"</code></td>
+<td>Transitive closure</td>
+</tr>
+<tr>
+<td><code>"chromaticity"</code></td>
+<td>Graph chromatic number</td>
+</tr>
+<tr>
+<td><code>"min_cut"</code></td>
+<td>Minimum cut</td>
+</tr>
+</tbody>
+</table>
+<p>Example with a source vertex:</p>
+<pre><code>query path : &quot;bfs_src&quot; 0 of G;
+</code></pre>
+<p>Note: <code>"dijkstra"</code> requires a weighted graph (<code>TRUE</code> in the graph definition).</p>
+<h2 id="3-variables-and-arrays">3. Variables and arrays</h2>
+<p>Declare scalar variables with a type and optional initializer:</p>
+<pre><code>int n = numVertices(G);
+int level = 0;
+real x = 1.5;
+bool flag = TRUE;
+</code></pre>
+<h3 id="arrays">Arrays</h3>
+<p>Declare fixed-size arrays using the number of vertices:</p>
+<pre><code>int n = numVertices(G);
+int visited[n];
+int dist[n];
+int frontier[n];
+int next_frontier[n];
+</code></pre>
+<p>Initialize from a list:</p>
+<pre><code>int arr[5] = [1, 2, 3, 4, 5];
+</code></pre>
+<p>Access and assign elements:</p>
+<pre><code>visited[0] = 1;
+dist[v] = level;
+print dist[0];
+</code></pre>
+<p>Two-dimensional arrays are also supported:</p>
+<pre><code>int M[n][n];
+M[i][j] = 0;
+</code></pre>
+<p>Use <code>INF</code> for infinity in shortest-path programs:</p>
+<pre><code>int inf = INF;
+dist[v] = inf;
+</code></pre>
+<h2 id="4-sets">4. Sets</h2>
+<p>Sets store collections of integer vertex (or edge) ids using a Roaring bitmap internally.</p>
+<h3 id="declaration-and-literals">Declaration and literals</h3>
+<pre><code>set visited;
+set frontier = {0};
+set next = {};
+</code></pre>
+<p>Assign from another set or from the graph:</p>
+<pre><code>frontier = G.nodes;
+set E = G.edges;
+</code></pre>
+<h3 id="set-operations">Set operations</h3>
+<pre><code>result = A union B;
+result = A intersect B;
+next = {};
+frontier = next;
+</code></pre>
+<h3 id="set-methods">Set methods</h3>
+<pre><code>visited.add(u);
+visited.remove(u);
+if (!visited.contains(u)) {
+  visited.add(u);
 }
 </code></pre>
-<p>and while loop is </p>
-<pre><code>while(condition){
-
+<h3 id="set-size">Set size</h3>
+<pre><code>while (setSize(frontier) &gt; 0) {
+  ...
 }
-</code></pre></div>
-            </div>
-        </div>
+</code></pre>
+<h2 id="5-for-each-loops">5. For-each loops</h2>
+<p>The language provides a simple way to iterate over graphs and sets.</p>
+<h3 id="vertices">Vertices</h3>
+<pre><code>for each vertex v in G {
+  dist[v] = 0;
+}
+</code></pre>
+<h3 id="neighbors">Neighbors</h3>
+<pre><code>for each neighbor u of v in G {
+  if (visited[u] == 0) {
+    visited[u] = 1;
+  }
+}
+</code></pre>
+<p>The source vertex <code>v</code> can be any integer expression.</p>
+<h3 id="edges">Edges</h3>
+<pre><code>for each edge u, v in G {
+  ...
+}
+</code></pre>
+<h3 id="set-traversal">Set traversal</h3>
+<pre><code>for each element v in frontier {
+  dist[v] = level;
+}
+</code></pre>
+<p>Shorthand (same meaning):</p>
+<pre><code>for each v in frontier {
+  dist[v] = level;
+}
+</code></pre>
+<h2 id="6-while-loops-if-else-break-and-continue">6. While loops, if-else, break, and continue</h2>
+<p>While loops and conditionals follow a C-like syntax:</p>
+<pre><code>while (frontier_size &gt; 0) {
+  ...
+}
+</code></pre>
+<pre><code>if (dist[u] != inf) {
+  ...
+} else {
+  ...
+}
+</code></pre>
+<p>You can combine conditions with <code>&amp;&amp;</code> and <code>||</code>:</p>
+<pre><code>if (id[u] &lt; id[v] &amp;&amp; visited.contains(u)) {
+  ...
+}
+</code></pre>
+<p>Break out of a loop or skip to the next iteration:</p>
+<pre><code>if (rounds == n) {
+  print &quot;negative cycle&quot;;
+  break;
+}
 
-        <footer class="col-md-12">
-            <hr>
-            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
-        </footer>
-        <script src="../js/bootstrap.bundle.min.js"></script>
-        <script>
-            var base_url = "..",
-                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
-        </script>
-        <script src="../js/base.js"></script>
-        <script src="../search/main.js"></script>
+continue;
+</code></pre>
+<h2 id="7-built-in-functions">7. Built-in functions</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>numVertices(G)</code></td>
+<td>Number of vertices in graph <code>G</code></td>
+</tr>
+<tr>
+<td><code>numEdges(G)</code></td>
+<td>Number of edges in graph <code>G</code></td>
+</tr>
+<tr>
+<td><code>degree(G, v)</code></td>
+<td>Degree of vertex <code>v</code></td>
+</tr>
+<tr>
+<td><code>weight(G, u, v)</code></td>
+<td>Edge weight between <code>u</code> and <code>v</code> (weighted graph)</td>
+</tr>
+<tr>
+<td><code>edgeWeight(G, e)</code></td>
+<td>Weight of edge id <code>e</code></td>
+</tr>
+<tr>
+<td><code>edgeSrc(G, e)</code></td>
+<td>Source vertex of edge id <code>e</code></td>
+</tr>
+<tr>
+<td><code>edgeDst(G, e)</code></td>
+<td>Destination vertex of edge id <code>e</code></td>
+</tr>
+<tr>
+<td><code>setSize(s)</code></td>
+<td>Number of elements in set <code>s</code></td>
+</tr>
+<tr>
+<td><code>hasEdge(G, u, v)</code></td>
+<td>Whether edge <code>(u, v)</code> exists</td>
+</tr>
+<tr>
+<td><code>min(a, b)</code></td>
+<td>Minimum of two values</td>
+</tr>
+<tr>
+<td><code>max(a, b)</code></td>
+<td>Maximum of two values</td>
+</tr>
+<tr>
+<td><code>timer()</code></td>
+<td>High-resolution timer value</td>
+</tr>
+<tr>
+<td><code>swap(a, b)</code></td>
+<td>Swap two array variables</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code>int n = numVertices(G);
+int w = weight(G, 1, 3);
+print setSize(frontier);
+swap(frontier, next_frontier);
+</code></pre>
+<h2 id="8-print-and-show">8. Print and show</h2>
+<p>Print strings, expressions, or arrays:</p>
+<pre><code>print &quot;hello&quot;;
+print dist[0];
+print n + 1;
+print &quot;value = &quot; + n;
+print arr[];
+print arr[i];
+</code></pre>
+<p>Print graph structure:</p>
+<pre><code>print nodes of G;
+print edges of G;
+print graph of G;
+</code></pre>
+<p>Show a graph (visualization hook):</p>
+<pre><code>show G;
+</code></pre>
+<h2 id="9-graph-updates">9. Graph updates</h2>
+<p>Add or remove nodes and edges at runtime (unweighted graphs):</p>
+<pre><code>add 5 to G;
+add 0-&gt;5, 5-&gt;6 to G;
+remove 3 from G;
+remove 0-&gt;1 from G;
+</code></pre>
+<h2 id="10-graph-comprehensions">10. Graph comprehensions</h2>
+<p>Build a new graph by combining or filtering existing graphs:</p>
+<pre><code>Inter = [G1 &amp;&amp; G2];
+Union = [G1 || G2];
+Filtered = [G1 where degree &gt;= 2];
+Filtered = [G1 where connected with 0];
+Filtered = [G1 where cycle];
+</code></pre>
+<p>Combine conditions with <code>&amp;&amp;</code> and <code>||</code>:</p>
+<pre><code>Filtered = [G1 || G2 where (connected with 0 &amp;&amp; degree &gt;= 2) || cycle];
+</code></pre>
+<p>Graph comprehensions are supported on unweighted graphs.</p>
+<h2 id="11-user-defined-functions">11. User-defined functions</h2>
+<p>Define functions with <code>fn</code>, parameters, and a return type:</p>
+<pre><code>fn int myFunc(int x, graph G) {
+  return x + numVertices(G);
+}
+</code></pre>
+<p>Supported types: <code>graph</code>, <code>vertex</code>, <code>edge</code>, <code>int</code>, <code>real</code>, <code>bool</code>, <code>string</code>, <code>set</code>, <code>void</code>.</p>
+<p>Call functions like ordinary expressions:</p>
+<pre><code>int result = myFunc(3, G);
+</code></pre>
+<h2 id="12-other-statements">12. Other statements</h2>
+<h3 id="sleep">Sleep</h3>
+<p>Pause execution (duration in seconds):</p>
+<pre><code>sleep(1.5);
+</code></pre>
+<h3 id="swap">Swap</h3>
+<p>Swap two same-sized array variables:</p>
+<pre><code>swap(frontier, next_frontier);
+</code></pre>
+<h3 id="return-break-continue">Return, break, continue</h3>
+<p>Inside functions and loops:</p>
+<pre><code>return 0;
+break;
+continue;
+</code></pre>
+<h2 id="13-example-bfs-with-arrays">13. Example: BFS with arrays</h2>
+<pre><code>graph G {
+  edges: file 'edgelist.txt';
+};
 
-        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="searchModalLabel">Search</h4>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+int n = numVertices(G);
+int visited[n];
+int dist[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 1;
+int next_size = 0;
+int level = 0;
+
+frontier[0] = 0;
+visited[0] = 1;
+
+while (frontier_size &gt; 0) {
+  next_size = 0;
+  int i = 0;
+
+  while (i &lt; frontier_size) {
+    int v = frontier[i];
+    dist[v] = level;
+
+    for each neighbor u of v in G {
+      if (visited[u] == 0) {
+        visited[u] = 1;
+        next_frontier[next_size] = u;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+  level = level + 1;
+}
+</code></pre>
+<h2 id="14-example-bfs-with-sets">14. Example: BFS with sets</h2>
+<pre><code>graph G {
+  edges: file 'edgelist.txt';
+};
+
+int n = numVertices(G);
+int dist[n];
+set visited = {0};
+set frontier = {0};
+set next;
+int level = 0;
+
+while (setSize(frontier) &gt; 0) {
+  next = {};
+  for each element v in frontier {
+    dist[v] = level;
+    for each neighbor u of v in G {
+      if (!visited.contains(u)) {
+        visited.add(u);
+        next.add(u);
+      }
+    }
+  }
+  frontier = next;
+  level = level + 1;
+}
+</code></pre>
+<h2 id="15-example-shortest-paths-sssp">15. Example: shortest paths (SSSP)</h2>
+<pre><code>graph G {
+  edges: file &quot;edgelistw.txt&quot;;
+  TRUE
+};
+
+int n = numVertices(G);
+int dist[n];
+set frontier;
+set next;
+int src = 1;
+
+for each vertex v in G {
+  dist[v] = INF;
+}
+
+dist[src] = 0;
+frontier = {1};
+
+while (setSize(frontier) &gt; 0) {
+  next = {};
+  for each element u in frontier {
+    if (dist[u] != inf) {
+      for each neighbor v of u in G {
+        int nd = dist[u] + weight(G, u, v);
+        if (nd &lt; dist[v]) {
+          dist[v] = nd;
+          next.add(v);
+        }
+      }
+    }
+  }
+  frontier = next;
+}
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
             </div>
-            <div class="modal-body">
-                <p>From here you can search these documents. Enter your search terms below.</p>
-                <form>
-                    <div class="form-group">
-                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
-                    </div>
-                </form>
-                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
-            </div>
-            <div class="modal-footer">
-            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
-    </div>
-</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th style="width: 20%;">Keys</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td class="help shortcut"><kbd>?</kbd></td>
-                    <td>Open this help</td>
-                  </tr>
-                  <tr>
-                    <td class="next shortcut"><kbd>n</kbd></td>
-                    <td>Next page</td>
-                  </tr>
-                  <tr>
-                    <td class="prev shortcut"><kbd>p</kbd></td>
-                    <td>Previous page</td>
-                  </tr>
-                  <tr>
-                    <td class="search shortcut"><kbd>s</kbd></td>
-                    <td>Search</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="modal-footer">
-            </div>
-        </div>
-    </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
 </div>
-
-    </body>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
 </html>

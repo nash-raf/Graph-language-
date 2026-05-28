@@ -1,0 +1,20 @@
+graph G {
+  edges: file "edgelist_scop_512.txt";
+};
+
+int n = numVertices(G);
+int a[n];
+int b[n];
+int c[n];
+
+for (int i = 0; i < n; i = i + 1) {
+  a[i] = i;
+}
+for (int j = 0; j < n; j = j + 1) {
+  b[j] = a[j] + 1;
+}
+for (int k = 0; k < n; k = k + 1) {
+  c[k] = b[k] + k;
+}
+
+print c[10];

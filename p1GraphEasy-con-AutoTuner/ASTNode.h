@@ -28,6 +28,7 @@ enum class TypeKind
     Real,
     String,
     IntArray,
+    RealArray,
     Graph,
     WeightedGraph,
     Set,
@@ -67,7 +68,6 @@ enum class ASTNodeType
     GraphUpdate,
     ShowGraph,
     GraphComprehension,
-    GraphMutation,
     SetDecl,
     SetLiteral,
     SetOperation,
@@ -85,7 +85,6 @@ enum class ASTNodeType
 };
 
 enum class GraphUpdateKind { Add, Remove };
-enum class GraphMutationKind { AddNode, RemoveNode, AddEdge, RemoveEdge };
 enum class GraphDegreeOp { None, Eq, Ne, Le, Ge, Lt, Gt };
 enum class GraphConditionOp { And, Or, Connected, Cycle, Degree };
 
@@ -200,27 +199,6 @@ class GraphUpdateNode : public ASTNode {
               edges(e)
         {}
     };
-
-class GraphMutationNode : public ASTNode
-{
-public:
-    GraphMutationKind kind;
-    std::string graphName;
-    std::vector<int> nodes;
-    std::vector<std::pair<int, int>> edges;
-
-    GraphMutationNode(GraphMutationKind k,
-                      const std::string &g,
-                      std::vector<int> nodeIds = {},
-                      std::vector<std::pair<int, int>> edgePairs = {})
-        : ASTNode(ASTNodeType::GraphMutation),
-          kind(k),
-          graphName(g),
-          nodes(std::move(nodeIds)),
-          edges(std::move(edgePairs))
-    {
-    }
-};
 
 class ProgramNode : public ASTNode
 {

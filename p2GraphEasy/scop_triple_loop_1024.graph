@@ -1,0 +1,22 @@
+// Large O(n^3) nest (n=1024). Pure loops; graph only supplies n.
+graph G {
+  edges: file "edgelist_scop_1024.txt";
+};
+
+int n = numVertices(G);
+int a[n];
+int acc = 0;
+
+for (int i = 0; i < n; i = i + 1) {
+  for (int j = 0; j < n; j = j + 1) {
+    for (int k = 0; k < n; k = k + 1) {
+      int t = i * 13 + j * 7 + k;
+      t = t * t + i;
+      a[i] = a[i] + (t % 1023);
+      acc = acc + 1;
+    }
+  }
+}
+
+print a[1];
+print acc;

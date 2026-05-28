@@ -571,12 +571,17 @@ antlrcpp::Any ASTBuilder::visitVarDecl(BaseParser::VarDeclContext *ctx)
             size = static_cast<int>(elems.size());
         }
 
-        // Wrap the element list in an ArrayLiteralNode
-        auto arrayLit = std::make_shared<ArrayLiteralNode>(elems);
+        // Wrap the element list in an ArrayLiteralNode only when explicitly provided.
+        ASTNodePtr initNode = nullptr;
+        if (auto initCtx = arrayDecl->arrayInitializer())
+        {
+            (void)initCtx;
+            initNode = std::make_shared<ArrayLiteralNode>(elems);
+        }
 
         // Return VarDeclNode with optional dynamic size expression
         return std::static_pointer_cast<ASTNode>(
-            std::make_shared<VarDeclNode>(typeName, name, arrayLit, /*isArr=*/true,
+            std::make_shared<VarDeclNode>(typeName, name, initNode, /*isArr=*/true,
                                           static_cast<size_t>(size), sizeExpr));
     }
     return nullptr;

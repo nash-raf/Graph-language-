@@ -112,14 +112,14 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         Symbol *sym = lookupSymbol(baseVar->name);
         if (!sym)
             error("use of undeclared array: " + baseVar->name);
-        if (sym->type != TypeKind::IntArray)
+        if (sym->type != TypeKind::IntArray && sym->type != TypeKind::RealArray)
             error("subscripted value is not an array: " + baseVar->name);
         TypeKind idxTy = analyzeExpr(acc->indexExpr.get());
         if (idxTy != TypeKind::Int)
             error("array index must be int");
-        // Annotate the array access node with its element type
-        acc->resolvedType = TypeKind::Int;
-        return TypeKind::Int;
+        TypeKind elemTy = (sym->type == TypeKind::RealArray) ? TypeKind::Real : TypeKind::Int;
+        acc->resolvedType = elemTy;
+        return elemTy;
     }
     case ASTNodeType::BinaryExpr:
     {
@@ -529,9 +529,12 @@ void SemanticAnalyzer::analyzeVarDecl(VarDeclNode *decl)
     }
     else if (decl->isArray)
     {
-        if (declared != TypeKind::Int)
-            error("only int arrays are supported: " + decl->name);
-        sym.type = TypeKind::IntArray;
+        if (declared == TypeKind::Int)
+            sym.type = TypeKind::IntArray;
+        else if (declared == TypeKind::Real)
+            sym.type = TypeKind::RealArray;
+        else
+            error("only int or real arrays are supported: " + decl->name);
     }
     else
     {
@@ -556,6 +559,10 @@ void SemanticAnalyzer::analyzeVarDecl(VarDeclNode *decl)
             initTy != TypeKind::IntArray &&
             initTy != TypeKind::Unknown)
             error("type mismatch in array initialization: " + decl->name);
+        if (sym.type == TypeKind::RealArray &&
+            initTy != TypeKind::RealArray &&
+            initTy != TypeKind::Unknown)
+            error("type mismatch in array initialization: " + decl->name);
     }
 }
 
@@ -577,6 +584,12 @@ void SemanticAnalyzer::analyzeAssignment(AssignmentStmtNode *assign)
     if (assign->lhs->type == ASTNodeType::ArrayAccess)
     {
         TypeKind lhsTy = analyzeExpr(assign->lhs.get());
+        if (lhsTy == TypeKind::Real)
+        {
+            if (rhsTy != TypeKind::Real)
+                error("type mismatch in real array element assignment");
+            return;
+        }
         if (lhsTy != TypeKind::Int)
             error("array element assignment requires int value");
         if (rhsTy != TypeKind::Int)

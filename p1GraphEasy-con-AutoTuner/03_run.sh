@@ -29,6 +29,11 @@ cd "$SCRIPT_DIR"
 
 GRAPH_FILE="${GRAPH_FILE:-test.graph}"
 
+if [[ ! -x ./GraphProgram ]]; then
+  echo "GraphProgram not found. Run ./02_run.sh test.graph test.graph first." >&2
+  exit 1
+fi
+
 # NLOpt: prefer user-provided prefix, else local deps, else system install (libnlopt-dev)
 NLOPT_PREFIX="${SGPL_NLOPT_PREFIX:-$SCRIPT_DIR/.deps/nlopt}"
 
@@ -53,6 +58,8 @@ fi
 ./GraphProgram "$GRAPH_FILE"
 
 # 2) Build runtimes
+gcc -O3 -c autotuner_runtime.c -o autotuner_runtime.o
+gcc -O3 -c graph_mutation_runtime.c -o graph_mutation_runtime.o
 gcc -O3 "${NLOPT_CFLAGS[@]}" -c parallel_runtime.c -o parallel_runtime.o
 gcc -O3 -c runtime.c -o runtime.o
 

@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <cstring>
+#include <cstdlib>
 
 #include "antlr4-runtime.h"
 #include "BaseLexer.h"
@@ -62,6 +64,21 @@ static void writeBitcodeToFile(Module &M, const std::string &path)
     }
     WriteBitcodeToFile(M, Out);
     Out.flush();
+}
+
+static bool isTruthyEnv(const char *name)
+{
+    const char *raw = std::getenv(name);
+    if (!raw)
+        return false;
+
+    const char *truthy[] = {"1", "true", "TRUE", "yes", "YES", "on", "ON"};
+    for (const char *value : truthy)
+    {
+        if (std::strcmp(raw, value) == 0)
+            return true;
+    }
+    return false;
 }
 
 // struct DummyPollyCheckPass : public PassInfoMixin<DummyPollyCheckPass>
@@ -151,11 +168,41 @@ int main(int argc, char **argv)
         return false;
     };
 
-    // Force-enable polly if caller didn't pass it
-    if (!hasArg("-polly"))
+    auto appendPollyFlag = [&](const std::string &flag) {
+        storedArgs.emplace_back(flag);
+    };
+
+    // Force-enable polly unless explicitly disabled via env or CLI.
+    if (isTruthyEnv("GRAPH_DISABLE_POLLY"))
     {
-        storedArgs.emplace_back("-polly");
-        parseArgv.push_back(storedArgs.back().c_str());
+        appendPollyFlag("-polly=false");
+    }
+    else if (!hasArg("-polly"))
+    {
+        appendPollyFlag("-polly");
+    }
+
+    if (const char *extra = std::getenv("GRAPH_POLLY_EXTRA_FLAGS"))
+    {
+        std::string flags(extra);
+        std::string token;
+        for (char c : flags)
+        {
+            if (c == ' ' || c == '\t')
+            {
+                if (!token.empty())
+                {
+                    appendPollyFlag(token);
+                    token.clear();
+                }
+            }
+            else
+            {
+                token.push_back(c);
+            }
+        }
+        if (!token.empty())
+            appendPollyFlag(token);
     }
 
     // Append any ORIGINAL *flag* arguments (those that start with '-') from argv.
@@ -165,18 +212,18 @@ int main(int argc, char **argv)
         const char *a = argv[i];
         if (a[0] == '-')
         {
-            // include flag
-            storedArgs.emplace_back(a);
-            parseArgv.push_back(storedArgs.back().c_str());
-            // if next token exists and is not a flag, treat it as the flag's value
+            appendPollyFlag(a);
             if (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                storedArgs.emplace_back(argv[i + 1]);
-                parseArgv.push_back(storedArgs.back().c_str());
-                ++i; // skip the value we consumed
+                appendPollyFlag(argv[i + 1]);
+                ++i;
             }
         }
     }
+
+    parseArgv.reserve(1 + storedArgs.size());
+    for (const auto &arg : storedArgs)
+        parseArgv.push_back(arg.c_str());
 
     // Parse only the flags so polly's flags are registered without confusing positional args.
     {
@@ -501,7 +548,13 @@ int main(int argc, char **argv)
 
     auto t_link = std::chrono::high_resolution_clock::now();
 
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
+        writeBitcodeToFile(*M, dumpPath);
+
     OptMPM.run(*M, MAM);
+
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
+        writeBitcodeToFile(*M, dumpPath);
     MPM.run(*M, MAM);
 
     auto t_opt = std::chrono::high_resolution_clock::now();

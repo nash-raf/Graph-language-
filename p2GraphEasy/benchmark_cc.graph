@@ -1,5 +1,5 @@
 graph G {
-  edges: file "edgelist.txt";
+  edges: file "/home/user/Course/msk1/2nd/graphs/grapheasy/synth_graphs/violin/synth_v_1000000_e_1000000_seed_15.txt";
   //edges: file "../../../synth_graphs_unweighted/synth_v_50000_e_50000.txt";
 };
 

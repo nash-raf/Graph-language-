@@ -357,6 +357,17 @@ LayoutSchedule solveDP(const std::vector<Region> &regions, double estN, double e
 
 bool collectGraphMeta(Function &mainFn, std::map<Value *, GraphMeta> &metaByGraphPtr) {
   bool found = false;
+  std::vector<Value *> initGraphPtrs;
+
+  auto registerGraphValue = [&](Value *graphPtr, const GraphMeta &G) {
+    metaByGraphPtr[graphPtr] = G;
+    if (Value *stripped = graphPtr->stripPointerCasts()) {
+      metaByGraphPtr[stripped] = G;
+      if (auto *LI = dyn_cast<LoadInst>(stripped))
+        metaByGraphPtr[LI->getPointerOperand()] = G;
+    }
+  };
+
   for (BasicBlock &BB : mainFn) {
     for (Instruction &I : BB) {
       auto *CB = dyn_cast<CallBase>(&I);
@@ -375,13 +386,33 @@ bool collectGraphMeta(Function &mainFn, std::map<Value *, GraphMeta> &metaByGrap
       G.nodesBmp = CB->getArgOperand(3);
       G.edgesBmp = CB->getArgOperand(4);
       G.edgePairs = CB->getArgOperand(5);
-      metaByGraphPtr[G.graphPtr] = G;
-      if (Value *stripped = G.graphPtr->stripPointerCasts())
-        metaByGraphPtr[stripped] = G;
+      registerGraphValue(G.graphPtr, G);
+      initGraphPtrs.push_back(G.graphPtr->stripPointerCasts());
       found = true;
     }
   }
-  return found;
+
+  if (!found)
+    return false;
+
+  // File-loaded graphs are stored in a global (e.g. @G); neighbor loops reload it.
+  for (BasicBlock &BB : mainFn) {
+    for (Instruction &I : BB) {
+      auto *SI = dyn_cast<StoreInst>(&I);
+      if (!SI)
+        continue;
+      Value *stored = SI->getValueOperand()->stripPointerCasts();
+      for (Value *initPtr : initGraphPtrs) {
+        if (stored != initPtr)
+          continue;
+        Value *slot = SI->getPointerOperand()->stripPointerCasts();
+        const GraphMeta &G = metaByGraphPtr.at(initPtr);
+        metaByGraphPtr[slot] = G;
+      }
+    }
+  }
+
+  return true;
 }
 
 bool classifyCall(StringRef name, RegionType &outType, bool &usesGraphArg0) {
@@ -688,6 +719,80 @@ int injectConversions(Module &M, const std::vector<Region> &regions, const Layou
   return injected;
 }
 
+Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr) {
+  for (int depth = 0; depth < 12 && V; ++depth) {
+    V = V->stripPointerCasts();
+    if (metaByGraphPtr.count(V))
+      return V;
+    if (auto *LI = dyn_cast<LoadInst>(V)) {
+      V = LI->getPointerOperand();
+      continue;
+    }
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+      V = GEP->getPointerOperand();
+      continue;
+    }
+    if (auto *AI = dyn_cast<AllocaInst>(V)) {
+      if (metaByGraphPtr.count(AI))
+        return AI;
+      break;
+    }
+    break;
+  }
+  return nullptr;
+}
+
+bool moduleRequiresCSRLayout(Module &M,
+                             const std::map<Value *, GraphMeta> &metaByGraphPtr) {
+  auto csrRuntimeCall = [](StringRef fn) {
+    return fn == "graph_get_edge_weight" || fn == "graph_get_edge_weight_by_id" ||
+           fn == "graph_get_edge_src_by_id" || fn == "graph_get_edge_dst_by_id";
+  };
+
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (auto *CB = dyn_cast<CallBase>(&I)) {
+          if (Function *Callee = resolveCallee(CB)) {
+            if (csrRuntimeCall(Callee->getName()))
+              return true;
+          }
+        }
+
+        auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+        if (!GEP)
+          continue;
+        if (!resolveGraphRoot(GEP->getPointerOperand(), metaByGraphPtr))
+          continue;
+
+        // Opaque-pointer IRGen: row_ptr +16, col_idx +24, weights +32 bytes.
+        if (GEP->getNumIndices() == 1) {
+          if (auto *byteOff = dyn_cast<ConstantInt>(GEP->getOperand(2))) {
+            const int64_t off = byteOff->getSExtValue();
+            if (off == 16 || off == 24 || off == 32)
+              return true;
+          }
+          continue;
+        }
+
+        if (GEP->getNumIndices() < 2)
+          continue;
+        auto idxIt = GEP->idx_begin();
+        ++idxIt;
+        auto *fieldIdx = dyn_cast<ConstantInt>(idxIt);
+        if (!fieldIdx)
+          continue;
+        const int field = static_cast<int>(fieldIdx->getSExtValue());
+        if (field == 2 || field == 3 || field == 4)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM) {
@@ -711,6 +816,8 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   if (allEvents.empty()) {
     return PreservedAnalyses::all();
   }
+
+  const bool pinCSR = moduleRequiresCSRLayout(M, metaByGraphPtr);
 
   // Build per-graph event sequences while preserving order.
   std::map<Value *, std::vector<OpEvent>> eventsByGraph;
@@ -750,6 +857,10 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       if (c != LAYOUT_CSR) { allCSRSchedule = false; break; }
     }
     if (allCSRSchedule) {
+      shouldSkip = true;
+    }
+    // Neighbor loops read row_ptr/col_idx directly from the Graph struct; keep CSR.
+    if (pinCSR) {
       shouldSkip = true;
     }
     if (!shouldSkip)

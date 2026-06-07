@@ -323,6 +323,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -339,6 +357,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#heatmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heatmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -364,6 +423,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#heatmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heatmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -380,8 +469,16 @@
 
 
 <h1 id="results">Results</h1>
-<p>Benchmark results will be added here after the aligned runs are finalized.</p>
-<p>Planned content:</p>
+<p>This page summarizes the current aligned benchmark logs.</p>
+<h2 id="heatmap">Heatmap</h2>
+<p>The heatmap compares GraphIt, Ligra, and Graptor against <code>p2GraphEasy</code> across four synthetic graph seeds. Rows are seeds and columns are algorithms.</p>
+<p>Each cell is:</p>
+<pre><code class="language-text">p2GraphEasy runtime / system runtime
+</code></pre>
+<p>So <code>1.00</code> means equal runtime to <code>p2GraphEasy</code>; values above <code>1.00</code> mean the compared system ran faster than <code>p2GraphEasy</code>.</p>
+<p><img alt="Per-seed speedup heatmaps" src="../assets/p2_speedup_heatmaps.png" /></p>
+<p>Exact values are available as <a href="../assets/p2_speedup_heatmaps.csv">CSV</a>.</p>
+<h2 id="benchmark-scope">Benchmark Scope</h2>
 <table>
 <thead>
 <tr>
@@ -391,20 +488,24 @@
 </thead>
 <tbody>
 <tr>
-<td>Violin plots</td>
-<td>Runtime distributions across repeated runs</td>
+<td>Baseline</td>
+<td><code>p2GraphEasy</code></td>
 </tr>
 <tr>
-<td>Summary tables</td>
-<td>Median, mean, min, max, and run counts</td>
+<td>Compared systems</td>
+<td>GraphIt, Ligra, Graptor</td>
 </tr>
 <tr>
-<td>Systems</td>
-<td>P1 GraphEasy, P2 GraphEasy, autotuner variants, GraphIt, Ligra, and Graptor</td>
+<td>Seeds shown</td>
+<td>1, 2, 3, 4</td>
 </tr>
 <tr>
 <td>Algorithms</td>
 <td>BFS parent, connected components, KCore, PageRank, and SSSP</td>
+</tr>
+<tr>
+<td>Graph routing</td>
+<td>BFS parent, CC, KCore, and PageRank use unweighted synthetic violin graphs; SSSP uses weighted synthetic violin graphs</td>
 </tr>
 </tbody>
 </table>

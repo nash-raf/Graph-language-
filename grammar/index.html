@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://nash-raf.github.io/Graph-language-/tutorial/">
+        <link rel="canonical" href="https://nash-raf.github.io/Graph-language-/grammar/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../tutorial/">
       
       
-        <link rel="next" href="../grammar/">
+        <link rel="next" href="../algorithms/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Getting Started - GraphEasy</title>
+        <title>Grammar - GraphEasy</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#getting-started" class="md-skip">
+        <a href="#grammar" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Getting Started
+              Grammar
             
           </span>
         </div>
@@ -232,6 +232,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -251,7 +278,7 @@
   <span class="md-ellipsis">
     
   
-    Getting Started
+    Grammar
   
 
     
@@ -269,7 +296,7 @@
   <span class="md-ellipsis">
     
   
-    Getting Started
+    Grammar
   
 
     
@@ -295,10 +322,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#minimal-program" class="md-nav__link">
+  <a href="#program-structure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Minimal Program
+        Program Structure
       
     </span>
   </a>
@@ -306,10 +333,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#run-a-program" class="md-nav__link">
+  <a href="#graph-definitions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Run A Program
+        Graph Definitions
       
     </span>
   </a>
@@ -317,10 +344,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#project-layout" class="md-nav__link">
+  <a href="#types-and-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Project Layout
+        Types And Variables
       
     </span>
   </a>
@@ -328,13 +355,140 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#documentation-sections" class="md-nav__link">
+  <a href="#expressions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation Sections
+        Expressions
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loops
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph Queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-comprehension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph Comprehension
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-mutation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph Mutation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#print-and-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Print And Show
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmark Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arrays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-traversal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Traversal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtime-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -342,33 +496,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../grammar/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Grammar
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -454,10 +581,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#minimal-program" class="md-nav__link">
+  <a href="#program-structure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Minimal Program
+        Program Structure
       
     </span>
   </a>
@@ -465,10 +592,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#run-a-program" class="md-nav__link">
+  <a href="#graph-definitions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Run A Program
+        Graph Definitions
       
     </span>
   </a>
@@ -476,10 +603,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#project-layout" class="md-nav__link">
+  <a href="#types-and-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Project Layout
+        Types And Variables
       
     </span>
   </a>
@@ -487,13 +614,140 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#documentation-sections" class="md-nav__link">
+  <a href="#expressions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation Sections
+        Expressions
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Loops
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph Queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-comprehension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph Comprehension
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-mutation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph Mutation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#print-and-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Print And Show
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmark Extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arrays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-traversal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Traversal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtime-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -514,86 +768,202 @@
 
 
 
-<h1 id="getting-started">Getting Started</h1>
-<p>This page shows the smallest path from a <code>.graph</code> file to a running GraphEasy program.</p>
-<h2 id="minimal-program">Minimal Program</h2>
+<h1 id="grammar">Grammar</h1>
+<p>This page summarizes the language syntax used by GraphEasy programs. The first part follows the core grammar in <code>Base.g4</code>; the second part documents extensions used by the benchmark programs.</p>
+<h2 id="program-structure">Program Structure</h2>
+<p>A program is a sequence of statements and function definitions:</p>
+<pre><code class="language-antlr">program: (statement | function)* EOF;
+</code></pre>
+<p>Statements include graph definitions, variable declarations, conditionals, loops, graph comprehensions, queries, graph display, graph mutation, function calls, and print statements.</p>
+<h2 id="graph-definitions">Graph Definitions</h2>
+<p>Graphs are declared with the <code>graph</code> keyword:</p>
+<pre><code class="language-graph">graph G {
+  nodes: 0, 1, 2, 3;
+  edges: 0-&gt;1, 1-&gt;2, 2-&gt;3;
+};
+</code></pre>
+<p>Graphs can also load edges from a file:</p>
 <pre><code class="language-graph">graph G {
   edges: file &quot;edgelist.txt&quot;;
 };
-
-query path : &quot;bfs&quot; of G;
-print path;
 </code></pre>
-<p>The graph file is a plain edgelist. For an unweighted graph, each line contains two integer vertex ids:</p>
-<pre><code class="language-text">0 1
-1 2
-1 3
-2 4
+<p>Adjacency-list input is represented with <code>fileAdj</code>:</p>
+<pre><code class="language-graph">graph G {
+  edges: fileAdj &quot;adjacency.txt&quot;;
+};
 </code></pre>
-<p>For a weighted graph, each line contains <code>source destination weight</code>:</p>
-<pre><code class="language-text">0 1 7
-1 2 3
-2 4 5
+<p>Weighted input is used by the benchmark runtime with <code>TRUE</code> inside the graph block:</p>
+<pre><code class="language-graph">graph G {
+  edges: file &quot;weighted_edgelist.txt&quot;;
+  TRUE
+};
 </code></pre>
-<h2 id="run-a-program">Run A Program</h2>
-<p>From a GraphEasy implementation directory such as <code>p2GraphEasy</code>:</p>
-<pre><code class="language-bash">./1run.sh test.graph test.graph
-./2final_run.sh
-</code></pre>
-<p>The first command compiles the language frontend and the <code>.graph</code> program. The second command links the generated objects with the runtime and executes the final binary.</p>
-<h2 id="project-layout">Project Layout</h2>
-<p>The repository has multiple implementation families:</p>
+<h2 id="types-and-variables">Types And Variables</h2>
+<p>Core scalar types are:</p>
 <table>
 <thead>
 <tr>
-<th>Directory</th>
-<th>Purpose</th>
+<th>Type</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>p1GraphEasy</code></td>
-<td>Baseline GraphEasy implementation</td>
+<td><code>int</code></td>
+<td>Integer</td>
 </tr>
 <tr>
-<td><code>p2GraphEasy</code></td>
-<td>Optimized GraphEasy implementation</td>
+<td><code>real</code></td>
+<td>Floating-point value</td>
 </tr>
 <tr>
-<td><code>p1GraphEasy-con-AutoTuner</code></td>
-<td>P1 with autotuner support</td>
+<td><code>bool</code></td>
+<td>Boolean</td>
 </tr>
 <tr>
-<td><code>p2GraphEasy-con-AutoTuner</code></td>
-<td>P2 with autotuner support</td>
+<td><code>string</code></td>
+<td>String</td>
 </tr>
 <tr>
-<td><code>parallel</code></td>
-<td>Parallel experiments and workloads</td>
+<td><code>vertex</code></td>
+<td>Vertex value</td>
+</tr>
+<tr>
+<td><code>edge</code></td>
+<td>Edge value</td>
+</tr>
+<tr>
+<td><code>graph</code></td>
+<td>Graph value</td>
 </tr>
 </tbody>
 </table>
-<h2 id="documentation-sections">Documentation Sections</h2>
-<p>Use the rest of the documentation in this order:</p>
+<p>Examples:</p>
+<pre><code class="language-graph">int source = 0;
+real damping = 0.85;
+bool active = true;
+string label = &quot;bfs&quot;;
+</code></pre>
+<h2 id="expressions">Expressions</h2>
+<p>The core expression grammar supports arithmetic, function calls, identifiers, integers, reals, booleans, and parentheses:</p>
+<pre><code class="language-graph">int x = 2 + 3 * 4;
+real y = (1.0 - damping) / n;
+int z = numVertices(G);
+</code></pre>
+<p>Comparison and logical operators are used in conditions:</p>
+<pre><code class="language-graph">if (dist[v] &gt; dist[u] + w) {
+  dist[v] = dist[u] + w;
+}
+
+if (a &lt; b &amp;&amp; b &lt; c) {
+  print &quot;ordered&quot;;
+}
+</code></pre>
+<h2 id="loops">Loops</h2>
+<p>GraphEasy has <code>while</code> loops:</p>
+<pre><code class="language-graph">while (round &lt; max_rounds) {
+  round = round + 1;
+}
+</code></pre>
+<p>It also has graph traversal loops:</p>
+<pre><code class="language-graph">for each vertex v in G {
+  print v;
+}
+
+for each edge u, v in G {
+  print u;
+}
+
+for each neighbor v of u in G {
+  print v;
+}
+</code></pre>
+<h2 id="graph-queries">Graph Queries</h2>
+<p>Built-in graph queries use this form:</p>
+<pre><code class="language-graph">query result : &quot;bfs&quot; of G;
+print result;
+</code></pre>
+<p>The grammar accepts a string query name. Runtime support determines which query strings are implemented.</p>
+<h2 id="graph-comprehension">Graph Comprehension</h2>
+<p>Graph comprehensions filter an existing graph:</p>
+<pre><code class="language-graph">H = [G where degree &gt; 2];
+K = [G where degree &gt; 2 &amp;&amp; connected with 0];
+</code></pre>
+<p>Supported graph conditions include degree comparisons, connectivity with a vertex, logical <code>&amp;&amp;</code>, logical <code>||</code>, and parentheses.</p>
+<h2 id="graph-mutation">Graph Mutation</h2>
+<p>Nodes and edges can be added to or removed from a graph:</p>
+<pre><code class="language-graph">add 4 to G;
+add 2-&gt;4 to G;
+remove 0-&gt;1 from G;
+</code></pre>
+<h2 id="functions">Functions</h2>
+<p>Functions have a return type, name, parameter list, and block:</p>
+<pre><code class="language-graph">fn int add_one(int x) {
+  return x + 1;
+}
+
+int y = add_one(4);
+</code></pre>
+<h2 id="print-and-show">Print And Show</h2>
+<pre><code class="language-graph">print &quot;done&quot;;
+print x;
+print edges of G;
+print nodes of G;
+print graph of G;
+show G;
+</code></pre>
+<h2 id="benchmark-extensions">Benchmark Extensions</h2>
+<p>The benchmark algorithms use implementation features beyond the minimal <code>Base.g4</code> listing.</p>
+<h3 id="arrays">Arrays</h3>
+<pre><code class="language-graph">int n = numVertices(G);
+int parent[n];
+real rank[n];
+
+parent[0] = 0;
+rank[0] = 1.0 / n;
+</code></pre>
+<h3 id="sets">Sets</h3>
+<pre><code class="language-graph">set frontier;
+set next;
+
+frontier = {0};
+next = {};
+next.add(v);
+
+while (setSize(frontier) &gt; 0) {
+  frontier = next;
+}
+</code></pre>
+<h3 id="set-traversal">Set Traversal</h3>
+<pre><code class="language-graph">for each element u in frontier {
+  print u;
+}
+</code></pre>
+<h3 id="runtime-helpers">Runtime Helpers</h3>
+<p>Common helper calls in benchmark programs:</p>
 <table>
 <thead>
 <tr>
-<th>Section</th>
-<th>What it covers</th>
+<th>Helper</th>
+<th>Use</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="../grammar/">Grammar</a></td>
-<td>Core syntax from <code>Base.g4</code> and benchmark language extensions</td>
+<td><code>numVertices(G)</code></td>
+<td>Number of vertices</td>
 </tr>
 <tr>
-<td><a href="../algorithms/">Algorithms</a></td>
-<td>BFS parent, connected components, KCore, PageRank, and SSSP in GraphEasy</td>
+<td><code>weight(G, u, v)</code></td>
+<td>Edge weight for weighted SSSP</td>
 </tr>
 <tr>
-<td><a href="../results/">Results</a></td>
-<td>Placeholder for benchmark plots, tables, and notes</td>
+<td><code>setSize(frontier)</code></td>
+<td>Number of elements in a set</td>
+</tr>
+<tr>
+<td><code>swap(a, b)</code></td>
+<td>Swap array-backed frontier buffers</td>
 </tr>
 </tbody>
 </table>

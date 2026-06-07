@@ -491,9 +491,9 @@
 
 
 <h1 id="results">Results</h1>
-<p>This page summarizes the current aligned benchmark logs.</p>
+<p>This page summarizes the current aligned benchmark logs. GraphEasy values report the inner <code>time ./final_program*</code> execution time from each run script; compiler, code generation, and link time are excluded from the plotted <code>real</code> time.</p>
 <h2 id="violin-plot">Violin Plot</h2>
-<p>The normal violin plot shows runtime distributions across all aligned systems and algorithms.</p>
+<p>The normal violin plot shows final executable runtime distributions across all aligned systems and algorithms.</p>
 <p><img alt="All algorithms violin plot" src="../assets/all_algorithms_violin.png" /></p>
 <p>Individual algorithm plots:</p>
 <table>
@@ -529,7 +529,7 @@
 <h2 id="heatmap">Heatmap</h2>
 <p>The heatmap compares GraphIt, Ligra, and Graptor against <code>p2GraphEasy</code> across four synthetic graph seeds. Rows are seeds and columns are algorithms.</p>
 <p>Each cell is:</p>
-<pre><code class="language-text">p2GraphEasy runtime / system runtime
+<pre><code class="language-text">p2GraphEasy final executable runtime / system runtime
 </code></pre>
 <p>So <code>1.00</code> means equal runtime to <code>p2GraphEasy</code>; values above <code>1.00</code> mean the compared system ran faster than <code>p2GraphEasy</code>.</p>
 <p><img alt="Per-seed speedup heatmaps" src="../assets/p2_speedup_heatmaps.png" /></p>

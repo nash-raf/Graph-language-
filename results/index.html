@@ -395,17 +395,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#benchmark-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Benchmark Scope
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -462,17 +451,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#benchmark-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Benchmark Scope
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -491,81 +469,10 @@
 
 
 <h1 id="results">Results</h1>
-<p>This page summarizes the current aligned benchmark logs. GraphEasy values report the inner <code>time ./final_program*</code> execution time from each run script; compiler, code generation, and link time are excluded from the plotted <code>real</code> time.</p>
 <h2 id="violin-plot">Violin Plot</h2>
-<p>The normal violin plot shows final executable runtime distributions across all aligned systems and algorithms.</p>
 <p><img alt="All algorithms violin plot" src="../assets/all_algorithms_violin.png" /></p>
-<p>Individual algorithm plots:</p>
-<table>
-<thead>
-<tr>
-<th>Algorithm</th>
-<th>Plot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>BFS parent</td>
-<td><a href="../assets/bfs_parent_violin.png">BFS violin</a></td>
-</tr>
-<tr>
-<td>Connected components</td>
-<td><a href="../assets/cc_violin.png">CC violin</a></td>
-</tr>
-<tr>
-<td>KCore</td>
-<td><a href="../assets/kcore_violin.png">KCore violin</a></td>
-</tr>
-<tr>
-<td>PageRank</td>
-<td><a href="../assets/pagerank_violin.png">PageRank violin</a></td>
-</tr>
-<tr>
-<td>SSSP</td>
-<td><a href="../assets/sssp_violin.png">SSSP violin</a></td>
-</tr>
-</tbody>
-</table>
 <h2 id="heatmap">Heatmap</h2>
-<p>The heatmap compares GraphIt, Ligra, and Graptor against <code>p2GraphEasy</code> across four synthetic graph seeds. Rows are seeds and columns are algorithms.</p>
-<p>Each cell is:</p>
-<pre><code class="language-text">p2GraphEasy final executable runtime / system runtime
-</code></pre>
-<p>So <code>1.00</code> means equal runtime to <code>p2GraphEasy</code>; values above <code>1.00</code> mean the compared system ran faster than <code>p2GraphEasy</code>.</p>
 <p><img alt="Per-seed speedup heatmaps" src="../assets/p2_speedup_heatmaps.png" /></p>
-<p>Exact values are available as <a href="../assets/p2_speedup_heatmaps.csv">CSV</a>.</p>
-<h2 id="benchmark-scope">Benchmark Scope</h2>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Baseline</td>
-<td><code>p2GraphEasy</code></td>
-</tr>
-<tr>
-<td>Compared systems</td>
-<td>GraphIt, Ligra, Graptor</td>
-</tr>
-<tr>
-<td>Seeds shown</td>
-<td>1, 2, 3, 4</td>
-</tr>
-<tr>
-<td>Algorithms</td>
-<td>BFS parent, connected components, KCore, PageRank, and SSSP</td>
-</tr>
-<tr>
-<td>Graph routing</td>
-<td>BFS parent, CC, KCore, and PageRank use unweighted synthetic violin graphs; SSSP uses weighted synthetic violin graphs</td>
-</tr>
-</tbody>
-</table>
-<p>The benchmark suite keeps unweighted algorithms on unweighted synthetic violin graphs and SSSP on weighted synthetic violin graphs.</p>
 
 
 

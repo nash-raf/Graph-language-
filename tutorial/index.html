@@ -530,6 +530,13 @@ print path;
 1 3
 2 4
 </code></pre>
+<p>GraphEasy loads graphs as undirected unless the graph block says otherwise:</p>
+<pre><code class="language-graph">graph G {
+  directed:true;
+  edges: file &quot;directed_edgelist.txt&quot;;
+};
+</code></pre>
+<p>In a directed graph, <code>neighbor</code> means outgoing neighbor. Use <code>in neighbor</code>, <code>out neighbor</code>, <code>inDegree</code>, and <code>outDegree</code> when direction matters.</p>
 <p>For a weighted graph, each line contains <code>source destination weight</code>:</p>
 <pre><code class="language-text">0 1 7
 1 2 3

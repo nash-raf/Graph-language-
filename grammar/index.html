@@ -787,11 +787,13 @@
   edges: file &quot;edgelist.txt&quot;;
 };
 </code></pre>
-<p>Adjacency-list input is represented with <code>fileAdj</code>:</p>
+<p>Graphs are undirected by default. Add <code>directed:true;</code> inside the graph block to preserve edge direction:</p>
 <pre><code class="language-graph">graph G {
-  edges: fileAdj &quot;adjacency.txt&quot;;
+  directed:true;
+  edges: file &quot;directed_edgelist.txt&quot;;
 };
 </code></pre>
+<p>For a directed graph, an input line <code>u v</code> creates only <code>u -&gt; v</code>. Without <code>directed:true;</code>, GraphEasy treats that line as an undirected edge and builds both adjacency directions.</p>
 <p>Weighted input is used by the benchmark runtime with <code>TRUE</code> inside the graph block:</p>
 <pre><code class="language-graph">graph G {
   edges: file &quot;weighted_edgelist.txt&quot;;
@@ -877,7 +879,16 @@ for each edge u, v in G {
 for each neighbor v of u in G {
   print v;
 }
+
+for each out neighbor v of u in G {
+  print v;
+}
+
+for each in neighbor v of u in G {
+  print v;
+}
 </code></pre>
+<p>On undirected graphs, <code>neighbor</code>, <code>out neighbor</code>, and <code>in neighbor</code> traverse the same adjacency. On directed graphs, <code>neighbor</code> and <code>out neighbor</code> traverse outgoing edges, while <code>in neighbor</code> traverses incoming edges.</p>
 <h2 id="graph-queries">Graph Queries</h2>
 <p>Built-in graph queries use this form:</p>
 <pre><code class="language-graph">query result : &quot;bfs&quot; of G;
@@ -952,6 +963,26 @@ while (setSize(frontier) &gt; 0) {
 <tr>
 <td><code>numVertices(G)</code></td>
 <td>Number of vertices</td>
+</tr>
+<tr>
+<td><code>numEdges(G)</code></td>
+<td>Logical edge count; directed graphs are not divided by two</td>
+</tr>
+<tr>
+<td><code>degree(G, v)</code></td>
+<td>Undirected degree, or <code>inDegree + outDegree</code> on directed graphs</td>
+</tr>
+<tr>
+<td><code>outDegree(G, v)</code></td>
+<td>Outgoing degree</td>
+</tr>
+<tr>
+<td><code>inDegree(G, v)</code></td>
+<td>Incoming degree</td>
+</tr>
+<tr>
+<td><code>hasEdge(G, u, v)</code></td>
+<td>Direction-sensitive edge lookup on directed graphs</td>
 </tr>
 <tr>
 <td><code>weight(G, u, v)</code></td>

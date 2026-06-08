@@ -664,7 +664,7 @@ while (setSize(frontier) &gt; 0) {
 }
 </code></pre>
 <h2 id="pagerank">PageRank</h2>
-<p>PageRank runs fixed-count power iteration. The benchmark uses damping factor <code>0.85</code> and <code>20</code> iterations.</p>
+<p>PageRank runs fixed-count power iteration. The benchmark uses damping factor <code>0.85</code>, <code>20</code> iterations, and outgoing adjacency.</p>
 <pre><code class="language-graph">graph G {
   edges: file &quot;graph.txt&quot;;
 };
@@ -686,9 +686,7 @@ for each vertex v in G {
 }
 
 for each vertex u in G {
-  for each neighbor v of u in G {
-    out_degree[u] = out_degree[u] + 1;
-  }
+  out_degree[u] = outDegree(G, u);
 }
 
 while (round &lt; max_rounds) {
@@ -702,7 +700,7 @@ while (round &lt; max_rounds) {
     int outd = out_degree[u];
     if (outd &gt; 0) {
       real contrib = damp * cur_rank[u] / outd;
-      for each neighbor v of u in G {
+      for each out neighbor v of u in G {
         next_rank[v] = next_rank[v] + contrib;
       }
     }

@@ -2,22 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://nash-raf.github.io/Graph-language-/</loc>
-         <lastmod>2026-06-08</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://nash-raf.github.io/Graph-language-/algorithms/</loc>
-         <lastmod>2026-06-08</lastmod>
+         <lastmod>2026-06-22</lastmod>
+    </url>
+    <url>
+         <loc>https://nash-raf.github.io/Graph-language-/bron-kerbosch/</loc>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://nash-raf.github.io/Graph-language-/grammar/</loc>
-         <lastmod>2026-06-08</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://nash-raf.github.io/Graph-language-/results/</loc>
-         <lastmod>2026-06-08</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://nash-raf.github.io/Graph-language-/tutorial/</loc>
-         <lastmod>2026-06-08</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
 </urlset>

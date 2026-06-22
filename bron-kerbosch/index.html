@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://nash-raf.github.io/Graph-language-/algorithms/">
+        <link rel="canonical" href="https://nash-raf.github.io/Graph-language-/bron-kerbosch/">
       
       
-        <link rel="prev" href="../grammar/">
+        <link rel="prev" href="../algorithms/">
       
       
-        <link rel="next" href="../bron-kerbosch/">
+        <link rel="next" href="../results/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Algorithms - GraphEasy</title>
+        <title>Bron-Kerbosch - GraphEasy</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#algorithms" class="md-skip">
+        <a href="#bron-kerbosch-maximal-clique-search" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Algorithms
+              Bron-Kerbosch
             
           </span>
         </div>
@@ -286,6 +286,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../algorithms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -305,7 +332,7 @@
   <span class="md-ellipsis">
     
   
-    Algorithms
+    Bron-Kerbosch
   
 
     
@@ -323,7 +350,7 @@
   <span class="md-ellipsis">
     
   
-    Algorithms
+    Bron-Kerbosch
   
 
     
@@ -349,10 +376,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#bfs-parent" class="md-nav__link">
+  <a href="#algorithm-state" class="md-nav__link">
     <span class="md-ellipsis">
       
-        BFS Parent
+        Algorithm State
       
     </span>
   </a>
@@ -360,10 +387,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connected-components" class="md-nav__link">
+  <a href="#describing-a-neighborhood" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connected Components
+        Describing A Neighborhood
       
     </span>
   </a>
@@ -371,10 +398,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kcore" class="md-nav__link">
+  <a href="#candidate-refinement" class="md-nav__link">
     <span class="md-ellipsis">
       
-        KCore
+        Candidate Refinement
       
     </span>
   </a>
@@ -382,10 +409,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pagerank" class="md-nav__link">
+  <a href="#complete-grapheasy-program" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PageRank
+        Complete GraphEasy Program
       
     </span>
   </a>
@@ -393,10 +420,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sssp" class="md-nav__link">
+  <a href="#example-result" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SSSP
+        Example Result
       
     </span>
   </a>
@@ -407,33 +434,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../bron-kerbosch/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Bron-Kerbosch
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -492,10 +492,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#bfs-parent" class="md-nav__link">
+  <a href="#algorithm-state" class="md-nav__link">
     <span class="md-ellipsis">
       
-        BFS Parent
+        Algorithm State
       
     </span>
   </a>
@@ -503,10 +503,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connected-components" class="md-nav__link">
+  <a href="#describing-a-neighborhood" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connected Components
+        Describing A Neighborhood
       
     </span>
   </a>
@@ -514,10 +514,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kcore" class="md-nav__link">
+  <a href="#candidate-refinement" class="md-nav__link">
     <span class="md-ellipsis">
       
-        KCore
+        Candidate Refinement
       
     </span>
   </a>
@@ -525,10 +525,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pagerank" class="md-nav__link">
+  <a href="#complete-grapheasy-program" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PageRank
+        Complete GraphEasy Program
       
     </span>
   </a>
@@ -536,10 +536,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sssp" class="md-nav__link">
+  <a href="#example-result" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SSSP
+        Example Result
       
     </span>
   </a>
@@ -563,225 +563,116 @@
 
 
 
-<h1 id="algorithms">Algorithms</h1>
-<p>This page lists the five aligned algorithms used in the benchmark suite.</p>
-<h2 id="bfs-parent">BFS Parent</h2>
-<p>BFS parent computes a breadth-first traversal tree from source vertex <code>0</code>. Each discovered vertex stores the vertex that first reached it.</p>
-<pre><code class="language-graph">graph G {
-  edges: file &quot;graph.txt&quot;;
-};
-
-int n = numVertices(G);
-int visited[n];
-int parent[n];
-int frontier[n];
-int next_frontier[n];
-int frontier_size = 1;
-int next_size = 0;
-int init_i = 0;
-
-while (init_i &lt; n) {
-  visited[init_i] = 0;
-  parent[init_i] = -1;
-  init_i = init_i + 1;
-}
-
-frontier[0] = 0;
-visited[0] = 1;
-parent[0] = 0;
-
-while (frontier_size &gt; 0) {
-  next_size = 0;
-  int i = 0;
-
-  while (i &lt; frontier_size) {
-    int v = frontier[i];
-    for each neighbor u of v in G {
-      if (visited[u] == 0) {
-        visited[u] = 1;
-        parent[u] = v;
-        next_frontier[next_size] = u;
-        next_size = next_size + 1;
-      }
-    }
-    i = i + 1;
-  }
-
-  swap(frontier, next_frontier);
-  frontier_size = next_size;
+<h1 id="bron-kerbosch-maximal-clique-search">Bron-Kerbosch Maximal-Clique Search</h1>
+<p>Bron-Kerbosch is a recursive backtracking algorithm that enumerates every maximal clique in an undirected graph. This example shows how GraphEasy combines functions, sets, graph comprehensions, and recursion to describe the algorithm directly.</p>
+<h2 id="algorithm-state">Algorithm State</h2>
+<p>Each recursive call maintains three vertex sets:</p>
+<table>
+<thead>
+<tr>
+<th>Set</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>R</code></td>
+<td>Vertices already included in the current clique</td>
+</tr>
+<tr>
+<td><code>P</code></td>
+<td>Candidate vertices that can still extend the clique</td>
+</tr>
+<tr>
+<td><code>X</code></td>
+<td>Previously considered vertices, used to avoid duplicate maximal cliques</td>
+</tr>
+</tbody>
+</table>
+<p>A clique is maximal when both <code>P</code> and <code>X</code> are empty. At that point, no remaining or previously processed vertex can extend <code>R</code>.</p>
+<h2 id="describing-a-neighborhood">Describing A Neighborhood</h2>
+<p>The helper function creates a graph view containing the edges incident to vertex <code>v</code>, obtains its vertices, and removes <code>v</code> itself:</p>
+<pre><code class="language-graph">fn set neighborsOf(graph G, int v) {
+    graph H = [G where edge has v];
+    set Nv = H.vertices;
+    Nv.remove(v);
+    return Nv;
 }
 </code></pre>
-<h2 id="connected-components">Connected Components</h2>
-<p>Connected components uses label propagation. Each vertex starts with its own id, then lower labels spread through the graph until convergence.</p>
-<pre><code class="language-graph">graph G {
-  edges: file &quot;graph.txt&quot;;
+<p>The expression <code>edge has v</code> selects edges incident to <code>v</code>. The resulting <code>H.vertices</code> set therefore contains <code>v</code> and all its neighbors.</p>
+<h2 id="candidate-refinement">Candidate Refinement</h2>
+<p>For each candidate vertex <code>v</code>, the algorithm adds it to the current clique and intersects the remaining candidate sets with its neighborhood:</p>
+<pre><code class="language-graph">set R_new = R;
+R_new.add(v);
+
+set P_new = P intersect Nv;
+set X_new = X intersect Nv;
+
+graph H = [G where vertex in P_new];
+bronKerbosch(H, R_new, P_new, X_new);
+</code></pre>
+<p><code>P intersect Nv</code> keeps only candidates adjacent to <code>v</code>, so every vertex passed to the recursive call remains connected to every vertex in the growing clique. The graph comprehension gives the recursive call a candidate-focused vertex view while preserving the graph's vertex identifiers.</p>
+<p>After recursion, <code>v</code> moves from <code>P</code> to <code>X</code>:</p>
+<pre><code class="language-graph">P.remove(v);
+X.add(v);
+</code></pre>
+<p>This prevents the same maximal clique from being reported through a different candidate order.</p>
+<h2 id="complete-grapheasy-program">Complete GraphEasy Program</h2>
+<pre><code class="language-graph">fn set neighborsOf(graph G, int v) {
+    graph H = [G where edge has v];
+    set Nv = H.vertices;
+    Nv.remove(v);
+    return Nv;
+}
+
+fn int bronKerbosch(graph G, set R, set P, set X) {
+    if (P.size() == 0 &amp;&amp; X.size() == 0) {
+        print &quot;maximal clique&quot;;
+        print R.size();
+        return 0;
+    }
+
+    set P_work = P;
+
+    while (P_work.size() &gt; 0) {
+        int v = P_work.pop();
+        set Nv = neighborsOf(G, v);
+
+        set R_new = R;
+        R_new.add(v);
+
+        set P_new = P intersect Nv;
+        set X_new = X intersect Nv;
+
+        graph H = [G where vertex in P_new];
+        bronKerbosch(H, R_new, P_new, X_new);
+
+        P.remove(v);
+        X.add(v);
+    }
+
+    return 0;
+}
+
+graph G {
+    nodes: 0, 1, 2, 3;
+    edges: 0-&gt;1, 1-&gt;2, 0-&gt;2, 2-&gt;3;
 };
 
-int n = numVertices(G);
-int id[n];
-set frontier;
-set next;
+set R = {};
+set P = G.nodes;
+set X = {};
 
-for each vertex v in G {
-  id[v] = v;
-}
-
-frontier = G.nodes;
-
-while (setSize(frontier) &gt; 0) {
-  next = {};
-  for each element u in frontier {
-    for each neighbor v of u in G {
-      if (id[u] &lt; id[v]) {
-        id[v] = id[u];
-        next.add(v);
-      }
-    }
-  }
-  frontier = next;
-}
+bronKerbosch(G, R, P, X);
 </code></pre>
-<h2 id="kcore">KCore</h2>
-<p>KCore removes vertices whose degree is below <code>k</code>. Removing a vertex reduces the degree of its live neighbors, which may create more removals.</p>
-<pre><code class="language-graph">graph G {
-  edges: file &quot;graph.txt&quot;;
-};
-
-int n = numVertices(G);
-int k = 5;
-int deg[n];
-int alive[n];
-set frontier;
-set next;
-
-for each vertex v in G {
-  deg[v] = 0;
-  alive[v] = 1;
-}
-
-for each vertex u in G {
-  for each neighbor v of u in G {
-    deg[u] = deg[u] + 1;
-  }
-}
-
-frontier = {};
-for each vertex v in G {
-  if (deg[v] &lt; k) {
-    frontier.add(v);
-  }
-}
-
-while (setSize(frontier) &gt; 0) {
-  next = {};
-  for each element u in frontier {
-    if (alive[u] == 1) {
-      alive[u] = 0;
-      for each neighbor v of u in G {
-        if (alive[v] == 1) {
-          deg[v] = deg[v] - 1;
-          if (deg[v] &lt; k) {
-            next.add(v);
-          }
-        }
-      }
-    }
-  }
-  frontier = next;
-}
+<h2 id="example-result">Example Result</h2>
+<p>The example graph contains the triangle <code>{0, 1, 2}</code> and the maximal edge clique <code>{2, 3}</code>. The program reports their sizes:</p>
+<pre><code class="language-text">maximal clique
+2
+maximal clique
+3
 </code></pre>
-<h2 id="pagerank">PageRank</h2>
-<p>PageRank runs fixed-count power iteration. The benchmark uses damping factor <code>0.85</code>, <code>20</code> iterations, and outgoing adjacency.</p>
-<pre><code class="language-graph">graph G {
-  edges: file &quot;graph.txt&quot;;
-};
-
-int n = numVertices(G);
-real damp = 0.85;
-real one_over_n = 1.0 / n;
-real beta = (1.0 - damp) / n;
-real cur_rank[n];
-real next_rank[n];
-int out_degree[n];
-int round = 0;
-int max_rounds = 20;
-
-for each vertex v in G {
-  cur_rank[v] = one_over_n;
-  next_rank[v] = beta;
-  out_degree[v] = 0;
-}
-
-for each vertex u in G {
-  out_degree[u] = outDegree(G, u);
-}
-
-while (round &lt; max_rounds) {
-  round = round + 1;
-
-  for each vertex v in G {
-    next_rank[v] = beta;
-  }
-
-  for each vertex u in G {
-    int outd = out_degree[u];
-    if (outd &gt; 0) {
-      real contrib = damp * cur_rank[u] / outd;
-      for each out neighbor v of u in G {
-        next_rank[v] = next_rank[v] + contrib;
-      }
-    }
-  }
-
-  for each vertex v in G {
-    cur_rank[v] = next_rank[v];
-  }
-}
-</code></pre>
-<h2 id="sssp">SSSP</h2>
-<p>SSSP uses a frontier-based Bellman-Ford style relaxation over a weighted graph.</p>
-<pre><code class="language-graph">graph G {
-  edges: file &quot;weighted_graph.txt&quot;;
-  TRUE
-};
-
-int n = numVertices(G);
-int inf = 2147483647;
-int dist[n];
-set frontier;
-set next;
-int src = 0;
-int rounds = 0;
-
-for each vertex v in G {
-  dist[v] = inf;
-}
-
-dist[src] = 0;
-frontier = {0};
-
-while (setSize(frontier) &gt; 0) {
-  if (rounds == n) {
-    print &quot;negative cycle&quot;;
-    break;
-  }
-
-  next = {};
-  for each element u in frontier {
-    if (dist[u] != inf) {
-      for each neighbor v of u in G {
-        int nd = dist[u] + weight(G, u, v);
-        if (nd &lt; dist[v]) {
-          dist[v] = nd;
-          next.add(v);
-        }
-      }
-    }
-  }
-  frontier = next;
-  rounds = rounds + 1;
-}
-</code></pre>
+<p>The implementation was also tested on a 40-edge graph against an independent Python Bron-Kerbosch implementation. Both produced maximal-clique sizes <code>4, 4, 5, 8</code>.</p>
 
 
 

@@ -50,6 +50,7 @@ else
 fi
 
 # 1) Generate program.o (contains the generated code entrypoints)
+clang-20 -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
 ./GraphProgram "$GRAPH_FILE"
 
 # 2) Build runtimes
@@ -75,4 +76,3 @@ if [[ "$USE_LOCAL_NLOPT" -eq 1 ]]; then
 fi
 
 time ./final_program
-

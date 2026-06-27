@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -231,11 +231,19 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitAddTargets(BaseParser::AddTargetsContext *ctx) override {
+  virtual std::any visitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitRemoveTargets(BaseParser::RemoveTargetsContext *ctx) override {
+  virtual std::any visitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *ctx) override {
     return visitChildren(ctx);
   }
 

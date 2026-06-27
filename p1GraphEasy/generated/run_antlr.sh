@@ -1,1 +1,1 @@
-antlr4 -Dlanguage=Cpp -visitor -no-listener -o generated/ Base.g4
+antlr4 -Dlanguage=Cpp -visitor -o generated/ Base.g4

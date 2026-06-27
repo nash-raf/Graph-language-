@@ -146,10 +146,12 @@ whileStatement: 'while' '(' condition ')' block;
 
 nodeEdgeOperation: addOperation | removeOperation;
 
-addOperation: 'add' addTargets 'to' graphID ';';
-removeOperation: 'remove' removeTargets 'from' graphID ';';
-addTargets: nodeID | edge | nodeList | edgeList;
-removeTargets: nodeID | edge | nodeList | edgeList;
+addOperation: 'add' graphUpdateTargets 'to' graphID ';';
+removeOperation: 'remove' graphUpdateTargets 'from' graphID ';';
+graphUpdateTargets: updateNodeTargetList | updateEdgeTargetList;
+updateNodeTargetList: expr (',' expr)*;
+updateEdgeTargetList: updateEdgeTarget (',' updateEdgeTarget)*;
+updateEdgeTarget: expr '->' expr;
 
 
 

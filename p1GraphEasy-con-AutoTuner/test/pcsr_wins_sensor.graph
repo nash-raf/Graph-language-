@@ -1,0 +1,56 @@
+// Realistic workload: medium-scale sensor network (~500 nodes, ~5000 edges)
+// that logs batches of event-triggered sensor-sensor edge updates.
+// Expected autotuner behavior: choose PCSR layout for the update-dominant phase
+// because PCSR insert cost scales with average degree (gU = 4m/n ~ 40) while
+// SET insert cost scales with total edges (40*m/L cache traffic).
+//
+// Cost model prediction (n=500, m=5000):
+//   PCSR insert: (3 + 4*5000/500)*33 ≈ 1419 ns/op
+//   SET insert:  ceil(5000*40/64)*2.74 + 5*33 ≈ 8727 ns/op
+//   CSR insert:  ~6962 ns/op
+//   PCSR is ~6x cheaper than SET and ~5x cheaper than CSR.
+
+graph sensor_graph {
+  edges: file "medium_500.txt";
+};
+
+// Initial traversal to establish baseline
+query pre_logging: "bfs" of sensor_graph;
+
+// Phase 1: ingest event-triggered sensor-sensor edges.
+// Each event creates edges between the triggering sensor and
+// its monitoring gateway, plus cross-links among correlated sensors.
+int event = 0;
+while (event < 64) {
+  int sensor = 500 + event;
+  int gateway = 500 + event + 64;
+  add sensor->gateway, gateway->sensor to sensor_graph;
+  event = event + 1;
+}
+
+// Phase 2: propagate event alerts through the network
+set frontier = {500, 501, 502, 503};
+set visited = {500, 501, 502, 503};
+int rounds = 0;
+
+while (rounds < 4) {
+  set next = {};
+  for each element u in frontier {
+    for each neighbor v of u in sensor_graph {
+      if (!visited.contains(v)) {
+        visited.add(v);
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+  rounds = rounds + 1;
+}
+
+// Final traversal to evaluate reachability
+query post_logging: "bfs" of sensor_graph;
+
+print "Reachable sensors from event origin: ";
+print setSize(visited);
+print "Total edges: ";
+print numEdges(sensor_graph);

@@ -1,264 +1,437 @@
 ; ModuleID = 'graph_mutation_runtime.c'
 source_filename = "graph_mutation_runtime.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+target triple = "x86_64-redhat-linux-gnu"
+
+%struct.timespec = type { i64, i64 }
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @graph_add_node(ptr noundef %0, ptr noundef %1, ptr noundef %2, i32 noundef %3) local_unnamed_addr #0 {
-  %5 = icmp eq ptr %0, null
-  br i1 %5, label %20, label %6
+  %5 = alloca %struct.timespec, align 8
+  %6 = alloca %struct.timespec, align 8
+  %7 = alloca %struct.timespec, align 8
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %7) #6
+  %8 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %7) #6
+  %9 = load i64, ptr %7, align 8, !tbaa !3
+  %10 = getelementptr inbounds nuw i8, ptr %7, i64 8
+  %11 = load i64, ptr %10, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %7) #6
+  %12 = icmp eq ptr %0, null
+  br i1 %12, label %13, label %18
 
-6:                                                ; preds = %4
-  %7 = tail call i32 @autograph_get_layout(ptr noundef nonnull %0) #4
-  %8 = icmp eq i32 %7, 3
-  br i1 %8, label %18, label %9
+13:                                               ; preds = %4
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %6) #6
+  %14 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %6) #6
+  %15 = load i64, ptr %6, align 8, !tbaa !3
+  %16 = getelementptr inbounds nuw i8, ptr %6, i64 8
+  %17 = load i64, ptr %16, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %6) #6
+  br label %37
 
-9:                                                ; preds = %6
-  tail call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #4
-  %10 = tail call i32 @autograph_canonical_add_node(ptr noundef nonnull %0, i32 noundef %3) #4
-  %11 = load i64, ptr %0, align 8, !tbaa !5
-  %12 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %13 = load i64, ptr %12, align 8, !tbaa !13
-  %14 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %15 = load ptr, ptr %14, align 8, !tbaa !14
-  %16 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %17 = load ptr, ptr %16, align 8, !tbaa !15
-  tail call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %11, i64 noundef %13, ptr noundef %15, ptr noundef %17, ptr noundef %1, ptr noundef null, ptr noundef %2, i32 noundef %7) #4
-  br label %20
+18:                                               ; preds = %4
+  %19 = call i32 @autograph_get_layout(ptr noundef nonnull %0) #6
+  %20 = icmp eq i32 %19, 3
+  br i1 %20, label %30, label %21
 
-18:                                               ; preds = %6
-  %19 = tail call i32 @autograph_canonical_add_node(ptr noundef nonnull %0, i32 noundef %3) #4
-  br label %20
+21:                                               ; preds = %18
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %22 = call i32 @autograph_canonical_add_node(ptr noundef nonnull %0, i32 noundef %3) #6
+  %23 = load i64, ptr %0, align 8, !tbaa !9
+  %24 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %25 = load i64, ptr %24, align 8, !tbaa !14
+  %26 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %27 = load ptr, ptr %26, align 8, !tbaa !15
+  %28 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %29 = load ptr, ptr %28, align 8, !tbaa !16
+  call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %23, i64 noundef %25, ptr noundef %27, ptr noundef %29, ptr noundef %1, ptr noundef null, ptr noundef %2, i32 noundef %19) #6
+  br label %32
 
-20:                                               ; preds = %9, %18, %4
+30:                                               ; preds = %18
+  %31 = call i32 @autograph_canonical_add_node(ptr noundef nonnull %0, i32 noundef %3) #6
+  br label %32
+
+32:                                               ; preds = %30, %21
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %5) #6
+  %33 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %5) #6
+  %34 = load i64, ptr %5, align 8, !tbaa !3
+  %35 = getelementptr inbounds nuw i8, ptr %5, i64 8
+  %36 = load i64, ptr %35, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %5) #6
+  br label %37
+
+37:                                               ; preds = %32, %13
+  %38 = phi i64 [ %36, %32 ], [ %17, %13 ]
+  %39 = phi i64 [ %34, %32 ], [ %15, %13 ]
+  %40 = mul i64 %39, 1000000000
+  %41 = mul i64 %9, -1000000000
+  %42 = sub i64 %41, %11
+  %43 = add i64 %38, %42
+  %44 = add i64 %43, %40
+  call void @autograph_profile_record_kernel_ns(i32 noundef 1, i64 noundef %44) #6
   ret void
 }
 
-declare i32 @autograph_get_layout(ptr noundef) local_unnamed_addr #1
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
-declare void @autograph_ensure_layout_set(ptr noundef) local_unnamed_addr #1
+declare dso_local void @autograph_profile_record_kernel_ns(i32 noundef, i64 noundef) local_unnamed_addr #2
 
-declare i32 @autograph_canonical_add_node(ptr noundef, i32 noundef) local_unnamed_addr #1
+declare dso_local i32 @autograph_get_layout(ptr noundef) local_unnamed_addr #2
 
-declare void @autograph_ensure_layout(ptr noundef, i64 noundef, i64 noundef, ptr noundef, ptr noundef, ptr noundef, ptr noundef, ptr noundef, i32 noundef) local_unnamed_addr #1
+declare dso_local void @autograph_ensure_layout_set(ptr noundef) local_unnamed_addr #2
+
+declare dso_local i32 @autograph_canonical_add_node(ptr noundef, i32 noundef) local_unnamed_addr #2
+
+declare dso_local void @autograph_ensure_layout(ptr noundef, i64 noundef, i64 noundef, ptr noundef, ptr noundef, ptr noundef, ptr noundef, ptr noundef, i32 noundef) local_unnamed_addr #2
+
+; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @graph_remove_node(ptr noundef %0, ptr noundef %1, ptr noundef %2, i32 noundef %3) local_unnamed_addr #0 {
-  %5 = icmp eq ptr %0, null
-  br i1 %5, label %20, label %6
+  %5 = alloca %struct.timespec, align 8
+  %6 = alloca %struct.timespec, align 8
+  %7 = alloca %struct.timespec, align 8
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %7) #6
+  %8 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %7) #6
+  %9 = load i64, ptr %7, align 8, !tbaa !3
+  %10 = getelementptr inbounds nuw i8, ptr %7, i64 8
+  %11 = load i64, ptr %10, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %7) #6
+  %12 = icmp eq ptr %0, null
+  br i1 %12, label %13, label %18
 
-6:                                                ; preds = %4
-  %7 = tail call i32 @autograph_get_layout(ptr noundef nonnull %0) #4
-  %8 = icmp eq i32 %7, 3
-  br i1 %8, label %18, label %9
+13:                                               ; preds = %4
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %6) #6
+  %14 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %6) #6
+  %15 = load i64, ptr %6, align 8, !tbaa !3
+  %16 = getelementptr inbounds nuw i8, ptr %6, i64 8
+  %17 = load i64, ptr %16, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %6) #6
+  br label %37
 
-9:                                                ; preds = %6
-  tail call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #4
-  %10 = tail call i32 @autograph_canonical_remove_node(ptr noundef nonnull %0, i32 noundef %3) #4
-  %11 = load i64, ptr %0, align 8, !tbaa !5
-  %12 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %13 = load i64, ptr %12, align 8, !tbaa !13
-  %14 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %15 = load ptr, ptr %14, align 8, !tbaa !14
-  %16 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %17 = load ptr, ptr %16, align 8, !tbaa !15
-  tail call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %11, i64 noundef %13, ptr noundef %15, ptr noundef %17, ptr noundef %1, ptr noundef null, ptr noundef %2, i32 noundef %7) #4
-  br label %20
+18:                                               ; preds = %4
+  %19 = call i32 @autograph_get_layout(ptr noundef nonnull %0) #6
+  %20 = icmp eq i32 %19, 3
+  br i1 %20, label %30, label %21
 
-18:                                               ; preds = %6
-  %19 = tail call i32 @autograph_canonical_remove_node(ptr noundef nonnull %0, i32 noundef %3) #4
-  br label %20
+21:                                               ; preds = %18
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %22 = call i32 @autograph_canonical_remove_node(ptr noundef nonnull %0, i32 noundef %3) #6
+  %23 = load i64, ptr %0, align 8, !tbaa !9
+  %24 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %25 = load i64, ptr %24, align 8, !tbaa !14
+  %26 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %27 = load ptr, ptr %26, align 8, !tbaa !15
+  %28 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %29 = load ptr, ptr %28, align 8, !tbaa !16
+  call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %23, i64 noundef %25, ptr noundef %27, ptr noundef %29, ptr noundef %1, ptr noundef null, ptr noundef %2, i32 noundef %19) #6
+  br label %32
 
-20:                                               ; preds = %9, %18, %4
+30:                                               ; preds = %18
+  %31 = call i32 @autograph_canonical_remove_node(ptr noundef nonnull %0, i32 noundef %3) #6
+  br label %32
+
+32:                                               ; preds = %30, %21
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %5) #6
+  %33 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %5) #6
+  %34 = load i64, ptr %5, align 8, !tbaa !3
+  %35 = getelementptr inbounds nuw i8, ptr %5, i64 8
+  %36 = load i64, ptr %35, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %5) #6
+  br label %37
+
+37:                                               ; preds = %32, %13
+  %38 = phi i64 [ %36, %32 ], [ %17, %13 ]
+  %39 = phi i64 [ %34, %32 ], [ %15, %13 ]
+  %40 = mul i64 %39, 1000000000
+  %41 = mul i64 %9, -1000000000
+  %42 = sub i64 %41, %11
+  %43 = add i64 %38, %42
+  %44 = add i64 %43, %40
+  call void @autograph_profile_record_kernel_ns(i32 noundef 1, i64 noundef %44) #6
   ret void
 }
 
-declare i32 @autograph_canonical_remove_node(ptr noundef, i32 noundef) local_unnamed_addr #1
+declare dso_local i32 @autograph_canonical_remove_node(ptr noundef, i32 noundef) local_unnamed_addr #2
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @graph_add_edge(ptr noundef %0, ptr noundef %1, i32 noundef %2, i32 noundef %3, i32 noundef %4) local_unnamed_addr #0 {
-  %6 = icmp eq ptr %0, null
-  br i1 %6, label %111, label %7
+  %6 = alloca %struct.timespec, align 8
+  %7 = alloca %struct.timespec, align 8
+  %8 = alloca %struct.timespec, align 8
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %8) #6
+  %9 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %8) #6
+  %10 = load i64, ptr %8, align 8, !tbaa !3
+  %11 = getelementptr inbounds nuw i8, ptr %8, i64 8
+  %12 = load i64, ptr %11, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %8) #6
+  %13 = icmp eq ptr %0, null
+  br i1 %13, label %14, label %19
 
-7:                                                ; preds = %5
-  %8 = tail call i32 @autograph_get_layout(ptr noundef nonnull %0) #4
-  %9 = icmp sgt i32 %2, -1
-  br i1 %9, label %10, label %19
+14:                                               ; preds = %5
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %7) #6
+  %15 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %7) #6
+  %16 = load i64, ptr %7, align 8, !tbaa !3
+  %17 = getelementptr inbounds nuw i8, ptr %7, i64 8
+  %18 = load i64, ptr %17, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %7) #6
+  br label %159
 
-10:                                               ; preds = %7
-  %11 = zext nneg i32 %2 to i64
-  %12 = load i64, ptr %0, align 8, !tbaa !5
-  %13 = icmp sgt i64 %12, %11
-  %14 = icmp sgt i32 %3, -1
-  %15 = and i1 %14, %13
-  br i1 %15, label %16, label %19
+19:                                               ; preds = %5
+  %20 = call i32 @autograph_get_layout(ptr noundef nonnull %0) #6
+  %21 = icmp sgt i32 %2, -1
+  br i1 %21, label %22, label %31
 
-16:                                               ; preds = %10
-  %17 = zext nneg i32 %3 to i64
-  %18 = icmp samesign ugt i64 %12, %17
-  br label %19
+22:                                               ; preds = %19
+  %23 = zext nneg i32 %2 to i64
+  %24 = load i64, ptr %0, align 8, !tbaa !9
+  %25 = icmp sgt i64 %24, %23
+  %26 = icmp sgt i32 %3, -1
+  %27 = and i1 %26, %25
+  br i1 %27, label %28, label %31
 
-19:                                               ; preds = %16, %10, %7
-  %20 = phi i1 [ false, %10 ], [ false, %7 ], [ %18, %16 ]
-  switch i32 %8, label %108 [
-    i32 0, label %21
-    i32 1, label %32
+28:                                               ; preds = %22
+  %29 = zext nneg i32 %3 to i64
+  %30 = icmp samesign ugt i64 %24, %29
+  br label %31
+
+31:                                               ; preds = %28, %22, %19
+  %32 = phi i1 [ false, %22 ], [ false, %19 ], [ %30, %28 ]
+  switch i32 %20, label %152 [
+    i32 0, label %33
+    i32 1, label %52
+    i32 2, label %141
   ]
 
-21:                                               ; preds = %19
-  tail call fastcc void @csr_add_directed(ptr noundef %0, ptr noundef %0, i32 noundef %2, i32 noundef %3)
-  tail call fastcc void @csr_add_directed(ptr noundef %0, ptr noundef %0, i32 noundef %3, i32 noundef %2)
-  br i1 %20, label %111, label %22
+33:                                               ; preds = %31
+  %34 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %35 = load i64, ptr %34, align 8, !tbaa !14
+  call fastcc void @csr_add_directed(ptr noundef %0, ptr noundef %0, i32 noundef %2, i32 noundef %3)
+  call fastcc void @csr_add_directed(ptr noundef %0, ptr noundef %0, i32 noundef %3, i32 noundef %2)
+  %36 = load i64, ptr %0, align 8, !tbaa !9
+  %37 = load i64, ptr %34, align 8, !tbaa !14
+  %38 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %39 = load ptr, ptr %38, align 8, !tbaa !15
+  %40 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %41 = load ptr, ptr %40, align 8, !tbaa !16
+  call void @autograph_record_adjacency_state(ptr noundef nonnull %0, i64 noundef %36, i64 noundef %37, ptr noundef %39, ptr noundef %41) #6
+  %42 = load i64, ptr %34, align 8, !tbaa !14
+  %43 = icmp eq i64 %42, %35
+  br i1 %43, label %45, label %44
 
-22:                                               ; preds = %21
-  tail call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #4
-  %23 = tail call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #4
-  %24 = tail call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #4
-  %25 = load i64, ptr %0, align 8, !tbaa !5
-  %26 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %27 = load i64, ptr %26, align 8, !tbaa !13
-  %28 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %29 = load ptr, ptr %28, align 8, !tbaa !14
-  %30 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %31 = load ptr, ptr %30, align 8, !tbaa !15
-  tail call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %25, i64 noundef %27, ptr noundef %29, ptr noundef %31, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 0) #4
-  br label %111
+44:                                               ; preds = %33
+  call void @autograph_mark_canonical_dirty(ptr noundef nonnull %0) #6
+  br label %45
 
-32:                                               ; preds = %19
-  %33 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %34 = load ptr, ptr %33, align 8, !tbaa !14
-  %35 = icmp eq ptr %34, null
-  br i1 %35, label %98, label %36
+45:                                               ; preds = %44, %33
+  br i1 %32, label %154, label %46
 
-36:                                               ; preds = %32
-  %37 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %38 = load ptr, ptr %37, align 8, !tbaa !15
-  %39 = icmp eq ptr %38, null
-  %40 = icmp slt i32 %2, 0
-  %41 = or i1 %40, %39
-  br i1 %41, label %69, label %42
+46:                                               ; preds = %45
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %47 = call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %48 = load i64, ptr %0, align 8, !tbaa !9
+  %49 = load i64, ptr %34, align 8, !tbaa !14
+  %50 = load ptr, ptr %38, align 8, !tbaa !15
+  %51 = load ptr, ptr %40, align 8, !tbaa !16
+  call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %48, i64 noundef %49, ptr noundef %50, ptr noundef %51, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 0) #6
+  br label %154
 
-42:                                               ; preds = %36
-  %43 = zext nneg i32 %2 to i64
-  %44 = load i64, ptr %0, align 8, !tbaa !5
-  %45 = icmp sgt i64 %44, %43
-  br i1 %45, label %46, label %69
+52:                                               ; preds = %31
+  %53 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %54 = load ptr, ptr %53, align 8, !tbaa !15
+  %55 = icmp eq ptr %54, null
+  br i1 %55, label %56, label %60
 
-46:                                               ; preds = %42
-  %47 = icmp sgt i32 %3, -1
-  %48 = zext nneg i32 %3 to i64
-  %49 = icmp samesign ugt i64 %44, %48
-  %50 = select i1 %47, i1 %49, i1 false
-  br i1 %50, label %51, label %69
+56:                                               ; preds = %52
+  %57 = load i64, ptr %0, align 8, !tbaa !9
+  %58 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %59 = load ptr, ptr %58, align 8, !tbaa !16
+  br label %122
 
-51:                                               ; preds = %46
-  %52 = getelementptr inbounds nuw i64, ptr %34, i64 %43
-  %53 = load i64, ptr %52, align 8, !tbaa !16
-  %54 = getelementptr inbounds nuw i8, ptr %52, i64 8
-  %55 = load i64, ptr %54, align 8, !tbaa !16
-  %56 = icmp slt i64 %53, %55
-  br i1 %56, label %57, label %69
+60:                                               ; preds = %52
+  %61 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %62 = load ptr, ptr %61, align 8, !tbaa !16
+  %63 = icmp eq ptr %62, null
+  %64 = icmp slt i32 %2, 0
+  %65 = or i1 %64, %63
+  %66 = load i64, ptr %0, align 8, !tbaa !9
+  br i1 %65, label %93, label %67
 
-57:                                               ; preds = %51, %66
-  %58 = phi i64 [ %67, %66 ], [ %53, %51 ]
-  %59 = getelementptr inbounds i32, ptr %38, i64 %58
-  %60 = load i32, ptr %59, align 4, !tbaa !17
-  %61 = icmp eq i32 %60, %3
-  br i1 %61, label %69, label %62
+67:                                               ; preds = %60
+  %68 = zext nneg i32 %2 to i64
+  %69 = icmp sgt i64 %66, %68
+  br i1 %69, label %70, label %93
 
-62:                                               ; preds = %57
-  %63 = icmp eq i32 %60, -1
-  br i1 %63, label %64, label %66
+70:                                               ; preds = %67
+  %71 = icmp sgt i32 %3, -1
+  %72 = zext nneg i32 %3 to i64
+  %73 = icmp samesign ugt i64 %66, %72
+  %74 = select i1 %71, i1 %73, i1 false
+  br i1 %74, label %75, label %93
 
-64:                                               ; preds = %62
-  %65 = getelementptr inbounds i32, ptr %38, i64 %58
-  store i32 %3, ptr %65, align 4, !tbaa !17
-  br label %69
+75:                                               ; preds = %70
+  %76 = getelementptr inbounds nuw i64, ptr %54, i64 %68
+  %77 = load i64, ptr %76, align 8, !tbaa !17
+  %78 = getelementptr inbounds nuw i8, ptr %76, i64 8
+  %79 = load i64, ptr %78, align 8, !tbaa !17
+  %80 = icmp slt i64 %77, %79
+  br i1 %80, label %81, label %93
 
-66:                                               ; preds = %62
-  %67 = add i64 %58, 1
-  %68 = icmp eq i64 %67, %55
-  br i1 %68, label %69, label %57, !llvm.loop !19
+81:                                               ; preds = %75, %90
+  %82 = phi i64 [ %91, %90 ], [ %77, %75 ]
+  %83 = getelementptr inbounds i32, ptr %62, i64 %82
+  %84 = load i32, ptr %83, align 4, !tbaa !18
+  %85 = icmp eq i32 %84, %3
+  br i1 %85, label %93, label %86
 
-69:                                               ; preds = %66, %57, %64, %51, %46, %42, %36
-  %70 = icmp slt i32 %3, 0
-  %71 = or i1 %70, %39
-  br i1 %71, label %98, label %72
+86:                                               ; preds = %81
+  %87 = icmp eq i32 %84, -1
+  br i1 %87, label %88, label %90
 
-72:                                               ; preds = %69
-  %73 = zext nneg i32 %3 to i64
-  %74 = load i64, ptr %0, align 8, !tbaa !5
-  %75 = icmp sgt i64 %74, %73
-  %76 = zext nneg i32 %2 to i64
-  %77 = icmp samesign ugt i64 %74, %76
-  %78 = and i1 %9, %75
-  %79 = select i1 %78, i1 %77, i1 false
-  br i1 %79, label %80, label %98
+88:                                               ; preds = %86
+  %89 = getelementptr inbounds i32, ptr %62, i64 %82
+  store i32 %3, ptr %89, align 4, !tbaa !18
+  br label %93
 
-80:                                               ; preds = %72
-  %81 = getelementptr inbounds nuw i64, ptr %34, i64 %73
-  %82 = load i64, ptr %81, align 8, !tbaa !16
-  %83 = getelementptr inbounds nuw i8, ptr %81, i64 8
-  %84 = load i64, ptr %83, align 8, !tbaa !16
-  %85 = icmp slt i64 %82, %84
-  br i1 %85, label %86, label %98
+90:                                               ; preds = %86
+  %91 = add i64 %82, 1
+  %92 = icmp eq i64 %91, %79
+  br i1 %92, label %93, label %81, !llvm.loop !20
 
-86:                                               ; preds = %80, %95
-  %87 = phi i64 [ %96, %95 ], [ %82, %80 ]
-  %88 = getelementptr inbounds i32, ptr %38, i64 %87
-  %89 = load i32, ptr %88, align 4, !tbaa !17
-  %90 = icmp eq i32 %89, %2
-  br i1 %90, label %98, label %91
+93:                                               ; preds = %90, %81, %88, %75, %70, %67, %60
+  %94 = phi i1 [ false, %75 ], [ false, %70 ], [ false, %67 ], [ false, %60 ], [ true, %88 ], [ false, %81 ], [ false, %90 ]
+  %95 = icmp slt i32 %3, 0
+  %96 = or i1 %95, %63
+  br i1 %96, label %122, label %97
 
-91:                                               ; preds = %86
-  %92 = icmp eq i32 %89, -1
-  br i1 %92, label %93, label %95
+97:                                               ; preds = %93
+  %98 = zext nneg i32 %3 to i64
+  %99 = icmp sgt i64 %66, %98
+  %100 = zext nneg i32 %2 to i64
+  %101 = icmp samesign ugt i64 %66, %100
+  %102 = and i1 %21, %99
+  %103 = select i1 %102, i1 %101, i1 false
+  br i1 %103, label %104, label %122
 
-93:                                               ; preds = %91
-  %94 = getelementptr inbounds i32, ptr %38, i64 %87
-  store i32 %2, ptr %94, align 4, !tbaa !17
-  br label %98
+104:                                              ; preds = %97
+  %105 = getelementptr inbounds nuw i64, ptr %54, i64 %98
+  %106 = load i64, ptr %105, align 8, !tbaa !17
+  %107 = getelementptr inbounds nuw i8, ptr %105, i64 8
+  %108 = load i64, ptr %107, align 8, !tbaa !17
+  %109 = icmp slt i64 %106, %108
+  br i1 %109, label %110, label %122
 
-95:                                               ; preds = %91
-  %96 = add i64 %87, 1
-  %97 = icmp eq i64 %96, %84
-  br i1 %97, label %98, label %86, !llvm.loop !19
+110:                                              ; preds = %104, %117
+  %111 = phi i64 [ %118, %117 ], [ %106, %104 ]
+  %112 = getelementptr inbounds i32, ptr %62, i64 %111
+  %113 = load i32, ptr %112, align 4, !tbaa !18
+  %114 = icmp eq i32 %113, %2
+  br i1 %114, label %122, label %115
 
-98:                                               ; preds = %86, %95, %32, %69, %72, %80, %93
-  br i1 %20, label %111, label %99
+115:                                              ; preds = %110
+  %116 = icmp eq i32 %113, -1
+  br i1 %116, label %120, label %117
 
-99:                                               ; preds = %98
-  tail call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #4
-  %100 = tail call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #4
-  %101 = tail call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #4
-  %102 = load i64, ptr %0, align 8, !tbaa !5
-  %103 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %104 = load i64, ptr %103, align 8, !tbaa !13
-  %105 = load ptr, ptr %33, align 8, !tbaa !14
-  %106 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %107 = load ptr, ptr %106, align 8, !tbaa !15
-  tail call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %102, i64 noundef %104, ptr noundef %105, ptr noundef %107, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 1) #4
-  br label %111
+117:                                              ; preds = %115
+  %118 = add i64 %111, 1
+  %119 = icmp eq i64 %118, %108
+  br i1 %119, label %122, label %110, !llvm.loop !20
 
-108:                                              ; preds = %19
-  %109 = tail call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #4
-  %110 = tail call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #4
-  br label %111
+120:                                              ; preds = %115
+  %121 = getelementptr inbounds i32, ptr %62, i64 %111
+  store i32 %2, ptr %121, align 4, !tbaa !18
+  br i1 %94, label %127, label %122
 
-111:                                              ; preds = %108, %22, %21, %99, %98, %5
+122:                                              ; preds = %110, %117, %120, %93, %97, %104, %56
+  %123 = phi ptr [ %59, %56 ], [ %62, %104 ], [ %62, %97 ], [ %62, %93 ], [ %62, %120 ], [ %62, %117 ], [ %62, %110 ]
+  %124 = phi i64 [ %57, %56 ], [ %66, %104 ], [ %66, %97 ], [ %66, %93 ], [ %66, %120 ], [ %66, %117 ], [ %66, %110 ]
+  %125 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %126 = load i64, ptr %125, align 8, !tbaa !14
+  call void @autograph_record_adjacency_state(ptr noundef %0, i64 noundef %124, i64 noundef %126, ptr noundef %54, ptr noundef %123) #6
+  br label %132
+
+127:                                              ; preds = %120
+  %128 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %129 = load i64, ptr %128, align 8, !tbaa !14
+  %130 = add nsw i64 %129, 2
+  store i64 %130, ptr %128, align 8, !tbaa !14
+  %131 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  call void @autograph_record_adjacency_state(ptr noundef nonnull %0, i64 noundef %66, i64 noundef %130, ptr noundef nonnull %54, ptr noundef nonnull %62) #6
+  call void @autograph_mark_canonical_dirty(ptr noundef nonnull %0) #6
+  br label %132
+
+132:                                              ; preds = %122, %127
+  %133 = phi ptr [ %125, %122 ], [ %131, %127 ]
+  br i1 %32, label %154, label %134
+
+134:                                              ; preds = %132
+  %135 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %136 = call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %137 = load i64, ptr %0, align 8, !tbaa !9
+  %138 = load i64, ptr %133, align 8, !tbaa !14
+  %139 = load ptr, ptr %53, align 8, !tbaa !15
+  %140 = load ptr, ptr %135, align 8, !tbaa !16
+  call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %137, i64 noundef %138, ptr noundef %139, ptr noundef %140, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 1) #6
+  br label %154
+
+141:                                              ; preds = %31
+  %142 = call i32 @autograph_bcsr_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %143 = call i32 @autograph_bcsr_add_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #6
+  %144 = icmp sgt i32 %142, 0
+  %145 = icmp sgt i32 %143, 0
+  %146 = select i1 %144, i1 %145, i1 false
+  br i1 %146, label %147, label %148
+
+147:                                              ; preds = %141
+  call void @autograph_mark_canonical_dirty(ptr noundef nonnull %0) #6
+  br label %148
+
+148:                                              ; preds = %147, %141
+  br i1 %32, label %154, label %149
+
+149:                                              ; preds = %148
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %150 = call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %151 = call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #6
+  br label %154
+
+152:                                              ; preds = %31
+  %153 = call i32 @autograph_canonical_add_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  br label %154
+
+154:                                              ; preds = %152, %46, %45, %134, %132, %149, %148
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %6) #6
+  %155 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %6) #6
+  %156 = load i64, ptr %6, align 8, !tbaa !3
+  %157 = getelementptr inbounds nuw i8, ptr %6, i64 8
+  %158 = load i64, ptr %157, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %6) #6
+  br label %159
+
+159:                                              ; preds = %154, %14
+  %160 = phi i64 [ %158, %154 ], [ %18, %14 ]
+  %161 = phi i64 [ %156, %154 ], [ %16, %14 ]
+  %162 = mul i64 %161, 1000000000
+  %163 = mul i64 %10, -1000000000
+  %164 = sub i64 %163, %12
+  %165 = add i64 %160, %164
+  %166 = add i64 %165, %162
+  call void @autograph_profile_record_kernel_ns(i32 noundef 1, i64 noundef %166) #6
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
 define internal fastcc void @csr_add_directed(ptr nocapture noundef nonnull %0, ptr noundef nonnull %1, i32 noundef %2, i32 noundef %3) unnamed_addr #0 {
   %5 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %6 = load ptr, ptr %5, align 8, !tbaa !14
+  %6 = load ptr, ptr %5, align 8, !tbaa !15
   %7 = icmp eq ptr %6, null
   br i1 %7, label %57, label %8
 
 8:                                                ; preds = %4
   %9 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %10 = load ptr, ptr %9, align 8, !tbaa !15
+  %10 = load ptr, ptr %9, align 8, !tbaa !16
   %11 = icmp eq ptr %10, null
   %12 = icmp slt i32 %2, 0
   %13 = or i1 %12, %11
@@ -266,7 +439,7 @@ define internal fastcc void @csr_add_directed(ptr nocapture noundef nonnull %0, 
 
 14:                                               ; preds = %8
   %15 = zext nneg i32 %2 to i64
-  %16 = load i64, ptr %0, align 8, !tbaa !5
+  %16 = load i64, ptr %0, align 8, !tbaa !9
   %17 = icmp sgt i64 %16, %15
   %18 = icmp sgt i32 %3, -1
   %19 = and i1 %18, %17
@@ -278,24 +451,24 @@ define internal fastcc void @csr_add_directed(ptr nocapture noundef nonnull %0, 
 23:                                               ; preds = %14
   %24 = getelementptr inbounds nuw i64, ptr %6, i64 %15
   %25 = getelementptr inbounds nuw i8, ptr %24, i64 8
-  %26 = load i64, ptr %25, align 8, !tbaa !16
+  %26 = load i64, ptr %25, align 8, !tbaa !17
   %27 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %28 = load i64, ptr %27, align 8, !tbaa !13
+  %28 = load i64, ptr %27, align 8, !tbaa !14
   %29 = add nsw i64 %28, 1
   %30 = shl i64 %29, 2
-  %31 = tail call ptr @realloc(ptr noundef nonnull %10, i64 noundef %30) #5
+  %31 = tail call ptr @realloc(ptr noundef nonnull %10, i64 noundef %30) #7
   %32 = icmp eq ptr %31, null
   br i1 %32, label %57, label %33
 
 33:                                               ; preds = %23
-  store ptr %31, ptr %9, align 8, !tbaa !15
-  %34 = load ptr, ptr %5, align 8, !tbaa !14
-  tail call void @autograph_update_csr_pointers(ptr noundef nonnull %1, ptr noundef %34, ptr noundef nonnull %31) #4
+  store ptr %31, ptr %9, align 8, !tbaa !16
+  %34 = load ptr, ptr %5, align 8, !tbaa !15
+  tail call void @autograph_update_csr_pointers(ptr noundef nonnull %1, ptr noundef %34, ptr noundef nonnull %31) #6
   %35 = icmp slt i64 %26, %28
   br i1 %35, label %36, label %42
 
 36:                                               ; preds = %33
-  %37 = load ptr, ptr %9, align 8, !tbaa !15
+  %37 = load ptr, ptr %9, align 8, !tbaa !16
   %38 = getelementptr i32, ptr %37, i64 %26
   %39 = getelementptr i8, ptr %38, i64 4
   %40 = sub nsw i64 %28, %26
@@ -304,401 +477,505 @@ define internal fastcc void @csr_add_directed(ptr nocapture noundef nonnull %0, 
   br label %42
 
 42:                                               ; preds = %36, %33
-  %43 = load ptr, ptr %9, align 8, !tbaa !15
+  %43 = load ptr, ptr %9, align 8, !tbaa !16
   %44 = getelementptr inbounds i32, ptr %43, i64 %26
-  store i32 %3, ptr %44, align 4, !tbaa !17
-  store i64 %29, ptr %27, align 8, !tbaa !13
-  %45 = load i64, ptr %0, align 8, !tbaa !5
+  store i32 %3, ptr %44, align 4, !tbaa !18
+  store i64 %29, ptr %27, align 8, !tbaa !14
+  %45 = load i64, ptr %0, align 8, !tbaa !9
   %46 = icmp sgt i64 %45, %15
   br i1 %46, label %47, label %57
 
 47:                                               ; preds = %42
-  %48 = load ptr, ptr %5, align 8, !tbaa !14
+  %48 = load ptr, ptr %5, align 8, !tbaa !15
   br label %49
 
 49:                                               ; preds = %47, %49
   %50 = phi i64 [ %15, %47 ], [ %51, %49 ]
   %51 = add nuw nsw i64 %50, 1
   %52 = getelementptr inbounds nuw i64, ptr %48, i64 %51
-  %53 = load i64, ptr %52, align 8, !tbaa !16
+  %53 = load i64, ptr %52, align 8, !tbaa !17
   %54 = add nsw i64 %53, 1
-  store i64 %54, ptr %52, align 8, !tbaa !16
-  %55 = load i64, ptr %0, align 8, !tbaa !5
+  store i64 %54, ptr %52, align 8, !tbaa !17
+  %55 = load i64, ptr %0, align 8, !tbaa !9
   %56 = icmp slt i64 %51, %55
-  br i1 %56, label %49, label %57, !llvm.loop !21
+  br i1 %56, label %49, label %57, !llvm.loop !22
 
 57:                                               ; preds = %49, %42, %23, %14, %4, %8
   ret void
 }
 
-declare i32 @autograph_canonical_add_edge(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #1
+declare dso_local void @autograph_record_adjacency_state(ptr noundef, i64 noundef, i64 noundef, ptr noundef, ptr noundef) local_unnamed_addr #2
+
+declare dso_local void @autograph_mark_canonical_dirty(ptr noundef) local_unnamed_addr #2
+
+declare dso_local i32 @autograph_canonical_add_edge(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #2
+
+declare dso_local i32 @autograph_bcsr_add_edge(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #2
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @graph_remove_edge(ptr noundef %0, ptr noundef %1, i32 noundef %2, i32 noundef %3, i32 noundef %4) local_unnamed_addr #0 {
-  %6 = icmp eq ptr %0, null
-  br i1 %6, label %217, label %7
+  %6 = alloca %struct.timespec, align 8
+  %7 = alloca %struct.timespec, align 8
+  %8 = alloca %struct.timespec, align 8
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %8) #6
+  %9 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %8) #6
+  %10 = load i64, ptr %8, align 8, !tbaa !3
+  %11 = getelementptr inbounds nuw i8, ptr %8, i64 8
+  %12 = load i64, ptr %11, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %8) #6
+  %13 = icmp eq ptr %0, null
+  br i1 %13, label %14, label %19
 
-7:                                                ; preds = %5
-  %8 = tail call i32 @autograph_get_layout(ptr noundef nonnull %0) #4
-  %9 = icmp sgt i32 %2, -1
-  br i1 %9, label %10, label %19
+14:                                               ; preds = %5
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %7) #6
+  %15 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %7) #6
+  %16 = load i64, ptr %7, align 8, !tbaa !3
+  %17 = getelementptr inbounds nuw i8, ptr %7, i64 8
+  %18 = load i64, ptr %17, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %7) #6
+  br label %262
 
-10:                                               ; preds = %7
-  %11 = zext nneg i32 %2 to i64
-  %12 = load i64, ptr %0, align 8, !tbaa !5
-  %13 = icmp sgt i64 %12, %11
-  %14 = icmp sgt i32 %3, -1
-  %15 = and i1 %14, %13
-  br i1 %15, label %16, label %19
+19:                                               ; preds = %5
+  %20 = call i32 @autograph_get_layout(ptr noundef nonnull %0) #6
+  %21 = icmp sgt i32 %2, -1
+  br i1 %21, label %22, label %31
 
-16:                                               ; preds = %10
-  %17 = zext nneg i32 %3 to i64
-  %18 = icmp samesign ugt i64 %12, %17
-  br label %19
+22:                                               ; preds = %19
+  %23 = zext nneg i32 %2 to i64
+  %24 = load i64, ptr %0, align 8, !tbaa !9
+  %25 = icmp sgt i64 %24, %23
+  %26 = icmp sgt i32 %3, -1
+  %27 = and i1 %26, %25
+  br i1 %27, label %28, label %31
 
-19:                                               ; preds = %16, %10, %7
-  %20 = phi i1 [ false, %10 ], [ false, %7 ], [ %18, %16 ]
-  switch i32 %8, label %214 [
-    i32 0, label %21
-    i32 1, label %142
+28:                                               ; preds = %22
+  %29 = zext nneg i32 %3 to i64
+  %30 = icmp samesign ugt i64 %24, %29
+  br label %31
+
+31:                                               ; preds = %28, %22, %19
+  %32 = phi i1 [ false, %22 ], [ false, %19 ], [ %30, %28 ]
+  switch i32 %20, label %255 [
+    i32 0, label %33
+    i32 1, label %159
+    i32 2, label %244
   ]
 
-21:                                               ; preds = %19
-  %22 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %23 = load ptr, ptr %22, align 8, !tbaa !14
-  %24 = icmp eq ptr %23, null
-  br i1 %24, label %132, label %25
+33:                                               ; preds = %31
+  %34 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %35 = load i64, ptr %34, align 8, !tbaa !14
+  %36 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %37 = load ptr, ptr %36, align 8, !tbaa !15
+  %38 = icmp eq ptr %37, null
+  br i1 %38, label %143, label %39
 
-25:                                               ; preds = %21
-  %26 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %27 = load ptr, ptr %26, align 8, !tbaa !15
-  %28 = icmp eq ptr %27, null
-  %29 = icmp slt i32 %2, 0
-  %30 = or i1 %29, %28
-  br i1 %30, label %80, label %31
+39:                                               ; preds = %33
+  %40 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %41 = load ptr, ptr %40, align 8, !tbaa !16
+  %42 = icmp eq ptr %41, null
+  %43 = icmp slt i32 %2, 0
+  %44 = or i1 %43, %42
+  br i1 %44, label %92, label %45
 
-31:                                               ; preds = %25
-  %32 = zext nneg i32 %2 to i64
-  %33 = load i64, ptr %0, align 8, !tbaa !5
-  %34 = icmp sgt i64 %33, %32
-  br i1 %34, label %35, label %80
+45:                                               ; preds = %39
+  %46 = zext nneg i32 %2 to i64
+  %47 = load i64, ptr %0, align 8, !tbaa !9
+  %48 = icmp sgt i64 %47, %46
+  br i1 %48, label %49, label %92
 
-35:                                               ; preds = %31
-  %36 = getelementptr inbounds nuw i64, ptr %23, i64 %32
-  %37 = load i64, ptr %36, align 8, !tbaa !16
-  %38 = getelementptr inbounds nuw i8, ptr %36, i64 8
-  %39 = load i64, ptr %38, align 8, !tbaa !16
-  %40 = icmp slt i64 %37, %39
-  br i1 %40, label %41, label %80
+49:                                               ; preds = %45
+  %50 = getelementptr inbounds nuw i64, ptr %37, i64 %46
+  %51 = load i64, ptr %50, align 8, !tbaa !17
+  %52 = getelementptr inbounds nuw i8, ptr %50, i64 8
+  %53 = load i64, ptr %52, align 8, !tbaa !17
+  %54 = icmp slt i64 %51, %53
+  br i1 %54, label %55, label %92
 
-41:                                               ; preds = %35, %46
-  %42 = phi i64 [ %47, %46 ], [ %37, %35 ]
-  %43 = getelementptr inbounds i32, ptr %27, i64 %42
-  %44 = load i32, ptr %43, align 4, !tbaa !17
-  %45 = icmp eq i32 %44, %3
-  br i1 %45, label %49, label %46
+55:                                               ; preds = %49, %60
+  %56 = phi i64 [ %61, %60 ], [ %51, %49 ]
+  %57 = getelementptr inbounds i32, ptr %41, i64 %56
+  %58 = load i32, ptr %57, align 4, !tbaa !18
+  %59 = icmp eq i32 %58, %3
+  br i1 %59, label %63, label %60
 
-46:                                               ; preds = %41
-  %47 = add i64 %42, 1
-  %48 = icmp eq i64 %47, %39
-  br i1 %48, label %77, label %41, !llvm.loop !22
+60:                                               ; preds = %55
+  %61 = add i64 %56, 1
+  %62 = icmp eq i64 %61, %53
+  br i1 %62, label %89, label %55, !llvm.loop !23
 
-49:                                               ; preds = %41
-  %50 = getelementptr inbounds i32, ptr %27, i64 %42
-  %51 = icmp slt i64 %42, 0
-  br i1 %51, label %77, label %52
+63:                                               ; preds = %55
+  %64 = getelementptr inbounds i32, ptr %41, i64 %56
+  %65 = icmp slt i64 %56, 0
+  br i1 %65, label %89, label %66
 
-52:                                               ; preds = %49
-  %53 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %54 = load i64, ptr %53, align 8, !tbaa !13
-  %55 = add nuw nsw i64 %42, 1
-  %56 = icmp slt i64 %55, %54
-  br i1 %56, label %57, label %64
+66:                                               ; preds = %63
+  %67 = add nuw nsw i64 %56, 1
+  %68 = icmp slt i64 %67, %35
+  br i1 %68, label %69, label %76
 
-57:                                               ; preds = %52
-  %58 = getelementptr inbounds nuw i32, ptr %27, i64 %55
-  %59 = xor i64 %42, -1
-  %60 = add nsw i64 %54, %59
-  %61 = shl i64 %60, 2
-  tail call void @llvm.memmove.p0.p0.i64(ptr nonnull align 4 %50, ptr nonnull align 4 %58, i64 %61, i1 false)
-  %62 = load i64, ptr %0, align 8, !tbaa !5
-  %63 = load ptr, ptr %22, align 8, !tbaa !14
-  br label %64
+69:                                               ; preds = %66
+  %70 = getelementptr inbounds nuw i32, ptr %41, i64 %67
+  %71 = xor i64 %56, -1
+  %72 = add nsw i64 %35, %71
+  %73 = shl i64 %72, 2
+  call void @llvm.memmove.p0.p0.i64(ptr nonnull align 4 %64, ptr nonnull align 4 %70, i64 %73, i1 false)
+  %74 = load i64, ptr %0, align 8, !tbaa !9
+  %75 = load ptr, ptr %36, align 8, !tbaa !15
+  br label %76
 
-64:                                               ; preds = %57, %52
-  %65 = phi ptr [ %63, %57 ], [ %23, %52 ]
-  %66 = phi i64 [ %62, %57 ], [ %33, %52 ]
-  %67 = add nsw i64 %54, -1
-  store i64 %67, ptr %53, align 8, !tbaa !13
-  %68 = icmp sgt i64 %66, %32
-  br i1 %68, label %69, label %77
+76:                                               ; preds = %69, %66
+  %77 = phi ptr [ %75, %69 ], [ %37, %66 ]
+  %78 = phi i64 [ %74, %69 ], [ %47, %66 ]
+  %79 = add nsw i64 %35, -1
+  store i64 %79, ptr %34, align 8, !tbaa !14
+  %80 = icmp sgt i64 %78, %46
+  br i1 %80, label %81, label %89
 
-69:                                               ; preds = %64, %69
-  %70 = phi i64 [ %71, %69 ], [ %32, %64 ]
-  %71 = add nuw nsw i64 %70, 1
-  %72 = getelementptr inbounds nuw i64, ptr %65, i64 %71
-  %73 = load i64, ptr %72, align 8, !tbaa !16
-  %74 = add nsw i64 %73, -1
-  store i64 %74, ptr %72, align 8, !tbaa !16
-  %75 = load i64, ptr %0, align 8, !tbaa !5
-  %76 = icmp slt i64 %71, %75
-  br i1 %76, label %69, label %80, !llvm.loop !23
+81:                                               ; preds = %76, %81
+  %82 = phi i64 [ %83, %81 ], [ %46, %76 ]
+  %83 = add nuw nsw i64 %82, 1
+  %84 = getelementptr inbounds nuw i64, ptr %77, i64 %83
+  %85 = load i64, ptr %84, align 8, !tbaa !17
+  %86 = add nsw i64 %85, -1
+  store i64 %86, ptr %84, align 8, !tbaa !17
+  %87 = load i64, ptr %0, align 8, !tbaa !9
+  %88 = icmp slt i64 %83, %87
+  br i1 %88, label %81, label %92, !llvm.loop !24
 
-77:                                               ; preds = %46, %49, %64
-  %78 = phi ptr [ %23, %49 ], [ %65, %64 ], [ %23, %46 ]
-  %79 = icmp eq ptr %78, null
-  br i1 %79, label %132, label %80
+89:                                               ; preds = %60, %63, %76
+  %90 = phi ptr [ %37, %63 ], [ %77, %76 ], [ %37, %60 ]
+  %91 = icmp eq ptr %90, null
+  br i1 %91, label %143, label %92
 
-80:                                               ; preds = %69, %35, %31, %25, %77
-  %81 = phi ptr [ %78, %77 ], [ %23, %35 ], [ %23, %31 ], [ %23, %25 ], [ %65, %69 ]
-  %82 = load ptr, ptr %26, align 8, !tbaa !15
-  %83 = icmp eq ptr %82, null
-  %84 = icmp slt i32 %3, 0
-  %85 = or i1 %84, %83
-  br i1 %85, label %132, label %86
+92:                                               ; preds = %81, %49, %45, %39, %89
+  %93 = phi ptr [ %90, %89 ], [ %37, %49 ], [ %37, %45 ], [ %37, %39 ], [ %77, %81 ]
+  %94 = load ptr, ptr %40, align 8, !tbaa !16
+  %95 = icmp eq ptr %94, null
+  %96 = icmp slt i32 %3, 0
+  %97 = or i1 %96, %95
+  br i1 %97, label %143, label %98
 
-86:                                               ; preds = %80
-  %87 = zext nneg i32 %3 to i64
-  %88 = load i64, ptr %0, align 8, !tbaa !5
-  %89 = icmp sgt i64 %88, %87
-  br i1 %89, label %90, label %132
+98:                                               ; preds = %92
+  %99 = zext nneg i32 %3 to i64
+  %100 = load i64, ptr %0, align 8, !tbaa !9
+  %101 = icmp sgt i64 %100, %99
+  br i1 %101, label %102, label %143
 
-90:                                               ; preds = %86
-  %91 = getelementptr inbounds nuw i64, ptr %81, i64 %87
-  %92 = load i64, ptr %91, align 8, !tbaa !16
-  %93 = getelementptr inbounds nuw i8, ptr %91, i64 8
-  %94 = load i64, ptr %93, align 8, !tbaa !16
-  %95 = icmp slt i64 %92, %94
-  br i1 %95, label %96, label %132
+102:                                              ; preds = %98
+  %103 = getelementptr inbounds nuw i64, ptr %93, i64 %99
+  %104 = load i64, ptr %103, align 8, !tbaa !17
+  %105 = getelementptr inbounds nuw i8, ptr %103, i64 8
+  %106 = load i64, ptr %105, align 8, !tbaa !17
+  %107 = icmp slt i64 %104, %106
+  br i1 %107, label %108, label %143
 
-96:                                               ; preds = %90, %101
-  %97 = phi i64 [ %102, %101 ], [ %92, %90 ]
-  %98 = getelementptr inbounds i32, ptr %82, i64 %97
-  %99 = load i32, ptr %98, align 4, !tbaa !17
-  %100 = icmp eq i32 %99, %2
-  br i1 %100, label %104, label %101
+108:                                              ; preds = %102, %113
+  %109 = phi i64 [ %114, %113 ], [ %104, %102 ]
+  %110 = getelementptr inbounds i32, ptr %94, i64 %109
+  %111 = load i32, ptr %110, align 4, !tbaa !18
+  %112 = icmp eq i32 %111, %2
+  br i1 %112, label %116, label %113
 
-101:                                              ; preds = %96
-  %102 = add i64 %97, 1
-  %103 = icmp eq i64 %102, %94
-  br i1 %103, label %132, label %96, !llvm.loop !22
+113:                                              ; preds = %108
+  %114 = add i64 %109, 1
+  %115 = icmp eq i64 %114, %106
+  br i1 %115, label %143, label %108, !llvm.loop !23
 
-104:                                              ; preds = %96
-  %105 = getelementptr inbounds i32, ptr %82, i64 %97
-  %106 = icmp slt i64 %97, 0
-  br i1 %106, label %132, label %107
+116:                                              ; preds = %108
+  %117 = getelementptr inbounds i32, ptr %94, i64 %109
+  %118 = icmp slt i64 %109, 0
+  br i1 %118, label %143, label %119
 
-107:                                              ; preds = %104
-  %108 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %109 = load i64, ptr %108, align 8, !tbaa !13
-  %110 = add nuw nsw i64 %97, 1
-  %111 = icmp slt i64 %110, %109
-  br i1 %111, label %112, label %118
+119:                                              ; preds = %116
+  %120 = load i64, ptr %34, align 8, !tbaa !14
+  %121 = add nuw nsw i64 %109, 1
+  %122 = icmp slt i64 %121, %120
+  br i1 %122, label %123, label %130
 
-112:                                              ; preds = %107
-  %113 = getelementptr inbounds nuw i32, ptr %82, i64 %110
-  %114 = xor i64 %97, -1
-  %115 = add nsw i64 %109, %114
-  %116 = shl i64 %115, 2
-  tail call void @llvm.memmove.p0.p0.i64(ptr nonnull align 4 %105, ptr nonnull align 4 %113, i64 %116, i1 false)
-  %117 = load i64, ptr %0, align 8, !tbaa !5
-  br label %118
+123:                                              ; preds = %119
+  %124 = getelementptr inbounds nuw i32, ptr %94, i64 %121
+  %125 = xor i64 %109, -1
+  %126 = add nsw i64 %120, %125
+  %127 = shl i64 %126, 2
+  call void @llvm.memmove.p0.p0.i64(ptr nonnull align 4 %117, ptr nonnull align 4 %124, i64 %127, i1 false)
+  %128 = load i64, ptr %0, align 8, !tbaa !9
+  %129 = load ptr, ptr %36, align 8, !tbaa !15
+  br label %130
 
-118:                                              ; preds = %112, %107
-  %119 = phi i64 [ %117, %112 ], [ %88, %107 ]
-  %120 = add nsw i64 %109, -1
-  store i64 %120, ptr %108, align 8, !tbaa !13
-  %121 = icmp sgt i64 %119, %87
-  br i1 %121, label %122, label %132
+130:                                              ; preds = %123, %119
+  %131 = phi ptr [ %129, %123 ], [ %93, %119 ]
+  %132 = phi i64 [ %128, %123 ], [ %100, %119 ]
+  %133 = add nsw i64 %120, -1
+  store i64 %133, ptr %34, align 8, !tbaa !14
+  %134 = icmp sgt i64 %132, %99
+  br i1 %134, label %135, label %143
 
-122:                                              ; preds = %118
-  %123 = load ptr, ptr %22, align 8, !tbaa !14
-  br label %124
+135:                                              ; preds = %130, %135
+  %136 = phi i64 [ %137, %135 ], [ %99, %130 ]
+  %137 = add nuw nsw i64 %136, 1
+  %138 = getelementptr inbounds nuw i64, ptr %131, i64 %137
+  %139 = load i64, ptr %138, align 8, !tbaa !17
+  %140 = add nsw i64 %139, -1
+  store i64 %140, ptr %138, align 8, !tbaa !17
+  %141 = load i64, ptr %0, align 8, !tbaa !9
+  %142 = icmp slt i64 %137, %141
+  br i1 %142, label %135, label %143, !llvm.loop !24
 
-124:                                              ; preds = %124, %122
-  %125 = phi i64 [ %87, %122 ], [ %126, %124 ]
-  %126 = add nuw nsw i64 %125, 1
-  %127 = getelementptr inbounds nuw i64, ptr %123, i64 %126
-  %128 = load i64, ptr %127, align 8, !tbaa !16
-  %129 = add nsw i64 %128, -1
-  store i64 %129, ptr %127, align 8, !tbaa !16
-  %130 = load i64, ptr %0, align 8, !tbaa !5
-  %131 = icmp slt i64 %126, %130
-  br i1 %131, label %124, label %132, !llvm.loop !23
-
-132:                                              ; preds = %101, %124, %21, %77, %80, %86, %90, %104, %118
-  br i1 %20, label %217, label %133
-
-133:                                              ; preds = %132
-  tail call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #4
-  %134 = tail call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #4
-  %135 = tail call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #4
-  %136 = load i64, ptr %0, align 8, !tbaa !5
-  %137 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %138 = load i64, ptr %137, align 8, !tbaa !13
-  %139 = load ptr, ptr %22, align 8, !tbaa !14
-  %140 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %141 = load ptr, ptr %140, align 8, !tbaa !15
-  tail call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %136, i64 noundef %138, ptr noundef %139, ptr noundef %141, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 0) #4
-  br label %217
-
-142:                                              ; preds = %19
-  %143 = getelementptr inbounds nuw i8, ptr %0, i64 16
-  %144 = load ptr, ptr %143, align 8, !tbaa !14
-  %145 = icmp eq ptr %144, null
-  br i1 %145, label %204, label %146
-
-146:                                              ; preds = %142
+143:                                              ; preds = %113, %135, %33, %89, %92, %98, %102, %116, %130
+  %144 = phi ptr [ null, %33 ], [ null, %89 ], [ %93, %92 ], [ %93, %98 ], [ %93, %102 ], [ %93, %116 ], [ %131, %130 ], [ %131, %135 ], [ %93, %113 ]
+  %145 = load i64, ptr %0, align 8, !tbaa !9
+  %146 = load i64, ptr %34, align 8, !tbaa !14
   %147 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %148 = load ptr, ptr %147, align 8, !tbaa !15
-  %149 = icmp eq ptr %148, null
-  %150 = icmp slt i32 %2, 0
-  %151 = or i1 %150, %149
-  br i1 %151, label %177, label %152
+  %148 = load ptr, ptr %147, align 8, !tbaa !16
+  call void @autograph_record_adjacency_state(ptr noundef nonnull %0, i64 noundef %145, i64 noundef %146, ptr noundef %144, ptr noundef %148) #6
+  %149 = load i64, ptr %34, align 8, !tbaa !14
+  %150 = icmp eq i64 %149, %35
+  br i1 %150, label %152, label %151
 
-152:                                              ; preds = %146
-  %153 = zext nneg i32 %2 to i64
-  %154 = load i64, ptr %0, align 8, !tbaa !5
-  %155 = icmp sgt i64 %154, %153
-  %156 = icmp sgt i32 %3, -1
-  %157 = and i1 %156, %155
-  %158 = zext nneg i32 %3 to i64
-  %159 = icmp sgt i64 %154, %158
-  %160 = select i1 %157, i1 %159, i1 false
-  br i1 %160, label %161, label %177
+151:                                              ; preds = %143
+  call void @autograph_mark_canonical_dirty(ptr noundef nonnull %0) #6
+  br label %152
 
-161:                                              ; preds = %152
-  %162 = getelementptr inbounds nuw i64, ptr %144, i64 %153
-  %163 = load i64, ptr %162, align 8, !tbaa !16
-  %164 = getelementptr inbounds nuw i8, ptr %162, i64 8
-  %165 = load i64, ptr %164, align 8, !tbaa !16
-  %166 = icmp slt i64 %163, %165
-  br i1 %166, label %167, label %177
+152:                                              ; preds = %151, %143
+  br i1 %32, label %257, label %153
 
-167:                                              ; preds = %161, %174
-  %168 = phi i64 [ %175, %174 ], [ %163, %161 ]
-  %169 = getelementptr inbounds i32, ptr %148, i64 %168
-  %170 = load i32, ptr %169, align 4, !tbaa !17
-  %171 = icmp eq i32 %170, %3
-  br i1 %171, label %172, label %174
+153:                                              ; preds = %152
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %154 = call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %155 = load i64, ptr %0, align 8, !tbaa !9
+  %156 = load i64, ptr %34, align 8, !tbaa !14
+  %157 = load ptr, ptr %36, align 8, !tbaa !15
+  %158 = load ptr, ptr %147, align 8, !tbaa !16
+  call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %155, i64 noundef %156, ptr noundef %157, ptr noundef %158, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 0) #6
+  br label %257
 
-172:                                              ; preds = %167
-  %173 = getelementptr inbounds i32, ptr %148, i64 %168
-  store i32 -1, ptr %173, align 4, !tbaa !17
-  br label %177
+159:                                              ; preds = %31
+  %160 = getelementptr inbounds nuw i8, ptr %0, i64 16
+  %161 = load ptr, ptr %160, align 8, !tbaa !15
+  %162 = icmp eq ptr %161, null
+  br i1 %162, label %163, label %167
+
+163:                                              ; preds = %159
+  %164 = load i64, ptr %0, align 8, !tbaa !9
+  %165 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %166 = load ptr, ptr %165, align 8, !tbaa !16
+  br label %225
+
+167:                                              ; preds = %159
+  %168 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  %169 = load ptr, ptr %168, align 8, !tbaa !16
+  %170 = icmp eq ptr %169, null
+  %171 = icmp slt i32 %2, 0
+  %172 = or i1 %171, %170
+  %173 = load i64, ptr %0, align 8, !tbaa !9
+  br i1 %172, label %198, label %174
 
 174:                                              ; preds = %167
-  %175 = add i64 %168, 1
-  %176 = icmp eq i64 %175, %165
-  br i1 %176, label %177, label %167, !llvm.loop !24
+  %175 = zext nneg i32 %2 to i64
+  %176 = icmp sgt i64 %173, %175
+  br i1 %176, label %177, label %198
 
-177:                                              ; preds = %174, %172, %161, %152, %146
-  %178 = icmp slt i32 %3, 0
-  %179 = or i1 %178, %149
-  br i1 %179, label %204, label %180
+177:                                              ; preds = %174
+  %178 = icmp sgt i32 %3, -1
+  %179 = zext nneg i32 %3 to i64
+  %180 = icmp samesign ugt i64 %173, %179
+  %181 = select i1 %178, i1 %180, i1 false
+  br i1 %181, label %182, label %198
 
-180:                                              ; preds = %177
-  %181 = zext nneg i32 %3 to i64
-  %182 = load i64, ptr %0, align 8, !tbaa !5
-  %183 = icmp sgt i64 %182, %181
-  %184 = and i1 %9, %183
-  %185 = zext nneg i32 %2 to i64
-  %186 = icmp sgt i64 %182, %185
-  %187 = select i1 %184, i1 %186, i1 false
-  br i1 %187, label %188, label %204
+182:                                              ; preds = %177
+  %183 = getelementptr inbounds nuw i64, ptr %161, i64 %175
+  %184 = load i64, ptr %183, align 8, !tbaa !17
+  %185 = getelementptr inbounds nuw i8, ptr %183, i64 8
+  %186 = load i64, ptr %185, align 8, !tbaa !17
+  %187 = icmp slt i64 %184, %186
+  br i1 %187, label %188, label %198
 
-188:                                              ; preds = %180
-  %189 = getelementptr inbounds nuw i64, ptr %144, i64 %181
-  %190 = load i64, ptr %189, align 8, !tbaa !16
-  %191 = getelementptr inbounds nuw i8, ptr %189, i64 8
-  %192 = load i64, ptr %191, align 8, !tbaa !16
-  %193 = icmp slt i64 %190, %192
-  br i1 %193, label %194, label %204
+188:                                              ; preds = %182, %195
+  %189 = phi i64 [ %196, %195 ], [ %184, %182 ]
+  %190 = getelementptr inbounds i32, ptr %169, i64 %189
+  %191 = load i32, ptr %190, align 4, !tbaa !18
+  %192 = icmp eq i32 %191, %3
+  br i1 %192, label %193, label %195
 
-194:                                              ; preds = %188, %201
-  %195 = phi i64 [ %202, %201 ], [ %190, %188 ]
-  %196 = getelementptr inbounds i32, ptr %148, i64 %195
-  %197 = load i32, ptr %196, align 4, !tbaa !17
-  %198 = icmp eq i32 %197, %2
-  br i1 %198, label %199, label %201
+193:                                              ; preds = %188
+  %194 = getelementptr inbounds i32, ptr %169, i64 %189
+  store i32 -1, ptr %194, align 4, !tbaa !18
+  br label %198
 
-199:                                              ; preds = %194
-  %200 = getelementptr inbounds i32, ptr %148, i64 %195
-  store i32 -1, ptr %200, align 4, !tbaa !17
-  br label %204
+195:                                              ; preds = %188
+  %196 = add i64 %189, 1
+  %197 = icmp eq i64 %196, %186
+  br i1 %197, label %198, label %188, !llvm.loop !25
 
-201:                                              ; preds = %194
-  %202 = add i64 %195, 1
-  %203 = icmp eq i64 %202, %192
-  br i1 %203, label %204, label %194, !llvm.loop !24
+198:                                              ; preds = %195, %193, %182, %177, %174, %167
+  %199 = phi i1 [ true, %167 ], [ true, %174 ], [ true, %177 ], [ true, %182 ], [ false, %193 ], [ true, %195 ]
+  %200 = icmp slt i32 %3, 0
+  %201 = or i1 %200, %170
+  br i1 %201, label %225, label %202
 
-204:                                              ; preds = %201, %142, %177, %180, %188, %199
-  br i1 %20, label %217, label %205
+202:                                              ; preds = %198
+  %203 = zext nneg i32 %3 to i64
+  %204 = icmp sgt i64 %173, %203
+  %205 = zext nneg i32 %2 to i64
+  %206 = icmp samesign ugt i64 %173, %205
+  %207 = and i1 %21, %204
+  %208 = select i1 %207, i1 %206, i1 false
+  br i1 %208, label %209, label %225
 
-205:                                              ; preds = %204
-  tail call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #4
-  %206 = tail call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #4
-  %207 = tail call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #4
-  %208 = load i64, ptr %0, align 8, !tbaa !5
-  %209 = getelementptr inbounds nuw i8, ptr %0, i64 8
-  %210 = load i64, ptr %209, align 8, !tbaa !13
-  %211 = load ptr, ptr %143, align 8, !tbaa !14
-  %212 = getelementptr inbounds nuw i8, ptr %0, i64 24
-  %213 = load ptr, ptr %212, align 8, !tbaa !15
-  tail call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %208, i64 noundef %210, ptr noundef %211, ptr noundef %213, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 1) #4
-  br label %217
+209:                                              ; preds = %202
+  %210 = getelementptr inbounds nuw i64, ptr %161, i64 %203
+  %211 = load i64, ptr %210, align 8, !tbaa !17
+  %212 = getelementptr inbounds nuw i8, ptr %210, i64 8
+  %213 = load i64, ptr %212, align 8, !tbaa !17
+  %214 = icmp slt i64 %211, %213
+  br i1 %214, label %215, label %225
 
-214:                                              ; preds = %19
-  %215 = tail call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #4
-  %216 = tail call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #4
-  br label %217
+215:                                              ; preds = %209, %220
+  %216 = phi i64 [ %221, %220 ], [ %211, %209 ]
+  %217 = getelementptr inbounds i32, ptr %169, i64 %216
+  %218 = load i32, ptr %217, align 4, !tbaa !18
+  %219 = icmp eq i32 %218, %2
+  br i1 %219, label %223, label %220
 
-217:                                              ; preds = %214, %133, %132, %205, %204, %5
+220:                                              ; preds = %215
+  %221 = add i64 %216, 1
+  %222 = icmp eq i64 %221, %213
+  br i1 %222, label %225, label %215, !llvm.loop !25
+
+223:                                              ; preds = %215
+  %224 = getelementptr inbounds i32, ptr %169, i64 %216
+  store i32 -1, ptr %224, align 4, !tbaa !18
+  br i1 %199, label %225, label %230
+
+225:                                              ; preds = %220, %223, %198, %202, %209, %163
+  %226 = phi ptr [ %166, %163 ], [ %169, %209 ], [ %169, %202 ], [ %169, %198 ], [ %169, %223 ], [ %169, %220 ]
+  %227 = phi i64 [ %164, %163 ], [ %173, %209 ], [ %173, %202 ], [ %173, %198 ], [ %173, %223 ], [ %173, %220 ]
+  %228 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %229 = load i64, ptr %228, align 8, !tbaa !14
+  call void @autograph_record_adjacency_state(ptr noundef nonnull %0, i64 noundef %227, i64 noundef %229, ptr noundef %161, ptr noundef %226) #6
+  br label %235
+
+230:                                              ; preds = %223
+  %231 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  %232 = load i64, ptr %231, align 8, !tbaa !14
+  %233 = add nsw i64 %232, -2
+  store i64 %233, ptr %231, align 8, !tbaa !14
+  %234 = getelementptr inbounds nuw i8, ptr %0, i64 8
+  call void @autograph_record_adjacency_state(ptr noundef nonnull %0, i64 noundef %173, i64 noundef %233, ptr noundef nonnull %161, ptr noundef nonnull %169) #6
+  call void @autograph_mark_canonical_dirty(ptr noundef nonnull %0) #6
+  br label %235
+
+235:                                              ; preds = %225, %230
+  %236 = phi ptr [ %228, %225 ], [ %234, %230 ]
+  br i1 %32, label %257, label %237
+
+237:                                              ; preds = %235
+  %238 = getelementptr inbounds nuw i8, ptr %0, i64 24
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %239 = call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %240 = load i64, ptr %0, align 8, !tbaa !9
+  %241 = load i64, ptr %236, align 8, !tbaa !14
+  %242 = load ptr, ptr %160, align 8, !tbaa !15
+  %243 = load ptr, ptr %238, align 8, !tbaa !16
+  call void @autograph_ensure_layout(ptr noundef nonnull %0, i64 noundef %240, i64 noundef %241, ptr noundef %242, ptr noundef %243, ptr noundef null, ptr noundef %1, ptr noundef null, i32 noundef 1) #6
+  br label %257
+
+244:                                              ; preds = %31
+  %245 = call i32 @autograph_bcsr_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %246 = call i32 @autograph_bcsr_remove_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #6
+  %247 = icmp sgt i32 %245, 0
+  %248 = icmp sgt i32 %246, 0
+  %249 = select i1 %247, i1 %248, i1 false
+  br i1 %249, label %250, label %251
+
+250:                                              ; preds = %244
+  call void @autograph_mark_canonical_dirty(ptr noundef nonnull %0) #6
+  br label %251
+
+251:                                              ; preds = %250, %244
+  br i1 %32, label %257, label %252
+
+252:                                              ; preds = %251
+  call void @autograph_ensure_layout_set(ptr noundef nonnull %0) #6
+  %253 = call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  %254 = call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %3, i32 noundef %2) #6
+  br label %257
+
+255:                                              ; preds = %31
+  %256 = call i32 @autograph_canonical_remove_edge(ptr noundef nonnull %0, i32 noundef %2, i32 noundef %3) #6
+  br label %257
+
+257:                                              ; preds = %255, %153, %152, %237, %235, %252, %251
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %6) #6
+  %258 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %6) #6
+  %259 = load i64, ptr %6, align 8, !tbaa !3
+  %260 = getelementptr inbounds nuw i8, ptr %6, i64 8
+  %261 = load i64, ptr %260, align 8, !tbaa !8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %6) #6
+  br label %262
+
+262:                                              ; preds = %257, %14
+  %263 = phi i64 [ %261, %257 ], [ %18, %14 ]
+  %264 = phi i64 [ %259, %257 ], [ %16, %14 ]
+  %265 = mul i64 %264, 1000000000
+  %266 = mul i64 %10, -1000000000
+  %267 = sub i64 %266, %12
+  %268 = add i64 %263, %267
+  %269 = add i64 %268, %265
+  call void @autograph_profile_record_kernel_ns(i32 noundef 1, i64 noundef %269) #6
   ret void
 }
 
-declare i32 @autograph_canonical_remove_edge(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #1
+declare dso_local i32 @autograph_canonical_remove_edge(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #2
+
+declare dso_local i32 @autograph_bcsr_remove_edge(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #2
+
+; Function Attrs: nounwind
+declare dso_local i32 @clock_gettime(i32 noundef, ptr noundef) local_unnamed_addr #3
 
 ; Function Attrs: mustprogress nounwind willreturn allockind("realloc") allocsize(1) memory(argmem: readwrite, inaccessiblemem: readwrite)
-declare noalias noundef ptr @realloc(ptr allocptr nocapture noundef, i64 noundef) local_unnamed_addr #2
+declare dso_local noalias noundef ptr @realloc(ptr allocptr nocapture noundef, i64 noundef) local_unnamed_addr #4
 
-declare void @autograph_update_csr_pointers(ptr noundef, ptr noundef, ptr noundef) local_unnamed_addr #1
+declare dso_local void @autograph_update_csr_pointers(ptr noundef, ptr noundef, ptr noundef) local_unnamed_addr #2
 
 ; Function Attrs: mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memmove.p0.p0.i64(ptr nocapture writeonly, ptr nocapture readonly, i64, i1 immarg) #3
+declare void @llvm.memmove.p0.p0.i64(ptr nocapture writeonly, ptr nocapture readonly, i64, i1 immarg) #5
 
 attributes #0 = { nounwind uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #1 = { "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #2 = { mustprogress nounwind willreturn allockind("realloc") allocsize(1) memory(argmem: readwrite, inaccessiblemem: readwrite) "alloc-family"="malloc" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #3 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite) }
-attributes #4 = { nounwind }
-attributes #5 = { nounwind allocsize(1) }
+attributes #1 = { mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #3 = { nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #4 = { mustprogress nounwind willreturn allockind("realloc") allocsize(1) memory(argmem: readwrite, inaccessiblemem: readwrite) "alloc-family"="malloc" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #5 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #6 = { nounwind }
+attributes #7 = { nounwind allocsize(1) }
 
-!llvm.module.flags = !{!0, !1, !2, !3}
-!llvm.ident = !{!4}
+!llvm.module.flags = !{!0, !1}
+!llvm.ident = !{!2}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 8, !"PIC Level", i32 2}
-!2 = !{i32 7, !"PIE Level", i32 2}
-!3 = !{i32 7, !"uwtable", i32 2}
-!4 = !{!"clang version 20.1.8 (https://github.com/llvm/llvm-project.git 87f0227cb60147a26a1eeb4fb06e3b505e9c7261)"}
-!5 = !{!6, !7, i64 0}
-!6 = !{!"", !7, i64 0, !7, i64 8, !10, i64 16, !12, i64 24}
-!7 = !{!"long", !8, i64 0}
-!8 = !{!"omnipotent char", !9, i64 0}
-!9 = !{!"Simple C/C++ TBAA"}
-!10 = !{!"p1 long", !11, i64 0}
-!11 = !{!"any pointer", !8, i64 0}
-!12 = !{!"p1 int", !11, i64 0}
-!13 = !{!6, !7, i64 8}
-!14 = !{!6, !10, i64 16}
-!15 = !{!6, !12, i64 24}
-!16 = !{!7, !7, i64 0}
-!17 = !{!18, !18, i64 0}
-!18 = !{!"int", !8, i64 0}
-!19 = distinct !{!19, !20}
-!20 = !{!"llvm.loop.mustprogress"}
-!21 = distinct !{!21, !20}
-!22 = distinct !{!22, !20}
-!23 = distinct !{!23, !20}
-!24 = distinct !{!24, !20}
+!1 = !{i32 7, !"uwtable", i32 2}
+!2 = !{!"clang version 20.1.8 (Fedora 20.1.8-4.fc42)"}
+!3 = !{!4, !5, i64 0}
+!4 = !{!"timespec", !5, i64 0, !5, i64 8}
+!5 = !{!"long", !6, i64 0}
+!6 = !{!"omnipotent char", !7, i64 0}
+!7 = !{!"Simple C/C++ TBAA"}
+!8 = !{!4, !5, i64 8}
+!9 = !{!10, !5, i64 0}
+!10 = !{!"", !5, i64 0, !5, i64 8, !11, i64 16, !13, i64 24}
+!11 = !{!"p1 long", !12, i64 0}
+!12 = !{!"any pointer", !6, i64 0}
+!13 = !{!"p1 int", !12, i64 0}
+!14 = !{!10, !5, i64 8}
+!15 = !{!10, !11, i64 16}
+!16 = !{!10, !13, i64 24}
+!17 = !{!5, !5, i64 0}
+!18 = !{!19, !19, i64 0}
+!19 = !{!"int", !6, i64 0}
+!20 = distinct !{!20, !21}
+!21 = !{!"llvm.loop.mustprogress"}
+!22 = distinct !{!22, !21}
+!23 = distinct !{!23, !21}
+!24 = distinct !{!24, !21}
+!25 = distinct !{!25, !21}

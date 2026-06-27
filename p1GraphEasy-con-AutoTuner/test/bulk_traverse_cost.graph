@@ -1,0 +1,11 @@
+// Microbenchmark: repeated traversal queries on a medium file-backed graph.
+// Conversion costs are excluded by the pure kernel timer.
+graph BulkTraverse {
+  edges: file "../synth_v_50000_e_500000.txt";
+};
+
+query bfs_0: "bfs" of BulkTraverse;
+query bfs_1: "bfs" of BulkTraverse;
+query bfs_2: "bfs" of BulkTraverse;
+query bfs_3: "bfs" of BulkTraverse;
+query bfs_4: "bfs" of BulkTraverse;

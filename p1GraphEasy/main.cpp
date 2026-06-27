@@ -194,6 +194,11 @@ int main(int argc, char **argv)
     CommonTokenStream tokens(&lexer);
     BaseParser parser(&tokens);
     auto tree = parser.program();
+    if (parser.getNumberOfSyntaxErrors() > 0)
+    {
+        errs() << "Syntax error: failed to parse '" << InputFilename << "'\n";
+        return 1;
+    }
 
     ASTBuilder astB;
     auto progAny = astB.visitProgram(tree);
@@ -540,6 +545,32 @@ int main(int argc, char **argv)
         ModulePassManager MPM;
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
         MPM.run(*M, MAM);
+    }
+
+    {
+        llvm::SMDiagnostic Err;
+        std::unique_ptr<llvm::Module> MutationMod = llvm::parseIRFile("graph_mutation_runtime.ll", Err, Ctx);
+        if (!MutationMod)
+        {
+            Err.print("GraphProgram", llvm::errs());
+            llvm::errs() << "Failed to parse graph_mutation_runtime.ll\n";
+            return 1;
+        }
+
+        const std::string M_DL = M->getDataLayout().getStringRepresentation();
+        const std::string Mutation_DL = MutationMod->getDataLayout().getStringRepresentation();
+        if (M_DL.empty() && !Mutation_DL.empty())
+            M->setDataLayout(MutationMod->getDataLayout());
+
+        if (M->getTargetTriple().empty() && !MutationMod->getTargetTriple().empty())
+            M->setTargetTriple(MutationMod->getTargetTriple());
+
+        llvm::Linker L(*M);
+        if (L.linkInModule(std::move(MutationMod)))
+        {
+            llvm::errs() << "Linking graph_mutation_runtime.ll into main module failed\n";
+            return 1;
+        }
     }
 
     {

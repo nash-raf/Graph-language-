@@ -1,0 +1,14 @@
+graph G {
+  edges: file "synth_v_50000_e_500000.txt";
+};
+
+query bfs1: "bfs" of G;
+
+set s = {};
+int i = 0;
+while (i < 5000) {
+    s.add(i);
+    i = i + 1;
+}
+
+query bfs2: "bfs" of G;

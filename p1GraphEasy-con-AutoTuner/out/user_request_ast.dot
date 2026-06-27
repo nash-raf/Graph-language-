@@ -1,0 +1,12 @@
+digraph UserRequestAST {
+  rankdir=TB;
+  graph [bgcolor="white", pad="0.3", nodesep="0.35", ranksep="0.45"];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#334155", fontname="Helvetica"];
+  edge [color="#64748b", arrowsize="0.8"];
+
+  n0 [label="ProgramNode\ntopLevelCount=2"];
+  n1 [label="GraphDeclNode\nname=g1\nisFileGraph=true\nedgeFileName=edgelist.txt"];
+  n0 -> n1;
+  n2 [label="GraphUpdateNode\nkind=Add\ngraphName=g1\nnodes=0\nedges=[(20, 5)]"];
+  n0 -> n2;
+}

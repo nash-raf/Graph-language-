@@ -107,8 +107,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         auto *op = ctx->nodeEdgeOperation();
 
-        std::vector<int> nodes;
-        std::vector<std::pair<int,int>> edges;
+        std::vector<GraphUpdateTarget> targets;
         std::string gname;
         GraphUpdateKind kind;
 
@@ -116,62 +115,58 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         {
             kind = GraphUpdateKind::Add;
             gname = add->graphID()->getText();
-            auto *t = add->addTargets();
-
-            if (t->nodeID())
+            auto *t = add->graphUpdateTargets();
+            if (!t)
+                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
+            if (auto *nodeList = t->updateNodeTargetList())
             {
-                nodes.push_back(std::stoi(t->nodeID()->getText()));
-            }
-            else if (t->edge())
-            {
-                int u = std::stoi(t->edge()->nodeID(0)->getText());
-                int v = std::stoi(t->edge()->nodeID(1)->getText());
-                edges.emplace_back(u, v);
-            }
-            else if (t->nodeList())
-            {
-                for (auto *idT : t->nodeList()->nodeID())
-                    nodes.push_back(std::stoi(idT->getText()));
-            }
-            else if (t->edgeList())
-            {
-                for (auto *eCtx : t->edgeList()->edge())
+                for (auto *exprCtx : nodeList->expr())
                 {
-                    int u = std::stoi(eCtx->nodeID(0)->getText());
-                    int v = std::stoi(eCtx->nodeID(1)->getText());
-                    edges.emplace_back(u, v);
+                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
+                    targets.emplace_back(std::move(value));
                 }
+            }
+            else if (auto *edgeList = t->updateEdgeTargetList())
+            {
+                for (auto *edgeCtx : edgeList->updateEdgeTarget())
+                {
+                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
+                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
+                    targets.emplace_back(std::move(src), std::move(dst));
+                }
+            }
+            else
+            {
+                throw std::runtime_error("graph update parse error: malformed add target list");
             }
         }
         else if (auto *rem = op->removeOperation())
         {
             kind = GraphUpdateKind::Remove;
             gname = rem->graphID()->getText();
-            auto *t = rem->removeTargets();
-
-            if (t->nodeID())
+            auto *t = rem->graphUpdateTargets();
+            if (!t)
+                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
+            if (auto *nodeList = t->updateNodeTargetList())
             {
-                nodes.push_back(std::stoi(t->nodeID()->getText()));
-            }
-            else if (t->edge())
-            {
-                int u = std::stoi(t->edge()->nodeID(0)->getText());
-                int v = std::stoi(t->edge()->nodeID(1)->getText());
-                edges.emplace_back(u, v);
-            }
-            else if (t->nodeList())
-            {
-                for (auto *idT : t->nodeList()->nodeID())
-                    nodes.push_back(std::stoi(idT->getText()));
-            }
-            else if (t->edgeList())
-            {
-                for (auto *eCtx : t->edgeList()->edge())
+                for (auto *exprCtx : nodeList->expr())
                 {
-                    int u = std::stoi(eCtx->nodeID(0)->getText());
-                    int v = std::stoi(eCtx->nodeID(1)->getText());
-                    edges.emplace_back(u, v);
+                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
+                    targets.emplace_back(std::move(value));
                 }
+            }
+            else if (auto *edgeList = t->updateEdgeTargetList())
+            {
+                for (auto *edgeCtx : edgeList->updateEdgeTarget())
+                {
+                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
+                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
+                    targets.emplace_back(std::move(src), std::move(dst));
+                }
+            }
+            else
+            {
+                throw std::runtime_error("graph update parse error: malformed remove target list");
             }
         }
         
@@ -180,7 +175,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             throw std::runtime_error("nodeEdgeOperation: unknown alternative");
         }
 
-        auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
+        auto up = std::make_shared<GraphUpdateNode>(kind, gname, std::move(targets));
         return std::static_pointer_cast<ASTNode>(up);
     }
     else if (ctx->graphComprehension())

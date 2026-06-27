@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -178,11 +178,17 @@ public:
   virtual void enterRemoveOperation(BaseParser::RemoveOperationContext * /*ctx*/) override { }
   virtual void exitRemoveOperation(BaseParser::RemoveOperationContext * /*ctx*/) override { }
 
-  virtual void enterAddTargets(BaseParser::AddTargetsContext * /*ctx*/) override { }
-  virtual void exitAddTargets(BaseParser::AddTargetsContext * /*ctx*/) override { }
+  virtual void enterGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext * /*ctx*/) override { }
+  virtual void exitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext * /*ctx*/) override { }
 
-  virtual void enterRemoveTargets(BaseParser::RemoveTargetsContext * /*ctx*/) override { }
-  virtual void exitRemoveTargets(BaseParser::RemoveTargetsContext * /*ctx*/) override { }
+  virtual void enterUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext * /*ctx*/) override { }
+  virtual void exitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext * /*ctx*/) override { }
+
+  virtual void enterUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext * /*ctx*/) override { }
+  virtual void exitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext * /*ctx*/) override { }
+
+  virtual void enterUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext * /*ctx*/) override { }
+  virtual void exitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext * /*ctx*/) override { }
 
   virtual void enterQueryStatement(BaseParser::QueryStatementContext * /*ctx*/) override { }
   virtual void exitQueryStatement(BaseParser::QueryStatementContext * /*ctx*/) override { }

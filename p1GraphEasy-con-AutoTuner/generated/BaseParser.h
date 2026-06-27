@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -37,14 +37,15 @@ public:
     RuleCondition = 20, RuleGraphComprehension = 21, RuleGraphExpr = 22, 
     RuleGraphCondition = 23, RuleLoopStatement = 24, RuleForeachStatement = 25, 
     RuleLoopTarget = 26, RuleWhileStatement = 27, RuleNodeEdgeOperation = 28, 
-    RuleAddOperation = 29, RuleRemoveOperation = 30, RuleAddTargets = 31, 
-    RuleRemoveTargets = 32, RuleQueryStatement = 33, RuleShowgraph = 34, 
-    RuleFunction = 35, RuleReturnType = 36, RuleParamList = 37, RuleParam = 38, 
-    RuleType = 39, RuleFunctionCall = 40, RuleArgumentList = 41, RuleSleepStatement = 42, 
-    RuleBlock = 43, RuleReturnStatement = 44, RuleBreakStatement = 45, RuleContinueStatement = 46, 
-    RulePrintStatement = 47, RulePrintExpr = 48, RulePrintArrayStatement = 49, 
-    RulePrintgraph = 50, RuleExpr = 51, RuleArrayDeclarator = 52, RuleArrayInitializer = 53, 
-    RuleAssignmentStatement = 54, RuleArrayAssignStatement = 55, RuleWeights = 56
+    RuleAddOperation = 29, RuleRemoveOperation = 30, RuleGraphUpdateTargets = 31, 
+    RuleUpdateNodeTargetList = 32, RuleUpdateEdgeTargetList = 33, RuleUpdateEdgeTarget = 34, 
+    RuleQueryStatement = 35, RuleShowgraph = 36, RuleFunction = 37, RuleReturnType = 38, 
+    RuleParamList = 39, RuleParam = 40, RuleType = 41, RuleFunctionCall = 42, 
+    RuleArgumentList = 43, RuleSleepStatement = 44, RuleBlock = 45, RuleReturnStatement = 46, 
+    RuleBreakStatement = 47, RuleContinueStatement = 48, RulePrintStatement = 49, 
+    RulePrintExpr = 50, RulePrintArrayStatement = 51, RulePrintgraph = 52, 
+    RuleExpr = 53, RuleArrayDeclarator = 54, RuleArrayInitializer = 55, 
+    RuleAssignmentStatement = 56, RuleArrayAssignStatement = 57, RuleWeights = 58
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -95,8 +96,10 @@ public:
   class NodeEdgeOperationContext;
   class AddOperationContext;
   class RemoveOperationContext;
-  class AddTargetsContext;
-  class RemoveTargetsContext;
+  class GraphUpdateTargetsContext;
+  class UpdateNodeTargetListContext;
+  class UpdateEdgeTargetListContext;
+  class UpdateEdgeTargetContext;
   class QueryStatementContext;
   class ShowgraphContext;
   class FunctionContext;
@@ -984,7 +987,7 @@ public:
   public:
     AddOperationContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    AddTargetsContext *addTargets();
+    GraphUpdateTargetsContext *graphUpdateTargets();
     GraphIDContext *graphID();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -1000,7 +1003,7 @@ public:
   public:
     RemoveOperationContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    RemoveTargetsContext *removeTargets();
+    GraphUpdateTargetsContext *graphUpdateTargets();
     GraphIDContext *graphID();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -1012,14 +1015,12 @@ public:
 
   RemoveOperationContext* removeOperation();
 
-  class  AddTargetsContext : public antlr4::ParserRuleContext {
+  class  GraphUpdateTargetsContext : public antlr4::ParserRuleContext {
   public:
-    AddTargetsContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    GraphUpdateTargetsContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    NodeIDContext *nodeID();
-    EdgeContext *edge();
-    NodeListContext *nodeList();
-    EdgeListContext *edgeList();
+    UpdateNodeTargetListContext *updateNodeTargetList();
+    UpdateEdgeTargetListContext *updateEdgeTargetList();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -1028,16 +1029,14 @@ public:
    
   };
 
-  AddTargetsContext* addTargets();
+  GraphUpdateTargetsContext* graphUpdateTargets();
 
-  class  RemoveTargetsContext : public antlr4::ParserRuleContext {
+  class  UpdateNodeTargetListContext : public antlr4::ParserRuleContext {
   public:
-    RemoveTargetsContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    UpdateNodeTargetListContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    NodeIDContext *nodeID();
-    EdgeContext *edge();
-    NodeListContext *nodeList();
-    EdgeListContext *edgeList();
+    std::vector<ExprContext *> expr();
+    ExprContext* expr(size_t i);
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -1046,7 +1045,39 @@ public:
    
   };
 
-  RemoveTargetsContext* removeTargets();
+  UpdateNodeTargetListContext* updateNodeTargetList();
+
+  class  UpdateEdgeTargetListContext : public antlr4::ParserRuleContext {
+  public:
+    UpdateEdgeTargetListContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<UpdateEdgeTargetContext *> updateEdgeTarget();
+    UpdateEdgeTargetContext* updateEdgeTarget(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  UpdateEdgeTargetListContext* updateEdgeTargetList();
+
+  class  UpdateEdgeTargetContext : public antlr4::ParserRuleContext {
+  public:
+    UpdateEdgeTargetContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<ExprContext *> expr();
+    ExprContext* expr(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  UpdateEdgeTargetContext* updateEdgeTarget();
 
   class  QueryStatementContext : public antlr4::ParserRuleContext {
   public:

@@ -34,6 +34,10 @@ typedef struct {
   uint8_t *extra_edge_live;  /* 1 if active */
   int64_t extra_edge_count;
   int64_t extra_edge_capacity;
+  int32_t canonical_dirty;
+
+  /* Incrementally tracked live undirected edge count (avoids O(m) scan). */
+  int64_t live_edge_count;
 
   /* Transient CSR arrays (allocated on demand) */
   int64_t *csr_row_ptr;
@@ -83,6 +87,14 @@ int autograph_canonical_add_node(void *graph_ptr, int32_t node_label);
 int autograph_canonical_remove_node(void *graph_ptr, int32_t node_label);
 int autograph_canonical_add_edge(void *graph_ptr, int32_t u, int32_t v);
 int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v);
+void autograph_mark_canonical_dirty(void *graph_ptr);
+void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
+                                      int64_t *row_ptr, int32_t *col_idx);
+void autograph_sync_canonical_if_dirty(void *graph_ptr);
+void autograph_profile_region_enter(int32_t region_id, int32_t kind,
+                                    int32_t layout, double predicted_ns);
+void autograph_profile_region_exit(int32_t region_id);
+void autograph_profile_record_kernel_ns(int32_t kind, uint64_t elapsed_ns);
 
 /* Notify runtime after CSR realloc (e.g. from csr_add_directed) */
 void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *col_idx);
@@ -90,6 +102,15 @@ void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *c
 /* Option B: Convert to SET from current layout (rebuild bitmaps from adjacency).
  * Call from mutation path when an out-of-bounds op would require bitmaps. */
 void autograph_ensure_layout_set(void *graph_ptr);
+
+/* Layout-aware neighbor access: fills out_buf with neighbors of u under the
+ * current layout (CSR/PCSR/BCSR/SET). Returns count in *out_count. */
+void autograph_get_neighbors(void *graph_ptr, int64_t u,
+                             int32_t *out_buf, int64_t *out_count);
+
+/* BCSR-native edge mutation. Returns 1 on success, 0 on failure/skip. */
+int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to);
+int autograph_bcsr_remove_edge(void *graph_ptr, int32_t from, int32_t to);
 
 /* ── Low-level conversion helpers ── */
 void build_csr_from_set(int64_t n, int64_t pair_count, void *edges_bitmap, void *edge_pairs,

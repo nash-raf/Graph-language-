@@ -978,7 +978,18 @@ void buildGraph(llvm::Function &F,
             // Handle call instructions - add them to barriers and ensure argument dependencies
             if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I))
             {
-                barrierInsts.push_back(CI);
+                // Exempt argmemonly calls from barrier treatment. Such calls only
+                // access memory through pointer arguments, so they don't create
+                // function-wide memory barriers. This lets autograph_get_neighbors
+                // (which fills a per-iteration local buffer) coexist with loop
+                // parallelization. Argument dependency edges are still created.
+                bool isArgMemOnly = false;
+                if (llvm::Function *Callee = CI->getCalledFunction())
+                    isArgMemOnly = Callee->onlyAccessesArgMemory();
+
+                if (!isArgMemOnly)
+                    barrierInsts.push_back(CI);
+
                 // Ensure all arguments are connected (though def-use should catch this)
                 for (llvm::Use &Arg : CI->args())
                 {
@@ -3216,9 +3227,73 @@ namespace llvm
             return CI->arg_size() == 0;
         };
 
+        auto touchesMutableGlobals = [&](Function *Root) -> bool
+        {
+            if (!Root || Root->isDeclaration())
+                return false;
+
+            DenseSet<Function *> visitedFunctions;
+            SmallVector<Function *, 8> worklist;
+            worklist.push_back(Root);
+
+            auto referencesMutableGlobal = [](Value *V) -> bool
+            {
+                if (!V)
+                    return false;
+                Value *base = V->stripPointerCasts();
+                auto *GV = dyn_cast<GlobalVariable>(base);
+                return GV && !GV->isConstant();
+            };
+
+            while (!worklist.empty())
+            {
+                Function *F = worklist.pop_back_val();
+                if (!F || F->isDeclaration() || !visitedFunctions.insert(F).second)
+                    continue;
+
+                for (BasicBlock &BB : *F)
+                {
+                    for (Instruction &I : BB)
+                    {
+                        if (auto *LI = dyn_cast<LoadInst>(&I))
+                        {
+                            if (referencesMutableGlobal(LI->getPointerOperand()))
+                                return true;
+                        }
+                        else if (auto *SI = dyn_cast<StoreInst>(&I))
+                        {
+                            if (referencesMutableGlobal(SI->getPointerOperand()))
+                                return true;
+                        }
+                        else if (auto *CB = dyn_cast<CallBase>(&I))
+                        {
+                            for (Value *Arg : CB->args())
+                            {
+                                if (referencesMutableGlobal(Arg))
+                                    return true;
+                            }
+                            if (Function *Callee = CB->getCalledFunction())
+                                worklist.push_back(Callee);
+                        }
+                    }
+                }
+            }
+
+            return false;
+        };
+
+        DenseMap<unsigned, bool> taskTouchesMutableGlobals;
+
         auto isHoistSafe = [&](unsigned taskId, CallInst *CI, Instruction *launchPoint) -> bool
         {
             if (!isLocallyLaunchable(taskId, CI))
+                return false;
+
+            auto it = taskTouchesMutableGlobals.find(taskId);
+            if (it == taskTouchesMutableGlobals.end())
+                it = taskTouchesMutableGlobals.insert({taskId, touchesMutableGlobals(wrapperFunctions[taskId])}).first;
+            bool touchesGlobals = it->second;
+            if (launchPoint != CI && touchesGlobals)
                 return false;
 
             TaskArgumentInfo &argInfo = taskArgInfo[taskId];

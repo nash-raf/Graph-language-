@@ -775,6 +775,22 @@ void SemanticAnalyzer::analyzeGraphUpdate(GraphUpdateNode *upd)
         error("graph update on undeclared graph: " + upd->graphName);
     if (gSym->type != TypeKind::Graph)
         error("graph update only supported on unweighted graphs: " + upd->graphName);
+
+    for (const auto &target : upd->targets)
+    {
+        if (target.kind == GraphUpdateTargetKind::Node)
+        {
+            TypeKind t = analyzeExpr(target.value.get());
+            if (t != TypeKind::Int)
+                error("graph update node target must be int");
+            continue;
+        }
+
+        TypeKind srcType = analyzeExpr(target.src.get());
+        TypeKind dstType = analyzeExpr(target.dst.get());
+        if (srcType != TypeKind::Int || dstType != TypeKind::Int)
+            error("graph update edge endpoints must be int");
+    }
 }
 
 void SemanticAnalyzer::analyzeShowGraph(ShowGraphNode *S)

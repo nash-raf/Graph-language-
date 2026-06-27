@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -127,9 +127,13 @@ public:
 
     virtual std::any visitRemoveOperation(BaseParser::RemoveOperationContext *context) = 0;
 
-    virtual std::any visitAddTargets(BaseParser::AddTargetsContext *context) = 0;
+    virtual std::any visitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *context) = 0;
 
-    virtual std::any visitRemoveTargets(BaseParser::RemoveTargetsContext *context) = 0;
+    virtual std::any visitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *context) = 0;
+
+    virtual std::any visitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *context) = 0;
+
+    virtual std::any visitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *context) = 0;
 
     virtual std::any visitQueryStatement(BaseParser::QueryStatementContext *context) = 0;
 

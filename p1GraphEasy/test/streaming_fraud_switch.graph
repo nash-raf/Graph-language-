@@ -1,0 +1,43 @@
+// Realistic workload: ingest a suspicious-transaction batch, then propagate
+// exposure outward from the flagged accounts.
+graph TransactionGraph {
+  edges: file "../synth_v_50000_e_500000.txt";
+};
+
+query pre_alert_reachability: "bfs" of TransactionGraph;
+
+int suspicious_base = 61000;
+int mule_base = 71000;
+int merchant_base = 81000;
+int batch = 0;
+
+while (batch < 16) {
+  int suspicious = suspicious_base + batch;
+  int mule = mule_base + batch;
+  int merchant = merchant_base + batch;
+  add suspicious->mule, mule->merchant, merchant->(merchant + 500) to TransactionGraph;
+  batch = batch + 1;
+}
+
+set frontier = {61000, 61001, 61002, 61003};
+set visited = {61000, 61001, 61002, 61003};
+int rounds = 0;
+
+while (rounds < 3) {
+  set next = {};
+  for each element u in frontier {
+    for each neighbor v of u in TransactionGraph {
+      if (!visited.contains(v)) {
+        visited.add(v);
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+  rounds = rounds + 1;
+}
+
+query post_burst_triage: "bfs" of TransactionGraph;
+
+print setSize(visited);
+print numEdges(TransactionGraph);

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 
 #include "antlr4-runtime.h"
 #include "BaseLexer.h"
@@ -13,6 +14,7 @@
 
 #include "pdg.h"
 #include "parallel_loop_outline.h"
+#include "AutoTunerPass.h"
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -194,6 +196,11 @@ int main(int argc, char **argv)
     CommonTokenStream tokens(&lexer);
     BaseParser parser(&tokens);
     auto tree = parser.program();
+    if (parser.getNumberOfSyntaxErrors() > 0)
+    {
+        errs() << "Syntax error: failed to parse '" << InputFilename << "'\n";
+        return 1;
+    }
 
     ASTBuilder astB;
     auto progAny = astB.visitProgram(tree);
@@ -221,7 +228,11 @@ int main(int argc, char **argv)
 
     IRBuilder<> IRB(Ctx);
 
-    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend);
+    std::filesystem::path inputPath(InputFilename.getValue());
+    std::string sourceDir = inputPath.has_parent_path()
+                                ? inputPath.parent_path().string()
+                                : std::string(".");
+    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend, sourceDir);
     irgen.visitProgram(prog);
 
     {
@@ -248,6 +259,26 @@ int main(int argc, char **argv)
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
         MPM.run(*M, MAM);
+    }
+
+    // Run autotuner on user IR before PDG/outlining (which moves calls into
+    // separate task functions) and before linking runtime IR modules.
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager LocalMAM;
+
+        PassBuilder LocalPB;
+        LocalPB.registerModuleAnalyses(LocalMAM);
+        LocalPB.registerCGSCCAnalyses(CGAM);
+        LocalPB.registerFunctionAnalyses(FAM);
+        LocalPB.registerLoopAnalyses(LAM);
+        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
+
+        ModulePassManager TuneMPM;
+        TuneMPM.addPass(AutoTunerModulePass());
+        TuneMPM.run(*M, LocalMAM);
     }
 
     // {

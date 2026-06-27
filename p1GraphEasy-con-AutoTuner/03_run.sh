@@ -55,6 +55,15 @@ else
 fi
 
 # 1) Generate program.o (contains the generated code entrypoints)
+# 1a) Run hardware calibration micro-benchmark for autotuner cost model
+if [[ ! -f hw_calib_bench ]]; then
+  gcc -O2 -o hw_calib_bench hw_calib_bench.c
+fi
+mkdir -p "${HOME}/.config/sgpl"
+if [[ ! -f "${HOME}/.config/sgpl/hw_calib.json" ]]; then
+  ./hw_calib_bench > "${HOME}/.config/sgpl/hw_calib.json"
+fi
+
 ./GraphProgram "$GRAPH_FILE"
 
 # 2) Build runtimes

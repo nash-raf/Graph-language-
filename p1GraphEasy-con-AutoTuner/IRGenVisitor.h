@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
+#include <utility>
 
 #include "ASTNode.h"
 
@@ -16,8 +17,10 @@ public:
     IRGenVisitor(llvm::LLVMContext &C,
                  llvm::Module &M,
                  llvm::IRBuilder<> &B,
-                 const std::string &backend = "cpu")
-        : Context(C), Module(M), Builder(B), SelectedIRBackend(backend)
+                 const std::string &backend = "cpu",
+                 std::string sourceDir = ".")
+        : Context(C), Module(M), Builder(B), SelectedIRBackend(backend),
+          SourceDir(std::move(sourceDir))
     {
         // Build the Graph struct type: { i64, i64, i64*, i32*, i32* }
         llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
@@ -78,6 +81,7 @@ private:
     llvm::Module &Module;
     llvm::IRBuilder<> &Builder;
     std::string SelectedIRBackend;
+    std::string SourceDir;
 
     enum class SetValueKind
     {

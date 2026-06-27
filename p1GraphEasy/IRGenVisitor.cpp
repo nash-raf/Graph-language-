@@ -890,60 +890,87 @@ void IRGenVisitor::visitStatement(ASTNode *node)
 
 void IRGenVisitor::visitGraphUpdate(GraphUpdateNode *upd)
 {
-    // auto it = GraphAstMap.find(upd->graphName);
-    // if (it == GraphAstMap.end())
-    //     throw std::runtime_error("Graph not declared: " + upd->graphName);
+    llvm::Value *graphPtr = loadGraphValue(upd->graphName);
 
-    // GraphDeclNode *G = it->second;
+    auto *i32Ty = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto toI32 = [&](ASTNode *expr, const std::string &name) -> llvm::Value * {
+        llvm::Value *value = visitExpr(expr);
+        if (value->getType() == i32Ty)
+            return value;
+        if (value->getType()->isIntegerTy())
+            return Builder.CreateIntCast(value, i32Ty, true, name);
+        throw std::runtime_error("graph update expression did not lower to integer");
+    };
 
-    // auto &nodes = G->materializedNodes;
-    // auto &edges = G->edgeList;
+    if (upd->kind == GraphUpdateKind::Add)
+    {
+        for (const auto &target : upd->targets)
+        {
+            if (target.kind == GraphUpdateTargetKind::Node)
+            {
+                llvm::FunctionType *addNodeFT = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(Context),
+                    {i8PtrTy, i8PtrTy, i8PtrTy, i32Ty}, false);
+                auto addNodeFn = Module.getOrInsertFunction("graph_add_node", addNodeFT);
+                llvm::Value *nodesBmp = GraphNodesMap.count(upd->graphName)
+                    ? GraphNodesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                llvm::Value *edgePairs = GraphEdgesMap.count(upd->graphName)
+                    ? GraphEdgesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                Builder.CreateCall(addNodeFn, {graphPtr, nodesBmp, edgePairs,
+                                               toI32(target.value.get(), "graph.add.node")});
+                continue;
+            }
 
-    // if (upd->kind == GraphUpdateKind::Add)
-    // {
-    //     // add nodes
-    //     for (int v : upd->nodes)
-    //     {
-    //         if (std::find(nodes.begin(), nodes.end(), v) == nodes.end())
-    //             nodes.push_back(v);
-    //     }
-    //     // add edges
-    //     for (auto &e : upd->edges)
-    //     {
-    //         if (std::find(edges.begin(), edges.end(), e) == edges.end())
-    //             edges.push_back(e);
-    //     }
-    // }
-    // else // Remove
-    // {
-    //     // remove nodes and their incident edges
-    //     for (int v : upd->nodes)
-    //     {
-    //         nodes.erase(std::remove(nodes.begin(), nodes.end(), v), nodes.end());
-    //         edges.erase(std::remove_if(edges.begin(), edges.end(),
-    //                                    [v](auto &e)
-    //                                    {
-    //                                        return e.first == v || e.second == v;
-    //                                    }),
-    //                     edges.end());
-    //     }
-    //     // remove specific edges
-    //     for (auto &eRem : upd->edges)
-    //     {
-    //         edges.erase(std::remove(edges.begin(), edges.end(), eRem), edges.end());
-    //     }
-    // }
+            llvm::FunctionType *addEdgeFT = llvm::FunctionType::get(
+                llvm::Type::getVoidTy(Context),
+                {i8PtrTy, i8PtrTy, i32Ty, i32Ty, i32Ty}, false);
+            auto addEdgeFn = Module.getOrInsertFunction("graph_add_edge", addEdgeFT);
+            llvm::Value *edgesBmp = GraphEdgesMap.count(upd->graphName)
+                ? GraphEdgesMap[upd->graphName]
+                : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+            Builder.CreateCall(addEdgeFn, {graphPtr, edgesBmp,
+                                           toI32(target.src.get(), "graph.add.src"),
+                                           toI32(target.dst.get(), "graph.add.dst"),
+                                           llvm::ConstantInt::get(i32Ty, 0)});
+        }
+    }
+    else // Remove
+    {
+        for (const auto &target : upd->targets)
+        {
+            if (target.kind == GraphUpdateTargetKind::Node)
+            {
+                llvm::FunctionType *removeNodeFT = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(Context),
+                    {i8PtrTy, i8PtrTy, i8PtrTy, i32Ty}, false);
+                auto removeNodeFn = Module.getOrInsertFunction("graph_remove_node", removeNodeFT);
+                llvm::Value *nodesBmp = GraphNodesMap.count(upd->graphName)
+                    ? GraphNodesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                llvm::Value *edgePairs = GraphEdgesMap.count(upd->graphName)
+                    ? GraphEdgesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                Builder.CreateCall(removeNodeFn, {graphPtr, nodesBmp, edgePairs,
+                                                  toI32(target.value.get(), "graph.remove.node")});
+                continue;
+            }
 
-    // // keep nodes sorted (optional but nice for stable indexing)
-    // std::sort(nodes.begin(), nodes.end());
-    // nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
-
-    // // rebuild CSR in AST object
-    // G->rebuildCSR();
-
-    // // and rebuild the LLVM Graph* value
-    // llvm::Value *newGraphPtr = visitGraphDecl(G);
-    // GraphMap[upd->graphName] = newGraphPtr;
+            llvm::FunctionType *removeEdgeFT = llvm::FunctionType::get(
+                llvm::Type::getVoidTy(Context),
+                {i8PtrTy, i8PtrTy, i32Ty, i32Ty, i32Ty}, false);
+            auto removeEdgeFn = Module.getOrInsertFunction("graph_remove_edge", removeEdgeFT);
+            llvm::Value *edgesBmp = GraphEdgesMap.count(upd->graphName)
+                ? GraphEdgesMap[upd->graphName]
+                : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+            Builder.CreateCall(removeEdgeFn, {graphPtr, edgesBmp,
+                                              toI32(target.src.get(), "graph.remove.src"),
+                                              toI32(target.dst.get(), "graph.remove.dst"),
+                                              llvm::ConstantInt::get(i32Ty, 0)});
+        }
+    }
 }
 
 void IRGenVisitor::visitBlock(BlockStmtNode *block)

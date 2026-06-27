@@ -80,6 +80,10 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2/5] Build runtime LLVM IR ==="
   "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
   "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 bfs_runtime.cpp -o bfs_runtime.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 bfs_runtime_src.cpp -o bfs_runtime_src.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 dfs_runtime.cpp -o dfs_runtime.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 dfs_runtime_src.cpp -o dfs_runtime_src.ll
 
 
   "$CXX_BIN" \

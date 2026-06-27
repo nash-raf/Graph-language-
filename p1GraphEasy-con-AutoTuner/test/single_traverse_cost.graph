@@ -1,0 +1,7 @@
+// Microbenchmark: exactly one traversal query.
+// With one pure traversal region, predicted region cost reduces to uTrav.
+graph SingleTraverse {
+  edges: file "shared_edgelist.txt";
+};
+
+query one_bfs: "bfs" of SingleTraverse;

@@ -3,12 +3,69 @@
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <optional>
 #include <stdexcept>
 
 static uint64_t packEdgeKey(int32_t u, int32_t v)
 {
     return (static_cast<uint64_t>(static_cast<uint32_t>(u)) << 32) |
            static_cast<uint32_t>(v);
+}
+
+namespace
+{
+struct FileGraphEstimate
+{
+    int64_t n = 0;
+    int64_t logical_m = 0;
+};
+
+std::optional<FileGraphEstimate> estimateUnweightedGraphFile(const std::string &sourceDir,
+                                                             const std::string &edgeFileName)
+{
+    namespace fs = std::filesystem;
+    std::vector<fs::path> candidates;
+    fs::path raw(edgeFileName);
+    candidates.push_back(raw);
+    if (raw.is_relative())
+    {
+        candidates.push_back(fs::path(sourceDir) / raw);
+        candidates.push_back(fs::path("test") / raw);
+    }
+
+    fs::path chosen;
+    for (const auto &candidate : candidates)
+    {
+        std::error_code ec;
+        if (fs::exists(candidate, ec) && !ec)
+        {
+            chosen = candidate;
+            break;
+        }
+    }
+    if (chosen.empty())
+        return std::nullopt;
+
+    std::ifstream in(chosen);
+    if (!in.good())
+        return std::nullopt;
+
+    int64_t undirectedEdges = 0;
+    int64_t u = 0;
+    int64_t v = 0;
+    int64_t maxNode = -1;
+    while (in >> u >> v)
+    {
+        maxNode = std::max(maxNode, std::max(u, v));
+        undirectedEdges++;
+    }
+    if (undirectedEdges <= 0 && maxNode < 0)
+        return std::nullopt;
+
+    return FileGraphEstimate{maxNode + 1, undirectedEdges};
+}
 }
 
 uint32_t IRGenVisitor::getOrAddEdgeId(int32_t u, int32_t v)
@@ -890,60 +947,87 @@ void IRGenVisitor::visitStatement(ASTNode *node)
 
 void IRGenVisitor::visitGraphUpdate(GraphUpdateNode *upd)
 {
-    // auto it = GraphAstMap.find(upd->graphName);
-    // if (it == GraphAstMap.end())
-    //     throw std::runtime_error("Graph not declared: " + upd->graphName);
+    llvm::Value *graphPtr = loadGraphValue(upd->graphName);
 
-    // GraphDeclNode *G = it->second;
+    auto *i32Ty = llvm::Type::getInt32Ty(Context);
+    auto *i8PtrTy = llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context));
+    auto toI32 = [&](ASTNode *expr, const std::string &name) -> llvm::Value * {
+        llvm::Value *value = visitExpr(expr);
+        if (value->getType() == i32Ty)
+            return value;
+        if (value->getType()->isIntegerTy())
+            return Builder.CreateIntCast(value, i32Ty, true, name);
+        throw std::runtime_error("graph update expression did not lower to integer");
+    };
 
-    // auto &nodes = G->materializedNodes;
-    // auto &edges = G->edgeList;
+    if (upd->kind == GraphUpdateKind::Add)
+    {
+        for (const auto &target : upd->targets)
+        {
+            if (target.kind == GraphUpdateTargetKind::Node)
+            {
+                llvm::FunctionType *addNodeFT = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(Context),
+                    {i8PtrTy, i8PtrTy, i8PtrTy, i32Ty}, false);
+                auto addNodeFn = Module.getOrInsertFunction("graph_add_node", addNodeFT);
+                llvm::Value *nodesBmp = GraphNodesMap.count(upd->graphName)
+                    ? GraphNodesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                llvm::Value *edgePairs = GraphEdgesMap.count(upd->graphName)
+                    ? GraphEdgesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                Builder.CreateCall(addNodeFn, {graphPtr, nodesBmp, edgePairs,
+                                               toI32(target.value.get(), "graph.add.node")});
+                continue;
+            }
 
-    // if (upd->kind == GraphUpdateKind::Add)
-    // {
-    //     // add nodes
-    //     for (int v : upd->nodes)
-    //     {
-    //         if (std::find(nodes.begin(), nodes.end(), v) == nodes.end())
-    //             nodes.push_back(v);
-    //     }
-    //     // add edges
-    //     for (auto &e : upd->edges)
-    //     {
-    //         if (std::find(edges.begin(), edges.end(), e) == edges.end())
-    //             edges.push_back(e);
-    //     }
-    // }
-    // else // Remove
-    // {
-    //     // remove nodes and their incident edges
-    //     for (int v : upd->nodes)
-    //     {
-    //         nodes.erase(std::remove(nodes.begin(), nodes.end(), v), nodes.end());
-    //         edges.erase(std::remove_if(edges.begin(), edges.end(),
-    //                                    [v](auto &e)
-    //                                    {
-    //                                        return e.first == v || e.second == v;
-    //                                    }),
-    //                     edges.end());
-    //     }
-    //     // remove specific edges
-    //     for (auto &eRem : upd->edges)
-    //     {
-    //         edges.erase(std::remove(edges.begin(), edges.end(), eRem), edges.end());
-    //     }
-    // }
+            llvm::FunctionType *addEdgeFT = llvm::FunctionType::get(
+                llvm::Type::getVoidTy(Context),
+                {i8PtrTy, i8PtrTy, i32Ty, i32Ty, i32Ty}, false);
+            auto addEdgeFn = Module.getOrInsertFunction("graph_add_edge", addEdgeFT);
+            llvm::Value *edgesBmp = GraphEdgesMap.count(upd->graphName)
+                ? GraphEdgesMap[upd->graphName]
+                : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+            Builder.CreateCall(addEdgeFn, {graphPtr, edgesBmp,
+                                           toI32(target.src.get(), "graph.add.src"),
+                                           toI32(target.dst.get(), "graph.add.dst"),
+                                           llvm::ConstantInt::get(i32Ty, 0)});
+        }
+    }
+    else // Remove
+    {
+        for (const auto &target : upd->targets)
+        {
+            if (target.kind == GraphUpdateTargetKind::Node)
+            {
+                llvm::FunctionType *removeNodeFT = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(Context),
+                    {i8PtrTy, i8PtrTy, i8PtrTy, i32Ty}, false);
+                auto removeNodeFn = Module.getOrInsertFunction("graph_remove_node", removeNodeFT);
+                llvm::Value *nodesBmp = GraphNodesMap.count(upd->graphName)
+                    ? GraphNodesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                llvm::Value *edgePairs = GraphEdgesMap.count(upd->graphName)
+                    ? GraphEdgesMap[upd->graphName]
+                    : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+                Builder.CreateCall(removeNodeFn, {graphPtr, nodesBmp, edgePairs,
+                                                  toI32(target.value.get(), "graph.remove.node")});
+                continue;
+            }
 
-    // // keep nodes sorted (optional but nice for stable indexing)
-    // std::sort(nodes.begin(), nodes.end());
-    // nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
-
-    // // rebuild CSR in AST object
-    // G->rebuildCSR();
-
-    // // and rebuild the LLVM Graph* value
-    // llvm::Value *newGraphPtr = visitGraphDecl(G);
-    // GraphMap[upd->graphName] = newGraphPtr;
+            llvm::FunctionType *removeEdgeFT = llvm::FunctionType::get(
+                llvm::Type::getVoidTy(Context),
+                {i8PtrTy, i8PtrTy, i32Ty, i32Ty, i32Ty}, false);
+            auto removeEdgeFn = Module.getOrInsertFunction("graph_remove_edge", removeEdgeFT);
+            llvm::Value *edgesBmp = GraphEdgesMap.count(upd->graphName)
+                ? GraphEdgesMap[upd->graphName]
+                : llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(i8PtrTy));
+            Builder.CreateCall(removeEdgeFn, {graphPtr, edgesBmp,
+                                              toI32(target.src.get(), "graph.remove.src"),
+                                              toI32(target.dst.get(), "graph.remove.dst"),
+                                              llvm::ConstantInt::get(i32Ty, 0)});
+        }
+    }
 }
 
 void IRGenVisitor::visitBlock(BlockStmtNode *block)
@@ -1715,28 +1799,47 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         if (srcVertex->getType() != i64Ty)
             srcVertex = Builder.CreateZExt(srcVertex, i64Ty, "src_i64");
 
-        // Load row_ptr pointer (field 2)
-        llvm::Value *rpField = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_field");
-        llvm::Value *rowPtrBase = Builder.CreateLoad(i64PtrTy, rpField, "row_ptr_base");
-
-        // Load col_idx pointer (field 3)
-        llvm::Value *ciField = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_field");
-        llvm::Value *colIdxBase = Builder.CreateLoad(i32PtrTy, ciField, "col_idx_base");
-
-        // start = row_ptr[v]
-        llvm::Value *startPtr = Builder.CreateGEP(i64Ty, rowPtrBase, {srcVertex}, "rp_start_ptr");
-        llvm::Value *startVal = Builder.CreateLoad(i64Ty, startPtr, "rp_start");
-
-        // end = row_ptr[v+1]
-        llvm::Value *vPlus1 = Builder.CreateAdd(srcVertex, llvm::ConstantInt::get(i64Ty, 1), "v_plus1");
-        llvm::Value *endPtr = Builder.CreateGEP(i64Ty, rowPtrBase, {vPlus1}, "rp_end_ptr");
-        llvm::Value *endVal = Builder.CreateLoad(i64Ty, endPtr, "rp_end");
-
-        // Allocate the user-visible neighbor variable. Keep the induction variable in SSA
-        // so ScalarEvolution can prove a simple affine recurrence for the loop.
+        // Allocate the user-visible neighbor variable and a neighbor buffer.
+        llvm::Function *parent = Builder.GetInsertBlock()->getParent();
         llvm::IRBuilder<> TmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
         auto *userAlloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
         NamedValues[fs->var1] = userAlloca;
+
+        // nbuf: heap buffer for autograph_get_neighbors output sized from the
+        // live graph right before the loop starts. Heap allocation avoids
+        // repeated large stack growth when a neighbor-foreach appears inside
+        // another loop.
+        llvm::Value *nForBuf = Builder.CreateLoad(
+            i64Ty,
+            Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_for_buf_ptr"),
+            "n_for_buf");
+        auto *voidTy = llvm::Type::getVoidTy(Context);
+        auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+        auto *i32PtrTyLocal = llvm::PointerType::getUnqual(i32Ty);
+        auto *i64PtrTyLocal = llvm::PointerType::getUnqual(i64Ty);
+        llvm::FunctionType *mallocFT =
+            llvm::FunctionType::get(opaquePtrTy, {i64Ty}, false);
+        llvm::FunctionType *freeFT =
+            llvm::FunctionType::get(voidTy, {opaquePtrTy}, false);
+        auto mallocFn = Module.getOrInsertFunction("malloc", mallocFT);
+        auto freeFn = Module.getOrInsertFunction("free", freeFT);
+        llvm::Value *nbrBufBytes = Builder.CreateMul(
+            nForBuf, llvm::ConstantInt::get(i64Ty, sizeof(int32_t)),
+            "nbr_nbuf_bytes");
+        llvm::Value *nbrBufRaw =
+            Builder.CreateCall(mallocFn, {nbrBufBytes}, "nbr_nbuf_raw");
+        auto *nbufAlloca =
+            Builder.CreateBitCast(nbrBufRaw, i32PtrTyLocal, "nbr_nbuf");
+
+        // cnt alloca
+        auto *cntAlloca = Builder.CreateAlloca(i64Ty, nullptr, "nbr_cnt");
+
+        // Declare autograph_get_neighbors(void*, i64, i32*, i64*)
+        llvm::FunctionType *getNbrFT = llvm::FunctionType::get(
+            voidTy, {opaquePtrTy, i64Ty, i32PtrTyLocal, i64PtrTyLocal}, false);
+        auto getNbrFn = Module.getOrInsertFunction("autograph_get_neighbors", getNbrFT);
+        if (auto *F = llvm::dyn_cast<llvm::Function>(getNbrFn.getCallee()))
+            F->setMemoryEffects(llvm::MemoryEffects::argMemOnly());
 
         auto *condBB = llvm::BasicBlock::Create(Context, "foreach_nbr.cond", parent);
         auto *bodyBB = llvm::BasicBlock::Create(Context, "foreach_nbr.body", parent);
@@ -1744,19 +1847,26 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         auto *mergeBB = llvm::BasicBlock::Create(Context, "foreach_nbr.merge", parent);
         LoopStack.push_back({incBB, mergeBB});
 
+        // Preheader: call autograph_get_neighbors(G, v, nbuf, &cnt)
         llvm::BasicBlock *preheaderBB = Builder.GetInsertBlock();
+        Builder.CreateCall(getNbrFn, {graphPtr, srcVertex, nbufAlloca, cntAlloca});
+        llvm::Value *cntVal = Builder.CreateLoad(i64Ty, cntAlloca, "nbr_cnt_val");
         Builder.CreateBr(condBB);
 
-        // Condition: idx < end
+        // Condition: idx < cnt
         Builder.SetInsertPoint(condBB);
         auto *idxPhi = Builder.CreatePHI(i64Ty, 2, fs->var1 + ".nbr_idx");
-        idxPhi->addIncoming(startVal, preheaderBB);
-        llvm::Value *cmp = Builder.CreateICmpSLT(idxPhi, endVal, "nbr_cond");
+        idxPhi->addIncoming(llvm::ConstantInt::get(i64Ty, 0), preheaderBB);
+        llvm::Value *cmp = Builder.CreateICmpSLT(idxPhi, cntVal, "nbr_cond");
         Builder.CreateCondBr(cmp, bodyBB, mergeBB);
 
-        // Body: u = col_idx[idx]
+        // Attach autotuner.traverse metadata to the loop header terminator
+        condBB->getTerminator()->setMetadata("autotuner.traverse",
+            llvm::MDNode::get(Context, llvm::MDString::get(Context, "neighbor")));
+
+        // Body: u = nbuf[idx]
         Builder.SetInsertPoint(bodyBB);
-        llvm::Value *neighborPtr = Builder.CreateGEP(i32Ty, colIdxBase, {idxPhi}, "col_idx_ptr");
+        llvm::Value *neighborPtr = Builder.CreateGEP(i32Ty, nbufAlloca, {idxPhi}, "nbr_buf_ptr");
         llvm::Value *neighborVal = Builder.CreateLoad(i32Ty, neighborPtr, "neighbor_val");
         Builder.CreateStore(neighborVal, userAlloca);
 
@@ -1775,6 +1885,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
 
         LoopStack.pop_back();
         Builder.SetInsertPoint(mergeBB);
+        Builder.CreateCall(freeFn, {nbrBufRaw});
         return;
     }
 
@@ -1784,12 +1895,6 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *nPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_ptr");
         llvm::Value *nVal = Builder.CreateLoad(i64Ty, nPtr, "n_val");
 
-        // Load row_ptr and col_idx
-        llvm::Value *rpField = Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_field");
-        llvm::Value *rowPtrBase = Builder.CreateLoad(i64PtrTy, rpField, "row_ptr_base");
-        llvm::Value *ciField = Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_field");
-        llvm::Value *colIdxBase = Builder.CreateLoad(i32PtrTy, ciField, "col_idx_base");
-
         // Allocate variables
         llvm::IRBuilder<> TmpB(&parent->getEntryBlock(), parent->getEntryBlock().begin());
         auto *uIdxAlloca = TmpB.CreateAlloca(i64Ty, nullptr, "edge_u_idx");
@@ -1798,6 +1903,39 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         auto *var2Alloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var2); // v
         NamedValues[fs->var1] = var1Alloca;
         NamedValues[fs->var2] = var2Alloca;
+
+        // nbuf: heap buffer for autograph_get_neighbors output sized from the
+        // live graph. Heap allocation avoids repeated large stack growth while
+        // walking all vertices' adjacency lists.
+        auto *nForBufEdge = Builder.CreateLoad(
+            i64Ty,
+            Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_edge_buf_ptr"),
+            "n_edge_buf");
+        auto *voidTy = llvm::Type::getVoidTy(Context);
+        auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+        auto *i32PtrTyLocal = llvm::PointerType::getUnqual(i32Ty);
+        auto *i64PtrTyLocal = llvm::PointerType::getUnqual(i64Ty);
+        llvm::FunctionType *mallocFT =
+            llvm::FunctionType::get(opaquePtrTy, {i64Ty}, false);
+        llvm::FunctionType *freeFT =
+            llvm::FunctionType::get(voidTy, {opaquePtrTy}, false);
+        auto mallocFn = Module.getOrInsertFunction("malloc", mallocFT);
+        auto freeFn = Module.getOrInsertFunction("free", freeFT);
+        llvm::Value *edgeBufBytes = Builder.CreateMul(
+            nForBufEdge, llvm::ConstantInt::get(i64Ty, sizeof(int32_t)),
+            "edge_nbuf_bytes");
+        llvm::Value *edgeBufRaw =
+            Builder.CreateCall(mallocFn, {edgeBufBytes}, "edge_nbuf_raw");
+        auto *nbufAlloca =
+            Builder.CreateBitCast(edgeBufRaw, i32PtrTyLocal, "edge_nbuf");
+        auto *cntAlloca = Builder.CreateAlloca(i64Ty, nullptr, "edge_cnt");
+
+        // Declare autograph_get_neighbors
+        llvm::FunctionType *getNbrFT = llvm::FunctionType::get(
+            voidTy, {opaquePtrTy, i64Ty, i32PtrTyLocal, i64PtrTyLocal}, false);
+        auto getNbrFn = Module.getOrInsertFunction("autograph_get_neighbors", getNbrFT);
+        if (auto *F = llvm::dyn_cast<llvm::Function>(getNbrFn.getCallee()))
+            F->setMemoryEffects(llvm::MemoryEffects::argMemOnly());
 
         // u = 0
         Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), uIdxAlloca);
@@ -1817,21 +1955,22 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *outerCond = Builder.CreateICmpSLT(uIdx, nVal, "edge_outer_cond");
         Builder.CreateCondBr(outerCond, outerBodyBB, outerMergeBB);
 
-        // Outer body: set u, get row_ptr range, start inner loop
+        // Attach autotuner.traverse metadata to the outer loop header terminator
+        outerCondBB->getTerminator()->setMetadata("autotuner.traverse",
+            llvm::MDNode::get(Context, llvm::MDString::get(Context, "edge")));
+
+        // Outer body: set u, call autograph_get_neighbors, start inner loop
         Builder.SetInsertPoint(outerBodyBB);
         llvm::Value *uVal32 = Builder.CreateTrunc(
             Builder.CreateLoad(i64Ty, uIdxAlloca, "u_idx2"), i32Ty, "u_val32");
         Builder.CreateStore(uVal32, var1Alloca);
 
-        // j_start = row_ptr[u], j_end = row_ptr[u+1]
+        // Call autograph_get_neighbors(G, u, nbuf, &cnt)
         llvm::Value *uCur = Builder.CreateLoad(i64Ty, uIdxAlloca, "u_cur");
-        llvm::Value *jStartPtr = Builder.CreateGEP(i64Ty, rowPtrBase, {uCur}, "rp_u");
-        llvm::Value *jStart = Builder.CreateLoad(i64Ty, jStartPtr, "j_start");
-        llvm::Value *uPlus1 = Builder.CreateAdd(uCur, llvm::ConstantInt::get(i64Ty, 1), "u_p1");
-        llvm::Value *jEndPtr = Builder.CreateGEP(i64Ty, rowPtrBase, {uPlus1}, "rp_u1");
-        llvm::Value *jEnd = Builder.CreateLoad(i64Ty, jEndPtr, "j_end");
+        Builder.CreateCall(getNbrFn, {graphPtr, uCur, nbufAlloca, cntAlloca});
+        llvm::Value *cntVal = Builder.CreateLoad(i64Ty, cntAlloca, "edge_cnt_val");
 
-        Builder.CreateStore(jStart, jIdxAlloca);
+        Builder.CreateStore(llvm::ConstantInt::get(i64Ty, 0), jIdxAlloca);
 
         // Inner loop blocks
         auto *innerCondBB = llvm::BasicBlock::Create(Context, "edge.inner.cond", parent);
@@ -1841,16 +1980,16 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
 
         Builder.CreateBr(innerCondBB);
 
-        // Inner condition: j < j_end
+        // Inner condition: j < cnt
         Builder.SetInsertPoint(innerCondBB);
         llvm::Value *jIdx = Builder.CreateLoad(i64Ty, jIdxAlloca, "j_idx");
-        llvm::Value *innerCond = Builder.CreateICmpSLT(jIdx, jEnd, "edge_inner_cond");
+        llvm::Value *innerCond = Builder.CreateICmpSLT(jIdx, cntVal, "edge_inner_cond");
         Builder.CreateCondBr(innerCond, innerBodyBB, innerMergeBB);
 
-        // Inner body: v = col_idx[j], skip if u >= v (avoid undirected duplicates)
+        // Inner body: v = nbuf[j], skip if u >= v (avoid undirected duplicates)
         Builder.SetInsertPoint(innerBodyBB);
         llvm::Value *jCur = Builder.CreateLoad(i64Ty, jIdxAlloca, "j_cur");
-        llvm::Value *vPtr = Builder.CreateGEP(i32Ty, colIdxBase, {jCur}, "ci_j");
+        llvm::Value *vPtr = Builder.CreateGEP(i32Ty, nbufAlloca, {jCur}, "nbuf_j");
         llvm::Value *vVal = Builder.CreateLoad(i32Ty, vPtr, "v_val");
 
         // Skip duplicate edges: only process u < v for undirected graphs
@@ -1890,6 +2029,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         // Outer merge
         LoopStack.pop_back();
         Builder.SetInsertPoint(outerMergeBB);
+        Builder.CreateCall(freeFn, {edgeBufRaw});
         return;
     }
 
@@ -1922,6 +2062,10 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     llvm::Value *idxVal = Builder.CreateLoad(i64Ty, idxAlloca, "idx_val");
     llvm::Value *cond = Builder.CreateICmpSLT(idxVal, nVal, "loop_cond");
     Builder.CreateCondBr(cond, bodyBB, mergeBB);
+
+    // Attach autotuner.traverse metadata to the loop header terminator
+    condBB->getTerminator()->setMetadata("autotuner.traverse",
+        llvm::MDNode::get(Context, llvm::MDString::get(Context, "vertex")));
 
     // --- Body ---
     Builder.SetInsertPoint(bodyBB);
@@ -2820,6 +2964,41 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
         RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
 
+        // Emit autograph_init to register graph with autotuner runtime
+        {
+            auto *voidTy = llvm::Type::getVoidTy(Context);
+            auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+            llvm::Value *nValInit = Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "g.n_init");
+            llvm::Value *mValInit = Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "g.m_init");
+            std::optional<FileGraphEstimate> fileEstimate =
+                estimateUnweightedGraphFile(SourceDir, G->edgeFileName);
+            if (fileEstimate)
+            {
+                nValInit = llvm::ConstantInt::get(I64, static_cast<uint64_t>(fileEstimate->n));
+                mValInit = llvm::ConstantInt::get(I64, static_cast<uint64_t>(2 * fileEstimate->logical_m));
+                G->n = static_cast<size_t>(fileEstimate->n);
+                G->m = static_cast<size_t>(2 * fileEstimate->logical_m);
+                llvm::errs() << "[IRGen] estimated file graph '" << G->edgeFileName
+                             << "': n=" << fileEstimate->n
+                             << " logical_m=" << fileEstimate->logical_m
+                             << " csr_m=" << (2 * fileEstimate->logical_m) << "\n";
+            }
+            llvm::FunctionType *initFT = llvm::FunctionType::get(
+                voidTy, {opaquePtrTy, I64, I64, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);
+            auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+            auto *initCall = Builder.CreateCall(initFn, {graphPtr, nValInit, mValInit,
+                                                         GraphNodesMap[G->name], GraphEdgesMap[G->name],
+                                                         RuntimeEdgePairsPtr});
+            if (fileEstimate)
+            {
+                llvm::Metadata *sizeOps[] = {
+                    llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(I64, fileEstimate->n)),
+                    llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(I64, fileEstimate->logical_m))};
+                initCall->setMetadata("autotuner.graph_size",
+                                      llvm::MDNode::get(Context, sizeOps));
+            }
+        }
+
         return graphPtr;
     }
 
@@ -2948,6 +3127,29 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     GraphNodesMap[G->name] = emitBitmapFromBlob(G->nodes_blob, G->name + "_nodes_blob");
     GraphEdgesMap[G->name] = emitBitmapFromBlob(edgesBlob, G->name + "_edges_blob");
 
+    // Register CSR metadata and emit autograph_init for autotuner runtime
+    {
+        auto *voidTy = llvm::Type::getVoidTy(Context);
+        auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+        llvm::FunctionType *regFT = llvm::FunctionType::get(voidTy, {graphPtrTy}, false);
+        auto regFn = Module.getOrInsertFunction("graph_register_csr_metadata", regFT);
+        Builder.CreateCall(regFn, {graphPtr});
+
+        auto *i32PtrTy = llvm::PointerType::getUnqual(I32);
+        llvm::FunctionType *getPairsFT = llvm::FunctionType::get(i32PtrTy, {graphPtrTy}, false);
+        auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+        llvm::Value *edgePairsInit = Builder.CreateCall(getPairsFn, {graphPtr}, "edge_pairs_init");
+
+        llvm::FunctionType *initFT = llvm::FunctionType::get(
+            voidTy, {opaquePtrTy, I64, I64, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);
+        auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+        Builder.CreateCall(initFn, {graphPtr,
+                                    llvm::ConstantInt::get(I64, G->n),
+                                    llvm::ConstantInt::get(I64, G->m),
+                                    GraphNodesMap[G->name], GraphEdgesMap[G->name],
+                                    edgePairsInit});
+    }
+
     return graphPtr;
 }
 llvm::Value *zero64(llvm::IRBuilder<> &B, llvm::LLVMContext &C)
@@ -3006,6 +3208,20 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         llvm::FunctionType *getCountFT = llvm::FunctionType::get(i64Ty, {graphPtrTy}, false);
         auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
         RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
+
+        // Emit autograph_init to register graph with autotuner runtime
+        {
+            auto *voidTy = llvm::Type::getVoidTy(Context);
+            auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+            llvm::Value *nValInit = Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "g.n_init");
+            llvm::Value *mValInit = Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "g.m_init");
+            llvm::FunctionType *initFT = llvm::FunctionType::get(
+                voidTy, {opaquePtrTy, I64, I64, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);
+            auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+            Builder.CreateCall(initFn, {graphPtr, nValInit, mValInit,
+                                        GraphNodesMap[G->name], GraphEdgesMap[G->name],
+                                        RuntimeEdgePairsPtr});
+        }
 
         return graphPtr;
     }
@@ -3225,6 +3441,31 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
 
         GraphNodesMap[G->name] = emitBitmapFromBlob(G->nodes_blob, G->name + "_nodes_blob");
         GraphEdgesMap[G->name] = emitBitmapFromBlob(G->edges_blob, G->name + "_edges_blob");
+    }
+
+    // Register CSR metadata and emit autograph_init for autotuner runtime
+    {
+        auto *voidTy = llvm::Type::getVoidTy(Context);
+        auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+        auto *graphPtrTyW = GraphTy->getPointerTo();
+        llvm::FunctionType *regFT = llvm::FunctionType::get(voidTy, {graphPtrTyW}, false);
+        auto regFn = Module.getOrInsertFunction("graph_register_csr_metadata", regFT);
+        Builder.CreateCall(regFn, {graphPtr});
+
+        auto *i32PtrTyW = llvm::PointerType::getUnqual(llvm::Type::getInt32Ty(Context));
+        llvm::FunctionType *getPairsFT = llvm::FunctionType::get(i32PtrTyW, {graphPtrTyW}, false);
+        auto getPairsFn = Module.getOrInsertFunction("graph_get_edge_pairs", getPairsFT);
+        llvm::Value *edgePairsInit = Builder.CreateCall(getPairsFn, {graphPtr}, "edge_pairs_init");
+
+        llvm::FunctionType *initFT = llvm::FunctionType::get(
+            voidTy, {opaquePtrTy, llvm::Type::getInt64Ty(Context), llvm::Type::getInt64Ty(Context),
+                     opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);
+        auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
+        Builder.CreateCall(initFn, {graphPtr,
+                                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), G->n),
+                                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), G->m),
+                                    GraphNodesMap[G->name], GraphEdgesMap[G->name],
+                                    edgePairsInit});
     }
 
     return graphPtr;
@@ -4048,6 +4289,12 @@ llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)
     case ASTNodeType::GraphMemberSet:
     {
         auto *gm = static_cast<GraphMemberSetNode *>(expr);
+        llvm::Value *graphPtr = loadGraphValue(gm->graphName);
+        auto *voidTy = llvm::Type::getVoidTy(Context);
+        auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
+        auto syncFT = llvm::FunctionType::get(voidTy, {opaquePtrTy}, false);
+        auto syncFn = Module.getOrInsertFunction("autograph_sync_canonical_if_dirty", syncFT);
+        Builder.CreateCall(syncFn, {graphPtr});
         if (gm->member == GraphMemberKind::Nodes)
             return GraphNodesMap.at(gm->graphName);
         return GraphEdgesMap.at(gm->graphName);

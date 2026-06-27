@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -176,11 +176,17 @@ public:
   virtual void enterRemoveOperation(BaseParser::RemoveOperationContext *ctx) = 0;
   virtual void exitRemoveOperation(BaseParser::RemoveOperationContext *ctx) = 0;
 
-  virtual void enterAddTargets(BaseParser::AddTargetsContext *ctx) = 0;
-  virtual void exitAddTargets(BaseParser::AddTargetsContext *ctx) = 0;
+  virtual void enterGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *ctx) = 0;
+  virtual void exitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *ctx) = 0;
 
-  virtual void enterRemoveTargets(BaseParser::RemoveTargetsContext *ctx) = 0;
-  virtual void exitRemoveTargets(BaseParser::RemoveTargetsContext *ctx) = 0;
+  virtual void enterUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *ctx) = 0;
+  virtual void exitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *ctx) = 0;
+
+  virtual void enterUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *ctx) = 0;
+  virtual void exitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *ctx) = 0;
+
+  virtual void enterUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *ctx) = 0;
+  virtual void exitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *ctx) = 0;
 
   virtual void enterQueryStatement(BaseParser::QueryStatementContext *ctx) = 0;
   virtual void exitQueryStatement(BaseParser::QueryStatementContext *ctx) = 0;

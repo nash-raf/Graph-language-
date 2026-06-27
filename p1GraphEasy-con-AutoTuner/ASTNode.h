@@ -85,6 +85,7 @@ enum class ASTNodeType
 };
 
 enum class GraphUpdateKind { Add, Remove };
+enum class GraphUpdateTargetKind { Node, Edge };
 enum class GraphDegreeOp { None, Eq, Ne, Le, Ge, Lt, Gt };
 enum class GraphConditionOp { And, Or, Connected, Cycle, Degree };
 
@@ -180,23 +181,36 @@ public:
 };
 
 
+struct GraphUpdateTarget
+{
+    GraphUpdateTargetKind kind;
+    ASTNodePtr value;
+    ASTNodePtr src;
+    ASTNodePtr dst;
+
+    explicit GraphUpdateTarget(ASTNodePtr nodeValue)
+        : kind(GraphUpdateTargetKind::Node), value(std::move(nodeValue)) {}
+
+    GraphUpdateTarget(ASTNodePtr sourceValue, ASTNodePtr destValue)
+        : kind(GraphUpdateTargetKind::Edge),
+          src(std::move(sourceValue)),
+          dst(std::move(destValue)) {}
+};
+
 class GraphUpdateNode : public ASTNode {
-    public: 
-    
+    public:
+
         GraphUpdateKind kind;
         std::string graphName;
-        std::vector<int> nodes;
-        std::vector<std::pair<int, int>> edges;
-    
+        std::vector<GraphUpdateTarget> targets;
+
         GraphUpdateNode(GraphUpdateKind k,
                         const std::string &g,
-                        const std::vector<int> &n,
-                        const std::vector<std::pair<int, int>> &e)
+                        std::vector<GraphUpdateTarget> t)
             : ASTNode(ASTNodeType::GraphUpdate),
               kind(k),
               graphName(g),
-              nodes(n),
-              edges(e)
+              targets(std::move(t))
         {}
     };
 

@@ -58,6 +58,7 @@ private:
     void analyzeSleepStmt(SleepStmtNode *SS);
     void analyzeGraphUpdate(GraphUpdateNode *upd);
     void analyzeShowGraph(ShowGraphNode *S);
+    void analyzeDrawGraph(DrawGraphNode *D);
     void analyzeGraphComprehension(GraphComprehensionNode *GC);
     void validateGraphCondition(GraphConditionNode *cond, GraphDeclNode *G);
     void analyzeSetDecl(SetDeclNode *SD);
@@ -68,4 +69,3 @@ private:
 };
 
 #endif // SEMANTIC_ANALYZER_H
-

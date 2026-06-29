@@ -147,6 +147,18 @@ public:
 
     virtual std::any visitShowgraph(BaseParser::ShowgraphContext *context) = 0;
 
+    virtual std::any visitDrawgraph(BaseParser::DrawgraphContext *context) = 0;
+
+    virtual std::any visitDrawOption(BaseParser::DrawOptionContext *context) = 0;
+
+    virtual std::any visitVertexDrawOption(BaseParser::VertexDrawOptionContext *context) = 0;
+
+    virtual std::any visitEdgeDrawOption(BaseParser::EdgeDrawOptionContext *context) = 0;
+
+    virtual std::any visitColorMapping(BaseParser::ColorMappingContext *context) = 0;
+
+    virtual std::any visitContinuousMapping(BaseParser::ContinuousMappingContext *context) = 0;
+
     virtual std::any visitFunction(BaseParser::FunctionContext *context) = 0;
 
     virtual std::any visitReturnType(BaseParser::ReturnTypeContext *context) = 0;

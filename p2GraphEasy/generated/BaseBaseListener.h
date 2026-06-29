@@ -208,6 +208,24 @@ public:
   virtual void enterShowgraph(BaseParser::ShowgraphContext * /*ctx*/) override { }
   virtual void exitShowgraph(BaseParser::ShowgraphContext * /*ctx*/) override { }
 
+  virtual void enterDrawgraph(BaseParser::DrawgraphContext * /*ctx*/) override { }
+  virtual void exitDrawgraph(BaseParser::DrawgraphContext * /*ctx*/) override { }
+
+  virtual void enterDrawOption(BaseParser::DrawOptionContext * /*ctx*/) override { }
+  virtual void exitDrawOption(BaseParser::DrawOptionContext * /*ctx*/) override { }
+
+  virtual void enterVertexDrawOption(BaseParser::VertexDrawOptionContext * /*ctx*/) override { }
+  virtual void exitVertexDrawOption(BaseParser::VertexDrawOptionContext * /*ctx*/) override { }
+
+  virtual void enterEdgeDrawOption(BaseParser::EdgeDrawOptionContext * /*ctx*/) override { }
+  virtual void exitEdgeDrawOption(BaseParser::EdgeDrawOptionContext * /*ctx*/) override { }
+
+  virtual void enterColorMapping(BaseParser::ColorMappingContext * /*ctx*/) override { }
+  virtual void exitColorMapping(BaseParser::ColorMappingContext * /*ctx*/) override { }
+
+  virtual void enterContinuousMapping(BaseParser::ContinuousMappingContext * /*ctx*/) override { }
+  virtual void exitContinuousMapping(BaseParser::ContinuousMappingContext * /*ctx*/) override { }
+
   virtual void enterFunction(BaseParser::FunctionContext * /*ctx*/) override { }
   virtual void exitFunction(BaseParser::FunctionContext * /*ctx*/) override { }
 

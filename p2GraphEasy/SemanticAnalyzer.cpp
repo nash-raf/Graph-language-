@@ -465,6 +465,9 @@ void SemanticAnalyzer::analyzeStatement(ASTNode *node)
     case ASTNodeType::ShowGraph:
         analyzeShowGraph(static_cast<ShowGraphNode *>(node));
         break;
+    case ASTNodeType::DrawGraph:
+        analyzeDrawGraph(static_cast<DrawGraphNode *>(node));
+        break;
     case ASTNodeType::GraphComprehension:
         analyzeGraphComprehension(static_cast<GraphComprehensionNode *>(node));
         break;
@@ -784,6 +787,48 @@ void SemanticAnalyzer::analyzeShowGraph(ShowGraphNode *S)
     Symbol *gSym = lookupSymbol(S->graphName);
     if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
         error("showgraph on undeclared graph: " + S->graphName);
+}
+
+void SemanticAnalyzer::analyzeDrawGraph(DrawGraphNode *D)
+{
+    Symbol *gSym = lookupSymbol(D->graphName);
+    if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
+        error("draw on undeclared graph: " + D->graphName);
+
+    const auto dot = D->outputPath.find_last_of('.');
+    const std::string extension =
+        (dot == std::string::npos) ? "" : D->outputPath.substr(dot);
+    if (extension != ".svg" && extension != ".png" &&
+        extension != ".pdf" && extension != ".dot")
+        error("draw output must use .svg, .png, .pdf, or .dot: " + D->outputPath);
+
+    if (D->colorMode != DrawColorMode::None)
+    {
+        Symbol *array = lookupSymbol(D->colorArray);
+        if (!array)
+            error("draw color array is undeclared: " + D->colorArray);
+        if (D->colorMode == DrawColorMode::Categorical &&
+            array->type != TypeKind::IntArray)
+            error("categorical vertex color requires an int array: " + D->colorArray);
+        if (D->colorMode == DrawColorMode::Continuous &&
+            array->type != TypeKind::IntArray &&
+            array->type != TypeKind::RealArray)
+            error("continuous vertex color requires an int or real array: " + D->colorArray);
+        D->colorArrayType = array->type;
+    }
+
+    if (!D->sizeArray.empty())
+    {
+        Symbol *array = lookupSymbol(D->sizeArray);
+        if (!array)
+            error("draw size array is undeclared: " + D->sizeArray);
+        if (array->type != TypeKind::IntArray && array->type != TypeKind::RealArray)
+            error("continuous vertex size requires an int or real array: " + D->sizeArray);
+        D->sizeArrayType = array->type;
+    }
+
+    if (D->edgeWeightLabels && gSym->type != TypeKind::WeightedGraph)
+        error("edge label weight requires a weighted graph: " + D->graphName);
 }
 
 void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)

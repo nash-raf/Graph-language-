@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
+#include <math.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 typedef struct RoaringBitmap RoaringBitmap;
 
@@ -87,6 +90,325 @@ void show_graph_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx)
              "dot -Tpng \"%s\" -o \"%s\" && xdg-open \"%s\" >/dev/null 2>&1 &",
              dot_name, png_name, png_name);
     system(cmd);
+}
+
+static bool draw_has_suffix(const char *value, const char *suffix)
+{
+    size_t value_len = strlen(value);
+    size_t suffix_len = strlen(suffix);
+    return value_len >= suffix_len &&
+           strcmp(value + value_len - suffix_len, suffix) == 0;
+}
+
+static int draw_compare_i32(const void *lhs, const void *rhs)
+{
+    int32_t a = *(const int32_t *)lhs;
+    int32_t b = *(const int32_t *)rhs;
+    return (a > b) - (a < b);
+}
+
+static double draw_numeric_value(const void *values, int32_t kind, int64_t index)
+{
+    if (kind == 2 || kind == 3)
+        return ((const double *)values)[index];
+    return (double)((const int32_t *)values)[index];
+}
+
+static void draw_interpolate_color(double t, char output[8])
+{
+    static const int stops[3][3] = {
+        {68, 1, 84},
+        {33, 145, 140},
+        {253, 231, 37}
+    };
+    if (t < 0.0) t = 0.0;
+    if (t > 1.0) t = 1.0;
+
+    int left = t < 0.5 ? 0 : 1;
+    double local = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;
+    int r = (int)(stops[left][0] + local * (stops[left + 1][0] - stops[left][0]));
+    int g = (int)(stops[left][1] + local * (stops[left + 1][1] - stops[left][1]));
+    int b = (int)(stops[left][2] + local * (stops[left + 1][2] - stops[left][2]));
+    snprintf(output, 8, "#%02x%02x%02x", r, g, b);
+}
+
+static void draw_categorical_color(int64_t category_index, char output[8])
+{
+    static const char *palette[] = {
+        "#0072b2", "#e69f00", "#009e73", "#cc79a7",
+        "#d55e00", "#56b4e9", "#f0e442", "#332288",
+        "#88ccee", "#44aa99", "#aa4499", "#999933"
+    };
+    const int64_t palette_size = (int64_t)(sizeof(palette) / sizeof(palette[0]));
+    if (category_index < palette_size)
+    {
+        memcpy(output, palette[category_index], 8);
+        return;
+    }
+
+    uint32_t hash = (uint32_t)category_index * 2654435761u;
+    int r = 48 + (int)(hash & 0xaf);
+    int g = 48 + (int)((hash >> 8) & 0xaf);
+    int b = 48 + (int)((hash >> 16) & 0xaf);
+    snprintf(output, 8, "#%02x%02x%02x", r, g, b);
+}
+
+static int64_t draw_category_index(const int32_t *categories, int64_t count, int32_t value)
+{
+    int64_t low = 0;
+    int64_t high = count;
+    while (low < high)
+    {
+        int64_t middle = low + (high - low) / 2;
+        if (categories[middle] < value)
+            low = middle + 1;
+        else
+            high = middle;
+    }
+    return low;
+}
+
+static const char *draw_layout_engine(int32_t layout, bool directed, int64_t n)
+{
+    switch (layout)
+    {
+    case 1: return "dot";
+    case 2: return "sfdp";
+    case 3: return "twopi";
+    case 4: return "circo";
+    case 5: return "osage";
+    default:
+        if (directed && n <= 200)
+            return "dot";
+        return n <= 50 ? "neato" : "sfdp";
+    }
+}
+
+void draw_graph_runtime(int64_t n, int64_t m,
+                        int64_t *row_ptr, int32_t *col_idx, int32_t *weights,
+                        int32_t directed, const char *output_path,
+                        int32_t layout, int32_t vertex_labels,
+                        void *color_values, int32_t color_kind, int64_t color_count,
+                        void *size_values, int32_t size_kind, int64_t size_count,
+                        int32_t edge_weight_labels)
+{
+    if (!output_path || !row_ptr || n < 0 || m < 0)
+    {
+        fprintf(stderr, "draw: invalid graph or output path\n");
+        return;
+    }
+    if (n > 10000 || m > 100000)
+    {
+        fprintf(stderr,
+                "draw: graph is too large (%ld vertices, %ld adjacency entries); "
+                "draw a filtered subgraph with at most 10000 vertices and 100000 entries\n",
+                (long)n, (long)m);
+        return;
+    }
+    if (color_kind != 0 && (!color_values || color_count < n))
+    {
+        fprintf(stderr, "draw: color array has %ld values but graph has %ld vertices\n",
+                (long)color_count, (long)n);
+        return;
+    }
+    if (size_kind != 0 && (!size_values || size_count < n))
+    {
+        fprintf(stderr, "draw: size array has %ld values but graph has %ld vertices\n",
+                (long)size_count, (long)n);
+        return;
+    }
+    if (edge_weight_labels && !weights)
+    {
+        fprintf(stderr, "draw: weighted edge labels requested for an unweighted graph\n");
+        return;
+    }
+
+    const char *format = NULL;
+    if (draw_has_suffix(output_path, ".svg")) format = "svg";
+    else if (draw_has_suffix(output_path, ".png")) format = "png";
+    else if (draw_has_suffix(output_path, ".pdf")) format = "pdf";
+    else if (!draw_has_suffix(output_path, ".dot"))
+    {
+        fprintf(stderr, "draw: unsupported output extension: %s\n", output_path);
+        return;
+    }
+
+    char *dot_path = NULL;
+    if (!format)
+    {
+        dot_path = strdup(output_path);
+    }
+    else
+    {
+        size_t path_len = strlen(output_path) + 16;
+        dot_path = malloc(path_len);
+        if (dot_path)
+            snprintf(dot_path, path_len, "%s.grapheasy.dot", output_path);
+    }
+    if (!dot_path)
+    {
+        fprintf(stderr, "draw: could not allocate output path\n");
+        return;
+    }
+
+    int32_t *categories = NULL;
+    int64_t category_count = 0;
+    if (color_kind == 1 && n > 0)
+    {
+        categories = malloc((size_t)n * sizeof(int32_t));
+        if (!categories)
+        {
+            free(dot_path);
+            fprintf(stderr, "draw: could not allocate categorical color map\n");
+            return;
+        }
+        const int32_t *values = (const int32_t *)color_values;
+        for (int64_t v = 0; v < n; ++v)
+            if (values[v] >= 0)
+                categories[category_count++] = values[v];
+        qsort(categories, (size_t)category_count, sizeof(int32_t), draw_compare_i32);
+        int64_t unique = 0;
+        for (int64_t i = 0; i < category_count; ++i)
+            if (unique == 0 || categories[i] != categories[unique - 1])
+                categories[unique++] = categories[i];
+        category_count = unique;
+    }
+
+    double color_min = 0.0;
+    double color_max = 0.0;
+    if ((color_kind == 2 || color_kind == 3) && n > 0)
+    {
+        color_min = color_max = draw_numeric_value(color_values, color_kind, 0);
+        for (int64_t v = 1; v < n; ++v)
+        {
+            double value = draw_numeric_value(color_values, color_kind, v);
+            if (value < color_min) color_min = value;
+            if (value > color_max) color_max = value;
+        }
+    }
+
+    double size_min = 0.0;
+    double size_max = 0.0;
+    if (size_kind != 0 && n > 0)
+    {
+        size_min = size_max = draw_numeric_value(size_values, size_kind == 2 ? 3 : 1, 0);
+        for (int64_t v = 1; v < n; ++v)
+        {
+            double value = draw_numeric_value(size_values, size_kind == 2 ? 3 : 1, v);
+            if (value < size_min) size_min = value;
+            if (value > size_max) size_max = value;
+        }
+    }
+
+    FILE *dot = fopen(dot_path, "w");
+    if (!dot)
+    {
+        fprintf(stderr, "draw: cannot open %s\n", dot_path);
+        free(categories);
+        free(dot_path);
+        return;
+    }
+
+    const bool is_directed = directed != 0;
+    fprintf(dot, "%s G {\n", is_directed ? "digraph" : "graph");
+    fprintf(dot, "  graph [overlap=false, splines=true, outputorder=edgesfirst, "
+                 "bgcolor=\"#ffffff\", pad=0.25];\n");
+    fprintf(dot, "  node [shape=circle, style=filled, fontname=\"DejaVu Sans\", "
+                 "fontsize=11, color=\"#334155\", penwidth=1.2, fillcolor=\"#dbeafe\"];\n");
+    fprintf(dot, "  edge [color=\"#94a3b8\", penwidth=1.2, arrowsize=0.75, "
+                 "fontname=\"DejaVu Sans\", fontsize=9, fontcolor=\"#475569\"];\n");
+
+    for (int64_t v = 0; v < n; ++v)
+    {
+        char fill[8] = "#dbeafe";
+        if (color_kind == 1)
+        {
+            int32_t value = ((const int32_t *)color_values)[v];
+            if (value < 0)
+                memcpy(fill, "#d1d5db", 8);
+            else
+                draw_categorical_color(
+                    draw_category_index(categories, category_count, value), fill);
+        }
+        else if (color_kind == 2 || color_kind == 3)
+        {
+            double value = draw_numeric_value(color_values, color_kind, v);
+            double range = color_max - color_min;
+            draw_interpolate_color(range == 0.0 ? 0.5 : (value - color_min) / range, fill);
+        }
+
+        double width = 0.52;
+        if (size_kind != 0)
+        {
+            double value = draw_numeric_value(size_values, size_kind == 2 ? 3 : 1, v);
+            double range = size_max - size_min;
+            double scaled = range == 0.0 ? 0.5 : (value - size_min) / range;
+            width = 0.42 + 0.68 * scaled;
+        }
+
+        fprintf(dot, "  %ld [label=\"", (long)v);
+        if (vertex_labels)
+            fprintf(dot, "%ld", (long)v);
+        fprintf(dot, "\", fillcolor=\"%s\", width=%.3f, height=%.3f];\n",
+                fill, width, width);
+    }
+
+    const char *connector = is_directed ? "->" : "--";
+    for (int64_t u = 0; u < n; ++u)
+    {
+        for (int64_t index = row_ptr[u]; index < row_ptr[u + 1]; ++index)
+        {
+            int32_t v = col_idx[index];
+            if (!is_directed && u > v)
+                continue;
+            fprintf(dot, "  %ld %s %d", (long)u, connector, v);
+            if (edge_weight_labels)
+                fprintf(dot, " [label=\"%d\"]", weights[index]);
+            fprintf(dot, ";\n");
+        }
+    }
+    fprintf(dot, "}\n");
+    fclose(dot);
+    free(categories);
+
+    if (!format)
+    {
+        fprintf(stderr, "draw: wrote %s\n", output_path);
+        free(dot_path);
+        return;
+    }
+
+    const char *engine = draw_layout_engine(layout, is_directed, n);
+    char format_arg[16];
+    snprintf(format_arg, sizeof(format_arg), "-T%s", format);
+
+    pid_t child = fork();
+    if (child == 0)
+    {
+        execlp(engine, engine, format_arg, dot_path, "-o", output_path, (char *)NULL);
+        _exit(127);
+    }
+    if (child < 0)
+    {
+        fprintf(stderr, "draw: failed to start Graphviz engine %s\n", engine);
+        unlink(dot_path);
+        free(dot_path);
+        return;
+    }
+
+    int status = 0;
+    if (waitpid(child, &status, 0) < 0 ||
+        !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        fprintf(stderr, "draw: Graphviz engine %s failed\n", engine);
+        unlink(dot_path);
+        free(dot_path);
+        return;
+    }
+
+    unlink(dot_path);
+    fprintf(stderr, "draw: wrote %s\n", output_path);
+    free(dot_path);
 }
 
 // Helper: BFS to collect all nodes reachable from seed set

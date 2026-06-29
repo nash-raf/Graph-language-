@@ -24,6 +24,7 @@ statement:
 	| assignmentStatement
 	| queryStatement
 	| showgraph
+	| drawgraph
 	| nodeEdgeOperation
 	| setOperation
 	| setMethodCall
@@ -162,6 +163,30 @@ removeTargets: nodeID | edge | nodeList | edgeList;
 queryStatement: 'query' ID ':' STRING INT? 'of' graphID ';';
 
 showgraph: 'show' graphID ';';
+
+drawgraph:
+	'draw' graphID 'to' STRING ('{' drawOption* '}')? ';';
+
+drawOption:
+	'layout' ':' STRING ';'
+	| 'vertices' '{' vertexDrawOption* '}'
+	| 'edges' '{' edgeDrawOption* '}';
+
+vertexDrawOption:
+	'labels' ':' boolLiteral ';'
+	| 'color' ':' colorMapping ';'
+	| 'size' ':' continuousMapping ';';
+
+edgeDrawOption:
+	'labels' ':' boolLiteral ';';
+
+colorMapping:
+	'categorical' '(' ID ')'
+	| continuousMapping;
+
+continuousMapping:
+	'continuous' '(' ID ')';
+
 //functions
 
 function: 'fn' returnType ID paramList block;

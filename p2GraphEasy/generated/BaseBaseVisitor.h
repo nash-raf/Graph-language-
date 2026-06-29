@@ -271,6 +271,30 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitDrawgraph(BaseParser::DrawgraphContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitDrawOption(BaseParser::DrawOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitVertexDrawOption(BaseParser::VertexDrawOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitEdgeDrawOption(BaseParser::EdgeDrawOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitColorMapping(BaseParser::ColorMappingContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitContinuousMapping(BaseParser::ContinuousMappingContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitFunction(BaseParser::FunctionContext *ctx) override {
     return visitChildren(ctx);
   }

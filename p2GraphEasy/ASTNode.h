@@ -67,6 +67,7 @@ enum class ASTNodeType
     SleepStmt,
     GraphUpdate,
     ShowGraph,
+    DrawGraph,
     GraphComprehension,
     SetDecl,
     SetLiteral,
@@ -588,6 +589,43 @@ public:
 
     ShowGraphNode(const std::string &g)
         : ASTNode(ASTNodeType::ShowGraph), graphName(g) {}
+};
+
+enum class DrawLayout
+{
+    Auto,
+    Hierarchical,
+    Force,
+    Radial,
+    Circular,
+    Clustered
+};
+
+enum class DrawColorMode
+{
+    None,
+    Categorical,
+    Continuous
+};
+
+class DrawGraphNode : public ASTNode
+{
+public:
+    std::string graphName;
+    std::string outputPath;
+    DrawLayout layout = DrawLayout::Auto;
+    bool vertexLabels = true;
+    DrawColorMode colorMode = DrawColorMode::None;
+    std::string colorArray;
+    TypeKind colorArrayType = TypeKind::Unknown;
+    std::string sizeArray;
+    TypeKind sizeArrayType = TypeKind::Unknown;
+    bool edgeWeightLabels = false;
+
+    DrawGraphNode(std::string graph, std::string output)
+        : ASTNode(ASTNodeType::DrawGraph),
+          graphName(std::move(graph)),
+          outputPath(std::move(output)) {}
 };
 
 

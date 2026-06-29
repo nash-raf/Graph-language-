@@ -239,6 +239,87 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         auto node = std::make_shared<ShowGraphNode>(gname);
         return std::static_pointer_cast<ASTNode>(node);
     }
+    else if (ctx->drawgraph())
+    {
+        auto *draw = ctx->drawgraph();
+        std::string output = draw->STRING()->getText();
+        output = output.substr(1, output.size() - 2);
+
+        auto node = std::make_shared<DrawGraphNode>(
+            draw->graphID()->getText(), output);
+
+        bool seenLayout = false;
+        bool seenVertexLabel = false;
+        bool seenVertexColor = false;
+        bool seenVertexSize = false;
+        bool seenEdgeLabel = false;
+
+        for (auto *option : draw->drawOption())
+        {
+            if (option->STRING())
+            {
+                if (seenLayout)
+                    throw std::runtime_error("draw: duplicate layout option");
+                seenLayout = true;
+                std::string value = option->STRING()->getText();
+                value = value.substr(1, value.size() - 2);
+                if (value == "hierarchical") node->layout = DrawLayout::Hierarchical;
+                else if (value == "force") node->layout = DrawLayout::Force;
+                else if (value == "radial") node->layout = DrawLayout::Radial;
+                else if (value == "circular") node->layout = DrawLayout::Circular;
+                else if (value == "clustered") node->layout = DrawLayout::Clustered;
+                else if (value == "auto") node->layout = DrawLayout::Auto;
+                else throw std::runtime_error("draw: unsupported layout: " + value);
+                continue;
+            }
+
+            for (auto *vertexOption : option->vertexDrawOption())
+            {
+                if (auto *mapping = vertexOption->colorMapping())
+                {
+                    if (seenVertexColor)
+                        throw std::runtime_error("draw: duplicate vertex color option");
+                    seenVertexColor = true;
+                    if (mapping->continuousMapping())
+                    {
+                        node->colorMode = DrawColorMode::Continuous;
+                        node->colorArray = mapping->continuousMapping()->ID()->getText();
+                    }
+                    else
+                    {
+                        node->colorMode = DrawColorMode::Categorical;
+                        node->colorArray = mapping->ID()->getText();
+                    }
+                }
+                else if (auto *mapping = vertexOption->continuousMapping())
+                {
+                    if (seenVertexSize)
+                        throw std::runtime_error("draw: duplicate vertex size option");
+                    seenVertexSize = true;
+                    node->sizeArray = mapping->ID()->getText();
+                }
+                else
+                {
+                    if (seenVertexLabel)
+                        throw std::runtime_error("draw: duplicate vertex label option");
+                    seenVertexLabel = true;
+                    const std::string value = vertexOption->boolLiteral()->getText();
+                    node->vertexLabels = value == "true" || value == "TRUE";
+                }
+            }
+
+            for (auto *edgeOption : option->edgeDrawOption())
+            {
+                if (seenEdgeLabel)
+                    throw std::runtime_error("draw: duplicate edge label option");
+                seenEdgeLabel = true;
+                const std::string value = edgeOption->boolLiteral()->getText();
+                node->edgeWeightLabels = value == "true" || value == "TRUE";
+            }
+        }
+
+        return std::static_pointer_cast<ASTNode>(node);
+    }
     else if (ctx->sleepStatement())
     {
         return visitSleepStatement(ctx->sleepStatement());

@@ -21,12 +21,13 @@ public:
     T__38 = 39, T__39 = 40, T__40 = 41, T__41 = 42, T__42 = 43, T__43 = 44, 
     T__44 = 45, T__45 = 46, T__46 = 47, T__47 = 48, T__48 = 49, T__49 = 50, 
     T__50 = 51, T__51 = 52, T__52 = 53, T__53 = 54, T__54 = 55, T__55 = 56, 
-    T__56 = 57, T__57 = 58, T__58 = 59, GRAPH = 60, WEIGHTS = 61, SET = 62, 
-    UNION = 63, INTERSECT = 64, NOT = 65, MODULO = 66, EDGE = 67, NODE = 68, 
-    VERTICES = 69, TRUE = 70, FALSE = 71, OF = 72, PLUS = 73, MINUS = 74, 
-    TIMES = 75, DIVIDE = 76, AND = 77, OR = 78, EQUAL = 79, NOTEQUAL = 80, 
-    LESSTHAN = 81, GREATERTHAN = 82, LESSEQUAL = 83, GREATEREQUAL = 84, 
-    ID = 85, INT = 86, REAL = 87, STRING = 88, Comment = 89, WS = 90
+    T__56 = 57, T__57 = 58, T__58 = 59, T__59 = 60, T__60 = 61, T__61 = 62, 
+    T__62 = 63, T__63 = 64, T__64 = 65, GRAPH = 66, WEIGHTS = 67, SET = 68, 
+    UNION = 69, INTERSECT = 70, NOT = 71, MODULO = 72, EDGE = 73, NODE = 74, 
+    VERTICES = 75, TRUE = 76, FALSE = 77, OF = 78, PLUS = 79, MINUS = 80, 
+    TIMES = 81, DIVIDE = 82, AND = 83, OR = 84, EQUAL = 85, NOTEQUAL = 86, 
+    LESSTHAN = 87, GREATERTHAN = 88, LESSEQUAL = 89, GREATEREQUAL = 90, 
+    ID = 91, INT = 92, REAL = 93, STRING = 94, Comment = 95, WS = 96
   };
 
   enum {
@@ -41,13 +42,15 @@ public:
     RuleLoopTarget = 28, RuleWhileStatement = 29, RuleNodeEdgeOperation = 30, 
     RuleAddOperation = 31, RuleRemoveOperation = 32, RuleAddTargets = 33, 
     RuleRemoveTargets = 34, RuleQueryStatement = 35, RuleShowgraph = 36, 
-    RuleFunction = 37, RuleReturnType = 38, RuleParamList = 39, RuleParam = 40, 
-    RuleType = 41, RuleFunctionCall = 42, RuleFunctionName = 43, RuleArgumentList = 44, 
-    RuleSleepStatement = 45, RuleBlock = 46, RuleReturnStatement = 47, RuleBreakStatement = 48, 
-    RuleContinueStatement = 49, RulePrintStatement = 50, RulePrintExpr = 51, 
-    RulePrintArrayStatement = 52, RulePrintgraph = 53, RuleExpr = 54, RuleArrayDeclarator = 55, 
-    RuleArrayInitializer = 56, RuleAssignmentStatement = 57, RuleArrayAssignStatement = 58, 
-    RuleWeights = 59
+    RuleDrawgraph = 37, RuleDrawOption = 38, RuleVertexDrawOption = 39, 
+    RuleEdgeDrawOption = 40, RuleColorMapping = 41, RuleContinuousMapping = 42, 
+    RuleFunction = 43, RuleReturnType = 44, RuleParamList = 45, RuleParam = 46, 
+    RuleType = 47, RuleFunctionCall = 48, RuleFunctionName = 49, RuleArgumentList = 50, 
+    RuleSleepStatement = 51, RuleBlock = 52, RuleReturnStatement = 53, RuleBreakStatement = 54, 
+    RuleContinueStatement = 55, RulePrintStatement = 56, RulePrintExpr = 57, 
+    RulePrintArrayStatement = 58, RulePrintgraph = 59, RuleExpr = 60, RuleArrayDeclarator = 61, 
+    RuleArrayInitializer = 62, RuleAssignmentStatement = 63, RuleArrayAssignStatement = 64, 
+    RuleWeights = 65
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -104,6 +107,12 @@ public:
   class RemoveTargetsContext;
   class QueryStatementContext;
   class ShowgraphContext;
+  class DrawgraphContext;
+  class DrawOptionContext;
+  class VertexDrawOptionContext;
+  class EdgeDrawOptionContext;
+  class ColorMappingContext;
+  class ContinuousMappingContext;
   class FunctionContext;
   class ReturnTypeContext;
   class ParamListContext;
@@ -165,6 +174,7 @@ public:
     AssignmentStatementContext *assignmentStatement();
     QueryStatementContext *queryStatement();
     ShowgraphContext *showgraph();
+    DrawgraphContext *drawgraph();
     NodeEdgeOperationContext *nodeEdgeOperation();
     SetOperationContext *setOperation();
     SetMethodCallContext *setMethodCall();
@@ -1173,6 +1183,108 @@ public:
   };
 
   ShowgraphContext* showgraph();
+
+  class  DrawgraphContext : public antlr4::ParserRuleContext {
+  public:
+    DrawgraphContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    GraphIDContext *graphID();
+    antlr4::tree::TerminalNode *STRING();
+    std::vector<DrawOptionContext *> drawOption();
+    DrawOptionContext* drawOption(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  DrawgraphContext* drawgraph();
+
+  class  DrawOptionContext : public antlr4::ParserRuleContext {
+  public:
+    DrawOptionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *STRING();
+    antlr4::tree::TerminalNode *VERTICES();
+    std::vector<VertexDrawOptionContext *> vertexDrawOption();
+    VertexDrawOptionContext* vertexDrawOption(size_t i);
+    antlr4::tree::TerminalNode *EDGE();
+    std::vector<EdgeDrawOptionContext *> edgeDrawOption();
+    EdgeDrawOptionContext* edgeDrawOption(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  DrawOptionContext* drawOption();
+
+  class  VertexDrawOptionContext : public antlr4::ParserRuleContext {
+  public:
+    VertexDrawOptionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    BoolLiteralContext *boolLiteral();
+    ColorMappingContext *colorMapping();
+    ContinuousMappingContext *continuousMapping();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  VertexDrawOptionContext* vertexDrawOption();
+
+  class  EdgeDrawOptionContext : public antlr4::ParserRuleContext {
+  public:
+    EdgeDrawOptionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    BoolLiteralContext *boolLiteral();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  EdgeDrawOptionContext* edgeDrawOption();
+
+  class  ColorMappingContext : public antlr4::ParserRuleContext {
+  public:
+    ColorMappingContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ID();
+    ContinuousMappingContext *continuousMapping();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ColorMappingContext* colorMapping();
+
+  class  ContinuousMappingContext : public antlr4::ParserRuleContext {
+  public:
+    ContinuousMappingContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ID();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ContinuousMappingContext* continuousMapping();
 
   class  FunctionContext : public antlr4::ParserRuleContext {
   public:

@@ -1,0 +1,60 @@
+graph G {
+    directed: true;
+    edges: file "draw_weighted_directed.txt";
+    TRUE
+};
+
+int n = numVertices(G);
+int classes[5] = [1, 2, 1, 3, 2];
+int sizes[5] = [1, 2, 3, 4, 5];
+real scores[n];
+
+for each vertex v in G {
+    scores[v] = v / 4.0;
+}
+
+draw G to "draw_test_auto.svg";
+
+draw G to "draw_test_hierarchical.svg" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+        color: categorical(classes);
+        size: continuous(sizes);
+    }
+    edges {
+        labels: true;
+    }
+};
+
+draw G to "draw_test_force.png" {
+    layout: "force";
+    vertices {
+        labels: false;
+        color: continuous(scores);
+    }
+};
+
+draw G to "draw_test_radial.pdf" {
+    layout: "radial";
+};
+
+draw G to "draw_test_circular.svg" {
+    layout: "circular";
+};
+
+draw G to "draw_test_clustered.svg" {
+    layout: "clustered";
+};
+
+draw G to "draw_test_source.dot" {
+    layout: "force";
+    vertices {
+        labels: true;
+        color: continuous(scores);
+        size: continuous(sizes);
+    }
+    edges {
+        labels: true;
+    }
+};

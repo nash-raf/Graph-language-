@@ -1,0 +1,61 @@
+graph G {
+    nodes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9;
+    edges: 0->1, 0->2, 1->2, 1->3, 2->3, 2->4,
+           3->4, 3->5, 4->5, 4->6, 5->6, 5->7,
+           6->7, 6->8, 7->8, 7->9, 8->9, 0->9;
+};
+
+int n = numVertices(G);
+int colors[n];
+int used[n];
+int degrees[n];
+
+for each vertex v in G {
+    colors[v] = -1;
+    degrees[v] = degree(G, v);
+}
+
+for each vertex v in G {
+    int i = 0;
+    while (i < n) {
+        used[i] = 0;
+        i = i + 1;
+    }
+
+    for each neighbor u of v in G {
+        if (colors[u] >= 0) {
+            used[colors[u]] = 1;
+        }
+    }
+
+    int currentColor = 0;
+    while (currentColor < n && used[currentColor] == 1) {
+        currentColor = currentColor + 1;
+    }
+    colors[v] = currentColor;
+}
+
+draw G to "graph_coloring.svg" {
+    layout: "force";
+    vertices {
+        labels: true;
+        color: categorical(colors);
+        size: continuous(degrees);
+    }
+    edges {
+        labels: false;
+    }
+};
+
+draw G to "graph_coloring.png" {
+    layout: "force";
+    vertices {
+        labels: true;
+        color: categorical(colors);
+        size: continuous(degrees);
+    }
+};
+
+for each vertex v in G {
+    print colors[v];
+}

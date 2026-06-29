@@ -29,7 +29,7 @@ propagation to the other GraphEasy families.
 | Comprehension predicate `vertex in <set>` | [x] | [ ] | [x] | [x] | Bron-Kerbosch test |
 | Independent set-copy semantics | [x] | [ ] | [x] | [x] | Set mutation and Bron-Kerbosch tests |
 | Basic `show G;` Graphviz PNG output | [x] | [x] | [x] | [x] | Existing implementation |
-| Visualization v2 | [ ] | [ ] | [ ] | [ ] | Proposed below |
+| Static visualization v2 | [x] | [ ] | [ ] | [ ] | P2 draw tests |
 
 ## Next Propagation Work
 
@@ -44,18 +44,10 @@ Plain `p1GraphEasy` still needs:
 After these are ported, run the P2 feature-parity test and Bron-Kerbosch test
 through P1 before checking the boxes.
 
-## Visualization V2 Proposal
+## Static Visualization V2
 
-Status: syntax proposal only. Nothing in this section is implemented yet.
-
-### Design Goals
-
-- Keep `show G;` as the zero-configuration interactive/display command.
-- Use `draw` when saving a reproducible research figure.
-- Infer the output format from the filename.
-- Use backend-independent layout names in GraphEasy source.
-- Accept existing arrays and sets for algorithm-result styling.
-- Keep simple drawing simple while allowing an optional style block.
+Status: implemented and tested in `p2GraphEasy`. Not yet propagated.
+Interactive HTML and motif-specific highlighting are intentionally postponed.
 
 ### Minimal Form
 
@@ -65,60 +57,66 @@ show G;
 draw G to "network.svg";
 ```
 
-### Configured Form
+### Continuous Algorithm Results
 
 ```graph
 draw G to "pagerank.svg" {
-    layout: force;
-    labels: false;
-    vertex.size: rank;
-    vertex.color: rank;
+    layout: "force";
+    vertices {
+        labels: true;
+        size: continuous(rank);
+        color: continuous(rank);
+    }
 };
 ```
 
-### Motif Highlighting
+### Graph-Coloring Results
 
 ```graph
-draw G to "feedforward.svg" {
-    layout: hierarchical;
-    labels: true;
-    highlight.vertices: motifVertices;
-    highlight.edges: motifEdges;
+int colors[4] = [1, 2, 1, 3];
+
+draw G to "coloring.svg" {
+    layout: "force";
+    vertices {
+        labels: true;
+        color: categorical(colors);
+    }
 };
 ```
 
-### Abstract Layout Names
+`categorical(colors)` gives equal integer class IDs equal colors.
+`continuous(values)` maps integer or real measurements onto a continuous
+color or size scale. Negative categorical values are rendered gray.
 
-| GraphEasy layout | Initial Graphviz backend |
+### Layouts And Formats
+
+| GraphEasy layout string | Graphviz backend |
 |---|---|
-| `auto` | Selected from graph size and directedness |
-| `hierarchical` | `dot` |
-| `force` | `sfdp` |
-| `radial` | `twopi` |
-| `circular` | `circo` |
-| `clustered` | `osage` |
+| `"auto"` | Selected from graph size and directedness |
+| `"hierarchical"` | `dot` |
+| `"force"` | `sfdp` |
+| `"radial"` | `twopi` |
+| `"circular"` | `circo` |
+| `"clustered"` | `osage` |
 
-### Decisions Required Before Grammar Changes
-
-- Whether `vertex.color` should accept only arrays or also literal colors.
-- Whether highlight styles should be fixed defaults or configurable.
-- How edge arrays are indexed and exposed consistently to the DSL.
-- Whether HTML interactive output belongs in `draw` or a separate command.
-- The maximum graph size allowed without explicit filtering or sampling.
-- Whether weighted-edge labels are automatic or opt-in.
+Output format is inferred from `.svg`, `.png`, `.pdf`, or `.dot`. Directed
+graphs use arrows automatically. In a weighted graph, `edges { labels: true; }`
+prints edge weights.
 
 ### P2 Acceptance Checklist
 
-- [ ] Directed graphs use arrows and preserve edge direction.
-- [ ] Undirected graphs emit each logical edge once.
-- [ ] `svg`, `png`, `pdf`, and `dot` outputs work.
-- [ ] Output filenames are controlled by the program.
-- [ ] All abstract layouts produce non-empty output.
-- [ ] Vertex labels can be enabled and disabled.
-- [ ] Vertex size and color can be driven by algorithm arrays.
-- [ ] Vertex-set and edge-set highlighting works.
-- [ ] Weighted edge labels are supported.
-- [ ] `show` opens output while `draw` does not.
-- [ ] Large graphs require filtering, sampling, or an explicit override.
-- [ ] Commands are executed without shell-string interpolation.
-- [ ] Focused parser, semantic, runtime, and output tests pass.
+- [x] Directed graphs use arrows and preserve edge direction.
+- [x] Undirected graphs emit each logical edge once.
+- [x] `svg`, `png`, `pdf`, and `dot` outputs work.
+- [x] Output filenames are controlled by the program.
+- [x] All abstract layouts produce non-empty output.
+- [x] Vertex labels can be enabled and disabled.
+- [x] Categorical integer arrays control vertex color.
+- [x] Continuous integer and real arrays control vertex color.
+- [x] Continuous integer and real arrays control vertex size.
+- [x] Weighted edge labels are supported.
+- [x] Style arrays are checked against the graph's vertex count.
+- [x] `show` opens output while `draw` does not.
+- [x] Graphs above the static-rendering limit require filtering.
+- [x] Graphviz runs without shell-string interpolation.
+- [x] Focused parser, semantic, runtime, and output tests pass.

@@ -336,6 +336,9 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::ShowGraph:
             visitShowGraph(static_cast<ShowGraphNode *>(node.get()));
             break;
+        case ASTNodeType::DrawGraph:
+            visitDrawGraph(static_cast<DrawGraphNode *>(node.get()));
+            break;
         case ASTNodeType::GraphComprehension:
             visitGraphComprehension(static_cast<GraphComprehensionNode *>(node.get()));
             break;
@@ -411,6 +414,101 @@ void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
         Module.getOrInsertFunction("show_graph_runtime", showFT);
 
     Builder.CreateCall(showDecl, {nVal, rowPtr, colPtr});
+}
+
+void IRGenVisitor::visitDrawGraph(DrawGraphNode *D)
+{
+    llvm::Value *graphPtr = loadGraphValue(D->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "draw.n");
+    llvm::Value *mVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "draw.m");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), "draw.row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), "draw.col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), "draw.weights");
+    llvm::Value *directed = Builder.CreateLoad(
+        i32Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 5), "draw.directed");
+
+    auto loadArray = [&](const std::string &name) -> std::pair<llvm::Value *, llvm::Value *> {
+        if (name.empty())
+            return {llvm::ConstantPointerNull::get(ptrTy),
+                    llvm::ConstantInt::get(i64Ty, 0)};
+
+        auto storageIt = NamedValues.find(name);
+        if (storageIt == NamedValues.end())
+            throw std::runtime_error("draw array has no generated storage: " + name);
+
+        llvm::Value *storage = storageIt->second;
+        llvm::Value *data = nullptr;
+        if (IndirectArrays.count(name) || IndirectRealArrays.count(name))
+        {
+            data = Builder.CreateLoad(ptrTy, storage, name + ".draw.data");
+        }
+        else
+        {
+            llvm::Type *arrayTy = nullptr;
+            if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(storage))
+                arrayTy = alloca->getAllocatedType();
+            else if (auto *global = llvm::dyn_cast<llvm::GlobalVariable>(storage))
+                arrayTy = global->getValueType();
+
+            auto *concreteArrayTy = llvm::dyn_cast_or_null<llvm::ArrayType>(arrayTy);
+            if (!concreteArrayTy)
+                throw std::runtime_error("draw requires a one-dimensional array: " + name);
+            data = Builder.CreateInBoundsGEP(
+                concreteArrayTy, storage,
+                {Builder.getInt32(0), Builder.getInt32(0)},
+                name + ".draw.data");
+        }
+
+        auto sizeIt = ArraySizes.find(name);
+        if (sizeIt == ArraySizes.end())
+            throw std::runtime_error("draw array has no size metadata: " + name);
+        llvm::Value *size = sizeIt->second;
+        if (size->getType() != i64Ty)
+            size = Builder.CreateIntCast(size, i64Ty, false, name + ".draw.size");
+        return {data, size};
+    };
+
+    auto [colorData, colorSize] = loadArray(D->colorArray);
+    auto [sizeData, sizeSize] = loadArray(D->sizeArray);
+
+    int32_t colorKind = 0;
+    if (D->colorMode == DrawColorMode::Categorical)
+        colorKind = 1;
+    else if (D->colorMode == DrawColorMode::Continuous)
+        colorKind = (D->colorArrayType == TypeKind::RealArray) ? 3 : 2;
+
+    int32_t sizeKind = 0;
+    if (!D->sizeArray.empty())
+        sizeKind = (D->sizeArrayType == TypeKind::RealArray) ? 2 : 1;
+
+    llvm::Value *output = Builder.CreateGlobalStringPtr(
+        D->outputPath, D->graphName + ".draw.output");
+
+    llvm::FunctionType *drawFT = llvm::FunctionType::get(
+        Builder.getVoidTy(),
+        {i64Ty, i64Ty, ptrTy, ptrTy, ptrTy, i32Ty, ptrTy,
+         i32Ty, i32Ty, ptrTy, i32Ty, i64Ty, ptrTy, i32Ty, i64Ty, i32Ty},
+        false);
+    llvm::FunctionCallee drawDecl =
+        Module.getOrInsertFunction("draw_graph_runtime", drawFT);
+
+    Builder.CreateCall(
+        drawDecl,
+        {nVal, mVal, rowPtr, colPtr, weights, directed, output,
+         llvm::ConstantInt::get(i32Ty, static_cast<int32_t>(D->layout)),
+         llvm::ConstantInt::get(i32Ty, D->vertexLabels ? 1 : 0),
+         colorData, llvm::ConstantInt::get(i32Ty, colorKind), colorSize,
+         sizeData, llvm::ConstantInt::get(i32Ty, sizeKind), sizeSize,
+         llvm::ConstantInt::get(i32Ty, D->edgeWeightLabels ? 1 : 0)});
 }
 
 void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
@@ -896,6 +994,9 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         break;
     case ASTNodeType::ShowGraph:
         visitShowGraph(static_cast<ShowGraphNode *>(node));
+        break;
+    case ASTNodeType::DrawGraph:
+        visitDrawGraph(static_cast<DrawGraphNode *>(node));
         break;
     case ASTNodeType::GraphComprehension:
         visitGraphComprehension(static_cast<GraphComprehensionNode *>(node));
@@ -1428,6 +1529,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
         }
 
         NamedValues[decl->name] = storage;
+        ArraySizes[decl->name] = Builder.getInt32(static_cast<int32_t>(N));
         return storage;
     }
 

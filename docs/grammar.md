@@ -187,6 +187,62 @@ print graph of G;
 show G;
 ```
 
+## Static Visualization
+
+`p2GraphEasy` can save a graph as SVG, PNG, PDF, or DOT:
+
+```graph
+draw G to "network.svg";
+```
+
+The output format is inferred from the filename. Available layouts are
+`"auto"`, `"hierarchical"`, `"force"`, `"radial"`, `"circular"`, and
+`"clustered"`.
+
+Algorithm arrays can control vertex appearance. A graph-coloring algorithm can
+pass its integer color-class array directly:
+
+```graph
+int colors[4] = [1, 2, 1, 3];
+
+draw G to "coloring.svg" {
+  layout: "force";
+  vertices {
+    labels: true;
+    color: categorical(colors);
+  }
+};
+```
+
+Equal categorical values receive equal colors. Negative categorical values
+are shown in gray. Integer or real measurements such as PageRank and degree
+can use a continuous scale:
+
+```graph
+draw G to "rank.svg" {
+  layout: "force";
+  vertices {
+    labels: true;
+    color: continuous(rank);
+    size: continuous(degrees);
+  }
+};
+```
+
+Directed graphs are drawn with arrows. Weighted graphs can display edge
+weights:
+
+```graph
+draw G to "weighted.pdf" {
+  layout: "hierarchical";
+  edges {
+    labels: true;
+  }
+};
+```
+
+![GraphEasy greedy graph-coloring output](assets/graph_coloring.png)
+
 ## Benchmark Extensions
 
 The benchmark algorithms use implementation features beyond the minimal `Base.g4` listing.

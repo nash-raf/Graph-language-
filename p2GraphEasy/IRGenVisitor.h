@@ -62,6 +62,7 @@ public:
     llvm::Function *getPrintfFunction();
     void visitGraphUpdate(GraphUpdateNode *upd);
     void visitShowGraph(ShowGraphNode *S);
+    void visitDrawGraph(DrawGraphNode *D);
     void visitGraphComprehension(GraphComprehensionNode *GC);
 
     void visitSetDecl(SetDeclNode *SD);

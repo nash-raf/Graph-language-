@@ -206,6 +206,24 @@ public:
   virtual void enterShowgraph(BaseParser::ShowgraphContext *ctx) = 0;
   virtual void exitShowgraph(BaseParser::ShowgraphContext *ctx) = 0;
 
+  virtual void enterDrawgraph(BaseParser::DrawgraphContext *ctx) = 0;
+  virtual void exitDrawgraph(BaseParser::DrawgraphContext *ctx) = 0;
+
+  virtual void enterDrawOption(BaseParser::DrawOptionContext *ctx) = 0;
+  virtual void exitDrawOption(BaseParser::DrawOptionContext *ctx) = 0;
+
+  virtual void enterVertexDrawOption(BaseParser::VertexDrawOptionContext *ctx) = 0;
+  virtual void exitVertexDrawOption(BaseParser::VertexDrawOptionContext *ctx) = 0;
+
+  virtual void enterEdgeDrawOption(BaseParser::EdgeDrawOptionContext *ctx) = 0;
+  virtual void exitEdgeDrawOption(BaseParser::EdgeDrawOptionContext *ctx) = 0;
+
+  virtual void enterColorMapping(BaseParser::ColorMappingContext *ctx) = 0;
+  virtual void exitColorMapping(BaseParser::ColorMappingContext *ctx) = 0;
+
+  virtual void enterContinuousMapping(BaseParser::ContinuousMappingContext *ctx) = 0;
+  virtual void exitContinuousMapping(BaseParser::ContinuousMappingContext *ctx) = 0;
+
   virtual void enterFunction(BaseParser::FunctionContext *ctx) = 0;
   virtual void exitFunction(BaseParser::FunctionContext *ctx) = 0;
 

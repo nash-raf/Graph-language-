@@ -1,0 +1,31 @@
+graph G {
+  edges: file "/home/user/Course/msk1/benchmark/node_scaling_10m_edges/graphs/current_unweighted.txt";
+};
+
+int n = numVertices(G);
+int id[n];
+set frontier;
+set next;
+
+for each vertex v in G {
+  id[v] = v;
+}
+
+frontier = G.nodes;
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    for each neighbor v of u in G {
+      if (id[u] < id[v]) {
+        id[v] = id[u];
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+}
+
+for each vertex v in G {
+  print id[v];
+}

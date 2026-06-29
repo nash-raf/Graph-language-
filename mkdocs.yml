@@ -8,7 +8,11 @@ theme:
 
 nav:
   - Home: index.md
-  - Tutorial: tutorial.md
+  - Getting Started: tutorial.md
+  - Grammar: grammar.md
+  - Algorithms: algorithms.md
+  - Bron-Kerbosch: bron-kerbosch.md
+  - Results: results.md
 
 markdown_extensions:
   - tables

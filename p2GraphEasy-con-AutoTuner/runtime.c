@@ -17,6 +17,15 @@ extern int roaring_bitmap_contains(RoaringBitmap *bm, uint32_t value);
 extern uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t index);
 extern uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm);
 
+void *roaring_bitmap_clone_runtime(void *raw)
+{
+    RoaringBitmap *bm = (RoaringBitmap *)raw;
+    if (!bm)
+        return roaring_bitmap_create(64 * 1024, 8);
+    RoaringBitmap *inputs[1] = {bm};
+    return roaring_bitmap_union(inputs, 1);
+}
+
 char* concat_strings(const char* a, const char* b)
 {
     char* result = malloc(strlen(a) + strlen(b) + 1);
@@ -33,7 +42,8 @@ enum
     GC_CYCLE = 2,
     GC_DEGREE = 3,
     GC_AND = 4,
-    GC_OR = 5
+    GC_OR = 5,
+    GC_EDGE_HAS = 6
 };
 
 
@@ -379,6 +389,42 @@ static RoaringBitmap *compute_degree_bitmap(int64_t n, int64_t *row_ptr,
     return bm;
 }
 
+static RoaringBitmap *compute_edge_has_bitmap(int64_t n, int64_t *row_ptr, int32_t *col_idx,
+                                              int32_t vertex)
+{
+    RoaringBitmap *bm = roaring_bitmap_create(64 * 1024, 8);
+    if (vertex < 0 || vertex >= n)
+        return bm;
+
+    roaring_bitmap_add(bm, (uint32_t)vertex);
+
+    for (int64_t idx = row_ptr[vertex]; idx < row_ptr[vertex + 1]; ++idx)
+    {
+        int32_t nbr = col_idx[idx];
+        if (nbr >= 0 && nbr < n)
+            roaring_bitmap_add(bm, (uint32_t)nbr);
+    }
+
+    for (int64_t u = 0; u < n; ++u)
+    {
+        for (int64_t idx = row_ptr[u]; idx < row_ptr[u + 1]; ++idx)
+        {
+            if (col_idx[idx] == vertex)
+            {
+                roaring_bitmap_add(bm, (uint32_t)u);
+                break;
+            }
+        }
+    }
+
+    return bm;
+}
+
+void *graph_edge_has_nodes_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx, int32_t vertex)
+{
+    return compute_edge_has_bitmap(n, row_ptr, col_idx, vertex);
+}
+
 static void build_subgraph_from_bitmap_runtime(int64_t n_src, int64_t *row_ptr_src, int32_t *col_idx_src,
                                                RoaringBitmap *node_bitmap,
                                                int64_t *out_n, int64_t *out_m,
@@ -651,6 +697,10 @@ void graph_comprehension_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx,
                 value = compute_degree_bitmap(n, row_ptr, token_arg1[i], token_arg2[i]);
                 stack[stack_size++] = value;
                 break;
+            case GC_EDGE_HAS:
+                value = compute_edge_has_bitmap(n, row_ptr, col_idx, token_arg1[i]);
+                stack[stack_size++] = value;
+                break;
             case GC_AND:
             case GC_OR:
             {
@@ -685,6 +735,16 @@ cleanup:
     for (int32_t i = 0; i < stack_size; ++i)
         roaring_bitmap_free(stack[i]);
     free(stack);
+}
+
+void graph_filter_vertex_set_runtime(int64_t n, int64_t *row_ptr, int32_t *col_idx,
+                                     void *vertex_set,
+                                     int64_t *out_n, int64_t *out_m,
+                                     int64_t **out_row_ptr, int32_t **out_col_idx)
+{
+    build_subgraph_from_bitmap_runtime(n, row_ptr, col_idx,
+                                       (RoaringBitmap *)vertex_set,
+                                       out_n, out_m, out_row_ptr, out_col_idx);
 }
 
 void graph_union_runtime(int64_t n,

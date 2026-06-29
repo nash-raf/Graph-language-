@@ -29,6 +29,10 @@ public:
 
     virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
 
+    virtual std::any visitGraphProperty(BaseParser::GraphPropertyContext *context) = 0;
+
+    virtual std::any visitBoolLiteral(BaseParser::BoolLiteralContext *context) = 0;
+
     virtual std::any visitNodes(BaseParser::NodesContext *context) = 0;
 
     virtual std::any visitEdges(BaseParser::EdgesContext *context) = 0;
@@ -113,6 +117,10 @@ public:
 
     virtual std::any visitForEachEdge(BaseParser::ForEachEdgeContext *context) = 0;
 
+    virtual std::any visitForEachOutAdj(BaseParser::ForEachOutAdjContext *context) = 0;
+
+    virtual std::any visitForEachInAdj(BaseParser::ForEachInAdjContext *context) = 0;
+
     virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *context) = 0;
 
     virtual std::any visitForEachElement(BaseParser::ForEachElementContext *context) = 0;
@@ -146,6 +154,8 @@ public:
     virtual std::any visitType(BaseParser::TypeContext *context) = 0;
 
     virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *context) = 0;
+
+    virtual std::any visitFunctionName(BaseParser::FunctionNameContext *context) = 0;
 
     virtual std::any visitArgumentList(BaseParser::ArgumentListContext *context) = 0;
 

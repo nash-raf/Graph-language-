@@ -28,6 +28,9 @@ struct Graph {
     int64_t *row_ptr;
     int32_t *col_idx;
     int32_t *weights;
+    int32_t directed;
+    int64_t *in_row_ptr;
+    int32_t *in_col_idx;
 };
 
 struct GraphExtra {
@@ -123,22 +126,25 @@ static GraphExtra build_extra_from_csr(const Graph *g) {
         return extra;
 
     std::vector<ParsedEdge> logical_edges;
-    logical_edges.reserve(static_cast<size_t>(g->m > 0 ? g->m / 2 : 0));
+    logical_edges.reserve(static_cast<size_t>(g->directed ? g->m : (g->m > 0 ? g->m / 2 : 0)));
 
     std::unordered_set<uint64_t> seen;
-    seen.reserve(static_cast<size_t>(g->m > 0 ? g->m / 2 : 0));
+    seen.reserve(static_cast<size_t>(g->directed ? g->m : (g->m > 0 ? g->m / 2 : 0)));
 
     for (int32_t u = 0; u < g->n; ++u) {
         int64_t start = g->row_ptr[u];
         int64_t end = g->row_ptr[u + 1];
         for (int64_t i = start; i < end; ++i) {
             int32_t v = g->col_idx[i];
-            uint64_t key = pack_undirected_edge(u, v);
-            if (!seen.insert(key).second)
-                continue;
-
             int32_t weight = g->weights ? g->weights[i] : 1;
-            logical_edges.push_back({std::min(u, v), std::max(u, v), weight});
+            if (g->directed) {
+                logical_edges.push_back({u, v, weight});
+            } else {
+                uint64_t key = pack_undirected_edge(u, v);
+                if (!seen.insert(key).second)
+                    continue;
+                logical_edges.push_back({std::min(u, v), std::max(u, v), weight});
+            }
         }
     }
 
@@ -271,7 +277,7 @@ static void parse_edge_block(
     }
 }
 
-static Graph *load_graph_from_file_impl(const char *filename, bool weighted) {
+static Graph *load_graph_from_file_impl(const char *filename, bool weighted, bool directed) {
     MappedFile mf = map_file_read_only(filename);
     if (mf.fd < 0) {
         fprintf(stderr, "Error: cannot open graph file '%s'\n", filename);
@@ -318,31 +324,49 @@ static Graph *load_graph_from_file_impl(const char *filename, bool weighted) {
     unmap_file(mf);
 
     int64_t n = (max_id >= 0) ? static_cast<int64_t>(max_id) + 1 : 0;
-    int64_t m = 2 * static_cast<int64_t>(edges.size());
+    int64_t m = (directed ? 1 : 2) * static_cast<int64_t>(edges.size());
 
     int64_t *row_ptr = static_cast<int64_t *>(calloc(n + 1, sizeof(int64_t)));
+    int64_t *in_row_ptr = directed ? static_cast<int64_t *>(calloc(n + 1, sizeof(int64_t))) : nullptr;
     for (const ParsedEdge &e : edges) {
         row_ptr[e.u + 1]++;
-        row_ptr[e.v + 1]++;
+        if (directed) {
+            in_row_ptr[e.v + 1]++;
+        } else {
+            row_ptr[e.v + 1]++;
+        }
     }
-    for (int64_t i = 1; i <= n; i++)
+    for (int64_t i = 1; i <= n; i++) {
         row_ptr[i] += row_ptr[i - 1];
+        if (directed)
+            in_row_ptr[i] += in_row_ptr[i - 1];
+    }
 
     int32_t *col_idx = static_cast<int32_t *>(malloc(m * sizeof(int32_t)));
+    int32_t *in_col_idx = directed ? static_cast<int32_t *>(malloc(m * sizeof(int32_t))) : nullptr;
     int32_t *weights = weighted ? static_cast<int32_t *>(malloc(m * sizeof(int32_t))) : nullptr;
     int64_t *next = static_cast<int64_t *>(malloc((n + 1) * sizeof(int64_t)));
+    int64_t *in_next = directed ? static_cast<int64_t *>(malloc((n + 1) * sizeof(int64_t))) : nullptr;
     memcpy(next, row_ptr, (n + 1) * sizeof(int64_t));
+    if (directed)
+        memcpy(in_next, in_row_ptr, (n + 1) * sizeof(int64_t));
     for (const ParsedEdge &e : edges) {
         int64_t pos_u = next[e.u]++;
-        int64_t pos_v = next[e.v]++;
         col_idx[pos_u] = e.v;
-        col_idx[pos_v] = e.u;
-        if (weights) {
+        if (weights)
             weights[pos_u] = e.w;
-            weights[pos_v] = e.w;
+        if (directed) {
+            int64_t in_pos_v = in_next[e.v]++;
+            in_col_idx[in_pos_v] = e.u;
+        } else {
+            int64_t pos_v = next[e.v]++;
+            col_idx[pos_v] = e.u;
+            if (weights)
+                weights[pos_v] = e.w;
         }
     }
     free(next);
+    free(in_next);
 
     Graph *g = static_cast<Graph *>(malloc(sizeof(Graph)));
     g->n = n;
@@ -350,6 +374,9 @@ static Graph *load_graph_from_file_impl(const char *filename, bool weighted) {
     g->row_ptr = row_ptr;
     g->col_idx = col_idx;
     g->weights = weights;
+    g->directed = directed ? 1 : 0;
+    g->in_row_ptr = in_row_ptr;
+    g->in_col_idx = in_col_idx;
 
     register_graph_extra(g, build_extra_from_edge_list(edges, n));
     return g;
@@ -362,11 +389,19 @@ extern "C" void graph_register_csr_metadata(Graph *g) {
 }
 
 extern "C" Graph *load_graph_from_file(const char *filename) {
-    return load_graph_from_file_impl(filename, false);
+    return load_graph_from_file_impl(filename, false, false);
 }
 
 extern "C" Graph *load_weighted_graph_from_file(const char *filename) {
-    return load_graph_from_file_impl(filename, true);
+    return load_graph_from_file_impl(filename, true, false);
+}
+
+extern "C" Graph *load_graph_from_file_directed(const char *filename) {
+    return load_graph_from_file_impl(filename, false, true);
+}
+
+extern "C" Graph *load_weighted_graph_from_file_directed(const char *filename) {
+    return load_graph_from_file_impl(filename, true, true);
 }
 
 extern "C" void *graph_get_node_bitmap(Graph *g) {

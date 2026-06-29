@@ -1,0 +1,48 @@
+fn set neighborsOf(graph G, int v) {
+    graph H = [G where edge has v];
+    set Nv = H.vertices;
+    Nv.remove(v);
+    return Nv;
+}
+
+fn int bronKerbosch(graph G, set R, set P, set X) {
+    if (P.size() == 0 && X.size() == 0) {
+        print "maximal clique";
+        print R.size();
+        return 0;
+    }
+
+    set P_work = P;
+
+    while (P_work.size() > 0) {
+        int v = P_work.pop();
+
+        set Nv = neighborsOf(G, v);
+
+        set R_new = R;
+        R_new.add(v);
+
+        set P_new = P intersect Nv;
+        set X_new = X intersect Nv;
+
+        graph H = [G where vertex in P_new];
+
+        bronKerbosch(H, R_new, P_new, X_new);
+
+        P.remove(v);
+        X.add(v);
+    }
+
+    return 0;
+}
+
+graph G {
+    nodes: 0, 1, 2, 3;
+    edges: 0->1, 1->2, 0->2, 2->3;
+};
+
+set R = {};
+set P = G.nodes;
+set X = {};
+
+bronKerbosch(G, R, P, X);

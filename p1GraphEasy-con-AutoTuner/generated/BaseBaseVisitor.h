@@ -35,6 +35,14 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitGraphProperty(BaseParser::GraphPropertyContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitBoolLiteral(BaseParser::BoolLiteralContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitNodes(BaseParser::NodesContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -171,6 +179,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitEdgeHasCondition(BaseParser::EdgeHasConditionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitCycleCondition(BaseParser::CycleConditionContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -187,6 +199,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitVertexInSetCondition(BaseParser::VertexInSetConditionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitLoopStatement(BaseParser::LoopStatementContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -200,6 +216,14 @@ public:
   }
 
   virtual std::any visitForEachEdge(BaseParser::ForEachEdgeContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitForEachOutAdj(BaseParser::ForEachOutAdjContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitForEachInAdj(BaseParser::ForEachInAdjContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -268,6 +292,10 @@ public:
   }
 
   virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitFunctionName(BaseParser::FunctionNameContext *ctx) override {
     return visitChildren(ctx);
   }
 

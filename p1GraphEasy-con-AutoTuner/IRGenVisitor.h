@@ -19,13 +19,16 @@ public:
                  const std::string &backend = "cpu")
         : Context(C), Module(M), Builder(B), SelectedIRBackend(backend)
     {
-        // Build the Graph struct type: { i64, i64, i64*, i32*, i32* }
+        // Build the Graph struct type:
+        // { i64 n, i64 m, i64* row_ptr, i32* col_idx, i32* weights,
+        //   i32 directed, i64* in_row_ptr, i32* in_col_idx }
         llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
+        llvm::Type *I32 = llvm::Type::getInt32Ty(Context);
         llvm::Type *I32P = llvm::PointerType::get(llvm::Type::getInt32Ty(Context), 0);
         llvm::Type *I64P = llvm::PointerType::get(llvm::Type::getInt64Ty(Context), 0);
         GraphTy = llvm::StructType::create(
             Context,
-            {I64, I64, I64P, I32P, I32P},
+            {I64, I64, I64P, I32P, I32P, I32, I64P, I32P},
             "struct.Graph");
     }
 

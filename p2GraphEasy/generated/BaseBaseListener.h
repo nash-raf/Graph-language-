@@ -31,6 +31,12 @@ public:
   virtual void enterUnweightedGraphDef(BaseParser::UnweightedGraphDefContext * /*ctx*/) override { }
   virtual void exitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext * /*ctx*/) override { }
 
+  virtual void enterGraphProperty(BaseParser::GraphPropertyContext * /*ctx*/) override { }
+  virtual void exitGraphProperty(BaseParser::GraphPropertyContext * /*ctx*/) override { }
+
+  virtual void enterBoolLiteral(BaseParser::BoolLiteralContext * /*ctx*/) override { }
+  virtual void exitBoolLiteral(BaseParser::BoolLiteralContext * /*ctx*/) override { }
+
   virtual void enterNodes(BaseParser::NodesContext * /*ctx*/) override { }
   virtual void exitNodes(BaseParser::NodesContext * /*ctx*/) override { }
 
@@ -133,6 +139,9 @@ public:
   virtual void enterDegreeCondition(BaseParser::DegreeConditionContext * /*ctx*/) override { }
   virtual void exitDegreeCondition(BaseParser::DegreeConditionContext * /*ctx*/) override { }
 
+  virtual void enterEdgeHasCondition(BaseParser::EdgeHasConditionContext * /*ctx*/) override { }
+  virtual void exitEdgeHasCondition(BaseParser::EdgeHasConditionContext * /*ctx*/) override { }
+
   virtual void enterCycleCondition(BaseParser::CycleConditionContext * /*ctx*/) override { }
   virtual void exitCycleCondition(BaseParser::CycleConditionContext * /*ctx*/) override { }
 
@@ -145,6 +154,9 @@ public:
   virtual void enterParenGraphCondition(BaseParser::ParenGraphConditionContext * /*ctx*/) override { }
   virtual void exitParenGraphCondition(BaseParser::ParenGraphConditionContext * /*ctx*/) override { }
 
+  virtual void enterVertexInSetCondition(BaseParser::VertexInSetConditionContext * /*ctx*/) override { }
+  virtual void exitVertexInSetCondition(BaseParser::VertexInSetConditionContext * /*ctx*/) override { }
+
   virtual void enterLoopStatement(BaseParser::LoopStatementContext * /*ctx*/) override { }
   virtual void exitLoopStatement(BaseParser::LoopStatementContext * /*ctx*/) override { }
 
@@ -156,6 +168,12 @@ public:
 
   virtual void enterForEachEdge(BaseParser::ForEachEdgeContext * /*ctx*/) override { }
   virtual void exitForEachEdge(BaseParser::ForEachEdgeContext * /*ctx*/) override { }
+
+  virtual void enterForEachOutAdj(BaseParser::ForEachOutAdjContext * /*ctx*/) override { }
+  virtual void exitForEachOutAdj(BaseParser::ForEachOutAdjContext * /*ctx*/) override { }
+
+  virtual void enterForEachInAdj(BaseParser::ForEachInAdjContext * /*ctx*/) override { }
+  virtual void exitForEachInAdj(BaseParser::ForEachInAdjContext * /*ctx*/) override { }
 
   virtual void enterForEachAdj(BaseParser::ForEachAdjContext * /*ctx*/) override { }
   virtual void exitForEachAdj(BaseParser::ForEachAdjContext * /*ctx*/) override { }
@@ -207,6 +225,9 @@ public:
 
   virtual void enterFunctionCall(BaseParser::FunctionCallContext * /*ctx*/) override { }
   virtual void exitFunctionCall(BaseParser::FunctionCallContext * /*ctx*/) override { }
+
+  virtual void enterFunctionName(BaseParser::FunctionNameContext * /*ctx*/) override { }
+  virtual void exitFunctionName(BaseParser::FunctionNameContext * /*ctx*/) override { }
 
   virtual void enterArgumentList(BaseParser::ArgumentListContext * /*ctx*/) override { }
   virtual void exitArgumentList(BaseParser::ArgumentListContext * /*ctx*/) override { }

@@ -277,6 +277,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -320,7 +331,115 @@
   <span class="md-ellipsis">
     
   
-    Tutorial
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="algorithms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="bron-kerbosch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bron-Kerbosch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results
   
 
     
@@ -371,6 +490,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quick-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -413,7 +543,7 @@
 <p>GraphEasy is an efficient, easy-to-use DSL for describing graphs and writing graph algorithms. Programs are written in <code>.graph</code> files, compiled by <code>GraphProgram</code>, and linked with a C++ runtime.</p>
 <ul>
 <li><strong>Repo</strong>: https://github.com/nash-raf/Graph-language-</li>
-<li><strong>Tutorial</strong>: See <a href="tutorial/">Tutorial</a></li>
+<li><strong>Getting Started</strong>: See <a href="tutorial/">Getting Started</a></li>
 </ul>
 <h2 id="what-you-can-do">What you can do</h2>
 <ul>
@@ -423,6 +553,37 @@
 <li>Use arrays, sets, conditionals, and while-loops in a C-like syntax</li>
 <li>Filter and combine graphs with graph comprehensions</li>
 </ul>
+<h2 id="documentation">Documentation</h2>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="tutorial/">Getting Started</a></td>
+<td>How to write and run a small GraphEasy program</td>
+</tr>
+<tr>
+<td><a href="grammar/">Grammar</a></td>
+<td>Core syntax from <code>Base.g4</code> and benchmark extensions</td>
+</tr>
+<tr>
+<td><a href="algorithms/">Algorithms</a></td>
+<td>The five benchmark algorithms in GraphEasy</td>
+</tr>
+<tr>
+<td><a href="bron-kerbosch/">Bron-Kerbosch</a></td>
+<td>How GraphEasy describes recursive maximal-clique search</td>
+</tr>
+<tr>
+<td><a href="results/">Results</a></td>
+<td>Placeholder for plots and benchmark summaries</td>
+</tr>
+</tbody>
+</table>
 <h2 id="quick-example">Quick example</h2>
 <pre><code>graph G {
   edges: file 'edgelist.txt';
@@ -436,7 +597,7 @@ print path;
 <pre><code class="language-bash">./1run.sh test.graph test.graph   # compile GraphProgram + your program
 ./2final_run.sh                   # link and run
 </code></pre>
-<p>See the <a href="tutorial/">Tutorial</a> for the full language reference.</p>
+<p>See <a href="grammar/">Grammar</a> for syntax, <a href="algorithms/">Algorithms</a> for complete benchmark programs, and <a href="bron-kerbosch/">Bron-Kerbosch</a> for a recursive maximal-clique example.</p>
 
 
 

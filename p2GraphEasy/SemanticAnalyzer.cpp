@@ -203,11 +203,11 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Int;
             return TypeKind::Int;
         }
-        // Built-in: degree(G, v) -> int
-        if (call->name == "degree")
+        // Built-ins: degree/outDegree/inDegree(G, v) -> int
+        if (call->name == "degree" || call->name == "outDegree" || call->name == "inDegree")
         {
             if (call->arguments.size() != 2)
-                error("degree requires exactly 2 arguments (graph, vertex)");
+                error(call->name + " requires exactly 2 arguments (graph, vertex)");
             call->resolvedType = TypeKind::Int;
             return TypeKind::Int;
         }
@@ -661,7 +661,9 @@ void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
     {
         declareSymbol(fs->var1, varSym);
     }
-    else if (fs->targetType == ForEachTargetType::Neighbor)
+    else if (fs->targetType == ForEachTargetType::Neighbor ||
+             fs->targetType == ForEachTargetType::OutNeighbor ||
+             fs->targetType == ForEachTargetType::InNeighbor)
     {
         declareSymbol(fs->var1, varSym);
         if (fs->adjNodeExpr)
@@ -854,6 +856,25 @@ void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDec
     }
     if (cond->op == GraphConditionOp::Degree)
     {
+        return;
+    }
+    if (cond->op == GraphConditionOp::EdgeHas)
+    {
+        if (cond->expr)
+        {
+            TypeKind ty = analyzeExpr(cond->expr.get());
+            if (ty != TypeKind::Int)
+                error("edge has condition requires an int vertex expression");
+        }
+        return;
+    }
+    if (cond->op == GraphConditionOp::VertexInSet)
+    {
+        Symbol *sym = lookupSymbol(cond->setName);
+        if (!sym)
+            error("vertex in condition uses undeclared set: " + cond->setName);
+        if (sym->type != TypeKind::Set)
+            error("vertex in condition requires a set: " + cond->setName);
         return;
     }
     if (cond->op == GraphConditionOp::Connected)

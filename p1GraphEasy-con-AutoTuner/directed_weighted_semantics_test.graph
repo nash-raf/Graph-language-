@@ -1,0 +1,11 @@
+graph G {
+  directed:true;
+  edges: file "directed_weighted_small.txt";
+  TRUE
+};
+
+print numEdges(G);
+print weight(G, 0, 1);
+print weight(G, 2, 0);
+print hasEdge(G, 1, 0);
+print inDegree(G, 0);

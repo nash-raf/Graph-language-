@@ -1,0 +1,20 @@
+graph G {
+  directed:true;
+  edges: file "directed_small.txt";
+};
+
+print numVertices(G);
+print numEdges(G);
+print outDegree(G, 0);
+print inDegree(G, 0);
+print degree(G, 0);
+print hasEdge(G, 0, 1);
+print hasEdge(G, 1, 0);
+
+for each out neighbor v of 0 in G {
+  print v;
+}
+
+for each in neighbor u of 0 in G {
+  print u;
+}

@@ -399,6 +399,8 @@ enum class ForEachTargetType
     Vertex,
     Edge,
     Neighbor,
+    OutNeighbor,
+    InNeighbor,
     Element  // for iterating over set elements
 };
 
@@ -680,10 +682,13 @@ public:
 
     bool isFileGraph = false;
     std::string edgeFileName;
+    bool directed = false;
 
     size_t n = 0, m = 0;
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
+    size_t *in_row_ptr = nullptr;
+    int32_t *in_col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
     std::vector<int> node_ids;
     std::vector<std::pair<int, int>> edge_list;
@@ -692,11 +697,12 @@ public:
     std::vector<uint8_t> edges_blob;
 
     // File-based graph: defer all loading to runtime
-    GraphDeclNode(std::string nm, std::string fileName)
+    GraphDeclNode(std::string nm, std::string fileName, bool isDirected = false)
         : ASTNode(ASTNodeType::GraphDecl),
           name(std::move(nm)),
           isFileGraph(true),
-          edgeFileName(std::move(fileName))
+          edgeFileName(std::move(fileName)),
+          directed(isDirected)
     {
     }
 
@@ -704,11 +710,13 @@ public:
     GraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
-        std::unique_ptr<EdgeListNode> eList)
+        std::unique_ptr<EdgeListNode> eList,
+        bool isDirected = false)
         : ASTNode(ASTNodeType::GraphDecl),
           name(std::move(nm)),
           nodes(std::move(nList)),
-          edges(std::move(eList))
+          edges(std::move(eList)),
+          directed(isDirected)
     {
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
@@ -718,29 +726,47 @@ public:
             id2idx[nodeIds[i]] = i;
 
         auto edgeList = edges->materializeEdges();
-        m = 2 * edgeList.size();
+        m = (directed ? 1 : 2) * edgeList.size();
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
+        in_row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        std::memset(in_row_ptr, 0, (n + 1) * sizeof(size_t));
         for (auto &e : edgeList)
         {
             int u0 = e.first, v0 = e.second;
             size_t u = id2idx.at(u0);
             size_t v = id2idx.at(v0);
             row_ptr[u + 1]++;
-            row_ptr[v + 1]++;
+            in_row_ptr[v + 1]++;
+            if (!directed)
+            {
+                row_ptr[v + 1]++;
+                in_row_ptr[u + 1]++;
+            }
         }
 
         for (size_t i = 1; i <= n; ++i)
+        {
             row_ptr[i] += row_ptr[i - 1];
+            in_row_ptr[i] += in_row_ptr[i - 1];
+        }
 
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
+        in_col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        size_t *inNext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
+        std::memcpy(inNext, in_row_ptr, sizeof(size_t) * (n + 1));
         for (auto &e : edgeList)
         {
             size_t u = id2idx[e.first], v = id2idx[e.second];
             col_idx[next[u]++] = static_cast<int32_t>(v);
-            col_idx[next[v]++] = static_cast<int32_t>(u);
+            in_col_idx[inNext[v]++] = static_cast<int32_t>(u);
+            if (!directed)
+            {
+                col_idx[next[v]++] = static_cast<int32_t>(u);
+                in_col_idx[inNext[u]++] = static_cast<int32_t>(v);
+            }
         }
 
         node_ids = nodeIds;
@@ -783,11 +809,14 @@ public:
 
     bool isFileGraph = false;
     std::string edgeFileName;
+    bool directed = false;
 
     size_t n = 0, m = 0; // number of nodes and edges
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
     int32_t *weights = nullptr;
+    size_t *in_row_ptr = nullptr;
+    int32_t *in_col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
     std::vector<int> node_ids;
     std::vector<std::pair<int, int>> edge_list;
@@ -795,22 +824,25 @@ public:
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
 
-    WeightedGraphDeclNode(std::string nm, std::string fileName)
+    WeightedGraphDeclNode(std::string nm, std::string fileName, bool isDirected = false)
         : ASTNode(ASTNodeType::WeightedGraphDecl),
           name(std::move(nm)),
           isFileGraph(true),
-          edgeFileName(std::move(fileName))
+          edgeFileName(std::move(fileName)),
+          directed(isDirected)
     {
     }
 
     WeightedGraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
-        std::unique_ptr<WeightedEdgeListNode> eList)
+        std::unique_ptr<WeightedEdgeListNode> eList,
+        bool isDirected = false)
         : ASTNode(ASTNodeType::WeightedGraphDecl),
           name(std::move(nm)),
           nodes(std::move(nList)),
-          edges(std::move(eList))
+          edges(std::move(eList)),
+          directed(isDirected)
     {
         auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -827,39 +859,57 @@ public:
         std::vector<std::pair<int, int>> edgeList;
         llvm::DenseMap<std::pair<int, int>, int> weightMap;
         edges->materializeEdges(edgeList, weightMap);
-        m = 2 * edgeList.size();
+        m = (directed ? 1 : 2) * edgeList.size();
         std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
         // 1) degree counts go into row_ptr[i+1]
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
+        in_row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        std::memset(in_row_ptr, 0, (n + 1) * sizeof(size_t));
         for (auto &e : edgeList)
         {
             int u0 = e.first, v0 = e.second;
             size_t u = id2idx.at(u0);
             size_t v = id2idx.at(v0);
             row_ptr[u + 1]++;
-            row_ptr[v + 1]++;
+            in_row_ptr[v + 1]++;
+            if (!directed)
+            {
+                row_ptr[v + 1]++;
+                in_row_ptr[u + 1]++;
+            }
         }
 
         // 2) exclusive prefix‑sum
         for (size_t i = 1; i <= n; ++i)
+        {
             row_ptr[i] += row_ptr[i - 1];
+            in_row_ptr[i] += in_row_ptr[i - 1];
+        }
 
         // 3) allocate col_idx and scatter
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         weights = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
+        in_col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         size_t *wnext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
+        size_t *inNext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
         std::memcpy(wnext, row_ptr, sizeof(size_t) * (n + 1));
+        std::memcpy(inNext, in_row_ptr, sizeof(size_t) * (n + 1));
         for (auto &e : edgeList)
         {
             size_t u = id2idx[e.first], v = id2idx[e.second];
             col_idx[next[u]++] = static_cast<int32_t>(v);
-            col_idx[next[v]++] = static_cast<int32_t>(u);
+            in_col_idx[inNext[v]++] = static_cast<int32_t>(u);
             int w = weightMap[{e.first, e.second}];
             weights[wnext[u]++] = w;
-            weights[wnext[v]++] = w;
+            if (!directed)
+            {
+                col_idx[next[v]++] = static_cast<int32_t>(u);
+                in_col_idx[inNext[u]++] = static_cast<int32_t>(v);
+                weights[wnext[v]++] = w;
+            }
         }
 
         // debug

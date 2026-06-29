@@ -29,6 +29,12 @@ public:
   virtual void enterUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) = 0;
   virtual void exitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) = 0;
 
+  virtual void enterGraphProperty(BaseParser::GraphPropertyContext *ctx) = 0;
+  virtual void exitGraphProperty(BaseParser::GraphPropertyContext *ctx) = 0;
+
+  virtual void enterBoolLiteral(BaseParser::BoolLiteralContext *ctx) = 0;
+  virtual void exitBoolLiteral(BaseParser::BoolLiteralContext *ctx) = 0;
+
   virtual void enterNodes(BaseParser::NodesContext *ctx) = 0;
   virtual void exitNodes(BaseParser::NodesContext *ctx) = 0;
 
@@ -131,6 +137,9 @@ public:
   virtual void enterDegreeCondition(BaseParser::DegreeConditionContext *ctx) = 0;
   virtual void exitDegreeCondition(BaseParser::DegreeConditionContext *ctx) = 0;
 
+  virtual void enterEdgeHasCondition(BaseParser::EdgeHasConditionContext *ctx) = 0;
+  virtual void exitEdgeHasCondition(BaseParser::EdgeHasConditionContext *ctx) = 0;
+
   virtual void enterCycleCondition(BaseParser::CycleConditionContext *ctx) = 0;
   virtual void exitCycleCondition(BaseParser::CycleConditionContext *ctx) = 0;
 
@@ -143,6 +152,9 @@ public:
   virtual void enterParenGraphCondition(BaseParser::ParenGraphConditionContext *ctx) = 0;
   virtual void exitParenGraphCondition(BaseParser::ParenGraphConditionContext *ctx) = 0;
 
+  virtual void enterVertexInSetCondition(BaseParser::VertexInSetConditionContext *ctx) = 0;
+  virtual void exitVertexInSetCondition(BaseParser::VertexInSetConditionContext *ctx) = 0;
+
   virtual void enterLoopStatement(BaseParser::LoopStatementContext *ctx) = 0;
   virtual void exitLoopStatement(BaseParser::LoopStatementContext *ctx) = 0;
 
@@ -154,6 +166,12 @@ public:
 
   virtual void enterForEachEdge(BaseParser::ForEachEdgeContext *ctx) = 0;
   virtual void exitForEachEdge(BaseParser::ForEachEdgeContext *ctx) = 0;
+
+  virtual void enterForEachOutAdj(BaseParser::ForEachOutAdjContext *ctx) = 0;
+  virtual void exitForEachOutAdj(BaseParser::ForEachOutAdjContext *ctx) = 0;
+
+  virtual void enterForEachInAdj(BaseParser::ForEachInAdjContext *ctx) = 0;
+  virtual void exitForEachInAdj(BaseParser::ForEachInAdjContext *ctx) = 0;
 
   virtual void enterForEachAdj(BaseParser::ForEachAdjContext *ctx) = 0;
   virtual void exitForEachAdj(BaseParser::ForEachAdjContext *ctx) = 0;
@@ -205,6 +223,9 @@ public:
 
   virtual void enterFunctionCall(BaseParser::FunctionCallContext *ctx) = 0;
   virtual void exitFunctionCall(BaseParser::FunctionCallContext *ctx) = 0;
+
+  virtual void enterFunctionName(BaseParser::FunctionNameContext *ctx) = 0;
+  virtual void exitFunctionName(BaseParser::FunctionNameContext *ctx) = 0;
 
   virtual void enterArgumentList(BaseParser::ArgumentListContext *ctx) = 0;
   virtual void exitArgumentList(BaseParser::ArgumentListContext *ctx) = 0;

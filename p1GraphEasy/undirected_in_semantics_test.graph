@@ -1,0 +1,12 @@
+graph G {
+  edges: file "undirected_small.txt";
+};
+
+print numEdges(G);
+print outDegree(G, 0);
+print inDegree(G, 0);
+print degree(G, 0);
+
+for each in neighbor u of 0 in G {
+  print u;
+}

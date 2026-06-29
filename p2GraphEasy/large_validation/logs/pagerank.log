@@ -1,0 +1,22 @@
+
+=== Compiler Phase Timings ===
+  Lexing + Parsing :     3.34 ms
+  AST Building     :     0.11 ms
+  Semantic Analysis:     0.01 ms
+  IR Generation    :     0.43 ms
+  IR Linking       :    11.20 ms
+  Optimization (O3):   186.27 ms
+  CodeGen (.o)     :   148.78 ms
+  ─────────────────────────────
+  Total            :   350.15 ms
+
+[loader-mmap] 1/5 after mmap open | VmRSS: 3756 KiB (3.67 MiB)
+[loader-mmap] 2/5 after parse before csr | VmRSS: 197712 KiB (193.08 MiB)
+[loader-mmap] 3/5 after csr arrays | VmRSS: 277276 KiB (270.78 MiB)
+[loader-mmap] 4/5 after GraphExtra+register | VmRSS: 360548 KiB (352.10 MiB)
+[loader-mmap] estimates | file=112.32 MiB parsed=76.29 MiB csr=77.06 MiB (row_ptr=0.76 col_idx=76.29 weights=0.00) extra_no_bitmap=76.29 MiB (pairs=76.29 eweights=0.00) known_total=341.97 MiB
+[loader-mmap] 5/5 after munmap+close | VmRSS: 167400 KiB (163.48 MiB)
+
+real	0m0.972s
+user	0m1.123s
+sys	0m0.171s

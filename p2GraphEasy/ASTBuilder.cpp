@@ -8,6 +8,26 @@
 #include <cstring> // for std::memcpy
 #include "llvm/Support/Allocator.h"
 
+namespace {
+bool parseGraphDirectedProperty(const std::vector<BaseParser::GraphPropertyContext *> &props)
+{
+    bool directed = false;
+    bool seenDirected = false;
+    for (auto *prop : props)
+    {
+        if (!prop)
+            continue;
+        std::string value = prop->boolLiteral()->getText();
+        bool next = (value == "true" || value == "TRUE");
+        if (seenDirected && directed != next)
+            throw std::runtime_error("conflicting directed graph properties");
+        directed = next;
+        seenDirected = true;
+    }
+    return directed;
+}
+}
+
 antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 {
     std::vector<ASTNodePtr> items;
@@ -761,7 +781,7 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    std::string callee = ctx->ID()->getText();
+    std::string callee = ctx->functionName()->getText();
 
     // collect arguments
     std::vector<ASTNodePtr> args;
@@ -780,6 +800,7 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
 antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
+    bool directed = parseGraphDirectedProperty(ctx->graphProperty());
     // std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
 
     if (!ctx->edges())
@@ -790,7 +811,7 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s));
+        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s), directed);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -834,7 +855,8 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     auto gnode = std::make_shared<GraphDeclNode>(
         std::move(nm),
         std::move(nd),
-        std::move(ed));
+        std::move(ed),
+        directed);
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
@@ -842,6 +864,7 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
+    bool directed = parseGraphDirectedProperty(ctx->graphProperty());
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
@@ -850,7 +873,7 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s));
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s), directed);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -891,7 +914,8 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     auto gnode = std::make_shared<WeightedGraphDeclNode>(
         std::move(nm),
         std::move(nd),
-        std::move(ed));
+        std::move(ed),
+        directed);
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
@@ -1054,6 +1078,18 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         var1 = adjCtx->ID()->getText();
         adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(adjCtx->expr()));
     }
+    else if (auto outAdjCtx = dynamic_cast<BaseParser::ForEachOutAdjContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::OutNeighbor;
+        var1 = outAdjCtx->ID()->getText();
+        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(outAdjCtx->expr()));
+    }
+    else if (auto inAdjCtx = dynamic_cast<BaseParser::ForEachInAdjContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::InNeighbor;
+        var1 = inAdjCtx->ID()->getText();
+        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(inAdjCtx->expr()));
+    }
     else if (auto elemCtx = dynamic_cast<BaseParser::ForEachElementContext *>(loopCtx))
     {
         tgt = ForEachTargetType::Element;
@@ -1102,6 +1138,17 @@ std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::
     {
         int nid = std::stoi(connCtx->nodeID()->getText());
         return std::make_shared<GraphConditionNode>(nid);
+    }
+    else if (auto *edgeHasCtx = dynamic_cast<BaseParser::EdgeHasConditionContext *>(ctx))
+    {
+        ASTNodePtr edgeExpr = safe_any_cast<ASTNodePtr>(
+            visitExpr(edgeHasCtx->expr()),
+            "buildGraphCondition edge has");
+        return std::make_shared<GraphConditionNode>(edgeExpr);
+    }
+    else if (auto *vertexInCtx = dynamic_cast<BaseParser::VertexInSetConditionContext *>(ctx))
+    {
+        return std::make_shared<GraphConditionNode>(vertexInCtx->ID()->getText());
     }
     else if (auto *degCtx = dynamic_cast<BaseParser::DegreeConditionContext*>(ctx))
     {
@@ -1341,7 +1388,7 @@ SetTargetKind ASTBuilder::parseSetTarget(BaseParser::SetTargetContext *ctx)
 {
     if (ctx->ID() && !ctx->graphID())
         return SetTargetKind::Variable;
-    if (ctx->NODE()) // 'nodes'
+    if (ctx->NODE() || ctx->VERTICES()) // 'nodes' or 'vertices'
         return SetTargetKind::GraphNodes;
     return SetTargetKind::GraphEdges; // falls through to 'edges'
 }

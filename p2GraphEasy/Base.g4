@@ -34,11 +34,13 @@ swapStatement: 'swap' '(' ID ',' ID ')' ';';
 
 // Graph Definition
 graphDef
-    : GRAPH graphID '{' nodes? edges? 'TRUE' '}' ';'   # WeightedGraphDef
-    | GRAPH graphID '{' nodes? edges? '}' ';'          # UnweightedGraphDef
+    : GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* 'TRUE' graphProperty* '}' ';'   # WeightedGraphDef
+    | GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* '}' ';'          # UnweightedGraphDef
 ;
 
 //in graphDef
+graphProperty: 'directed' ':' boolLiteral ';';
+boolLiteral: TRUE | FALSE | 'true' | 'false';
 nodes: 'nodes:' nodeList ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
 nodeList: nodeID (',' nodeID)*;
@@ -70,14 +72,14 @@ setOperation:
 
 setTarget:
     ID
-    | graphID '.' 'nodes'
+    | graphID '.' (NODE | VERTICES)
     | graphID '.' 'edges'
     ;
 
 setExpr:
     setExpr UNION setExpr          # SetUnion
     | setExpr INTERSECT setExpr    # SetIntersect
-	| graphID '.' 'nodes'          # GraphNodesSet
+	| graphID '.' (NODE | VERTICES) # GraphNodesSet
     | graphID '.' 'edges'          # GraphEdgesSet
     | ID                           # SetId
     | setInitializer               # SetLiteral
@@ -113,7 +115,7 @@ condition:
 
 //graphcondition
 graphComprehension:
-	ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
+	GRAPH? ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
 
 graphExpr:
 	graphID ((AND | OR) graphID)*;
@@ -130,6 +132,8 @@ graphCondition:
 		| GREATERTHAN
 	) INT						# DegreeCondition
 	| 'connected' 'with' nodeID	# ConnectedCondition
+	| 'edge' 'has' expr		# EdgeHasCondition
+	| 'vertex' 'in' ID		# VertexInSetCondition
 	| 'cycle'					# CycleCondition
 	| '(' graphCondition ')'	# ParenGraphCondition;
 
@@ -139,6 +143,8 @@ foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
 loopTarget:
 	'vertex' ID					# forEachVertex
 	| 'edge' ID ',' ID			# forEachEdge
+	| 'out' 'neighbor' ID 'of' expr	# forEachOutAdj
+	| 'in' 'neighbor' ID 'of' expr	# forEachInAdj
 	| 'neighbor' ID 'of' expr	# forEachAdj
 	| 'element' ID				# forEachElement
 	| ID						# forEachPlain;
@@ -181,7 +187,8 @@ type:
 	| 'bool'
 	| 'set';
 
-functionCall: ID '(' argumentList? ')';
+functionCall: functionName '(' argumentList? ')';
+functionName: ID | 'degree';
 argumentList: expr (',' expr)*;
 
 // Sleep statement
@@ -254,6 +261,7 @@ arrayAssignStatement:
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';
 NODE: 'nodes';
+VERTICES: 'vertices';
 TRUE: 'TRUE';
 FALSE: 'FALSE';
 OF: 'of';

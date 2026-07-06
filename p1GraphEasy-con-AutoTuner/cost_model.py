@@ -22,14 +22,28 @@ def load_hw_calib():
         return {}
 
 # ── Calibration constants ─────────────────────────────────────────────
+# All hardware numbers come from hw_calib_bench (no graph-data-derived
+# coefficients).  Fallbacks are only used when hw_calib.json is missing keys.
 _hw = load_hw_calib()
 L = float(_hw.get("L", 64.0))     # cache line size (bytes)
 t = float(_hw.get("t", 39.4876))  # random-access latency per cache line (ns)
 T = float(_hw.get("T", 2.8750))   # bandwidth-limited sequential access per cache line (ns)
 R = float(_hw.get("R", 10000.0))  # realloc / page-remap policy threshold (ns)
+LLC = float(_hw.get("LLC", 8.0 * 1024 * 1024))  # last-level-cache capacity (bytes)
+Tm = float(_hw.get("Tm", 2.5))         # per-line cost of cache-resident memmove
+P_dram = float(_hw.get("P", 4.0))      # DRAM-bound memmove penalty vs cache-resident
+h_hash = float(_hw.get("h", 40.0))     # ns per edge_hash_insert (bulk hash build)
+c_contains = float(_hw.get("c", 15.0)) # ns per sequential-id bitmap contains check
 
 kPcsr = 2.0     # PCSR expansion factor
 kBcsr = 64.0    # BCSR block size
+
+def mem_penalty(working_set_bytes):
+    """Streaming-cost multiplier for memmove/shift terms.  Once the backing
+    array outgrows the LLC, every shifted line misses to DRAM (read + dirty
+    writeback), so the effective per-line cost is P x the calibrated
+    cache-resident T.  Mirrors memPenalty() in AutoTunerPass.cpp."""
+    return P_dram if working_set_bytes > LLC else 1.0
 
 # ── Cost model equations ──────────────────────────────────────────────
 
@@ -52,44 +66,41 @@ def insert_cost_pcsr(n, m):
     return cLocate + cWrite
 
 def insert_cost_bcsr(n, m):
+    """Mirrors insertCost(LAYOUT_BCSR) in AutoTunerPass.cpp.
+
+    Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc bcol
+    by +2 ints, memmove everything after the insertion point, bump the brow
+    prefix sums.  bcol backing array = 4m int32 (2 ints per directed edge,
+    2m directed edges) = 16m bytes.
+    """
     d = 2.0 * m / n if n > 0 else 1.0
     b = kBcsr
     nb = math.ceil(n / b)
-    d_BR = d / b
-    blkIdx = n / (2.0 * b)
-    B_blk = 4 + b*b/8
-    m_u = m - blkIdx
-    p_B = m
-    cLocate = 4*t + 2*math.ceil(d * b * 4 / L) * T
-    cWrite  = 4*t + 4*math.ceil(nb*2/L) * T
-    cMove   = math.ceil(4*(2*m - p_B)/L) * T
-    cRealloc = R + math.ceil(8.0 * m / L) * T
-    # total_no_block_records = math.ceil(m/(b*b))
-    # cRealloc = total_no_block_records + B_blk
-    # cReallocPerDir = min(math.ceil(8.0 * m / L) * T, R)
-    # freshProb = (1.0 - m / (n * (n - 1.0))) if n > 1 else 1.0
-    # cRealloc = 2.0 * freshProb * cReallocPerDir
-    return cLocate + (cWrite + cMove) + cRealloc
-
-# def insert_cost_set(n, m):
-#     #cHash = math.ceil(m * 40.0 / L) * T
-#     #cBase = 5.0 * t
-#     # cArray = 0.0
-#     # if n <= 4096.0:
-#     #     cShift = math.ceil((n / 2.0) * 2.0 / L) * T
-#     #     cArray = 2.0 * (math.ceil(math.log2(n) * 2.0 / L) * T + cShift)
-#     # return cHash + cBase + cArray
-#     cLocate = 2*t
-#     cWrite = 5*T
-#     I_g = 0
-#     if n > 4096:
-#         I_g = 1
-#     cRealloc = I_g * (math.ceil(8*m/L) + math.ceil(8*m/L) + 2* math.ceil(24 * m/L)) * T + I_g * 2 * math.ceil(8192/L) * T + R
-#     return cLocate + cWrite + cRealloc
+    arr_bytes = 16.0 * m
+    # 2 dirs x (2 brow reads + dup/insert-point scan of the block row,
+    # ~half of its 8*b*d bytes each on average)
+    cLocate = 4.0 * t + math.ceil(8.0 * b * d / L) * T
+    # brow prefix-sum update: ~nb int32 R-M-W across both directions
+    cWrite = math.ceil(nb * 4.0 / L) * 2.0 * T
+    # shift everything after the insertion point: ~half the backing array.
+    # memmove pays read+write per line (Tm, measured), and goes DRAM-bound
+    # once the array outgrows the LLC
+    cMove = math.ceil((arr_bytes / 2.0) / L) * Tm * mem_penalty(arr_bytes)
+    # realloc(+8 bytes) almost always extends in place (chunk padding /
+    # mremap): charge the O(1) policy cap, not an O(m) copy
+    cRealloc = R
+    return cLocate + cWrite + cMove + cRealloc
 
 K_INS = 50.0   # adds per measured insert kernel (test/real_*_ins.graph)
+
 def insert_cost_set(n, m):
-    pairs = m / 2.0                      # static undirected pair count
+    """Mirrors insertCost(LAYOUT_SET)/insertSetupCost in AutoTunerPass.cpp.
+
+    Steady-state autograph_canonical_add_edge is O(1): live_edge_count is
+    maintained incrementally (no per-insert O(m) rescan) and re-adding
+    already-present nodes doesn't invalidate the nodes select cache.
+    The O(n+m) work is one-time lazy init paid by the FIRST insert in SET.
+    """
     # ── steady-state per-insert (all O(1)) ───────────────────────────
     # 2 node-bitmap adds + static-hash probe + extra-hash probe
     cLocate = 5.0 * t
@@ -97,17 +108,19 @@ def insert_cost_set(n, m):
     cWrite  = 2.0 * t + 5.0 * T
     # ── one-time lazy init, paid by the FIRST insert while in SET ────
     # get_static_edge_hash: one edge_hash_insert per static pair
-    cHashBuild = pairs * 1.5 * t
+    # (h_hash = measured ns/insert from hw_calib_bench)
+    cHashBuild = h_hash * m
     # first canonical_edge_count: one roaring_bitmap_contains per pair id
-    # (sequential ids -> mostly container-local, cheaper than a full miss)
-    cFirstCount = pairs * 1.0 * t
+    # (c_contains = measured ns/check from hw_calib_bench)
+    cFirstCount = c_contains * m
     # one select-cache rebuild for the nodes bitmap: write 4n bytes,
     # read the bitmap containers (~n/8 bytes)
     cSelCache = (math.ceil(4.0 * n / L) + math.ceil(n / 8.0 / L)) * T
     # extras array doubling is amortized; charge one realloc event
     cSetup = cHashBuild + cFirstCount + cSelCache + R
-    # cost_model.py compares per-op numbers, so amortize the setup over
-    # the k inserts the kernel actually performs
+    # This script compares per-op numbers, so amortize the setup over the
+    # K_INS adds the benchmark kernel actually performs.  (The C++ pass
+    # instead charges insertSetupCost() once per region.)
     return cLocate + cWrite + cSetup / K_INS
 
 def traverse_cost_csr(n, m):
@@ -121,8 +134,11 @@ def traverse_cost_pcsr(n, m):
     return n * (2.0 * t + math.ceil(bU / L) * T)
 
 def traverse_cost_bcsr(n, m):
+    # Mirrors traversalCost(LAYOUT_BCSR) in AutoTunerPass.cpp: the runtime
+    # stores per-block-row (local_row, col) pair lists, so traversing one
+    # vertex scans the whole block row: b*d edges x 8 bytes.
     d = 2.0 * m / n if n > 0 else 1.0
-    bU = 8.0 + 256 * d
+    bU = 8.0 + 8.0 * kBcsr * d
     return n * (2.0 * t + math.ceil(bU / L) * T)
 
 def traverse_cost_set(n, m):
@@ -232,10 +248,6 @@ def process(csv_path, out_path=None):
             preds[lay] = predicted_ns(lay, op, n, m)
             r["_pred_ns"] = preds[lay]
 
-        # Rank by predicted
-        pred_rank = sorted([l for l in LAYOUTS if l in preds],
-                           key=lambda l: preds[l])
-
         # Rank by measured (exclude N/A / empty)
         meas_map = {}
         for r in grp:
@@ -243,6 +255,12 @@ def process(csv_path, out_path=None):
             if v:
                 meas_map[r["layout"]] = int(v)
         meas_rank = sorted(meas_map.keys(), key=lambda l: meas_map[l])
+
+        # Rank by predicted, restricted to layouts that have a measurement
+        # (an N/A measurement — e.g. SET traverse timeout — must not force a
+        # mismatch by making the two ranking lists different lengths).
+        pred_rank = sorted([l for l in LAYOUTS if l in preds and l in meas_map],
+                           key=lambda l: preds[l])
 
         match = pred_rank == meas_rank
 

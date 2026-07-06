@@ -93,31 +93,31 @@ def traversal_cost(layout, n, m):
 
 
 def insert_cost(layout, n, m):
-    """Replicate insertCost() from AutoTunerPass.cpp (per-op unit cost)."""
+    """Replicate insertCost() from AutoTunerPass.cpp (per-undirected-edge cost).
+    m = undirected edge count. T for read-only/memmove, 2T for read-modify-write."""
     d = (2.0 * m / n) if n > 0 else 1.0
-    u = n / 2.0
-    p = m / 2.0
     gU = kPcsrExpansionFactor * d
 
     if layout == "CSR":
-        return ((2.0 + d) * t_ns
-                + 1.0 + math.ceil((n - u) * 8.0 / L) * t_ns
-                + math.ceil(4.0 * (m - p) / L) * t_ns)
+        return (4.0 * t_ns
+                + 2.0 * math.ceil((n / 2.0) * 8.0 / L) * 2.0 * T_ns
+                + 2.0 * math.ceil(4.0 * m / L) * T_ns
+                + 2.0 * 10000.0
+                + 2.0)
     elif layout == "PCSR":
-        return ((2.0 + gU) * t_ns
-                + 1.0 * t_ns)  # gap-fill insert: no memmove
+        return (4.0 * t_ns + 2.0 * math.ceil(gU * 4.0 / L) * T_ns
+                + 2.0 * t_ns)
     elif layout == "BCSR":
         b = kBcsrBlockSize
         nb = math.ceil(n / b)
         d_BR = b * d
-        blkIdx = n / (2.0 * b)
-        p_B = m
-        cLocate = (2.0 + d_BR) * t_ns
-        cWrite = 1.0 + math.ceil((nb - blkIdx) * 4.0 / L) * t_ns
-        cMove = math.ceil(4.0 * (2.0 * m - p_B) / L) * t_ns
-        return cLocate + cWrite + cMove
+        freshProb = max(0.0, 1.0 - 2.0 * m / (n * (n - 1.0))) if n > 1.0 else 1.0
+        cLocate = 4.0 * t_ns + 2.0 * math.ceil(d_BR * 8.0 / L) * T_ns
+        cWrite = 2.0 + 2.0 * math.ceil((nb / 2.0) * 4.0 / L) * 2.0 * T_ns
+        cMove = 2.0 * math.ceil(8.0 * m / L) * T_ns
+        cRealloc = 2.0 * freshProb * 10000.0
+        return cLocate + freshProb * (cWrite + cMove) + cRealloc
     elif layout == "SET":
-        # Hash-table probes dominate; see AutoTunerPass.cpp for rationale.
         cHash = math.ceil(m * 40.0 / L) * T_ns
         cBase = 5.0 * t_ns
         cArray = 0.0

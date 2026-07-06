@@ -1,0 +1,66 @@
+graph bio_grid_yeast {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/bio-grid-yeast.txt";
+};
+
+for each vertex v in bio_grid_yeast {
+    for each neighbor u of v in bio_grid_yeast {
+    };
+};
+
+add 5238->912 to bio_grid_yeast;
+add 204->2253 to bio_grid_yeast;
+add 2006->1828 to bio_grid_yeast;
+add 1143->839 to bio_grid_yeast;
+add 5543->4467 to bio_grid_yeast;
+add 712->4837 to bio_grid_yeast;
+add 3456->260 to bio_grid_yeast;
+add 244->767 to bio_grid_yeast;
+add 1791->1905 to bio_grid_yeast;
+add 4139->4931 to bio_grid_yeast;
+add 217->4597 to bio_grid_yeast;
+add 1628->5865 to bio_grid_yeast;
+add 5323->5745 to bio_grid_yeast;
+add 4464->3436 to bio_grid_yeast;
+add 1805->3679 to bio_grid_yeast;
+add 4827->2278 to bio_grid_yeast;
+add 53->1307 to bio_grid_yeast;
+add 5719->3462 to bio_grid_yeast;
+add 2787->2276 to bio_grid_yeast;
+add 1273->1763 to bio_grid_yeast;
+add 2757->837 to bio_grid_yeast;
+add 759->3112 to bio_grid_yeast;
+add 792->2940 to bio_grid_yeast;
+add 2817->4945 to bio_grid_yeast;
+add 2166->355 to bio_grid_yeast;
+add 5977->3763 to bio_grid_yeast;
+add 4392->1022 to bio_grid_yeast;
+add 3100->645 to bio_grid_yeast;
+add 4522->2401 to bio_grid_yeast;
+add 5149->5066 to bio_grid_yeast;
+add 2962->4729 to bio_grid_yeast;
+add 1575->5771 to bio_grid_yeast;
+add 569->375 to bio_grid_yeast;
+add 5417->1866 to bio_grid_yeast;
+add 2370->653 to bio_grid_yeast;
+add 1907->827 to bio_grid_yeast;
+add 3113->2277 to bio_grid_yeast;
+add 3714->5207 to bio_grid_yeast;
+add 2988->1332 to bio_grid_yeast;
+add 3032->2910 to bio_grid_yeast;
+add 1716->5490 to bio_grid_yeast;
+add 2187->5749 to bio_grid_yeast;
+add 5599->5308 to bio_grid_yeast;
+add 584->4990 to bio_grid_yeast;
+add 5201->1401 to bio_grid_yeast;
+add 4375->5973 to bio_grid_yeast;
+add 2005->1338 to bio_grid_yeast;
+add 3786->3108 to bio_grid_yeast;
+add 2211->5242 to bio_grid_yeast;
+add 5637->4562 to bio_grid_yeast;
+
+for each vertex v in bio_grid_yeast {
+    for each neighbor u of v in bio_grid_yeast {
+    };
+};
+
+print numEdges(bio_grid_yeast);

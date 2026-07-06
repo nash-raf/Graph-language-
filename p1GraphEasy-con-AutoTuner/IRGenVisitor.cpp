@@ -1805,14 +1805,15 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         auto *userAlloca = TmpB.CreateAlloca(i32Ty, nullptr, fs->var1);
         NamedValues[fs->var1] = userAlloca;
 
-        // nbuf: heap buffer for autograph_get_neighbors output sized from the
-        // live graph right before the loop starts. Heap allocation avoids
+        // nbuf: heap buffer for autograph_get_neighbors output sized from
+        // graph->m (max possible neighbors per vertex). Using n is unsafe
+        // when duplicate edges inflate degree past n. Heap allocation avoids
         // repeated large stack growth when a neighbor-foreach appears inside
         // another loop.
         llvm::Value *nForBuf = Builder.CreateLoad(
             i64Ty,
-            Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_for_buf_ptr"),
-            "n_for_buf");
+            Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_for_buf_ptr"),
+            "m_for_buf");
         auto *voidTy = llvm::Type::getVoidTy(Context);
         auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
         auto *i32PtrTyLocal = llvm::PointerType::getUnqual(i32Ty);
@@ -1904,13 +1905,15 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         NamedValues[fs->var1] = var1Alloca;
         NamedValues[fs->var2] = var2Alloca;
 
-        // nbuf: heap buffer for autograph_get_neighbors output sized from the
-        // live graph. Heap allocation avoids repeated large stack growth while
-        // walking all vertices' adjacency lists.
+        // nbuf: heap buffer for autograph_get_neighbors output sized from
+        // graph->m (max possible neighbors per vertex). Using n is unsafe
+        // when duplicate edges inflate degree past n. Heap allocation avoids
+        // repeated large stack growth while walking all vertices' adjacency
+        // lists.
         auto *nForBufEdge = Builder.CreateLoad(
             i64Ty,
-            Builder.CreateStructGEP(GraphTy, graphPtr, 0, "g_n_edge_buf_ptr"),
-            "n_edge_buf");
+            Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_edge_buf_ptr"),
+            "m_edge_buf");
         auto *voidTy = llvm::Type::getVoidTy(Context);
         auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
         auto *i32PtrTyLocal = llvm::PointerType::getUnqual(i32Ty);
@@ -3143,12 +3146,13 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         llvm::FunctionType *initFT = llvm::FunctionType::get(
             voidTy, {opaquePtrTy, I64, I64, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);
         auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
-        Builder.CreateCall(initFn, {graphPtr,
+        auto *initCall = Builder.CreateCall(initFn, {graphPtr,
                                     llvm::ConstantInt::get(I64, G->n),
                                     llvm::ConstantInt::get(I64, G->m),
                                     GraphNodesMap[G->name], GraphEdgesMap[G->name],
                                     edgePairsInit});
-    }
+
+        }
 
     return graphPtr;
 }
@@ -3461,7 +3465,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
             voidTy, {opaquePtrTy, llvm::Type::getInt64Ty(Context), llvm::Type::getInt64Ty(Context),
                      opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);
         auto initFn = Module.getOrInsertFunction("autograph_init", initFT);
-        Builder.CreateCall(initFn, {graphPtr,
+        auto *initCallW = Builder.CreateCall(initFn, {graphPtr,
                                     llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), G->n),
                                     llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), G->m),
                                     GraphNodesMap[G->name], GraphEdgesMap[G->name],

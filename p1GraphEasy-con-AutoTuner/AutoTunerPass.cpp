@@ -37,7 +37,8 @@ enum Layout : int {
 enum class RegionType {
   Traverse,
   Insert,
-  Query
+  SetQuery,
+  CSRQuery
 };
 
 struct GraphMeta {
@@ -47,6 +48,7 @@ struct GraphMeta {
   Value *nodesBmp = nullptr;
   Value *edgesBmp = nullptr;
   Value *edgePairs = nullptr;
+  // (degree stats removed — uniform freshProb only needs n and m)
 };
 
 struct OpEvent {
@@ -57,10 +59,10 @@ struct OpEvent {
 };
 
 struct Region {
-  RegionType dominant = RegionType::Query;
+  RegionType dominant = RegionType::SetQuery;
   Instruction *anchor = nullptr;
   Value *graphPtr = nullptr;
-  std::array<double, 3> freq = {0.0, 0.0, 0.0}; // T,I,Q
+  std::array<double, 4> freq = {0.0, 0.0, 0.0, 0.0}; // T,I,SetQ,CSRQ
   uint64_t totalOps = 0;
   double execCount = 1.0;
 };
@@ -83,9 +85,10 @@ constexpr double kPcsrExpansionFactor = 2.0;
 constexpr double kBcsrBlockSize = 64.0;
 
 struct HwCalib {
-  double L = 64.0; // cache-line size in bytes
-  double t = 1.0;  // random-access (redirection) latency, in abstract time units
-  double T = 1.0;  // cache-line transfer cost, in abstract time units
+  double L = 64.0;  // cache-line size in bytes
+  double t = 1.0;   // random-access (redirection) latency, in abstract time units
+  double T = 1.0;   // cache-line transfer cost, in abstract time units
+  double R = 10000.0; // per-direction realloc cap (ns); heap copy vs O(1) page remap threshold
 };
 
 HwCalib loadHwCalib() {
@@ -120,9 +123,11 @@ HwCalib loadHwCalib() {
   double vL = extract("\"L\"");
   double vt = extract("\"t\"");
   double vT = extract("\"T\"");
+  double vR = extract("\"R\"");
   if (vL > 0) hw.L = vL;
   if (vt > 0) hw.t = vt;
   if (vT > 0) hw.T = vT;
+  if (vR > 0) hw.R = vR;
   return hw;
 }
 
@@ -132,8 +137,10 @@ int opIndex(RegionType t) {
     return 0;
   case RegionType::Insert:
     return 1;
-  case RegionType::Query:
+  case RegionType::SetQuery:
     return 2;
+  case RegionType::CSRQuery:
+    return 3;
   }
   return 2;
 }
@@ -144,10 +151,12 @@ const char *regionTypeName(RegionType t) {
     return "Traverse";
   case RegionType::Insert:
     return "Insert";
-  case RegionType::Query:
-    return "Query";
+  case RegionType::SetQuery:
+    return "SetQuery";
+  case RegionType::CSRQuery:
+    return "CSRQuery";
   }
-  return "Query";
+  return "SetQuery";
 }
 
 const char *layoutName(int layout) {
@@ -191,8 +200,10 @@ bool layoutFeasible(RegionType type, int layout) {
     return true; // CSR, PCSR, BCSR, SET all feasible
   case RegionType::Insert:
     return true; // CSR, PCSR, BCSR, SET all feasible
-  case RegionType::Query:
-    return layout == LAYOUT_CSR || layout == LAYOUT_SET;
+  case RegionType::SetQuery:
+    return layout == LAYOUT_SET; // bitmap-specific ops force SET
+  case RegionType::CSRQuery:
+    return layout == LAYOUT_CSR; // row_ptr/col_idx readers force CSR
   }
   return false;
 }
@@ -206,20 +217,27 @@ bool isTraverseCall(StringRef fn) {
 
 bool isInsertCall(StringRef fn) {
   return fn == "graph_add_node" || fn == "graph_add_edge" ||
-         fn == "graph_remove_node" || fn == "graph_remove_edge" ||
-         hasPrefix(fn, "roaring_bitmap_add") || hasPrefix(fn, "roaring_bitmap_remove");
+          fn == "graph_remove_node" || fn == "graph_remove_edge" ||
+          hasPrefix(fn, "roaring_bitmap_add") || hasPrefix(fn, "roaring_bitmap_remove");
 }
 
-bool isQueryCall(StringRef fn) {
-  return fn == "roaring_bitmap_contains" || fn == "roaring_bitmap_get_cardinality" ||
-         fn == "roaring_bitmap_union" || fn == "roaring_bitmap_intersect" ||
-         fn == "numVertices_runtime" ||
-         fn == "numEdges_runtime";
+// Queries that operate directly on Roaring bitmaps — they cannot execute
+// unless the graph is in LAYOUT_SET, so they force SET via layoutFeasible.
+bool isSetSpecificQuery(StringRef fn) {
+  return fn == "roaring_bitmap_contains" ||
+         fn == "roaring_bitmap_get_cardinality" ||
+         fn == "roaring_bitmap_union" ||
+         fn == "roaring_bitmap_intersect";
 }
 
-// Query unit-cost coefficients (retained from old model for the fixed query term).
-//                   CSR   PCSR  BCSR  SET
-static constexpr double queryCostCoeff[LAYOUT_COUNT] = {1.2, 1.5, 2.0, 0.5};
+// Queries that read CSR arrays (row_ptr / col_idx / weights) directly from
+// struct.Graph — they force LAYOUT_CSR.
+bool isCSRSpecificQuery(StringRef fn) {
+  return fn == "graph_get_edge_weight" ||
+         fn == "graph_get_edge_weight_by_id" ||
+         fn == "graph_get_edge_src_by_id" ||
+         fn == "graph_get_edge_dst_by_id";
+}
 
 // Traversal cost: |Active Set| x (C_nav + ceil(B_useful / L) x T)
 // |Active Set| = n (every vertex becomes active once across a traversal region).
@@ -253,11 +271,16 @@ double traversalCost(int layout, double n, double m, const HwCalib &hw) {
     cNav = 2.0 * t;
     bUseful = 8.0 + 8.0 * b * d;
     break;
-  case LAYOUT_SET:
-    // No source index → scan all m edge_pairs (16 bytes each). Punitive.
-    cNav = 1.0 * t;
+  case LAYOUT_SET: {
+    // Per vertex: scan ALL m edge_pairs (16 bytes each) + per-pair compute.
+    // Inner loop: roaring_bitmap_contains + int32 compare + branch.
+    // The contains check is NOT free — it's a full function call with binary
+    // search (~log(#containers) comps).  Approximate as t/6 ≈ 5.5ns/pair.
+    cNav = 2.0 * t;
     bUseful = 16.0 * m;
-    break;
+    const double cCompute = m * t / 6.0;
+    return n * (cNav + std::ceil(bUseful / L) * T + cCompute);
+  }
   default:
     return kInf;
   }
@@ -267,100 +290,92 @@ double traversalCost(int layout, double n, double m, const HwCalib &hw) {
 }
 
 // Insert/update cost: C_locate + C_write + C_move
+// Per-undirected-edge insert cost.  m = undirected edge count.
+// One undirected add = 2 directed inserts (graph_add_edge does both).
+//
+// Memory traffic categories:
+//   T  = sequential read-only cost per cache line (also used for memmove,
+//        whose independent read+write streams are overlapped by hardware).
+//   2T = read-modify-write cost per cache line (prefix-sum increments:
+//        dependent load→store, cannot overlap).
 double insertCost(int layout, double n, double m, const HwCalib &hw) {
   const double d = (n > 0) ? (2.0 * m / n) : 1.0;
   const double g = kPcsrExpansionFactor;
   const double t = hw.t;
   const double T = hw.T;
   const double L = hw.L;
-  // Derived averages for the cost model
-  const double u = n / 2.0;       // average source row index
-  const double p = m / 2.0;       // average insertion position
+  const double R = hw.R;
   const double gU = g * d;        // g(u) = physical span of vertex u
 
   switch (layout) {
   case LAYOUT_CSR: {
-    // C_locate = (2 + d(u)) * t
-    const double cLocate = (2.0 + d) * t;
-    // C_write = 1 + ceil((n-u)*8 / L) * t  (1 cacheline for the edge +
-    //           prefix-sum update of row_ptr after u)
-    const double cWrite = 1.0 + std::ceil((n - u) * 8.0 / L) * t;
-    // C_move = ceil(4*(|E|-p) / L) * t  (shift col_idx after insertion point)
-    const double cMove = std::ceil(4.0 * (m - p) / L) * t;
-    return cLocate + cWrite + cMove;
+    // One undirected edge = 2 directed inserts (from→to, to→from).
+    // Per directed: realloc + memmove + row_ptr prefix-sum update.
+    // C_locate  = 4t                    (2 dirs × 2t: row_ptr[from+1] random read)
+    // C_prefix  = 2·⌈n/2·8/L⌉·2T        (2 dirs × n/2 int64 R-M-W entries)
+    // C_move    = 2·⌈4m/L⌉·T            (2 dirs × ~4m bytes memmove, independent R+W)
+    // C_realloc = 2·R                   (2 dirs × mremap O(1))
+    // C_write   = 2                     (2 dirs × write 1 int32)
+    const double cLocate = 4.0 * t;
+    const double cPrefix = 2.0 * std::ceil((n / 2.0) * 8.0 / L) * 2.0 * T;
+    const double cMove   = 2.0 * std::ceil(4.0 * m / L) * T;
+    const double cRealloc = 2.0 * R;
+    return cLocate + cPrefix + cMove + cRealloc + 2.0;
   }
   case LAYOUT_PCSR: {
-    // In-place gap fill — no memmove (cMove removed).
-    // C_locate = (2 + g(u)) * t  (row_ptr reads + linear scan for gap)
-    // C_write = 1 * t            (col_idx[j] = to)
-    const double cLocate = (2.0 + gU) * t;
-    const double cWrite = 1.0 * t;
+    // In-place gap fill — no memmove, no realloc.
+    // C_locate = 2·(2t + ⌈g·d·4/L⌉·T)  (2 dirs × random reads + read-only gap scan)
+    // C_write  = 2·t                    (2 dirs × 1 random gap-slot write)
+    const double cLocate = 2.0 * (2.0 * t + std::ceil(gU * 4.0 / L) * T);
+    const double cWrite  = 2.0 * t;
     return cLocate + cWrite;
   }
   case LAYOUT_BCSR: {
-    // Native BCSR mutation: insert (local_row, col) pair into bcol + update brow.
-    //
-    // C_locate = (2 + d_BR) * t
-    //   2: read brow[blk], brow[blk+1] to find the block row's span
-    //   d_BR = b*d: scan the block row's (local_row, col) pairs for duplicate
-    //
-    // C_write = 1 + ceil((nb - blk) * 4 / L) * t
-    //   1: write the new pair (2 ints = 8 bytes, 1 cache line)
-    //   ceil((nb - blk) * 4 / L) * t: update brow prefix sums for all
-    //   subsequent block rows (nb - blk entries, each int32 = 4 bytes)
-    //
-    // C_move = ceil(4 * (2m - p_B) / L) * t
-    //   Shift all bcol entries after the insertion point.
-    //   (2m - p_B) ints to shift, each 4 bytes.
-    //   p_B ≈ m (mid-range position in bcol, which has 2m ints)
+    // C_locate  = 4t + 2·⌈d_BR·8/L⌉·T  (2 dirs × brow reads + read-only pair scan)
+    // C_write   = 2 + 2·⌈nb/2·4/L⌉·2T   (2 dirs × pair write + brow prefix R-M-W)
+    // C_move    = 2·⌈8m/L⌉·T            (2 dirs × ~8m bytes memmove)
+    // C_realloc = 2·freshProb·R        (2 dirs × mremap O(1), fresh edges only)
+    // freshProb = P(random (u,v) is new) = 1 − 2m/(n(n−1))
     const double b = kBcsrBlockSize;
-    const double nb = std::ceil(n / b);       // number of block rows
-    const double d_BR = b * d;                // avg edges per block row
-    const double blkIdx = n / (2.0 * b);      // mid-range block row index
-    const double p_B = m;                     // mid-range insertion position in bcol
-
-    const double cLocate = (2.0 + d_BR) * t;
-    const double cWrite = 1.0 + std::ceil((nb - blkIdx) * 4.0 / L) * t;
-    const double cMove = std::ceil(4.0 * (2.0 * m - p_B) / L) * t;
-    return cLocate + cWrite + cMove;
+    const double nb = std::ceil(n / b);
+    const double d_BR = b * d;
+    const double cLocate = 4.0 * t + 2.0 * std::ceil(d_BR * 8.0 / L) * T;
+    const double cWrite = 2.0 + 2.0 * std::ceil((nb / 2.0) * 4.0 / L) * 2.0 * T;
+    const double cMove = 2.0 * std::ceil(8.0 * m / L) * T;
+    const double freshProb = (n > 1.0)
+        ? std::max(0.0, 1.0 - 2.0 * m / (n * (n - 1.0)))
+        : 1.0;
+    const double cRealloc = 2.0 * freshProb * R;
+    return cLocate + freshProb * (cWrite + cMove) + cRealloc;
   }
   case LAYOUT_SET: {
-    // autograph_canonical_add_edge is significantly more expensive than the
-    // PCSR/BCSR incremental paths.  The dominant cost comes from:
-    //
-    //   2× roaring_bitmap_add FFI calls on the nodes bitmap (container lookup
-    //      + bit set — each is an external C→C++ call with internal binary
-    //      search over containers and O(1) set_bit for bitmap containers).
-    //
-    //   3× hash-table probes (canonical_pair_find_static, find_extra, plus
-    //      edge_hash_insert).  For large m the static hash table (~34·m bytes)
-    //      exceeds cache and every probe is a DRAM miss.
-    //
-    //   extra_edge_pairs append + live-flag write (~1 cache line).
-    //
-    //   refresh_graph_counts_from_canonical (O(1): cached cardinality +
-    //      select on nodes bitmap + two 8-byte header writes).
-    //
-    // Empirical fit on the synthetic graphs (n=5000) shows cost ≈ 1.3·m
-    // ns per insert, consistent with ~40 bytes of random DRAM access per
-    // edge in the static hash table (each probe touches ~17 bytes, 2–3
-    // probes per insert).  Hence:
-    //
-    //   c_hash_traffic = ceil(m · 40 / L) · T
-    //
-    // plus a small constant floor for the bitmap operations.
-    const double cHashTraffic = std::ceil(m * 40.0 / L) * T;
-    const double cBase = 5.0 * t;
-    // Array‑container regime (n ≤ 4096): each roaring_bitmap_add does a
-    // binary‑search + memmove of ~n/2 uint16 entries.  Add that cost here.
+    // Per-undirected-edge insert via autograph_canonical_add_edge:
+    //   1) Bitmap container navigations (random access = t, not T):
+    //      c_ebm  = 2·t·(1 + log2(num_edge_containers))    // contains + add on edges_bitmap
+    //      c_nbm  = 2·t·(1 + log2(num_node_containers))    // 2 adds on nodes_bitmap (u, v)
+    //   2) Refresh walk: c_refr = t · num_node_containers
+    //      (roaring_bitmap_get_cardinality iterates all node containers)
+    //   3) FFI overhead:   c_base = 5·t
+    //   4) Lazy static-edge hash build amortised over kAmortN inserts:
+    //      c_build = 2·t·m / kAmortN
+    //      (m hash_inserts, ~1 probe each at low load factor, single cache miss = t)
+    //   5) c_array: tiny-node dense-bitmap array cost (unchanged).
+    //   Container count for a roaring bitmap of N elements = ceil(N / 65536).
+    const int64_t nbE = (int64_t)std::ceil(m / 65536.0);
+    const int64_t nbV = (int64_t)std::ceil(n / 65536.0);
+    const double c_ebm  = 2.0 * t * (1.0 + std::log2((double)std::max<int64_t>(1, nbE)));
+    const double c_nbm  = 2.0 * t * (1.0 + std::log2((double)std::max<int64_t>(1, nbV)));
+    const double c_refr = t * (double)std::max<int64_t>(1, nbV);
+    const double c_base = 5.0 * t;
+    constexpr double kAmortN = 50.0;   // must match bench_folder.py --n-inserts default
+    const double c_build = 2.0 * t * (double)m / kAmortN;
     constexpr double kThreshold = 4096.0;
     double cArrayCost = 0.0;
     if (n <= kThreshold) {
       const double cShift = std::ceil((n / 2.0) * 2.0 / L) * T;
-      // two adds × (search + shift)
       cArrayCost = 2.0 * (std::ceil(std::log2(n) * 2.0 / L) * T + cShift);
     }
-    return cHashTraffic + cBase + cArrayCost;
+    return c_ebm + c_nbm + c_refr + c_base + c_build + cArrayCost;
   }
   default:
     return kInf;
@@ -419,25 +434,26 @@ double conversionCost(int from, int to, double n, double m) {
 
 double operationCost(const Region &r, int layout, double n, double m,
                      const HwCalib &hw) {
+  // Execution cost of a region under the chosen layout L.
+  //   operationCost(R, L) = H · totalOps · ( f_T · uTrav(L) + f_I · uIns(L) )
+  // Layout-forcing query regions (SetQuery → SET, CSRQuery → CSR) have
+  // f_T = f_I = 0, so their operationCost is 0: the only variable cost is
+  // the conversion to the forced layout, paid by the DP at the region
+  // boundary via conversionCost(prev, forced_layout).  Query execution
+  // time itself is layout-constant and drops out of the DP argmin.
   const double fT = r.freq[0];
   const double fI = r.freq[1];
-  const double fQ = r.freq[2];
   const double H = std::max(1.0, r.execCount);
-  const double safeM = std::max(2.0, m);
   const double totalOps = std::max(1.0, static_cast<double>(r.totalOps));
 
-  // New per-op unit costs from the cache-line-aware cost model.
   const double uTrav = traversalCost(layout, n, m, hw);
   const double uIns = insertCost(layout, n, m, hw);
-  // Query term: retained from old model (fixed behavior).
-  const double Cq = queryCostCoeff[layout];
 
-  return H * totalOps *
-         (fT * uTrav + fI * uIns + fQ * Cq * std::log2(safeM));
+  return H * totalOps * (fT * uTrav + fI * uIns);
 }
 
 double estimateAllCSRPathCost(const std::vector<Region> &regions, double estN,
-                              double estM, const HwCalib &hw) {
+                               double estM, const HwCalib &hw) {
   if (regions.empty())
     return 0.0;
   int current = LAYOUT_CSR;
@@ -484,7 +500,7 @@ double estimateChosenScheduleCost(const std::vector<Region> &regions,
   return total;
 }
 
-std::pair<double, double> estimateGraphSize(const GraphMeta &meta) {
+std::tuple<double, double> estimateGraphSize(const GraphMeta &meta) {
   double estN = 50000.0;
   double estM = 500000.0;
   if (auto *cn = dyn_cast_or_null<ConstantInt>(meta.n))
@@ -665,9 +681,14 @@ bool classifyCall(StringRef name, RegionType &outType, bool &usesGraphArg0) {
                     name == "graph_remove_node" || name == "graph_remove_edge";
     return true;
   }
-  if (isQueryCall(name)) {
-    outType = RegionType::Query;
+  if (isSetSpecificQuery(name)) {
+    outType = RegionType::SetQuery;
     usesGraphArg0 = false;
+    return true;
+  }
+  if (isCSRSpecificQuery(name)) {
+    outType = RegionType::CSRQuery;
+    usesGraphArg0 = true;
     return true;
   }
   return false;
@@ -895,12 +916,12 @@ std::vector<Region> buildRegions(const std::vector<OpEvent> &events) {
   cur.dominant = events[0].type;
   cur.anchor = events[0].call;
   cur.graphPtr = events[0].graphPtr;
-  std::array<uint64_t, 3> counts = {0, 0, 0};
+  std::array<uint64_t, 4> counts = {0, 0, 0, 0};
 
   auto flushRegion = [&]() {
     if (cur.totalOps == 0)
       return;
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
       cur.freq[i] = static_cast<double>(counts[i]) / static_cast<double>(cur.totalOps);
     regions.push_back(cur);
   };
@@ -912,7 +933,7 @@ std::vector<Region> buildRegions(const std::vector<OpEvent> &events) {
       cur.dominant = ev.type;
       cur.anchor = ev.call;
       cur.graphPtr = ev.graphPtr;
-      counts = {0, 0, 0};
+      counts = {0, 0, 0, 0};
     }
     const int idx = opIndex(ev.type);
     counts[idx]++;
@@ -923,11 +944,12 @@ std::vector<Region> buildRegions(const std::vector<OpEvent> &events) {
   return regions;
 }
 
-bool isCSROnlyRegion(RegionType t) {
-  // No region type is CSR-only anymore: traversal runtimes are layout-aware
-  // and the DP may choose PCSR/BCSR/SET for any Traverse or Insert region.
-  (void)t;
-  return false;
+// True for region types whose required layout is forced by the operations
+// they contain: SetQuery forces LAYOUT_SET (bitmap ops), CSRQuery forces
+// LAYOUT_CSR (row_ptr/col_idx readers). Surrounding regions may still pick
+// any feasible layout — buildRegions splits these into their own regions.
+bool isForcedLayoutRegion(RegionType t) {
+  return t == RegionType::SetQuery || t == RegionType::CSRQuery;
 }
 
 std::vector<Region> mergeSmallRegions(std::vector<Region> &&raw) {
@@ -945,11 +967,14 @@ std::vector<Region> mergeSmallRegions(std::vector<Region> &&raw) {
     Region &prev = merged.back();
     const Region &cur = raw[i];
 
-    bool prevCSROnly = isCSROnlyRegion(prev.dominant);
-    bool curCSROnly = isCSROnlyRegion(cur.dominant);
-    if (prevCSROnly != curCSROnly) {
-      merged.push_back(cur);
-      continue;
+    // Forced-layout regions must not merge with non-forced or with each
+    // other (conflicting forced layouts like SetQuery vs CSRQuery are
+    // impossible to satisfy).  Only same-type forced regions may merge.
+    if (isForcedLayoutRegion(prev.dominant) || isForcedLayoutRegion(cur.dominant)) {
+      if (prev.dominant != cur.dominant) {
+        merged.push_back(cur);
+        continue;
+      }
     }
 
     bool canMerge = false;
@@ -970,7 +995,7 @@ std::vector<Region> mergeSmallRegions(std::vector<Region> &&raw) {
     if (canMerge) {
       uint64_t newTotal = prev.totalOps + cur.totalOps;
       if (newTotal > 0) {
-        for (int k = 0; k < 3; ++k)
+        for (int k = 0; k < 4; ++k)
           prev.freq[k] = (prev.freq[k] * prev.totalOps + cur.freq[k] * cur.totalOps) /
                           static_cast<double>(newTotal);
       }
@@ -1033,9 +1058,9 @@ int injectConversions(Module &M, const std::vector<Region> &regions, const Layou
       B.CreateCall(profileExitFn, {ConstantInt::get(i32Ty, static_cast<int>(i - 1))});
     }
 
-    bool mustGuard = isCSROnlyRegion(R.dominant) && target == LAYOUT_CSR;
+    bool mustGuard = isForcedLayoutRegion(R.dominant);
     bool shouldSwitch = true;
-    if (!mustGuard && target == current)
+    if (target == current)
       shouldSwitch = false;
     if (!mustGuard && forcedLayout < 0 && R.totalOps < kMinRegionOpsToSwitch)
       shouldSwitch = false;
@@ -1117,23 +1142,17 @@ Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGrap
 
 bool moduleRequiresCSRLayout(Module &M,
                              const std::map<Value *, GraphMeta> &metaByGraphPtr) {
-  auto csrRuntimeCall = [](StringRef fn) {
-    return fn == "graph_get_edge_weight" || fn == "graph_get_edge_weight_by_id" ||
-           fn == "graph_get_edge_src_by_id" || fn == "graph_get_edge_dst_by_id";
-  };
-
+  // CSR-specific runtime calls are now handled by CSRQuery regions, not
+  // here.  Only direct GEP access to row_ptr / col_idx / weights in the
+  // graph struct (e.g. neighbor loops) requires CSR pinning.
+  //
+  // row_ptr → field 2 (or byte offset +16), col_idx → field 3 (+24),
+  // weights → field 4 (+32).
   for (Function &F : M) {
     if (F.isDeclaration())
       continue;
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
-        if (auto *CB = dyn_cast<CallBase>(&I)) {
-          if (Function *Callee = resolveCallee(CB)) {
-            if (csrRuntimeCall(Callee->getName()))
-              return true;
-          }
-        }
-
         auto *GEP = dyn_cast<GetElementPtrInst>(&I);
         if (!GEP)
           continue;

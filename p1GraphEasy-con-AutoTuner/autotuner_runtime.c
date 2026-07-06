@@ -1368,7 +1368,17 @@ int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to) {
       return 1; /* already exists */
   }
 
-  /* Insert the new (local_row, col) pair at position end. */
+  /* Find insertion point to maintain ascending local_row order in bcol.
+   * All pairs for row r are before pairs for row r+1, etc. */
+  int32_t insert_pos = end;
+  for (int32_t k = start; k < end; k += 2) {
+    if (bcol[k] > local_row) {
+      insert_pos = k;
+      break;
+    }
+  }
+
+  /* Insert the new (local_row, col) pair at insert_pos. */
   int32_t total_ints = brow[nb]; /* = 2 * m */
   int32_t *new_bcol = (int32_t *)realloc(bcol,
       (size_t)(total_ints + 2) * sizeof(int32_t));
@@ -1376,12 +1386,12 @@ int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to) {
     return 0;
 
   /* Shift everything after the insertion point. */
-  if (total_ints > end) {
-    memmove(&new_bcol[end + 2], &new_bcol[end],
-            (size_t)(total_ints - end) * sizeof(int32_t));
+  if (total_ints > insert_pos) {
+    memmove(&new_bcol[insert_pos + 2], &new_bcol[insert_pos],
+            (size_t)(total_ints - insert_pos) * sizeof(int32_t));
   }
-  new_bcol[end] = local_row;
-  new_bcol[end + 1] = to;
+  new_bcol[insert_pos] = local_row;
+  new_bcol[insert_pos + 1] = to;
 
   /* Update brow prefix sums for all subsequent block rows. */
   for (int32_t i = blk + 1; i <= nb; i++)
@@ -1494,10 +1504,15 @@ void autograph_get_neighbors(void *graph_ptr, int64_t u,
     int32_t local_row = (int32_t)(u % b);
     int32_t start = meta->bcsr_brow_ptr[blk];
     int32_t end = meta->bcsr_brow_ptr[blk + 1];
-    /* bcol stores (local_row, col) pairs as consecutive i32 values */
+    /* bcol stores (local_row, col) pairs as consecutive i32 values.
+     * Pairs are kept in ascending local_row order, so once we see
+     * local_row > our target row, no more pairs for this row remain. */
     for (int32_t k = start; k < end; k += 2) {
-      if (meta->bcsr_bcol_idx[k] == local_row)
+      int32_t r = meta->bcsr_bcol_idx[k];
+      if (r == local_row)
         out_buf[(*out_count)++] = meta->bcsr_bcol_idx[k + 1];
+      else if (r > local_row)
+        break;
     }
     break;
   }

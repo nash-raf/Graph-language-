@@ -1,0 +1,19 @@
+// Fair comparison: sparse base graph, non-duplicate edge inserts within 0..19.
+// Base graph: 14 edges (0→1..9, 10→11, 12→13, 14→15, 16→17, 18→19).
+// Workload: add src→dst where src = batch%20, dst = (batch+10)%20.
+// Most iterations create novel edges (connecting 0..9 to 10..19 and vice versa).
+
+graph team_graph {
+  edges: file "set_wins_sparse.txt";
+};
+
+int batch = 0;
+while (batch < 128) {
+  int src = batch % 20;
+  int dst = (batch + 10) % 20;
+  add src->dst, dst->src to team_graph;
+  batch = batch + 1;
+}
+
+print "Total edges: ";
+print numEdges(team_graph);

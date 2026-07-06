@@ -1,0 +1,8 @@
+graph copresence {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/copresence-InVS15.txt";
+};
+
+for each vertex v in copresence {
+    for each neighbor u of v in copresence {
+    };
+};

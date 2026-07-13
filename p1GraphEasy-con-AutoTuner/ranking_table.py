@@ -13,10 +13,11 @@ def read_csv(path):
         reader = csv.DictReader(f)
         for row in reader:
             g = row["graph"]
-            op = row["operation"]
+            op = row["op"]
             lay = row["layout"]
-            pred = float(row["predicted_ns"])
-            meas_s = row["measured_kernel_ns"]
+            pred_s = row["predicted_ns"]
+            pred = float(pred_s) if pred_s else None
+            meas_s = row["measured_ns"]
             meas = int(meas_s) if meas_s else None
 
             key = (g, op)
@@ -47,7 +48,7 @@ def ranking_order(pairs):
     """Return tuple of layout names sorted by value ascending.
     Skip None values (timed-out/crashed layouts)."""
     valid = [(l, v) for l, v in pairs if v is not None]
-    return tuple(p[0] for p in sorted(valid, key=lambda x: x[1]))
+    return tuple(p[0] for p in sorted(valid, key=lambda x: x[1] if x[1] is not None else float('inf')))
 
 
 def make_table(rows, title, output_path):
@@ -75,7 +76,23 @@ def make_table(rows, title, output_path):
 
         has_any_meas = bool(valid_meas)
         has_all_meas = len(valid_meas) == len(LAYOUT_ORDER)
-        match_text = "MATCH" if has_any_meas and pred_order == meas_order else "MISMATCH" if has_any_meas else "N/A"
+        # Tie-tolerance: when the top-2 predicted layouts are within 5%, the
+        # prediction considers them tied and a different measured ordering is
+        # not a real mismatch — report PRED_TIE instead.  (A full MEAS_TIE
+        # needs IQRs, which ranking_table.py doesn't have; bench_folder.py
+        # emits those.)
+        PRED_TIE_EPS = 0.05
+        pred_vals = sorted(v for _, v in pred_filtered if v is not None)
+        pred_tie = (len(pred_vals) >= 2 and
+                    (pred_vals[1] - pred_vals[0]) <= PRED_TIE_EPS * max(pred_vals[0], 1.0))
+        if not has_any_meas:
+            match_text = "N/A"
+        elif pred_order == meas_order:
+            match_text = "MATCH"
+        elif pred_tie:
+            match_text = "PRED_TIE"
+        else:
+            match_text = "MISMATCH"
 
         row_data.append([f"{g} {op}", nv, md, pred_rank, meas_rank, match_text])
 
@@ -83,6 +100,8 @@ def make_table(rows, title, output_path):
             bg = ["w"] * 5 + ["#c8f7c5"]
         elif match_text == "MISMATCH":
             bg = ["w"] * 5 + ["#f7c5c5"]
+        elif match_text == "PRED_TIE":
+            bg = ["w"] * 5 + ["#f7e8c5"]
         else:
             bg = ["w"] * 5 + ["#e0e0e0"]
         row_bg.append(bg)
@@ -139,9 +158,9 @@ def process_csv(csv_path, title):
     with open(csv_path) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            key = (row["graph"], row["operation"])
+            key = (row["graph"], row["op"])
             if key not in nv_map:
-                nv_map[key] = (int(row["n_vertices"]), int(row["m_undirected"]))
+                nv_map[key] = (int(row["n"]), int(row["m"]))
 
     for (g, op), layouts in sorted(data.items()):
         nv, md = nv_map[(g, op)]

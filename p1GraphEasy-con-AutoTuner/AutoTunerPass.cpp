@@ -102,19 +102,89 @@ namespace
     double Tm = 2.5;                    // per-line cost of a cache-resident overlapping memmove
                                         // (read + write per line; distinct from read-only T)
     double P = 4.0;                     // DRAM-bound memmove penalty vs cache-resident (per line)
+    // Measured ramp band [ramp_lo, ramp_hi] (bytes) within which the memmove
+    // penalty transitions from cache-resident (1.0) to DRAM-saturated (P).
+    // Measured by hw_calib_bench's working-set sweep.  Negative = absent from
+    // JSON, in which case memPenalty falls back to the LLC/2 .. 2*LLC band.
+    double ramp_lo = -1.0;
+    double ramp_hi = -1.0;
     double h = 40.0;                    // ns per edge_hash_insert during a bulk hash build
+                                        // (legacy scalar; used as h_dram fallback when h_cache
+                                        //  and h_dram are absent from the JSON)
+    double h_cache = -1.0;              // ns per edge_hash_insert when the hash table fits in LLC
+                                        // (measured by hw_calib_bench at ~LLC/4 table bytes)
+    double h_dram = -1.0;               // ns per edge_hash_insert when the table is DRAM-resident
+                                        // (measured by hw_calib_bench at ~4*LLC table bytes)
     double c = 15.0;                    // ns per sequential-id bitmap contains check
   };
 
+  // Log-linear ramp multiplier between lo (penalty 1.0) and hi (penalty P).
+  // Below lo: 1.0.  At/above hi: P.  Guarantees hi > lo (caller ensures).
+  double rampPenalty(double ws, double lo, double hi, double P)
+  {
+    if (ws <= lo)
+      return 1.0;
+    if (ws >= hi)
+      return P;
+    const double denom = std::log(hi / lo);
+    if (denom <= 0.0)
+      return P; // degenerate band; treat as saturated
+    return 1.0 + (P - 1.0) * std::log(ws / lo) / denom;
+  }
+
+  // Resolve the ramp band from calibration, falling back to the original
+  // LLC/2 .. 2*LLC guess when the measured keys are absent.
+  static void rampBand(const HwCalib &hw, double &lo, double &hi)
+  {
+    lo = (hw.ramp_lo > 0.0) ? hw.ramp_lo : hw.LLC * 0.5;
+    hi = (hw.ramp_hi > 0.0) ? hw.ramp_hi : hw.LLC * 2.0;
+    if (hi <= lo)
+      hi = lo + hw.L; // guard against a degenerate zero-width band
+  }
+
   // Streaming-cost multiplier for memmove/shift terms, keyed on the size of the
-  // backing array being shifted.  A memmove whose backing array fits in the LLC
-  // streams at the calibrated T; once the array outgrows the LLC every shifted
-  // line misses to DRAM (read + dirty writeback), costing hw.P x T per line.
-  // hw.LLC and hw.P are measured by hw_calib_bench.  Mirrors mem_penalty() in
-  // cost_model.py.
+  // backing array being shifted.  Below ramp_lo the working set is fully cache
+  // resident (multiplier 1.0); above ramp_hi every shifted line misses to DRAM
+  // (multiplier hw.P).  Between ramp_lo and ramp_hi the penalty ramps
+  // log-linearly, modelling the gradual cache-pressure transition.  The band
+  // edges are MEASURED by hw_calib_bench's working-set sweep (keys ramp_lo /
+  // ramp_hi); absent those, it falls back to LLC/2 .. 2*LLC.  Mirrors
+  // mem_penalty() in cost_model.py.
   double memPenalty(double workingSetBytes, const HwCalib &hw)
   {
-    return (workingSetBytes > hw.LLC) ? hw.P : 1.0;
+    double lo, hi;
+    rampBand(hw, lo, hi);
+    return rampPenalty(workingSetBytes, lo, hi, hw.P);
+  }
+
+  // Size-aware per-insert cost for an EdgeHashMap bulk build.  The table is
+  // next_pow2(2*pairs+1) entries of 24 bytes.  When it fits in the LLC the
+  // per-insert cost is the cache-resident measurement (hw.h_cache); when it
+  // spills to DRAM it is hw.h_dram.  In between, ramp log-linearly on the
+  // table size vs the SAME measured [ramp_lo, ramp_hi] band the memmove term
+  // uses (cache-residency is governed by the same LLC, whichever structure
+  // occupies it).  Falls back to the legacy scalar hw.h (which was measured
+  // DRAM-resident) when the two-size calibration keys are absent.
+  double hashInsertCost(double pairs, const HwCalib &hw)
+  {
+    double tableEntries = 1.0;
+    while (tableEntries < 2.0 * pairs + 1.0)
+      tableEntries *= 2.0;
+    const double tableBytes = tableEntries * 24.0;
+    const double hDram = (hw.h_dram > 0.0) ? hw.h_dram : hw.h;
+    if (hw.h_cache <= 0.0)
+      return hDram; // legacy single-point calibration
+    double lo, hi;
+    rampBand(hw, lo, hi);
+    if (tableBytes <= lo)
+      return hw.h_cache;
+    if (tableBytes >= hi)
+      return hDram;
+    const double denom = std::log(hi / lo);
+    if (denom <= 0.0)
+      return hDram;
+    const double ratio = std::log(tableBytes / lo) / denom;
+    return hw.h_cache + (hDram - hw.h_cache) * ratio;
   }
 
   HwCalib loadHwCalib()
@@ -158,6 +228,10 @@ namespace
     double vP = extract("\"P\"");
     double vh = extract("\"h\"");
     double vc = extract("\"c\"");
+    double vhCache = extract("\"h_cache\"");
+    double vhDram = extract("\"h_dram\"");
+    double vRampLo = extract("\"ramp_lo\"");
+    double vRampHi = extract("\"ramp_hi\"");
     if (vL > 0)
       hw.L = vL;
     if (vt > 0)
@@ -176,6 +250,19 @@ namespace
       hw.h = vh;
     if (vc > 0)
       hw.c = vc;
+    if (vhCache > 0)
+      hw.h_cache = vhCache;
+    if (vhDram > 0)
+      hw.h_dram = vhDram;
+    if (vRampLo > 0)
+      hw.ramp_lo = vRampLo;
+    if (vRampHi > 0)
+      hw.ramp_hi = vRampHi;
+    // If only the legacy scalar h is present, treat it as the DRAM value so
+    // the size-aware ramp degrades to the old behaviour (table always charged
+    // at the DRAM rate, which is what the legacy h measured).
+    if (hw.h_dram <= 0.0 && hw.h > 0.0)
+      hw.h_dram = hw.h;
     return hw;
   }
 
@@ -380,13 +467,22 @@ namespace
       // One undirected edge = 2 directed inserts (from→to, to→from).
       // Per directed: realloc + memmove + row_ptr prefix-sum update.
       // C_locate  = 4t                    (2 dirs × 2t: row_ptr[from+1] random read)
-      // C_prefix  = 2·⌈n/2·8/L⌉·2T        (2 dirs × n/2 int64 R-M-W entries)
-      // C_move    = 2·⌈4m/L⌉·T            (2 dirs × ~4m bytes memmove, independent R+W)
+      // C_prefix  = 2·⌈n/2·8/L⌉·2T·pen    (2 dirs × n/2 int64 R-M-W entries;
+      //                                 dependent load→store, cannot overlap, and
+      //                                 DRAM-bound once the prefix array outgrows LLC)
+      // C_move    = 2·⌈4m/L⌉·Tm·pen      (2 dirs × ~4m bytes memmove, read+write
+      //                                 per line via Tm, DRAM-bound past LLC —
+      //                                 same physics as BCSR's cMove)
       // C_realloc = 2·R                   (2 dirs × mremap O(1))
       // C_write   = 2                     (2 dirs × write 1 int32)
       const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
-      const double cWrite = 1.0 * t + std::ceil((n - u) * 8.0 / L) * T;
-      const double cMove = std::ceil(4.0 * (m - p) / L) * T;
+      const double prefixBytes = (n - u) * 8.0;
+      const double cWrite =
+          1.0 * t + std::ceil(prefixBytes / L) * 2.0 * T *
+                        memPenalty(prefixBytes, hw);
+      const double moveBytes = 4.0 * (m - p);
+      const double cMove =
+          std::ceil(moveBytes / L) * hw.Tm * memPenalty(moveBytes, hw);
       const double cRealloc = R + std::ceil(4.0 * m / L) * T;
       return cLocate + cWrite + cMove + cRealloc;
     }
@@ -448,29 +544,30 @@ namespace
 
   // One-time lazy-initialization cost paid by the FIRST insert executed while
   // the graph is in `layout`.  For LAYOUT_SET (autograph_canonical_add_edge):
-  //   1) get_static_edge_hash() builds a hash over all m static pairs:
-  //      hw.h ns per edge_hash_insert (measured by hw_calib_bench against a
-  //      replica of the open-addressing EdgeHashMap).
-  //   2) The first refresh_graph_counts_from_canonical() after live_edge_count
-  //      was invalidated runs canonical_edge_count(): one
-  //      roaring_bitmap_contains per static pair id.  hw.c ns per check
-  //      (measured against a replica of the sequential-id container probe).
-  //   3) canonical_node_span() triggers one O(n) select-cache rebuild of the
-  //      nodes bitmap: write 4n bytes + read the bitmap payload (~n/8 bytes).
-  //   4) One extra_edge_pairs realloc event: R.
-  // Charged once per region (NOT scaled by H·totalOps): the hash, count cache,
-  // and select cache all survive subsequent inserts while the layout is SET.
+  //   get_static_edge_hash() builds a hash over all m static pairs.  The
+  //   per-insert cost is hw.h (size-aware: hw.h_cache / hw.h_dram via
+  //   hashInsertCost()), measured by hw_calib_bench against a replica of the
+  //   open-addressing EdgeHashMap.
+  // Plus one extra_edge_pairs realloc event: R.
+  //
+  // IMPORTANT: the other O(n+m) work the first refresh_graph_counts_from_canonical
+  // performs (the canonical_edge_count roaring_bitmap_contains scan = hw.c*m,
+  // and the canonical_node_span select-cache rebuild) is NOT paid by the first
+  // timed insert.  It runs inside autograph_ensure_layout / _ensure_layout_set
+  // BEFORE profile_region_enter, i.e. as part of the CSR->SET conversion, so
+  // it is billed in conversionCost(CSR, SET) below, not here.  The conversion
+  // also builds and destroys its own local edge hash (rebuild_sets_from_csr_meta),
+  // so the only O(m) work the first timed insert actually pays is this lazy
+  // static-hash build.
+  //
+  // Charged once per region (NOT scaled by H·totalOps): the built hash survives
+  // subsequent inserts while the layout is SET.
   double insertSetupCost(int layout, double n, double m, const HwCalib &hw)
   {
     if (layout != LAYOUT_SET)
       return 0.0;
-    const double T = hw.T;
-    const double L = hw.L;
-    const double cHashBuild = hw.h * m;
-    const double cFirstCount = hw.c * m;
-    const double cSelCache =
-        (std::ceil(4.0 * n / L) + std::ceil(n / 8.0 / L)) * T;
-    return cHashBuild + cFirstCount + cSelCache + hw.R;
+    const double cHashBuild = hashInsertCost(m, hw) * m;
+    return cHashBuild + hw.R;
   }
 
   double alphaFromCSR(int to)
@@ -515,16 +612,46 @@ namespace
     }
   }
 
-  double conversionCost(int from, int to, double n, double m)
+  // Physics-based conversion cost for the CSR -> SET path.
+  // autograph_ensure_layout_set (autotuner_runtime.c) does, before
+  // profile_region_enter fires:
+  //   1) rebuild_sets_from_csr_meta: builds and destroys its own local
+  //      EdgeHashMap over the m static pairs (hashInsertCost per pair),
+  //      then scans the CSR arrays to repopulate the bitmaps.
+  //   2) refresh_graph_counts_from_canonical: canonical_node_span triggers
+  //      one O(n) select-cache rebuild of the nodes bitmap (write 4n bytes +
+  //      read ~n/8 bytes), and canonical_edge_count_cached runs the full
+  //      O(m) roaring_bitmap_contains scan (hw.c per check) because
+  //      live_edge_count was just invalidated.
+  // These replace the crude alpha=0.1*(n+m) charge that the old model used
+  // for CSR->SET.  Other transitions keep the alpha-scaled approximation.
+  double conversionCostCSRToSET(double n, double m, const HwCalib &hw)
+  {
+    const double cHashBuild = hashInsertCost(m, hw) * m;
+    const double cEdgeCount = hw.c * m;
+    const double cSelCache =
+        (std::ceil(4.0 * n / hw.L) + std::ceil(n / 8.0 / hw.L)) * hw.T;
+    // Plus the CSR array scan in rebuild_sets_from_csr_meta: ~4m bytes read.
+    const double cCsrScan = std::ceil(4.0 * m / hw.L) * hw.T;
+    return cHashBuild + cEdgeCount + cSelCache + cCsrScan;
+  }
+
+  double conversionCost(int from, int to, double n, double m,
+                        const HwCalib &hw)
   {
     if (from == to)
       return 0.0;
+    if (from == LAYOUT_CSR && to == LAYOUT_SET)
+      return conversionCostCSRToSET(n, m, hw);
     const double scale = n + m;
     if (from == LAYOUT_CSR)
       return alphaFromCSR(to) * scale;
     if (to == LAYOUT_CSR)
       return alphaToCSR(from) * scale;
-    // Route non-CSR transitions through CSR hub.
+    // Route non-CSR transitions through CSR hub.  A non-CSR -> SET transition
+    // routes X -> CSR -> SET, so it picks up the physics-based CSR->SET leg.
+    if (to == LAYOUT_SET)
+      return alphaToCSR(from) * scale + conversionCostCSRToSET(n, m, hw);
     return (alphaToCSR(from) + alphaFromCSR(to)) * scale;
   }
 
@@ -565,7 +692,7 @@ namespace
     {
       if (!layoutFeasible(R.dominant, LAYOUT_CSR))
         return kInf;
-      total += conversionCost(current, LAYOUT_CSR, estN, estM);
+      total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       total += operationCost(R, LAYOUT_CSR, estN, estM, hw);
       current = LAYOUT_CSR;
     }
@@ -600,7 +727,7 @@ namespace
         return kInf;
       if (!layoutFeasible(regions[i].dominant, layout))
         return kInf;
-      total += conversionCost(current, layout, estN, estM);
+      total += conversionCost(current, layout, estN, estM, hw);
       total += operationCost(regions[i], layout, estN, estM, hw);
       current = layout;
     }
@@ -643,7 +770,7 @@ namespace
     {
       if (!layoutFeasible(regions[0].dominant, l))
         continue;
-      dp[0][l] = conversionCost(LAYOUT_CSR, l, estN, estM) +
+      dp[0][l] = conversionCost(LAYOUT_CSR, l, estN, estM, hw) +
                  operationCost(regions[0], l, estN, estM, hw);
     }
 
@@ -659,7 +786,7 @@ namespace
           if (dp[i - 1][prev] >= kInf / 2.0)
             continue;
           const double cand =
-              dp[i - 1][prev] + conversionCost(prev, cur, estN, estM) + runCost;
+              dp[i - 1][prev] + conversionCost(prev, cur, estN, estM, hw) + runCost;
           if (cand < dp[i][cur])
           {
             dp[i][cur] = cand;
@@ -710,7 +837,7 @@ namespace
         {
           if (S.suffixCost[i + 1][nxt] >= kInf / 2.0)
             continue;
-          tail = std::min(tail, conversionCost(l, nxt, estN, estM) + S.suffixCost[i + 1][nxt]);
+          tail = std::min(tail, conversionCost(l, nxt, estN, estM, hw) + S.suffixCost[i + 1][nxt]);
         }
         S.suffixCost[i][l] = (tail >= kInf / 2.0) ? here : here + tail;
       }
@@ -1274,7 +1401,7 @@ namespace
         const double stay = (current >= 0 && current < LAYOUT_COUNT)
                                 ? S.suffixCost[i][current]
                                 : kInf;
-        double conv = conversionCost(current, target, estN, estM);
+        double conv = conversionCost(current, target, estN, estM, hw);
         if (current != LAYOUT_CSR || target != LAYOUT_CSR)
         {
           const double uncertainty =

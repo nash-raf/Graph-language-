@@ -418,14 +418,41 @@ def process_folder(edge_files, args, L, t, T, wdir):
             bp = min(valid, key=lambda x: x[1])[0] if valid else "-"
             bm = min(valid, key=lambda x: x[2])[0] if valid else "-"
 
-            # NOISE if mis-match but IQRs overlap
-            if bp != "-" and bm != "-" and bp != bm:
-                p_iqr = meas_iqr.get(bp, 0)
-                m_iqr = meas_iqr.get(bm, 0)
-                if p_iqr is None: p_iqr = 0
-                if m_iqr is None: m_iqr = 0
-                overlap = abs(meas_median[bp] - meas_median[bm]) < max(p_iqr, m_iqr)
-                verdict = "NOISE" if overlap else "MISMATCH"
+            # ── Tie-tolerance verdict ─────────────────────────────────
+            # A group is a PRED_TIE when the top-2 predicted layouts are within
+            # 5% of each other, and a MEAS_TIE when the top-2 measured medians'
+            # IQRs overlap.  When the prediction says tie and the measurement
+            # says tie, the honest verdict is TIE rather than MATCH/MISMATCH.
+            PRED_TIE_EPS = 0.05
+            def _pred_tie(vs):
+                if len(vs) < 2:
+                    return False
+                ps = sorted(p for _, p, _ in vs)
+                return (ps[1] - ps[0]) <= PRED_TIE_EPS * max(ps[0], 1.0)
+            def _meas_tie(vs):
+                if len(vs) < 2:
+                    return False
+                ms = sorted((m_, l_) for l_, _, m_ in vs)
+                a_lay, a_med = ms[0][1], ms[0][0]
+                b_lay, b_med = ms[1][1], ms[1][0]
+                a_iqr = meas_iqr.get(a_lay) or 0
+                b_iqr = meas_iqr.get(b_lay) or 0
+                return abs(a_med - b_med) < max(a_iqr, b_iqr)
+
+            pred_tie = _pred_tie(valid)
+            meas_tie = _meas_tie(valid)
+
+            if bp != "-" and bm != "-":
+                if pred_tie and meas_tie:
+                    verdict = "TIE"
+                elif bp == bm:
+                    verdict = "MATCH"
+                elif meas_tie:
+                    # Measurement can't distinguish the two; prediction picked
+                    # one side but the run can't confirm or refute it.
+                    verdict = "NOISE"
+                else:
+                    verdict = "MISMATCH"
             else:
                 verdict = "MATCH"
 

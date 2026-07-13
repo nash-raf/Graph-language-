@@ -11,10 +11,28 @@
  *         Distinct from T, which is a read-only prefetched stream.
  *   P   : DRAM-bound memmove penalty — per-line cost ratio of an overlapping
  *         memmove whose working set is 4x the LLC vs one that fits in it
+ *   ramp_lo : working-set size (bytes) at which the memmove penalty FIRST
+ *         leaves the cache-resident regime (per-line cost within 5% of Tm).
+ *         Measured by sweeping working sets across the LLC.  The cost model
+ *         ramps log-linearly between ramp_lo and ramp_hi; a machine with a
+ *         sharp cache cliff yields a tight band, a gradual one yields a wide
+ *         band.  Replaces the old hardcoded LLC/2 lower bound.
+ *   ramp_hi : working-set size (bytes) at which the memmove penalty
+ *         saturates at the DRAM rate (per-line cost within 5% of P*Tm).
+ *         Replaces the old hardcoded 2*LLC upper bound.
  *   h   : ns per edge_hash_insert during a bulk hash build (replica of the
- *         open-addressing linear-probe EdgeHashMap in autotuner_runtime.c,
- *         measured at 1M pairs so the table is DRAM-resident, the regime
- *         where the SET setup cost actually matters)
+ *         open-addressing linear-probe EdgeHashMap in autotuner_runtime.c).
+ *         Reported as the legacy scalar for backward compatibility, measured
+ *         at 1M pairs so the table is DRAM-resident — the regime where the
+ *         SET setup cost actually matters.
+ *   h_cache : ns per edge_hash_insert when the hash table fits in the LLC
+ *         (measured at ~LLC/4 table bytes).  Together with h_dram this lets
+ *         the cost model pick h by the actual table size vs LLC, the same
+ *         pattern as Tm/P for memmove.
+ *   h_dram  : ns per edge_hash_insert when the table is DRAM-resident
+ *         (measured at ~4*LLC table bytes).  Equals the legacy h on
+ *         DRAM-heavy machines; the model ramps log-linearly between
+ *         h_cache and h_dram across the LLC/2 .. 2*LLC band.
  *   c   : ns per sequential-id bitmap contains check (replica of the
  *         find_container + bitset-test path in roaring_bitmap.cpp; static
  *         edge ids are dense, so containers are full bitsets)
@@ -164,6 +182,65 @@ static void measure_Tm_P(long llc, long line, double *out_Tm, double *out_P) {
     *out_P = (P < 1.0) ? 1.0 : P;
 }
 
+/* ── Measured ramp band [ramp_lo, ramp_hi] ────────────────────────────── */
+
+/* Sweep memmove per-line cost across working-set sizes spanning the LLC and
+ * derive the band where the penalty transitions from cache-resident (1.0) to
+ * DRAM-saturated (P).  The cost model ramps log-linearly between ramp_lo and
+ * ramp_hi; these are MEASURED band edges (in bytes), not the hardcoded
+ * LLC/2 .. 2*LLC guess the model used before.
+ *
+ *   ramp_lo = largest working set whose per-line cost is still within 5% of
+ *             the cache-resident Tm (penalty <= 1.05) — the last point that
+ *             is effectively still in-cache.
+ *   ramp_hi = smallest working set whose per-line cost is within 5% of the
+ *             DRAM-saturated rate (penalty >= 0.95*P) — the first point that
+ *             is effectively fully DRAM-bound.
+ *
+ * Both are read directly off the measured curve, so a machine with a sharp
+ * cliff yields a tight band (e.g. 0.75*LLC .. 1.25*LLC) and a machine with a
+ * gradual transition yields a wide one (e.g. LLC/2 .. 2*LLC).  No graph-data
+ * is consulted. */
+static void measure_ramp_bounds(long llc, long line, double Tm, double P,
+                                long *out_lo, long *out_hi) {
+    /* Fallbacks if the machine shows no real transition (e.g. huge LLC, a
+     * noisy loaded machine where P is depressed below ~1.5x, or a
+     * measurement failure): keep the original conservative band. */
+    if (Tm <= 0.0 || P <= 1.5) {
+        *out_lo = llc / 2;
+        *out_hi = llc * 2;
+        return;
+    }
+    const double mults[] = {0.125, 0.25, 0.375, 0.5, 0.75, 1.0,
+                            1.125, 1.25, 1.375, 1.5, 1.625, 1.75,
+                            1.875, 2.0, 2.5, 3.0, 4.0};
+    const int n = (int)(sizeof(mults) / sizeof(mults[0]));
+    long lo = llc / 2;   /* last cache-resident ws seen */
+    long hi = llc * 2;   /* first saturated ws seen */
+    int found_hi = 0;
+    for (int i = 0; i < n; i++) {
+        long ws = (long)(mults[i] * (double)llc);
+        if (ws < line * 4) ws = line * 4;
+        /* more passes for small (fast) working sets, fewer for big ones */
+        int passes = (ws < llc) ? 32 : (ws < 2 * llc) ? 8 : 4;
+        double per = measure_memmove_per_line(ws, line, passes);
+        if (per <= 0.0) continue;
+        double pen = per / Tm;
+        if (pen <= 1.05)
+            lo = ws; /* still essentially cache-resident */
+        if (pen >= 0.95 * P && !found_hi) {
+            hi = ws; /* effectively saturated */
+            found_hi = 1;
+        }
+    }
+    if (!found_hi)
+        hi = (long)(4.0 * (double)llc); /* never saturated in range; use last */
+    if (hi <= lo)
+        hi = lo + line; /* sharp cliff: keep at least one cache line of ramp */
+    *out_lo = lo;
+    *out_hi = hi;
+}
+
 /* ── Hash-insert cost h ──────────────────────────────────────────────── */
 
 /* Replica of EdgeHashMap in autotuner_runtime.c: open addressing, linear
@@ -280,11 +357,35 @@ int main(void) {
     long llc = detect_llc_bytes();
     double Tm = 0.0, P = 0.0;
     measure_Tm_P(llc, L, &Tm, &P);
-    double h = measure_h(1000 * 1000);
+
+    /* Measured ramp band: sweep memmove cost across working-set sizes
+     * spanning the LLC and read off the cache-resident -> DRAM-saturated
+     * transition edges.  The cost model uses these (ramp_lo, ramp_hi) instead
+     * of the old hardcoded LLC/2 .. 2*LLC guess.  Derived from the same
+     * memmove measurements as Tm and P — no graph data consulted. */
+    long ramp_lo = 0, ramp_hi = 0;
+    measure_ramp_bounds(llc, L, Tm, P, &ramp_lo, &ramp_hi);
+
+    /* h is size-aware: measure at two table sizes — one cache-resident
+     * (~LLC/4 table bytes => ~LLC/(4*24) pairs) and one DRAM-resident
+     * (~4*LLC table bytes => ~4*LLC/24 pairs).  The cost model ramps
+     * log-linearly between h_cache and h_dram across the [ramp_lo, ramp_hi]
+     * band, mirroring the Tm/P ramp for memmove.  We also keep the legacy
+     * scalar h (= the DRAM measurement) so older JSON consumers keep working. */
+    long h_cache_pairs = (long)(llc / (4.0 * 24.0));
+    if (h_cache_pairs < 1024) h_cache_pairs = 1024;
+    long h_dram_pairs  = (long)(4.0 * llc / 24.0);
+    if (h_dram_pairs < h_cache_pairs * 8) h_dram_pairs = h_cache_pairs * 8;
+    double h_cache = measure_h(h_cache_pairs);
+    double h_dram  = measure_h(h_dram_pairs);
+    double h = h_dram; /* legacy scalar == DRAM rate */
+
     double c = measure_c(1000 * 1000);
 
     printf("{ \"L\": %ld, \"t\": %.4f, \"T\": %.4f, \"LLC\": %ld, "
-           "\"Tm\": %.4f, \"P\": %.4f, \"h\": %.4f, \"c\": %.4f }\n",
-           L, t, T, llc, Tm, P, h, c);
+           "\"Tm\": %.4f, \"P\": %.4f, \"ramp_lo\": %ld, \"ramp_hi\": %ld, "
+           "\"h\": %.4f, \"h_cache\": %.4f, \"h_dram\": %.4f, \"c\": %.4f }\n",
+           L, t, T, llc, Tm, P, ramp_lo, ramp_hi,
+           h, h_cache, h_dram, c);
     return 0;
 }

@@ -86,12 +86,16 @@ def make_table(csv_path, title, output_path):
             color.extend(["w", "w", "w", "w", "w", "#c8f7c5"])
         elif t_verd == "MISMATCH":
             color.extend(["w", "w", "w", "w", "w", "#f7c5c5"])
+        elif t_verd in ("TIE", "PRED_TIE", "NOISE"):
+            color.extend(["w", "w", "w", "w", "w", "#f7e8c5"])
         else:
             color.extend(["w", "w", "w", "w", "w", "w"])
         if i_verd == "MATCH":
             color.extend(["w", "w", "#c8f7c5"])
         elif i_verd == "MISMATCH":
             color.extend(["w", "w", "#f7c5c5"])
+        elif i_verd in ("TIE", "PRED_TIE", "NOISE"):
+            color.extend(["w", "w", "#f7e8c5"])
         else:
             color.extend(["w", "w", "w"])
         row_colors.append(color)

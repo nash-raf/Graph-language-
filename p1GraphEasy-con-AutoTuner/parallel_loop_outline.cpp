@@ -11,6 +11,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
@@ -102,6 +103,8 @@ namespace
         bool Privatized = false;
         uint64_t EnvSize = 0;
         GlobalVariable *PrivOffsetsGV = nullptr;
+        GlobalVariable *PrivKindsGV = nullptr;
+        GlobalVariable *PrivAuxGV = nullptr;
         unsigned NumPrivTargets = 0;
         unsigned NumDoAcrossSyncIds = 0;
         Function *WrapperFn = nullptr;
@@ -449,6 +452,344 @@ namespace
         }
 
         return std::nullopt;
+    }
+
+    struct EnvPrivTarget
+    {
+        uint64_t Offset = 0;
+        int32_t Kind = SGPL_PRIV_ROARING;
+        int64_t AuxSizeOffset = -1;
+        int64_t AuxCapOffset = -1;
+    };
+
+    static Value *stripToNamedPointer(Value *V)
+    {
+        if (!V)
+            return nullptr;
+
+        for (unsigned Depth = 0; Depth < 8; ++Depth)
+        {
+            if (auto *LI = dyn_cast<LoadInst>(V))
+            {
+                V = LI->getPointerOperand();
+                continue;
+            }
+            if (auto *Cast = dyn_cast<CastInst>(V))
+            {
+                V = Cast->getOperand(0);
+                continue;
+            }
+            break;
+        }
+
+        return V;
+    }
+
+    static bool valuesEquivalent(Value *A, Value *B)
+    {
+        if (!A || !B)
+            return false;
+        if (A == B)
+            return true;
+        return stripToNamedPointer(A) == stripToNamedPointer(B);
+    }
+
+    static AllocaInst *traceToAlloca(Value *V)
+    {
+        V = stripToNamedPointer(V);
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+            return traceToAlloca(GEP->getPointerOperand());
+        return dyn_cast<AllocaInst>(V);
+    }
+
+    static bool loopIncrementsAlloca(const LoopTransformTarget &Target, AllocaInst *AI);
+    static bool loopIncrementsGlobal(const LoopTransformTarget &Target, GlobalVariable *GV);
+
+    static bool loopIncrementsAlloca(const LoopTransformTarget &Target, AllocaInst *AI)
+    {
+        if (!AI)
+            return false;
+
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI)
+                    continue;
+                if (SI->getPointerOperand() != AI)
+                    continue;
+
+                Value *Stored = SI->getValueOperand();
+                auto *BO = dyn_cast<BinaryOperator>(Stored);
+                if (!BO || BO->getOpcode() != Instruction::Add)
+                    continue;
+
+                auto *Loaded = dyn_cast<LoadInst>(BO->getOperand(0));
+                if (!Loaded || Loaded->getPointerOperand() != AI)
+                    Loaded = dyn_cast<LoadInst>(BO->getOperand(1));
+                if (!Loaded || Loaded->getPointerOperand() != AI)
+                    continue;
+
+                if (isa<ConstantInt>(BO->getOperand(0)) || isa<ConstantInt>(BO->getOperand(1)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    static bool loopReadsArrayExceptAppendIndex(const LoopTransformTarget &Target,
+                                                Value *ArrayRoot,
+                                                Value *SizeIndexLoad)
+    {
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *LI = dyn_cast<LoadInst>(&I);
+                if (!LI)
+                    continue;
+
+                Value *Ptr = LI->getPointerOperand();
+                auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
+                if (!GEP)
+                    continue;
+
+                if (!valuesEquivalent(GEP->getPointerOperand(), ArrayRoot))
+                    continue;
+
+                if (SizeIndexLoad && GEP->getNumIndices() == 1 && GEP->getOperand(1) == SizeIndexLoad)
+                    continue;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static std::optional<std::pair<Value *, Value *>>
+    detectIntAppendPattern(const LoopTransformTarget &Target)
+    {
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI)
+                    continue;
+
+                auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+                if (!GEP || GEP->getNumIndices() < 1)
+                    continue;
+
+                auto *IdxLoad = dyn_cast<LoadInst>(GEP->getOperand(GEP->getNumOperands() - 1));
+                if (!IdxLoad)
+                    continue;
+
+                Value *SizeRoot = stripToNamedPointer(IdxLoad->getPointerOperand());
+                if (!SizeRoot)
+                    continue;
+
+                if (auto *SizeAI = dyn_cast<AllocaInst>(SizeRoot))
+                {
+                    if (!loopIncrementsAlloca(Target, SizeAI))
+                        continue;
+                }
+                else if (auto *SizeGV = dyn_cast<GlobalVariable>(SizeRoot))
+                {
+                    if (!loopIncrementsGlobal(Target, SizeGV))
+                        continue;
+                }
+                else
+                {
+                    continue;
+                }
+
+                Value *ArrayRoot = stripToNamedPointer(GEP->getPointerOperand());
+                if (!ArrayRoot || loopReadsArrayExceptAppendIndex(Target, ArrayRoot, IdxLoad))
+                    continue;
+
+                return std::make_pair(ArrayRoot, SizeRoot);
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    static bool loopIncrementsGlobal(const LoopTransformTarget &Target, GlobalVariable *GV)
+    {
+        if (!GV)
+            return false;
+
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI || SI->getPointerOperand() != GV)
+                    continue;
+
+                Value *Stored = SI->getValueOperand();
+                auto *BO = dyn_cast<BinaryOperator>(Stored);
+                if (!BO || BO->getOpcode() != Instruction::Add)
+                    continue;
+
+                auto *Loaded = dyn_cast<LoadInst>(BO->getOperand(0));
+                if (!Loaded || Loaded->getPointerOperand() != GV)
+                    Loaded = dyn_cast<LoadInst>(BO->getOperand(1));
+                if (!Loaded || Loaded->getPointerOperand() != GV)
+                    continue;
+
+                if (isa<ConstantInt>(BO->getOperand(0)) || isa<ConstantInt>(BO->getOperand(1)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    static GlobalVariable *findVertexCountGlobal(Function &F)
+    {
+        for (GlobalVariable &GV : F.getParent()->globals())
+        {
+            if (!GV.getValueType()->isIntegerTy(32))
+                continue;
+            if (GV.getName() == "n")
+                return &GV;
+        }
+
+        for (GlobalVariable &GV : F.getParent()->globals())
+        {
+            if (!GV.getValueType()->isIntegerTy(32))
+                continue;
+            for (User *U : GV.users())
+            {
+                auto *SI = dyn_cast<StoreInst>(U);
+                if (!SI || SI->getPointerOperand() != &GV)
+                    continue;
+                if (isa<CallInst>(SI->getValueOperand()))
+                    return &GV;
+            }
+        }
+
+        return nullptr;
+    }
+
+    static void remapAppendGlobalsInOutlinedFunction(Function *Outlined,
+                                                     GlobalVariable *FrontierGV,
+                                                     GlobalVariable *SizeGV,
+                                                     Argument *FrontierArg,
+                                                     Argument *SizeArg)
+    {
+        if (!Outlined || !FrontierGV || !SizeGV || !FrontierArg || !SizeArg)
+            return;
+
+        SmallVector<Instruction *, 32> ToErase;
+        for (BasicBlock &BB : *Outlined)
+        {
+            for (Instruction &I : BB)
+            {
+                auto *LI = dyn_cast<LoadInst>(&I);
+                if (!LI)
+                    continue;
+                if (LI->getPointerOperand() == FrontierGV)
+                {
+                    LI->replaceAllUsesWith(FrontierArg);
+                    ToErase.push_back(LI);
+                    continue;
+                }
+                if (LI->getPointerOperand() == SizeGV)
+                {
+                    IRBuilder<> RB(LI);
+                    Value *Loaded = RB.CreateLoad(Type::getInt32Ty(Outlined->getContext()), SizeArg, "next_size.val");
+                    LI->replaceAllUsesWith(Loaded);
+                    ToErase.push_back(LI);
+                }
+            }
+        }
+
+        for (Instruction *I : ToErase)
+            I->eraseFromParent();
+        ToErase.clear();
+
+        for (BasicBlock &BB : *Outlined)
+        {
+            for (Instruction &I : BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI || SI->getPointerOperand() != SizeGV)
+                    continue;
+                IRBuilder<> RB(SI);
+                RB.CreateStore(SI->getValueOperand(), SizeArg);
+                ToErase.push_back(SI);
+            }
+        }
+
+        for (Instruction *I : ToErase)
+            I->eraseFromParent();
+    }
+
+    static std::optional<uint64_t>
+    envOffsetForOrigin(Value *Origin,
+                       ArrayRef<Value *> ArgOriginVals,
+                       ArrayRef<int> ParamToEnvFieldIndex,
+                       const StructLayout *EnvLayout)
+    {
+        if (!Origin || !EnvLayout)
+            return std::nullopt;
+
+        for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+        {
+            if (!valuesEquivalent(ArgOriginVals[ParamIndex], Origin))
+                continue;
+            if (ParamIndex >= ParamToEnvFieldIndex.size())
+                return std::nullopt;
+            int EnvFieldIndex = ParamToEnvFieldIndex[ParamIndex];
+            if (EnvFieldIndex < 0)
+                return std::nullopt;
+            return EnvLayout->getElementOffset((unsigned)EnvFieldIndex);
+        }
+
+        return std::nullopt;
+    }
+
+    static int64_t findVertexCapEnvOffset(Function &F,
+                                          ArrayRef<Value *> NewEnvOriginVals,
+                                          ArrayRef<Type *> NewEnvFieldTys,
+                                          const StructLayout *EnvLayout)
+    {
+        int64_t fallback = -1;
+
+        for (unsigned FieldIndex = 0; FieldIndex < NewEnvOriginVals.size(); ++FieldIndex)
+        {
+            Value *Orig = NewEnvOriginVals[FieldIndex];
+            if (!Orig || !NewEnvFieldTys[FieldIndex]->isIntegerTy(32))
+                continue;
+
+            if (fallback < 0)
+                fallback = (int64_t)EnvLayout->getElementOffset(FieldIndex);
+
+            if (auto *AI = dyn_cast<AllocaInst>(stripToNamedPointer(Orig)))
+            {
+                for (User *U : AI->users())
+                {
+                    auto *SI = dyn_cast<StoreInst>(U);
+                    if (!SI || SI->getPointerOperand() != AI)
+                        continue;
+                    if (auto *CI = dyn_cast<CallInst>(SI->getValueOperand()))
+                    {
+                        Function *Callee = CI->getCalledFunction();
+                        if (Callee && Callee->getName() == "numVertices")
+                            return (int64_t)EnvLayout->getElementOffset(FieldIndex);
+                    }
+                }
+            }
+        }
+
+        (void)F;
+        return fallback;
     }
 
     static bool isTrivialLoopBodyInst(Instruction &I, Loop *L)
@@ -1277,6 +1618,40 @@ namespace
             NewEnvOriginVals.push_back(Orig);
         }
 
+        int AppendFrontierEnvField = -1;
+        int AppendSizeEnvField = -1;
+        int AppendCapEnvField = -1;
+        GlobalVariable *AppendFrontierGV = nullptr;
+        GlobalVariable *AppendSizeGV = nullptr;
+        GlobalVariable *AppendCapGV = nullptr;
+
+        if (IsDoAll)
+        {
+            if (auto AppendPattern = detectIntAppendPattern(Target))
+            {
+                Value *ArrayRoot = AppendPattern->first;
+                Value *SizeRoot = AppendPattern->second;
+                AppendFrontierGV = dyn_cast<GlobalVariable>(ArrayRoot);
+                AppendSizeGV = dyn_cast<GlobalVariable>(SizeRoot);
+                AppendCapGV = findVertexCountGlobal(F);
+
+                if (AppendFrontierGV && AppendSizeGV && AppendCapGV)
+                {
+                    AppendFrontierEnvField = (int)NewEnvFieldTys.size();
+                    NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+                    NewEnvOriginVals.push_back(nullptr);
+
+                    AppendSizeEnvField = (int)NewEnvFieldTys.size();
+                    NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+                    NewEnvOriginVals.push_back(AppendSizeGV);
+
+                    AppendCapEnvField = (int)NewEnvFieldTys.size();
+                    NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx));
+                    NewEnvOriginVals.push_back(AppendCapGV);
+                }
+            }
+        }
+
         bool UnsupportedSharedSet = false;
         for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
         {
@@ -1372,7 +1747,21 @@ namespace
             Type *FieldTy = NewEnvFieldTys[FieldIndex];
             Value *StoreVal = nullptr;
 
-            if (!Orig)
+            if ((int)FieldIndex == AppendFrontierEnvField && AppendFrontierGV)
+            {
+                StoreVal = B.CreateLoad(FieldTy, AppendFrontierGV, AppendFrontierGV->getName() + ".captured");
+            }
+            else if ((int)FieldIndex == AppendSizeEnvField && AppendSizeGV)
+            {
+                StoreVal = AppendSizeGV;
+                if (StoreVal->getType() != FieldTy)
+                    StoreVal = B.CreateBitCast(StoreVal, FieldTy);
+            }
+            else if ((int)FieldIndex == AppendCapEnvField && AppendCapGV)
+            {
+                StoreVal = B.CreateLoad(FieldTy, AppendCapGV, AppendCapGV->getName() + ".cap");
+            }
+            else if (!Orig)
             {
                 StoreVal = Constant::getNullValue(FieldTy);
             }
@@ -1396,19 +1785,35 @@ namespace
             B.CreateStore(StoreVal, GEP);
         }
 
-        SmallVector<uint64_t, 4> PrivatizedEnvFieldOffsets;
+        SmallVector<EnvPrivTarget, 4> PrivTargets;
         const StructLayout *EnvLayout = M->getDataLayout().getStructLayout(NewEnvStructTy);
         for (unsigned ParamIndex = 0; ParamIndex < ParamUsesPrivatizedSet.size(); ++ParamIndex)
         {
             if (!ParamUsesPrivatizedSet[ParamIndex])
                 continue;
             unsigned EnvFieldIndex = (unsigned)ParamToEnvFieldIndex[ParamIndex];
-            PrivatizedEnvFieldOffsets.push_back(EnvLayout->getElementOffset(EnvFieldIndex));
+            EnvPrivTarget TargetDesc;
+            TargetDesc.Offset = EnvLayout->getElementOffset(EnvFieldIndex);
+            TargetDesc.Kind = SGPL_PRIV_ROARING;
+            PrivTargets.push_back(TargetDesc);
         }
         for (GlobalVariable *GV : GlobalWriteSharedSets)
         {
             unsigned EnvFieldIndex = GlobalWriteSetEnvFieldIndices.lookup(GV);
-            PrivatizedEnvFieldOffsets.push_back(EnvLayout->getElementOffset(EnvFieldIndex));
+            EnvPrivTarget TargetDesc;
+            TargetDesc.Offset = EnvLayout->getElementOffset(EnvFieldIndex);
+            TargetDesc.Kind = SGPL_PRIV_ROARING;
+            PrivTargets.push_back(TargetDesc);
+        }
+
+        if (AppendFrontierEnvField >= 0 && AppendSizeEnvField >= 0 && AppendCapEnvField >= 0)
+        {
+            EnvPrivTarget TargetDesc;
+            TargetDesc.Offset = EnvLayout->getElementOffset((unsigned)AppendFrontierEnvField);
+            TargetDesc.Kind = SGPL_PRIV_INT_APPEND;
+            TargetDesc.AuxSizeOffset = (int64_t)EnvLayout->getElementOffset((unsigned)AppendSizeEnvField);
+            TargetDesc.AuxCapOffset = (int64_t)EnvLayout->getElementOffset((unsigned)AppendCapEnvField);
+            PrivTargets.push_back(TargetDesc);
         }
         /* Debug logging disabled: privatize-set-output count */
 
@@ -1438,47 +1843,127 @@ namespace
                 LoadedFields.push_back(WB.CreateLoad(NewEnvFieldTys[FieldIndex], FieldGEP, "fload"));
             }
 
-            SmallVector<Value *, 8> CallArgs;
-            CallArgs.reserve(ArgOriginVals.size());
-            unsigned EnvCursor = 0;
-            for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+            if (AppendFrontierGV && AppendSizeGV && AppendFrontierEnvField >= 0 && AppendSizeEnvField >= 0)
             {
-                Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
-                if ((int)ParamIndex == InductionParamIndex)
-                {
-                    CallArgs.push_back(WB.CreateIntCast(IdxArg, ParamTy, true, "idxcast"));
-                    continue;
-                }
+                SmallVector<Type *, 8> NewParamTys;
+                for (Argument &A : Outlined->args())
+                    NewParamTys.push_back(A.getType());
+                NewParamTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+                NewParamTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
 
-                if (ParamUsesPrivateScratch[ParamIndex])
+                FunctionType *NewFT = FunctionType::get(Outlined->getReturnType(), NewParamTys, false);
+                Function *NewOutlined = Function::Create(
+                    NewFT, Outlined->getLinkage(), Outlined->getName() + ".append_priv", M);
+                NewOutlined->copyAttributesFrom(Outlined);
+
+                ValueToValueMapTy VMap;
+                auto NewArgIt = NewOutlined->arg_begin();
+                for (Argument &OldArg : Outlined->args())
                 {
-                    Value *Scratch = WB.CreateAlloca(ParamPrivateScratchTys[ParamIndex], nullptr, "outlined.scratch");
-                    if (Scratch->getType() != ParamTy)
+                    NewArgIt->setName(OldArg.getName());
+                    VMap[&OldArg] = &*NewArgIt++;
+                }
+                Argument *FrontierArg = &*NewArgIt++;
+                Argument *SizeArg = &*NewArgIt++;
+                FrontierArg->setName("append_frontier");
+                SizeArg->setName("append_size");
+
+                SmallVector<ReturnInst *, 8> Returns;
+                CloneFunctionInto(NewOutlined, Outlined, VMap, CloneFunctionChangeType::LocalChangesOnly, Returns);
+                remapAppendGlobalsInOutlinedFunction(NewOutlined, AppendFrontierGV, AppendSizeGV, FrontierArg, SizeArg);
+
+                Outlined->eraseFromParent();
+                Outlined = NewOutlined;
+                Result.Outlined = Outlined;
+
+                SmallVector<Value *, 8> CallArgs;
+                CallArgs.reserve(ArgOriginVals.size() + 2);
+                unsigned EnvCursor = 0;
+                for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+                {
+                    Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
+                    if ((int)ParamIndex == InductionParamIndex)
                     {
-                        if (Scratch->getType()->isPointerTy() && ParamTy->isPointerTy())
-                            Scratch = WB.CreateBitCast(Scratch, ParamTy);
-                        else
-                            Scratch = Constant::getNullValue(ParamTy);
+                        CallArgs.push_back(WB.CreateIntCast(IdxArg, ParamTy, true, "idxcast"));
+                        continue;
                     }
-                    CallArgs.push_back(Scratch);
-                    continue;
+
+                    if (ParamUsesPrivateScratch[ParamIndex])
+                    {
+                        Value *Scratch = WB.CreateAlloca(ParamPrivateScratchTys[ParamIndex], nullptr, "outlined.scratch");
+                        if (Scratch->getType() != ParamTy)
+                        {
+                            if (Scratch->getType()->isPointerTy() && ParamTy->isPointerTy())
+                                Scratch = WB.CreateBitCast(Scratch, ParamTy);
+                            else
+                                Scratch = Constant::getNullValue(ParamTy);
+                        }
+                        CallArgs.push_back(Scratch);
+                        continue;
+                    }
+
+                    Value *FieldValue = LoadedFields[EnvCursor++];
+                    if (FieldValue->getType() != ParamTy)
+                    {
+                        if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
+                            FieldValue = WB.CreateBitCast(FieldValue, ParamTy);
+                        else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
+                            FieldValue = WB.CreateIntCast(FieldValue, ParamTy, true);
+                        else
+                            FieldValue = Constant::getNullValue(ParamTy);
+                    }
+                    CallArgs.push_back(FieldValue);
                 }
 
-                Value *FieldValue = LoadedFields[EnvCursor++];
-                if (FieldValue->getType() != ParamTy)
-                {
-                    if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
-                        FieldValue = WB.CreateBitCast(FieldValue, ParamTy);
-                    else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
-                        FieldValue = WB.CreateIntCast(FieldValue, ParamTy, true);
-                    else
-                        FieldValue = Constant::getNullValue(ParamTy);
-                }
-                CallArgs.push_back(FieldValue);
+                CallArgs.push_back(LoadedFields[(unsigned)AppendFrontierEnvField]);
+                CallArgs.push_back(LoadedFields[(unsigned)AppendSizeEnvField]);
+                WB.CreateCall(Outlined, CallArgs);
+                WB.CreateRetVoid();
             }
+            else
+            {
+                SmallVector<Value *, 8> CallArgs;
+                CallArgs.reserve(ArgOriginVals.size());
+                unsigned EnvCursor = 0;
+                for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+                {
+                    Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
+                    if ((int)ParamIndex == InductionParamIndex)
+                    {
+                        CallArgs.push_back(WB.CreateIntCast(IdxArg, ParamTy, true, "idxcast"));
+                        continue;
+                    }
 
-            WB.CreateCall(Outlined, CallArgs);
-            WB.CreateRetVoid();
+                    if (ParamUsesPrivateScratch[ParamIndex])
+                    {
+                        Value *Scratch = WB.CreateAlloca(ParamPrivateScratchTys[ParamIndex], nullptr, "outlined.scratch");
+                        if (Scratch->getType() != ParamTy)
+                        {
+                            if (Scratch->getType()->isPointerTy() && ParamTy->isPointerTy())
+                                Scratch = WB.CreateBitCast(Scratch, ParamTy);
+                            else
+                                Scratch = Constant::getNullValue(ParamTy);
+                        }
+                        CallArgs.push_back(Scratch);
+                        continue;
+                    }
+
+                    Value *FieldValue = LoadedFields[EnvCursor++];
+                    if (FieldValue->getType() != ParamTy)
+                    {
+                        if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
+                            FieldValue = WB.CreateBitCast(FieldValue, ParamTy);
+                        else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
+                            FieldValue = WB.CreateIntCast(FieldValue, ParamTy, true);
+                        else
+                            FieldValue = Constant::getNullValue(ParamTy);
+                    }
+                    CallArgs.push_back(FieldValue);
+                }
+
+                WB.CreateCall(Outlined, CallArgs);
+                WB.CreateRetVoid();
+            }
         }
         Result.WrapperFn = WrapperFn;
 
@@ -1489,7 +1974,18 @@ namespace
         FunctionCallee ParallelForExFunc = M->getOrInsertFunction(
             "parallel_for_runtime_ex",
             FunctionType::get(VoidTy,
-                              {Int64Ty, Int64Ty, Int64Ty, LoopBodyFnTy, Int8PtrTy, Int64Ty, Int64Ty->getPointerTo(), Int32Ty, Int32Ty, Int32Ty},
+                              {Int64Ty,
+                               Int64Ty,
+                               Int64Ty,
+                               LoopBodyFnTy,
+                               Int8PtrTy,
+                               Int64Ty,
+                               Int64Ty->getPointerTo(),
+                               Int32Ty->getPointerTo(),
+                               Int64Ty->getPointerTo(),
+                               Int32Ty,
+                               Int32Ty,
+                               Int32Ty},
                               false));
 
         Value *StartArg = castIntegerToI64(B, StartV, "start64");
@@ -1498,7 +1994,7 @@ namespace
         Value *NeedsDoAcrossArg = ConstantInt::get(Int32Ty, IsDoAcross ? 1 : 0);
         Value *DoAcrossNumSyncIdsArg = ConstantInt::get(Int32Ty, Result.NumDoAcrossSyncIds);
 
-        if (PrivatizedEnvFieldOffsets.empty())
+        if (PrivTargets.empty())
         {
             B.CreateCall(ParallelForFunc,
                          {StartArg, EndArg, StepArg, CastedWrapper, RawPtr, NeedsDoAcrossArg, DoAcrossNumSyncIdsArg});
@@ -1506,10 +2002,20 @@ namespace
         }
         else
         {
-            ArrayType *PrivOffsetsTy = ArrayType::get(Int64Ty, PrivatizedEnvFieldOffsets.size());
+            ArrayType *PrivOffsetsTy = ArrayType::get(Int64Ty, PrivTargets.size());
+            ArrayType *PrivKindsTy = ArrayType::get(Int32Ty, PrivTargets.size());
+            ArrayType *PrivAuxTy = ArrayType::get(Int64Ty, PrivTargets.size() * 2);
             SmallVector<Constant *, 4> PrivOffsetConsts;
-            for (uint64_t Offset : PrivatizedEnvFieldOffsets)
-                PrivOffsetConsts.push_back(ConstantInt::get(Int64Ty, Offset));
+            SmallVector<Constant *, 4> PrivKindConsts;
+            SmallVector<Constant *, 8> PrivAuxConsts;
+
+            for (const EnvPrivTarget &TargetDesc : PrivTargets)
+            {
+                PrivOffsetConsts.push_back(ConstantInt::get(Int64Ty, TargetDesc.Offset));
+                PrivKindConsts.push_back(ConstantInt::get(Int32Ty, TargetDesc.Kind));
+                PrivAuxConsts.push_back(ConstantInt::get(Int64Ty, TargetDesc.AuxSizeOffset));
+                PrivAuxConsts.push_back(ConstantInt::get(Int64Ty, TargetDesc.AuxCapOffset));
+            }
 
             Result.PrivOffsetsGV = new GlobalVariable(
                 *M,
@@ -1518,9 +2024,25 @@ namespace
                 GlobalValue::PrivateLinkage,
                 ConstantArray::get(PrivOffsetsTy, PrivOffsetConsts),
                 "priv_offsets");
+            Result.PrivKindsGV = new GlobalVariable(
+                *M,
+                PrivKindsTy,
+                true,
+                GlobalValue::PrivateLinkage,
+                ConstantArray::get(PrivKindsTy, PrivKindConsts),
+                "priv_kinds");
+            Result.PrivAuxGV = new GlobalVariable(
+                *M,
+                PrivAuxTy,
+                true,
+                GlobalValue::PrivateLinkage,
+                ConstantArray::get(PrivAuxTy, PrivAuxConsts),
+                "priv_aux");
 
             Value *Zero32 = ConstantInt::get(Int32Ty, 0);
             Value *PrivOffsetsPtr = B.CreateInBoundsGEP(PrivOffsetsTy, Result.PrivOffsetsGV, {Zero32, Zero32}, "priv_offsets_ptr");
+            Value *PrivKindsPtr = B.CreateInBoundsGEP(PrivKindsTy, Result.PrivKindsGV, {Zero32, Zero32}, "priv_kinds_ptr");
+            Value *PrivAuxPtr = B.CreateInBoundsGEP(PrivAuxTy, Result.PrivAuxGV, {Zero32, Zero32}, "priv_aux_ptr");
             B.CreateCall(ParallelForExFunc,
                          {StartArg,
                           EndArg,
@@ -1529,11 +2051,13 @@ namespace
                           RawPtr,
                           ConstantInt::get(Int64Ty, NewEnvSize),
                           PrivOffsetsPtr,
-                          ConstantInt::get(Int32Ty, (unsigned)PrivatizedEnvFieldOffsets.size()),
+                          PrivKindsPtr,
+                          PrivAuxPtr,
+                          ConstantInt::get(Int32Ty, (unsigned)PrivTargets.size()),
                           NeedsDoAcrossArg,
                           DoAcrossNumSyncIdsArg});
             Result.Privatized = true;
-            Result.NumPrivTargets = PrivatizedEnvFieldOffsets.size();
+            Result.NumPrivTargets = PrivTargets.size();
         }
 
         B.CreateBr(Target.ExitBlock);

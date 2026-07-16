@@ -19,6 +19,12 @@ typedef enum
     SGPL_RUNTIME_PRIVATIZED = 1,
 } sgpl_runtime_kind_t;
 
+typedef enum
+{
+    SGPL_PRIV_ROARING = 0,
+    SGPL_PRIV_INT_APPEND = 1,
+} sgpl_priv_kind_t;
+
 typedef struct
 {
     int32_t loop_id;
@@ -122,6 +128,8 @@ void parallel_for_runtime_ex(
     void *env,
     int64_t env_size,
     const int64_t *priv_offsets,
+    const int32_t *priv_kinds,
+    const int64_t *priv_aux,
     int32_t num_priv_targets,
     int32_t needs_doacross,
     int32_t doacross_num_sync_ids);

@@ -1,44 +1,17 @@
-graph G {
-  edges: file "synth_v_1000000_e_1000000_w.txt";
-  //edges: file "../../../synth_graphs_weighted/edgelist2.txt";
-  TRUE
+graph Ablation_N500_D2_H10 {
+  edges: file "edgelist.txt";
 };
 
-int n = numVertices(G);
-int inf = 2147483647;
-int dist[n];
-set frontier;
-set next;
-int src = 1;
-int rounds = 0;
-
-for each vertex v in G {
-  dist[v] = inf;
+/* Phase 1: traverse */
+int i = 0;
+while (i < 10) {
+  query bfs_i: "bfs" of Ablation_N500_D2_H10;
+  i = i + 1;
 }
 
-dist[src] = 0;
-frontier = {1};
-
-while (setSize(frontier) > 0) {
-  if (rounds == n) {
-    print "negative cycle";
-    break;
-  }
-
-  next = {};
-  for each element u in frontier {
-    if (dist[u] != inf) {
-      for each neighbor v of u in G {
-        int nd = dist[u] + weight(G, u, v);
-        if (nd < dist[v]) {
-          dist[v] = nd;
-          next.add(v);
-        }
-      }
-    }
-  }
-  frontier = next;
-  rounds = rounds + 1;
+/* Phase 2: insert (triggers conversion at boundary) */
+int j = 0;
+while (j < 10) {
+  add j->((j+1) % 500) to Ablation_N500_D2_H10;
+  j = j + 1;
 }
-
-

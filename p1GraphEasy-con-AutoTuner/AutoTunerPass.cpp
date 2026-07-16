@@ -570,89 +570,108 @@ namespace
     return cHashBuild + hw.R;
   }
 
-  double alphaFromCSR(int to)
+  // C_read(A) — read the source layout's full representation.  The runtime
+  // transition scans the source arrays end-to-end before writing the
+  // destination, so the read is the full backing-store size (DRAM-bound past
+  // the LLC, hence ceil-bytes/L cache lines at cost T per line).
+  //   CSR  : row_ptr[0..n] + col_idx[0..m]    = 8(n+1) + 4m      bytes
+  //   PCSR : row_ptr[0..n] + col_idx[0..g·m] = 8(n+1) + 4 g m   bytes
+  //          (g = kPcsrExpansionFactor: gap-padded col_idx has g·m cells)
+  //   BCSR : brow[0..n_b] + bcol[0..2m]×i32   = 4 n_b + 16m     bytes
+  //          (n_b = ⌈n / kBcsrBlockSize⌉; bcol carries (local_row,col) int32
+  //           pairs, 8 bytes per directed edge, 2m directed edges)
+  //   SET  : edge_pairs[0..m]×(u,v)×i32       = 8m               bytes
+  //          (bitmaps are canonical — no source scan; only the static edge
+  //           pair table is read to seed the transition)
+  double readCost(int from, double n, double m, const HwCalib &hw)
   {
-    // Cost of converting FROM CSR TO the target layout.
-    // CSR→SET:  ~O(1) — just free CSR arrays, bitmaps already canonical
-    // CSR→PCSR: O(E) — allocate padded arrays, copy with gap slots
-    // CSR→BCSR: O(E) — block-structured copy
-    switch (to)
-    {
-    case LAYOUT_CSR:
-      return 0.0;
-    case LAYOUT_PCSR:
-      return 1.5;
-    case LAYOUT_BCSR:
-      return 2.0;
-    case LAYOUT_SET:
-      return 0.1;
-    default:
-      return 1.0;
-    }
-  }
-
-  double alphaToCSR(int from)
-  {
-    // Cost of converting TO CSR FROM the source layout.
-    // SET→CSR:  O(E·log) — full rebuild from bitmaps (hash map + sort + edge iteration)
-    // PCSR→CSR: O(E) — simple gap compaction (linear scan, no hashing)
-    // BCSR→CSR: O(E) — unblock and reconstruct
+    const double L = hw.L, T = hw.T;
+    const double g = kPcsrExpansionFactor;
+    const double nb = std::ceil(n / kBcsrBlockSize);
     switch (from)
     {
-    case LAYOUT_CSR:
-      return 0.0;
-    case LAYOUT_PCSR:
-      return 0.5;
-    case LAYOUT_BCSR:
-      return 1.5;
-    case LAYOUT_SET:
-      return 3.0;
-    default:
-      return 1.0;
+    case LAYOUT_CSR:  return std::ceil((8.0 * (n + 1.0) + 4.0 * m) / L) * T;
+    case LAYOUT_PCSR: return std::ceil((8.0 * (n + 1.0) + 4.0 * g * m) / L) * T;
+    case LAYOUT_BCSR: return std::ceil((4.0 * nb + 16.0 * m) / L) * T;
+    case LAYOUT_SET:  return std::ceil(8.0 * m / L) * T;
+    default:          return kInf;
     }
   }
 
-  // Physics-based conversion cost for the CSR -> SET path.
-  // autograph_ensure_layout_set (autotuner_runtime.c) does, before
-  // profile_region_enter fires:
-  //   1) rebuild_sets_from_csr_meta: builds and destroys its own local
-  //      EdgeHashMap over the m static pairs (hashInsertCost per pair),
-  //      then scans the CSR arrays to repopulate the bitmaps.
-  //   2) refresh_graph_counts_from_canonical: canonical_node_span triggers
-  //      one O(n) select-cache rebuild of the nodes bitmap (write 4n bytes +
-  //      read ~n/8 bytes), and canonical_edge_count_cached runs the full
-  //      O(m) roaring_bitmap_contains scan (hw.c per check) because
-  //      live_edge_count was just invalidated.
-  // These replace the crude alpha=0.1*(n+m) charge that the old model used
-  // for CSR->SET.  Other transitions keep the alpha-scaled approximation.
-  double conversionCostCSRToSET(double n, double m, const HwCalib &hw)
+  // C_meta-build(B) — write the destination's index/metadata structure.
+  //   CSR  : row_ptr = 8(n+1) bytes (int64 prefix sums)
+  //   PCSR : row_ptr = 8(n+1) bytes (int64 prefix sums, same shape as CSR)
+  //   BCSR : brow    = 4 n_b bytes  (int32 prefix sums, one per block)
+  //   SET  : three sub-phases mirrored from autograph_ensure_layout_set /
+  //          refresh_graph_counts_from_canonical in autotuner_runtime.c:
+  //            (a) rebuild_sets_from_csr_meta builds+destroys a local EdgeHashMap
+  //                over the m static pairs — hashInsertCost(m) per pair.
+  //            (b) canonical_edge_count_cached runs the full O(m)
+  //                roaring_bitmap_contains scan (hw.c per check) because
+  //                live_edge_count was just invalidated.
+  //            (c) canonical_node_span triggers one O(n) select-cache rebuild
+  //                of the nodes bitmap: 4n-byte write + n/8-byte read.
+  double metaBuildCost(int to, double n, double m, const HwCalib &hw)
   {
-    const double cHashBuild = hashInsertCost(m, hw) * m;
-    const double cEdgeCount = hw.c * m;
-    const double cSelCache =
-        (std::ceil(4.0 * n / hw.L) + std::ceil(n / 8.0 / hw.L)) * hw.T;
-    // Plus the CSR array scan in rebuild_sets_from_csr_meta: ~4m bytes read.
-    const double cCsrScan = std::ceil(4.0 * m / hw.L) * hw.T;
-    return cHashBuild + cEdgeCount + cSelCache + cCsrScan;
+    const double L = hw.L, T = hw.T;
+    const double nb = std::ceil(n / kBcsrBlockSize);
+    switch (to)
+    {
+    case LAYOUT_CSR:  return std::ceil(8.0 * (n + 1.0) / L) * T;
+    case LAYOUT_PCSR: return std::ceil(8.0 * (n + 1.0) / L) * T;
+    case LAYOUT_BCSR: return std::ceil(4.0 * nb / L) * T;
+    case LAYOUT_SET:
+      return hashInsertCost(m, hw) * m
+           + hw.c * m
+           + (std::ceil(4.0 * n / L) + std::ceil(n / 8.0 / L)) * T;
+    default:          return kInf;
+    }
   }
 
+  // C_payload-build(B) — write the destination's adjacency payload.
+  //   CSR  : col_idx = 4m bytes     (int32 per directed edge)
+  //   PCSR : col_idx = 4 g m bytes  (int32 per directed edge, g = kPcsrExpansionFactor)
+  //   BCSR : bcol    = 16m bytes    ((local_row,col) int32 pairs, 8 bytes
+  //                                  per directed edge, 2m directed edges)
+  //   SET  : edges_bitmap + extra_edge_pairs append = 8m bytes per undirected
+  //          edge (the bitmap representation pays 1 bit per static pair plus
+  //          an O(1) extra-pair slot; the model charges the same 8m bound
+  //          the SET traversal/read equations use).
+  double payloadBuildCost(int to, double n, double m, const HwCalib &hw)
+  {
+    const double L = hw.L, T = hw.T;
+    const double g = kPcsrExpansionFactor;
+    (void)n;
+    switch (to)
+    {
+    case LAYOUT_CSR:  return std::ceil(4.0 * m / L) * T;
+    case LAYOUT_PCSR: return std::ceil(4.0 * g * m / L) * T;
+    case LAYOUT_BCSR: return std::ceil(16.0 * m / L) * T;
+    case LAYOUT_SET:  return std::ceil(8.0 * m / L) * T;
+    default:          return kInf;
+    }
+  }
+
+  // General physics-based conversion cost:
+  //   C_{A→B} = C_read(A) + C_meta-build(B) + C_payload-build(B)
+  // Replaces the earlier alpha-scaled approximation (alphaFromCSR /
+  // alphaToCSR multiplied by (n+m)) for all 11 transitions that were not
+  // covered by conversionCostCSRToSET, and folds the CSR→SET leg into the
+  // same decomposition.  The CSR→SET path keeps every physics term the old
+  // conversionCostCSRToSET carried (m·hashInsertCost(m), c·m, the
+  // ⌈4n/L⌉ + ⌈n/(8L)⌉ select-cache rebuild) under metaBuildCost(SET), and
+  // replaces the incomplete cCsrScan = ⌈4m/L⌉·T read term with the full
+  // C_read(CSR) = ⌈(8(n+1) + 4m)/L⌉·T — i.e. it now bills the row_ptr
+  // scan it was missing — and additionally bills the SET payload write
+  // (⌈8m/L⌉·T) the general formula requires via payloadBuildCost(SET).
   double conversionCost(int from, int to, double n, double m,
                         const HwCalib &hw)
   {
     if (from == to)
       return 0.0;
-    if (from == LAYOUT_CSR && to == LAYOUT_SET)
-      return conversionCostCSRToSET(n, m, hw);
-    const double scale = n + m;
-    if (from == LAYOUT_CSR)
-      return alphaFromCSR(to) * scale;
-    if (to == LAYOUT_CSR)
-      return alphaToCSR(from) * scale;
-    // Route non-CSR transitions through CSR hub.  A non-CSR -> SET transition
-    // routes X -> CSR -> SET, so it picks up the physics-based CSR->SET leg.
-    if (to == LAYOUT_SET)
-      return alphaToCSR(from) * scale + conversionCostCSRToSET(n, m, hw);
-    return (alphaToCSR(from) + alphaFromCSR(to)) * scale;
+    return readCost(from, n, m, hw)
+         + metaBuildCost(to, n, m, hw)
+         + payloadBuildCost(to, n, m, hw);
   }
 
   double operationCost(const Region &r, int layout, double n, double m,
@@ -1637,17 +1656,25 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       std::fill(S.chosen.begin(), S.chosen.end(), LAYOUT_CSR);
     errs() << "[AutoTuner] Cost-model profile for graph " << graphKey
            << " (estN=" << estN << ", estM=" << estM << ")\n";
-    for (size_t i = 0; i < regions.size(); ++i)
     {
-      const double predictedNs =
-          operationCost(regions[i], S.chosen[i], estN, estM, hw);
-      errs() << "[AutoTuner]   region=" << i
-             << " kind=" << regionTypeName(regions[i].dominant)
-             << " layout=" << layoutName(S.chosen[i])
-             << " totalOps=" << regions[i].totalOps
-             << " execCount=" << regions[i].execCount
-             << " predicted_ns=" << predictedNs
-             << " predicted_ms=" << (predictedNs / 1.0e6) << "\n";
+      double totalOpCost = 0;
+      for (size_t i = 0; i < regions.size(); ++i)
+      {
+        const double predictedNs =
+            operationCost(regions[i], S.chosen[i], estN, estM, hw);
+        totalOpCost += predictedNs;
+        errs() << "[AutoTuner]   region=" << i
+               << " kind=" << regionTypeName(regions[i].dominant)
+               << " layout=" << layoutName(S.chosen[i])
+               << " totalOps=" << regions[i].totalOps
+               << " execCount=" << regions[i].execCount
+               << " predicted_ns=" << predictedNs
+               << " predicted_ms=" << (predictedNs / 1.0e6) << "\n";
+      }
+      const double predictedConversion = chosenCost - totalOpCost;
+      errs() << "[AutoTuner]   predicted_op_total_ns=" << totalOpCost
+             << " predicted_total_ns=" << chosenCost
+             << " predicted_conversion_ns=" << predictedConversion << "\n";
     }
     totalInjected += injectConversions(M, regions, S, metaByGraphPtr, estN, estM, hw);
   }

@@ -63,6 +63,8 @@ static int g_profile_atexit_installed = 0;
 static __thread int g_active_region_id = -1;
 static __thread uint64_t g_active_region_start_ns = 0;
 static uint64_t g_kernel_measured_ns[3] = {0, 0, 0};
+static uint64_t g_conversion_ns = 0;
+static int g_conversions_injected = 0;
 
 static uint64_t now_monotonic_ns(void) {
   struct timespec ts;
@@ -144,6 +146,9 @@ static void autograph_profile_report(void) {
             (unsigned long long)g_kernel_measured_ns[kind],
             (double)g_kernel_measured_ns[kind] / 1.0e6);
   }
+
+  fprintf(stderr, "[AutoTunerProfile] injected %d layout conversions total, conversion_ns=%llu\n",
+          g_conversions_injected, (unsigned long long)g_conversion_ns);
 }
 
 /* Forward-declared: per-graph cached hash map for static edge lookup. */
@@ -710,6 +715,10 @@ void autograph_ensure_layout_set(void *graph_ptr) {
   if (meta->current_layout == LAYOUT_SET && !meta->canonical_dirty)
     return;
 
+  fprintf(stderr, "[autograph_ensure_layout_set] graph=%p from=%s to=SET\n",
+          graph_ptr,
+          profile_layout_name(meta->current_layout));
+
   int64_t *rp = NULL;
   int32_t *ci = NULL;
   int64_t nn = 0, mm = 0;
@@ -1035,8 +1044,12 @@ void autograph_ensure_layout(void *graph_ptr, int64_t n, int64_t m,
     return; // nothing to do
   }
 
-  /* fprintf(stderr, "[AutoTuner] Converting graph %p: layout %d → %d\n",
-          graph_ptr, meta->current_layout, target_layout); */
+  fprintf(stderr, "[autograph_ensure_layout] graph=%p from=%s to=%s\n",
+          graph_ptr,
+          profile_layout_name(meta->current_layout),
+          profile_layout_name(target_layout));
+
+  uint64_t conv_start = now_monotonic_ns();
 
   /*
    * CASE 1: Transitioning FROM a transient layout BACK TO the BASE SET
@@ -1045,6 +1058,8 @@ void autograph_ensure_layout(void *graph_ptr, int64_t n, int64_t m,
    */
   if (target_layout == LAYOUT_SET) {
     autograph_ensure_layout_set(graph_ptr);
+    g_conversion_ns += now_monotonic_ns() - conv_start;
+    g_conversions_injected++;
     return;
   }
 
@@ -1165,6 +1180,8 @@ void autograph_ensure_layout(void *graph_ptr, int64_t n, int64_t m,
     *((int64_t **)(base + 16)) = NULL;
     *((int32_t **)(base + 24)) = NULL;
   }
+  g_conversion_ns += now_monotonic_ns() - conv_start;
+  g_conversions_injected++;
 }
 
 int32_t autograph_get_layout(void *graph_ptr) {

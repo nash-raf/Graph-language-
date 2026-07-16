@@ -1,0 +1,115 @@
+\begin{table}[t]
+\centering
+\caption{Per-Operation Insert Cost (\textmu{}s): Predicted vs Measured}
+\label{tab:perop-insert}
+\begin{tabular}{crrrrr}
+\toprule
+$N$ & $D$ & $H$ & \multicolumn{2}{c}{CSR insert (\textmu s)} & \multicolumn{2}{c}{PCSR insert (\textmu s)} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+ & & & Pred & Meas & Pred & Meas \\
+\midrule
+   500 &   2 &   10 &   10.1 &    2.1 &  0.014 &  0.346 \\
+   500 &   2 &  100 &   10.1 &    1.7 &  0.014 &  0.190 \\
+   500 &  16 &   10 &   10.6 &    7.8 &  0.015 &  0.319 \\
+   500 &  16 &  100 &   10.6 &    3.2 &  0.015 &  0.207 \\
+   500 &  64 &   10 &   12.1 &   31.4 &  0.021 &  0.373 \\
+   500 &  64 &  100 &   12.1 &   27.2 &  0.021 &  0.282 \\
+  5000 &   2 &   10 &   11.3 &   23.8 &  0.014 &  0.248 \\
+  5000 &   2 &  100 &   11.3 &   12.1 &  0.014 &  0.190 \\
+  5000 &  16 &   10 &   15.7 &   48.0 &  0.015 &  0.376 \\
+  5000 &  16 &  100 &   15.7 &   47.2 &  0.015 &  0.210 \\
+  5000 &  64 &   10 &   31.1 &  159.9 &  0.021 &  0.458 \\
+  5000 &  64 &  100 &   31.1 &  254.8 &  0.021 &  0.361 \\
+ 50000 &   2 &   10 &   22.4 &  138.8 &  0.014 &  0.252 \\
+ 50000 &   2 &  100 &   22.4 &  129.7 &  0.014 &  0.165 \\
+ 50000 &  16 &   10 &   67.1 &  824.8 &  0.015 &  0.379 \\
+ 50000 &  16 &  100 &   67.1 &  751.9 &  0.015 &  0.206 \\
+ 50000 &  64 &   10 &  220.3 & 4002.1 &  0.021 &  0.503 \\
+ 50000 &  64 &  100 &  220.3 & 4480.6 &  0.021 &  0.359 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Conversion Cost (ms): Predicted vs Measured}
+\label{tab:conv-cost}
+\begin{tabular}{crrrrcr}
+\toprule
+$N$ & $D$ & $H$ & DP Layout & Pred Conv (ms) & Meas Conv (ms) & Ratio \\
+\midrule
+   500 &   2 &   10 & CSR $\rightarrow$ PCSR &         0.000 &         0.043 &   206$\times$ \\
+   500 &   2 &  100 & CSR $\rightarrow$ PCSR &         0.000 &         0.089 &   421$\times$ \\
+   500 &  16 &   10 & CSR $\rightarrow$ PCSR &         0.001 &         0.093 &   110$\times$ \\
+   500 &  16 &  100 & CSR $\rightarrow$ PCSR &         0.001 &         0.113 &   135$\times$ \\
+   500 &  64 &   10 & CSR $\rightarrow$ PCSR &         0.003 &         0.294 &    98$\times$ \\
+   500 &  64 &  100 & CSR $\rightarrow$ PCSR &         0.003 &         0.268 &    89$\times$ \\
+  5000 &   2 &   10 & CSR $\rightarrow$ CSR &         0.000 &         0.000 &       \\
+  5000 &   2 &  100 & CSR $\rightarrow$ CSR &         0.000 &         0.000 &       \\
+  5000 &  16 &   10 & CSR $\rightarrow$ PCSR &         0.008 &         1.004 &   120$\times$ \\
+  5000 &  16 &  100 & CSR $\rightarrow$ PCSR &         0.008 &         0.680 &    81$\times$ \\
+  5000 &  64 &   10 & CSR $\rightarrow$ PCSR &         0.030 &         2.437 &    81$\times$ \\
+  5000 &  64 &  100 & CSR $\rightarrow$ PCSR &         0.030 &         2.157 &    72$\times$ \\
+ 50000 &   2 &   10 & CSR $\rightarrow$ CSR &         0.000 &         0.000 &       \\
+ 50000 &   2 &  100 & CSR $\rightarrow$ CSR &         0.000 &         0.000 &       \\
+ 50000 &  16 &   10 & CSR $\rightarrow$ CSR &         0.000 &         0.000 &       \\
+ 50000 &  16 &  100 & CSR $\rightarrow$ CSR &         0.000 &         0.000 &       \\
+ 50000 &  64 &   10 & CSR $\rightarrow$ PCSR &         0.300 &        31.862 &   106$\times$ \\
+ 50000 &  64 &  100 & CSR $\rightarrow$ PCSR &         0.300 &        32.075 &   107$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Measured Pure-Kernel Time (ms) for Each Layout Policy}
+\label{tab:kernel-times}
+\begin{tabular}{crrrrc}
+\toprule
+$N$ & $D$ & $H$ & CSR & PCSR & DP & Best \\
+\midrule
+   500 &   2 &   10 &     0.29 &     0.39 &     0.29 & DP  \\
+   500 &   2 &  100 &     3.60 &     3.46 &     3.07 & DP  \\
+   500 &  16 &   10 &     0.59 &     0.74 &     0.47 & DP  \\
+   500 &  16 &  100 &     4.33 &     6.56 &     4.00 & DP  \\
+   500 &  64 &   10 &     0.88 &     1.26 &     0.70 & DP  \\
+   500 &  64 &  100 &     9.19 &    13.14 &     4.27 & DP  \\
+  5000 &   2 &   10 &     4.38 &     4.57 &     3.84 & DP  \\
+  5000 &   2 &  100 &    33.03 &    54.30 &    33.98 & CSR \\
+  5000 &  16 &   10 &     5.95 &     7.54 &     6.53 & CSR \\
+  5000 &  16 &  100 &    71.20 &    81.23 &    41.02 & DP  \\
+  5000 &  64 &   10 &     8.39 &    18.18 &     7.97 & DP  \\
+  5000 &  64 &  100 &    93.26 &   175.80 &    74.45 & DP  \\
+ 50000 &   2 &   10 &    51.92 &    55.92 &    44.10 & DP  \\
+ 50000 &   2 &  100 &   452.84 &   618.56 &   439.16 & DP  \\
+ 50000 &  16 &   10 &   117.83 &   152.23 &   109.07 & DP  \\
+ 50000 &  16 &  100 &  1014.27 &  1395.48 &  1001.54 & DP  \\
+ 50000 &  64 &   10 &   227.75 &   289.64 &   184.12 & DP  \\
+ 50000 &  64 &  100 &  2414.04 &  2988.51 &  1901.85 & DP  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Conversion Cost vs Insert Savings (cases with conversion)}
+\label{tab:conv-vs-savings}
+\begin{tabular}{crrrrr}
+\toprule
+$N$ & $D$ & $H$ & Meas Conv (ms) & Pred sav/op (\textmu s) & Pred break-even $H$ \\
+\midrule
+   500 &   2 &   10 &         0.043 &           10.1 &                 4 \\
+   500 &   2 &  100 &         0.089 &           10.1 &                 9 \\
+   500 &  16 &   10 &         0.093 &           10.6 &                 9 \\
+   500 &  16 &  100 &         0.113 &           10.6 &                11 \\
+   500 &  64 &   10 &         0.294 &           12.1 &                24 \\
+   500 &  64 &  100 &         0.268 &           12.1 &                22 \\
+  5000 &  16 &   10 &         1.004 &           15.7 &                64 \\
+  5000 &  16 &  100 &         0.680 &           15.7 &                43 \\
+  5000 &  64 &   10 &         2.437 &           31.0 &                79 \\
+  5000 &  64 &  100 &         2.157 &           31.0 &                69 \\
+ 50000 &  64 &   10 &        31.862 &          220.3 &               145 \\
+ 50000 &  64 &  100 &        32.075 &          220.3 &               146 \\
+\bottomrule
+\end{tabular}
+\end{table}

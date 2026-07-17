@@ -930,62 +930,76 @@ static bool matchesIncrementByOne(const ASTNode *node, const std::string &name)
            (isOne(add->lhs.get()) && isNamedVariable(add->rhs.get()));
 }
 
-static bool isFirstWinsFrontierLoop(const WhileStmtNode *loop)
+struct FrontierStepPattern
+{
+    std::string graphName;
+    std::string frontierName;
+    std::string frontierSizeName;
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    std::string claimName;
+    std::string parentName;
+    int64_t expectedValue;
+    int64_t desiredValue;
+};
+
+static std::optional<FrontierStepPattern>
+detectFirstWinsFrontierLoop(const WhileStmtNode *loop)
 {
     if (!loop || !loop->condition || loop->condition->type != ASTNodeType::BinaryExpr)
-        return false;
+        return std::nullopt;
 
     auto *condition = static_cast<const BinaryExprNode *>(loop->condition.get());
     if (condition->op != "<")
-        return false;
+        return std::nullopt;
     auto *induction = asVariable(condition->lhs.get());
     auto *bound = asVariable(condition->rhs.get());
     if (!induction || !bound || induction->name == bound->name)
-        return false;
+        return std::nullopt;
 
     auto *body = dynamic_cast<const BlockStmtNode *>(loop->body.get());
     if (!body || body->statements.size() != 3)
-        return false;
+        return std::nullopt;
 
     if (body->statements[0]->type != ASTNodeType::VarDecl ||
         body->statements[1]->type != ASTNodeType::ForEachStmt ||
         !matchesIncrementByOne(body->statements[2].get(), induction->name))
-        return false;
+        return std::nullopt;
 
     auto *vertexDecl = static_cast<const VarDeclNode *>(body->statements[0].get());
     auto *frontierRead = asArrayAccess(vertexDecl->initializer.get());
     auto *frontierArray = frontierRead ? asVariable(frontierRead->arrayExpr.get()) : nullptr;
     if (!frontierRead || !frontierArray ||
         !firstWinsExprsEquivalent(frontierRead->indexExpr.get(), induction))
-        return false;
+        return std::nullopt;
 
     auto *neighbors = static_cast<const ForEachStmtNode *>(body->statements[1].get());
     auto *source = asVariable(neighbors->adjNodeExpr.get());
     if (neighbors->targetType != ForEachTargetType::Neighbor || !source ||
         source->name != vertexDecl->name)
-        return false;
+        return std::nullopt;
 
     auto *neighborBody = dynamic_cast<const BlockStmtNode *>(neighbors->body.get());
     if (!neighborBody || neighborBody->statements.size() != 1 ||
         neighborBody->statements[0]->type != ASTNodeType::Conditional)
-        return false;
+        return std::nullopt;
 
     auto *claimIf = static_cast<ConditionalNode *>(neighborBody->statements[0].get());
     auto claim = detectFirstWinsPattern(claimIf);
     if (!claim)
-        return false;
+        return std::nullopt;
 
     auto *claimArray = asVariable(claim->claimAccess->arrayExpr.get());
     auto *thenBody = dynamic_cast<const BlockStmtNode *>(claimIf->thenBlock.get());
     if (!claimArray || !thenBody || thenBody->statements.size() != 4)
-        return false;
+        return std::nullopt;
 
     auto *parentAssignment =
         dynamic_cast<const AssignmentStmtNode *>(thenBody->statements[1].get());
     auto *appendAssignment =
         dynamic_cast<const AssignmentStmtNode *>(thenBody->statements[2].get());
     if (!parentAssignment || !appendAssignment)
-        return false;
+        return std::nullopt;
 
     auto *parentAccess = asArrayAccess(parentAssignment->lhs.get());
     auto *parentArray = parentAccess ? asVariable(parentAccess->arrayExpr.get()) : nullptr;
@@ -994,7 +1008,7 @@ static bool isFirstWinsFrontierLoop(const WhileStmtNode *loop)
         parentValue->name != vertexDecl->name ||
         !firstWinsExprsEquivalent(parentAccess->indexExpr.get(),
                                   claim->claimAccess->indexExpr.get()))
-        return false;
+        return std::nullopt;
 
     auto *appendAccess = asArrayAccess(appendAssignment->lhs.get());
     auto *appendArray = appendAccess ? asVariable(appendAccess->arrayExpr.get()) : nullptr;
@@ -1003,16 +1017,28 @@ static bool isFirstWinsFrontierLoop(const WhileStmtNode *loop)
         !firstWinsExprsEquivalent(appendAssignment->rhs.get(),
                                   claim->claimAccess->indexExpr.get()) ||
         !matchesIncrementByOne(thenBody->statements[3].get(), appendSize->name))
-        return false;
+        return std::nullopt;
 
-    return claimArray->name != parentArray->name &&
-           claimArray->name != appendArray->name &&
-           parentArray->name != appendArray->name &&
-           frontierArray->name != claimArray->name &&
-           frontierArray->name != parentArray->name &&
-           frontierArray->name != appendArray->name &&
-           appendSize->name != induction->name &&
-           appendSize->name != bound->name;
+    if (claimArray->name == parentArray->name ||
+        claimArray->name == appendArray->name ||
+        parentArray->name == appendArray->name ||
+        frontierArray->name == claimArray->name ||
+        frontierArray->name == parentArray->name ||
+        frontierArray->name == appendArray->name ||
+        appendSize->name == induction->name ||
+        appendSize->name == bound->name)
+        return std::nullopt;
+
+    return FrontierStepPattern{
+        neighbors->graphName,
+        frontierArray->name,
+        bound->name,
+        appendArray->name,
+        appendSize->name,
+        claimArray->name,
+        parentArray->name,
+        claim->expectedValue,
+        claim->desiredValue};
 }
 } // namespace
 
@@ -1783,7 +1809,81 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 {
     llvm::BasicBlock *preheader = Builder.GetInsertBlock();
     llvm::Function *parent = preheader->getParent();
-    bool isVerifiedFrontier = isFirstWinsFrontierLoop(ws);
+    std::optional<FrontierStepPattern> frontier =
+        detectFirstWinsFrontierLoop(ws);
+
+    if (frontier)
+    {
+        auto getIntArrayData = [&](const std::string &name) -> llvm::Value * {
+            llvm::Value *storage = lookupNamedStorage(name);
+            if (IndirectArrays.count(name))
+                return Builder.CreateLoad(Builder.getPtrTy(), storage,
+                                          name + ".frontier.ptr");
+            auto *arrayTy =
+                llvm::dyn_cast<llvm::ArrayType>(getStorageValueType(storage));
+            if (!arrayTy || !arrayTy->getElementType()->isIntegerTy(32))
+                throw std::runtime_error(
+                    "frontier-step array must contain 32-bit integers: " + name);
+            return Builder.CreateInBoundsGEP(
+                arrayTy, storage, {Builder.getInt32(0), Builder.getInt32(0)},
+                name + ".frontier.data");
+        };
+        auto asI32 = [&](llvm::Value *value) -> llvm::Value * {
+            if (value->getType()->isIntegerTy(32))
+                return value;
+            if (value->getType()->isIntegerTy())
+                return Builder.CreateIntCast(value, Builder.getInt32Ty(), true);
+            throw std::runtime_error("frontier-step scalar must be an integer");
+        };
+
+        llvm::Value *graph = loadGraphValue(frontier->graphName);
+        llvm::Value *frontierData = getIntArrayData(frontier->frontierName);
+        llvm::Value *nextData = getIntArrayData(frontier->nextFrontierName);
+        llvm::Value *claimData = getIntArrayData(frontier->claimName);
+        llvm::Value *parentData = getIntArrayData(frontier->parentName);
+
+        llvm::Value *frontierSizeStorage =
+            lookupNamedStorage(frontier->frontierSizeName);
+        llvm::Value *frontierSize = asI32(Builder.CreateLoad(
+            getStorageValueType(frontierSizeStorage), frontierSizeStorage,
+            frontier->frontierSizeName + ".frontier.size"));
+        llvm::Value *nextSizeStorage =
+            lookupNamedStorage(frontier->nextSizeName);
+        llvm::Value *initialNextSize = asI32(Builder.CreateLoad(
+            getStorageValueType(nextSizeStorage), nextSizeStorage,
+            frontier->nextSizeName + ".frontier.initial"));
+
+        llvm::Type *ptrTy = Builder.getPtrTy();
+        llvm::FunctionType *stepTy = llvm::FunctionType::get(
+            Builder.getInt32Ty(),
+            {ptrTy, ptrTy, Builder.getInt32Ty(), ptrTy, Builder.getInt32Ty(),
+             ptrTy, Builder.getInt32Ty(), Builder.getInt32Ty(), ptrTy},
+            false);
+        llvm::FunctionCallee stepFn =
+            Module.getOrInsertFunction("autograph_frontier_step", stepTy);
+        llvm::CallInst *result = Builder.CreateCall(
+            stepFn,
+            {graph, frontierData, frontierSize, nextData, initialNextSize,
+             claimData,
+             llvm::ConstantInt::get(Builder.getInt32Ty(),
+                                    frontier->expectedValue, true),
+             llvm::ConstantInt::get(Builder.getInt32Ty(),
+                                    frontier->desiredValue, true),
+             parentData},
+            "frontier.next.size");
+        result->setMetadata(
+            "sgpl.frontier.step",
+            llvm::MDNode::get(Context,
+                              {llvm::MDString::get(Context, frontier->graphName),
+                               llvm::MDString::get(Context, "push-pull")}));
+        llvm::Value *storedResult = result;
+        llvm::Type *nextSizeTy = getStorageValueType(nextSizeStorage);
+        if (nextSizeTy != result->getType())
+            storedResult =
+                Builder.CreateIntCast(result, nextSizeTy, true, "frontier.size.cast");
+        Builder.CreateStore(storedResult, nextSizeStorage);
+        return;
+    }
 
     auto *condBB = llvm::BasicBlock::Create(Context, "loopcond", parent);
     auto *bodyBB = llvm::BasicBlock::Create(Context, "loopbody", parent);
@@ -1792,26 +1892,10 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     LoopStack.push_back({condBB, mergeBB});
 
     Builder.SetInsertPoint(preheader);
-    llvm::Value *frontierBound = nullptr;
-    if (isVerifiedFrontier)
-    {
-        auto *condition = static_cast<BinaryExprNode *>(ws->condition.get());
-        frontierBound = visitExpr(condition->rhs.get());
-    }
     Builder.CreateBr(condBB);
 
     Builder.SetInsertPoint(condBB);
-    llvm::Value *condV = nullptr;
-    if (isVerifiedFrontier)
-    {
-        auto *condition = static_cast<BinaryExprNode *>(ws->condition.get());
-        llvm::Value *induction = visitExpr(condition->lhs.get());
-        condV = Builder.CreateICmpSLT(induction, frontierBound, "frontier.cond");
-    }
-    else
-    {
-        condV = visitExpr(ws->condition.get());
-    }
+    llvm::Value *condV = visitExpr(ws->condition.get());
     llvm::Value *condBool = condV;
     if (condV->getType()->isIntegerTy(32))
         condBool = Builder.CreateICmpNE(condV, Builder.getInt32(0), "whilecond");
@@ -1826,13 +1910,6 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     EmittingTopLevel = wasEmittingTopLevel;
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(condBB);
-
-    if (isVerifiedFrontier)
-    {
-        condBB->getTerminator()->setMetadata(
-            "sgpl.frontier.first_wins.candidate",
-            llvm::MDNode::get(Context, llvm::MDString::get(Context, "verified")));
-    }
 
     LoopStack.pop_back();
 

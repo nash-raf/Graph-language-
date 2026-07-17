@@ -8,6 +8,7 @@ target triple = "x86_64-redhat-linux-gnu"
 %struct.EdgeHashEntry_s = type { i64, i64, i8 }
 %struct.timespec = type { i64, i64 }
 %struct.AutoNeighborScratchSlot = type { ptr, i64 }
+%struct.AutoFrontierStepEnv = type { ptr, ptr, ptr, i32, i32, ptr, i32, i32, ptr, ptr }
 
 @g_conversion_ns = internal unnamed_addr global i64 0, align 8
 @g_conversions_injected = internal unnamed_addr global i32 0, align 4
@@ -39,12 +40,12 @@ define dso_local void @build_csr_from_set(i64 noundef %0, i64 noundef %1, ptr no
   br i1 %8, label %15, label %9
 
 9:                                                ; preds = %7
-  %10 = tail call noalias dereferenceable_or_null(8) ptr @calloc(i64 noundef 1, i64 noundef 8) #17
+  %10 = tail call noalias dereferenceable_or_null(8) ptr @calloc(i64 noundef 1, i64 noundef 8) #18
   br label %104
 
 11:                                               ; preds = %29
   %12 = add nsw i64 %30, 2
-  %13 = tail call noalias ptr @calloc(i64 noundef %12, i64 noundef 8) #17
+  %13 = tail call noalias ptr @calloc(i64 noundef %12, i64 noundef 8) #18
   %14 = getelementptr inbounds nuw i8, ptr %13, i64 8
   br label %45
 
@@ -52,7 +53,7 @@ define dso_local void @build_csr_from_set(i64 noundef %0, i64 noundef %1, ptr no
   %16 = phi i64 [ %30, %29 ], [ -1, %7 ]
   %17 = phi i64 [ %31, %29 ], [ 0, %7 ]
   %18 = trunc i64 %17 to i32
-  %19 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %2, i32 noundef %18) #18
+  %19 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %2, i32 noundef %18) #19
   br i1 %19, label %20, label %29
 
 20:                                               ; preds = %15
@@ -94,7 +95,7 @@ define dso_local void @build_csr_from_set(i64 noundef %0, i64 noundef %1, ptr no
   %46 = phi i64 [ %64, %62 ], [ 0, %11 ]
   %47 = phi i64 [ %63, %62 ], [ 0, %11 ]
   %48 = trunc i64 %46 to i32
-  %49 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %2, i32 noundef %48) #18
+  %49 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %2, i32 noundef %48) #19
   br i1 %49, label %50, label %62
 
 50:                                               ; preds = %45
@@ -170,7 +171,7 @@ define dso_local void @build_csr_from_set(i64 noundef %0, i64 noundef %1, ptr no
 
 101:                                              ; preds = %80
   %102 = shl i64 %63, 2
-  %103 = tail call noalias ptr @malloc(i64 noundef %102) #19
+  %103 = tail call noalias ptr @malloc(i64 noundef %102) #20
   br label %104
 
 104:                                              ; preds = %9, %80, %101
@@ -180,12 +181,12 @@ define dso_local void @build_csr_from_set(i64 noundef %0, i64 noundef %1, ptr no
   %108 = phi i64 [ %63, %101 ], [ %63, %80 ], [ 0, %9 ]
   %109 = phi ptr [ %103, %101 ], [ null, %80 ], [ null, %9 ]
   %110 = shl nuw nsw i64 %106, 3
-  %111 = tail call noalias ptr @malloc(i64 noundef %110) #19
+  %111 = tail call noalias ptr @malloc(i64 noundef %110) #20
   tail call void @llvm.memcpy.p0.p0.i64(ptr align 8 %111, ptr align 8 %105, i64 %110, i1 false)
   br i1 %8, label %113, label %112
 
 112:                                              ; preds = %131, %104
-  tail call void @free(ptr noundef %111) #18
+  tail call void @free(ptr noundef %111) #19
   store ptr %105, ptr %4, align 8, !tbaa !17
   store ptr %109, ptr %5, align 8, !tbaa !20
   store i64 %108, ptr %6, align 8, !tbaa !11
@@ -194,7 +195,7 @@ define dso_local void @build_csr_from_set(i64 noundef %0, i64 noundef %1, ptr no
 113:                                              ; preds = %104, %131
   %114 = phi i64 [ %132, %131 ], [ 0, %104 ]
   %115 = trunc i64 %114 to i32
-  %116 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %2, i32 noundef %115) #18
+  %116 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %2, i32 noundef %115) #19
   br i1 %116, label %117, label %131
 
 117:                                              ; preds = %113
@@ -247,8 +248,8 @@ declare dso_local void @free(ptr allocptr nocapture noundef) local_unnamed_addr 
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @rebuild_sets_from_csr(i64 noundef %0, i64 noundef %1, i64 noundef %2, ptr nocapture noundef readonly %3, ptr nocapture noundef readonly %4, ptr noundef %5, ptr noundef %6, ptr nocapture noundef readonly %7) local_unnamed_addr #1 {
-  tail call void @roaring_bitmap_clear(ptr noundef %5) #18
-  tail call void @roaring_bitmap_clear(ptr noundef %6) #18
+  tail call void @roaring_bitmap_clear(ptr noundef %5) #19
+  tail call void @roaring_bitmap_clear(ptr noundef %6) #19
   %9 = trunc i64 %1 to i32
   %10 = shl i32 %9, 1
   %11 = add i32 %10, 32
@@ -262,7 +263,7 @@ define dso_local void @rebuild_sets_from_csr(i64 noundef %0, i64 noundef %1, i64
 
 16:                                               ; preds = %12
   %17 = sext i32 %13 to i64
-  %18 = tail call noalias ptr @calloc(i64 noundef %17, i64 noundef 24) #17
+  %18 = tail call noalias ptr @calloc(i64 noundef %17, i64 noundef 24) #18
   %19 = icmp sgt i64 %1, 0
   br i1 %19, label %20, label %22
 
@@ -349,7 +350,7 @@ define dso_local void @rebuild_sets_from_csr(i64 noundef %0, i64 noundef %1, i64
   br i1 %77, label %78, label %79, !llvm.loop !31
 
 78:                                               ; preds = %76, %22
-  tail call void @free(ptr noundef %18) #18
+  tail call void @free(ptr noundef %18) #19
   ret void
 
 79:                                               ; preds = %24, %76
@@ -364,7 +365,7 @@ define dso_local void @rebuild_sets_from_csr(i64 noundef %0, i64 noundef %1, i64
 
 87:                                               ; preds = %79
   %88 = trunc i64 %80 to i32
-  tail call void @roaring_bitmap_add(ptr noundef %5, i32 noundef %88) #18
+  tail call void @roaring_bitmap_add(ptr noundef %5, i32 noundef %88) #19
   %89 = trunc i64 %80 to i32
   br label %90
 
@@ -372,7 +373,7 @@ define dso_local void @rebuild_sets_from_csr(i64 noundef %0, i64 noundef %1, i64
   %91 = phi i64 [ %82, %87 ], [ %133, %132 ]
   %92 = getelementptr inbounds i32, ptr %4, i64 %91
   %93 = load i32, ptr %92, align 4, !tbaa !22
-  tail call void @roaring_bitmap_add(ptr noundef %5, i32 noundef %93) #18
+  tail call void @roaring_bitmap_add(ptr noundef %5, i32 noundef %93) #19
   br i1 %27, label %132, label %94
 
 94:                                               ; preds = %90
@@ -421,7 +422,7 @@ define dso_local void @rebuild_sets_from_csr(i64 noundef %0, i64 noundef %1, i64
 
 130:                                              ; preds = %126
   %131 = trunc i64 %128 to i32
-  tail call void @roaring_bitmap_add(ptr noundef %6, i32 noundef %131) #18
+  tail call void @roaring_bitmap_add(ptr noundef %6, i32 noundef %131) #19
   br label %132
 
 132:                                              ; preds = %114, %94, %90, %130, %126
@@ -689,20 +690,20 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   br i1 %36, label %357, label %37
 
 37:                                               ; preds = %33
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %2) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %2) #19
   store ptr null, ptr %2, align 8, !tbaa !17
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %3) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %3) #19
   store ptr null, ptr %3, align 8, !tbaa !20
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %4) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %4) #19
   store i64 0, ptr %4, align 8, !tbaa !11
   br label %75
 
 38:                                               ; preds = %29
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %2) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %2) #19
   store ptr null, ptr %2, align 8, !tbaa !17
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %3) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %3) #19
   store ptr null, ptr %3, align 8, !tbaa !20
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %4) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %4) #19
   store i64 0, ptr %4, align 8, !tbaa !11
   switch i32 %31, label %75 [
     i32 0, label %39
@@ -737,10 +738,10 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   call void @convert_pcsr_to_csr(i64 noundef %53, i64 poison, ptr noundef %55, ptr noundef %57, ptr noundef nonnull %2, ptr noundef nonnull %3, ptr noundef nonnull %4)
   %58 = load i64, ptr %52, align 8, !tbaa !44
   %59 = load ptr, ptr %54, align 8, !tbaa !52
-  tail call void @free(ptr noundef %59) #18
+  tail call void @free(ptr noundef %59) #19
   store ptr null, ptr %54, align 8, !tbaa !52
   %60 = load ptr, ptr %56, align 8, !tbaa !53
-  tail call void @free(ptr noundef %60) #18
+  tail call void @free(ptr noundef %60) #19
   store ptr null, ptr %56, align 8, !tbaa !53
   br label %75
 
@@ -758,10 +759,10 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   call void @convert_bcsr_to_csr(i64 noundef %63, i32 noundef %65, i32 noundef %67, ptr noundef %69, ptr noundef %71, ptr noundef nonnull %2, ptr noundef nonnull %3, ptr noundef nonnull %4)
   %72 = load i64, ptr %62, align 8, !tbaa !44
   %73 = load ptr, ptr %68, align 8, !tbaa !56
-  call void @free(ptr noundef %73) #18
+  call void @free(ptr noundef %73) #19
   store ptr null, ptr %68, align 8, !tbaa !56
   %74 = load ptr, ptr %70, align 8, !tbaa !57
-  call void @free(ptr noundef %74) #18
+  call void @free(ptr noundef %74) #19
   store ptr null, ptr %70, align 8, !tbaa !57
   br label %75
 
@@ -781,8 +782,8 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   %85 = load ptr, ptr %18, align 8, !tbaa !47
   %86 = load ptr, ptr %22, align 8, !tbaa !48
   %87 = load ptr, ptr %26, align 8, !tbaa !49
-  call void @roaring_bitmap_clear(ptr noundef %85) #18
-  call void @roaring_bitmap_clear(ptr noundef %86) #18
+  call void @roaring_bitmap_clear(ptr noundef %85) #19
+  call void @roaring_bitmap_clear(ptr noundef %86) #19
   %88 = getelementptr inbounds nuw i8, ptr %14, i64 72
   %89 = load i64, ptr %88, align 8, !tbaa !59
   %90 = icmp sgt i64 %89, 0
@@ -811,8 +812,8 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
 
 105:                                              ; preds = %101
   %106 = load ptr, ptr %103, align 8, !tbaa !37
-  call void @free(ptr noundef %106) #18
-  call void @free(ptr noundef nonnull %103) #18
+  call void @free(ptr noundef %106) #19
+  call void @free(ptr noundef nonnull %103) #19
   store ptr null, ptr %102, align 8, !tbaa !61
   br label %107
 
@@ -832,7 +833,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
 
 117:                                              ; preds = %113
   %118 = sext i32 %114 to i64
-  %119 = call noalias ptr @calloc(i64 noundef %118, i64 noundef 24) #17
+  %119 = call noalias ptr @calloc(i64 noundef %118, i64 noundef 24) #18
   %120 = icmp sgt i64 %109, 0
   br i1 %120, label %121, label %130
 
@@ -943,14 +944,14 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
 
 197:                                              ; preds = %189
   %198 = trunc i64 %190 to i32
-  call void @roaring_bitmap_add(ptr noundef %85, i32 noundef %198) #18
+  call void @roaring_bitmap_add(ptr noundef %85, i32 noundef %198) #19
   br label %199
 
 199:                                              ; preds = %336, %197
   %200 = phi i64 [ %192, %197 ], [ %337, %336 ]
   %201 = getelementptr inbounds i32, ptr %80, i64 %200
   %202 = load i32, ptr %201, align 4, !tbaa !22
-  call void @roaring_bitmap_add(ptr noundef %85, i32 noundef %202) #18
+  call void @roaring_bitmap_add(ptr noundef %85, i32 noundef %202) #19
   %203 = sext i32 %202 to i64
   %204 = icmp sgt i64 %190, %203
   br i1 %204, label %336, label %205
@@ -1004,7 +1005,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
 
 242:                                              ; preds = %238
   %243 = trunc i64 %240 to i32
-  call void @roaring_bitmap_add(ptr noundef %86, i32 noundef %243) #18
+  call void @roaring_bitmap_add(ptr noundef %86, i32 noundef %243) #19
   br label %336
 
 244:                                              ; preds = %226, %238, %206, %205
@@ -1061,7 +1062,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
 278:                                              ; preds = %271
   %279 = load i64, ptr %88, align 8, !tbaa !59
   %280 = icmp sgt i64 %279, 0
-  %281 = call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #19
+  %281 = call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #20
   %282 = trunc i64 %279 to i32
   %283 = shl i32 %282, 2
   %284 = add i32 %283, 32
@@ -1078,7 +1079,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   %291 = sext i32 %287 to i64
   %292 = getelementptr inbounds nuw i8, ptr %281, i64 8
   store i64 %291, ptr %292, align 8, !tbaa !34
-  %293 = call noalias ptr @calloc(i64 noundef %291, i64 noundef 24) #17
+  %293 = call noalias ptr @calloc(i64 noundef %291, i64 noundef 24) #18
   store ptr %293, ptr %281, align 8, !tbaa !37
   store ptr %281, ptr %139, align 8, !tbaa !61
   br label %294
@@ -1145,7 +1146,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   br i1 %338, label %187, label %199, !llvm.loop !70
 
 339:                                              ; preds = %187, %130
-  call void @free(ptr noundef %119) #18
+  call void @free(ptr noundef %119) #19
   %340 = getelementptr inbounds nuw i8, ptr %14, i64 80
   store i32 0, ptr %340, align 8, !tbaa !46
   call fastcc void @refresh_graph_counts_from_canonical(ptr noundef nonnull %14)
@@ -1159,7 +1160,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   br i1 %345, label %346, label %347
 
 346:                                              ; preds = %342
-  call void @free(ptr noundef nonnull %343) #18
+  call void @free(ptr noundef nonnull %343) #19
   br label %347
 
 347:                                              ; preds = %346, %342
@@ -1169,7 +1170,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   br i1 %350, label %351, label %352
 
 351:                                              ; preds = %347
-  call void @free(ptr noundef nonnull %348) #18
+  call void @free(ptr noundef nonnull %348) #19
   br label %352
 
 352:                                              ; preds = %351, %347
@@ -1183,9 +1184,9 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
   store i32 3, ptr %30, align 8, !tbaa !50
   %356 = getelementptr inbounds nuw i8, ptr %14, i64 80
   store i32 0, ptr %356, align 8, !tbaa !46
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %4) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %3) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %2) #18
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %4) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %3) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %2) #19
   br label %357
 
 357:                                              ; preds = %9, %1, %33, %17, %21, %25, %352
@@ -1195,7 +1196,7 @@ define dso_local void @autograph_ensure_layout_set(ptr noundef writeonly %0) loc
 ; Function Attrs: nounwind uwtable
 define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture noundef readonly %2, ptr nocapture noundef readonly %3, ptr nocapture noundef writeonly %4, ptr nocapture noundef writeonly %5, ptr nocapture noundef writeonly %6) local_unnamed_addr #1 {
   %8 = add i64 %0, 1
-  %9 = tail call noalias ptr @calloc(i64 noundef %8, i64 noundef 8) #17
+  %9 = tail call noalias ptr @calloc(i64 noundef %8, i64 noundef 8) #18
   %10 = icmp sgt i64 %0, 0
   br i1 %10, label %11, label %89
 
@@ -1308,9 +1309,9 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
 89:                                               ; preds = %75, %79, %7
   %90 = phi i64 [ 0, %7 ], [ %63, %79 ], [ %63, %75 ]
   %91 = shl i64 %90, 2
-  %92 = tail call noalias ptr @malloc(i64 noundef %91) #19
+  %92 = tail call noalias ptr @malloc(i64 noundef %91) #20
   %93 = shl i64 %8, 3
-  %94 = tail call noalias ptr @malloc(i64 noundef %93) #19
+  %94 = tail call noalias ptr @malloc(i64 noundef %93) #20
   tail call void @llvm.memcpy.p0.p0.i64(ptr align 8 %94, ptr align 8 %9, i64 %93, i1 false)
   br i1 %10, label %95, label %119
 
@@ -1349,7 +1350,7 @@ define dso_local void @convert_pcsr_to_csr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %118, label %119, label %120, !llvm.loop !78
 
 119:                                              ; preds = %117, %89
-  tail call void @free(ptr noundef %94) #18
+  tail call void @free(ptr noundef %94) #19
   store ptr %9, ptr %4, align 8, !tbaa !17
   store ptr %92, ptr %5, align 8, !tbaa !20
   store i64 %90, ptr %6, align 8, !tbaa !11
@@ -1447,7 +1448,7 @@ define dso_local void @convert_bcsr_to_csr(i64 noundef %0, i32 noundef %1, i32 n
 
 20:                                               ; preds = %8
   %21 = add i64 %0, 1
-  %22 = tail call noalias ptr @calloc(i64 noundef %21, i64 noundef 8) #17
+  %22 = tail call noalias ptr @calloc(i64 noundef %21, i64 noundef 8) #18
   %23 = icmp eq ptr %22, null
   br i1 %23, label %167, label %24
 
@@ -1577,24 +1578,24 @@ define dso_local void @convert_bcsr_to_csr(i64 noundef %0, i32 noundef %1, i32 n
 
 112:                                              ; preds = %89
   %113 = shl i64 %91, 2
-  %114 = tail call noalias ptr @malloc(i64 noundef %113) #19
+  %114 = tail call noalias ptr @malloc(i64 noundef %113) #20
   %115 = icmp eq ptr %114, null
   br i1 %115, label %116, label %117
 
 116:                                              ; preds = %112
-  tail call void @free(ptr noundef nonnull %22) #18
+  tail call void @free(ptr noundef nonnull %22) #19
   br label %167
 
 117:                                              ; preds = %112, %89
   %118 = phi ptr [ %114, %112 ], [ null, %89 ]
   %119 = shl i64 %21, 3
-  %120 = tail call noalias ptr @malloc(i64 noundef %119) #19
+  %120 = tail call noalias ptr @malloc(i64 noundef %119) #20
   %121 = icmp eq ptr %120, null
   br i1 %121, label %122, label %123
 
 122:                                              ; preds = %117
-  tail call void @free(ptr noundef nonnull %22) #18
-  tail call void @free(ptr noundef %118) #18
+  tail call void @free(ptr noundef nonnull %22) #19
+  tail call void @free(ptr noundef %118) #19
   br label %167
 
 123:                                              ; preds = %117
@@ -1612,7 +1613,7 @@ define dso_local void @convert_bcsr_to_csr(i64 noundef %0, i32 noundef %1, i32 n
   br i1 %129, label %130, label %131, !llvm.loop !84
 
 130:                                              ; preds = %128, %123
-  tail call void @free(ptr noundef %120) #18
+  tail call void @free(ptr noundef %120) #19
   store ptr %22, ptr %5, align 8, !tbaa !17
   store ptr %118, ptr %6, align 8, !tbaa !20
   store i64 %91, ptr %7, align 8, !tbaa !11
@@ -1683,13 +1684,13 @@ define internal fastcc void @refresh_graph_counts_from_canonical(ptr nocapture n
   br i1 %7, label %16, label %8
 
 8:                                                ; preds = %4
-  %9 = tail call i64 @roaring_bitmap_get_cardinality(ptr noundef nonnull %6) #18
+  %9 = tail call i64 @roaring_bitmap_get_cardinality(ptr noundef nonnull %6) #19
   %10 = icmp eq i64 %9, 0
   br i1 %10, label %16, label %11
 
 11:                                               ; preds = %8
   %12 = add i64 %9, -1
-  %13 = tail call i32 @roaring_bitmap_get_at_index(ptr noundef nonnull %6, i64 noundef %12) #18
+  %13 = tail call i32 @roaring_bitmap_get_at_index(ptr noundef nonnull %6, i64 noundef %12) #19
   %14 = zext i32 %13 to i64
   %15 = add nuw nsw i64 %14, 1
   br label %16
@@ -1764,7 +1765,7 @@ define internal fastcc void @refresh_graph_counts_from_canonical(ptr nocapture n
   %65 = phi i64 [ %71, %64 ], [ 0, %25 ]
   %66 = phi i64 [ %70, %64 ], [ 0, %25 ]
   %67 = trunc i64 %65 to i32
-  %68 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef nonnull %23, i32 noundef %67) #18
+  %68 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef nonnull %23, i32 noundef %67) #19
   %69 = zext i1 %68 to i64
   %70 = add nuw nsw i64 %66, %69
   %71 = add nuw nsw i64 %65, 1
@@ -1810,10 +1811,10 @@ define dso_local void @convert_csr_to_pcsr(i64 noundef %0, i64 noundef %1, ptr n
   %8 = tail call i64 @llvm.smax.i64(i64 %1, i64 16)
   %9 = shl nuw i64 %8, 1
   %10 = shl i64 %8, 3
-  %11 = tail call noalias ptr @malloc(i64 noundef %10) #19
+  %11 = tail call noalias ptr @malloc(i64 noundef %10) #20
   %12 = shl i64 %0, 3
   %13 = add i64 %12, 8
-  %14 = tail call noalias ptr @malloc(i64 noundef %13) #19
+  %14 = tail call noalias ptr @malloc(i64 noundef %13) #20
   tail call void @llvm.memset.p0.i64(ptr align 4 %11, i8 -1, i64 %10, i1 false)
   %15 = icmp sgt i64 %0, 0
   br i1 %15, label %16, label %20
@@ -1862,7 +1863,7 @@ define dso_local void @convert_csr_to_pcsr(i64 noundef %0, i64 noundef %1, ptr n
 
 44:                                               ; preds = %40
   %45 = shl i64 %41, 2
-  %46 = tail call ptr @realloc(ptr noundef %27, i64 noundef %45) #20
+  %46 = tail call ptr @realloc(ptr noundef %27, i64 noundef %45) #21
   %47 = getelementptr inbounds i32, ptr %46, i64 %26
   %48 = sub nsw i64 %41, %26
   %49 = shl i64 %48, 2
@@ -1957,7 +1958,7 @@ define dso_local void @convert_csr_to_bcsr(i64 noundef %0, i64 %1, ptr nocapture
   %22 = shl i64 %20, 32
   %23 = add i64 %22, 4294967296
   %24 = ashr exact i64 %23, 32
-  %25 = tail call noalias ptr @calloc(i64 noundef %24, i64 noundef 4) #17
+  %25 = tail call noalias ptr @calloc(i64 noundef %24, i64 noundef 4) #18
   %26 = icmp eq ptr %25, null
   br i1 %26, label %191, label %27
 
@@ -2067,7 +2068,7 @@ define dso_local void @convert_csr_to_bcsr(i64 noundef %0, i64 %1, ptr nocapture
   br i1 %106, label %108, label %32, !llvm.loop !95
 
 107:                                              ; preds = %87
-  tail call void @free(ptr noundef %25) #18
+  tail call void @free(ptr noundef %25) #19
   br label %191
 
 108:                                              ; preds = %102
@@ -2076,12 +2077,12 @@ define dso_local void @convert_csr_to_bcsr(i64 noundef %0, i64 %1, ptr nocapture
 
 110:                                              ; preds = %108
   %111 = shl nuw nsw i64 %89, 2
-  %112 = tail call noalias ptr @malloc(i64 noundef %111) #19
+  %112 = tail call noalias ptr @malloc(i64 noundef %111) #20
   %113 = icmp eq ptr %112, null
   br i1 %113, label %114, label %115
 
 114:                                              ; preds = %110
-  tail call void @free(ptr noundef nonnull %25) #18
+  tail call void @free(ptr noundef nonnull %25) #19
   br label %191
 
 115:                                              ; preds = %108, %110
@@ -2289,25 +2290,25 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   br i1 %65, label %226, label %66
 
 66:                                               ; preds = %62
-  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %12) #18
-  %67 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %12) #18
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %12) #19
+  %67 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %12) #19
   %68 = load i64, ptr %12, align 8, !tbaa !100
   %69 = mul i64 %68, -1000000000
   %70 = getelementptr inbounds nuw i8, ptr %12, i64 8
   %71 = load i64, ptr %70, align 8, !tbaa !102
   %72 = sub i64 %69, %71
-  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %12) #18
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %12) #19
   %73 = icmp eq i32 %8, 3
   br i1 %73, label %74, label %79
 
 74:                                               ; preds = %66
   call void @autograph_ensure_layout_set(ptr noundef %0)
-  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %11) #18
-  %75 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %11) #18
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %11) #19
+  %75 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %11) #19
   %76 = load i64, ptr %11, align 8, !tbaa !100
   %77 = getelementptr inbounds nuw i8, ptr %11, i64 8
   %78 = load i64, ptr %77, align 8, !tbaa !102
-  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %11) #18
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %11) #19
   br label %216
 
 79:                                               ; preds = %66
@@ -2332,10 +2333,10 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   br label %186
 
 89:                                               ; preds = %82
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %13) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %14) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %15) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %16) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %13) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %14) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %15) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %16) #19
   call fastcc void @build_csr_from_meta(ptr noundef %33, ptr noundef %14, ptr noundef %15, ptr noundef %16, ptr noundef %13)
   %90 = load i64, ptr %14, align 8, !tbaa !11
   store i64 %90, ptr %83, align 8, !tbaa !44
@@ -2346,20 +2347,20 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   %95 = getelementptr inbounds nuw i8, ptr %33, i64 144
   %96 = getelementptr inbounds nuw i8, ptr %33, i64 152
   call void @convert_csr_to_pcsr(i64 noundef %90, i64 noundef %91, ptr noundef %92, ptr noundef %93, ptr noundef nonnull %94, ptr noundef nonnull %95, ptr noundef nonnull %96)
-  call void @free(ptr noundef %92) #18
-  call void @free(ptr noundef %93) #18
+  call void @free(ptr noundef %92) #19
+  call void @free(ptr noundef %93) #19
   store i32 1, ptr %63, align 8, !tbaa !50
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %16) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %15) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %14) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %13) #18
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %16) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %15) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %14) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %13) #19
   br label %195
 
 97:                                               ; preds = %82
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %17) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %18) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %19) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %20) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %17) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %18) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %19) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %20) #19
   call fastcc void @build_csr_from_meta(ptr noundef %33, ptr noundef %18, ptr noundef %19, ptr noundef %20, ptr noundef %17)
   %98 = load i64, ptr %18, align 8, !tbaa !11
   store i64 %98, ptr %83, align 8, !tbaa !44
@@ -2371,19 +2372,19 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   %103 = getelementptr inbounds nuw i8, ptr %33, i64 168
   %104 = getelementptr inbounds nuw i8, ptr %33, i64 180
   call void @convert_csr_to_bcsr(i64 noundef %98, i64 poison, ptr noundef %100, ptr noundef %101, ptr noundef nonnull %102, ptr noundef nonnull %103, i32 noundef 64, ptr noundef nonnull %104)
-  call void @free(ptr noundef %100) #18
-  call void @free(ptr noundef %101) #18
+  call void @free(ptr noundef %100) #19
+  call void @free(ptr noundef %101) #19
   store i32 2, ptr %63, align 8, !tbaa !50
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %20) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %19) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %18) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %17) #18
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %20) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %19) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %18) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %17) #19
   br label %204
 
 105:                                              ; preds = %79
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %21) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %22) #18
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %23) #18
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %21) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %22) #19
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %23) #19
   switch i32 %80, label %128 [
     i32 1, label %106
     i32 2, label %115
@@ -2398,10 +2399,10 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   %112 = load ptr, ptr %111, align 8, !tbaa !53
   call void @convert_pcsr_to_csr(i64 noundef %108, i64 poison, ptr noundef %110, ptr noundef %112, ptr noundef nonnull %22, ptr noundef nonnull %23, ptr noundef nonnull %21)
   %113 = load ptr, ptr %109, align 8, !tbaa !52
-  call void @free(ptr noundef %113) #18
+  call void @free(ptr noundef %113) #19
   store ptr null, ptr %109, align 8, !tbaa !52
   %114 = load ptr, ptr %111, align 8, !tbaa !53
-  call void @free(ptr noundef %114) #18
+  call void @free(ptr noundef %114) #19
   store ptr null, ptr %111, align 8, !tbaa !53
   br label %137
 
@@ -2418,10 +2419,10 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   %125 = load ptr, ptr %124, align 8, !tbaa !57
   call void @convert_bcsr_to_csr(i64 noundef %117, i32 noundef %119, i32 noundef %121, ptr noundef %123, ptr noundef %125, ptr noundef nonnull %22, ptr noundef nonnull %23, ptr noundef nonnull %21)
   %126 = load ptr, ptr %122, align 8, !tbaa !56
-  call void @free(ptr noundef %126) #18
+  call void @free(ptr noundef %126) #19
   store ptr null, ptr %122, align 8, !tbaa !56
   %127 = load ptr, ptr %124, align 8, !tbaa !57
-  call void @free(ptr noundef %127) #18
+  call void @free(ptr noundef %127) #19
   store ptr null, ptr %124, align 8, !tbaa !57
   br label %137
 
@@ -2461,9 +2462,9 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
 
 149:                                              ; preds = %139
   %150 = load ptr, ptr %22, align 8, !tbaa !17
-  call void @free(ptr noundef %150) #18
+  call void @free(ptr noundef %150) #19
   %151 = load ptr, ptr %23, align 8, !tbaa !20
-  call void @free(ptr noundef %151) #18
+  call void @free(ptr noundef %151) #19
   br label %152
 
 152:                                              ; preds = %149, %139
@@ -2492,9 +2493,9 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
 
 167:                                              ; preds = %157
   %168 = load ptr, ptr %22, align 8, !tbaa !17
-  call void @free(ptr noundef %168) #18
+  call void @free(ptr noundef %168) #19
   %169 = load ptr, ptr %23, align 8, !tbaa !20
-  call void @free(ptr noundef %169) #18
+  call void @free(ptr noundef %169) #19
   br label %170
 
 170:                                              ; preds = %167, %157
@@ -2509,16 +2510,16 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
 
 175:                                              ; preds = %173, %170
   store i32 %8, ptr %63, align 8, !tbaa !50
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %23) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %22) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %21) #18
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %23) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %22) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %21) #19
   br label %204
 
 176:                                              ; preds = %152, %155
   store i32 %8, ptr %63, align 8, !tbaa !50
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %23) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %22) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %21) #18
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %23) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %22) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %21) #19
   br label %195
 
 177:                                              ; preds = %137
@@ -2534,9 +2535,9 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   %184 = getelementptr inbounds nuw i8, ptr %33, i64 128
   store i32 %138, ptr %184, align 8, !tbaa !51
   store i32 %8, ptr %63, align 8, !tbaa !50
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %23) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %22) #18
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %21) #18
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %23) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %22) #19
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %21) #19
   %185 = getelementptr inbounds nuw i8, ptr %33, i64 112
   br label %186
 
@@ -2581,12 +2582,12 @@ define dso_local void @autograph_ensure_layout(ptr noundef %0, i64 noundef %1, i
   br label %211
 
 211:                                              ; preds = %195, %204, %186
-  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %10) #18
-  %212 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %10) #18
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %10) #19
+  %212 = call i32 @clock_gettime(i32 noundef 1, ptr noundef nonnull %10) #19
   %213 = load i64, ptr %10, align 8, !tbaa !100
   %214 = getelementptr inbounds nuw i8, ptr %10, i64 8
   %215 = load i64, ptr %214, align 8, !tbaa !102
-  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %10) #18
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %10) #19
   br label %216
 
 216:                                              ; preds = %211, %74
@@ -2615,13 +2616,13 @@ define internal fastcc void @build_csr_from_meta(ptr nocapture noundef nonnull %
   %9 = load ptr, ptr %8, align 8, !tbaa !48
   %10 = getelementptr inbounds nuw i8, ptr %0, i64 32
   %11 = load ptr, ptr %10, align 8, !tbaa !49
-  %12 = tail call i64 @roaring_bitmap_get_cardinality(ptr noundef %7) #18
+  %12 = tail call i64 @roaring_bitmap_get_cardinality(ptr noundef %7) #19
   %13 = icmp slt i64 %12, 1
   br i1 %13, label %20, label %14
 
 14:                                               ; preds = %5
   %15 = add nsw i64 %12, -1
-  %16 = tail call i32 @roaring_bitmap_get_at_index(ptr noundef %7, i64 noundef %15) #18
+  %16 = tail call i32 @roaring_bitmap_get_at_index(ptr noundef %7, i64 noundef %15) #19
   %17 = tail call i32 @llvm.smax.i32(i32 %16, i32 -1)
   %18 = add i32 %17, 1
   %19 = zext i32 %18 to i64
@@ -2630,7 +2631,7 @@ define internal fastcc void @build_csr_from_meta(ptr nocapture noundef nonnull %
 20:                                               ; preds = %14, %5
   %21 = phi i64 [ %19, %14 ], [ 0, %5 ]
   %22 = add nuw nsw i64 %21, 1
-  %23 = tail call noalias ptr @calloc(i64 noundef %22, i64 noundef 8) #17
+  %23 = tail call noalias ptr @calloc(i64 noundef %22, i64 noundef 8) #18
   %24 = getelementptr inbounds nuw i8, ptr %0, i64 40
   %25 = getelementptr inbounds nuw i8, ptr %23, i64 8
   %26 = load i64, ptr %24, align 8, !tbaa !63
@@ -2659,7 +2660,7 @@ define internal fastcc void @build_csr_from_meta(ptr nocapture noundef nonnull %
   %41 = phi i64 [ %68, %67 ], [ 0, %20 ]
   %42 = phi i64 [ %69, %67 ], [ 0, %20 ]
   %43 = trunc i64 %42 to i32
-  %44 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %9, i32 noundef %43) #18
+  %44 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %9, i32 noundef %43) #19
   br i1 %44, label %45, label %67
 
 45:                                               ; preds = %40
@@ -2818,13 +2819,13 @@ define internal fastcc void @build_csr_from_meta(ptr nocapture noundef nonnull %
 
 154:                                              ; preds = %133
   %155 = shl i64 %73, 2
-  %156 = tail call noalias ptr @malloc(i64 noundef %155) #19
+  %156 = tail call noalias ptr @malloc(i64 noundef %155) #20
   br label %157
 
 157:                                              ; preds = %133, %154
   %158 = phi ptr [ %156, %154 ], [ null, %133 ]
   %159 = shl nuw nsw i64 %22, 3
-  %160 = tail call noalias ptr @malloc(i64 noundef %159) #19
+  %160 = tail call noalias ptr @malloc(i64 noundef %159) #20
   tail call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(1) %160, ptr noundef nonnull align 8 dereferenceable(1) %23, i64 %159, i1 false)
   br i1 %31, label %170, label %163
 
@@ -2846,7 +2847,7 @@ define internal fastcc void @build_csr_from_meta(ptr nocapture noundef nonnull %
 170:                                              ; preds = %157, %197
   %171 = phi i64 [ %198, %197 ], [ 0, %157 ]
   %172 = trunc i64 %171 to i32
-  %173 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %9, i32 noundef %172) #18
+  %173 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %9, i32 noundef %172) #19
   br i1 %173, label %174, label %197
 
 174:                                              ; preds = %170
@@ -2891,7 +2892,7 @@ define internal fastcc void @build_csr_from_meta(ptr nocapture noundef nonnull %
   br i1 %200, label %170, label %161, !llvm.loop !108
 
 201:                                              ; preds = %234, %163
-  tail call void @free(ptr noundef %160) #18
+  tail call void @free(ptr noundef %160) #19
   store i64 %21, ptr %1, align 8, !tbaa !11
   store ptr %23, ptr %2, align 8, !tbaa !17
   store ptr %158, ptr %3, align 8, !tbaa !20
@@ -3106,7 +3107,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_add_node(ptr noundef r
   br i1 %18, label %26, label %19
 
 19:                                               ; preds = %15
-  tail call void @roaring_bitmap_add(ptr noundef nonnull %17, i32 noundef %1) #18
+  tail call void @roaring_bitmap_add(ptr noundef nonnull %17, i32 noundef %1) #19
   %20 = getelementptr inbounds nuw i8, ptr %12, i64 8
   %21 = load i32, ptr %20, align 8, !tbaa !50
   %22 = icmp eq i32 %21, 3
@@ -3161,7 +3162,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_node(ptr nounde
   br i1 %22, label %99, label %23
 
 23:                                               ; preds = %19
-  tail call void @roaring_bitmap_remove(ptr noundef nonnull %17, i32 noundef %1) #18
+  tail call void @roaring_bitmap_remove(ptr noundef nonnull %17, i32 noundef %1) #19
   %24 = getelementptr inbounds nuw i8, ptr %12, i64 32
   %25 = load ptr, ptr %24, align 8, !tbaa !49
   %26 = load ptr, ptr %20, align 8, !tbaa !48
@@ -3186,7 +3187,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_node(ptr nounde
   %39 = phi i64 [ %55, %53 ], [ 0, %23 ]
   %40 = phi i64 [ %54, %53 ], [ 0, %23 ]
   %41 = trunc i64 %39 to i32
-  %42 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %26, i32 noundef %41) #18
+  %42 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %26, i32 noundef %41) #19
   br i1 %42, label %43, label %53
 
 43:                                               ; preds = %38
@@ -3202,7 +3203,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_node(ptr nounde
   br i1 %50, label %51, label %53
 
 51:                                               ; preds = %47, %43
-  tail call void @roaring_bitmap_remove(ptr noundef %26, i32 noundef %41) #18
+  tail call void @roaring_bitmap_remove(ptr noundef %26, i32 noundef %41) #19
   %52 = add nsw i64 %40, 1
   br label %53
 
@@ -3320,17 +3321,17 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_add_edge(ptr noundef r
   br i1 %23, label %120, label %24
 
 24:                                               ; preds = %20
-  tail call void @roaring_bitmap_add(ptr noundef nonnull %18, i32 noundef %1) #18
+  tail call void @roaring_bitmap_add(ptr noundef nonnull %18, i32 noundef %1) #19
   %25 = load ptr, ptr %17, align 8, !tbaa !47
-  tail call void @roaring_bitmap_add(ptr noundef %25, i32 noundef %2) #18
+  tail call void @roaring_bitmap_add(ptr noundef %25, i32 noundef %2) #19
   %26 = tail call fastcc i32 @canonical_pair_find_static(ptr noundef %13, i32 noundef %1, i32 noundef %2)
   %27 = icmp sgt i32 %26, -1
   br i1 %27, label %28, label %41
 
 28:                                               ; preds = %24
   %29 = load ptr, ptr %21, align 8, !tbaa !48
-  %30 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %29, i32 noundef %26) #18
-  tail call void @roaring_bitmap_add(ptr noundef %29, i32 noundef %26) #18
+  %30 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %29, i32 noundef %26) #19
+  tail call void @roaring_bitmap_add(ptr noundef %29, i32 noundef %26) #19
   br i1 %30, label %37, label %31
 
 31:                                               ; preds = %28
@@ -3423,7 +3424,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_add_edge(ptr noundef r
   %89 = getelementptr inbounds nuw i8, ptr %13, i64 72
   %90 = load i64, ptr %89, align 8, !tbaa !59
   %91 = icmp sgt i64 %90, 0
-  %92 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #19
+  %92 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #20
   %93 = trunc i64 %90 to i32
   %94 = shl i32 %93, 2
   %95 = add i32 %94, 32
@@ -3440,7 +3441,7 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_add_edge(ptr noundef r
   %102 = sext i32 %98 to i64
   %103 = getelementptr inbounds nuw i8, ptr %92, i64 8
   store i64 %102, ptr %103, align 8, !tbaa !34
-  %104 = tail call noalias ptr @calloc(i64 noundef %102, i64 noundef 24) #17
+  %104 = tail call noalias ptr @calloc(i64 noundef %102, i64 noundef 24) #18
   store ptr %104, ptr %92, align 8, !tbaa !37
   store ptr %92, ptr %85, align 8, !tbaa !61
   br label %105
@@ -3522,7 +3523,7 @@ define internal fastcc i32 @canonical_pair_find_static(ptr noundef nonnull reado
 26:                                               ; preds = %19
   %27 = getelementptr inbounds nuw i8, ptr %0, i64 40
   %28 = load i64, ptr %27, align 8, !tbaa !63
-  %29 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #19
+  %29 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #20
   %30 = trunc i64 %28 to i32
   %31 = shl i32 %30, 1
   %32 = add i32 %31, 32
@@ -3538,7 +3539,7 @@ define internal fastcc i32 @canonical_pair_find_static(ptr noundef nonnull reado
   %38 = sext i32 %34 to i64
   %39 = getelementptr inbounds nuw i8, ptr %29, i64 8
   store i64 %38, ptr %39, align 8, !tbaa !34
-  %40 = tail call noalias ptr @calloc(i64 noundef %38, i64 noundef 24) #17
+  %40 = tail call noalias ptr @calloc(i64 noundef %38, i64 noundef 24) #18
   store ptr %40, ptr %29, align 8, !tbaa !37
   store ptr %29, ptr %21, align 8, !tbaa !61
   %41 = icmp sgt i64 %28, 0
@@ -3711,7 +3712,7 @@ define internal fastcc i64 @canonical_pair_find_extra(ptr noundef nonnull readon
   %25 = getelementptr inbounds nuw i8, ptr %0, i64 72
   %26 = load i64, ptr %25, align 8, !tbaa !59
   %27 = icmp sgt i64 %26, 0
-  %28 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #19
+  %28 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #20
   %29 = trunc i64 %26 to i32
   %30 = shl i32 %29, 2
   %31 = add i32 %30, 32
@@ -3728,7 +3729,7 @@ define internal fastcc i64 @canonical_pair_find_extra(ptr noundef nonnull readon
   %38 = sext i32 %34 to i64
   %39 = getelementptr inbounds nuw i8, ptr %28, i64 8
   store i64 %38, ptr %39, align 8, !tbaa !34
-  %40 = tail call noalias ptr @calloc(i64 noundef %38, i64 noundef 24) #17
+  %40 = tail call noalias ptr @calloc(i64 noundef %38, i64 noundef 24) #18
   store ptr %40, ptr %28, align 8, !tbaa !37
   store ptr %28, ptr %21, align 8, !tbaa !61
   br label %43
@@ -3820,10 +3821,10 @@ define internal fastcc range(i32 0, 2) i32 @ensure_extra_capacity(ptr noundef no
   %14 = getelementptr inbounds nuw i8, ptr %0, i64 48
   %15 = load ptr, ptr %14, align 8, !tbaa !69
   %16 = shl i64 %10, 3
-  %17 = tail call ptr @realloc(ptr noundef %15, i64 noundef %16) #20
+  %17 = tail call ptr @realloc(ptr noundef %15, i64 noundef %16) #21
   %18 = getelementptr inbounds nuw i8, ptr %0, i64 56
   %19 = load ptr, ptr %18, align 8, !tbaa !64
-  %20 = tail call ptr @realloc(ptr noundef %19, i64 noundef %10) #20
+  %20 = tail call ptr @realloc(ptr noundef %19, i64 noundef %10) #21
   %21 = icmp ne ptr %17, null
   %22 = icmp ne ptr %20, null
   %23 = and i1 %21, %22
@@ -3872,9 +3873,9 @@ define internal fastcc range(i32 0, 2) i32 @ensure_extra_capacity(ptr noundef no
 
 47:                                               ; preds = %42
   %48 = load ptr, ptr %45, align 8, !tbaa !37
-  tail call void @free(ptr noundef %48) #18
-  tail call void @free(ptr noundef nonnull %45) #18
-  %49 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #19
+  tail call void @free(ptr noundef %48) #19
+  tail call void @free(ptr noundef nonnull %45) #19
+  %49 = tail call noalias dereferenceable_or_null(16) ptr @malloc(i64 noundef 16) #20
   %50 = trunc i64 %10 to i32
   %51 = shl i32 %50, 2
   %52 = add i32 %51, 32
@@ -3890,7 +3891,7 @@ define internal fastcc range(i32 0, 2) i32 @ensure_extra_capacity(ptr noundef no
   %58 = sext i32 %54 to i64
   %59 = getelementptr inbounds nuw i8, ptr %49, i64 8
   store i64 %58, ptr %59, align 8, !tbaa !34
-  %60 = tail call noalias ptr @calloc(i64 noundef %58, i64 noundef 24) #17
+  %60 = tail call noalias ptr @calloc(i64 noundef %58, i64 noundef 24) #18
   store ptr %60, ptr %49, align 8, !tbaa !37
   store ptr %49, ptr %44, align 8, !tbaa !61
   %61 = getelementptr inbounds nuw i8, ptr %0, i64 64
@@ -4008,8 +4009,8 @@ define dso_local range(i32 0, 2) i32 @autograph_canonical_remove_edge(ptr nounde
 
 23:                                               ; preds = %20
   %24 = load ptr, ptr %17, align 8, !tbaa !48
-  %25 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %24, i32 noundef %21) #18
-  tail call void @roaring_bitmap_remove(ptr noundef %24, i32 noundef %21) #18
+  %25 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %24, i32 noundef %21) #19
+  tail call void @roaring_bitmap_remove(ptr noundef %24, i32 noundef %21) #19
   br i1 %25, label %26, label %32
 
 26:                                               ; preds = %23
@@ -4200,7 +4201,7 @@ define dso_local range(i32 0, 2) i32 @autograph_bcsr_add_edge(ptr noundef writeo
   %83 = add nsw i32 %82, 2
   %84 = sext i32 %83 to i64
   %85 = shl nsw i64 %84, 2
-  %86 = tail call ptr @realloc(ptr noundef nonnull %26, i64 noundef %85) #20
+  %86 = tail call ptr @realloc(ptr noundef nonnull %26, i64 noundef %85) #21
   %87 = icmp eq ptr %86, null
   br i1 %87, label %137, label %88
 
@@ -4473,38 +4474,38 @@ define dso_local ptr @autograph_neighbor_scratch_acquire(i64 noundef %0) local_u
   br i1 %3, label %4, label %5
 
 4:                                                ; preds = %1
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 5:                                                ; preds = %1
-  %6 = tail call i32 @pthread_once(ptr noundef nonnull @g_neighbor_scratch_key_once, ptr noundef nonnull @autograph_neighbor_scratch_make_key) #18
+  %6 = tail call i32 @pthread_once(ptr noundef nonnull @g_neighbor_scratch_key_once, ptr noundef nonnull @autograph_neighbor_scratch_make_key) #19
   %7 = icmp eq i32 %6, 0
   br i1 %7, label %9, label %8
 
 8:                                                ; preds = %5
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 9:                                                ; preds = %5
   %10 = load i32, ptr @g_neighbor_scratch_key, align 4, !tbaa !22
-  %11 = tail call ptr @pthread_getspecific(i32 noundef %10) #18
+  %11 = tail call ptr @pthread_getspecific(i32 noundef %10) #19
   %12 = icmp eq ptr %11, null
   br i1 %12, label %13, label %21
 
 13:                                               ; preds = %9
-  %14 = tail call noalias dereferenceable_or_null(24) ptr @calloc(i64 noundef 1, i64 noundef 24) #17
+  %14 = tail call noalias dereferenceable_or_null(24) ptr @calloc(i64 noundef 1, i64 noundef 24) #18
   %15 = icmp eq ptr %14, null
   br i1 %15, label %20, label %16
 
 16:                                               ; preds = %13
   %17 = load i32, ptr @g_neighbor_scratch_key, align 4, !tbaa !22
-  %18 = tail call i32 @pthread_setspecific(i32 noundef %17, ptr noundef nonnull %14) #18
+  %18 = tail call i32 @pthread_setspecific(i32 noundef %17, ptr noundef nonnull %14) #19
   %19 = icmp eq i32 %18, 0
   br i1 %19, label %21, label %20
 
 20:                                               ; preds = %16, %13
-  tail call void @free(ptr noundef %14) #18
-  tail call void @abort() #21
+  tail call void @free(ptr noundef %14) #19
+  tail call void @abort() #22
   unreachable
 
 21:                                               ; preds = %16, %9
@@ -4530,18 +4531,18 @@ define dso_local ptr @autograph_neighbor_scratch_acquire(i64 noundef %0) local_u
   br i1 %36, label %37, label %38
 
 37:                                               ; preds = %30
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 38:                                               ; preds = %30
   %39 = load ptr, ptr %22, align 8, !tbaa !126
   %40 = shl nuw i64 %33, 4
-  %41 = tail call ptr @realloc(ptr noundef %39, i64 noundef %40) #20
+  %41 = tail call ptr @realloc(ptr noundef %39, i64 noundef %40) #21
   %42 = icmp eq ptr %41, null
   br i1 %42, label %43, label %44
 
 43:                                               ; preds = %38
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 44:                                               ; preds = %38
@@ -4569,7 +4570,7 @@ define dso_local ptr @autograph_neighbor_scratch_acquire(i64 noundef %0) local_u
 
 59:                                               ; preds = %50
   %60 = shl nuw i64 %2, 2
-  %61 = tail call ptr @realloc(ptr noundef %58, i64 noundef %60) #20
+  %61 = tail call ptr @realloc(ptr noundef %58, i64 noundef %60) #21
   %62 = icmp eq ptr %61, null
   br i1 %62, label %63, label %66
 
@@ -4577,7 +4578,7 @@ define dso_local ptr @autograph_neighbor_scratch_acquire(i64 noundef %0) local_u
   %64 = load i64, ptr %23, align 8, !tbaa !123
   %65 = add i64 %64, -1
   store i64 %65, ptr %23, align 8, !tbaa !123
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 66:                                               ; preds = %59
@@ -4597,12 +4598,12 @@ declare dso_local i32 @pthread_once(ptr noundef, ptr noundef) local_unnamed_addr
 
 ; Function Attrs: nounwind uwtable
 define internal void @autograph_neighbor_scratch_make_key() #1 {
-  %1 = tail call i32 @pthread_key_create(ptr noundef nonnull @g_neighbor_scratch_key, ptr noundef nonnull @autograph_neighbor_scratch_destroy) #18
+  %1 = tail call i32 @pthread_key_create(ptr noundef nonnull @g_neighbor_scratch_key, ptr noundef nonnull @autograph_neighbor_scratch_destroy) #19
   %2 = icmp eq i32 %1, 0
   br i1 %2, label %4, label %3
 
 3:                                                ; preds = %0
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 4:                                                ; preds = %0
@@ -4617,17 +4618,17 @@ declare dso_local i32 @pthread_setspecific(i32 noundef, ptr noundef) local_unnam
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @autograph_neighbor_scratch_release() local_unnamed_addr #1 {
-  %1 = tail call i32 @pthread_once(ptr noundef nonnull @g_neighbor_scratch_key_once, ptr noundef nonnull @autograph_neighbor_scratch_make_key) #18
+  %1 = tail call i32 @pthread_once(ptr noundef nonnull @g_neighbor_scratch_key_once, ptr noundef nonnull @autograph_neighbor_scratch_make_key) #19
   %2 = icmp eq i32 %1, 0
   br i1 %2, label %4, label %3
 
 3:                                                ; preds = %0
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 4:                                                ; preds = %0
   %5 = load i32, ptr @g_neighbor_scratch_key, align 4, !tbaa !22
-  %6 = tail call ptr @pthread_getspecific(i32 noundef %5) #18
+  %6 = tail call ptr @pthread_getspecific(i32 noundef %5) #19
   %7 = icmp eq ptr %6, null
   br i1 %7, label %12, label %8
 
@@ -4638,7 +4639,7 @@ define dso_local void @autograph_neighbor_scratch_release() local_unnamed_addr #
   br i1 %11, label %12, label %13
 
 12:                                               ; preds = %8, %4
-  tail call void @abort() #21
+  tail call void @abort() #22
   unreachable
 
 13:                                               ; preds = %8
@@ -4972,7 +4973,7 @@ define dso_local void @autograph_get_neighbors(ptr noundef readnone %0, i64 noun
 223:                                              ; preds = %212, %240
   %224 = phi i64 [ 0, %212 ], [ %241, %240 ]
   %225 = trunc i64 %224 to i32
-  %226 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %206, i32 noundef %225) #18
+  %226 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef %206, i32 noundef %225) #19
   br i1 %226, label %227, label %240
 
 227:                                              ; preds = %223
@@ -5068,6 +5069,1079 @@ define dso_local void @autograph_get_neighbors(ptr noundef readnone %0, i64 noun
 }
 
 ; Function Attrs: nounwind uwtable
+define dso_local i32 @autograph_frontier_step(ptr noundef readnone %0, ptr noundef %1, i32 noundef %2, ptr noundef %3, i32 noundef %4, ptr noundef %5, i32 noundef %6, i32 noundef %7, ptr noundef %8) local_unnamed_addr #1 {
+  %10 = alloca %struct.AutoFrontierStepEnv, align 8
+  %11 = load i32, ptr @g_meta_count, align 4, !tbaa !22
+  %12 = icmp sgt i32 %11, 0
+  br i1 %12, label %13, label %23
+
+13:                                               ; preds = %9
+  %14 = zext nneg i32 %11 to i64
+  br label %18
+
+15:                                               ; preds = %18
+  %16 = add nuw nsw i64 %19, 1
+  %17 = icmp eq i64 %16, %14
+  br i1 %17, label %23, label %18, !llvm.loop !38
+
+18:                                               ; preds = %15, %13
+  %19 = phi i64 [ 0, %13 ], [ %16, %15 ]
+  %20 = getelementptr inbounds nuw [64 x %struct.AutoGraphMeta], ptr @g_meta, i64 0, i64 %19
+  %21 = load ptr, ptr %20, align 8, !tbaa !39
+  %22 = icmp eq ptr %21, %0
+  br i1 %22, label %23, label %15
+
+23:                                               ; preds = %15, %18, %9
+  %24 = phi ptr [ null, %9 ], [ null, %15 ], [ %20, %18 ]
+  %25 = insertelement <4 x ptr> poison, ptr %1, i64 0
+  %26 = insertelement <4 x ptr> %25, ptr %24, i64 1
+  %27 = insertelement <4 x ptr> %26, ptr %3, i64 2
+  %28 = insertelement <4 x ptr> %27, ptr %5, i64 3
+  %29 = icmp eq <4 x ptr> %28, zeroinitializer
+  %30 = icmp slt i32 %2, 1
+  %31 = bitcast <4 x i1> %29 to i4
+  %32 = icmp ne i4 %31, 0
+  %33 = or i1 %32, %30
+  br i1 %33, label %117, label %34
+
+34:                                               ; preds = %23
+  %35 = getelementptr inbounds nuw i8, ptr %24, i64 112
+  %36 = load i64, ptr %35, align 8, !tbaa !44
+  %37 = icmp slt i64 %36, 1
+  br i1 %37, label %117, label %38
+
+38:                                               ; preds = %34
+  %39 = icmp samesign ugt i64 %36, 2147483647
+  %40 = icmp slt i32 %4, 0
+  %41 = or i1 %40, %39
+  %42 = zext nneg i32 %4 to i64
+  %43 = icmp samesign ult i64 %36, %42
+  %44 = select i1 %41, i1 true, i1 %43
+  br i1 %44, label %117, label %45
+
+45:                                               ; preds = %38
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %10) #19
+  store ptr %24, ptr %10, align 8, !tbaa !137
+  %46 = getelementptr inbounds nuw i8, ptr %10, i64 8
+  store ptr %1, ptr %46, align 8, !tbaa !139
+  %47 = getelementptr inbounds nuw i8, ptr %10, i64 16
+  store ptr %3, ptr %47, align 8, !tbaa !140
+  %48 = getelementptr inbounds nuw i8, ptr %10, i64 24
+  %49 = trunc nuw i64 %36 to i32
+  store i32 %49, ptr %48, align 8, !tbaa !141
+  %50 = getelementptr inbounds nuw i8, ptr %10, i64 28
+  store i32 %4, ptr %50, align 4, !tbaa !142
+  %51 = getelementptr inbounds nuw i8, ptr %10, i64 32
+  store ptr %5, ptr %51, align 8, !tbaa !143
+  %52 = getelementptr inbounds nuw i8, ptr %10, i64 40
+  store i32 %6, ptr %52, align 8, !tbaa !144
+  %53 = getelementptr inbounds nuw i8, ptr %10, i64 44
+  store i32 %7, ptr %53, align 4, !tbaa !145
+  %54 = getelementptr inbounds nuw i8, ptr %10, i64 48
+  store ptr %8, ptr %54, align 8, !tbaa !146
+  %55 = getelementptr inbounds nuw i8, ptr %10, i64 56
+  store ptr null, ptr %55, align 8, !tbaa !147
+  %56 = getelementptr inbounds nuw i8, ptr %24, i64 8
+  %57 = load i32, ptr %56, align 8, !tbaa !50
+  %58 = icmp eq i32 %57, 3
+  %59 = zext nneg i32 %2 to i64
+  %60 = mul nuw nsw i64 %59, 20
+  %61 = icmp samesign ult i64 %60, %36
+  %62 = select i1 %58, i1 true, i1 %61
+  br i1 %62, label %113, label %63
+
+63:                                               ; preds = %45
+  %64 = tail call noalias ptr @calloc(i64 noundef %36, i64 noundef 1) #18
+  %65 = icmp eq ptr %64, null
+  br i1 %65, label %113, label %66
+
+66:                                               ; preds = %63
+  %67 = and i64 %59, 1
+  %68 = icmp eq i32 %2, 1
+  br i1 %68, label %98, label %69
+
+69:                                               ; preds = %66
+  %70 = and i64 %59, 2147483646
+  br label %71
+
+71:                                               ; preds = %94, %69
+  %72 = phi i64 [ 0, %69 ], [ %95, %94 ]
+  %73 = phi i64 [ 0, %69 ], [ %96, %94 ]
+  %74 = getelementptr inbounds nuw i32, ptr %1, i64 %72
+  %75 = load i32, ptr %74, align 4, !tbaa !22
+  %76 = icmp sgt i32 %75, -1
+  br i1 %76, label %77, label %83
+
+77:                                               ; preds = %71
+  %78 = zext nneg i32 %75 to i64
+  %79 = load i64, ptr %35, align 8, !tbaa !44
+  %80 = icmp sgt i64 %79, %78
+  br i1 %80, label %81, label %83
+
+81:                                               ; preds = %77
+  %82 = getelementptr inbounds nuw i8, ptr %64, i64 %78
+  store i8 1, ptr %82, align 1, !tbaa !65
+  br label %83
+
+83:                                               ; preds = %81, %77, %71
+  %84 = or disjoint i64 %72, 1
+  %85 = getelementptr inbounds nuw i32, ptr %1, i64 %84
+  %86 = load i32, ptr %85, align 4, !tbaa !22
+  %87 = icmp sgt i32 %86, -1
+  br i1 %87, label %88, label %94
+
+88:                                               ; preds = %83
+  %89 = zext nneg i32 %86 to i64
+  %90 = load i64, ptr %35, align 8, !tbaa !44
+  %91 = icmp sgt i64 %90, %89
+  br i1 %91, label %92, label %94
+
+92:                                               ; preds = %88
+  %93 = getelementptr inbounds nuw i8, ptr %64, i64 %89
+  store i8 1, ptr %93, align 1, !tbaa !65
+  br label %94
+
+94:                                               ; preds = %92, %88, %83
+  %95 = add nuw nsw i64 %72, 2
+  %96 = add i64 %73, 2
+  %97 = icmp eq i64 %96, %70
+  br i1 %97, label %98, label %71, !llvm.loop !148
+
+98:                                               ; preds = %94, %66
+  %99 = phi i64 [ 0, %66 ], [ %95, %94 ]
+  %100 = icmp eq i64 %67, 0
+  br i1 %100, label %111, label %101
+
+101:                                              ; preds = %98
+  %102 = getelementptr inbounds nuw i32, ptr %1, i64 %99
+  %103 = load i32, ptr %102, align 4, !tbaa !22
+  %104 = icmp sgt i32 %103, -1
+  br i1 %104, label %105, label %111
+
+105:                                              ; preds = %101
+  %106 = zext nneg i32 %103 to i64
+  %107 = load i64, ptr %35, align 8, !tbaa !44
+  %108 = icmp sgt i64 %107, %106
+  br i1 %108, label %109, label %111
+
+109:                                              ; preds = %105
+  %110 = getelementptr inbounds nuw i8, ptr %64, i64 %106
+  store i8 1, ptr %110, align 1, !tbaa !65
+  br label %111
+
+111:                                              ; preds = %101, %105, %109, %98
+  %112 = load i64, ptr %35, align 8, !tbaa !44
+  store ptr %64, ptr %55, align 8, !tbaa !147
+  call void @parallel_for_runtime(i64 noundef 0, i64 noundef %112, i64 noundef 1, ptr noundef nonnull @autograph_frontier_pull_body, ptr noundef nonnull %10, i32 noundef 0, i32 noundef 0) #19
+  br label %114
+
+113:                                              ; preds = %45, %63
+  call void @parallel_for_runtime(i64 noundef 0, i64 noundef %59, i64 noundef 1, ptr noundef nonnull @autograph_frontier_push_body, ptr noundef nonnull %10, i32 noundef 0, i32 noundef 0) #19
+  br label %114
+
+114:                                              ; preds = %113, %111
+  %115 = phi ptr [ null, %113 ], [ %64, %111 ]
+  call void @free(ptr noundef %115) #19
+  %116 = load atomic i32, ptr %50 monotonic, align 4
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %10) #19
+  br label %117
+
+117:                                              ; preds = %23, %34, %38, %114
+  %118 = phi i32 [ %116, %114 ], [ %4, %38 ], [ %4, %34 ], [ %4, %23 ]
+  ret i32 %118
+}
+
+declare dso_local void @parallel_for_runtime(i64 noundef, i64 noundef, i64 noundef, ptr noundef, ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #3
+
+; Function Attrs: nofree nounwind uwtable
+define internal void @autograph_frontier_pull_body(i64 noundef %0, ptr nocapture noundef %1) #16 {
+  %3 = trunc i64 %0 to i32
+  %4 = getelementptr inbounds nuw i8, ptr %1, i64 32
+  %5 = load ptr, ptr %4, align 8, !tbaa !143
+  %6 = shl i64 %0, 32
+  %7 = ashr exact i64 %6, 30
+  %8 = getelementptr inbounds i8, ptr %5, i64 %7
+  %9 = load atomic i32, ptr %8 monotonic, align 4
+  %10 = getelementptr inbounds nuw i8, ptr %1, i64 40
+  %11 = load i32, ptr %10, align 8, !tbaa !144
+  %12 = icmp eq i32 %9, %11
+  br i1 %12, label %13, label %173
+
+13:                                               ; preds = %2
+  %14 = load ptr, ptr %1, align 8, !tbaa !137
+  %15 = getelementptr inbounds nuw i8, ptr %14, i64 8
+  %16 = load i32, ptr %15, align 8, !tbaa !50
+  switch i32 %16, label %173 [
+    i32 0, label %17
+    i32 1, label %52
+    i32 2, label %87
+  ]
+
+17:                                               ; preds = %13
+  %18 = getelementptr inbounds nuw i8, ptr %14, i64 96
+  %19 = load ptr, ptr %18, align 8, !tbaa !42
+  %20 = icmp eq ptr %19, null
+  br i1 %20, label %173, label %21
+
+21:                                               ; preds = %17
+  %22 = getelementptr inbounds nuw i8, ptr %14, i64 104
+  %23 = load ptr, ptr %22, align 8, !tbaa !43
+  %24 = icmp eq ptr %23, null
+  br i1 %24, label %173, label %25
+
+25:                                               ; preds = %21
+  %26 = ashr exact i64 %6, 29
+  %27 = getelementptr inbounds i8, ptr %19, i64 %26
+  %28 = load i64, ptr %27, align 8, !tbaa !11
+  %29 = getelementptr inbounds nuw i8, ptr %1, i64 56
+  %30 = getelementptr i8, ptr %27, i64 8
+  %31 = load i64, ptr %30, align 8, !tbaa !11
+  %32 = icmp slt i64 %28, %31
+  br i1 %32, label %33, label %173
+
+33:                                               ; preds = %25
+  %34 = getelementptr inbounds nuw i8, ptr %14, i64 112
+  br label %35
+
+35:                                               ; preds = %49, %33
+  %36 = phi i64 [ %28, %33 ], [ %50, %49 ]
+  %37 = getelementptr inbounds i32, ptr %23, i64 %36
+  %38 = load i32, ptr %37, align 4, !tbaa !22
+  %39 = icmp sgt i32 %38, -1
+  br i1 %39, label %40, label %49
+
+40:                                               ; preds = %35
+  %41 = zext nneg i32 %38 to i64
+  %42 = load i64, ptr %34, align 8, !tbaa !44
+  %43 = icmp sgt i64 %42, %41
+  br i1 %43, label %44, label %49
+
+44:                                               ; preds = %40
+  %45 = load ptr, ptr %29, align 8, !tbaa !147
+  %46 = getelementptr inbounds nuw i8, ptr %45, i64 %41
+  %47 = load i8, ptr %46, align 1, !tbaa !65
+  %48 = icmp eq i8 %47, 0
+  br i1 %48, label %49, label %140
+
+49:                                               ; preds = %44, %40, %35
+  %50 = add i64 %36, 1
+  %51 = icmp eq i64 %50, %31
+  br i1 %51, label %173, label %35, !llvm.loop !149
+
+52:                                               ; preds = %13
+  %53 = getelementptr inbounds nuw i8, ptr %14, i64 136
+  %54 = load ptr, ptr %53, align 8, !tbaa !52
+  %55 = icmp eq ptr %54, null
+  br i1 %55, label %173, label %56
+
+56:                                               ; preds = %52
+  %57 = getelementptr inbounds nuw i8, ptr %14, i64 144
+  %58 = load ptr, ptr %57, align 8, !tbaa !53
+  %59 = icmp eq ptr %58, null
+  br i1 %59, label %173, label %60
+
+60:                                               ; preds = %56
+  %61 = ashr exact i64 %6, 29
+  %62 = getelementptr inbounds i8, ptr %54, i64 %61
+  %63 = load i64, ptr %62, align 8, !tbaa !11
+  %64 = getelementptr inbounds nuw i8, ptr %1, i64 56
+  %65 = getelementptr i8, ptr %62, i64 8
+  %66 = load i64, ptr %65, align 8, !tbaa !11
+  %67 = icmp slt i64 %63, %66
+  br i1 %67, label %68, label %173
+
+68:                                               ; preds = %60
+  %69 = getelementptr inbounds nuw i8, ptr %14, i64 112
+  br label %70
+
+70:                                               ; preds = %84, %68
+  %71 = phi i64 [ %63, %68 ], [ %85, %84 ]
+  %72 = getelementptr inbounds i32, ptr %58, i64 %71
+  %73 = load i32, ptr %72, align 4, !tbaa !22
+  %74 = icmp sgt i32 %73, -1
+  br i1 %74, label %75, label %84
+
+75:                                               ; preds = %70
+  %76 = zext nneg i32 %73 to i64
+  %77 = load i64, ptr %69, align 8, !tbaa !44
+  %78 = icmp sgt i64 %77, %76
+  br i1 %78, label %79, label %84
+
+79:                                               ; preds = %75
+  %80 = load ptr, ptr %64, align 8, !tbaa !147
+  %81 = getelementptr inbounds nuw i8, ptr %80, i64 %76
+  %82 = load i8, ptr %81, align 1, !tbaa !65
+  %83 = icmp eq i8 %82, 0
+  br i1 %83, label %84, label %140
+
+84:                                               ; preds = %79, %75, %70
+  %85 = add i64 %71, 1
+  %86 = icmp eq i64 %85, %66
+  br i1 %86, label %173, label %70, !llvm.loop !150
+
+87:                                               ; preds = %13
+  %88 = getelementptr inbounds nuw i8, ptr %14, i64 160
+  %89 = load ptr, ptr %88, align 8, !tbaa !56
+  %90 = icmp eq ptr %89, null
+  br i1 %90, label %173, label %91
+
+91:                                               ; preds = %87
+  %92 = getelementptr inbounds nuw i8, ptr %14, i64 168
+  %93 = load ptr, ptr %92, align 8, !tbaa !57
+  %94 = icmp eq ptr %93, null
+  br i1 %94, label %173, label %95
+
+95:                                               ; preds = %91
+  %96 = getelementptr inbounds nuw i8, ptr %14, i64 176
+  %97 = load i32, ptr %96, align 8, !tbaa !55
+  %98 = icmp sgt i32 %97, 0
+  br i1 %98, label %99, label %173
+
+99:                                               ; preds = %95
+  %100 = sdiv i32 %3, %97
+  %101 = srem i32 %3, %97
+  %102 = sext i32 %100 to i64
+  %103 = getelementptr inbounds i32, ptr %89, i64 %102
+  %104 = load i32, ptr %103, align 4, !tbaa !22
+  %105 = getelementptr inbounds nuw i8, ptr %1, i64 56
+  %106 = getelementptr i8, ptr %103, i64 4
+  %107 = load i32, ptr %106, align 4, !tbaa !22
+  %108 = icmp slt i32 %104, %107
+  br i1 %108, label %109, label %173
+
+109:                                              ; preds = %99
+  %110 = getelementptr inbounds nuw i8, ptr %14, i64 112
+  br label %111
+
+111:                                              ; preds = %138, %109
+  %112 = phi i32 [ %104, %109 ], [ %139, %138 ]
+  %113 = sext i32 %112 to i64
+  %114 = getelementptr inbounds i32, ptr %93, i64 %113
+  %115 = load i32, ptr %114, align 4, !tbaa !22
+  %116 = icmp eq i32 %115, %101
+  br i1 %116, label %117, label %130
+
+117:                                              ; preds = %111
+  %118 = getelementptr i8, ptr %114, i64 4
+  %119 = load i32, ptr %118, align 4, !tbaa !22
+  %120 = icmp sgt i32 %119, -1
+  br i1 %120, label %121, label %135
+
+121:                                              ; preds = %117
+  %122 = zext nneg i32 %119 to i64
+  %123 = load i64, ptr %110, align 8, !tbaa !44
+  %124 = icmp sgt i64 %123, %122
+  br i1 %124, label %125, label %135
+
+125:                                              ; preds = %121
+  %126 = load ptr, ptr %105, align 8, !tbaa !147
+  %127 = getelementptr inbounds nuw i8, ptr %126, i64 %122
+  %128 = load i8, ptr %127, align 1, !tbaa !65
+  %129 = icmp eq i8 %128, 0
+  br i1 %129, label %135, label %140
+
+130:                                              ; preds = %111
+  %131 = icmp sle i32 %115, %101
+  %132 = add nsw i32 %112, 2
+  %133 = icmp slt i32 %132, %107
+  %134 = select i1 %131, i1 %133, i1 false
+  br i1 %134, label %138, label %173
+
+135:                                              ; preds = %125, %121, %117
+  %136 = add nsw i32 %112, 2
+  %137 = icmp slt i32 %136, %107
+  br i1 %137, label %138, label %173
+
+138:                                              ; preds = %135, %130
+  %139 = phi i32 [ %136, %135 ], [ %132, %130 ]
+  br label %111, !llvm.loop !151
+
+140:                                              ; preds = %125, %79, %44
+  %141 = phi i64 [ %42, %44 ], [ %77, %79 ], [ %123, %125 ]
+  %142 = phi i32 [ %38, %44 ], [ %73, %79 ], [ %119, %125 ]
+  %143 = icmp slt i32 %3, 0
+  br i1 %143, label %173, label %144
+
+144:                                              ; preds = %140
+  %145 = and i64 %0, 2147483647
+  %146 = icmp samesign ugt i64 %141, %145
+  br i1 %146, label %147, label %173
+
+147:                                              ; preds = %144
+  %148 = getelementptr inbounds nuw i32, ptr %5, i64 %145
+  %149 = getelementptr inbounds nuw i8, ptr %1, i64 44
+  %150 = load i32, ptr %149, align 4, !tbaa !145
+  %151 = cmpxchg ptr %148, i32 %9, i32 %150 monotonic monotonic, align 4
+  %152 = extractvalue { i32, i1 } %151, 1
+  br i1 %152, label %153, label %173
+
+153:                                              ; preds = %147
+  %154 = getelementptr inbounds nuw i8, ptr %1, i64 28
+  %155 = atomicrmw add ptr %154, i32 1 monotonic, align 4
+  %156 = icmp slt i32 %155, 0
+  br i1 %156, label %161, label %157
+
+157:                                              ; preds = %153
+  %158 = getelementptr inbounds nuw i8, ptr %1, i64 24
+  %159 = load i32, ptr %158, align 8, !tbaa !141
+  %160 = icmp slt i32 %155, %159
+  br i1 %160, label %162, label %161
+
+161:                                              ; preds = %157, %153
+  tail call void @abort() #22
+  unreachable
+
+162:                                              ; preds = %157
+  %163 = getelementptr inbounds nuw i8, ptr %1, i64 48
+  %164 = load ptr, ptr %163, align 8, !tbaa !146
+  %165 = icmp eq ptr %164, null
+  br i1 %165, label %168, label %166
+
+166:                                              ; preds = %162
+  %167 = getelementptr inbounds nuw i32, ptr %164, i64 %145
+  store i32 %142, ptr %167, align 4, !tbaa !22
+  br label %168
+
+168:                                              ; preds = %166, %162
+  %169 = getelementptr inbounds nuw i8, ptr %1, i64 16
+  %170 = load ptr, ptr %169, align 8, !tbaa !140
+  %171 = zext nneg i32 %155 to i64
+  %172 = getelementptr inbounds nuw i32, ptr %170, i64 %171
+  store i32 %3, ptr %172, align 4, !tbaa !22
+  br label %173
+
+173:                                              ; preds = %130, %135, %84, %49, %99, %60, %25, %21, %17, %56, %52, %95, %91, %87, %13, %168, %147, %144, %140, %2
+  ret void
+}
+
+; Function Attrs: nounwind uwtable
+define internal void @autograph_frontier_push_body(i64 noundef %0, ptr nocapture noundef %1) #1 {
+  %3 = getelementptr inbounds nuw i8, ptr %1, i64 8
+  %4 = load ptr, ptr %3, align 8, !tbaa !139
+  %5 = getelementptr inbounds i32, ptr %4, i64 %0
+  %6 = load i32, ptr %5, align 4, !tbaa !22
+  %7 = load ptr, ptr %1, align 8, !tbaa !137
+  %8 = icmp slt i32 %6, 0
+  br i1 %8, label %415, label %9
+
+9:                                                ; preds = %2
+  %10 = zext nneg i32 %6 to i64
+  %11 = getelementptr inbounds nuw i8, ptr %7, i64 112
+  %12 = load i64, ptr %11, align 8, !tbaa !44
+  %13 = icmp sgt i64 %12, %10
+  br i1 %13, label %14, label %415
+
+14:                                               ; preds = %9
+  %15 = getelementptr inbounds nuw i8, ptr %7, i64 8
+  %16 = load i32, ptr %15, align 8, !tbaa !50
+  switch i32 %16, label %224 [
+    i32 0, label %17
+    i32 1, label %81
+    i32 2, label %145
+  ]
+
+17:                                               ; preds = %14
+  %18 = getelementptr inbounds nuw i8, ptr %7, i64 96
+  %19 = load ptr, ptr %18, align 8, !tbaa !42
+  %20 = icmp eq ptr %19, null
+  br i1 %20, label %415, label %21
+
+21:                                               ; preds = %17
+  %22 = getelementptr inbounds nuw i8, ptr %7, i64 104
+  %23 = load ptr, ptr %22, align 8, !tbaa !43
+  %24 = icmp eq ptr %23, null
+  br i1 %24, label %415, label %25
+
+25:                                               ; preds = %21
+  %26 = getelementptr inbounds nuw i64, ptr %19, i64 %10
+  %27 = load i64, ptr %26, align 8, !tbaa !11
+  %28 = getelementptr inbounds nuw i8, ptr %26, i64 8
+  %29 = load i64, ptr %28, align 8, !tbaa !11
+  %30 = icmp slt i64 %27, %29
+  br i1 %30, label %31, label %415
+
+31:                                               ; preds = %25
+  %32 = getelementptr inbounds nuw i8, ptr %1, i64 40
+  %33 = getelementptr inbounds nuw i8, ptr %1, i64 32
+  %34 = getelementptr inbounds nuw i8, ptr %1, i64 44
+  %35 = getelementptr inbounds nuw i8, ptr %1, i64 28
+  %36 = getelementptr inbounds nuw i8, ptr %1, i64 24
+  %37 = getelementptr inbounds nuw i8, ptr %1, i64 48
+  %38 = getelementptr inbounds nuw i8, ptr %1, i64 16
+  br label %39
+
+39:                                               ; preds = %74, %31
+  %40 = phi i64 [ %27, %31 ], [ %75, %74 ]
+  %41 = load ptr, ptr %22, align 8, !tbaa !43
+  %42 = getelementptr inbounds i32, ptr %41, i64 %40
+  %43 = load i32, ptr %42, align 4, !tbaa !22
+  %44 = icmp slt i32 %43, 0
+  br i1 %44, label %74, label %45
+
+45:                                               ; preds = %39
+  %46 = zext nneg i32 %43 to i64
+  %47 = load ptr, ptr %1, align 8, !tbaa !137
+  %48 = getelementptr inbounds nuw i8, ptr %47, i64 112
+  %49 = load i64, ptr %48, align 8, !tbaa !44
+  %50 = icmp sgt i64 %49, %46
+  br i1 %50, label %51, label %74
+
+51:                                               ; preds = %45
+  %52 = load i32, ptr %32, align 8, !tbaa !144
+  %53 = load ptr, ptr %33, align 8, !tbaa !143
+  %54 = getelementptr inbounds nuw i32, ptr %53, i64 %46
+  %55 = load i32, ptr %34, align 4, !tbaa !145
+  %56 = cmpxchg ptr %54, i32 %52, i32 %55 monotonic monotonic, align 4
+  %57 = extractvalue { i32, i1 } %56, 1
+  br i1 %57, label %58, label %74
+
+58:                                               ; preds = %51
+  %59 = atomicrmw add ptr %35, i32 1 monotonic, align 4
+  %60 = icmp slt i32 %59, 0
+  br i1 %60, label %64, label %61
+
+61:                                               ; preds = %58
+  %62 = load i32, ptr %36, align 8, !tbaa !141
+  %63 = icmp slt i32 %59, %62
+  br i1 %63, label %65, label %64
+
+64:                                               ; preds = %61, %58
+  tail call void @abort() #22
+  unreachable
+
+65:                                               ; preds = %61
+  %66 = load ptr, ptr %37, align 8, !tbaa !146
+  %67 = icmp eq ptr %66, null
+  br i1 %67, label %70, label %68
+
+68:                                               ; preds = %65
+  %69 = getelementptr inbounds nuw i32, ptr %66, i64 %46
+  store i32 %6, ptr %69, align 4, !tbaa !22
+  br label %70
+
+70:                                               ; preds = %68, %65
+  %71 = load ptr, ptr %38, align 8, !tbaa !140
+  %72 = zext nneg i32 %59 to i64
+  %73 = getelementptr inbounds nuw i32, ptr %71, i64 %72
+  store i32 %43, ptr %73, align 4, !tbaa !22
+  br label %74
+
+74:                                               ; preds = %70, %51, %45, %39
+  %75 = add nsw i64 %40, 1
+  %76 = load ptr, ptr %18, align 8, !tbaa !42
+  %77 = getelementptr inbounds nuw i64, ptr %76, i64 %10
+  %78 = getelementptr inbounds nuw i8, ptr %77, i64 8
+  %79 = load i64, ptr %78, align 8, !tbaa !11
+  %80 = icmp slt i64 %75, %79
+  br i1 %80, label %39, label %415, !llvm.loop !152
+
+81:                                               ; preds = %14
+  %82 = getelementptr inbounds nuw i8, ptr %7, i64 136
+  %83 = load ptr, ptr %82, align 8, !tbaa !52
+  %84 = icmp eq ptr %83, null
+  br i1 %84, label %415, label %85
+
+85:                                               ; preds = %81
+  %86 = getelementptr inbounds nuw i8, ptr %7, i64 144
+  %87 = load ptr, ptr %86, align 8, !tbaa !53
+  %88 = icmp eq ptr %87, null
+  br i1 %88, label %415, label %89
+
+89:                                               ; preds = %85
+  %90 = getelementptr inbounds nuw i64, ptr %83, i64 %10
+  %91 = load i64, ptr %90, align 8, !tbaa !11
+  %92 = getelementptr inbounds nuw i8, ptr %90, i64 8
+  %93 = load i64, ptr %92, align 8, !tbaa !11
+  %94 = icmp slt i64 %91, %93
+  br i1 %94, label %95, label %415
+
+95:                                               ; preds = %89
+  %96 = getelementptr inbounds nuw i8, ptr %1, i64 40
+  %97 = getelementptr inbounds nuw i8, ptr %1, i64 32
+  %98 = getelementptr inbounds nuw i8, ptr %1, i64 44
+  %99 = getelementptr inbounds nuw i8, ptr %1, i64 28
+  %100 = getelementptr inbounds nuw i8, ptr %1, i64 24
+  %101 = getelementptr inbounds nuw i8, ptr %1, i64 48
+  %102 = getelementptr inbounds nuw i8, ptr %1, i64 16
+  br label %103
+
+103:                                              ; preds = %138, %95
+  %104 = phi i64 [ %91, %95 ], [ %139, %138 ]
+  %105 = load ptr, ptr %86, align 8, !tbaa !53
+  %106 = getelementptr inbounds i32, ptr %105, i64 %104
+  %107 = load i32, ptr %106, align 4, !tbaa !22
+  %108 = icmp slt i32 %107, 0
+  br i1 %108, label %138, label %109
+
+109:                                              ; preds = %103
+  %110 = zext nneg i32 %107 to i64
+  %111 = load ptr, ptr %1, align 8, !tbaa !137
+  %112 = getelementptr inbounds nuw i8, ptr %111, i64 112
+  %113 = load i64, ptr %112, align 8, !tbaa !44
+  %114 = icmp sgt i64 %113, %110
+  br i1 %114, label %115, label %138
+
+115:                                              ; preds = %109
+  %116 = load i32, ptr %96, align 8, !tbaa !144
+  %117 = load ptr, ptr %97, align 8, !tbaa !143
+  %118 = getelementptr inbounds nuw i32, ptr %117, i64 %110
+  %119 = load i32, ptr %98, align 4, !tbaa !145
+  %120 = cmpxchg ptr %118, i32 %116, i32 %119 monotonic monotonic, align 4
+  %121 = extractvalue { i32, i1 } %120, 1
+  br i1 %121, label %122, label %138
+
+122:                                              ; preds = %115
+  %123 = atomicrmw add ptr %99, i32 1 monotonic, align 4
+  %124 = icmp slt i32 %123, 0
+  br i1 %124, label %128, label %125
+
+125:                                              ; preds = %122
+  %126 = load i32, ptr %100, align 8, !tbaa !141
+  %127 = icmp slt i32 %123, %126
+  br i1 %127, label %129, label %128
+
+128:                                              ; preds = %125, %122
+  tail call void @abort() #22
+  unreachable
+
+129:                                              ; preds = %125
+  %130 = load ptr, ptr %101, align 8, !tbaa !146
+  %131 = icmp eq ptr %130, null
+  br i1 %131, label %134, label %132
+
+132:                                              ; preds = %129
+  %133 = getelementptr inbounds nuw i32, ptr %130, i64 %110
+  store i32 %6, ptr %133, align 4, !tbaa !22
+  br label %134
+
+134:                                              ; preds = %132, %129
+  %135 = load ptr, ptr %102, align 8, !tbaa !140
+  %136 = zext nneg i32 %123 to i64
+  %137 = getelementptr inbounds nuw i32, ptr %135, i64 %136
+  store i32 %107, ptr %137, align 4, !tbaa !22
+  br label %138
+
+138:                                              ; preds = %134, %115, %109, %103
+  %139 = add nsw i64 %104, 1
+  %140 = load ptr, ptr %82, align 8, !tbaa !52
+  %141 = getelementptr inbounds nuw i64, ptr %140, i64 %10
+  %142 = getelementptr inbounds nuw i8, ptr %141, i64 8
+  %143 = load i64, ptr %142, align 8, !tbaa !11
+  %144 = icmp slt i64 %139, %143
+  br i1 %144, label %103, label %415, !llvm.loop !153
+
+145:                                              ; preds = %14
+  %146 = getelementptr inbounds nuw i8, ptr %7, i64 160
+  %147 = load ptr, ptr %146, align 8, !tbaa !56
+  %148 = icmp eq ptr %147, null
+  br i1 %148, label %415, label %149
+
+149:                                              ; preds = %145
+  %150 = getelementptr inbounds nuw i8, ptr %7, i64 168
+  %151 = load ptr, ptr %150, align 8, !tbaa !57
+  %152 = icmp eq ptr %151, null
+  br i1 %152, label %415, label %153
+
+153:                                              ; preds = %149
+  %154 = getelementptr inbounds nuw i8, ptr %7, i64 176
+  %155 = load i32, ptr %154, align 8, !tbaa !55
+  %156 = icmp sgt i32 %155, 0
+  br i1 %156, label %157, label %415
+
+157:                                              ; preds = %153
+  %158 = udiv i32 %6, %155
+  %159 = urem i32 %6, %155
+  %160 = zext nneg i32 %158 to i64
+  %161 = getelementptr inbounds nuw i32, ptr %147, i64 %160
+  %162 = load i32, ptr %161, align 4, !tbaa !22
+  %163 = getelementptr inbounds nuw i8, ptr %161, i64 4
+  %164 = load i32, ptr %163, align 4, !tbaa !22
+  %165 = icmp slt i32 %162, %164
+  br i1 %165, label %166, label %415
+
+166:                                              ; preds = %157
+  %167 = getelementptr inbounds nuw i8, ptr %1, i64 40
+  %168 = getelementptr inbounds nuw i8, ptr %1, i64 32
+  %169 = getelementptr inbounds nuw i8, ptr %1, i64 44
+  %170 = getelementptr inbounds nuw i8, ptr %1, i64 28
+  %171 = getelementptr inbounds nuw i8, ptr %1, i64 24
+  %172 = getelementptr inbounds nuw i8, ptr %1, i64 48
+  %173 = getelementptr inbounds nuw i8, ptr %1, i64 16
+  %174 = sext i32 %162 to i64
+  br label %175
+
+175:                                              ; preds = %216, %166
+  %176 = phi i64 [ %174, %166 ], [ %217, %216 ]
+  %177 = load ptr, ptr %150, align 8, !tbaa !57
+  %178 = getelementptr inbounds i32, ptr %177, i64 %176
+  %179 = load i32, ptr %178, align 4, !tbaa !22
+  %180 = icmp eq i32 %179, %159
+  br i1 %180, label %181, label %214
+
+181:                                              ; preds = %175
+  %182 = getelementptr i8, ptr %178, i64 4
+  %183 = load i32, ptr %182, align 4, !tbaa !22
+  %184 = icmp slt i32 %183, 0
+  br i1 %184, label %216, label %185
+
+185:                                              ; preds = %181
+  %186 = zext nneg i32 %183 to i64
+  %187 = load ptr, ptr %1, align 8, !tbaa !137
+  %188 = getelementptr inbounds nuw i8, ptr %187, i64 112
+  %189 = load i64, ptr %188, align 8, !tbaa !44
+  %190 = icmp sgt i64 %189, %186
+  br i1 %190, label %191, label %216
+
+191:                                              ; preds = %185
+  %192 = load i32, ptr %167, align 8, !tbaa !144
+  %193 = load ptr, ptr %168, align 8, !tbaa !143
+  %194 = getelementptr inbounds nuw i32, ptr %193, i64 %186
+  %195 = load i32, ptr %169, align 4, !tbaa !145
+  %196 = cmpxchg ptr %194, i32 %192, i32 %195 monotonic monotonic, align 4
+  %197 = extractvalue { i32, i1 } %196, 1
+  br i1 %197, label %198, label %216
+
+198:                                              ; preds = %191
+  %199 = atomicrmw add ptr %170, i32 1 monotonic, align 4
+  %200 = icmp slt i32 %199, 0
+  br i1 %200, label %204, label %201
+
+201:                                              ; preds = %198
+  %202 = load i32, ptr %171, align 8, !tbaa !141
+  %203 = icmp slt i32 %199, %202
+  br i1 %203, label %205, label %204
+
+204:                                              ; preds = %201, %198
+  tail call void @abort() #22
+  unreachable
+
+205:                                              ; preds = %201
+  %206 = load ptr, ptr %172, align 8, !tbaa !146
+  %207 = icmp eq ptr %206, null
+  br i1 %207, label %210, label %208
+
+208:                                              ; preds = %205
+  %209 = getelementptr inbounds nuw i32, ptr %206, i64 %186
+  store i32 %6, ptr %209, align 4, !tbaa !22
+  br label %210
+
+210:                                              ; preds = %208, %205
+  %211 = load ptr, ptr %173, align 8, !tbaa !140
+  %212 = zext nneg i32 %199 to i64
+  %213 = getelementptr inbounds nuw i32, ptr %211, i64 %212
+  store i32 %183, ptr %213, align 4, !tbaa !22
+  br label %216
+
+214:                                              ; preds = %175
+  %215 = icmp sgt i32 %179, %159
+  br i1 %215, label %415, label %216
+
+216:                                              ; preds = %214, %210, %191, %185, %181
+  %217 = add nsw i64 %176, 2
+  %218 = load ptr, ptr %146, align 8, !tbaa !56
+  %219 = getelementptr inbounds nuw i32, ptr %218, i64 %160
+  %220 = getelementptr inbounds nuw i8, ptr %219, i64 4
+  %221 = load i32, ptr %220, align 4, !tbaa !22
+  %222 = sext i32 %221 to i64
+  %223 = icmp slt i64 %217, %222
+  br i1 %223, label %175, label %415, !llvm.loop !154
+
+224:                                              ; preds = %14
+  %225 = getelementptr inbounds nuw i8, ptr %7, i64 24
+  %226 = load ptr, ptr %225, align 8, !tbaa !48
+  %227 = getelementptr inbounds nuw i8, ptr %7, i64 32
+  %228 = load ptr, ptr %227, align 8, !tbaa !49
+  %229 = icmp ne ptr %226, null
+  %230 = icmp ne ptr %228, null
+  %231 = select i1 %229, i1 %230, i1 false
+  br i1 %231, label %232, label %320
+
+232:                                              ; preds = %224
+  %233 = getelementptr inbounds nuw i8, ptr %7, i64 40
+  %234 = load i64, ptr %233, align 8, !tbaa !63
+  %235 = icmp sgt i64 %234, 0
+  br i1 %235, label %236, label %320
+
+236:                                              ; preds = %232
+  %237 = getelementptr inbounds nuw i8, ptr %1, i64 40
+  %238 = getelementptr inbounds nuw i8, ptr %1, i64 32
+  %239 = getelementptr inbounds nuw i8, ptr %1, i64 44
+  %240 = getelementptr inbounds nuw i8, ptr %1, i64 28
+  %241 = getelementptr inbounds nuw i8, ptr %1, i64 24
+  %242 = getelementptr inbounds nuw i8, ptr %1, i64 48
+  %243 = getelementptr inbounds nuw i8, ptr %1, i64 16
+  br label %244
+
+244:                                              ; preds = %316, %236
+  %245 = phi i64 [ 0, %236 ], [ %317, %316 ]
+  %246 = trunc i64 %245 to i32
+  %247 = tail call zeroext i1 @roaring_bitmap_contains(ptr noundef nonnull %226, i32 noundef %246) #19
+  br i1 %247, label %248, label %316
+
+248:                                              ; preds = %244
+  %249 = getelementptr inbounds nuw %struct.EdgePair, ptr %228, i64 %245
+  %250 = load i32, ptr %249, align 4, !tbaa !3
+  %251 = icmp eq i32 %250, %6
+  %252 = getelementptr inbounds nuw i8, ptr %249, i64 4
+  %253 = load i32, ptr %252, align 4, !tbaa !8
+  br i1 %251, label %254, label %281
+
+254:                                              ; preds = %248
+  %255 = icmp slt i32 %253, 0
+  br i1 %255, label %316, label %256
+
+256:                                              ; preds = %254
+  %257 = zext nneg i32 %253 to i64
+  %258 = load ptr, ptr %1, align 8, !tbaa !137
+  %259 = getelementptr inbounds nuw i8, ptr %258, i64 112
+  %260 = load i64, ptr %259, align 8, !tbaa !44
+  %261 = icmp sgt i64 %260, %257
+  br i1 %261, label %262, label %316
+
+262:                                              ; preds = %256
+  %263 = load i32, ptr %237, align 8, !tbaa !144
+  %264 = load ptr, ptr %238, align 8, !tbaa !143
+  %265 = getelementptr inbounds nuw i32, ptr %264, i64 %257
+  %266 = load i32, ptr %239, align 4, !tbaa !145
+  %267 = cmpxchg ptr %265, i32 %263, i32 %266 monotonic monotonic, align 4
+  %268 = extractvalue { i32, i1 } %267, 1
+  br i1 %268, label %269, label %316
+
+269:                                              ; preds = %262
+  %270 = atomicrmw add ptr %240, i32 1 monotonic, align 4
+  %271 = icmp slt i32 %270, 0
+  br i1 %271, label %275, label %272
+
+272:                                              ; preds = %269
+  %273 = load i32, ptr %241, align 8, !tbaa !141
+  %274 = icmp slt i32 %270, %273
+  br i1 %274, label %276, label %275
+
+275:                                              ; preds = %272, %269
+  tail call void @abort() #22
+  unreachable
+
+276:                                              ; preds = %272
+  %277 = load ptr, ptr %242, align 8, !tbaa !146
+  %278 = icmp eq ptr %277, null
+  br i1 %278, label %310, label %279
+
+279:                                              ; preds = %276
+  %280 = getelementptr inbounds nuw i32, ptr %277, i64 %257
+  store i32 %6, ptr %280, align 4, !tbaa !22
+  br label %310
+
+281:                                              ; preds = %248
+  %282 = icmp ne i32 %253, %6
+  %283 = icmp slt i32 %250, 0
+  %284 = or i1 %283, %282
+  br i1 %284, label %316, label %285
+
+285:                                              ; preds = %281
+  %286 = zext nneg i32 %250 to i64
+  %287 = load ptr, ptr %1, align 8, !tbaa !137
+  %288 = getelementptr inbounds nuw i8, ptr %287, i64 112
+  %289 = load i64, ptr %288, align 8, !tbaa !44
+  %290 = icmp sgt i64 %289, %286
+  br i1 %290, label %291, label %316
+
+291:                                              ; preds = %285
+  %292 = load i32, ptr %237, align 8, !tbaa !144
+  %293 = load ptr, ptr %238, align 8, !tbaa !143
+  %294 = getelementptr inbounds nuw i32, ptr %293, i64 %286
+  %295 = load i32, ptr %239, align 4, !tbaa !145
+  %296 = cmpxchg ptr %294, i32 %292, i32 %295 monotonic monotonic, align 4
+  %297 = extractvalue { i32, i1 } %296, 1
+  br i1 %297, label %298, label %316
+
+298:                                              ; preds = %291
+  %299 = atomicrmw add ptr %240, i32 1 monotonic, align 4
+  %300 = icmp slt i32 %299, 0
+  br i1 %300, label %304, label %301
+
+301:                                              ; preds = %298
+  %302 = load i32, ptr %241, align 8, !tbaa !141
+  %303 = icmp slt i32 %299, %302
+  br i1 %303, label %305, label %304
+
+304:                                              ; preds = %301, %298
+  tail call void @abort() #22
+  unreachable
+
+305:                                              ; preds = %301
+  %306 = load ptr, ptr %242, align 8, !tbaa !146
+  %307 = icmp eq ptr %306, null
+  br i1 %307, label %310, label %308
+
+308:                                              ; preds = %305
+  %309 = getelementptr inbounds nuw i32, ptr %306, i64 %286
+  store i32 %6, ptr %309, align 4, !tbaa !22
+  br label %310
+
+310:                                              ; preds = %308, %305, %279, %276
+  %311 = phi i32 [ %270, %279 ], [ %270, %276 ], [ %299, %308 ], [ %299, %305 ]
+  %312 = phi i32 [ %253, %279 ], [ %253, %276 ], [ %250, %308 ], [ %250, %305 ]
+  %313 = load ptr, ptr %243, align 8, !tbaa !140
+  %314 = zext nneg i32 %311 to i64
+  %315 = getelementptr inbounds nuw i32, ptr %313, i64 %314
+  store i32 %312, ptr %315, align 4, !tbaa !22
+  br label %316
+
+316:                                              ; preds = %310, %291, %285, %281, %262, %256, %254, %244
+  %317 = add nuw nsw i64 %245, 1
+  %318 = load i64, ptr %233, align 8, !tbaa !63
+  %319 = icmp slt i64 %317, %318
+  br i1 %319, label %244, label %320, !llvm.loop !155
+
+320:                                              ; preds = %316, %232, %224
+  %321 = getelementptr inbounds nuw i8, ptr %7, i64 64
+  %322 = load i64, ptr %321, align 8, !tbaa !60
+  %323 = icmp sgt i64 %322, 0
+  br i1 %323, label %324, label %415
+
+324:                                              ; preds = %320
+  %325 = getelementptr inbounds nuw i8, ptr %7, i64 56
+  %326 = getelementptr inbounds nuw i8, ptr %7, i64 48
+  %327 = getelementptr inbounds nuw i8, ptr %1, i64 40
+  %328 = getelementptr inbounds nuw i8, ptr %1, i64 32
+  %329 = getelementptr inbounds nuw i8, ptr %1, i64 44
+  %330 = getelementptr inbounds nuw i8, ptr %1, i64 28
+  %331 = getelementptr inbounds nuw i8, ptr %1, i64 24
+  %332 = getelementptr inbounds nuw i8, ptr %1, i64 48
+  %333 = getelementptr inbounds nuw i8, ptr %1, i64 16
+  br label %334
+
+334:                                              ; preds = %411, %324
+  %335 = phi i64 [ 0, %324 ], [ %412, %411 ]
+  %336 = load ptr, ptr %325, align 8, !tbaa !64
+  %337 = getelementptr inbounds nuw i8, ptr %336, i64 %335
+  %338 = load i8, ptr %337, align 1, !tbaa !65
+  %339 = icmp eq i8 %338, 0
+  br i1 %339, label %411, label %340
+
+340:                                              ; preds = %334
+  %341 = load ptr, ptr %326, align 8, !tbaa !69
+  %342 = shl nuw nsw i64 %335, 1
+  %343 = getelementptr inbounds nuw i32, ptr %341, i64 %342
+  %344 = load i32, ptr %343, align 4, !tbaa !22
+  %345 = or disjoint i64 %342, 1
+  %346 = getelementptr inbounds nuw i32, ptr %341, i64 %345
+  %347 = load i32, ptr %346, align 4, !tbaa !22
+  %348 = icmp eq i32 %344, %6
+  br i1 %348, label %349, label %376
+
+349:                                              ; preds = %340
+  %350 = icmp slt i32 %347, 0
+  br i1 %350, label %411, label %351
+
+351:                                              ; preds = %349
+  %352 = zext nneg i32 %347 to i64
+  %353 = load ptr, ptr %1, align 8, !tbaa !137
+  %354 = getelementptr inbounds nuw i8, ptr %353, i64 112
+  %355 = load i64, ptr %354, align 8, !tbaa !44
+  %356 = icmp sgt i64 %355, %352
+  br i1 %356, label %357, label %411
+
+357:                                              ; preds = %351
+  %358 = load i32, ptr %327, align 8, !tbaa !144
+  %359 = load ptr, ptr %328, align 8, !tbaa !143
+  %360 = getelementptr inbounds nuw i32, ptr %359, i64 %352
+  %361 = load i32, ptr %329, align 4, !tbaa !145
+  %362 = cmpxchg ptr %360, i32 %358, i32 %361 monotonic monotonic, align 4
+  %363 = extractvalue { i32, i1 } %362, 1
+  br i1 %363, label %364, label %411
+
+364:                                              ; preds = %357
+  %365 = atomicrmw add ptr %330, i32 1 monotonic, align 4
+  %366 = icmp slt i32 %365, 0
+  br i1 %366, label %370, label %367
+
+367:                                              ; preds = %364
+  %368 = load i32, ptr %331, align 8, !tbaa !141
+  %369 = icmp slt i32 %365, %368
+  br i1 %369, label %371, label %370
+
+370:                                              ; preds = %367, %364
+  tail call void @abort() #22
+  unreachable
+
+371:                                              ; preds = %367
+  %372 = load ptr, ptr %332, align 8, !tbaa !146
+  %373 = icmp eq ptr %372, null
+  br i1 %373, label %405, label %374
+
+374:                                              ; preds = %371
+  %375 = getelementptr inbounds nuw i32, ptr %372, i64 %352
+  store i32 %6, ptr %375, align 4, !tbaa !22
+  br label %405
+
+376:                                              ; preds = %340
+  %377 = icmp ne i32 %347, %6
+  %378 = icmp slt i32 %344, 0
+  %379 = or i1 %378, %377
+  br i1 %379, label %411, label %380
+
+380:                                              ; preds = %376
+  %381 = zext nneg i32 %344 to i64
+  %382 = load ptr, ptr %1, align 8, !tbaa !137
+  %383 = getelementptr inbounds nuw i8, ptr %382, i64 112
+  %384 = load i64, ptr %383, align 8, !tbaa !44
+  %385 = icmp sgt i64 %384, %381
+  br i1 %385, label %386, label %411
+
+386:                                              ; preds = %380
+  %387 = load i32, ptr %327, align 8, !tbaa !144
+  %388 = load ptr, ptr %328, align 8, !tbaa !143
+  %389 = getelementptr inbounds nuw i32, ptr %388, i64 %381
+  %390 = load i32, ptr %329, align 4, !tbaa !145
+  %391 = cmpxchg ptr %389, i32 %387, i32 %390 monotonic monotonic, align 4
+  %392 = extractvalue { i32, i1 } %391, 1
+  br i1 %392, label %393, label %411
+
+393:                                              ; preds = %386
+  %394 = atomicrmw add ptr %330, i32 1 monotonic, align 4
+  %395 = icmp slt i32 %394, 0
+  br i1 %395, label %399, label %396
+
+396:                                              ; preds = %393
+  %397 = load i32, ptr %331, align 8, !tbaa !141
+  %398 = icmp slt i32 %394, %397
+  br i1 %398, label %400, label %399
+
+399:                                              ; preds = %396, %393
+  tail call void @abort() #22
+  unreachable
+
+400:                                              ; preds = %396
+  %401 = load ptr, ptr %332, align 8, !tbaa !146
+  %402 = icmp eq ptr %401, null
+  br i1 %402, label %405, label %403
+
+403:                                              ; preds = %400
+  %404 = getelementptr inbounds nuw i32, ptr %401, i64 %381
+  store i32 %6, ptr %404, align 4, !tbaa !22
+  br label %405
+
+405:                                              ; preds = %403, %400, %374, %371
+  %406 = phi i32 [ %365, %374 ], [ %365, %371 ], [ %394, %403 ], [ %394, %400 ]
+  %407 = phi i32 [ %347, %374 ], [ %347, %371 ], [ %344, %403 ], [ %344, %400 ]
+  %408 = load ptr, ptr %333, align 8, !tbaa !140
+  %409 = zext nneg i32 %406 to i64
+  %410 = getelementptr inbounds nuw i32, ptr %408, i64 %409
+  store i32 %407, ptr %410, align 4, !tbaa !22
+  br label %411
+
+411:                                              ; preds = %405, %386, %380, %376, %357, %351, %349, %334
+  %412 = add nuw nsw i64 %335, 1
+  %413 = load i64, ptr %321, align 8, !tbaa !60
+  %414 = icmp slt i64 %412, %413
+  br i1 %414, label %334, label %415, !llvm.loop !156
+
+415:                                              ; preds = %214, %216, %138, %74, %411, %2, %9, %17, %21, %25, %81, %85, %89, %145, %149, %153, %157, %320
+  ret void
+}
+
+; Function Attrs: nounwind uwtable
 define dso_local void @autograph_init(ptr noundef %0, i64 noundef %1, i64 noundef %2, ptr noundef %3, ptr noundef %4, ptr noundef %5) local_unnamed_addr #1 {
   %7 = load i32, ptr @g_meta_count, align 4, !tbaa !22
   %8 = icmp sgt i32 %7, 0
@@ -5134,8 +6208,8 @@ define dso_local void @autograph_init(ptr noundef %0, i64 noundef %1, i64 nounde
 
 44:                                               ; preds = %39
   %45 = load ptr, ptr %42, align 8, !tbaa !37
-  tail call void @free(ptr noundef %45) #18
-  tail call void @free(ptr noundef nonnull %42) #18
+  tail call void @free(ptr noundef %45) #19
+  tail call void @free(ptr noundef nonnull %42) #19
   store ptr null, ptr %41, align 8, !tbaa !61
   br label %46
 
@@ -5147,8 +6221,8 @@ define dso_local void @autograph_init(ptr noundef %0, i64 noundef %1, i64 nounde
 
 50:                                               ; preds = %46
   %51 = load ptr, ptr %48, align 8, !tbaa !37
-  tail call void @free(ptr noundef %51) #18
-  tail call void @free(ptr noundef nonnull %48) #18
+  tail call void @free(ptr noundef %51) #19
+  tail call void @free(ptr noundef nonnull %48) #19
   store ptr null, ptr %47, align 8, !tbaa !61
   br label %52
 
@@ -5168,10 +6242,10 @@ define dso_local void @autograph_init(ptr noundef %0, i64 noundef %1, i64 nounde
   %61 = getelementptr inbounds nuw i8, ptr %28, i64 48
   tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %60, i8 0, i64 16, i1 false)
   %62 = load ptr, ptr %61, align 8, !tbaa !69
-  tail call void @free(ptr noundef %62) #18
+  tail call void @free(ptr noundef %62) #19
   %63 = getelementptr inbounds nuw i8, ptr %28, i64 56
   %64 = load ptr, ptr %63, align 8, !tbaa !64
-  tail call void @free(ptr noundef %64) #18
+  tail call void @free(ptr noundef %64) #19
   %65 = getelementptr inbounds nuw i8, ptr %28, i64 112
   tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %61, i8 0, i64 16, i1 false)
   store i64 %1, ptr %65, align 8, !tbaa !44
@@ -5217,8 +6291,8 @@ define internal void @autograph_neighbor_scratch_destroy(ptr noundef %0) #1 {
 
 7:                                                ; preds = %9, %3
   %8 = load ptr, ptr %0, align 8, !tbaa !126
-  tail call void @free(ptr noundef %8) #18
-  tail call void @free(ptr noundef nonnull %0) #18
+  tail call void @free(ptr noundef %8) #19
+  tail call void @free(ptr noundef nonnull %0) #19
   br label %17
 
 9:                                                ; preds = %3, %9
@@ -5226,33 +6300,33 @@ define internal void @autograph_neighbor_scratch_destroy(ptr noundef %0) #1 {
   %11 = load ptr, ptr %0, align 8, !tbaa !126
   %12 = getelementptr inbounds nuw %struct.AutoNeighborScratchSlot, ptr %11, i64 %10
   %13 = load ptr, ptr %12, align 8, !tbaa !129
-  tail call void @free(ptr noundef %13) #18
+  tail call void @free(ptr noundef %13) #19
   %14 = add nuw i64 %10, 1
   %15 = load i64, ptr %4, align 8, !tbaa !125
   %16 = icmp ult i64 %14, %15
-  br i1 %16, label %9, label %7, !llvm.loop !137
+  br i1 %16, label %9, label %7, !llvm.loop !157
 
 17:                                               ; preds = %1, %7
   ret void
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i64 @llvm.smax.i64(i64, i64) #16
+declare i64 @llvm.smax.i64(i64, i64) #17
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.smin.i32(i32, i32) #16
+declare i32 @llvm.smin.i32(i32, i32) #17
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i32 @llvm.smax.i32(i32, i32) #16
+declare i32 @llvm.smax.i32(i32, i32) #17
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i64 @llvm.smin.i64(i64, i64) #16
+declare i64 @llvm.smin.i64(i64, i64) #17
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i64 @llvm.vector.reduce.add.v2i64(<2 x i64>) #16
+declare i64 @llvm.vector.reduce.add.v2i64(<2 x i64>) #17
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare <2 x i64> @llvm.smax.v2i64(<2 x i64>, <2 x i64>) #16
+declare <2 x i64> @llvm.smax.v2i64(<2 x i64>, <2 x i64>) #17
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 attributes #1 = { nounwind uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
@@ -5270,12 +6344,13 @@ attributes #12 = { nofree norecurse nosync nounwind memory(read, argmem: none, i
 attributes #13 = { nofree nounwind memory(readwrite, argmem: read) uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 attributes #14 = { cold nofree noreturn nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 attributes #15 = { nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #16 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #17 = { nounwind allocsize(0,1) }
-attributes #18 = { nounwind }
-attributes #19 = { nounwind allocsize(0) }
-attributes #20 = { nounwind allocsize(1) }
-attributes #21 = { cold noreturn nounwind }
+attributes #16 = { nofree nounwind uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #17 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #18 = { nounwind allocsize(0,1) }
+attributes #19 = { nounwind }
+attributes #20 = { nounwind allocsize(0) }
+attributes #21 = { nounwind allocsize(1) }
+attributes #22 = { cold noreturn nounwind }
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}
@@ -5417,4 +6492,24 @@ attributes #21 = { cold noreturn nounwind }
 !134 = distinct !{!134, !10}
 !135 = distinct !{!135, !10}
 !136 = distinct !{!136, !10}
-!137 = distinct !{!137, !10}
+!137 = !{!138, !19, i64 0}
+!138 = !{!"", !19, i64 0, !21, i64 8, !21, i64 16, !5, i64 24, !6, i64 28, !21, i64 32, !5, i64 40, !5, i64 44, !21, i64 48, !41, i64 56}
+!139 = !{!138, !21, i64 8}
+!140 = !{!138, !21, i64 16}
+!141 = !{!138, !5, i64 24}
+!142 = !{!138, !6, i64 28}
+!143 = !{!138, !21, i64 32}
+!144 = !{!138, !5, i64 40}
+!145 = !{!138, !5, i64 44}
+!146 = !{!138, !21, i64 48}
+!147 = !{!138, !41, i64 56}
+!148 = distinct !{!148, !10}
+!149 = distinct !{!149, !10}
+!150 = distinct !{!150, !10}
+!151 = distinct !{!151, !10}
+!152 = distinct !{!152, !10}
+!153 = distinct !{!153, !10}
+!154 = distinct !{!154, !10}
+!155 = distinct !{!155, !10}
+!156 = distinct !{!156, !10}
+!157 = distinct !{!157, !10}

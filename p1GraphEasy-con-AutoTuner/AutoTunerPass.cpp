@@ -358,7 +358,7 @@ namespace
   bool isTraverseCall(StringRef fn)
   {
     return fn == "bfs_runtime" || fn == "bfs_runtime_src" || fn == "dfs_runtime" ||
-           fn == "dfs_runtime_src";
+           fn == "dfs_runtime_src" || fn == "autograph_frontier_step";
   }
 
   bool isInsertCall(StringRef fn)

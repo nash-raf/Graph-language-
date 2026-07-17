@@ -18,6 +18,7 @@
 #include <time.h>
 
 #include "autotuner_runtime.h"
+#include "parallel_runtime.h"
 
 /* Forward declaring external Roaring C API we need */
 #ifdef __cplusplus
@@ -1694,6 +1695,364 @@ void autograph_get_neighbors(void *graph_ptr, int64_t u,
 #if AUTOGRAPH_PROFILE_ENABLED
   autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
 #endif
+}
+
+typedef struct {
+  int32_t *data;
+  int32_t size;
+  int32_t capacity;
+} AutoFrontierLane;
+
+typedef struct {
+  AutoGraphMeta *meta;
+  const int32_t *frontier;
+  AutoFrontierLane *lanes;
+  int32_t lane_count;
+  int32_t *claim;
+  int32_t expected;
+  int32_t desired;
+  int32_t *parent;
+  const uint8_t *frontier_membership;
+} AutoFrontierStepEnv;
+
+static void autograph_frontier_publish(AutoFrontierStepEnv *env,
+                                       int32_t source, int32_t destination) {
+  if (destination < 0 || destination >= env->meta->csr_n)
+    return;
+
+  int32_t expected = env->expected;
+  if (!atomic_compare_exchange_strong_explicit(
+          (_Atomic int32_t *)&env->claim[destination], &expected, env->desired,
+          memory_order_relaxed, memory_order_relaxed))
+    return;
+
+  int32_t lane_index = sgpl_current_worker_index();
+  if (lane_index < 0 || lane_index >= env->lane_count)
+    lane_index = 0;
+  AutoFrontierLane *lane = &env->lanes[lane_index];
+  if (lane->size == lane->capacity) {
+    int64_t grown_capacity = lane->capacity ? (int64_t)lane->capacity * 2 : 64;
+    if (grown_capacity > INT32_MAX ||
+        (uint64_t)grown_capacity > SIZE_MAX / sizeof(int32_t))
+      abort();
+    int32_t new_capacity = (int32_t)grown_capacity;
+    int32_t *new_data =
+        (int32_t *)realloc(lane->data, (size_t)new_capacity * sizeof(int32_t));
+    if (!new_data)
+      abort();
+    lane->data = new_data;
+    lane->capacity = new_capacity;
+  }
+  lane->data[lane->size++] = destination;
+  if (env->parent)
+    env->parent[destination] = source;
+}
+
+static void autograph_frontier_push_vertex(AutoFrontierStepEnv *env,
+                                           int32_t source) {
+  AutoGraphMeta *meta = env->meta;
+  if (source < 0 || source >= meta->csr_n)
+    return;
+
+  switch (meta->current_layout) {
+  case LAYOUT_CSR:
+    if (meta->csr_row_ptr && meta->csr_col_idx)
+      for (int64_t j = meta->csr_row_ptr[source];
+           j < meta->csr_row_ptr[source + 1]; ++j)
+        autograph_frontier_publish(env, source, meta->csr_col_idx[j]);
+    break;
+  case LAYOUT_PCSR:
+    if (meta->pcsr_row_ptr && meta->pcsr_col_idx)
+      for (int64_t j = meta->pcsr_row_ptr[source];
+           j < meta->pcsr_row_ptr[source + 1]; ++j) {
+        int32_t destination = meta->pcsr_col_idx[j];
+        if (destination != -1)
+          autograph_frontier_publish(env, source, destination);
+      }
+    break;
+  case LAYOUT_BCSR:
+    if (meta->bcsr_brow_ptr && meta->bcsr_bcol_idx &&
+        meta->bcsr_block_size > 0) {
+      int32_t block_size = meta->bcsr_block_size;
+      int32_t block = source / block_size;
+      int32_t local_row = source % block_size;
+      for (int32_t k = meta->bcsr_brow_ptr[block];
+           k < meta->bcsr_brow_ptr[block + 1]; k += 2) {
+        int32_t row = meta->bcsr_bcol_idx[k];
+        if (row == local_row)
+          autograph_frontier_publish(env, source,
+                                     meta->bcsr_bcol_idx[k + 1]);
+        else if (row > local_row)
+          break;
+      }
+    }
+    break;
+  case LAYOUT_SET:
+  default: {
+    RoaringBitmap *edges = (RoaringBitmap *)meta->edges_bitmap;
+    EdgePair *pairs = (EdgePair *)meta->edge_pairs_table;
+    if (edges && pairs)
+      for (int64_t e = 0; e < meta->static_pair_count; ++e) {
+        if (!roaring_bitmap_contains(edges, (uint32_t)e))
+          continue;
+        if (pairs[e].u == source)
+          autograph_frontier_publish(env, source, pairs[e].v);
+        else if (pairs[e].v == source)
+          autograph_frontier_publish(env, source, pairs[e].u);
+      }
+    for (int64_t e = 0; e < meta->extra_edge_count; ++e) {
+      if (!meta->extra_edge_live[e])
+        continue;
+      int32_t u = meta->extra_edge_pairs[2 * e];
+      int32_t v = meta->extra_edge_pairs[2 * e + 1];
+      if (u == source)
+        autograph_frontier_publish(env, source, v);
+      else if (v == source)
+        autograph_frontier_publish(env, source, u);
+    }
+    break;
+  }
+  }
+}
+
+static int32_t autograph_frontier_find_source(const AutoFrontierStepEnv *env,
+                                              int32_t destination) {
+  AutoGraphMeta *meta = env->meta;
+#define AUTOGRAPH_RETURN_IF_FRONTIER(candidate)                                  \
+  do {                                                                            \
+    int32_t autograph_source_ = (candidate);                                       \
+    if (autograph_source_ >= 0 && autograph_source_ < meta->csr_n &&               \
+        env->frontier_membership[autograph_source_])                               \
+      return autograph_source_;                                                    \
+  } while (0)
+
+  switch (meta->current_layout) {
+  case LAYOUT_CSR:
+    if (meta->csr_row_ptr && meta->csr_col_idx)
+      for (int64_t j = meta->csr_row_ptr[destination];
+           j < meta->csr_row_ptr[destination + 1]; ++j)
+        AUTOGRAPH_RETURN_IF_FRONTIER(meta->csr_col_idx[j]);
+    break;
+  case LAYOUT_PCSR:
+    if (meta->pcsr_row_ptr && meta->pcsr_col_idx)
+      for (int64_t j = meta->pcsr_row_ptr[destination];
+           j < meta->pcsr_row_ptr[destination + 1]; ++j)
+        if (meta->pcsr_col_idx[j] != -1)
+          AUTOGRAPH_RETURN_IF_FRONTIER(meta->pcsr_col_idx[j]);
+    break;
+  case LAYOUT_BCSR:
+    if (meta->bcsr_brow_ptr && meta->bcsr_bcol_idx &&
+        meta->bcsr_block_size > 0) {
+      int32_t block_size = meta->bcsr_block_size;
+      int32_t block = destination / block_size;
+      int32_t local_row = destination % block_size;
+      for (int32_t k = meta->bcsr_brow_ptr[block];
+           k < meta->bcsr_brow_ptr[block + 1]; k += 2) {
+        int32_t row = meta->bcsr_bcol_idx[k];
+        if (row == local_row)
+          AUTOGRAPH_RETURN_IF_FRONTIER(meta->bcsr_bcol_idx[k + 1]);
+        else if (row > local_row)
+          break;
+      }
+    }
+    break;
+  default:
+    break;
+  }
+#undef AUTOGRAPH_RETURN_IF_FRONTIER
+  return -1;
+}
+
+static void autograph_frontier_push_body(int64_t index, void *opaque) {
+  AutoFrontierStepEnv *env = (AutoFrontierStepEnv *)opaque;
+  autograph_frontier_push_vertex(env, env->frontier[index]);
+}
+
+static void autograph_frontier_pull_body(int64_t index, void *opaque) {
+  AutoFrontierStepEnv *env = (AutoFrontierStepEnv *)opaque;
+  int32_t destination = (int32_t)index;
+  if (atomic_load_explicit((_Atomic int32_t *)&env->claim[destination],
+                           memory_order_relaxed) != env->expected)
+    return;
+  int32_t source = autograph_frontier_find_source(env, destination);
+  if (source >= 0)
+    autograph_frontier_publish(env, source, destination);
+}
+
+static int64_t autograph_frontier_row_work(const AutoGraphMeta *meta,
+                                           int32_t vertex) {
+  if (!meta || vertex < 0 || vertex >= meta->csr_n)
+    return 0;
+  switch (meta->current_layout) {
+  case LAYOUT_CSR:
+    return meta->csr_row_ptr
+               ? meta->csr_row_ptr[vertex + 1] - meta->csr_row_ptr[vertex]
+               : 0;
+  case LAYOUT_PCSR:
+    return meta->pcsr_row_ptr
+               ? meta->pcsr_row_ptr[vertex + 1] - meta->pcsr_row_ptr[vertex]
+               : 0;
+  case LAYOUT_BCSR:
+    if (meta->bcsr_brow_ptr && meta->bcsr_bcol_idx &&
+        meta->bcsr_block_size > 0) {
+      int32_t block = vertex / meta->bcsr_block_size;
+      int32_t local_row = vertex % meta->bcsr_block_size;
+      int64_t work = 0;
+      for (int32_t k = meta->bcsr_brow_ptr[block];
+           k < meta->bcsr_brow_ptr[block + 1]; k += 2) {
+        int32_t row = meta->bcsr_bcol_idx[k];
+        if (row == local_row)
+          ++work;
+        else if (row > local_row)
+          break;
+      }
+      return work;
+    }
+    return 0;
+  default:
+    return 0;
+  }
+}
+
+typedef struct {
+  const AutoFrontierLane *lanes;
+  const int64_t *offsets;
+  int32_t *destination;
+} AutoFrontierMergeEnv;
+
+static void autograph_frontier_merge_lane(int64_t index, void *opaque) {
+  AutoFrontierMergeEnv *merge = (AutoFrontierMergeEnv *)opaque;
+  const AutoFrontierLane *lane = &merge->lanes[index];
+  if (lane->size > 0)
+    memcpy(merge->destination + merge->offsets[index], lane->data,
+           (size_t)lane->size * sizeof(int32_t));
+}
+
+int32_t autograph_frontier_step(void *graph_ptr,
+                                const int32_t *frontier,
+                                int32_t frontier_size,
+                                int32_t *next_frontier,
+                                int32_t initial_next_size,
+                                int32_t *claim,
+                                int32_t expected,
+                                int32_t desired,
+                                int32_t *parent) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !frontier || !next_frontier || !claim || frontier_size <= 0 ||
+      meta->csr_n <= 0 || meta->csr_n > INT32_MAX ||
+      initial_next_size < 0 || initial_next_size > meta->csr_n)
+    return initial_next_size;
+
+  int32_t lane_count = sgpl_configured_worker_count();
+  if (lane_count < 1)
+    lane_count = 1;
+  AutoFrontierLane *lanes =
+      (AutoFrontierLane *)calloc((size_t)lane_count, sizeof(*lanes));
+  if (!lanes)
+    abort();
+  int64_t initial_lane_capacity =
+      (meta->csr_n + lane_count - 1) / lane_count;
+  if (initial_lane_capacity > 16384)
+    initial_lane_capacity = 16384;
+  if (initial_lane_capacity < 64)
+    initial_lane_capacity = 64;
+  for (int32_t lane = 0; lane < lane_count; ++lane) {
+    lanes[lane].data =
+        (int32_t *)malloc((size_t)initial_lane_capacity * sizeof(int32_t));
+    if (!lanes[lane].data)
+      abort();
+    lanes[lane].capacity = (int32_t)initial_lane_capacity;
+  }
+
+  AutoFrontierStepEnv env = {
+      .meta = meta,
+      .frontier = frontier,
+      .lanes = lanes,
+      .lane_count = lane_count,
+      .claim = claim,
+      .expected = expected,
+      .desired = desired,
+      .parent = parent,
+      .frontier_membership = NULL,
+  };
+
+  /* SET has no row index, so its dense pull would rescan every edge for every
+   * vertex. Keep SET in sparse push and let the layout autotuner convert it
+   * when repeated dense traversal warrants an indexed representation. */
+  int64_t push_edge_work = 0;
+  if (meta->current_layout != LAYOUT_SET) {
+    for (int32_t i = 0; i < frontier_size; ++i) {
+      int64_t row_work = autograph_frontier_row_work(meta, frontier[i]);
+      if (row_work > INT64_MAX - push_edge_work) {
+        push_edge_work = INT64_MAX;
+        break;
+      }
+      push_edge_work += row_work;
+    }
+  }
+  int use_pull =
+      meta->current_layout != LAYOUT_SET && push_edge_work > meta->csr_n;
+  const char *mode = getenv("SGPL_FRONTIER_MODE");
+  if (mode && strcmp(mode, "push") == 0)
+    use_pull = 0;
+  else if (mode && strcmp(mode, "pull") == 0 &&
+           meta->current_layout != LAYOUT_SET)
+    use_pull = 1;
+  uint8_t *membership = NULL;
+  if (use_pull) {
+    membership = (uint8_t *)calloc((size_t)meta->csr_n, sizeof(uint8_t));
+    if (!membership)
+      use_pull = 0;
+    else {
+      for (int32_t i = 0; i < frontier_size; ++i) {
+        int32_t vertex = frontier[i];
+        if (vertex >= 0 && vertex < meta->csr_n)
+          membership[vertex] = 1;
+      }
+      env.frontier_membership = membership;
+    }
+  }
+
+  if (use_pull)
+    parallel_for_runtime(0, meta->csr_n, 1, autograph_frontier_pull_body, &env,
+                         0, 0);
+  else
+    parallel_for_runtime(0, frontier_size, 1, autograph_frontier_push_body, &env,
+                         0, 0);
+
+  free(membership);
+
+  int64_t *offsets =
+      (int64_t *)calloc((size_t)lane_count + 1, sizeof(*offsets));
+  if (!offsets)
+    abort();
+  offsets[0] = initial_next_size;
+  for (int32_t lane = 0; lane < lane_count; ++lane) {
+    if (lanes[lane].size < 0 ||
+        offsets[lane] > meta->csr_n - lanes[lane].size)
+      abort();
+    offsets[lane + 1] = offsets[lane] + lanes[lane].size;
+  }
+
+  AutoFrontierMergeEnv merge = {
+      .lanes = lanes,
+      .offsets = offsets,
+      .destination = next_frontier,
+  };
+  int64_t appended = offsets[lane_count] - initial_next_size;
+  if (appended >= 65536 && lane_count > 1)
+    parallel_for_runtime(0, lane_count, 1, autograph_frontier_merge_lane, &merge,
+                         0, 0);
+  else
+    for (int32_t lane = 0; lane < lane_count; ++lane)
+      autograph_frontier_merge_lane(lane, &merge);
+
+  int32_t result = (int32_t)offsets[lane_count];
+  for (int32_t lane = 0; lane < lane_count; ++lane)
+    free(lanes[lane].data);
+  free(offsets);
+  free(lanes);
+  return result;
 }
 
 /* ══════════════════════════════════════════════════════════════════

@@ -110,6 +110,19 @@ void autograph_neighbor_scratch_release(void);
 void autograph_get_neighbors(void *graph_ptr, int64_t u,
                              int32_t *out_buf, int64_t *out_count);
 
+/* Execute one structurally-verified first-wins frontier step.  The runtime
+ * automatically chooses sparse push or dense pull and traverses the active
+ * graph layout directly (without materializing neighbor arrays). */
+int32_t autograph_frontier_step(void *graph_ptr,
+                                const int32_t *frontier,
+                                int32_t frontier_size,
+                                int32_t *next_frontier,
+                                int32_t initial_next_size,
+                                int32_t *claim,
+                                int32_t expected,
+                                int32_t desired,
+                                int32_t *parent);
+
 /* BCSR-native edge mutation. Returns 1 on success, 0 on failure/skip. */
 int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to);
 int autograph_bcsr_remove_edge(void *graph_ptr, int32_t from, int32_t to);

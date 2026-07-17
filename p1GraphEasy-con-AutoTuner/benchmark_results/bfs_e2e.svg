@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="540" viewBox="0 0 1100 540">
+<style>text{font:12px system-ui;fill:#26303b}.title{font-size:17px;font-weight:600}.value{font-size:15px;font-weight:600}.grid{stroke:#d8dde5;stroke-width:1}</style>
+<text x="25" y="28" class="title">SGPL vs Graptor BFS · complete process time</text>
+<text x="25" y="52">1M vertices, 1M undirected input edges, source 0; warm-up + median of 7 alternating launches</text>
+<g transform="translate(70,70)"><g transform="translate(0,0)"><svg width="760" height="360" viewBox="0 0 760 360"><text x="40" y="25" class="title">End-to-end BFS at 8 threads</text><rect x="180" y="81.30434782608694" width="140" height="208.69565217391306" fill="#3478d4"/><text x="250" y="71.30434782608694" text-anchor="middle" class="value">191.2 ms</text><text x="250" y="325" text-anchor="middle">SGPL</text><rect x="440" y="182.34851865419392" width="140" height="107.65148134580606" fill="#238b57"/><text x="510" y="172.34851865419392" text-anchor="middle" class="value">98.6 ms</text><text x="510" y="325" text-anchor="middle">Graptor</text></svg></g></g>
+</svg>

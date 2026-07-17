@@ -60,6 +60,8 @@ typedef struct
 int32_t sgpl_current_thread_budget(void);
 void sgpl_push_thread_budget(int32_t max_threads);
 void sgpl_pop_thread_budget(void);
+int32_t sgpl_configured_worker_count(void);
+int32_t sgpl_current_worker_index(void);
 
 uint64_t sgpl_now_ns(void);
 

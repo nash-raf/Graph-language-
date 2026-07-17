@@ -105,6 +105,8 @@ void autograph_ensure_layout_set(void *graph_ptr);
 
 /* Layout-aware neighbor access: fills out_buf with neighbors of u under the
  * current layout (CSR/PCSR/BCSR/SET). Returns count in *out_count. */
+int32_t *autograph_neighbor_scratch_acquire(int64_t capacity);
+void autograph_neighbor_scratch_release(void);
 void autograph_get_neighbors(void *graph_ptr, int64_t u,
                              int32_t *out_buf, int64_t *out_count);
 

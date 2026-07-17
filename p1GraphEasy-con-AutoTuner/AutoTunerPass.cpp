@@ -1619,8 +1619,8 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
         if (layoutFeasible(regions[i].dominant, forcedLayout))
           S.chosen[i] = forcedLayout;
       }
-      errs() << "[AutoTuner] Forced layout override: "
-             << layoutName(forcedLayout) << "\n";
+      // errs() << "[AutoTuner] Forced layout override: "
+      //        << layoutName(forcedLayout) << "\n";
     }
     const double chosenCost = estimateChosenScheduleCost(regions, S.chosen, estN, estM, hw);
     const double allCSR = estimateAllCSRPathCost(regions, estN, estM, hw);
@@ -1654,6 +1654,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     }
     if (shouldSkip)
       std::fill(S.chosen.begin(), S.chosen.end(), LAYOUT_CSR);
+#if 0
     errs() << "[AutoTuner] Cost-model profile for graph " << graphKey
            << " (estN=" << estN << ", estM=" << estM << ")\n";
     {
@@ -1676,6 +1677,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
              << " predicted_total_ns=" << chosenCost
              << " predicted_conversion_ns=" << predictedConversion << "\n";
     }
+#endif
     totalInjected += injectConversions(M, regions, S, metaByGraphPtr, estN, estM, hw);
   }
 

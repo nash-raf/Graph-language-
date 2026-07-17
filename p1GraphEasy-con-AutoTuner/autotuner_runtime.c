@@ -8,8 +8,10 @@
  */
 
 #include <math.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,21 +50,22 @@ static AutoGraphMeta g_meta[MAX_GRAPHS];
 static int g_meta_count = 0;
 
 #define AUTOGRAPH_MAX_PROFILE_REGIONS 1024
+#define AUTOGRAPH_PROFILE_ENABLED 0
 
 typedef struct {
-  int seen;
+  atomic_int seen;
   int kind;
   int layout;
   double predicted_ns;
-  uint64_t measured_ns;
-  uint64_t visits;
+  atomic_uint_fast64_t measured_ns;
+  atomic_uint_fast64_t visits;
 } AutoProfileRegion;
 
 static AutoProfileRegion g_profile_regions[AUTOGRAPH_MAX_PROFILE_REGIONS];
-static int g_profile_atexit_installed = 0;
+static pthread_once_t g_profile_atexit_once = PTHREAD_ONCE_INIT;
 static __thread int g_active_region_id = -1;
 static __thread uint64_t g_active_region_start_ns = 0;
-static uint64_t g_kernel_measured_ns[3] = {0, 0, 0};
+static atomic_uint_fast64_t g_kernel_measured_ns[3];
 static uint64_t g_conversion_ns = 0;
 static int g_conversions_injected = 0;
 
@@ -105,13 +108,15 @@ static void autograph_profile_flush_active(void) {
     return;
   uint64_t end_ns = now_monotonic_ns();
   if (end_ns >= g_active_region_start_ns)
-    g_profile_regions[g_active_region_id].measured_ns +=
-        end_ns - g_active_region_start_ns;
+    atomic_fetch_add_explicit(
+        &g_profile_regions[g_active_region_id].measured_ns,
+        end_ns - g_active_region_start_ns, memory_order_relaxed);
   g_active_region_id = -1;
   g_active_region_start_ns = 0;
 }
 
 static void autograph_profile_report(void) {
+#if 0
   autograph_profile_flush_active();
 
   double predicted_totals[3] = {0.0, 0.0, 0.0};
@@ -143,12 +148,15 @@ static void autograph_profile_report(void) {
             profile_kind_name(kind), predicted_totals[kind],
             (unsigned long long)measured_totals[kind], predicted_totals[kind] / 1.0e6,
             (double)measured_totals[kind] / 1.0e6,
-            (unsigned long long)g_kernel_measured_ns[kind],
-            (double)g_kernel_measured_ns[kind] / 1.0e6);
+            (unsigned long long)atomic_load_explicit(
+                &g_kernel_measured_ns[kind], memory_order_relaxed),
+            (double)atomic_load_explicit(
+                &g_kernel_measured_ns[kind], memory_order_relaxed) / 1.0e6);
   }
 
   fprintf(stderr, "[AutoTunerProfile] injected %d layout conversions total, conversion_ns=%llu\n",
           g_conversions_injected, (unsigned long long)g_conversion_ns);
+#endif
 }
 
 /* Forward-declared: per-graph cached hash map for static edge lookup. */
@@ -179,47 +187,71 @@ static AutoGraphMeta *find_or_create_meta(void *graph_ptr) {
   return meta;
 }
 
+static void autograph_profile_install_atexit(void) {
+  atexit(autograph_profile_report);
+}
+
 void autograph_profile_region_enter(int32_t region_id, int32_t kind,
                                     int32_t layout, double predicted_ns) {
+#if !AUTOGRAPH_PROFILE_ENABLED
+  (void)region_id;
+  (void)kind;
+  (void)layout;
+  (void)predicted_ns;
+  return;
+#else
   if (region_id < 0 || region_id >= AUTOGRAPH_MAX_PROFILE_REGIONS)
     return;
-  if (!g_profile_atexit_installed) {
-    atexit(autograph_profile_report);
-    g_profile_atexit_installed = 1;
-  }
+  pthread_once(&g_profile_atexit_once, autograph_profile_install_atexit);
 
   AutoProfileRegion *region = &g_profile_regions[region_id];
-  if (!region->seen) {
-    region->seen = 1;
+  int expected = 0;
+  if (atomic_compare_exchange_strong_explicit(
+          &region->seen, &expected, -1,
+          memory_order_acq_rel, memory_order_acquire)) {
     region->kind = kind;
     region->layout = layout;
     region->predicted_ns = predicted_ns;
+    atomic_store_explicit(&region->seen, 1, memory_order_release);
+  } else {
+    while (atomic_load_explicit(&region->seen, memory_order_acquire) != 1) {
+    }
   }
-  region->visits++;
+  atomic_fetch_add_explicit(&region->visits, 1, memory_order_relaxed);
 
   if (g_active_region_id == region_id)
     return;
   autograph_profile_flush_active();
   g_active_region_id = region_id;
   g_active_region_start_ns = now_monotonic_ns();
+#endif
 }
 
 void autograph_profile_region_exit(int32_t region_id) {
+#if !AUTOGRAPH_PROFILE_ENABLED
+  (void)region_id;
+  return;
+#else
   if (region_id < 0 || region_id >= AUTOGRAPH_MAX_PROFILE_REGIONS)
     return;
   if (g_active_region_id != region_id)
     return;
   autograph_profile_flush_active();
+#endif
 }
 
 void autograph_profile_record_kernel_ns(int32_t kind, uint64_t elapsed_ns) {
+#if !AUTOGRAPH_PROFILE_ENABLED
+  (void)kind;
+  (void)elapsed_ns;
+  return;
+#else
   if (kind < 0 || kind >= 3)
     return;
-  if (!g_profile_atexit_installed) {
-    atexit(autograph_profile_report);
-    g_profile_atexit_installed = 1;
-  }
-  g_kernel_measured_ns[kind] += elapsed_ns;
+  pthread_once(&g_profile_atexit_once, autograph_profile_install_atexit);
+  atomic_fetch_add_explicit(&g_kernel_measured_ns[kind], elapsed_ns,
+                            memory_order_relaxed);
+#endif
 }
 
 typedef struct {
@@ -715,9 +747,11 @@ void autograph_ensure_layout_set(void *graph_ptr) {
   if (meta->current_layout == LAYOUT_SET && !meta->canonical_dirty)
     return;
 
+  /* Diagnostic output disabled.
   fprintf(stderr, "[autograph_ensure_layout_set] graph=%p from=%s to=SET\n",
           graph_ptr,
           profile_layout_name(meta->current_layout));
+  */
 
   int64_t *rp = NULL;
   int32_t *ci = NULL;
@@ -1044,10 +1078,12 @@ void autograph_ensure_layout(void *graph_ptr, int64_t n, int64_t m,
     return; // nothing to do
   }
 
+  /* Diagnostic output disabled.
   fprintf(stderr, "[autograph_ensure_layout] graph=%p from=%s to=%s\n",
           graph_ptr,
           profile_layout_name(meta->current_layout),
           profile_layout_name(target_layout));
+  */
 
   uint64_t conv_start = now_monotonic_ns();
 
@@ -1479,13 +1515,109 @@ int autograph_bcsr_remove_edge(void *graph_ptr, int32_t from, int32_t to) {
 /* ══════════════════════════════════════════════════════════════════
  *  Layout-aware neighbor access API
  * ══════════════════════════════════════════════════════════════════ */
+typedef struct {
+  int32_t *data;
+  int64_t capacity;
+} AutoNeighborScratchSlot;
+
+typedef struct {
+  AutoNeighborScratchSlot *slots;
+  size_t slot_count;
+  size_t depth;
+} AutoNeighborScratchStack;
+
+static pthread_key_t g_neighbor_scratch_key;
+static pthread_once_t g_neighbor_scratch_key_once = PTHREAD_ONCE_INIT;
+
+static void autograph_neighbor_scratch_destroy(void *raw_stack) {
+  AutoNeighborScratchStack *stack = (AutoNeighborScratchStack *)raw_stack;
+  if (!stack)
+    return;
+  for (size_t i = 0; i < stack->slot_count; ++i)
+    free(stack->slots[i].data);
+  free(stack->slots);
+  free(stack);
+}
+
+static void autograph_neighbor_scratch_make_key(void) {
+  if (pthread_key_create(&g_neighbor_scratch_key,
+                         autograph_neighbor_scratch_destroy) != 0)
+    abort();
+}
+
+int32_t *autograph_neighbor_scratch_acquire(int64_t capacity) {
+  if (capacity <= 0)
+    capacity = 1;
+  if ((uint64_t)capacity > SIZE_MAX / sizeof(int32_t))
+    abort();
+
+  if (pthread_once(&g_neighbor_scratch_key_once,
+                   autograph_neighbor_scratch_make_key) != 0)
+    abort();
+
+  AutoNeighborScratchStack *stack =
+      (AutoNeighborScratchStack *)pthread_getspecific(g_neighbor_scratch_key);
+  if (!stack) {
+    stack = (AutoNeighborScratchStack *)calloc(1, sizeof(*stack));
+    if (!stack ||
+        pthread_setspecific(g_neighbor_scratch_key, stack) != 0) {
+      free(stack);
+      abort();
+    }
+  }
+
+  if (stack->depth == stack->slot_count) {
+    size_t new_count = stack->slot_count ? stack->slot_count * 2 : 2;
+    if (new_count < stack->slot_count ||
+        new_count > SIZE_MAX / sizeof(*stack->slots))
+      abort();
+    AutoNeighborScratchSlot *new_slots =
+        (AutoNeighborScratchSlot *)realloc(
+            stack->slots, new_count * sizeof(*stack->slots));
+    if (!new_slots)
+      abort();
+    memset(new_slots + stack->slot_count, 0,
+           (new_count - stack->slot_count) * sizeof(*new_slots));
+    stack->slots = new_slots;
+    stack->slot_count = new_count;
+  }
+
+  AutoNeighborScratchSlot *slot = &stack->slots[stack->depth++];
+  if (slot->capacity < capacity) {
+    int32_t *new_data =
+        (int32_t *)realloc(slot->data, (size_t)capacity * sizeof(int32_t));
+    if (!new_data) {
+      stack->depth--;
+      abort();
+    }
+    slot->data = new_data;
+    slot->capacity = capacity;
+  }
+  return slot->data;
+}
+
+void autograph_neighbor_scratch_release(void) {
+  if (pthread_once(&g_neighbor_scratch_key_once,
+                   autograph_neighbor_scratch_make_key) != 0)
+    abort();
+  AutoNeighborScratchStack *stack =
+      (AutoNeighborScratchStack *)pthread_getspecific(g_neighbor_scratch_key);
+  if (!stack || stack->depth == 0)
+    abort();
+  stack->depth--;
+}
+
 void autograph_get_neighbors(void *graph_ptr, int64_t u,
                              int32_t *out_buf, int64_t *out_count) {
+#if AUTOGRAPH_PROFILE_ENABLED
   uint64_t start_ns = now_monotonic_ns();
+#endif
   *out_count = 0;
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !out_buf) {
+#if AUTOGRAPH_PROFILE_ENABLED
     autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+#endif
     return;
   }
 
@@ -1559,7 +1691,9 @@ void autograph_get_neighbors(void *graph_ptr, int64_t u,
     break;
   }
   }
+#if AUTOGRAPH_PROFILE_ENABLED
   autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+#endif
 }
 
 /* ══════════════════════════════════════════════════════════════════

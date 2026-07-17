@@ -830,7 +830,7 @@ public:
 
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
-        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
+        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
 
         // Map arbitrary IDs → contiguous [0..n-1]
         // std::unordered_map<int, int> id2idx;
@@ -842,7 +842,7 @@ public:
         llvm::DenseMap<std::pair<int, int>, int> weightMap;
         edges->materializeEdges(edgeList, weightMap);
         m = 2 * edgeList.size();
-        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
+        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
         // 1) degree counts go into row_ptr[i+1]
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
@@ -884,10 +884,10 @@ public:
         // std::cerr << "\n";
         auto t1 = std::chrono::high_resolution_clock::now();
         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        std::cerr << "[ASTBuilder] fulledge '"
-                  << "' in " << dur.count() << " ms\n";
+        // std::cerr << "[ASTBuilder] fulledge '"
+        //           << "' in " << dur.count() << " ms\n";
 
-        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
+        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
 
         node_ids = nodeIds;
         edge_list = edgeList;

@@ -176,12 +176,12 @@ int main(int argc, char **argv)
     std::string backendSelectionReason;
     const std::string activeIRBackend = resolveBackend(backendSelectionReason);
 
-    errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
+    // errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
 
     const bool usingGpuIR = activeIRBackend == "gpu";
     if (usingGpuIR)
     {
-        errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
+        // errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
     }
 
     std::ifstream in(InputFilename);
@@ -363,6 +363,7 @@ int main(int argc, char **argv)
 
         // errs() << "--------------------------------\n";
 
+#if 0
         for (unsigned i = 0; i < taskLevels.size(); ++i)
 
         {
@@ -416,6 +417,7 @@ int main(int argc, char **argv)
 
             errs() << "\n";
         }
+#endif
 
         unsigned maxParallelTasks = 0;
 
@@ -472,6 +474,7 @@ int main(int argc, char **argv)
             maxParallelTasks = std::max(maxParallelTasks, parallelTasksInLevel);
         }
 
+#if 0
         errs() << "Detailed Metrics:\n";
 
         errs() << "-----------------\n";
@@ -511,6 +514,7 @@ int main(int argc, char **argv)
 
             errs() << "\n";
         }
+#endif
 
         // ====================================================================
 

@@ -90,5 +90,6 @@ if [[ "$USE_LOCAL_NLOPT" -eq 1 ]]; then
   export LD_LIBRARY_PATH="$NLOPT_LIBDIR:${LD_LIBRARY_PATH:-}"
 fi
 
-time ./final_program
+# Timing wrapper disabled to keep normal runs quiet.
+./final_program
 

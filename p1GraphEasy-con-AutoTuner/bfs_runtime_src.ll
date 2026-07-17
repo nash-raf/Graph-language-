@@ -5,10 +5,9 @@ target triple = "x86_64-redhat-linux-gnu"
 
 @stderr = external dso_local local_unnamed_addr global ptr, align 8
 @.str = private unnamed_addr constant [43 x i8] c"[bfs_runtime_src] invalid src %d (n=%lld)\0A\00", align 1
-@.str.1 = private unnamed_addr constant [67 x i8] c"[bfs_runtime_src] src=%d visited %zu / %lld nodes in %.6f seconds\0A\00", align 1
-@.str.2 = private unnamed_addr constant [49 x i8] c"cannot create std::vector larger than max_size()\00", align 1
-@.str.3 = private unnamed_addr constant [16 x i8] c"vector::reserve\00", align 1
-@.str.4 = private unnamed_addr constant [26 x i8] c"vector::_M_realloc_append\00", align 1
+@.str.1 = private unnamed_addr constant [49 x i8] c"cannot create std::vector larger than max_size()\00", align 1
+@.str.2 = private unnamed_addr constant [16 x i8] c"vector::reserve\00", align 1
+@.str.3 = private unnamed_addr constant [26 x i8] c"vector::_M_realloc_append\00", align 1
 
 ; Function Attrs: mustprogress uwtable
 define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 noundef %1, ptr noundef writeonly %2, ptr noundef writeonly %3) local_unnamed_addr #0 personality ptr @__gxx_personality_v0 {
@@ -19,12 +18,12 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   %9 = and i1 %7, %8
   %10 = icmp ne ptr %3, null
   %11 = and i1 %9, %10
-  br i1 %11, label %12, label %665
+  br i1 %11, label %12, label %657
 
 12:                                               ; preds = %4
   %13 = load i64, ptr %0, align 8, !tbaa !3
   %14 = icmp slt i64 %13, 0
-  br i1 %14, label %665, label %15
+  br i1 %14, label %657, label %15
 
 15:                                               ; preds = %12
   %16 = icmp slt i32 %1, 0
@@ -36,7 +35,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
 20:                                               ; preds = %15
   %21 = load ptr, ptr @stderr, align 8, !tbaa !11
   %22 = tail call i32 (ptr, ptr, ...) @fprintf(ptr noundef %21, ptr noundef nonnull @.str, i32 noundef %1, i64 noundef %13) #12
-  br label %665
+  br label %657
 
 23:                                               ; preds = %15
   %24 = icmp eq i64 %13, 0
@@ -58,7 +57,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %34, label %35, label %37
 
 35:                                               ; preds = %32
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.2) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.1) #14
           to label %36 unwind label %118
 
 36:                                               ; preds = %35
@@ -161,7 +160,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %92, label %93, label %95
 
 93:                                               ; preds = %79
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.2) #14
           to label %94 unwind label %128
 
 94:                                               ; preds = %93
@@ -204,17 +203,17 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
 116:                                              ; preds = %25
   %117 = landingpad { ptr, i32 }
           cleanup
-  br label %657
+  br label %649
 
 118:                                              ; preds = %35, %37
   %119 = landingpad { ptr, i32 }
           cleanup
-  br label %643
+  br label %635
 
 120:                                              ; preds = %46
   %121 = landingpad { ptr, i32 }
           cleanup
-  br label %632
+  br label %624
 
 122:                                              ; preds = %68, %60
   %123 = phi ptr [ %61, %68 ], [ null, %60 ]
@@ -307,7 +306,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %178, label %179, label %181
 
 179:                                              ; preds = %172
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.4) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
           to label %180 unwind label %234
 
 180:                                              ; preds = %179
@@ -367,7 +366,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %210, label %211, label %213
 
 211:                                              ; preds = %204
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.4) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
           to label %212 unwind label %234
 
 212:                                              ; preds = %211
@@ -467,14 +466,14 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   %270 = phi ptr [ %124, %122 ], [ %80, %249 ], [ %80, %256 ], [ %80, %126 ], [ %80, %128 ]
   %271 = phi { ptr, i32 } [ %125, %122 ], [ %254, %249 ], [ %254, %256 ], [ %127, %126 ], [ %129, %128 ]
   %272 = icmp eq ptr %269, null
-  br i1 %272, label %632, label %273
+  br i1 %272, label %624, label %273
 
 273:                                              ; preds = %266
   %274 = ptrtoint ptr %270 to i64
   %275 = ptrtoint ptr %269 to i64
   %276 = sub i64 %274, %275
   call void @_ZdlPvm(ptr noundef nonnull %269, i64 noundef %276) #15
-  br label %632
+  br label %624
 
 277:                                              ; preds = %58, %505
   %278 = phi i64 [ 0, %58 ], [ %509, %505 ]
@@ -513,7 +512,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %298, label %299, label %301
 
 299:                                              ; preds = %292
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.4) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
           to label %300 unwind label %363
 
 300:                                              ; preds = %299
@@ -574,7 +573,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %334, label %335, label %337
 
 335:                                              ; preds = %321
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.2) #14
           to label %336 unwind label %367
 
 336:                                              ; preds = %335
@@ -711,7 +710,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %417, label %418, label %420
 
 418:                                              ; preds = %411
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.4) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
           to label %419 unwind label %473
 
 419:                                              ; preds = %418
@@ -771,7 +770,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   br i1 %449, label %450, label %452
 
 450:                                              ; preds = %443
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.4) #14
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.3) #14
           to label %451 unwind label %473
 
 451:                                              ; preds = %450
@@ -879,7 +878,7 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   %515 = phi ptr [ %322, %488 ], [ %322, %495 ], [ %361, %358 ], [ %322, %365 ], [ %322, %367 ]
   %516 = phi { ptr, i32 } [ %493, %488 ], [ %493, %495 ], [ %362, %358 ], [ %366, %365 ], [ %368, %367 ]
   %517 = icmp eq ptr %514, null
-  br i1 %517, label %632, label %518
+  br i1 %517, label %624, label %518
 
 518:                                              ; preds = %363, %511
   %519 = phi { ptr, i32 } [ %364, %363 ], [ %516, %511 ]
@@ -891,224 +890,215 @@ define dso_local range(i32 0, 5) i32 @bfs_runtime_src(ptr noundef %0, i32 nounde
   %525 = ptrtoint ptr %521 to i64
   %526 = sub i64 %524, %525
   call void @_ZdlPvm(ptr noundef nonnull %521, i64 noundef %526) #15
-  br label %632
+  br label %624
 
 527:                                              ; preds = %505, %56, %262, %260
   %528 = phi ptr [ %104, %260 ], [ %104, %262 ], [ %49, %56 ], [ %506, %505 ]
   %529 = phi ptr [ %105, %260 ], [ %105, %262 ], [ %50, %56 ], [ %507, %505 ]
   %530 = phi ptr [ %106, %260 ], [ %106, %262 ], [ %50, %56 ], [ %508, %505 ]
   %531 = invoke double @omp_get_wtime()
-          to label %532 unwind label %539
+          to label %532 unwind label %535
 
 532:                                              ; preds = %527
   %533 = icmp eq ptr %530, %529
-  br i1 %533, label %534, label %541
+  br i1 %533, label %534, label %537
 
 534:                                              ; preds = %532
   store ptr null, ptr %2, align 8, !tbaa !25
-  %535 = ptrtoint ptr %529 to i64
-  %536 = ptrtoint ptr %530 to i64
-  %537 = sub i64 %535, %536
-  %538 = ashr exact i64 %537, 2
-  br label %608
+  br label %604
 
-539:                                              ; preds = %527
-  %540 = landingpad { ptr, i32 }
+535:                                              ; preds = %527
+  %536 = landingpad { ptr, i32 }
           cleanup
-  br label %632
+  br label %624
 
-541:                                              ; preds = %532
-  %542 = ptrtoint ptr %529 to i64
-  %543 = ptrtoint ptr %530 to i64
-  %544 = sub i64 %542, %543
-  %545 = ashr exact i64 %544, 2
-  %546 = icmp sgt i64 %545, -1
-  call void @llvm.assume(i1 %546)
-  %547 = call noalias ptr @malloc(i64 noundef %544) #17
-  %548 = icmp eq ptr %547, null
-  br i1 %548, label %614, label %549
+537:                                              ; preds = %532
+  %538 = ptrtoint ptr %529 to i64
+  %539 = ptrtoint ptr %530 to i64
+  %540 = sub i64 %538, %539
+  %541 = ashr exact i64 %540, 2
+  %542 = icmp sgt i64 %541, -1
+  call void @llvm.assume(i1 %542)
+  %543 = call noalias ptr @malloc(i64 noundef %540) #17
+  %544 = icmp eq ptr %543, null
+  br i1 %544, label %606, label %545
 
-549:                                              ; preds = %541
-  %550 = ptrtoint ptr %547 to i64
-  %551 = call i64 @llvm.umax.i64(i64 %545, i64 1)
-  %552 = icmp samesign ult i64 %545, 8
-  %553 = sub i64 %550, %543
-  %554 = icmp ult i64 %553, 32
-  %555 = or i1 %552, %554
-  br i1 %555, label %570, label %556
+545:                                              ; preds = %537
+  %546 = ptrtoint ptr %543 to i64
+  %547 = call i64 @llvm.umax.i64(i64 %541, i64 1)
+  %548 = icmp samesign ult i64 %541, 8
+  %549 = sub i64 %546, %539
+  %550 = icmp ult i64 %549, 32
+  %551 = or i1 %548, %550
+  br i1 %551, label %566, label %552
 
-556:                                              ; preds = %549
-  %557 = and i64 %551, 9223372036854775800
-  br label %558
+552:                                              ; preds = %545
+  %553 = and i64 %547, 9223372036854775800
+  br label %554
 
-558:                                              ; preds = %558, %556
-  %559 = phi i64 [ 0, %556 ], [ %566, %558 ]
-  %560 = getelementptr inbounds nuw i32, ptr %530, i64 %559
+554:                                              ; preds = %554, %552
+  %555 = phi i64 [ 0, %552 ], [ %562, %554 ]
+  %556 = getelementptr inbounds nuw i32, ptr %530, i64 %555
+  %557 = getelementptr inbounds nuw i8, ptr %556, i64 16
+  %558 = load <4 x i32>, ptr %556, align 4, !tbaa !13
+  %559 = load <4 x i32>, ptr %557, align 4, !tbaa !13
+  %560 = getelementptr inbounds nuw i32, ptr %543, i64 %555
   %561 = getelementptr inbounds nuw i8, ptr %560, i64 16
-  %562 = load <4 x i32>, ptr %560, align 4, !tbaa !13
-  %563 = load <4 x i32>, ptr %561, align 4, !tbaa !13
-  %564 = getelementptr inbounds nuw i32, ptr %547, i64 %559
-  %565 = getelementptr inbounds nuw i8, ptr %564, i64 16
-  store <4 x i32> %562, ptr %564, align 4, !tbaa !13
-  store <4 x i32> %563, ptr %565, align 4, !tbaa !13
-  %566 = add nuw i64 %559, 8
-  %567 = icmp eq i64 %566, %557
-  br i1 %567, label %568, label %558, !llvm.loop !26
+  store <4 x i32> %558, ptr %560, align 4, !tbaa !13
+  store <4 x i32> %559, ptr %561, align 4, !tbaa !13
+  %562 = add nuw i64 %555, 8
+  %563 = icmp eq i64 %562, %553
+  br i1 %563, label %564, label %554, !llvm.loop !26
 
-568:                                              ; preds = %558
-  %569 = icmp eq i64 %545, %557
-  br i1 %569, label %587, label %570
+564:                                              ; preds = %554
+  %565 = icmp eq i64 %541, %553
+  br i1 %565, label %583, label %566
 
-570:                                              ; preds = %549, %568
-  %571 = phi i64 [ 0, %549 ], [ %557, %568 ]
-  %572 = and i64 %551, 3
-  %573 = icmp eq i64 %572, 0
-  br i1 %573, label %583, label %574
+566:                                              ; preds = %545, %564
+  %567 = phi i64 [ 0, %545 ], [ %553, %564 ]
+  %568 = and i64 %547, 3
+  %569 = icmp eq i64 %568, 0
+  br i1 %569, label %579, label %570
 
-574:                                              ; preds = %570, %574
-  %575 = phi i64 [ %580, %574 ], [ %571, %570 ]
-  %576 = phi i64 [ %581, %574 ], [ 0, %570 ]
-  %577 = getelementptr inbounds nuw i32, ptr %530, i64 %575
-  %578 = load i32, ptr %577, align 4, !tbaa !13
-  %579 = getelementptr inbounds nuw i32, ptr %547, i64 %575
-  store i32 %578, ptr %579, align 4, !tbaa !13
-  %580 = add nuw nsw i64 %575, 1
-  %581 = add i64 %576, 1
-  %582 = icmp eq i64 %581, %572
-  br i1 %582, label %583, label %574, !llvm.loop !29
+570:                                              ; preds = %566, %570
+  %571 = phi i64 [ %576, %570 ], [ %567, %566 ]
+  %572 = phi i64 [ %577, %570 ], [ 0, %566 ]
+  %573 = getelementptr inbounds nuw i32, ptr %530, i64 %571
+  %574 = load i32, ptr %573, align 4, !tbaa !13
+  %575 = getelementptr inbounds nuw i32, ptr %543, i64 %571
+  store i32 %574, ptr %575, align 4, !tbaa !13
+  %576 = add nuw nsw i64 %571, 1
+  %577 = add i64 %572, 1
+  %578 = icmp eq i64 %577, %568
+  br i1 %578, label %579, label %570, !llvm.loop !29
 
-583:                                              ; preds = %574, %570
-  %584 = phi i64 [ %571, %570 ], [ %580, %574 ]
-  %585 = sub nsw i64 %571, %551
-  %586 = icmp ugt i64 %585, -4
-  br i1 %586, label %587, label %589
+579:                                              ; preds = %570, %566
+  %580 = phi i64 [ %567, %566 ], [ %576, %570 ]
+  %581 = sub nsw i64 %567, %547
+  %582 = icmp ugt i64 %581, -4
+  br i1 %582, label %583, label %585
 
-587:                                              ; preds = %583, %589, %568
-  store ptr %547, ptr %2, align 8, !tbaa !25
-  %588 = trunc i64 %545 to i32
-  br label %608
+583:                                              ; preds = %579, %585, %564
+  store ptr %543, ptr %2, align 8, !tbaa !25
+  %584 = trunc i64 %541 to i32
+  br label %604
 
-589:                                              ; preds = %583, %589
-  %590 = phi i64 [ %606, %589 ], [ %584, %583 ]
+585:                                              ; preds = %579, %585
+  %586 = phi i64 [ %602, %585 ], [ %580, %579 ]
+  %587 = getelementptr inbounds nuw i32, ptr %530, i64 %586
+  %588 = load i32, ptr %587, align 4, !tbaa !13
+  %589 = getelementptr inbounds nuw i32, ptr %543, i64 %586
+  store i32 %588, ptr %589, align 4, !tbaa !13
+  %590 = add nuw nsw i64 %586, 1
   %591 = getelementptr inbounds nuw i32, ptr %530, i64 %590
   %592 = load i32, ptr %591, align 4, !tbaa !13
-  %593 = getelementptr inbounds nuw i32, ptr %547, i64 %590
+  %593 = getelementptr inbounds nuw i32, ptr %543, i64 %590
   store i32 %592, ptr %593, align 4, !tbaa !13
-  %594 = add nuw nsw i64 %590, 1
+  %594 = add nuw nsw i64 %586, 2
   %595 = getelementptr inbounds nuw i32, ptr %530, i64 %594
   %596 = load i32, ptr %595, align 4, !tbaa !13
-  %597 = getelementptr inbounds nuw i32, ptr %547, i64 %594
+  %597 = getelementptr inbounds nuw i32, ptr %543, i64 %594
   store i32 %596, ptr %597, align 4, !tbaa !13
-  %598 = add nuw nsw i64 %590, 2
+  %598 = add nuw nsw i64 %586, 3
   %599 = getelementptr inbounds nuw i32, ptr %530, i64 %598
   %600 = load i32, ptr %599, align 4, !tbaa !13
-  %601 = getelementptr inbounds nuw i32, ptr %547, i64 %598
+  %601 = getelementptr inbounds nuw i32, ptr %543, i64 %598
   store i32 %600, ptr %601, align 4, !tbaa !13
-  %602 = add nuw nsw i64 %590, 3
-  %603 = getelementptr inbounds nuw i32, ptr %530, i64 %602
-  %604 = load i32, ptr %603, align 4, !tbaa !13
-  %605 = getelementptr inbounds nuw i32, ptr %547, i64 %602
-  store i32 %604, ptr %605, align 4, !tbaa !13
-  %606 = add nuw nsw i64 %590, 4
-  %607 = icmp eq i64 %545, %606
-  br i1 %607, label %587, label %589, !llvm.loop !31
+  %602 = add nuw nsw i64 %586, 4
+  %603 = icmp eq i64 %541, %602
+  br i1 %603, label %583, label %585, !llvm.loop !31
 
-608:                                              ; preds = %587, %534
-  %609 = phi i64 [ %545, %587 ], [ %538, %534 ]
-  %610 = phi i32 [ %588, %587 ], [ 0, %534 ]
-  store i32 %610, ptr %3, align 4, !tbaa !13
-  %611 = icmp sgt i64 %609, -1
-  call void @llvm.assume(i1 %611)
-  %612 = fsub double %531, %53
-  %613 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str.1, i32 noundef %1, i64 noundef %609, i64 noundef %13, double noundef %612)
-  br label %614
+604:                                              ; preds = %583, %534
+  %605 = phi i32 [ 0, %534 ], [ %584, %583 ]
+  store i32 %605, ptr %3, align 4, !tbaa !13
+  br label %606
 
-614:                                              ; preds = %541, %608
-  %615 = phi i32 [ 0, %608 ], [ 4, %541 ]
-  %616 = icmp eq ptr %51, null
-  br i1 %616, label %621, label %617
+606:                                              ; preds = %604, %537
+  %607 = phi i32 [ 4, %537 ], [ 0, %604 ]
+  %608 = icmp eq ptr %51, null
+  br i1 %608, label %613, label %609
 
-617:                                              ; preds = %614
-  %618 = ptrtoint ptr %52 to i64
-  %619 = ptrtoint ptr %51 to i64
-  %620 = sub i64 %618, %619
-  call void @_ZdlPvm(ptr noundef nonnull %51, i64 noundef %620) #15
-  br label %621
+609:                                              ; preds = %606
+  %610 = ptrtoint ptr %52 to i64
+  %611 = ptrtoint ptr %51 to i64
+  %612 = sub i64 %610, %611
+  call void @_ZdlPvm(ptr noundef nonnull %51, i64 noundef %612) #15
+  br label %613
 
-621:                                              ; preds = %614, %617
-  %622 = icmp eq ptr %530, null
-  br i1 %622, label %627, label %623
+613:                                              ; preds = %606, %609
+  %614 = icmp eq ptr %530, null
+  br i1 %614, label %619, label %615
 
-623:                                              ; preds = %621
-  %624 = ptrtoint ptr %528 to i64
-  %625 = ptrtoint ptr %530 to i64
-  %626 = sub i64 %624, %625
-  call void @_ZdlPvm(ptr noundef nonnull %530, i64 noundef %626) #15
-  br label %627
+615:                                              ; preds = %613
+  %616 = ptrtoint ptr %528 to i64
+  %617 = ptrtoint ptr %530 to i64
+  %618 = sub i64 %616, %617
+  call void @_ZdlPvm(ptr noundef nonnull %530, i64 noundef %618) #15
+  br label %619
 
-627:                                              ; preds = %621, %623
-  %628 = icmp eq ptr %47, null
-  br i1 %628, label %665, label %629
+619:                                              ; preds = %613, %615
+  %620 = icmp eq ptr %47, null
+  br i1 %620, label %657, label %621
 
-629:                                              ; preds = %627
-  %630 = ptrtoint ptr %47 to i64
-  %631 = sub i64 %48, %630
-  call void @_ZdlPvm(ptr noundef nonnull %47, i64 noundef %631) #15
-  br label %665
+621:                                              ; preds = %619
+  %622 = ptrtoint ptr %47 to i64
+  %623 = sub i64 %48, %622
+  call void @_ZdlPvm(ptr noundef nonnull %47, i64 noundef %623) #15
+  br label %657
 
-632:                                              ; preds = %518, %511, %273, %266, %539, %120
-  %633 = phi ptr [ %528, %539 ], [ %49, %120 ], [ %267, %266 ], [ %267, %273 ], [ %512, %511 ], [ %523, %518 ]
-  %634 = phi ptr [ %530, %539 ], [ %50, %120 ], [ %268, %266 ], [ %268, %273 ], [ %513, %511 ], [ %522, %518 ]
-  %635 = phi { ptr, i32 } [ %540, %539 ], [ %121, %120 ], [ %271, %266 ], [ %271, %273 ], [ %516, %511 ], [ %519, %518 ]
-  %636 = icmp eq ptr %51, null
-  br i1 %636, label %641, label %637
+624:                                              ; preds = %518, %511, %273, %266, %535, %120
+  %625 = phi ptr [ %528, %535 ], [ %49, %120 ], [ %267, %266 ], [ %267, %273 ], [ %512, %511 ], [ %523, %518 ]
+  %626 = phi ptr [ %530, %535 ], [ %50, %120 ], [ %268, %266 ], [ %268, %273 ], [ %513, %511 ], [ %522, %518 ]
+  %627 = phi { ptr, i32 } [ %536, %535 ], [ %121, %120 ], [ %271, %266 ], [ %271, %273 ], [ %516, %511 ], [ %519, %518 ]
+  %628 = icmp eq ptr %51, null
+  br i1 %628, label %633, label %629
 
-637:                                              ; preds = %632
-  %638 = ptrtoint ptr %52 to i64
-  %639 = ptrtoint ptr %51 to i64
-  %640 = sub i64 %638, %639
-  call void @_ZdlPvm(ptr noundef nonnull %51, i64 noundef %640) #15
-  br label %641
+629:                                              ; preds = %624
+  %630 = ptrtoint ptr %52 to i64
+  %631 = ptrtoint ptr %51 to i64
+  %632 = sub i64 %630, %631
+  call void @_ZdlPvm(ptr noundef nonnull %51, i64 noundef %632) #15
+  br label %633
 
-641:                                              ; preds = %632, %637
-  %642 = icmp eq ptr %634, null
-  br i1 %642, label %652, label %643
+633:                                              ; preds = %624, %629
+  %634 = icmp eq ptr %626, null
+  br i1 %634, label %644, label %635
 
-643:                                              ; preds = %118, %641
-  %644 = phi { ptr, i32 } [ %119, %118 ], [ %635, %641 ]
-  %645 = phi ptr [ %31, %118 ], [ %634, %641 ]
-  %646 = phi ptr [ %33, %118 ], [ %633, %641 ]
-  %647 = phi ptr [ %26, %118 ], [ %47, %641 ]
-  %648 = phi i64 [ %28, %118 ], [ %48, %641 ]
-  %649 = ptrtoint ptr %646 to i64
-  %650 = ptrtoint ptr %645 to i64
-  %651 = sub i64 %649, %650
-  call void @_ZdlPvm(ptr noundef nonnull %645, i64 noundef %651) #15
-  br label %652
+635:                                              ; preds = %118, %633
+  %636 = phi { ptr, i32 } [ %119, %118 ], [ %627, %633 ]
+  %637 = phi ptr [ %31, %118 ], [ %626, %633 ]
+  %638 = phi ptr [ %33, %118 ], [ %625, %633 ]
+  %639 = phi ptr [ %26, %118 ], [ %47, %633 ]
+  %640 = phi i64 [ %28, %118 ], [ %48, %633 ]
+  %641 = ptrtoint ptr %638 to i64
+  %642 = ptrtoint ptr %637 to i64
+  %643 = sub i64 %641, %642
+  call void @_ZdlPvm(ptr noundef nonnull %637, i64 noundef %643) #15
+  br label %644
 
-652:                                              ; preds = %641, %643
-  %653 = phi ptr [ %47, %641 ], [ %647, %643 ]
-  %654 = phi i64 [ %48, %641 ], [ %648, %643 ]
-  %655 = phi { ptr, i32 } [ %635, %641 ], [ %644, %643 ]
-  %656 = icmp eq ptr %653, null
-  br i1 %656, label %663, label %657
+644:                                              ; preds = %633, %635
+  %645 = phi ptr [ %47, %633 ], [ %639, %635 ]
+  %646 = phi i64 [ %48, %633 ], [ %640, %635 ]
+  %647 = phi { ptr, i32 } [ %627, %633 ], [ %636, %635 ]
+  %648 = icmp eq ptr %645, null
+  br i1 %648, label %655, label %649
 
-657:                                              ; preds = %116, %652
-  %658 = phi { ptr, i32 } [ %117, %116 ], [ %655, %652 ]
-  %659 = phi i64 [ %28, %116 ], [ %654, %652 ]
-  %660 = phi ptr [ %26, %116 ], [ %653, %652 ]
-  %661 = ptrtoint ptr %660 to i64
-  %662 = sub i64 %659, %661
-  call void @_ZdlPvm(ptr noundef nonnull %660, i64 noundef %662) #15
-  br label %663
+649:                                              ; preds = %116, %644
+  %650 = phi { ptr, i32 } [ %117, %116 ], [ %647, %644 ]
+  %651 = phi i64 [ %28, %116 ], [ %646, %644 ]
+  %652 = phi ptr [ %26, %116 ], [ %645, %644 ]
+  %653 = ptrtoint ptr %652 to i64
+  %654 = sub i64 %651, %653
+  call void @_ZdlPvm(ptr noundef nonnull %652, i64 noundef %654) #15
+  br label %655
 
-663:                                              ; preds = %657, %652
-  %664 = phi { ptr, i32 } [ %658, %657 ], [ %655, %652 ]
-  resume { ptr, i32 } %664
+655:                                              ; preds = %649, %644
+  %656 = phi { ptr, i32 } [ %650, %649 ], [ %647, %644 ]
+  resume { ptr, i32 } %656
 
-665:                                              ; preds = %20, %12, %627, %629, %4
-  %666 = phi i32 [ 1, %4 ], [ 3, %20 ], [ 2, %12 ], [ %615, %627 ], [ %615, %629 ]
-  ret i32 %666
+657:                                              ; preds = %20, %12, %619, %621, %4
+  %658 = phi i32 [ 1, %4 ], [ 3, %20 ], [ 2, %12 ], [ %607, %619 ], [ %607, %621 ]
+  ret i32 %658
 }
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
@@ -1128,9 +1118,6 @@ declare dso_local void @autograph_get_neighbors(ptr noundef, i64 noundef, ptr no
 
 ; Function Attrs: mustprogress nofree nounwind willreturn allockind("alloc,uninitialized") allocsize(0) memory(inaccessiblemem: readwrite)
 declare dso_local noalias noundef ptr @malloc(i64 noundef) local_unnamed_addr #4
-
-; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr #2
 
 ; Function Attrs: cold noreturn
 declare dso_local void @_ZSt20__throw_length_errorPKc(ptr noundef) local_unnamed_addr #5

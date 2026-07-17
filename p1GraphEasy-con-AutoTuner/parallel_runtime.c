@@ -98,22 +98,28 @@ static int sgpl_tdg_env_enabled(const char *name, int default_value)
 
 static int tdg_debug_enabled(void)
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached;
 
     cached = sgpl_tdg_env_enabled("SGPL_TDG_DEBUG", 0);
     return cached;
+    */
+    return 0;
 }
 
 static int budget_debug_enabled(void)
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached;
 
     cached = sgpl_tdg_env_enabled("SGPL_BUDGET_DEBUG", 0) || tdg_debug_enabled();
     return cached;
+    */
+    return 0;
 }
 
 static int sgpl_tdg_read_core_ids_once(void)
@@ -692,12 +698,15 @@ static inline atomic_long *sgpl_doacross_slot(sgpl_doacross_state *state, int32_
 
 static int runtime_debug_enabled(void)
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached;
 
     cached = sgpl_tdg_env_enabled("GRAPH_PARALLEL_DEBUG", 0);
     return cached;
+    */
+    return 0;
 }
 
 static int runtime_iter_debug_enabled(void)
@@ -726,9 +735,28 @@ static int sgpl_runtime_thread_count(void)
     if (cached_nthreads > 0)
         return cached_nthreads;
 
-    cached_nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
-    if (cached_nthreads <= 0)
-        cached_nthreads = 1;
+    int online_threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (online_threads <= 0)
+        online_threads = 1;
+
+    cached_nthreads = online_threads;
+    {
+        const char *requested = getenv("SGPL_NUM_THREADS");
+        if (!requested || requested[0] == '\0')
+            requested = getenv("OMP_NUM_THREADS");
+
+        if (requested && requested[0] != '\0')
+        {
+            char *end = NULL;
+            long parsed = strtol(requested, &end, 10);
+            if (end != requested && *end == '\0' && parsed > 0)
+            {
+                if (parsed > online_threads)
+                    parsed = online_threads;
+                cached_nthreads = (int)parsed;
+            }
+        }
+    }
     return cached_nthreads;
 }
 

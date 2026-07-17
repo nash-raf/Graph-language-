@@ -60,6 +60,7 @@ namespace
         unsigned DoAcrossPostsPerIter = 0;
         SmallPtrSet<BasicBlock *, 8> DependentBlocks;
         SmallPtrSet<BasicBlock *, 8> IndependentBlocks;
+        bool RequiresIntAppendPriv = false;
     };
 
     struct LoopTransformTarget
@@ -74,6 +75,7 @@ namespace
         SmallVector<BasicBlock *, 8> LoopBlocks;
         SmallVector<BasicBlock *, 8> LoopBody;
         unsigned Depth = 0;
+        bool RequiresIntAppendPriv = false;
     };
 
     struct LoopVersioningInfo
@@ -531,7 +533,10 @@ namespace
                 if (!Loaded || Loaded->getPointerOperand() != AI)
                     continue;
 
-                if (isa<ConstantInt>(BO->getOperand(0)) || isa<ConstantInt>(BO->getOperand(1)))
+                Value *IncrementOperand =
+                    Loaded == BO->getOperand(0) ? BO->getOperand(1) : BO->getOperand(0);
+                auto *Increment = dyn_cast<ConstantInt>(IncrementOperand);
+                if (Increment && Increment->equalsInt(1))
                     return true;
             }
         }
@@ -572,6 +577,7 @@ namespace
     static std::optional<std::pair<Value *, Value *>>
     detectIntAppendPattern(const LoopTransformTarget &Target)
     {
+        std::optional<std::pair<Value *, Value *>> Match;
         for (BasicBlock *BB : Target.LoopBlocks)
         {
             for (Instruction &I : *BB)
@@ -611,11 +617,15 @@ namespace
                 if (!ArrayRoot || loopReadsArrayExceptAppendIndex(Target, ArrayRoot, IdxLoad))
                     continue;
 
-                return std::make_pair(ArrayRoot, SizeRoot);
+                std::pair<Value *, Value *> Candidate = std::make_pair(ArrayRoot, SizeRoot);
+                if (Match && (!valuesEquivalent(Match->first, Candidate.first) ||
+                              !valuesEquivalent(Match->second, Candidate.second)))
+                    return std::nullopt;
+                Match = Candidate;
             }
         }
 
-        return std::nullopt;
+        return Match;
     }
 
     static bool loopIncrementsGlobal(const LoopTransformTarget &Target, GlobalVariable *GV)
@@ -642,7 +652,10 @@ namespace
                 if (!Loaded || Loaded->getPointerOperand() != GV)
                     continue;
 
-                if (isa<ConstantInt>(BO->getOperand(0)) || isa<ConstantInt>(BO->getOperand(1)))
+                Value *IncrementOperand =
+                    Loaded == BO->getOperand(0) ? BO->getOperand(1) : BO->getOperand(0);
+                auto *Increment = dyn_cast<ConstantInt>(IncrementOperand);
+                if (Increment && Increment->equalsInt(1))
                     return true;
             }
         }
@@ -990,6 +1003,10 @@ namespace
         Candidate.Mode = parseParallelMode(L);
         Candidate.Header = L ? L->getHeader() : nullptr;
         Candidate.Depth = L ? L->getLoopDepth() : 0;
+        Candidate.RequiresIntAppendPriv =
+            Candidate.Header && Candidate.Header->getTerminator() &&
+            Candidate.Header->getTerminator()->getMetadata(
+                "sgpl.frontier.first_wins.doall");
 
         if (Candidate.Mode == ParallelMode::None)
             return std::nullopt;
@@ -1035,8 +1052,30 @@ namespace
             return std::nullopt;
         }
 
+        if (Candidate.RequiresIntAppendPriv)
+        {
+            LoopTransformTarget AppendTarget;
+            AppendTarget.Mode = Candidate.Mode;
+            AppendTarget.Header = Candidate.Header;
+            AppendTarget.LoopBlocks = Candidate.LoopBlocks;
+            AppendTarget.LoopBody = Candidate.LoopBody;
+            std::optional<std::pair<Value *, Value *>> AppendPattern =
+                detectIntAppendPattern(AppendTarget);
+            if (!AppendPattern ||
+                !isa<GlobalVariable>(AppendPattern->first) ||
+                !isa<GlobalVariable>(AppendPattern->second) ||
+                !findVertexCountGlobal(F))
+            {
+                logLoopState(F, Candidate.Header, Candidate.Depth,
+                             "skip:frontier-append-privatization-unavailable");
+                return std::nullopt;
+            }
+        }
+
         Candidate.BackedgeCount = SE.getBackedgeTakenCount(L);
-        if (isa<SCEVCouldNotCompute>(Candidate.BackedgeCount))
+        bool HasComputedBackedge =
+            !isa<SCEVCouldNotCompute>(Candidate.BackedgeCount);
+        if (!HasComputedBackedge && !Candidate.RequiresIntAppendPriv)
         {
             logLoopState(F, Candidate.Header, Candidate.Depth, "skip:not-versionable reason=backedge-could-not-compute");
             return std::nullopt;
@@ -1050,17 +1089,28 @@ namespace
             return std::nullopt;
         }
 
-        const SCEV *TripCount = SE.getAddExpr(
-            Candidate.BackedgeCount,
-            SE.getOne(Candidate.BackedgeCount->getType()));
         Candidate.Start = AR->getStart();
         Candidate.Step = AR->getStepRecurrence(SE);
-        Candidate.End = SE.getAddExpr(
-            Candidate.Start,
-            SE.getMulExpr(Candidate.Step, TripCount));
-        if (std::optional<const SCEV *> ExitBound = deriveHalfOpenLoopEndFromExitICmp(Candidate, SE))
+        if (HasComputedBackedge)
+        {
+            const SCEV *TripCount = SE.getAddExpr(
+                Candidate.BackedgeCount,
+                SE.getOne(Candidate.BackedgeCount->getType()));
+            Candidate.End = SE.getAddExpr(
+                Candidate.Start,
+                SE.getMulExpr(Candidate.Step, TripCount));
+            Candidate.ConstantTripCount = getConstantTripCount(Candidate, SE);
+        }
+
+        if (std::optional<const SCEV *> ExitBound =
+                deriveHalfOpenLoopEndFromExitICmp(Candidate, SE))
             Candidate.End = *ExitBound;
-        Candidate.ConstantTripCount = getConstantTripCount(Candidate, SE);
+        else if (!Candidate.End)
+        {
+            logLoopState(F, Candidate.Header, Candidate.Depth,
+                         "skip:not-versionable reason=missing-loop-end");
+            return std::nullopt;
+        }
         Candidate.EffectiveBodyInstCount = countEffectiveLoopBodyInstructions(Candidate);
 
         CodeExtractor CE(Candidate.LoopBody, &DT);
@@ -1274,6 +1324,7 @@ namespace
         Info.Serial.LoopBlocks = Candidate.LoopBlocks;
         Info.Serial.LoopBody = Candidate.LoopBody;
         Info.Serial.Depth = Candidate.Depth;
+        Info.Serial.RequiresIntAppendPriv = Candidate.RequiresIntAppendPriv;
 
         Info.Parallel.Mode = Candidate.Mode;
         Info.Parallel.Header = ClonedHeader;
@@ -1283,6 +1334,7 @@ namespace
         Info.Parallel.ExitBlock = ParallelExitBridge;
         Info.Parallel.IndVar = ClonedIndVar;
         Info.Parallel.Depth = Candidate.Depth;
+        Info.Parallel.RequiresIntAppendPriv = Candidate.RequiresIntAppendPriv;
         Info.Parallel.LoopBlocks = ClonedLoopBlocks;
         for (BasicBlock *BB : ClonedLoopBlocks)
         {
@@ -1312,6 +1364,21 @@ namespace
 
         bool IsDoAcross = Target.Mode == ParallelMode::DoAcross;
         bool IsDoAll = Target.Mode == ParallelMode::DoAll;
+
+        if (Target.RequiresIntAppendPriv)
+        {
+            std::optional<std::pair<Value *, Value *>> AppendPattern =
+                detectIntAppendPattern(Target);
+            if (!AppendPattern ||
+                !isa<GlobalVariable>(AppendPattern->first) ||
+                !isa<GlobalVariable>(AppendPattern->second) ||
+                !findVertexCountGlobal(F))
+            {
+                logLoopState(F, Target.Header, Target.Depth,
+                             "skip:frontier-append-privatization-unavailable");
+                return Result;
+            }
+        }
 
         if (IsDoAcross)
         {
@@ -1602,9 +1669,54 @@ namespace
                 continue;
             }
 
+            Argument *OutlinedArg = Outlined->getArg(ParamIndex);
+            bool IsNeighborCountScratch = ParamTy->isPointerTy();
+            bool SeenNeighborWriter = false;
+            if (IsNeighborCountScratch)
+            {
+                for (User *U : OutlinedArg->users())
+                {
+                    if (auto *CI = dyn_cast<CallInst>(U))
+                    {
+                        Function *Callee = CI->getCalledFunction();
+                        if (Callee &&
+                            Callee->getName() == "autograph_get_neighbors" &&
+                            CI->arg_size() >= 4 &&
+                            CI->getArgOperand(3) == OutlinedArg)
+                        {
+                            SeenNeighborWriter = true;
+                            continue;
+                        }
+                    }
+                    if (auto *LI = dyn_cast<LoadInst>(U))
+                    {
+                        if (LI->getPointerOperand() == OutlinedArg)
+                            continue;
+                    }
+                    IsNeighborCountScratch = false;
+                    break;
+                }
+            }
+            if (IsNeighborCountScratch && SeenNeighborWriter)
+            {
+                ParamUsesPrivateScratch[ParamIndex] = true;
+                ParamPrivateScratchTys[ParamIndex] = Type::getInt64Ty(Ctx);
+                continue;
+            }
+
             if (auto *AI = dyn_cast_or_null<AllocaInst>(Orig))
             {
-                if (AI->getFunction() == &F && !Inputs.count(AI) && !Outputs.count(AI))
+                bool OnlyUsedInsideLoop = AI->getFunction() == &F;
+                for (User *U : AI->users())
+                {
+                    auto *UseInst = dyn_cast<Instruction>(U);
+                    if (!UseInst || !LoopBlockSet.contains(UseInst->getParent()))
+                    {
+                        OnlyUsedInsideLoop = false;
+                        break;
+                    }
+                }
+                if (OnlyUsedInsideLoop)
                 {
                     ParamUsesPrivateScratch[ParamIndex] = true;
                     ParamPrivateScratchTys[ParamIndex] = AI->getAllocatedType();

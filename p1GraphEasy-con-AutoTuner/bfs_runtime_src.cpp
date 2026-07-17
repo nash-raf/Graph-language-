@@ -127,8 +127,8 @@ extern "C"
             *out_size = static_cast<int32_t>(order.size());
         }
 
-        std::printf("[bfs_runtime_src] src=%d visited %zu / %lld nodes in %.6f seconds\n",
-                    src, order.size(), (long long)n, t1 - t0);
+        // std::printf("[bfs_runtime_src] src=%d visited %zu / %lld nodes in %.6f seconds\n",
+        //             src, order.size(), (long long)n, t1 - t0);
 
         return 0;
     }

@@ -800,14 +800,286 @@ void IRGenVisitor::visitFunctionDecl(FunctionDeclNode *funcDecl)
         Builder.SetInsertPoint(savedInsertPoint);
 }
 
+namespace
+{
+struct FirstWinsPattern
+{
+    ArrayAccessNode *claimAccess = nullptr;
+    int64_t expectedValue = 0;
+    int64_t desiredValue = 0;
+};
+
+static bool firstWinsExprsEquivalent(const ASTNode *lhs, const ASTNode *rhs)
+{
+    if (lhs == rhs)
+        return true;
+    if (!lhs || !rhs || lhs->type != rhs->type)
+        return false;
+
+    switch (lhs->type)
+    {
+    case ASTNodeType::Variable:
+        return static_cast<const VariableNode *>(lhs)->name ==
+               static_cast<const VariableNode *>(rhs)->name;
+    case ASTNodeType::IntLiteral:
+        return static_cast<const IntLiteralNode *>(lhs)->value ==
+               static_cast<const IntLiteralNode *>(rhs)->value;
+    case ASTNodeType::ArrayAccess:
+    {
+        auto *lhsAccess = static_cast<const ArrayAccessNode *>(lhs);
+        auto *rhsAccess = static_cast<const ArrayAccessNode *>(rhs);
+        return firstWinsExprsEquivalent(lhsAccess->arrayExpr.get(), rhsAccess->arrayExpr.get()) &&
+               firstWinsExprsEquivalent(lhsAccess->indexExpr.get(), rhsAccess->indexExpr.get());
+    }
+    default:
+        return false;
+    }
+}
+
+static std::optional<FirstWinsPattern> detectFirstWinsPattern(ConditionalNode *ifs)
+{
+    if (!ifs || ifs->elseBlock || !ifs->condition ||
+        ifs->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+
+    auto *condition = static_cast<BinaryExprNode *>(ifs->condition.get());
+    if (condition->op != "==")
+        return std::nullopt;
+
+    ArrayAccessNode *claimAccess = nullptr;
+    IntLiteralNode *expected = nullptr;
+    if (condition->lhs->type == ASTNodeType::ArrayAccess &&
+        condition->rhs->type == ASTNodeType::IntLiteral)
+    {
+        claimAccess = static_cast<ArrayAccessNode *>(condition->lhs.get());
+        expected = static_cast<IntLiteralNode *>(condition->rhs.get());
+    }
+    else if (condition->rhs->type == ASTNodeType::ArrayAccess &&
+             condition->lhs->type == ASTNodeType::IntLiteral)
+    {
+        claimAccess = static_cast<ArrayAccessNode *>(condition->rhs.get());
+        expected = static_cast<IntLiteralNode *>(condition->lhs.get());
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    auto *thenBlock = dynamic_cast<BlockStmtNode *>(ifs->thenBlock.get());
+    if (!thenBlock || thenBlock->statements.empty() ||
+        thenBlock->statements.front()->type != ASTNodeType::AssignmentStmt)
+        return std::nullopt;
+
+    auto *claimAssignment =
+        static_cast<AssignmentStmtNode *>(thenBlock->statements.front().get());
+    if (!claimAssignment->lhs || claimAssignment->lhs->type != ASTNodeType::ArrayAccess ||
+        !claimAssignment->rhs || claimAssignment->rhs->type != ASTNodeType::IntLiteral)
+        return std::nullopt;
+
+    auto *assignedAccess = static_cast<ArrayAccessNode *>(claimAssignment->lhs.get());
+    if (!firstWinsExprsEquivalent(claimAccess, assignedAccess))
+        return std::nullopt;
+
+    auto *desired = static_cast<IntLiteralNode *>(claimAssignment->rhs.get());
+    if (expected->value == desired->value)
+        return std::nullopt;
+
+    auto *arrayVariable = dynamic_cast<VariableNode *>(claimAccess->arrayExpr.get());
+    if (!arrayVariable || claimAccess->resolvedType != TypeKind::Int)
+        return std::nullopt;
+
+    return FirstWinsPattern{claimAccess, expected->value, desired->value};
+}
+
+static const VariableNode *asVariable(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::Variable
+               ? static_cast<const VariableNode *>(node)
+               : nullptr;
+}
+
+static const ArrayAccessNode *asArrayAccess(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::ArrayAccess
+               ? static_cast<const ArrayAccessNode *>(node)
+               : nullptr;
+}
+
+static bool matchesIncrementByOne(const ASTNode *node, const std::string &name)
+{
+    if (!node || node->type != ASTNodeType::AssignmentStmt)
+        return false;
+    auto *assignment = static_cast<const AssignmentStmtNode *>(node);
+    auto *lhs = asVariable(assignment->lhs.get());
+    if (!lhs || lhs->name != name || !assignment->rhs ||
+        assignment->rhs->type != ASTNodeType::BinaryExpr)
+        return false;
+
+    auto *add = static_cast<const BinaryExprNode *>(assignment->rhs.get());
+    if (add->op != "+")
+        return false;
+    auto isNamedVariable = [&](const ASTNode *operand) {
+        auto *variable = asVariable(operand);
+        return variable && variable->name == name;
+    };
+    auto isOne = [](const ASTNode *operand) {
+        return operand && operand->type == ASTNodeType::IntLiteral &&
+               static_cast<const IntLiteralNode *>(operand)->value == 1;
+    };
+    return (isNamedVariable(add->lhs.get()) && isOne(add->rhs.get())) ||
+           (isOne(add->lhs.get()) && isNamedVariable(add->rhs.get()));
+}
+
+static bool isFirstWinsFrontierLoop(const WhileStmtNode *loop)
+{
+    if (!loop || !loop->condition || loop->condition->type != ASTNodeType::BinaryExpr)
+        return false;
+
+    auto *condition = static_cast<const BinaryExprNode *>(loop->condition.get());
+    if (condition->op != "<")
+        return false;
+    auto *induction = asVariable(condition->lhs.get());
+    auto *bound = asVariable(condition->rhs.get());
+    if (!induction || !bound || induction->name == bound->name)
+        return false;
+
+    auto *body = dynamic_cast<const BlockStmtNode *>(loop->body.get());
+    if (!body || body->statements.size() != 3)
+        return false;
+
+    if (body->statements[0]->type != ASTNodeType::VarDecl ||
+        body->statements[1]->type != ASTNodeType::ForEachStmt ||
+        !matchesIncrementByOne(body->statements[2].get(), induction->name))
+        return false;
+
+    auto *vertexDecl = static_cast<const VarDeclNode *>(body->statements[0].get());
+    auto *frontierRead = asArrayAccess(vertexDecl->initializer.get());
+    auto *frontierArray = frontierRead ? asVariable(frontierRead->arrayExpr.get()) : nullptr;
+    if (!frontierRead || !frontierArray ||
+        !firstWinsExprsEquivalent(frontierRead->indexExpr.get(), induction))
+        return false;
+
+    auto *neighbors = static_cast<const ForEachStmtNode *>(body->statements[1].get());
+    auto *source = asVariable(neighbors->adjNodeExpr.get());
+    if (neighbors->targetType != ForEachTargetType::Neighbor || !source ||
+        source->name != vertexDecl->name)
+        return false;
+
+    auto *neighborBody = dynamic_cast<const BlockStmtNode *>(neighbors->body.get());
+    if (!neighborBody || neighborBody->statements.size() != 1 ||
+        neighborBody->statements[0]->type != ASTNodeType::Conditional)
+        return false;
+
+    auto *claimIf = static_cast<ConditionalNode *>(neighborBody->statements[0].get());
+    auto claim = detectFirstWinsPattern(claimIf);
+    if (!claim)
+        return false;
+
+    auto *claimArray = asVariable(claim->claimAccess->arrayExpr.get());
+    auto *thenBody = dynamic_cast<const BlockStmtNode *>(claimIf->thenBlock.get());
+    if (!claimArray || !thenBody || thenBody->statements.size() != 4)
+        return false;
+
+    auto *parentAssignment =
+        dynamic_cast<const AssignmentStmtNode *>(thenBody->statements[1].get());
+    auto *appendAssignment =
+        dynamic_cast<const AssignmentStmtNode *>(thenBody->statements[2].get());
+    if (!parentAssignment || !appendAssignment)
+        return false;
+
+    auto *parentAccess = asArrayAccess(parentAssignment->lhs.get());
+    auto *parentArray = parentAccess ? asVariable(parentAccess->arrayExpr.get()) : nullptr;
+    auto *parentValue = asVariable(parentAssignment->rhs.get());
+    if (!parentAccess || !parentArray || !parentValue ||
+        parentValue->name != vertexDecl->name ||
+        !firstWinsExprsEquivalent(parentAccess->indexExpr.get(),
+                                  claim->claimAccess->indexExpr.get()))
+        return false;
+
+    auto *appendAccess = asArrayAccess(appendAssignment->lhs.get());
+    auto *appendArray = appendAccess ? asVariable(appendAccess->arrayExpr.get()) : nullptr;
+    auto *appendSize = appendAccess ? asVariable(appendAccess->indexExpr.get()) : nullptr;
+    if (!appendAccess || !appendArray || !appendSize ||
+        !firstWinsExprsEquivalent(appendAssignment->rhs.get(),
+                                  claim->claimAccess->indexExpr.get()) ||
+        !matchesIncrementByOne(thenBody->statements[3].get(), appendSize->name))
+        return false;
+
+    return claimArray->name != parentArray->name &&
+           claimArray->name != appendArray->name &&
+           parentArray->name != appendArray->name &&
+           frontierArray->name != claimArray->name &&
+           frontierArray->name != parentArray->name &&
+           frontierArray->name != appendArray->name &&
+           appendSize->name != induction->name &&
+           appendSize->name != bound->name;
+}
+} // namespace
+
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
-    llvm::Value *condVal = visitExpr(ifs->condition.get());
-    llvm::Value *condBool = condVal;
-    if (condVal->getType()->isIntegerTy(32))
-        condBool = Builder.CreateICmpNE(condVal, Builder.getInt32(0), "ifcond");
-    else if (condVal->getType()->isDoubleTy())
-        condBool = Builder.CreateFCmpONE(condVal, llvm::ConstantFP::get(Builder.getDoubleTy(), 0.0), "ifcond");
+    std::optional<FirstWinsPattern> firstWins = detectFirstWinsPattern(ifs);
+    llvm::Value *condBool = nullptr;
+    if (firstWins)
+    {
+        auto *arrayVariable =
+            static_cast<VariableNode *>(firstWins->claimAccess->arrayExpr.get());
+        llvm::Value *arrayStorage = lookupNamedStorage(arrayVariable->name);
+        llvm::Value *index = visitExpr(firstWins->claimAccess->indexExpr.get());
+        if (index->getType() != Builder.getInt32Ty())
+            index = Builder.CreateIntCast(index, Builder.getInt32Ty(), true);
+
+        llvm::Value *elementPtr = nullptr;
+        if (IndirectArrays.count(arrayVariable->name))
+        {
+            llvm::Value *dataPtr =
+                Builder.CreateLoad(Builder.getPtrTy(), arrayStorage,
+                                   arrayVariable->name + ".claim.ptr");
+            elementPtr = Builder.CreateGEP(Builder.getInt32Ty(), dataPtr, {index},
+                                           arrayVariable->name + ".claim.elemptr");
+        }
+        else if (auto *arrayTy =
+                     llvm::dyn_cast<llvm::ArrayType>(getStorageValueType(arrayStorage)))
+        {
+            if (!arrayTy->getElementType()->isIntegerTy(32))
+                firstWins.reset();
+            else
+                elementPtr = Builder.CreateGEP(
+                    arrayTy, arrayStorage, {Builder.getInt32(0), index},
+                    arrayVariable->name + ".claim.elemptr");
+        }
+        else
+        {
+            firstWins.reset();
+        }
+
+        if (firstWins && elementPtr)
+        {
+            llvm::Value *expected =
+                llvm::ConstantInt::get(Builder.getInt32Ty(), firstWins->expectedValue, true);
+            llvm::Value *desired =
+                llvm::ConstantInt::get(Builder.getInt32Ty(), firstWins->desiredValue, true);
+            llvm::AtomicCmpXchgInst *claim = Builder.CreateAtomicCmpXchg(
+                elementPtr, expected, desired, llvm::MaybeAlign(4),
+                llvm::AtomicOrdering::Monotonic, llvm::AtomicOrdering::Monotonic);
+            claim->setMetadata(
+                "sgpl.first_wins.claim",
+                llvm::MDNode::get(Context, llvm::MDString::get(Context, arrayVariable->name)));
+            condBool = Builder.CreateExtractValue(claim, 1, "first_wins.success");
+        }
+    }
+
+    if (!condBool)
+    {
+        firstWins.reset();
+        llvm::Value *condVal = visitExpr(ifs->condition.get());
+        condBool = condVal;
+        if (condVal->getType()->isIntegerTy(32))
+            condBool = Builder.CreateICmpNE(condVal, Builder.getInt32(0), "ifcond");
+        else if (condVal->getType()->isDoubleTy())
+            condBool = Builder.CreateFCmpONE(
+                condVal, llvm::ConstantFP::get(Builder.getDoubleTy(), 0.0), "ifcond");
+    }
 
     // gets the current function. LLVM needs to know which function the blocks are part of
     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
@@ -830,9 +1102,10 @@ void IRGenVisitor::visitConditional(ConditionalNode *ifs)
     Builder.SetInsertPoint(thenBB);
     auto *thenBlockNode = static_cast<BlockStmtNode *>(ifs->thenBlock.get());
 
-    for (auto &stmt : thenBlockNode->statements)
+    size_t firstThenStatement = firstWins ? 1 : 0;
+    for (size_t i = firstThenStatement; i < thenBlockNode->statements.size(); ++i)
     {
-        visitStatement(stmt.get());
+        visitStatement(thenBlockNode->statements[i].get());
     }
     // after then, always jump to merge
     if (!Builder.GetInsertBlock()->getTerminator())
@@ -1510,6 +1783,7 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 {
     llvm::BasicBlock *preheader = Builder.GetInsertBlock();
     llvm::Function *parent = preheader->getParent();
+    bool isVerifiedFrontier = isFirstWinsFrontierLoop(ws);
 
     auto *condBB = llvm::BasicBlock::Create(Context, "loopcond", parent);
     auto *bodyBB = llvm::BasicBlock::Create(Context, "loopbody", parent);
@@ -1518,10 +1792,26 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     LoopStack.push_back({condBB, mergeBB});
 
     Builder.SetInsertPoint(preheader);
+    llvm::Value *frontierBound = nullptr;
+    if (isVerifiedFrontier)
+    {
+        auto *condition = static_cast<BinaryExprNode *>(ws->condition.get());
+        frontierBound = visitExpr(condition->rhs.get());
+    }
     Builder.CreateBr(condBB);
 
     Builder.SetInsertPoint(condBB);
-    llvm::Value *condV = visitExpr(ws->condition.get());
+    llvm::Value *condV = nullptr;
+    if (isVerifiedFrontier)
+    {
+        auto *condition = static_cast<BinaryExprNode *>(ws->condition.get());
+        llvm::Value *induction = visitExpr(condition->lhs.get());
+        condV = Builder.CreateICmpSLT(induction, frontierBound, "frontier.cond");
+    }
+    else
+    {
+        condV = visitExpr(ws->condition.get());
+    }
     llvm::Value *condBool = condV;
     if (condV->getType()->isIntegerTy(32))
         condBool = Builder.CreateICmpNE(condV, Builder.getInt32(0), "whilecond");
@@ -1530,9 +1820,19 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     Builder.CreateCondBr(condBool, bodyBB, mergeBB);
 
     Builder.SetInsertPoint(bodyBB);
+    bool wasEmittingTopLevel = EmittingTopLevel;
+    EmittingTopLevel = false;
     visitBlock(static_cast<BlockStmtNode *>(ws->body.get()));
+    EmittingTopLevel = wasEmittingTopLevel;
     if (!Builder.GetInsertBlock()->getTerminator())
         Builder.CreateBr(condBB);
+
+    if (isVerifiedFrontier)
+    {
+        condBB->getTerminator()->setMetadata(
+            "sgpl.frontier.first_wins.candidate",
+            llvm::MDNode::get(Context, llvm::MDString::get(Context, "verified")));
+    }
 
     LoopStack.pop_back();
 
@@ -1818,29 +2118,22 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         auto *opaquePtrTy = llvm::PointerType::get(Context, 0);
         auto *i32PtrTyLocal = llvm::PointerType::getUnqual(i32Ty);
         auto *i64PtrTyLocal = llvm::PointerType::getUnqual(i64Ty);
-        llvm::FunctionType *mallocFT =
-            llvm::FunctionType::get(opaquePtrTy, {i64Ty}, false);
-        llvm::FunctionType *freeFT =
-            llvm::FunctionType::get(voidTy, {opaquePtrTy}, false);
-        auto mallocFn = Module.getOrInsertFunction("malloc", mallocFT);
-        auto freeFn = Module.getOrInsertFunction("free", freeFT);
-        llvm::Value *nbrBufBytes = Builder.CreateMul(
-            nForBuf, llvm::ConstantInt::get(i64Ty, sizeof(int32_t)),
-            "nbr_nbuf_bytes");
-        llvm::Value *nbrBufRaw =
-            Builder.CreateCall(mallocFn, {nbrBufBytes}, "nbr_nbuf_raw");
-        auto *nbufAlloca =
-            Builder.CreateBitCast(nbrBufRaw, i32PtrTyLocal, "nbr_nbuf");
+        auto acquireScratchFn = Module.getOrInsertFunction(
+            "autograph_neighbor_scratch_acquire",
+            llvm::FunctionType::get(i32PtrTyLocal, {i64Ty}, false));
+        auto releaseScratchFn = Module.getOrInsertFunction(
+            "autograph_neighbor_scratch_release",
+            llvm::FunctionType::get(voidTy, {}, false));
+        llvm::Value *nbufAlloca =
+            Builder.CreateCall(acquireScratchFn, {nForBuf}, "nbr_nbuf");
 
         // cnt alloca
-        auto *cntAlloca = Builder.CreateAlloca(i64Ty, nullptr, "nbr_cnt");
+        auto *cntAlloca = TmpB.CreateAlloca(i64Ty, nullptr, "nbr_cnt");
 
         // Declare autograph_get_neighbors(void*, i64, i32*, i64*)
         llvm::FunctionType *getNbrFT = llvm::FunctionType::get(
             voidTy, {opaquePtrTy, i64Ty, i32PtrTyLocal, i64PtrTyLocal}, false);
         auto getNbrFn = Module.getOrInsertFunction("autograph_get_neighbors", getNbrFT);
-        if (auto *F = llvm::dyn_cast<llvm::Function>(getNbrFn.getCallee()))
-            F->setMemoryEffects(llvm::MemoryEffects::argMemOnly());
 
         auto *condBB = llvm::BasicBlock::Create(Context, "foreach_nbr.cond", parent);
         auto *bodyBB = llvm::BasicBlock::Create(Context, "foreach_nbr.body", parent);
@@ -1886,7 +2179,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
 
         LoopStack.pop_back();
         Builder.SetInsertPoint(mergeBB);
-        Builder.CreateCall(freeFn, {nbrBufRaw});
+        Builder.CreateCall(releaseScratchFn);
         return;
     }
 
@@ -2981,10 +3274,10 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
                 mValInit = llvm::ConstantInt::get(I64, static_cast<uint64_t>(2 * fileEstimate->logical_m));
                 G->n = static_cast<size_t>(fileEstimate->n);
                 G->m = static_cast<size_t>(2 * fileEstimate->logical_m);
-                llvm::errs() << "[IRGen] estimated file graph '" << G->edgeFileName
-                             << "': n=" << fileEstimate->n
-                             << " logical_m=" << fileEstimate->logical_m
-                             << " csr_m=" << (2 * fileEstimate->logical_m) << "\n";
+                // llvm::errs() << "[IRGen] estimated file graph '" << G->edgeFileName
+                //              << "': n=" << fileEstimate->n
+                //              << " logical_m=" << fileEstimate->logical_m
+                //              << " csr_m=" << (2 * fileEstimate->logical_m) << "\n";
             }
             llvm::FunctionType *initFT = llvm::FunctionType::get(
                 voidTy, {opaquePtrTy, I64, I64, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false);

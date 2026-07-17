@@ -67,8 +67,8 @@ extern "C"
 
         double end_time = omp_get_wtime();
 
-        printf("[BFS] Completed in %.6f seconds (sequential)\n",
-               end_time - start_time);
+        // printf("[BFS] Completed in %.6f seconds (sequential)\n",
+        //        end_time - start_time);
     }
 
 } // extern "C"

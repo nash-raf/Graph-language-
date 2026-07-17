@@ -101,6 +101,7 @@ static void analyzeTaskArguments(llvm::Function *extractedFunc,
 
 static bool tdgDebugEnabled()
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached != 0;
@@ -115,6 +116,8 @@ static bool tdgDebugEnabled()
     std::string value(raw);
     cached = (value != "0" && value != "false" && value != "FALSE") ? 1 : 0;
     return cached != 0;
+    */
+    return false;
 }
 
 // global collector (keeps a single combined graph you can print later)
@@ -492,6 +495,29 @@ static std::string escapeForDot(const std::string &s)
 //     llvm::nulls() << "Wrote " << filename << "\n";
 // }
 
+static bool loopHasTerminatorMetadata(const llvm::Loop *L, llvm::StringRef Name)
+{
+    return L && L->getHeader() && L->getHeader()->getTerminator() &&
+           L->getHeader()->getTerminator()->getMetadata(Name);
+}
+
+static void markNestedLoopsSequential(llvm::Loop *L)
+{
+    if (!L)
+        return;
+    llvm::LLVMContext &Ctx = L->getHeader()->getContext();
+    for (llvm::Loop *SubLoop : L->getSubLoops())
+    {
+        if (SubLoop && SubLoop->getHeader() && SubLoop->getHeader()->getTerminator())
+        {
+            SubLoop->getHeader()->getTerminator()->setMetadata(
+                "sgpl.frontier.nested.sequential",
+                llvm::MDNode::get(Ctx, llvm::MDString::get(Ctx, "required")));
+        }
+        markNestedLoopsSequential(SubLoop);
+    }
+}
+
 static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
                                           llvm::ScalarEvolution &SE,
@@ -752,8 +778,22 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // }
 
     // final classification
+    const bool IsVerifiedFrontier =
+        loopHasTerminatorMetadata(L, "sgpl.frontier.first_wins.candidate");
+    const bool IsNestedFrontierLoop =
+        loopHasTerminatorMetadata(L, "sgpl.frontier.nested.sequential");
+
     std::string classification;
-    if (phiCarry)
+    if (IsNestedFrontierLoop)
+    {
+        classification = "SEQUENTIAL";
+    }
+    else if (IsVerifiedFrontier)
+    {
+        classification = "DOALL";
+        markNestedLoopsSequential(L);
+    }
+    else if (phiCarry)
     {
         classification = "SEQUENTIAL";
     }
@@ -782,6 +822,12 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         if (llvm::Instruction *MM = NN->getTerminator())
         {
             MM->setMetadata("my.loop.parallel", Node);
+            if (IsVerifiedFrontier)
+            {
+                MM->setMetadata(
+                    "sgpl.frontier.first_wins.doall",
+                    MDNode::get(Ctx, MDString::get(Ctx, "requires-int-append-priv")));
+            }
         }
     };
 

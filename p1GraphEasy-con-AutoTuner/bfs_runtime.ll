@@ -3,29 +3,28 @@ source_filename = "bfs_runtime.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-redhat-linux-gnu"
 
-@.str = private unnamed_addr constant [46 x i8] c"[BFS] Completed in %.6f seconds (sequential)\0A\00", align 1
-@.str.1 = private unnamed_addr constant [49 x i8] c"cannot create std::vector larger than max_size()\00", align 1
-@.str.2 = private unnamed_addr constant [26 x i8] c"vector::_M_realloc_append\00", align 1
+@.str = private unnamed_addr constant [49 x i8] c"cannot create std::vector larger than max_size()\00", align 1
+@.str.1 = private unnamed_addr constant [26 x i8] c"vector::_M_realloc_append\00", align 1
 
 ; Function Attrs: mustprogress uwtable
 define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 personality ptr @__gxx_personality_v0 {
   %2 = alloca i64, align 8
   %3 = icmp eq ptr %0, null
-  br i1 %3, label %172, label %4
+  br i1 %3, label %170, label %4
 
 4:                                                ; preds = %1
   %5 = load i64, ptr %0, align 8, !tbaa !3
   %6 = icmp slt i64 %5, 1
-  br i1 %6, label %172, label %7
+  br i1 %6, label %170, label %7
 
 7:                                                ; preds = %4
-  %8 = tail call noalias noundef nonnull ptr @_Znwm(i64 noundef %5) #11
+  %8 = tail call noalias noundef nonnull ptr @_Znwm(i64 noundef %5) #10
   tail call void @llvm.memset.p0.i64(ptr nonnull align 1 %8, i8 0, i64 %5, i1 false)
   %9 = icmp samesign ugt i64 %5, 2305843009213693951
   br i1 %9, label %10, label %12
 
 10:                                               ; preds = %7
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.1) #12
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str) #11
           to label %11 unwind label %29
 
 11:                                               ; preds = %10
@@ -33,7 +32,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
 
 12:                                               ; preds = %7
   %13 = shl nuw nsw i64 %5, 2
-  %14 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %13) #11
+  %14 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %13) #10
           to label %15 unwind label %29
 
 15:                                               ; preds = %12
@@ -62,17 +61,17 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
 
 27:                                               ; preds = %161, %22
   %28 = invoke double @omp_get_wtime()
-          to label %169 unwind label %173
+          to label %169 unwind label %171
 
 29:                                               ; preds = %12, %10
   %30 = landingpad { ptr, i32 }
           cleanup
-  br label %177
+  br label %175
 
 31:                                               ; preds = %20
   %32 = landingpad { ptr, i32 }
           cleanup
-  br label %175
+  br label %173
 
 33:                                               ; preds = %25, %161
   %34 = phi i64 [ 0, %25 ], [ %162, %161 ]
@@ -82,7 +81,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   br i1 %37, label %38, label %161
 
 38:                                               ; preds = %33
-  %39 = invoke noalias noundef nonnull dereferenceable(4) ptr @_Znwm(i64 noundef 4) #11
+  %39 = invoke noalias noundef nonnull dereferenceable(4) ptr @_Znwm(i64 noundef 4) #10
           to label %40 unwind label %65
 
 40:                                               ; preds = %38
@@ -119,7 +118,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
 60:                                               ; preds = %55
   %61 = ptrtoint ptr %44 to i64
   %62 = sub i64 %61, %48
-  call void @_ZdlPvm(ptr noundef nonnull %46, i64 noundef %62) #13
+  call void @_ZdlPvm(ptr noundef nonnull %46, i64 noundef %62) #12
   br label %63
 
 63:                                               ; preds = %55, %60
@@ -129,7 +128,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
 65:                                               ; preds = %38
   %66 = landingpad { ptr, i32 }
           cleanup
-  br label %175
+  br label %173
 
 67:                                               ; preds = %53, %78
   %68 = phi i64 [ %82, %78 ], [ 0, %53 ]
@@ -138,7 +137,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   %71 = phi ptr [ %79, %78 ], [ null, %53 ]
   %72 = getelementptr inbounds nuw i32, ptr %46, i64 %68
   %73 = load i32, ptr %72, align 4, !tbaa !11
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %2) #14
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %2) #13
   store i64 0, ptr %2, align 8, !tbaa !16
   %74 = sext i32 %73 to i64
   invoke void @autograph_get_neighbors(ptr noundef nonnull %0, i64 noundef %74, ptr noundef nonnull %14, ptr noundef nonnull %2)
@@ -153,7 +152,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   %79 = phi ptr [ %71, %75 ], [ %141, %138 ]
   %80 = phi ptr [ %70, %75 ], [ %142, %138 ]
   %81 = phi ptr [ %69, %75 ], [ %143, %138 ]
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %2) #14
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %2) #13
   %82 = add nuw nsw i64 %68, 1
   %83 = icmp eq i64 %82, %54
   br i1 %83, label %55, label %67, !llvm.loop !17
@@ -207,7 +206,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   br i1 %113, label %114, label %116
 
 114:                                              ; preds = %107
-  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.2) #12
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef nonnull @.str.1) #11
           to label %115 unwind label %136
 
 115:                                              ; preds = %114
@@ -218,7 +217,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   %118 = add nuw nsw i64 %117, %111
   %119 = call noundef i64 @llvm.umin.i64(i64 %118, i64 2305843009213693951)
   %120 = shl nuw nsw i64 %119, 2
-  %121 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %120) #11
+  %121 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %120) #10
           to label %122 unwind label %134
 
 122:                                              ; preds = %116
@@ -236,7 +235,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   br i1 %127, label %130, label %128
 
 128:                                              ; preds = %126
-  call void @_ZdlPvm(ptr noundef nonnull %92, i64 noundef %110) #13
+  call void @_ZdlPvm(ptr noundef nonnull %92, i64 noundef %110) #12
   %129 = load i64, ptr %2, align 8, !tbaa !16
   br label %130
 
@@ -270,7 +269,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   %147 = phi ptr [ %71, %84 ], [ %92, %134 ], [ %92, %136 ]
   %148 = phi ptr [ %69, %84 ], [ %90, %134 ], [ %90, %136 ]
   %149 = phi { ptr, i32 } [ %85, %84 ], [ %135, %134 ], [ %137, %136 ]
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %2) #14
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %2) #13
   %150 = icmp eq ptr %147, null
   br i1 %150, label %164, label %151
 
@@ -278,7 +277,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   %152 = ptrtoint ptr %148 to i64
   %153 = ptrtoint ptr %147 to i64
   %154 = sub i64 %152, %153
-  call void @_ZdlPvm(ptr noundef nonnull %147, i64 noundef %154) #13
+  call void @_ZdlPvm(ptr noundef nonnull %147, i64 noundef %154) #12
   br label %164
 
 155:                                              ; preds = %63
@@ -289,7 +288,7 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
   %158 = ptrtoint ptr %58 to i64
   %159 = ptrtoint ptr %56 to i64
   %160 = sub i64 %158, %159
-  call void @_ZdlPvm(ptr noundef nonnull %56, i64 noundef %160) #13
+  call void @_ZdlPvm(ptr noundef nonnull %56, i64 noundef %160) #12
   br label %161
 
 161:                                              ; preds = %157, %155, %33
@@ -299,38 +298,36 @@ define dso_local void @bfs_runtime(ptr noundef %0) local_unnamed_addr #0 persona
 
 164:                                              ; preds = %151, %146
   %165 = icmp eq ptr %46, null
-  br i1 %165, label %175, label %166
+  br i1 %165, label %173, label %166
 
 166:                                              ; preds = %164
   %167 = ptrtoint ptr %44 to i64
   %168 = sub i64 %167, %48
-  call void @_ZdlPvm(ptr noundef nonnull %46, i64 noundef %168) #13
-  br label %175
+  call void @_ZdlPvm(ptr noundef nonnull %46, i64 noundef %168) #12
+  br label %173
 
 169:                                              ; preds = %27
-  %170 = fsub double %28, %21
-  %171 = call i32 (ptr, ...) @printf(ptr noundef nonnull dereferenceable(1) @.str, double noundef %170)
-  call void @_ZdlPvm(ptr noundef nonnull %14, i64 noundef %13) #13
-  call void @_ZdlPvm(ptr noundef nonnull %8, i64 noundef %5) #13
-  br label %172
+  call void @_ZdlPvm(ptr noundef nonnull %14, i64 noundef %13) #12
+  call void @_ZdlPvm(ptr noundef nonnull %8, i64 noundef %5) #12
+  br label %170
 
-172:                                              ; preds = %169, %4, %1
+170:                                              ; preds = %169, %4, %1
   ret void
 
-173:                                              ; preds = %27
-  %174 = landingpad { ptr, i32 }
+171:                                              ; preds = %27
+  %172 = landingpad { ptr, i32 }
           cleanup
+  br label %173
+
+173:                                              ; preds = %166, %164, %65, %171, %31
+  %174 = phi { ptr, i32 } [ %172, %171 ], [ %32, %31 ], [ %66, %65 ], [ %149, %164 ], [ %149, %166 ]
+  call void @_ZdlPvm(ptr noundef nonnull %14, i64 noundef %13) #12
   br label %175
 
-175:                                              ; preds = %166, %164, %65, %173, %31
-  %176 = phi { ptr, i32 } [ %174, %173 ], [ %32, %31 ], [ %66, %65 ], [ %149, %164 ], [ %149, %166 ]
-  call void @_ZdlPvm(ptr noundef nonnull %14, i64 noundef %13) #13
-  br label %177
-
-177:                                              ; preds = %175, %29
-  %178 = phi { ptr, i32 } [ %176, %175 ], [ %30, %29 ]
-  call void @_ZdlPvm(ptr noundef nonnull %8, i64 noundef %5) #13
-  resume { ptr, i32 } %178
+175:                                              ; preds = %173, %29
+  %176 = phi { ptr, i32 } [ %174, %173 ], [ %30, %29 ]
+  call void @_ZdlPvm(ptr noundef nonnull %8, i64 noundef %5) #12
+  resume { ptr, i32 } %176
 }
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
@@ -345,48 +342,44 @@ declare dso_local double @omp_get_wtime() local_unnamed_addr #2
 
 declare dso_local void @autograph_get_neighbors(ptr noundef, i64 noundef, ptr noundef, ptr noundef) local_unnamed_addr #2
 
-; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr #3
-
 ; Function Attrs: cold noreturn
-declare dso_local void @_ZSt20__throw_length_errorPKc(ptr noundef) local_unnamed_addr #4
+declare dso_local void @_ZSt20__throw_length_errorPKc(ptr noundef) local_unnamed_addr #3
 
 ; Function Attrs: nobuiltin allocsize(0)
-declare dso_local noalias noundef nonnull ptr @_Znwm(i64 noundef) local_unnamed_addr #5
+declare dso_local noalias noundef nonnull ptr @_Znwm(i64 noundef) local_unnamed_addr #4
 
 ; Function Attrs: mustprogress nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #6
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #5
 
 ; Function Attrs: nobuiltin nounwind
-declare dso_local void @_ZdlPvm(ptr noundef, i64 noundef) local_unnamed_addr #7
+declare dso_local void @_ZdlPvm(ptr noundef, i64 noundef) local_unnamed_addr #6
 
 ; Function Attrs: mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #8
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #7
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: write)
-declare void @llvm.assume(i1 noundef) #9
+declare void @llvm.assume(i1 noundef) #8
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i64 @llvm.umax.i64(i64, i64) #10
+declare i64 @llvm.umax.i64(i64, i64) #9
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare i64 @llvm.umin.i64(i64, i64) #10
+declare i64 @llvm.umin.i64(i64, i64) #9
 
 attributes #0 = { mustprogress uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 attributes #1 = { mustprogress nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
 attributes #2 = { "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #3 = { nofree nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #4 = { cold noreturn "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #5 = { nobuiltin allocsize(0) "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #6 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #7 = { nobuiltin nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #8 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite) }
-attributes #9 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: write) }
-attributes #10 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #11 = { builtin allocsize(0) }
-attributes #12 = { cold noreturn }
-attributes #13 = { builtin nounwind }
-attributes #14 = { nounwind }
+attributes #3 = { cold noreturn "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #4 = { nobuiltin allocsize(0) "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #5 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #6 = { nobuiltin nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #7 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #8 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: write) }
+attributes #9 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #10 = { builtin allocsize(0) }
+attributes #11 = { cold noreturn }
+attributes #12 = { builtin nounwind }
+attributes #13 = { nounwind }
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}

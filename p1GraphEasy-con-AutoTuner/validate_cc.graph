@@ -1,0 +1,40 @@
+graph G {
+  edges: file "/home/user/Course/msk1/grapheasy_algo/graphs/validation_100n_100e.txt";
+};
+
+int n = numVertices(G);
+int id[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 0;
+int next_size = 0;
+int init_i = 0;
+
+while (init_i < n) {
+  id[init_i] = init_i;
+  frontier[init_i] = init_i;
+  init_i = init_i + 1;
+}
+frontier_size = n;
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int i = 0;
+  while (i < frontier_size) {
+    int u = frontier[i];
+    for each neighbor v of u in G {
+      if (id[u] < id[v]) {
+        id[v] = id[u];
+        next_frontier[next_size] = v;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+for each vertex v in G {
+  print id[v];
+}

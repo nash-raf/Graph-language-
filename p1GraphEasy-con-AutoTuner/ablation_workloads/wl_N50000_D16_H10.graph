@@ -1,0 +1,27 @@
+graph Ablation_N50000_D16_H10 {
+  edges: file "edgelist.txt";
+};
+
+/* Phase 1: traverse calls */
+query bfs_0: "bfs" of Ablation_N50000_D16_H10;
+query bfs_1: "bfs" of Ablation_N50000_D16_H10;
+query bfs_2: "bfs" of Ablation_N50000_D16_H10;
+query bfs_3: "bfs" of Ablation_N50000_D16_H10;
+query bfs_4: "bfs" of Ablation_N50000_D16_H10;
+query bfs_5: "bfs" of Ablation_N50000_D16_H10;
+query bfs_6: "bfs" of Ablation_N50000_D16_H10;
+query bfs_7: "bfs" of Ablation_N50000_D16_H10;
+query bfs_8: "bfs" of Ablation_N50000_D16_H10;
+query bfs_9: "bfs" of Ablation_N50000_D16_H10;
+
+/* Phase 2: insert calls (triggers conversion) */
+add 0->1 to Ablation_N50000_D16_H10;
+add 1->2 to Ablation_N50000_D16_H10;
+add 2->3 to Ablation_N50000_D16_H10;
+add 3->4 to Ablation_N50000_D16_H10;
+add 4->5 to Ablation_N50000_D16_H10;
+add 5->6 to Ablation_N50000_D16_H10;
+add 6->7 to Ablation_N50000_D16_H10;
+add 7->8 to Ablation_N50000_D16_H10;
+add 8->9 to Ablation_N50000_D16_H10;
+add 9->10 to Ablation_N50000_D16_H10;

@@ -1,0 +1,69 @@
+// Realistic workload: apply a maintenance manifest for shard/replica rewiring,
+// then run BFS-parent validation to ensure the topology is still navigable.
+// Expected autotuner behavior: switch into an update-friendly layout during the maintenance window.
+graph InfraGraph {
+  edges: file "../synth_v_50000_e_500000.txt";
+};
+
+query baseline_health: "bfs" of InfraGraph;
+
+int region_base = 120000;
+int shard_base = 130000;
+int replica_base = 140000;
+int patch = 0;
+while (patch < 8) {
+  int region = region_base + patch;
+  int shard = shard_base + patch;
+  int replica = replica_base + patch;
+  add region->shard, shard->replica to InfraGraph;
+  patch = patch + 1;
+}
+
+int cleanup = 0;
+while (cleanup < 8) {
+  int shard = shard_base + cleanup;
+  int replica = replica_base + cleanup;
+  remove shard->replica from InfraGraph;
+  cleanup = cleanup + 1;
+}
+
+int n = numVertices(InfraGraph);
+int visited[n];
+int parent[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 1;
+int next_size = 0;
+int init_i = 0;
+
+while (init_i < n) {
+  visited[init_i] = 0;
+  parent[init_i] = -1;
+  init_i = init_i + 1;
+}
+
+frontier[0] = 0;
+visited[0] = 1;
+parent[0] = 0;
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int i = 0;
+  while (i < frontier_size) {
+    int v = frontier[i];
+    for each neighbor u of v in InfraGraph {
+      if (visited[u] == 0) {
+        visited[u] = 1;
+        parent[u] = v;
+        next_frontier[next_size] = u;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+print parent[0];
+print numEdges(InfraGraph);

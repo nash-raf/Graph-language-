@@ -1,0 +1,11 @@
+// Expected shape:
+// - H keeps only the 0-1-2 cycle
+// - tail edge 2-3 should not survive
+
+graph G {
+  nodes: 0,1,2,3;
+  edges: 0->1, 1->2, 2->0, 2->3;
+};
+
+H = [G where cycle];
+show H;

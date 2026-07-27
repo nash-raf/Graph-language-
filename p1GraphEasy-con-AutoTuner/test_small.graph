@@ -1,0 +1,10 @@
+graph g1 {
+    edges: file "synth_v_50000_e_500000.txt";
+};
+
+add 10->20 to g1;
+add 20->30 to g1;
+add 30->40 to g1;
+add 40->50 to g1;
+
+query bfs_test: "bfs" of g1;

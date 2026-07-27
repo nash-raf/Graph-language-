@@ -1,0 +1,12 @@
+int arr[5] = [1,2,3,4,5];
+int arr1[5] = [2,3,4,5,6];
+int arr2[5];
+int i = 0;
+int x;
+while(i < 5) {
+  arr2[i] = arr[i] + arr[i];
+  if(i > 0) {
+    x = arr2[i - 1];
+  }
+  i = i + 1;
+}

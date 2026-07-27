@@ -1,0 +1,15 @@
+graph G {
+  edges: file "edgelistw.txt";
+  TRUE
+};
+
+set E = G.edges;
+int total = 0;
+
+for each element e in E {
+  total = total + edgeWeight(G, e);
+}
+
+print total;
+
+

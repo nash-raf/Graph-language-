@@ -1,0 +1,9 @@
+graph G {
+  edges: file "edgelistw.txt";
+  TRUE
+};
+
+print weight(G, 1, 3);
+print edgeSrc(G, 0);
+print edgeDst(G, 0);
+print edgeWeight(G, 0);

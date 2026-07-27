@@ -1,0 +1,40 @@
+digraph SumAST {
+  rankdir=TB;
+  graph [bgcolor="white", pad="0.3", nodesep="0.35", ranksep="0.45"];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#334155", fontname="Helvetica"];
+  edge [color="#64748b", arrowsize="0.8"];
+
+  program [label="ProgramNode"];
+  function [label="FunctionDeclNode\nname=sum\nreturnType=int"];
+  param_a [label="ParamNode\nname=a\ntype=int"];
+  param_b [label="ParamNode\nname=b\ntype=int"];
+  block [label="BlockStmtNode"];
+  var_decl [label="VarDeclNode\nname=c\ntype=int"];
+  add_expr [label="BinaryExprNode\nop=+"];
+  var_a [label="VariableNode\nname=a"];
+  var_b [label="VariableNode\nname=b"];
+  return_stmt [label="ReturnStmtNode"];
+  var_c [label="VariableNode\nname=c"];
+
+  program -> function;
+
+  function -> param_a;
+  function -> param_b;
+  function -> block;
+
+  block -> var_decl;
+  block -> return_stmt;
+
+  var_decl -> add_expr;
+  add_expr -> var_a;
+  add_expr -> var_b;
+
+  return_stmt -> var_c;
+
+  { rank=same; param_a; param_b; block; }
+  { rank=same; var_decl; return_stmt; }
+
+  param_a -> param_b [style=invis, weight=10];
+  param_b -> block [style=invis, weight=10];
+  var_decl -> return_stmt [style=invis, weight=10];
+}

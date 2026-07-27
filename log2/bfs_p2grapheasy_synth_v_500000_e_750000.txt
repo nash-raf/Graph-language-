@@ -1,0 +1,19 @@
++ ./GraphProgram test2.graph
+
+=== Compiler Phase Timings ===
+  Lexing + Parsing :     3.54 ms
+  AST Building     :     0.08 ms
+  Semantic Analysis:     0.01 ms
+  IR Generation    :     0.32 ms
+  IR Linking       :    12.02 ms
+  Optimization (O3):   180.77 ms
+  CodeGen (.o)     :   144.35 ms
+  ─────────────────────────────
+  Total            :   341.09 ms
+
++ g++ program.o runtime.o roaring_bitmap.o graph_loader_runtime.o -fopenmp -no-pie -o final_program
++ ulimit -s unlimited
++ ./final_program
+real 0.70
+user 0.64
+sys 0.04

@@ -1,0 +1,17 @@
+// Pure O(n^3) triple loop in main — no graph algorithms, only numVertices for n.
+graph G {
+  edges: file "edgelist_scop_512.txt";
+};
+
+int n = numVertices(G);
+int a[n];
+
+for (int i = 0; i < n; i = i + 1) {
+  for (int j = 0; j < n; j = j + 1) {
+    for (int k = 0; k < n; k = k + 1) {
+      a[i] = a[i] + 1;
+    }
+  }
+}
+
+print a[1];

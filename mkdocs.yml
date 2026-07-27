@@ -1,0 +1,15 @@
+site_name: GraphEasy
+site_description: "An Efficient, Easy-to-Use DSL for Solving Graph Problems"
+site_url: https://nash-raf.github.io/Graph-language-/
+theme:
+  name: material
+  palette:
+    primary: indigo
+
+nav:
+  - Home: index.md
+  - Tutorial: tutorial.md
+
+markdown_extensions:
+  - tables
+  - fenced_code

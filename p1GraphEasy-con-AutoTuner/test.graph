@@ -1,0 +1,17 @@
+graph Ablation_N500_D2_H10 {
+  edges: file "edgelist.txt";
+};
+
+/* Phase 1: traverse */
+int i = 0;
+while (i < 10) {
+  query bfs_i: "bfs" of Ablation_N500_D2_H10;
+  i = i + 1;
+}
+
+/* Phase 2: insert (triggers conversion at boundary) */
+int j = 0;
+while (j < 10) {
+  add j->((j+1) % 500) to Ablation_N500_D2_H10;
+  j = j + 1;
+}

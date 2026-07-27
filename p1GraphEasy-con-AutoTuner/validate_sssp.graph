@@ -1,0 +1,53 @@
+graph G {
+  edges: file "/home/user/Course/msk1/grapheasy_algo/graphs/validation_100n_100e_w.txt";
+  TRUE
+};
+
+int n = numVertices(G);
+int inf = 2147483647;
+int dist[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 0;
+int next_size = 0;
+int src = 0;
+int rounds = 0;
+int init_i = 0;
+
+while (init_i < n) {
+  dist[init_i] = inf;
+  init_i = init_i + 1;
+}
+
+dist[src] = 0;
+frontier[0] = src;
+frontier_size = 1;
+
+while (frontier_size > 0) {
+  if (rounds == n) {
+    print "negative cycle";
+    break;
+  }
+
+  next_size = 0;
+  int i = 0;
+  while (i < frontier_size) {
+    int u = frontier[i];
+    for each neighbor v of u in G {
+      int nd = dist[u] + weight(G, u, v);
+      if (nd < dist[v]) {
+        dist[v] = nd;
+        next_frontier[next_size] = v;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+  rounds = rounds + 1;
+}
+
+for each vertex v in G {
+  print dist[v];
+}

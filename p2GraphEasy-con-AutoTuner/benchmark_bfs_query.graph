@@ -1,0 +1,5 @@
+graph G {
+  edges: file '/home/user/Course/msk1/synth_graphs_unweighted/synth_v_750000_e_750000.txt';
+};
+
+query k : "bfs" of G;

@@ -1,0 +1,25 @@
+graph G {
+  edges: file '/home/user/Course/msk1/synth_graphs_unweighted/synth_v_750000_e_750000.txt';
+};
+
+int n = numVertices(G);
+int dist[n];
+set visited = {0};
+set frontier = {0};
+set next;
+int level = 0;
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element v in frontier {
+    dist[v] = level;
+    for each neighbor u of v in G {
+      if (!visited.contains(u)) {
+        visited.add(u);
+        next.add(u);
+      }
+    }
+  }
+  frontier = next;
+  level = level + 1;
+}

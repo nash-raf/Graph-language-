@@ -1,0 +1,17 @@
+graph G1 {
+    nodes: 0, 1, 2, 3, 4;
+    edges: 0->1, 1->2, 2->0, 2->3;
+};
+
+graph G2 {
+    nodes: 0, 1, 2, 3, 4;
+    edges: 0->1, 1->2, 2->4;
+};
+0 1,0 2, 1 2, 2 3, 2 4
+Inter = [G1 && G2];
+print numVertices(Inter);
+print numEdges(Inter);
+
+Filtered = [G1 || G2 where (connected with 0 && degree >= 2) || cycle];
+print numVertices(Filtered);
+print numEdges(Filtered);

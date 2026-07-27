@@ -1,0 +1,36 @@
+import random
+
+def generate_random_graph(n, m, seed=42):
+    """
+    Generate an undirected random graph with n nodes and m edges.
+    No self-loops, no duplicate edges.
+
+    Saves the edge list to 'edgelist.txt'
+    """
+    if m > n * (n - 1) // 2:
+        raise ValueError("Too many edges for the given number of nodes")
+
+    random.seed(seed)
+    edge_set = set()
+
+    while len(edge_set) < m:
+        u = random.randint(0, n - 1)
+        v = random.randint(0, n - 1)
+        if u != v:
+            edge = tuple(sorted((u, v)))
+            edge_set.add(edge)
+
+    # Save to file
+    with open("edgelist.txt", "w") as f:
+        for u, v in edge_set:
+            f.write(f"{u} {v}\n")
+
+
+
+=== Example Usage ===
+if name == "main":
+    num_nodes = 40000   # change as needed
+    num_edges = 80000   # change as needed
+    seed = 123       # fixed seed
+
+    generate_random_graph(num_nodes, num_edges, seed)

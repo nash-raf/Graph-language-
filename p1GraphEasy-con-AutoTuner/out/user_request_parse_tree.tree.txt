@@ -1,0 +1,1 @@
+(program:1 (statement:1 (graphDef:2 graph (graphID:1 g1) { (edges:1 edges: (fileEdgeList:1 file "edgelist.txt") ;) } ;)) (statement:15 (nodeEdgeOperation:1 (addOperation:1 add (addTargets:2 (edge:1 (nodeID:1 20) -> (nodeID:1 5))) to (graphID:1 g1) ;))) <EOF>)

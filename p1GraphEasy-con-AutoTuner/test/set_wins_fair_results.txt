@@ -1,0 +1,42 @@
+set_wins_fair2.graph — Benchmark Results (FAIR comparison)
+===========================================================
+n=20, m=14 (sparse: 0→1..9, 10→11, 12→13, 14→15, 16→17, 18→19)
+Workload: 128 iterations × 2 edge inserts (add src->dst, dst->src)
+          src = batch%20, dst = (batch+10)%20
+          → 10 unique pairs × 2 directions = 20 novel edges
+          → remaining 118 iterations × 2 = 236 duplicate checks
+
+Region: single Insert region, visits=128
+
+m=14 is so small that PCSR's gap-scan cost is ~O(1) per row.
+
+=== Per-visit cost (ns) — 1 visit = 2 edges added ===
+
+Layout   pred_ns/visit   meas_ns/visit   pred/meas   Edges after
+------   -------------   -------------   ---------   -----------
+CSR          212              811           0.26       270 (!)
+PCSR         191              202           0.95        24
+BCSR       3,089              583           5.30        24
+SET          201              610           0.33        24
+
+CSR note: CSR adds ALL edges including duplicates (no duplicate check).
+          Pure edge insertion cost visible: 811 ns/visit.
+PCSR note: 10 novel pairs added, 236 duplicate rejections.
+          Gap-scan on a sparse row is fast — 202 ns/visit.
+
+=== Best layout ===
+
+Predicted best:  PCSR  (191 ns/visit)
+Measured best:   PCSR  (202 ns/visit)
+Verdict:         MATCH ✓
+
+=== Takeaways ===
+
+1. PCSR is the measured winner for in-bounds insert — both sparse and dense.
+2. Model accuracy for PCSR is excellent (95% at m=14).
+3. The original set_wins_collaboration was not a fair test:
+   - CSR/PCSR hit the !in_bounds fallback (double graph conversion per insert)
+   - SET handles out-of-bounds natively (bitmap add)
+   - Fair in-bounds comparison → PCSR wins (202 ns vs SET 610 ns)
+4. SET's insert advantage only appears when vertices grow dynamically
+   (the fallback conversion makes CSR/PCSR artificially slow).

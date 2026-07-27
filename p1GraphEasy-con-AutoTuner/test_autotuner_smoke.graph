@@ -1,0 +1,10 @@
+graph G {
+  edges: file "edgelist.txt";
+};
+
+query bfs_before: "bfs" of G;
+
+add 0->3 to G;
+add 3->1 to G;
+
+query bfs_after: "bfs" of G;

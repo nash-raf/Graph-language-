@@ -1,0 +1,143 @@
+#ifndef SGPL_PARALLEL_RUNTIME_H
+#define SGPL_PARALLEL_RUNTIME_H
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum
+{
+    SGPL_LOOP_DOALL = 0,
+    SGPL_LOOP_DOACROSS = 1,
+} sgpl_loop_mode_t;
+
+typedef enum
+{
+    SGPL_RUNTIME_PLAIN = 0,
+    SGPL_RUNTIME_PRIVATIZED = 1,
+} sgpl_runtime_kind_t;
+
+typedef enum
+{
+    SGPL_PRIV_ROARING = 0,
+    SGPL_PRIV_INT_APPEND = 1,
+} sgpl_priv_kind_t;
+
+typedef struct
+{
+    int32_t loop_id;
+    int32_t mode;
+    int32_t runtime_kind;
+    int32_t reserved;
+    int64_t env_size;
+    const int64_t *priv_offsets;
+    int32_t num_priv_targets;
+    int32_t reserved2;
+    const char *debug_name;
+    int32_t doacross_waits_per_iter;
+    int32_t doacross_posts_per_iter;
+    int32_t has_doacross_profile;
+    int32_t reserved3;
+    int32_t doacross_num_sync_ids;
+    int32_t reserved4;
+    int64_t reserved5;
+} sgpl_loop_profile_desc;
+
+typedef void *(*sgpl_tdg_task_fn_t)(void *);
+
+typedef struct
+{
+    sgpl_tdg_task_fn_t fn;
+    void *arg;
+    int32_t profile_id;
+    int32_t static_work_units;
+    int32_t num_loop_sites;
+    const int32_t *loop_site_ids;
+} sgpl_tdg_task_desc;
+
+int32_t sgpl_current_thread_budget(void);
+void sgpl_push_thread_budget(int32_t max_threads);
+void sgpl_pop_thread_budget(void);
+int32_t sgpl_configured_worker_count(void);
+int32_t sgpl_current_worker_index(void);
+
+uint64_t sgpl_now_ns(void);
+
+int32_t sgpl_should_parallelize_doall(
+    const sgpl_loop_profile_desc *desc,
+    int64_t start,
+    int64_t end,
+    int64_t step);
+
+void sgpl_record_doall_serial_sample(
+    const sgpl_loop_profile_desc *desc,
+    int64_t start,
+    int64_t end,
+    int64_t step,
+    uint64_t elapsed_ns);
+
+void sgpl_record_doacross_serial_sample(
+    const sgpl_loop_profile_desc *desc,
+    int64_t start,
+    int64_t end,
+    int64_t step,
+    uint64_t dep_elapsed_ns,
+    uint64_t ind_elapsed_ns);
+
+void sgpl_record_doacross_sync_sample(
+    const sgpl_loop_profile_desc *desc,
+    uint64_t wait_elapsed_ns_total,
+    uint64_t post_elapsed_ns_total,
+    uint64_t wait_count,
+    uint64_t post_count);
+
+int32_t sgpl_should_parallelize_doacross(
+    const sgpl_loop_profile_desc *desc,
+    int64_t start,
+    int64_t end,
+    int64_t step);
+
+int32_t sgpl_choose_tdg_threads(
+    int64_t work_units,
+    int64_t span_units,
+    int32_t task_count);
+
+void sgpl_run_tdg_level(
+    const sgpl_tdg_task_desc *tasks,
+    int32_t task_count,
+    int64_t work_units,
+    int64_t span_units);
+
+void sgpl_doacross_profile_enter(const sgpl_loop_profile_desc *desc);
+void sgpl_doacross_profile_exit(const sgpl_loop_profile_desc *desc);
+
+void parallel_for_runtime(
+    int64_t start,
+    int64_t end,
+    int64_t step,
+    void (*body)(int64_t, void *),
+    void *env,
+    int32_t needs_doacross,
+    int32_t doacross_num_sync_ids);
+
+void parallel_for_runtime_ex(
+    int64_t start,
+    int64_t end,
+    int64_t step,
+    void (*body)(int64_t, void *),
+    void *env,
+    int64_t env_size,
+    const int64_t *priv_offsets,
+    const int32_t *priv_kinds,
+    const int64_t *priv_aux,
+    int32_t num_priv_targets,
+    int32_t needs_doacross,
+    int32_t doacross_num_sync_ids);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

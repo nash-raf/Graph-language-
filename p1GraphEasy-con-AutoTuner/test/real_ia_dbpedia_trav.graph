@@ -1,0 +1,10 @@
+graph ia_dbpedia {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/ia-dbpedia.txt";
+};
+
+for each vertex v in ia_dbpedia {
+    for each neighbor u of v in ia_dbpedia {
+    };
+};
+
+print numEdges(ia_dbpedia);

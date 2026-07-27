@@ -1,0 +1,4 @@
+Case,Template,Switches_Auto,Pipeline_Time_Sec,RSS_KB,Status,Notes
+bench_generated_mutation_heavy.graph,mutation_heavy,3,38.26,209408,ok,"03_run.sh completed; BFS timings printed by final_program"
+bench_generated_mutation_pcsr_set.graph,mutation_pcsr_set,4,17.25,209416,link_fail,"03_run.sh failed to link: undefined reference to sgpl_run_tdg_level"
+bench_generated_pcsr_heavy.graph,pcsr_heavy,5,121.26,209956,ok,"03_run.sh completed; three BFS checkpoints executed"

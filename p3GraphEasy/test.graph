@@ -1,0 +1,6 @@
+graph g {
+
+    edges: file '../synth_graphs_weighted/synth_v_50000_e_1000000_seed_20_w.txt';
+};
+
+query k: 'dfs' of g; 

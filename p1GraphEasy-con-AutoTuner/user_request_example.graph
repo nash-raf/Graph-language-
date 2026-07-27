@@ -1,0 +1,5 @@
+graph g1 {
+    edges: file "edgelist.txt";
+};
+
+add 20->5 to g1;

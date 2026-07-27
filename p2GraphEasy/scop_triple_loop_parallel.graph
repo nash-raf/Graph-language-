@@ -1,0 +1,16 @@
+graph G {
+  edges: file "edgelist_scop_256.txt";
+};
+
+int n = numVertices(G);
+int a[n * n * n];
+
+for (int i = 0; i < n; i = i + 1) {
+  for (int j = 0; j < n; j = j + 1) {
+    for (int k = 0; k < n; k = k + 1) {
+      a[i * n * n + j * n + k] = i + j + k;
+    }
+  }
+}
+
+print a[1000];

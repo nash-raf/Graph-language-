@@ -1,0 +1,125 @@
+// Fair traverse-then-update workload (n=100000, inserts=100)
+// Phase 1: traversal-heavy scan. Phase 2: in-bounds explicit inserts.
+// Phase 3: post-update scan. No bfs/set.contains forced layout regions.
+graph WorkGraph {
+  edges: file "traverse_update_workloads/synth_v_100000_e_1000000.txt";
+};
+
+int checksum = 0;
+
+for each vertex u in WorkGraph {
+  for each neighbor v of u in WorkGraph {
+    checksum = checksum + v;
+  }
+}
+
+add 25000->25097 to WorkGraph;
+add 25003->25100 to WorkGraph;
+add 25006->25103 to WorkGraph;
+add 25009->25106 to WorkGraph;
+add 25012->25109 to WorkGraph;
+add 25015->25112 to WorkGraph;
+add 25018->25115 to WorkGraph;
+add 25021->25118 to WorkGraph;
+add 25024->25121 to WorkGraph;
+add 25027->25124 to WorkGraph;
+add 25030->25127 to WorkGraph;
+add 25033->25130 to WorkGraph;
+add 25036->25133 to WorkGraph;
+add 25039->25136 to WorkGraph;
+add 25042->25139 to WorkGraph;
+add 25045->25142 to WorkGraph;
+add 25048->25145 to WorkGraph;
+add 25051->25148 to WorkGraph;
+add 25054->25151 to WorkGraph;
+add 25057->25154 to WorkGraph;
+add 25060->25157 to WorkGraph;
+add 25063->25160 to WorkGraph;
+add 25066->25163 to WorkGraph;
+add 25069->25166 to WorkGraph;
+add 25072->25169 to WorkGraph;
+add 25075->25172 to WorkGraph;
+add 25078->25175 to WorkGraph;
+add 25081->25178 to WorkGraph;
+add 25084->25181 to WorkGraph;
+add 25087->25184 to WorkGraph;
+add 25090->25187 to WorkGraph;
+add 25093->25190 to WorkGraph;
+add 25096->25193 to WorkGraph;
+add 25099->25196 to WorkGraph;
+add 25102->25199 to WorkGraph;
+add 25105->25202 to WorkGraph;
+add 25108->25205 to WorkGraph;
+add 25111->25208 to WorkGraph;
+add 25114->25211 to WorkGraph;
+add 25117->25214 to WorkGraph;
+add 25120->25217 to WorkGraph;
+add 25123->25220 to WorkGraph;
+add 25126->25223 to WorkGraph;
+add 25129->25226 to WorkGraph;
+add 25132->25229 to WorkGraph;
+add 25135->25232 to WorkGraph;
+add 25138->25235 to WorkGraph;
+add 25141->25238 to WorkGraph;
+add 25144->25241 to WorkGraph;
+add 25147->25244 to WorkGraph;
+add 25150->25247 to WorkGraph;
+add 25153->25250 to WorkGraph;
+add 25156->25253 to WorkGraph;
+add 25159->25256 to WorkGraph;
+add 25162->25259 to WorkGraph;
+add 25165->25262 to WorkGraph;
+add 25168->25265 to WorkGraph;
+add 25171->25268 to WorkGraph;
+add 25174->25271 to WorkGraph;
+add 25177->25274 to WorkGraph;
+add 25180->25277 to WorkGraph;
+add 25183->25280 to WorkGraph;
+add 25186->25283 to WorkGraph;
+add 25189->25286 to WorkGraph;
+add 25192->25289 to WorkGraph;
+add 25195->25292 to WorkGraph;
+add 25198->25295 to WorkGraph;
+add 25201->25298 to WorkGraph;
+add 25204->25301 to WorkGraph;
+add 25207->25304 to WorkGraph;
+add 25210->25307 to WorkGraph;
+add 25213->25310 to WorkGraph;
+add 25216->25313 to WorkGraph;
+add 25219->25316 to WorkGraph;
+add 25222->25319 to WorkGraph;
+add 25225->25322 to WorkGraph;
+add 25228->25325 to WorkGraph;
+add 25231->25328 to WorkGraph;
+add 25234->25331 to WorkGraph;
+add 25237->25334 to WorkGraph;
+add 25240->25337 to WorkGraph;
+add 25243->25340 to WorkGraph;
+add 25246->25343 to WorkGraph;
+add 25249->25346 to WorkGraph;
+add 25252->25349 to WorkGraph;
+add 25255->25352 to WorkGraph;
+add 25258->25355 to WorkGraph;
+add 25261->25358 to WorkGraph;
+add 25264->25361 to WorkGraph;
+add 25267->25364 to WorkGraph;
+add 25270->25367 to WorkGraph;
+add 25273->25370 to WorkGraph;
+add 25276->25373 to WorkGraph;
+add 25279->25376 to WorkGraph;
+add 25282->25379 to WorkGraph;
+add 25285->25382 to WorkGraph;
+add 25288->25385 to WorkGraph;
+add 25291->25388 to WorkGraph;
+add 25294->25391 to WorkGraph;
+add 25297->25394 to WorkGraph;
+
+checksum = 0;
+for each vertex u in WorkGraph {
+  for each neighbor v of u in WorkGraph {
+    checksum = checksum + 1;
+  }
+}
+
+print checksum;
+print numEdges(WorkGraph);

@@ -199,6 +199,31 @@ static int test_relax_min_weighted_multi(TestGraph *graph, const char *mode) {
          frontier_size == 0;
 }
 
+/* Direct EdgeMap API (compositional combine path). */
+static int test_edgemap_min_copy(TestGraph *graph, const char *mode) {
+  if (setenv("SGPL_FRONTIER_MODE", mode, 1) != 0)
+    return 0;
+  int32_t labels[4] = {0, 1, 2, 3};
+  int32_t frontier[1] = {0};
+  int32_t next[4] = {-1, -1, -1, -1};
+  int32_t next_size = autograph_edgemap(
+      graph, SGPL_COMBINE_MIN_COPY, frontier, 1, next, 0, labels, NULL, 0, 0);
+  return next_size == 1 && contains(next, next_size, 1) && labels[1] == 0;
+}
+
+static int test_edgemap_cas_first(TestGraph *graph, const char *mode) {
+  if (setenv("SGPL_FRONTIER_MODE", mode, 1) != 0)
+    return 0;
+  int32_t claim[4] = {0, 0, 0, 0};
+  int32_t parent[4] = {-1, -1, -1, -1};
+  int32_t frontier[1] = {0};
+  int32_t next[4] = {-1, -1, -1, -1};
+  int32_t next_size = autograph_edgemap(
+      graph, SGPL_COMBINE_CAS_FIRST, frontier, 1, next, 0, claim, parent, 0, 1);
+  return next_size == 1 && contains(next, next_size, 1) && claim[1] == 1 &&
+         parent[1] == 0;
+}
+
 int main(void) {
   /* Undirected path 0-1-2-3 stored as symmetric CSR.
    * Edge weights: 0-1:2, 1-2:3, 2-3:5 (and reverse). */
@@ -221,7 +246,11 @@ int main(void) {
       !test_relax_min_weighted(&graph, "push") ||
       !test_relax_min_weighted(&graph, "pull") ||
       !test_relax_min_weighted_multi(&graph, "push") ||
-      !test_relax_min_weighted_multi(&graph, "pull")) {
+      !test_relax_min_weighted_multi(&graph, "pull") ||
+      !test_edgemap_min_copy(&graph, "push") ||
+      !test_edgemap_min_copy(&graph, "pull") ||
+      !test_edgemap_cas_first(&graph, "push") ||
+      !test_edgemap_cas_first(&graph, "pull")) {
     fprintf(stderr, "frontier motif test failed\n");
     return 1;
   }

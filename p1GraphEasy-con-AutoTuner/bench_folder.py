@@ -15,6 +15,9 @@ Usage:
   ./bench_folder.py <edge_folder> [--out results.csv] [--n-inserts 50] [--runs 10]
   ./bench_folder.py dataset/   # processes each subfolder → erdos_renyi.csv etc.
 
+Insert workloads use ONLY non-duplicate undirected edges (existing edges are
+scanned offline; that scan is not timed).  Complete graphs (density 1.0) are
+skipped because no fresh edges exist.
 Environment:
   SKIP_BUILD=1     reuse existing GraphProgram
   TIMEOUT_SEC=     per-run timeout (default 180)
@@ -208,6 +211,13 @@ def median(values):
     return (s[n // 2 - 1] + s[n // 2]) // 2
 
 
+def mean(values):
+    """Return arithmetic mean of a list of ints."""
+    if not values:
+        return None
+    return int(sum(values) // len(values))
+
+
 def iqr(values):
     """Return interquartile range of a list of ints (0 if <4 values)."""
     if len(values) < 4:
@@ -272,22 +282,85 @@ def make_traverse_workload(edge_file, out_path):
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def load_undirected_edge_set(edge_file):
+    """Offline scan of the edge list → set of canonical (lo, hi) pairs.
+
+    Used only to pick *fresh* insert targets.  This scan is NOT timed; measured
+    kernel time remains pure insertion execution.
+    """
+    edges = set()
+    with open(edge_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            try:
+                u, v = int(parts[0]), int(parts[1])
+            except ValueError:
+                continue
+            if u == v:
+                continue
+            if u > v:
+                u, v = v, u
+            edges.add((u, v))
+    return edges
+
+
 def make_insert_workload(edge_file, n_inserts, n_vertices, out_path):
-    """Generate an insert-only .graph file (no traversals)."""
+    """Generate an insert-only .graph file with ONLY non-duplicate undirected edges.
+
+    Existing edges are determined offline (time excluded from measurement).
+    Each `add u->v` in the workload is guaranteed absent from the static graph,
+    so layouts that early-return on duplicates (BCSR) always take the fresh path.
+    Raises RuntimeError if fewer than n_inserts non-edges exist (e.g. density 1.0).
+    """
+    existing = load_undirected_edge_set(edge_file)
+    max_undirected = n_vertices * (n_vertices - 1) // 2
+    remaining = max_undirected - len(existing)
+    if remaining < n_inserts:
+        raise RuntimeError(
+            f"only {remaining} non-edges available (need {n_inserts}); "
+            f"skip dense/complete graphs (n={n_vertices}, m={len(existing)})"
+        )
+
     rng = random.Random(42)
+    chosen = []
+    chosen_set = set()
+    # Rejection sample until we have n_inserts fresh undirected pairs.
+    # Cap attempts so a near-complete graph fails fast instead of hanging.
+    max_attempts = max(n_inserts * 1000, 10000)
+    attempts = 0
+    while len(chosen) < n_inserts and attempts < max_attempts:
+        attempts += 1
+        u = rng.randint(0, n_vertices - 1)
+        v = rng.randint(0, n_vertices - 1)
+        if u == v:
+            continue
+        lo, hi = (u, v) if u < v else (v, u)
+        if (lo, hi) in existing or (lo, hi) in chosen_set:
+            continue
+        chosen_set.add((lo, hi))
+        chosen.append((u, v))  # keep sampled orientation for the DSL add
+
+    if len(chosen) < n_inserts:
+        raise RuntimeError(
+            f"could only find {len(chosen)}/{n_inserts} fresh edges after "
+            f"{attempts} attempts (graph too dense)"
+        )
+
     lines = [
         "graph g1 {",
         f'    edges: file "{edge_file}";',
         "};",
         "",
     ]
-    for _ in range(n_inserts):
-        u = rng.randint(0, n_vertices - 1)
-        v = rng.randint(0, n_vertices - 1)
-        while v == u:
-            v = rng.randint(0, n_vertices - 1)
+    for u, v in chosen:
         lines.append(f"add {u}->{v} to g1;")
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(chosen)
 
 
 # ─── Compile + run one layout ───
@@ -297,30 +370,63 @@ def compile_and_run(graph_path, layout, workdir, timeout, n_runs=10):
     if cp.returncode != 0:
         return {"error": f"GraphProgram failed: {cp.stderr[-200:]}"}
 
-    if not Path("program.o").exists():
+    prog_o = SCRIPT_DIR / "program.o"
+    if not prog_o.exists():
         return {"error": "no program.o"}
 
-    run(["gcc", "-O3", "-c", "autotuner_runtime.c", "-o", "autotuner_runtime.o"])
-    run(["gcc", "-O3", "-c", "graph_mutation_runtime.c", "-o", "graph_mutation_runtime.o"])
-    run(["gcc", "-O3", "-c", "parallel_runtime.c", "-o", "parallel_runtime.o"])
-    run(["gcc", "-O3", "-c", "runtime.c", "-o", "runtime.o"])
-    run([CXX_BIN, "-O3", "-mavx2", "-march=native", "-fopenmp",
-         "-c", "roaring_bitmap.cpp", "-o", "roaring_bitmap.o"])
-    run([CXX_BIN, "-O2", "-std=c++17", "-fopenmp",
-         "-c", "graph_loader_runtime.cpp", "-o", "graph_loader_runtime.o"])
-    run([CXX_BIN, "-O2", "-std=c++17",
-         "-c", "graph_runtime.cpp", "-o", "graph_runtime.o"])
+    # Isolate objects under workdir so concurrent / interrupted runs cannot
+    # delete each other's .o files mid-link (shared SCRIPT_DIR/*.o races).
+    obj_dir = Path(workdir) / f"objs_{layout}"
+    obj_dir.mkdir(parents=True, exist_ok=True)
+    layout_program_o = obj_dir / "program.o"
+    shutil.copy2(prog_o, layout_program_o)
 
-    bin_path = workdir / f"final_{layout}"
-    run([CXX_BIN, "-O3", "-mavx2", "-march=native", "-fopenmp", "-no-pie",
-         "program.o", "runtime.o", "parallel_runtime.o",
-         "autotuner_runtime.o", "graph_mutation_runtime.o",
-         "roaring_bitmap.o", "graph_loader_runtime.o", "graph_runtime.o",
-         "-lnlopt", "-o", str(bin_path)])
+    def _compile(cmd):
+        r = run(cmd, check=False)
+        if r.returncode != 0:
+            return r.stderr[-500:] if r.stderr else f"rc={r.returncode}"
+        return None
 
-    # Clean up .o files
-    for f in Path().glob("*.o"):
-        f.unlink()
+    comps = [
+        ["gcc", "-O3", "-c", str(SCRIPT_DIR / "autotuner_runtime.c"),
+         "-o", str(obj_dir / "autotuner_runtime.o")],
+        ["gcc", "-O3", "-c", str(SCRIPT_DIR / "graph_mutation_runtime.c"),
+         "-o", str(obj_dir / "graph_mutation_runtime.o")],
+        ["gcc", "-O3", "-c", str(SCRIPT_DIR / "parallel_runtime.c"),
+         "-o", str(obj_dir / "parallel_runtime.o")],
+        ["gcc", "-O3", "-c", str(SCRIPT_DIR / "runtime.c"),
+         "-o", str(obj_dir / "runtime.o")],
+        [CXX_BIN, "-O3", "-mavx2", "-march=native", "-fopenmp",
+         "-c", str(SCRIPT_DIR / "roaring_bitmap.cpp"),
+         "-o", str(obj_dir / "roaring_bitmap.o")],
+        [CXX_BIN, "-O2", "-std=c++17", "-fopenmp",
+         "-c", str(SCRIPT_DIR / "graph_loader_runtime.cpp"),
+         "-o", str(obj_dir / "graph_loader_runtime.o")],
+        [CXX_BIN, "-O2", "-std=c++17",
+         "-c", str(SCRIPT_DIR / "graph_runtime.cpp"),
+         "-o", str(obj_dir / "graph_runtime.o")],
+    ]
+    for cmd in comps:
+        err = _compile(cmd)
+        if err:
+            return {"error": f"compile failed ({cmd[-3]}): {err}"}
+
+    bin_path = Path(workdir) / f"final_{layout}"
+    objs = [
+        layout_program_o,
+        obj_dir / "runtime.o",
+        obj_dir / "parallel_runtime.o",
+        obj_dir / "autotuner_runtime.o",
+        obj_dir / "graph_mutation_runtime.o",
+        obj_dir / "roaring_bitmap.o",
+        obj_dir / "graph_loader_runtime.o",
+        obj_dir / "graph_runtime.o",
+    ]
+    link = run([CXX_BIN, "-O3", "-mavx2", "-march=native", "-fopenmp", "-no-pie",
+                *[str(o) for o in objs], "-lnlopt", "-o", str(bin_path)],
+               check=False)
+    if link.returncode != 0:
+        return {"error": f"link failed: {(link.stderr or link.stdout or '')[-500:]}"}
 
     # Run binary: 1 warmup + n_runs measured, return raw per-run kernel_ns
     all_runs = []  # list of parsed kernel dicts
@@ -364,13 +470,27 @@ def process_folder(edge_files, args, L, t, T, wdir):
     for ef in edge_files:
         nv, m_und = count_graph_file(ef)
         label = ef.stem
-        print(f"\n{'─'*55}\n  {label}: n={nv}  m_und={m_und}\n{'─'*55}", flush=True)
+        dens = (2.0 * m_und / (nv * (nv - 1.0))) if nv > 1 else 0.0
+        print(f"\n{'─'*55}\n  {label}: n={nv}  m_und={m_und}  dens={dens:.6f}\n{'─'*55}", flush=True)
+
+        # Density 1.0 (complete graph) has no fresh undirected edges to insert.
+        # Skip the whole datapoint — insert workload cannot be built.
+        max_und = nv * (nv - 1) // 2
+        if m_und >= max_und or dens >= 1.0 - 1e-12:
+            print("  SKIP (complete / density 1.0 — no fresh edges to insert)", flush=True)
+            continue
 
         # Generate separate workloads for clean measurements
         traverse_graph = wdir / f"{label}_traverse.graph"
         insert_graph = wdir / f"{label}_insert.graph"
         make_traverse_workload(ef, traverse_graph)
-        make_insert_workload(ef, args.n_inserts, nv, insert_graph)
+        try:
+            n_fresh = make_insert_workload(ef, args.n_inserts, nv, insert_graph)
+            print(f"  insert workload: {n_fresh} guaranteed-fresh edges "
+                  f"(dup scan offline, not timed)", flush=True)
+        except RuntimeError as e:
+            print(f"  SKIP insert+traverse ({e})", flush=True)
+            continue
 
         # Run each layout against each workload
         traverse_raw = {}  # layout → {"Insert": [kns,...], "Traverse": [...]}
@@ -406,21 +526,21 @@ def process_folder(edge_files, args, L, t, T, wdir):
             unit_fn  = insert_cost if op_kind == "Insert" else traversal_cost
 
             preds = {}
-            meas_median = {}
+            meas_mean = {}
             meas_iqr    = {}
             for layout in LAYOUTS:
                 raw = raw_src.get(layout, {}).get(op_kind, [])
-                preds[layout]      = op_count * unit_fn(layout, nv, m_und, L, t, T)
-                meas_median[layout] = median(raw) if raw else None
-                meas_iqr[layout]    = iqr(raw) if raw else None
+                preds[layout]    = op_count * unit_fn(layout, nv, m_und, L, t, T)
+                meas_mean[layout] = mean(raw) if raw else None
+                meas_iqr[layout]  = iqr(raw) if raw else None
 
-            valid = [(l, preds[l], meas_median[l]) for l in LAYOUTS if meas_median[l] is not None]
+            valid = [(l, preds[l], meas_mean[l]) for l in LAYOUTS if meas_mean[l] is not None]
             bp = min(valid, key=lambda x: x[1])[0] if valid else "-"
             bm = min(valid, key=lambda x: x[2])[0] if valid else "-"
 
             # ── Tie-tolerance verdict ─────────────────────────────────
             # A group is a PRED_TIE when the top-2 predicted layouts are within
-            # 5% of each other, and a MEAS_TIE when the top-2 measured medians'
+            # 5% of each other, and a MEAS_TIE when the top-2 measured means'
             # IQRs overlap.  When the prediction says tie and the measurement
             # says tie, the honest verdict is TIE rather than MATCH/MISMATCH.
             PRED_TIE_EPS = 0.05
@@ -457,7 +577,7 @@ def process_folder(edge_files, args, L, t, T, wdir):
                 verdict = "MATCH"
 
             for layout in LAYOUTS:
-                med = meas_median[layout]
+                med = meas_mean[layout]
                 iq  = meas_iqr[layout]
                 rows.append({
                     "graph":             label,

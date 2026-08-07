@@ -155,11 +155,35 @@ int32_t autograph_frontier_step(void *graph_ptr,
                                 int32_t desired,
                                 int32_t *parent);
 
+/* Compositional frontier operators (internal combine kinds). */
+enum {
+  SGPL_COMBINE_CAS_FIRST = 0,
+  SGPL_COMBINE_MIN_COPY = 1,
+  SGPL_COMBINE_PEEL_K = 2,
+  SGPL_COMBINE_MIN_WEIGHTED = 3
+};
+
+/* Unified EdgeMap: sparse push or owner-computes pull over array frontier.
+ *   CAS_FIRST:     prop0=claim, prop1=parent, scalar0=expected, scalar1=desired
+ *   MIN_COPY:      prop0=labels (min copy prop[u] into prop[v])
+ *   MIN_WEIGHTED:  prop0=dist (min prop[u]+w into prop[v]); CSR weights required
+ *   PEEL_K:        prop0=alive, prop1=deg, scalar0=k */
+int32_t autograph_edgemap(void *graph_ptr,
+                          int32_t combine,
+                          const int32_t *frontier,
+                          int32_t frontier_size,
+                          int32_t *next_frontier,
+                          int32_t initial_next_size,
+                          int32_t *prop0,
+                          int32_t *prop1,
+                          int32_t scalar0,
+                          int32_t scalar1);
+
 /* Generalized array-frontier motif step (non-BFS). Modes:
  *   SGPL_MOTIF_WRITE_MIN           — RelaxMin: prop[v] = min(prop[v], prop[u])
  *   SGPL_MOTIF_PEEL_K              — prop0 = alive, prop1 = deg, scalar = k
  *   SGPL_MOTIF_RELAX_MIN_WEIGHTED  — RelaxMin: prop[v] = min(prop[v], prop[u]+w)
- * Shares privatized next-frontier lanes with the BFS frontier step. */
+ * Thin wrappers over autograph_edgemap for ABI compatibility. */
 enum {
   SGPL_MOTIF_WRITE_MIN = 1,
   SGPL_MOTIF_PEEL_K = 2,

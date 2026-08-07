@@ -1,0 +1,161 @@
+[workdir] /tmp/tu_scale_b9x_m1gv
+[config] warmups=1 repeats=3 sizes=[(50000, 500000), (100000, 1000000), (250000, 2500000), (500000, 5000000)]
+
+================================================================
+  SIZE n=50,000  m=500,000  degree≈20.0
+================================================================
+  [prebuild] cache for synth_v_50000_e_500000.txt ...
+  [schedule AUTO] traverse_update_n50000.graph: PCSR
+  [timeout] mode=AUTO cap=120s
+  [compile] mode=AUTO ...
+    launch 1/3: 53.2 ms
+    launch 2/3: 45.6 ms
+    launch 3/3: 48.3 ms
+  [AUTO] median=     48.28 ms  status=OK  raw=[53.2, 45.6, 48.3]
+  [timeout] mode=CSR cap=45s
+  [compile] mode=CSR ...
+    launch 1/3: 93.1 ms
+    launch 2/3: 84.9 ms
+    launch 3/3: 94.5 ms
+  [CSR ] median=     93.07 ms  status=OK  raw=[93.1, 84.9, 94.5]
+  [timeout] mode=PCSR cap=45s
+  [compile] mode=PCSR ...
+    launch 1/3: 55.3 ms
+    launch 2/3: 52.5 ms
+    launch 3/3: 49.6 ms
+  [PCSR] median=     52.52 ms  status=OK  raw=[55.3, 52.5, 49.6]
+  [timeout] mode=BCSR cap=45s
+  [compile] mode=BCSR ...
+    launch 1/3: 180.5 ms
+    launch 2/3: 252.5 ms
+    launch 3/3: 154.8 ms
+  [BCSR] median=    180.50 ms  status=OK  raw=[180.5, 252.5, 154.8]
+  [timeout] mode=SET cap=45s
+  [compile] mode=SET ...
+  [SET ] median=  45000.00 ms  status=TIMEOUT (>45s)  raw=[45000.0, 45000.0, 45000.0]
+
+[csv] wrote /home/kazisahib/sgpl_main/Graph-language-/p1GraphEasy-con-AutoTuner/benchmark_results/traverse_update_scaling.csv
+
+================================================================
+  SIZE n=100,000  m=1,000,000  degree≈20.0
+================================================================
+  [gen] writing synth_v_100000_e_1000000.txt (n=100000, m=1000000) ...
+  [gen] wrote 1000000 edges
+  [prebuild] cache for synth_v_100000_e_1000000.txt ...
+  [schedule AUTO] traverse_update_n100000.graph: PCSR
+  [timeout] mode=AUTO cap=180s
+  [compile] mode=AUTO ...
+    launch 1/3: 102.5 ms
+    launch 2/3: 120.4 ms
+    launch 3/3: 108.4 ms
+  [AUTO] median=    108.40 ms  status=OK  raw=[102.5, 120.4, 108.4]
+  [timeout] mode=CSR cap=45s
+  [compile] mode=CSR ...
+    launch 1/3: 363.4 ms
+    launch 2/3: 381.9 ms
+    launch 3/3: 384.3 ms
+  [CSR ] median=    381.89 ms  status=OK  raw=[363.4, 381.9, 384.3]
+  [timeout] mode=PCSR cap=45s
+  [compile] mode=PCSR ...
+    launch 1/3: 108.2 ms
+    launch 2/3: 104.3 ms
+    launch 3/3: 106.3 ms
+  [PCSR] median=    106.31 ms  status=OK  raw=[108.2, 104.3, 106.3]
+  [timeout] mode=BCSR cap=45s
+  [compile] mode=BCSR ...
+    launch 1/3: 1006.0 ms
+    launch 2/3: 776.0 ms
+    launch 3/3: 899.2 ms
+  [BCSR] median=    899.16 ms  status=OK  raw=[1006.0, 776.0, 899.2]
+  [timeout] mode=SET cap=45s
+  [compile] mode=SET ...
+  [SET ] median=  45000.00 ms  status=TIMEOUT (>45s)  raw=[45000.0, 45000.0, 45000.0]
+
+[csv] wrote /home/kazisahib/sgpl_main/Graph-language-/p1GraphEasy-con-AutoTuner/benchmark_results/traverse_update_scaling.csv
+
+================================================================
+  SIZE n=250,000  m=2,500,000  degree≈20.0
+================================================================
+  [gen] writing synth_v_250000_e_2500000.txt (n=250000, m=2500000) ...
+  [gen] wrote 2500000 edges
+  [prebuild] cache for synth_v_250000_e_2500000.txt ...
+  [schedule AUTO] traverse_update_n250000.graph: PCSR
+  [timeout] mode=AUTO cap=300s
+  [compile] mode=AUTO ...
+    launch 1/3: 281.3 ms
+    launch 2/3: 230.3 ms
+    launch 3/3: 226.4 ms
+  [AUTO] median=    230.30 ms  status=OK  raw=[281.3, 230.3, 226.4]
+  [timeout] mode=CSR cap=45s
+  [compile] mode=CSR ...
+    launch 1/3: 2077.4 ms
+    launch 2/3: 2937.2 ms
+    launch 3/3: 2657.1 ms
+  [CSR ] median=   2657.06 ms  status=OK  raw=[2077.4, 2937.2, 2657.1]
+  [timeout] mode=PCSR cap=45s
+  [compile] mode=PCSR ...
+    launch 1/3: 263.6 ms
+    launch 2/3: 240.4 ms
+    launch 3/3: 258.7 ms
+  [PCSR] median=    258.70 ms  status=OK  raw=[263.6, 240.4, 258.7]
+  [timeout] mode=BCSR cap=45s
+  [compile] mode=BCSR ...
+    launch 1/3: 4096.2 ms
+    launch 2/3: 4290.7 ms
+    launch 3/3: 5470.8 ms
+  [BCSR] median=   4290.69 ms  status=OK  raw=[4096.2, 4290.7, 5470.8]
+  [timeout] mode=SET cap=45s
+  [compile] mode=SET ...
+  [SET ] median=  45000.00 ms  status=TIMEOUT (>45s)  raw=[45000.0, 45000.0, 45000.0]
+
+[csv] wrote /home/kazisahib/sgpl_main/Graph-language-/p1GraphEasy-con-AutoTuner/benchmark_results/traverse_update_scaling.csv
+
+================================================================
+  SIZE n=500,000  m=5,000,000  degree≈20.0
+================================================================
+  [gen] writing synth_v_500000_e_5000000.txt (n=500000, m=5000000) ...
+  [gen] wrote 5000000 edges
+  [prebuild] cache for synth_v_500000_e_5000000.txt ...
+  [schedule AUTO] traverse_update_n500000.graph: PCSR
+  [timeout] mode=AUTO cap=450s
+  [compile] mode=AUTO ...
+    launch 1/3: 218.4 ms
+    launch 2/3: 232.1 ms
+    launch 3/3: 221.1 ms
+  [AUTO] median=    221.08 ms  status=OK  raw=[218.4, 232.1, 221.1]
+  [timeout] mode=CSR cap=45s
+  [compile] mode=CSR ...
+    launch 1/3: 3309.6 ms
+    launch 2/3: 3353.9 ms
+    launch 3/3: 3320.5 ms
+  [CSR ] median=   3320.46 ms  status=OK  raw=[3309.6, 3353.9, 3320.5]
+  [timeout] mode=PCSR cap=45s
+  [compile] mode=PCSR ...
+    launch 1/3: 219.9 ms
+    launch 2/3: 210.3 ms
+    launch 3/3: 214.1 ms
+  [PCSR] median=    214.13 ms  status=OK  raw=[219.9, 210.3, 214.1]
+  [timeout] mode=BCSR cap=45s
+  [compile] mode=BCSR ...
+    launch 1/3: 6104.0 ms
+    launch 2/3: 6236.7 ms
+    launch 3/3: 6070.0 ms
+  [BCSR] median=   6104.01 ms  status=OK  raw=[6104.0, 6236.7, 6070.0]
+  [timeout] mode=SET cap=45s
+  [compile] mode=SET ...
+  [SET ] median=  45000.00 ms  status=TIMEOUT (>45s)  raw=[45000.0, 45000.0, 45000.0]
+
+[csv] wrote /home/kazisahib/sgpl_main/Graph-language-/p1GraphEasy-con-AutoTuner/benchmark_results/traverse_update_scaling.csv
+[cleanup] removed /tmp/tu_scale_b9x_m1gv
+
+======================================================================
+  SPEEDUP vs AUTO  (T_static / T_AUTO; >1 means AutoTuner wins)
+======================================================================
+           n |      CSR     PCSR     BCSR      SET
+  ------------------------------------------------
+      50,000 |    1.928    1.088    3.739  932.153
+     100,000 |    3.523    0.981    8.294  415.114
+     250,000 |   11.537    1.123   18.631  195.394
+     500,000 |   15.019    0.969   27.610  203.546
+
+Done. Results: /home/kazisahib/sgpl_main/Graph-language-/p1GraphEasy-con-AutoTuner/benchmark_results/traverse_update_scaling.csv

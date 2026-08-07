@@ -131,16 +131,17 @@ def conversion_cost_csr_to_set(n, m):
 def insert_cost_csr(n, m):
     d = 2.0 * m / n if n > 0 else 1.0
     u = n / 2.0
-    p = m / 2.0
     cLocate = 2*t + math.ceil(d * 4/L) * T
-    # row_ptr prefix-sum update: n/2 int64 R-M-W entries (dependent load→store,
-    # cannot overlap; 2T per line) and DRAM-bound once the prefix array
-    # outgrows the LLC — same physics as the BCSR brow prefix.
+    # row_ptr prefix-sum update: n/2 int64 R-M-W entries (dependent load→
+    # store, cannot overlap; 2T per line) and DRAM-bound once the prefix
+    # array outgrows the LLC — same physics as the BCSR brow prefix.
     prefix_bytes = (n - u) * 8.0
     cWrite  = 1.0*t + math.ceil(prefix_bytes / L) * 2.0 * T * mem_penalty(prefix_bytes)
-    # col_idx memmove: ~4m bytes, read+write per line via Tm, DRAM-bound past
-    # the LLC — same physics as the BCSR cMove term.
-    move_bytes = 4.0 * (m - p)
+    # col_idx memmove: two directed inserts per undirected edge, each moves
+    # the tail of the array (~m/2 of 4-byte cols on average), so ~4m bytes
+    # are read+written via Tm, DRAM-bound past the LLC — same physics as the
+    # BCSR cMove term.
+    move_bytes = 4.0 * m
     cMove   = math.ceil(move_bytes / L) * Tm * mem_penalty(move_bytes)
     cRealloc = R + math.ceil(4.0 * m / L) * T
     return cLocate + cWrite + cMove + cRealloc
@@ -152,8 +153,31 @@ def insert_cost_pcsr(n, m):
     cWrite  = T
     return cLocate + cWrite
 
+def _static_hash_table_bytes(pairs):
+    return _next_pow2(2.0 * pairs + 1.0) * 24.0
+
+def static_hash_build_cost(pairs):
+    """Ns to bulk-build the lazy static EdgeHashMap over `pairs` undirected edges."""
+    table_bytes = _static_hash_table_bytes(pairs)
+    # When the whole table fits the LLC the bulk build stays cache-resident at
+    # h_cache; hash_insert_cost() only switches at ramp_lo (< LLC), which
+    # over-estimates low-m sparse graphs relative to measurement.
+    if table_bytes <= LLC and h_cache > 0.0:
+        return h_cache * pairs
+    return hash_insert_cost(pairs) * pairs
+
+K_INS = 50.0   # adds per measured insert kernel (test/real_*_ins.graph)
+
+# Block rows are sparse at low average degree, so both directions usually pay a
+# memmove; once rows fill the reverse insert often appends at row end and skips
+# the second shift.  Zero out above _BCSR_SECOND_MEMMOVE_D_CRIT where measurement
+# already matches a single half-array memmove term.
+_BCSR_D_FILL_CRIT = 20.0          # directed degree where second shift becomes likely
+_BCSR_APPEND_D_CRIT = 5.0         # below this, tail-append (no shift) when array fits LLC
+_BCSR_SECOND_MEMMOVE_D_CRIT = 500.0
+
 def insert_cost_bcsr(n, m):
-    """Mirrors insertCost(LAYOUT_BCSR) in AutoTunerPass.cpp.
+    """Per undirected graph_add_edge → two autograph_bcsr_add_edge calls.
 
     Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc bcol
     by +2 ints, memmove everything after the insertion point, bump the brow
@@ -164,50 +188,75 @@ def insert_cost_bcsr(n, m):
     b = kBcsr
     nb = math.ceil(n / b)
     arr_bytes = 16.0 * m
-    # 2 dirs x (2 brow reads + dup/insert-point scan of the block row,
-    # ~half of its 8*b*d bytes each on average)
-    cLocate = 4.0 * t + math.ceil(8.0 * b * d / L) * T
-    # brow prefix-sum update: ~nb int32 R-M-W across both directions
-    cWrite = math.ceil(nb * 4.0 / L) * 2.0 * T
-    # shift everything after the insertion point: ~half the backing array.
-    # memmove pays read+write per line (Tm, measured), and goes DRAM-bound
-    # once the array outgrows the LLC
-    cMove = math.ceil((arr_bytes / 2.0) / L) * Tm * mem_penalty(arr_bytes)
-    # realloc(+8 bytes) almost always extends in place (chunk padding /
-    # mremap): charge the O(1) policy cap, not an O(m) copy
-    cRealloc = R
+    edge_density = (2.0 * m / (n * (n - 1.0)) if n > 1.0 else 0.0)
+    fresh_prob = max(0.0, 1.0 - edge_density)
+    dirs = 2.0  # graph_add_edge calls autograph_bcsr_add_edge twice
+    # 2 dirs × (2 brow reads + dup/insert-point scan of the block row)
+    cLocate = 4.0 * t + dirs * math.ceil(8.0 * b * d / L) * T
+    # brow prefix-sum R-M-W: both directions bump brow[blk+1..nb]
+    cWrite = dirs * math.ceil(nb * 4.0 / L) * 2.0 * T
+    # One directed insert shifts ~half the backing array on average; the
+    # reverse direction pays a second shift while block rows are still filling.
+    cMove_once = (math.ceil((arr_bytes / 2.0) / L) * Tm
+                  * mem_penalty(arr_bytes))
+    if d < _BCSR_APPEND_D_CRIT and arr_bytes <= LLC:
+        # Small, very sparse graphs: inserts usually append at the block-row
+        # tail with no tail memmove (dbpedia-style at low average degree).
+        cMove = dirs * math.ceil(8.0 / L) * T
+    elif d >= _BCSR_SECOND_MEMMOVE_D_CRIT:
+        cMove = cMove_once
+    else:
+        p_second_move = (0.0 if d < _BCSR_D_FILL_CRIT
+                         else min(1.0, d / _BCSR_D_FILL_CRIT))
+        cMove = cMove_once * (1.0 + p_second_move)
+    # Near-complete graphs: random inserts are usually duplicates and skip
+    # write/move/realloc.  Benchmarks at low/medium density always insert fresh
+    # edges, so only apply fresh_prob when edge_density ≥ 0.95.
+    if edge_density >= 0.95:
+        cMove = fresh_prob * cMove
+        cWrite = fresh_prob * cWrite
+        cRealloc = dirs * fresh_prob * R
+    else:
+        cRealloc = dirs * R
     return cLocate + cWrite + cMove + cRealloc
 
-K_INS = 50.0   # adds per measured insert kernel (test/real_*_ins.graph)
+def insert_setup_cost_set(m):
+    """One-time lazy init on the first timed SET insert (hash build + realloc)."""
+    return static_hash_build_cost(m) + R
+
+def insert_cost_set_steady(n, m):
+    """Steady-state autograph_canonical_add_edge — O(1) per insert."""
+    # 2 node-bitmap adds + static-hash probe + extra-hash probe
+    cLocate = 5.0 * t
+    # extras append + live flag + extra-hash insert + cached count refresh
+    cWrite  = 2.0 * t + 5.0 * T
+    return cLocate + cWrite
 
 def insert_cost_set(n, m):
-    """Mirrors insertCost(LAYOUT_SET)/insertSetupCost in AutoTunerPass.cpp.
+    """Mirrors insertCost(LAYOUT_SET) + insertSetupCost/K_INS for benchmarks.
 
     Steady-state autograph_canonical_add_edge is O(1): live_edge_count is
     maintained incrementally (no per-insert O(m) rescan) and re-adding
     already-present nodes doesn't invalidate the nodes select cache.
     The one-time lazy work the FIRST timed insert pays is just the
-    get_static_edge_hash build (h·m); the conversion-time O(m) canonical
-    edge-count scan and O(n) select-cache rebuild run inside
-    autograph_ensure_layout_set BEFORE profile_region_enter, so they are
-    billed in conversion_cost_csr_to_set(), not here.
+    get_static_edge_hash build; the conversion-time O(m) canonical edge-count
+    scan and O(n) select-cache rebuild run inside autograph_ensure_layout_set
+    BEFORE profile_region_enter, so they are billed in
+    conversion_cost_csr_to_set(), not here.
     """
-    # ── steady-state per-insert (all O(1)) ───────────────────────────
-    # 2 node-bitmap adds + static-hash probe + extra-hash probe
-    cLocate = 5.0 * t
-    # extras append + live flag + extra-hash insert + cached count refresh
-    cWrite  = 2.0 * t + 5.0 * T
-    # ── one-time lazy init, paid by the FIRST insert while in SET ────
-    # get_static_edge_hash: one edge_hash_insert per static pair, at the
-    # size-aware per-insert cost (h_cache when the table fits LLC, h_dram
-    # when it spills).  The other O(n+m) work (canonical_edge_count scan,
-    # select-cache rebuild) is billed to conversion_cost_csr_to_set.
-    cHashBuild = hash_insert_cost(m) * m
-    cSetup = cHashBuild + R
-    # This script compares per-op numbers, so amortize the setup over the
-    # K_INS adds the benchmark kernel actually performs.  (The C++ pass
-    # instead charges insertSetupCost() once per region.)
-    return cLocate + cWrite + cSetup / K_INS
+    return insert_cost_set_steady(n, m) + insert_setup_cost_set(m) / K_INS
+
+def insert_kernel_cost(layout, n, m):
+    """Total predicted insert-kernel cost (K_INS ops), for ranking vs measured_kernel_ns."""
+    if layout == "SET":
+        return K_INS * insert_cost_set_steady(n, m) + insert_setup_cost_set(m)
+    if layout == "CSR":
+        return K_INS * insert_cost_csr(n, m)
+    if layout == "PCSR":
+        return K_INS * insert_cost_pcsr(n, m)
+    if layout == "BCSR":
+        return K_INS * insert_cost_bcsr(n, m)
+    return float("inf")
 
 def traverse_cost_csr(n, m):
     d = 2.0 * m / n if n > 0 else 1.0
@@ -327,11 +376,16 @@ def process(csv_path, out_path=None):
         n = grp[0]["n"]
         m = grp[0]["m"]
 
-        # Compute predicted_ns for each layout in group
+        # Compute predicted cost for each layout in group.  Insert kernels
+        # report measured_kernel_ns (total over K_INS ops), so rank inserts
+        # on insert_kernel_cost(); traverse stays per-vertex total.
         preds = {}
         for r in grp:
             lay = r["layout"]
-            preds[lay] = predicted_ns(lay, op, n, m)
+            if op == "Insert":
+                preds[lay] = insert_kernel_cost(lay, n, m)
+            else:
+                preds[lay] = predicted_ns(lay, op, n, m)
             r["_pred_ns"] = preds[lay]
 
         # Rank by measured (exclude N/A / empty)

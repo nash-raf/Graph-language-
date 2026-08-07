@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -90,6 +91,10 @@ namespace
   constexpr double kPcsrExpansionFactor = 2.0;
   // Runtime-measured BCSR block size (autotuner_runtime.c: bcsr_block_size = 64).
   constexpr double kBcsrBlockSize = 64.0;
+  // BCSR insert memmove heuristics (mirrors cost_model.py).
+  constexpr double kBcsrDFillCrit = 20.0;          // directed degree: second shift likely
+  constexpr double kBcsrAppendDCrit = 5.0;       // tail-append when bcol fits LLC
+  constexpr double kBcsrSecondMemmoveDCrit = 500.0; // single memmove suffices above this
 
   struct HwCalib
   {
@@ -185,6 +190,28 @@ namespace
       return hDram;
     const double ratio = std::log(tableBytes / lo) / denom;
     return hw.h_cache + (hDram - hw.h_cache) * ratio;
+  }
+
+  // EdgeHashMap table size in bytes (next_pow2(2*pairs+1) entries × 24 B).
+  double staticHashTableBytes(double pairs)
+  {
+    double tableEntries = 1.0;
+    while (tableEntries < 2.0 * pairs + 1.0)
+      tableEntries *= 2.0;
+    return tableEntries * 24.0;
+  }
+
+  // Bulk-build cost for the lazy static EdgeHashMap over `pairs` undirected edges.
+  // When the whole table fits the LLC the build stays cache-resident at h_cache;
+  // hashInsertCost() only switches at ramp_lo (< LLC), which over-estimates
+  // low-m sparse graphs relative to measurement.  Mirrors static_hash_build_cost()
+  // in cost_model.py.
+  double staticHashBuildCost(double pairs, const HwCalib &hw)
+  {
+    const double tableBytes = staticHashTableBytes(pairs);
+    if (tableBytes <= hw.LLC && hw.h_cache > 0.0)
+      return hw.h_cache * pairs;
+    return hashInsertCost(pairs, hw) * pairs;
   }
 
   HwCalib loadHwCalib()
@@ -346,10 +373,7 @@ namespace
     case RegionType::Insert:
       return true; // CSR, PCSR, BCSR, SET all feasible
     case RegionType::SetQuery:
-      // User-set roaring ops (visited/frontier) do not require the graph to be
-      // in LAYOUT_SET. Forcing SET here previously freed BCSR under live
-      // neighbor iterators.
-      return true;
+      return layout == LAYOUT_SET; // graph bitmap / set queries require SET
     case RegionType::CSRQuery:
       return layout == LAYOUT_CSR; // row_ptr/col_idx readers need CSR
     }
@@ -366,17 +390,13 @@ namespace
 
   bool isInsertCall(StringRef fn)
   {
-    // graph_* mutate the graph. roaring_bitmap_add/remove are included so the
-    // cost model sees mutation-heavy phases (visited/frontier updates co-located
-    // with graph edits), but they must NOT force LAYOUT_SET — see layoutFeasible.
     return fn == "graph_add_node" || fn == "graph_add_edge" ||
            fn == "graph_remove_node" || fn == "graph_remove_edge" ||
            hasPrefix(fn, "roaring_bitmap_add") || hasPrefix(fn, "roaring_bitmap_remove");
   }
 
-  // Roaring membership ops. Previously these forced LAYOUT_SET on the graph via
-  // lastGraph attribution, which tore down BCSR/PCSR under live neighbor
-  // iterators (use-after-free). They are layout-agnostic for user sets.
+  // Queries that operate directly on Roaring bitmaps — they cannot execute
+  // unless the graph is in LAYOUT_SET, so they force SET via layoutFeasible.
   bool isSetSpecificQuery(StringRef fn)
   {
     return fn == "roaring_bitmap_contains" ||
@@ -465,7 +485,6 @@ namespace
     const double R = hw.R;
     const double gU = g * d;  // g(u) = physical span of vertex u
     const double u = n / 2.0; // average vertex id for random row_ptr access
-    const double p = m / 2.0; // average directed edge id for random col_idx access
 
     switch (layout)
     {
@@ -473,21 +492,19 @@ namespace
     {
       // One undirected edge = 2 directed inserts (from→to, to→from).
       // Per directed: realloc + memmove + row_ptr prefix-sum update.
-      // C_locate  = 4t                    (2 dirs × 2t: row_ptr[from+1] random read)
-      // C_prefix  = 2·⌈n/2·8/L⌉·2T·pen    (2 dirs × n/2 int64 R-M-W entries;
-      //                                 dependent load→store, cannot overlap, and
-      //                                 DRAM-bound once the prefix array outgrows LLC)
-      // C_move    = 2·⌈4m/L⌉·Tm·pen      (2 dirs × ~4m bytes memmove, read+write
-      //                                 per line via Tm, DRAM-bound past LLC —
-      //                                 same physics as BCSR's cMove)
-      // C_realloc = 2·R                   (2 dirs × mremap O(1))
-      // C_write   = 2                     (2 dirs × write 1 int32)
+      // C_locate  = 2t + ⌈d·4/L⌉·T       (row_ptr[from+1] random read + scan)
+      // C_prefix  = t + ⌈(n−u)·8/L⌉·2T·pen (n/2 int64 R-M-W entries;
+      //                                 dependent load→store, DRAM-bound past LLC)
+      // C_move    = ⌈4m/L⌉·Tm·pen        (2 dirs × ~m/2 cols each ≈ 4m bytes
+      //                                 read+written via Tm — same physics as
+      //                                 cost_model.py insert_cost_csr)
+      // C_realloc = R + ⌈4m/L⌉·T        (realloc cap + col_idx growth write)
       const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
       const double prefixBytes = (n - u) * 8.0;
       const double cWrite =
           1.0 * t + std::ceil(prefixBytes / L) * 2.0 * T *
                         memPenalty(prefixBytes, hw);
-      const double moveBytes = 4.0 * (m - p);
+      const double moveBytes = 4.0 * m;
       const double cMove =
           std::ceil(moveBytes / L) * hw.Tm * memPenalty(moveBytes, hw);
       const double cRealloc = R + std::ceil(4.0 * m / L) * T;
@@ -504,26 +521,49 @@ namespace
     }
     case LAYOUT_BCSR:
     {
+      // graph_add_edge calls autograph_bcsr_add_edge twice (both directions).
       // Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc
       // bcol by +2 ints, memmove everything after the insertion point, bump
-      // the brow prefix sums.  bcol backing array = 4m int32 (2 ints per
-      // directed edge, 2m directed edges) = 16m bytes.
-      // C_locate  = 4t + ⌈8·b·d/L⌉·T   (2 dirs × brow reads + dup/insert-point
-      //                                 scan of ~half the 8·b·d-byte block row)
-      // C_write   = ⌈nb·4/L⌉·2T        (brow prefix R-M-W, both directions)
-      // C_move    = ⌈(16m/2)/L⌉·Tm·pen (shift ~half the backing array; memmove
-      //                                 pays read+write per line (Tm, measured),
-      //                                 DRAM-bound once it outgrows the LLC)
-      // C_realloc = R                  (realloc(+8B) extends in place /
-      //                                 mremap: O(1) policy cap, no O(m) copy)
+      // the brow prefix sums.  bcol backing array = 16m bytes.
       const double b = kBcsrBlockSize;
       const double nb = std::ceil(n / b);
       const double arrBytes = 16.0 * m;
-      const double cLocate = 4.0 * t + std::ceil(8.0 * b * d / L) * T;
-      const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
-      const double cMove =
+      const double edgeDensity =
+          (n > 1.0) ? (2.0 * m / (n * (n - 1.0))) : 0.0;
+      const double freshProb = std::max(0.0, 1.0 - edgeDensity);
+      constexpr double kDirs = 2.0;
+      const double cLocate =
+          4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
+      double cWrite = kDirs * std::ceil(nb * 4.0 / L) * 2.0 * T;
+      const double cMoveOnce =
           std::ceil((arrBytes / 2.0) / L) * hw.Tm * memPenalty(arrBytes, hw);
-      const double cRealloc = R;
+      double cMove;
+      if (d < kBcsrAppendDCrit && arrBytes <= hw.LLC)
+      {
+        // Small, very sparse graphs: tail-append with no memmove.
+        cMove = kDirs * std::ceil(8.0 / L) * T;
+      }
+      else if (d >= kBcsrSecondMemmoveDCrit)
+      {
+        cMove = cMoveOnce;
+      }
+      else
+      {
+        const double pSecondMove =
+            (d < kBcsrDFillCrit) ? 0.0 : std::min(1.0, d / kBcsrDFillCrit);
+        cMove = cMoveOnce * (1.0 + pSecondMove);
+      }
+      double cRealloc;
+      if (edgeDensity >= 0.95)
+      {
+        cMove = freshProb * cMove;
+        cWrite = freshProb * cWrite;
+        cRealloc = kDirs * freshProb * R;
+      }
+      else
+      {
+        cRealloc = kDirs * R;
+      }
       return cLocate + cWrite + cMove + cRealloc;
     }
     case LAYOUT_SET:
@@ -573,7 +613,7 @@ namespace
   {
     if (layout != LAYOUT_SET)
       return 0.0;
-    const double cHashBuild = hashInsertCost(m, hw) * m;
+    const double cHashBuild = staticHashBuildCost(m, hw);
     return cHashBuild + hw.R;
   }
 
@@ -686,6 +726,8 @@ namespace
   {
     // Execution cost of a region under the chosen layout L.
     //   operationCost(R, L) = H · totalOps · ( f_T · uTrav(L) + f_I · uIns(L) )
+    // H is the exact enclosing-loop trip count (autotuner.trip_count), so
+    // 50 explicit adds (totalOps=50, H=1) match 1 looped add (totalOps=1, H=50).
     // Layout-forcing query regions (SetQuery → SET, CSRQuery → CSR) have
     // f_T = f_I = 0, so their operationCost is 0: the only variable cost is
     // the conversion to the forced layout, paid by the DP at the region
@@ -986,58 +1028,87 @@ namespace
     return false;
   }
 
+  // Effective op count for merge / switch gates: static sites × exact trip count H.
+  // 50 explicit adds (H=1) ≡ 1 looped add with trip count 50.
+  double regionEffectiveOps(const Region &r)
+  {
+    const double sites = std::max(1.0, static_cast<double>(r.totalOps));
+    const double H = std::max(1.0, r.execCount);
+    return sites * H;
+  }
+
   double estimateExecMultiplier(BasicBlock *BB)
   {
-    constexpr double kDefaultTripCount = 8.0;
+    // H = product of exact enclosing-loop trip counts (from IRGen metadata
+    // autotuner.trip_count, or recovered from icmp vs constant). No heuristic ×8.
     double mult = 1.0;
-    SmallPtrSet<BasicBlock *, 8> visited;
+    SmallPtrSet<BasicBlock *, 16> visited;
     BasicBlock *cur = BB;
     while (cur && visited.insert(cur).second)
     {
-      bool isLoopBody = false;
-      for (BasicBlock *succ : successors(cur))
+      if (Instruction *Term = cur->getTerminator())
       {
-        for (BasicBlock *pred : predecessors(cur))
+        if (MDNode *MD = Term->getMetadata("autotuner.trip_count"))
         {
-          if (pred == succ)
+          if (MD->getNumOperands() >= 1)
           {
-            isLoopBody = true;
-            break;
-          }
-        }
-        if (isLoopBody)
-          break;
-      }
-      for (BasicBlock *pred : predecessors(cur))
-      {
-        auto *TI = pred->getTerminator();
-        if (auto *BI = dyn_cast<BranchInst>(TI))
-        {
-          if (BI->isConditional())
-          {
-            for (BasicBlock *s : successors(pred))
+            if (auto *CAM = dyn_cast<ConstantAsMetadata>(MD->getOperand(0)))
             {
-              if (s == cur)
+              if (auto *CI = dyn_cast<ConstantInt>(CAM->getValue()))
               {
-                for (BasicBlock *pp : predecessors(pred))
-                {
-                  if (pp == cur || pp == BB)
-                  {
-                    isLoopBody = true;
-                    break;
-                  }
-                }
+                const uint64_t trips = CI->getZExtValue();
+                if (trips > 0)
+                  mult *= static_cast<double>(trips);
               }
-              if (isLoopBody)
-                break;
             }
           }
         }
-        if (isLoopBody)
-          break;
+        else if (auto *BI = dyn_cast<BranchInst>(Term))
+        {
+          // Fallback: loop header `br i1 (icmp slt/ult %iv, C), body, exit`
+          // with a back-edge into this block — use constant C as trip count
+          // when iv starts at 0 (matches SGPL while (i < N) lowering).
+          if (BI->isConditional())
+          {
+            bool hasBackedge = false;
+            for (BasicBlock *succ : successors(cur))
+            {
+              for (BasicBlock *pred : predecessors(cur))
+              {
+                if (pred == succ)
+                {
+                  hasBackedge = true;
+                  break;
+                }
+              }
+              if (hasBackedge)
+                break;
+            }
+            if (hasBackedge)
+            {
+              if (auto *Cmp = dyn_cast<ICmpInst>(BI->getCondition()))
+              {
+                if (Cmp->getPredicate() == ICmpInst::ICMP_SLT ||
+                    Cmp->getPredicate() == ICmpInst::ICMP_ULT ||
+                    Cmp->getPredicate() == ICmpInst::ICMP_SLE ||
+                    Cmp->getPredicate() == ICmpInst::ICMP_ULE)
+                {
+                  if (auto *C = dyn_cast<ConstantInt>(Cmp->getOperand(1)))
+                  {
+                    uint64_t trips = C->getZExtValue();
+                    if (Cmp->getPredicate() == ICmpInst::ICMP_SLE ||
+                        Cmp->getPredicate() == ICmpInst::ICMP_ULE)
+                      trips += 1;
+                    if (trips > 0)
+                      mult *= static_cast<double>(trips);
+                  }
+                }
+              }
+            }
+          }
+        }
       }
-      if (isLoopBody)
-        mult *= kDefaultTripCount;
+
       if (cur->hasNPredecessorsOrMore(1))
         cur = *pred_begin(cur);
       else
@@ -1048,9 +1119,36 @@ namespace
 
   Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr);
 
-  void collectOpEvents(Function &F, const std::map<Value *, GraphMeta> &metaByGraphPtr,
-                       std::vector<OpEvent> &events)
+  bool isOutlinedTaskFunction(const Function *F)
   {
+    if (!F)
+      return false;
+    const StringRef N = F->getName();
+    return N.starts_with("task_") || N.starts_with("outlined_") ||
+           N.starts_with("wrapper_");
+  }
+
+  void collectOpEventsFromFunction(Function &F,
+                                   const std::map<Value *, GraphMeta> &metaByGraphPtr,
+                                   std::vector<OpEvent> &events,
+                                   std::set<Function *> &visited);
+
+  void collectOpEventsInCallOrder(Function &F,
+                                  const std::map<Value *, GraphMeta> &metaByGraphPtr,
+                                  std::vector<OpEvent> &events)
+  {
+    std::set<Function *> visited;
+    collectOpEventsFromFunction(F, metaByGraphPtr, events, visited);
+  }
+
+  void collectOpEventsFromFunction(Function &F,
+                                   const std::map<Value *, GraphMeta> &metaByGraphPtr,
+                                   std::vector<OpEvent> &events,
+                                   std::set<Function *> &visited)
+  {
+    if (!visited.insert(&F).second)
+      return;
+
     Value *lastGraph = nullptr;
 
     std::map<Value *, Value *> storageToGraph;
@@ -1093,20 +1191,33 @@ namespace
             return it->second;
         }
       }
+      if (Value *root = resolveGraphRoot(graphPtr, metaByGraphPtr))
+        return root;
       return nullptr;
     };
 
-    // Helper to finalize graph pointer with fallbacks.
+    // Always return the canonical init pointer so Traverse/Insert on reloads
+    // of the same file-backed graph share one DP schedule.
+    auto canonicalize = [&](Value *graphPtr) -> Value *
+    {
+      if (!graphPtr || !metaByGraphPtr.count(graphPtr))
+        return nullptr;
+      Value *canon = metaByGraphPtr.at(graphPtr).graphPtr;
+      if (Value *stripped = canon->stripPointerCasts())
+        canon = stripped;
+      return canon;
+    };
+
     auto finalizeGraphPtr = [&](Value *graphPtr) -> Value *
     {
-      if (graphPtr && metaByGraphPtr.count(graphPtr))
+      if (Value *canon = canonicalize(graphPtr))
       {
-        lastGraph = graphPtr;
-        return graphPtr;
+        lastGraph = canon;
+        return canon;
       }
       if (graphPtr && metaByGraphPtr.size() == 1)
       {
-        graphPtr = metaByGraphPtr.begin()->first;
+        graphPtr = canonicalize(metaByGraphPtr.begin()->first);
         lastGraph = graphPtr;
         return graphPtr;
       }
@@ -1114,14 +1225,13 @@ namespace
         return lastGraph;
       if (!graphPtr && metaByGraphPtr.size() == 1)
       {
-        graphPtr = metaByGraphPtr.begin()->first;
+        graphPtr = canonicalize(metaByGraphPtr.begin()->first);
         lastGraph = graphPtr;
         return graphPtr;
       }
-      // Multi-graph fallback: use the first graph registered from autograph_init
       if (!graphPtr && !metaByGraphPtr.empty())
       {
-        graphPtr = metaByGraphPtr.begin()->first;
+        graphPtr = canonicalize(metaByGraphPtr.begin()->first);
         lastGraph = graphPtr;
         return graphPtr;
       }
@@ -1130,7 +1240,6 @@ namespace
 
     for (BasicBlock &BB : F)
     {
-      // Check for autotuner.traverse metadata on the BB terminator (foreach loops).
       if (Instruction *Term = BB.getTerminator())
       {
         if (MDNode *MD = Term->getMetadata("autotuner.traverse"))
@@ -1139,9 +1248,6 @@ namespace
           {
             if (auto *MDS = dyn_cast<MDString>(MD->getOperand(0)))
             {
-              // This BB is a foreach loop header — classify as Traverse.
-              // Resolve the graph pointer by scanning the loop body for
-              // a GetElementPtrInst into struct.Graph.
               Value *graphPtr = nullptr;
               for (BasicBlock *Succ : successors(&BB))
               {
@@ -1156,7 +1262,6 @@ namespace
                       break;
                     }
                   }
-                  // Check the graph pointer used in autograph_neighbor_iter_init calls
                   if (auto *CB = dyn_cast<CallBase>(&SI))
                   {
                     if (Function *Callee = resolveCallee(CB))
@@ -1170,7 +1275,6 @@ namespace
                       }
                     }
                   }
-                  // Check LoadInsts from graph storage (e.g., load ptr from @G)
                   if (auto *LI = dyn_cast<LoadInst>(&SI))
                   {
                     if (Value *root = resolveGraphRoot(LI, metaByGraphPtr))
@@ -1183,8 +1287,6 @@ namespace
                 if (graphPtr)
                   break;
               }
-              // Also scan the header BB itself (for vertex loops, the GEP
-              // to field 0 is in the header, not a successor)
               if (!graphPtr)
               {
                 for (Instruction &SI : BB)
@@ -1200,11 +1302,8 @@ namespace
                   }
                 }
               }
-              // Fallback: if still no graph ptr, try lastGraph or single-graph heuristic
               if (!graphPtr)
-              {
                 graphPtr = finalizeGraphPtr(nullptr);
-              }
 
               graphPtr = finalizeGraphPtr(graphPtr);
               if (graphPtr && metaByGraphPtr.count(graphPtr))
@@ -1212,7 +1311,7 @@ namespace
                 double mult = estimateExecMultiplier(&BB);
                 events.push_back({RegionType::Traverse, Term, graphPtr, mult});
               }
-              (void)MDS; // metadata value ("neighbor"/"edge"/"vertex") — all are Traverse
+              (void)MDS;
             }
           }
         }
@@ -1224,6 +1323,11 @@ namespace
         if (!CB)
           continue;
         Function *Callee = resolveCallee(CB);
+        if (Callee && isOutlinedTaskFunction(Callee) && !Callee->isDeclaration())
+        {
+          collectOpEventsFromFunction(*Callee, metaByGraphPtr, events, visited);
+          continue;
+        }
         if (!Callee)
           continue;
         StringRef name = Callee->getName();
@@ -1289,12 +1393,12 @@ namespace
   }
 
   // True for region types whose required layout is forced by the operations
-  // they contain. CSRQuery forces LAYOUT_CSR (row_ptr/col_idx readers).
-  // SetQuery no longer forces LAYOUT_SET — user-set roaring ops are feasible
-  // under any graph layout (see layoutFeasible).
+  // they contain: SetQuery forces LAYOUT_SET (bitmap ops), CSRQuery forces
+  // LAYOUT_CSR (row_ptr/col_idx readers). Surrounding regions may still pick
+  // any feasible layout — buildRegions splits these into their own regions.
   bool isForcedLayoutRegion(RegionType t)
   {
-    return t == RegionType::CSRQuery;
+    return t == RegionType::SetQuery || t == RegionType::CSRQuery;
   }
 
   std::vector<Region> mergeSmallRegions(std::vector<Region> &&raw)
@@ -1327,33 +1431,47 @@ namespace
       }
 
       bool canMerge = false;
+      const double prevEff = regionEffectiveOps(prev);
+      const double curEff = regionEffectiveOps(cur);
       if (cur.dominant == prev.dominant)
         canMerge = true;
-      else if (cur.totalOps <= 1 && prev.totalOps >= cur.totalOps)
+      else if (curEff <= 1.0 && prevEff >= curEff)
         canMerge = true;
-      else if (prev.totalOps <= 1 && cur.totalOps >= prev.totalOps)
+      else if (prevEff <= 1.0 && curEff >= prevEff)
       {
         prev.dominant = cur.dominant;
         prev.anchor = cur.anchor;
         canMerge = true;
       }
-      else if (prev.totalOps < kMergeThreshold && cur.totalOps < kMergeThreshold)
+      else if (prevEff < static_cast<double>(kMergeThreshold) &&
+               curEff < static_cast<double>(kMergeThreshold))
       {
-        prev.dominant = (prev.totalOps >= cur.totalOps) ? prev.dominant : cur.dominant;
+        prev.dominant = (prevEff >= curEff) ? prev.dominant : cur.dominant;
         canMerge = true;
       }
 
       if (canMerge)
       {
-        uint64_t newTotal = prev.totalOps + cur.totalOps;
-        if (newTotal > 0)
+        // Weight frequencies by effective ops (sites × trip count H).
+        const double prevW = prevEff;
+        const double curW = curEff;
+        const double newW = prevW + curW;
+        if (newW > 0)
         {
           for (int k = 0; k < 4; ++k)
-            prev.freq[k] = (prev.freq[k] * prev.totalOps + cur.freq[k] * cur.totalOps) /
-                           static_cast<double>(newTotal);
+            prev.freq[k] = (prev.freq[k] * prevW + cur.freq[k] * curW) / newW;
         }
-        prev.totalOps = newTotal;
+        prev.totalOps = prev.totalOps + cur.totalOps;
+        // Combined region executes with the larger enclosing trip factor;
+        // keep totalOps as raw site count so cost = H · totalOps stays consistent
+        // when both sides share the same H, and when merging different Hs the
+        // weighted freqs already reflect relative work.
         prev.execCount = std::max(prev.execCount, cur.execCount);
+        if (prevW + curW > 0 && prev.totalOps > 0)
+        {
+          // Recompute H so effOps(merged) ≈ prevEff + curEff.
+          prev.execCount = (prevW + curW) / static_cast<double>(prev.totalOps);
+        }
       }
       else
       {
@@ -1420,7 +1538,8 @@ namespace
       bool shouldSwitch = true;
       if (target == current)
         shouldSwitch = false;
-      if (!mustGuard && forcedLayout < 0 && R.totalOps < kMinRegionOpsToSwitch)
+      if (!mustGuard && forcedLayout < 0 &&
+          regionEffectiveOps(R) < static_cast<double>(kMinRegionOpsToSwitch))
         shouldSwitch = false;
       if (!mustGuard && forcedLayout < 0)
       {
@@ -1577,12 +1696,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   }
 
   std::vector<OpEvent> allEvents;
-  for (Function &F : M)
-  {
-    if (F.isDeclaration())
-      continue;
-    collectOpEvents(F, metaByGraphPtr, allEvents);
-  }
+  collectOpEventsInCallOrder(*mainFn, metaByGraphPtr, allEvents);
   if (allEvents.empty())
   {
     return PreservedAnalyses::all();
@@ -1595,11 +1709,19 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   const int forcedLayout = forcedLayoutFromEnv();
 
   // Build per-graph event sequences while preserving order.
+  // Canonicalize aliases (reloads of the same init graph) onto one key.
   std::map<Value *, std::vector<OpEvent>> eventsByGraph;
   for (const OpEvent &E : allEvents)
   {
-    if (metaByGraphPtr.count(E.graphPtr))
-      eventsByGraph[E.graphPtr].push_back(E);
+    auto it = metaByGraphPtr.find(E.graphPtr);
+    if (it == metaByGraphPtr.end())
+      continue;
+    Value *canon = it->second.graphPtr;
+    if (Value *stripped = canon->stripPointerCasts())
+      canon = stripped;
+    OpEvent canonE = E;
+    canonE.graphPtr = canon;
+    eventsByGraph[canon].push_back(canonE);
   }
 
   int totalInjected = 0;

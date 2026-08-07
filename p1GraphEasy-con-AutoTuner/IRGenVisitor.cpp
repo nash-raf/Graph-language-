@@ -930,6 +930,61 @@ static bool matchesIncrementByOne(const ASTNode *node, const std::string &name)
            (isOne(add->lhs.get()) && isNamedVariable(add->rhs.get()));
 }
 
+// Exact trip count for while (i < N) / while (i <= N) with i += 1 in the body.
+// Assumes the induction variable starts at 0 (the common SGPL pattern).
+static std::optional<uint64_t> exactWhileTripCount(const WhileStmtNode *ws)
+{
+    if (!ws || !ws->condition || ws->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+
+    auto *condition = static_cast<const BinaryExprNode *>(ws->condition.get());
+    const VariableNode *induction = asVariable(condition->lhs.get());
+    const IntLiteralNode *boundLit = nullptr;
+    bool inclusive = false;
+
+    if (induction && condition->rhs &&
+        condition->rhs->type == ASTNodeType::IntLiteral &&
+        (condition->op == "<" || condition->op == "<="))
+    {
+        boundLit = static_cast<const IntLiteralNode *>(condition->rhs.get());
+        inclusive = condition->op == "<=";
+    }
+    else if (condition->lhs && condition->lhs->type == ASTNodeType::IntLiteral &&
+             (condition->op == ">" || condition->op == ">=") &&
+             (induction = asVariable(condition->rhs.get())))
+    {
+        // N > i  /  N >= i
+        boundLit = static_cast<const IntLiteralNode *>(condition->lhs.get());
+        inclusive = condition->op == ">=";
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    if (!boundLit || boundLit->value < 0)
+        return std::nullopt;
+
+    auto *body = dynamic_cast<const BlockStmtNode *>(ws->body.get());
+    if (!body)
+        return std::nullopt;
+
+    bool foundInc = false;
+    for (const auto &stmt : body->statements)
+    {
+        if (matchesIncrementByOne(stmt.get(), induction->name))
+        {
+            foundInc = true;
+            break;
+        }
+    }
+    if (!foundInc)
+        return std::nullopt;
+
+    const uint64_t bound = static_cast<uint64_t>(boundLit->value);
+    return inclusive ? bound + 1 : bound;
+}
+
 struct FrontierStepPattern
 {
     std::string graphName;
@@ -1059,6 +1114,30 @@ struct MotifFrontierPattern
     std::string prop0Name;
     std::string prop1Name;
     std::string kName;
+};
+
+/* Compositional EdgeMap effect (maps to autograph_edgemap combine IDs). */
+enum class EdgeMapCombine
+{
+    CasFirst = 0,
+    MinCopy = 1,
+    PeelK = 2,
+    MinWeighted = 3
+};
+
+struct FrontierEdgeMapEffect
+{
+    EdgeMapCombine combine = EdgeMapCombine::MinCopy;
+    std::string graphName;
+    std::string frontierName;
+    std::string frontierSizeName;
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    std::string prop0Name;
+    std::string prop1Name;
+    std::string scalar0Name; /* peel k variable name; empty => use scalar0 literal */
+    int64_t scalar0 = 0;
+    int64_t scalar1 = 0;
 };
 
 static bool matchesDecrementByOneArray(const ASTNode *node,
@@ -1446,6 +1525,55 @@ detectPeelKFrontierLoop(const WhileStmtNode *loop)
     pattern.prop1Name = degArray->name;
     pattern.kName = kVar->name;
     return pattern;
+}
+
+static std::optional<FrontierEdgeMapEffect>
+analyzeFrontierEdgeMap(const WhileStmtNode *loop)
+{
+    if (auto fw = detectFirstWinsFrontierLoop(loop))
+    {
+        FrontierEdgeMapEffect effect;
+        effect.combine = EdgeMapCombine::CasFirst;
+        effect.graphName = fw->graphName;
+        effect.frontierName = fw->frontierName;
+        effect.frontierSizeName = fw->frontierSizeName;
+        effect.nextFrontierName = fw->nextFrontierName;
+        effect.nextSizeName = fw->nextSizeName;
+        effect.prop0Name = fw->claimName;
+        effect.prop1Name = fw->parentName;
+        effect.scalar0 = fw->expectedValue;
+        effect.scalar1 = fw->desiredValue;
+        return effect;
+    }
+    if (auto peel = detectPeelKFrontierLoop(loop))
+    {
+        FrontierEdgeMapEffect effect;
+        effect.combine = EdgeMapCombine::PeelK;
+        effect.graphName = peel->graphName;
+        effect.frontierName = peel->frontierName;
+        effect.frontierSizeName = peel->frontierSizeName;
+        effect.nextFrontierName = peel->nextFrontierName;
+        effect.nextSizeName = peel->nextSizeName;
+        effect.prop0Name = peel->prop0Name;
+        effect.prop1Name = peel->prop1Name;
+        effect.scalar0Name = peel->kName;
+        return effect;
+    }
+    if (auto relax = detectRelaxMinFrontierLoop(loop))
+    {
+        FrontierEdgeMapEffect effect;
+        effect.combine = relax->mode == MotifFrontierMode::RelaxMinWeighted
+                             ? EdgeMapCombine::MinWeighted
+                             : EdgeMapCombine::MinCopy;
+        effect.graphName = relax->graphName;
+        effect.frontierName = relax->frontierName;
+        effect.frontierSizeName = relax->frontierSizeName;
+        effect.nextFrontierName = relax->nextFrontierName;
+        effect.nextSizeName = relax->nextSizeName;
+        effect.prop0Name = relax->prop0Name;
+        return effect;
+    }
+    return std::nullopt;
 }
 } // namespace
 
@@ -2216,8 +2344,6 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 {
     llvm::BasicBlock *preheader = Builder.GetInsertBlock();
     llvm::Function *parent = preheader->getParent();
-    std::optional<FrontierStepPattern> frontier =
-        detectFirstWinsFrontierLoop(ws);
 
     auto getIntArrayData = [&](const std::string &name) -> llvm::Value * {
         llvm::Value *storage = lookupNamedStorage(name);
@@ -2240,133 +2366,83 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
             return Builder.CreateIntCast(value, Builder.getInt32Ty(), true);
         throw std::runtime_error("frontier-step scalar must be an integer");
     };
-    auto emitMotifStep = [&](const MotifFrontierPattern &motif) {
-        llvm::Value *graph = loadGraphValue(motif.graphName);
-        llvm::Value *frontierData = getIntArrayData(motif.frontierName);
-        llvm::Value *nextData = getIntArrayData(motif.nextFrontierName);
-        llvm::Value *prop0 = getIntArrayData(motif.prop0Name);
-        llvm::Value *prop1 = nullptr;
-        llvm::Value *scalar = Builder.getInt32(0);
-        if (motif.mode == MotifFrontierMode::PeelK)
+    auto emitEdgeMap = [&](const FrontierEdgeMapEffect &effect) {
+        llvm::Value *graph = loadGraphValue(effect.graphName);
+        llvm::Value *frontierData = getIntArrayData(effect.frontierName);
+        llvm::Value *nextData = getIntArrayData(effect.nextFrontierName);
+        llvm::Value *prop0 = getIntArrayData(effect.prop0Name);
+        llvm::Value *prop1 = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+        if (effect.combine == EdgeMapCombine::CasFirst ||
+            effect.combine == EdgeMapCombine::PeelK)
+            prop1 = getIntArrayData(effect.prop1Name);
+
+        llvm::Value *scalar0 = Builder.getInt32((uint32_t)effect.scalar0);
+        llvm::Value *scalar1 = Builder.getInt32((uint32_t)effect.scalar1);
+        if (effect.combine == EdgeMapCombine::PeelK && !effect.scalar0Name.empty())
         {
-            prop1 = getIntArrayData(motif.prop1Name);
-            llvm::Value *kStorage = lookupNamedStorage(motif.kName);
-            scalar = asI32(Builder.CreateLoad(getStorageValueType(kStorage),
-                                              kStorage, motif.kName + ".k"));
-        }
-        else
-        {
-            prop1 = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+            llvm::Value *kStorage = lookupNamedStorage(effect.scalar0Name);
+            scalar0 = asI32(Builder.CreateLoad(getStorageValueType(kStorage),
+                                               kStorage,
+                                               effect.scalar0Name + ".k"));
         }
 
         llvm::Value *frontierSizeStorage =
-            lookupNamedStorage(motif.frontierSizeName);
+            lookupNamedStorage(effect.frontierSizeName);
         llvm::Value *frontierSize = asI32(Builder.CreateLoad(
             getStorageValueType(frontierSizeStorage), frontierSizeStorage,
-            motif.frontierSizeName + ".frontier.size"));
-        llvm::Value *nextSizeStorage = lookupNamedStorage(motif.nextSizeName);
+            effect.frontierSizeName + ".frontier.size"));
+        llvm::Value *nextSizeStorage = lookupNamedStorage(effect.nextSizeName);
         llvm::Value *initialNextSize = asI32(Builder.CreateLoad(
             getStorageValueType(nextSizeStorage), nextSizeStorage,
-            motif.nextSizeName + ".frontier.initial"));
+            effect.nextSizeName + ".frontier.initial"));
 
         llvm::Type *ptrTy = Builder.getPtrTy();
         llvm::FunctionType *stepTy = llvm::FunctionType::get(
             Builder.getInt32Ty(),
             {ptrTy, Builder.getInt32Ty(), ptrTy, Builder.getInt32Ty(), ptrTy,
-             Builder.getInt32Ty(), ptrTy, ptrTy, Builder.getInt32Ty()},
+             Builder.getInt32Ty(), ptrTy, ptrTy, Builder.getInt32Ty(),
+             Builder.getInt32Ty()},
             false);
         llvm::FunctionCallee stepFn =
-            Module.getOrInsertFunction("autograph_motif_frontier_step", stepTy);
-        int32_t modeValue = 2;
-        const char *modeName = "peel_k";
-        if (motif.mode == MotifFrontierMode::WriteMin)
+            Module.getOrInsertFunction("autograph_edgemap", stepTy);
+        int32_t combineValue = static_cast<int32_t>(effect.combine);
+        const char *combineName = "min_copy";
+        switch (effect.combine)
         {
-            modeValue = 1;
-            modeName = "write_min";
-        }
-        else if (motif.mode == MotifFrontierMode::RelaxMinWeighted)
-        {
-            modeValue = 3;
-            modeName = "relax_min_weighted";
+        case EdgeMapCombine::CasFirst:
+            combineName = "cas_first";
+            break;
+        case EdgeMapCombine::PeelK:
+            combineName = "peel_k";
+            break;
+        case EdgeMapCombine::MinWeighted:
+            combineName = "min_weighted";
+            break;
+        default:
+            break;
         }
         llvm::CallInst *result = Builder.CreateCall(
             stepFn,
-            {graph, Builder.getInt32(modeValue), frontierData, frontierSize,
-             nextData, initialNextSize, prop0, prop1, scalar},
-            "motif.frontier.next.size");
+            {graph, Builder.getInt32(combineValue), frontierData, frontierSize,
+             nextData, initialNextSize, prop0, prop1, scalar0, scalar1},
+            "edgemap.next.size");
         result->setMetadata(
-            "sgpl.motif.frontier.step",
+            "sgpl.edgemap.step",
             llvm::MDNode::get(
                 Context,
-                {llvm::MDString::get(Context, motif.graphName),
-                 llvm::MDString::get(Context, modeName)}));
+                {llvm::MDString::get(Context, effect.graphName),
+                 llvm::MDString::get(Context, combineName)}));
         llvm::Value *storedResult = result;
         llvm::Type *nextSizeTy = getStorageValueType(nextSizeStorage);
         if (nextSizeTy != result->getType())
             storedResult = Builder.CreateIntCast(result, nextSizeTy, true,
-                                                 "motif.frontier.size.cast");
+                                                 "edgemap.size.cast");
         Builder.CreateStore(storedResult, nextSizeStorage);
     };
 
-    if (frontier)
+    if (auto edgeMap = analyzeFrontierEdgeMap(ws))
     {
-        llvm::Value *graph = loadGraphValue(frontier->graphName);
-        llvm::Value *frontierData = getIntArrayData(frontier->frontierName);
-        llvm::Value *nextData = getIntArrayData(frontier->nextFrontierName);
-        llvm::Value *claimData = getIntArrayData(frontier->claimName);
-        llvm::Value *parentData = getIntArrayData(frontier->parentName);
-
-        llvm::Value *frontierSizeStorage =
-            lookupNamedStorage(frontier->frontierSizeName);
-        llvm::Value *frontierSize = asI32(Builder.CreateLoad(
-            getStorageValueType(frontierSizeStorage), frontierSizeStorage,
-            frontier->frontierSizeName + ".frontier.size"));
-        llvm::Value *nextSizeStorage =
-            lookupNamedStorage(frontier->nextSizeName);
-        llvm::Value *initialNextSize = asI32(Builder.CreateLoad(
-            getStorageValueType(nextSizeStorage), nextSizeStorage,
-            frontier->nextSizeName + ".frontier.initial"));
-
-        llvm::Type *ptrTy = Builder.getPtrTy();
-        llvm::FunctionType *stepTy = llvm::FunctionType::get(
-            Builder.getInt32Ty(),
-            {ptrTy, ptrTy, Builder.getInt32Ty(), ptrTy, Builder.getInt32Ty(),
-             ptrTy, Builder.getInt32Ty(), Builder.getInt32Ty(), ptrTy},
-            false);
-        llvm::FunctionCallee stepFn =
-            Module.getOrInsertFunction("autograph_frontier_step", stepTy);
-        llvm::CallInst *result = Builder.CreateCall(
-            stepFn,
-            {graph, frontierData, frontierSize, nextData, initialNextSize,
-             claimData,
-             llvm::ConstantInt::get(Builder.getInt32Ty(),
-                                    frontier->expectedValue, true),
-             llvm::ConstantInt::get(Builder.getInt32Ty(),
-                                    frontier->desiredValue, true),
-             parentData},
-            "frontier.next.size");
-        result->setMetadata(
-            "sgpl.frontier.step",
-            llvm::MDNode::get(Context,
-                              {llvm::MDString::get(Context, frontier->graphName),
-                               llvm::MDString::get(Context, "push-pull")}));
-        llvm::Value *storedResult = result;
-        llvm::Type *nextSizeTy = getStorageValueType(nextSizeStorage);
-        if (nextSizeTy != result->getType())
-            storedResult =
-                Builder.CreateIntCast(result, nextSizeTy, true, "frontier.size.cast");
-        Builder.CreateStore(storedResult, nextSizeStorage);
-        return;
-    }
-
-    if (auto writeMin = detectWriteMinFrontierLoop(ws))
-    {
-        emitMotifStep(*writeMin);
-        return;
-    }
-    if (auto peel = detectPeelKFrontierLoop(ws))
-    {
-        emitMotifStep(*peel);
+        emitEdgeMap(*edgeMap);
         return;
     }
 
@@ -2387,6 +2463,16 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     else if (condV->getType()->isDoubleTy())
         condBool = Builder.CreateFCmpONE(condV, llvm::ConstantFP::get(Builder.getDoubleTy(), 0.0), "whilecond");
     Builder.CreateCondBr(condBool, bodyBB, mergeBB);
+
+    // Exact trip count for the AutoTuner (H): while (i < N) with i += 1.
+    if (auto trips = exactWhileTripCount(ws))
+    {
+        llvm::MDNode *tripMD = llvm::MDNode::get(
+            Context,
+            {llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), *trips))});
+        condBB->getTerminator()->setMetadata("autotuner.trip_count", tripMD);
+    }
 
     Builder.SetInsertPoint(bodyBB);
     bool wasEmittingTopLevel = EmittingTopLevel;

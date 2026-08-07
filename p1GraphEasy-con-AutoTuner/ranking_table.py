@@ -13,11 +13,13 @@ def read_csv(path):
         reader = csv.DictReader(f)
         for row in reader:
             g = row["graph"]
-            op = row["op"]
+            op = row.get("operation") or row.get("op")
             lay = row["layout"]
             pred_s = row["predicted_ns"]
             pred = float(pred_s) if pred_s else None
-            meas_s = row["measured_ns"]
+            meas_s = row.get("measured_ns")
+            if meas_s is None:
+                meas_s = row.get("measured_kernel_ns")
             meas = int(meas_s) if meas_s else None
 
             key = (g, op)
@@ -158,9 +160,11 @@ def process_csv(csv_path, title):
     with open(csv_path) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            key = (row["graph"], row["op"])
+            key = (row["graph"], row.get("operation") or row["op"])
             if key not in nv_map:
-                nv_map[key] = (int(row["n"]), int(row["m"]))
+                n_col = row.get("n") or row.get("n_vertices")
+                m_col = row.get("m") or row.get("m_directed") or row.get("m_undirected")
+                nv_map[key] = (int(n_col), int(m_col))
 
     for (g, op), layouts in sorted(data.items()):
         nv, md = nv_map[(g, op)]

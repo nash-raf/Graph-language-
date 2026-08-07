@@ -51,7 +51,7 @@ static AutoGraphMeta g_meta[MAX_GRAPHS];
 static int g_meta_count = 0;
 
 #define AUTOGRAPH_MAX_PROFILE_REGIONS 1024
-#define AUTOGRAPH_PROFILE_ENABLED 0
+#define AUTOGRAPH_PROFILE_ENABLED 1
 
 typedef struct {
   atomic_int seen;
@@ -66,6 +66,7 @@ static AutoProfileRegion g_profile_regions[AUTOGRAPH_MAX_PROFILE_REGIONS];
 static pthread_once_t g_profile_atexit_once = PTHREAD_ONCE_INIT;
 static __thread int g_active_region_id = -1;
 static __thread uint64_t g_active_region_start_ns = 0;
+static __thread uint64_t g_neighbor_scan_start_ns = 0;
 static atomic_uint_fast64_t g_kernel_measured_ns[3];
 static uint64_t g_conversion_ns = 0;
 static int g_conversions_injected = 0;
@@ -117,7 +118,7 @@ static void autograph_profile_flush_active(void) {
 }
 
 static void autograph_profile_report(void) {
-#if 0
+#if AUTOGRAPH_PROFILE_ENABLED
   autograph_profile_flush_active();
 
   double predicted_totals[3] = {0.0, 0.0, 0.0};
@@ -1536,6 +1537,7 @@ void autograph_neighbor_iter_init(void *graph_ptr, int64_t u,
   iter->u = u;
   iter->layout = LAYOUT_SET;
   iter->epoch = 0;
+  g_neighbor_scan_start_ns = now_monotonic_ns();
   if (!meta) {
     iter->pos = iter->end = 0;
     iter->state = 0;
@@ -1590,6 +1592,13 @@ void autograph_neighbor_iter_init(void *graph_ptr, int64_t u,
 }
 
 int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
+#define AUTOGRAPH_RECORD_SCAN_DONE() do {                                        \
+    if (g_neighbor_scan_start_ns != 0) {                                          \
+      autograph_profile_record_kernel_ns(0,                                        \
+          now_monotonic_ns() - g_neighbor_scan_start_ns);                          \
+      g_neighbor_scan_start_ns = 0;                                                \
+    }                                                                             \
+  } while (0)
   AutoGraphMeta *meta = (AutoGraphMeta *)iter->meta;
   if (!meta || !out_v)
     return 0;
@@ -1600,8 +1609,10 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
 
   switch (iter->layout) {
   case LAYOUT_CSR: {
-    if (!meta->csr_col_idx || iter->pos >= iter->end)
+    if (!meta->csr_col_idx || iter->pos >= iter->end) {
+      AUTOGRAPH_RECORD_SCAN_DONE();
       return 0;
+    }
     *out_v = meta->csr_col_idx[iter->pos++];
     return 1;
   }
@@ -1615,11 +1626,14 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
         return 1;
       }
     }
+    AUTOGRAPH_RECORD_SCAN_DONE();
     return 0;
   }
   case LAYOUT_BCSR: {
-    if (!meta->bcsr_bcol_idx)
+    if (!meta->bcsr_bcol_idx) {
+      AUTOGRAPH_RECORD_SCAN_DONE();
       return 0;
+    }
     int32_t local_row = iter->state;
     while (iter->pos < iter->end) {
       int32_t r = meta->bcsr_bcol_idx[iter->pos];
@@ -1632,6 +1646,7 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
       }
       iter->pos += 2;
     }
+    AUTOGRAPH_RECORD_SCAN_DONE();
     return 0;
   }
   case LAYOUT_SET:
@@ -1664,8 +1679,10 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
       }
     }
     /* Phase 1: extra edges */
-    if (!meta->extra_edge_pairs || !meta->extra_edge_live)
+    if (!meta->extra_edge_pairs || !meta->extra_edge_live) {
+      AUTOGRAPH_RECORD_SCAN_DONE();
       return 0;
+    }
     while (iter->pos < iter->end && iter->pos < meta->extra_edge_count) {
       int64_t i = iter->pos++;
       if (!meta->extra_edge_live[i])
@@ -1680,9 +1697,11 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
         return 1;
       }
     }
+    AUTOGRAPH_RECORD_SCAN_DONE();
     return 0;
   }
   }
+#undef AUTOGRAPH_RECORD_SCAN_DONE
 }
 
 typedef struct {
@@ -2088,15 +2107,13 @@ static int32_t autograph_scratch_merge_lanes(AutoGraphMeta *meta,
   return (int32_t)offsets[lane_count];
 }
 
-int32_t autograph_frontier_step(void *graph_ptr,
-                                const int32_t *frontier,
-                                int32_t frontier_size,
-                                int32_t *next_frontier,
-                                int32_t initial_next_size,
-                                int32_t *claim,
-                                int32_t expected,
-                                int32_t desired,
-                                int32_t *parent) {
+static int32_t autograph_edgemap_cas_first(void *graph_ptr,
+                                           const int32_t *frontier,
+                                           int32_t frontier_size,
+                                           int32_t *next_frontier,
+                                           int32_t initial_next_size,
+                                           int32_t *claim, int32_t *parent,
+                                           int32_t expected, int32_t desired) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !frontier || !next_frontier || !claim || frontier_size <= 0 ||
       meta->csr_n <= 0 || meta->csr_n > INT32_MAX ||
@@ -2123,7 +2140,6 @@ int32_t autograph_frontier_step(void *graph_ptr,
       .frontier_membership = NULL,
   };
 
-  /* SET has no row index, so dense pull would rescan every edge per vertex. */
   int use_pull = autograph_should_use_pull(meta, frontier, frontier_size);
   if (use_pull) {
     autograph_fill_frontier_membership(meta, frontier, frontier_size);
@@ -2137,6 +2153,24 @@ int32_t autograph_frontier_step(void *graph_ptr,
 
   return autograph_scratch_merge_lanes(meta, lane_count, next_frontier,
                                        initial_next_size);
+}
+
+int32_t autograph_frontier_step(void *graph_ptr,
+                                const int32_t *frontier,
+                                int32_t frontier_size,
+                                int32_t *next_frontier,
+                                int32_t initial_next_size,
+                                int32_t *claim,
+                                int32_t expected,
+                                int32_t desired,
+                                int32_t *parent) {
+  uint64_t start_ns = now_monotonic_ns();
+  int32_t result =
+      autograph_edgemap_cas_first(graph_ptr, frontier, frontier_size,
+                                  next_frontier, initial_next_size, claim,
+                                  parent, expected, desired);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+  return result;
 }
 
 /* ── Generalized motif frontier step (WriteMin / PeelK) ─────────── */
@@ -2518,13 +2552,13 @@ static void autograph_motif_peel_pull_partition_body(int64_t index,
   }
 }
 
-int32_t autograph_motif_frontier_step(void *graph_ptr, int32_t mode,
-                                      const int32_t *frontier,
-                                      int32_t frontier_size,
-                                      int32_t *next_frontier,
-                                      int32_t initial_next_size,
-                                      int32_t *prop0, int32_t *prop1,
-                                      int32_t scalar) {
+static int32_t autograph_edgemap_motif(void *graph_ptr, int32_t mode,
+                                       const int32_t *frontier,
+                                       int32_t frontier_size,
+                                       int32_t *next_frontier,
+                                       int32_t initial_next_size,
+                                       int32_t *prop0, int32_t *prop1,
+                                       int32_t scalar) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !frontier || !next_frontier || !prop0 || frontier_size <= 0 ||
       meta->csr_n <= 0 || meta->csr_n > INT32_MAX ||
@@ -2595,6 +2629,63 @@ int32_t autograph_motif_frontier_step(void *graph_ptr, int32_t mode,
 
   return autograph_scratch_merge_lanes(meta, lane_count, next_frontier,
                                        initial_next_size);
+}
+
+int32_t autograph_edgemap(void *graph_ptr,
+                          int32_t combine,
+                          const int32_t *frontier,
+                          int32_t frontier_size,
+                          int32_t *next_frontier,
+                          int32_t initial_next_size,
+                          int32_t *prop0,
+                          int32_t *prop1,
+                          int32_t scalar0,
+                          int32_t scalar1) {
+  uint64_t start_ns = now_monotonic_ns();
+  int32_t result = initial_next_size;
+  switch (combine) {
+  case SGPL_COMBINE_CAS_FIRST:
+    result = autograph_edgemap_cas_first(graph_ptr, frontier, frontier_size,
+                                         next_frontier, initial_next_size,
+                                         prop0, prop1, scalar0, scalar1);
+    break;
+  case SGPL_COMBINE_MIN_COPY:
+    result = autograph_edgemap_motif(graph_ptr, SGPL_MOTIF_WRITE_MIN, frontier,
+                                     frontier_size, next_frontier,
+                                     initial_next_size, prop0, prop1, 0);
+    break;
+  case SGPL_COMBINE_MIN_WEIGHTED:
+    result = autograph_edgemap_motif(graph_ptr, SGPL_MOTIF_RELAX_MIN_WEIGHTED,
+                                     frontier, frontier_size, next_frontier,
+                                     initial_next_size, prop0, prop1, 0);
+    break;
+  case SGPL_COMBINE_PEEL_K:
+    result = autograph_edgemap_motif(graph_ptr, SGPL_MOTIF_PEEL_K, frontier,
+                                     frontier_size, next_frontier,
+                                     initial_next_size, prop0, prop1, scalar0);
+    break;
+  default:
+    break;
+  }
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+  return result;
+}
+
+int32_t autograph_motif_frontier_step(void *graph_ptr, int32_t mode,
+                                      const int32_t *frontier,
+                                      int32_t frontier_size,
+                                      int32_t *next_frontier,
+                                      int32_t initial_next_size,
+                                      int32_t *prop0, int32_t *prop1,
+                                      int32_t scalar) {
+  int32_t combine = SGPL_COMBINE_MIN_COPY;
+  if (mode == SGPL_MOTIF_PEEL_K)
+    combine = SGPL_COMBINE_PEEL_K;
+  else if (mode == SGPL_MOTIF_RELAX_MIN_WEIGHTED)
+    combine = SGPL_COMBINE_MIN_WEIGHTED;
+  return autograph_edgemap(graph_ptr, combine, frontier, frontier_size,
+                           next_frontier, initial_next_size, prop0, prop1,
+                           scalar, 0);
 }
 
 /* ══════════════════════════════════════════════════════════════════

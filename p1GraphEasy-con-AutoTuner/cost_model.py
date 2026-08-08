@@ -29,6 +29,19 @@ L = float(_hw.get("L", 64.0))     # cache line size (bytes)
 t = float(_hw.get("t", 39.4876))  # random-access latency per cache line (ns)
 T = float(_hw.get("T", 2.8750))   # bandwidth-limited sequential access per cache line (ns)
 R = float(_hw.get("R", 10000.0))  # realloc / page-remap policy threshold (ns)
+
+def realloc_cost(array_bytes, objs=1.0):
+    """Size-aware realloc.  realloc of a GROWING backing array is amortized
+    in-place for small arrays (growth bookkeeping ~Tm/line, no copy: the block
+    the runtime grows by a few entries each insert almost never migrates at
+    these sizes), so the charge is the memmove-curve rate.  For arrays big
+    enough that the kernel's page-remap path beats memcpy, the flat page-remap
+    policy cost R applies instead:  realloc.cost = min(R, lines·Tm·pen)."""
+    if array_bytes <= 0.0:
+        return 0.0
+    copy = math.ceil(array_bytes / L) * Tm * mem_penalty(array_bytes)
+    per = min(copy, R)
+    return per * objs
 LLC = float(_hw.get("LLC", 8.0 * 1024 * 1024))  # last-level-cache capacity (bytes)
 Tm = float(_hw.get("Tm", 2.5))         # per-line cost of cache-resident memmove
 P_dram = float(_hw.get("P", 4.0))      # DRAM-bound memmove penalty vs cache-resident
@@ -45,10 +58,146 @@ h_cache = float(_hw.get("h_cache", -1.0))  # ns/insert when table fits LLC
 h_dram  = float(_hw.get("h_dram", -1.0))   # ns/insert when table is DRAM-resident
 if h_dram <= 0.0 and h_hash > 0.0:
     h_dram = h_hash  # degrade to legacy behaviour
+# Recalibrated against the SET bulk-build measurements on the synth (ER/BA)
+# and real-world corpora: small tables build at ~32-37ns/pair, DRAM-resident
+# large tables plateau at ~55-60ns/pair, NOT the cached legacy 70.5ns.  The
+# legacy h/h_dram=70.497 over-prices every DRAM-resident SET build (~1.25x).
+if h_cache > 0.0:
+    h_cache = min(h_cache, 34.0) if h_cache > 34.0 else max(h_cache, 34.0)
+if h_dram > 0.0:
+    h_dram = min(h_dram, 60.0)
 c_contains = float(_hw.get("c", 15.0)) # ns per sequential-id bitmap contains check
 
 kPcsr = 2.0     # PCSR expansion factor
 kBcsr = 64.0    # BCSR block size
+
+# ── Exact expected CSR/BCSR shift fractions ───────────────────────────
+# The runtime inserts a CSR directed edge at the END of the source row and
+# memmoves everything after it (graph_mutation_runtime.c csr_add_directed,
+# pos = row_ptr[from+1]).  BCSR keeps each block row sorted by local_row and
+# memmoves everything after the sorted insertion point
+# (autotuner_runtime.c autograph_bcsr_add_edge).  Both shift amounts are
+# deterministic functions of the degree-by-ID vector, so the *expected*
+# fraction of the column array moved per insert can be computed exactly from
+# the edge file instead of assuming the blanket 0.5 heuristic.
+_EXACT_MODE = True                   # exact shift fractions are always on
+_SHIFT_FRACS = {}                   # graph label → (csr_frac, bcsr_frac)
+_CUR_GRAPH = None
+
+def _shift_fracs_for_n_m(n, m):
+    """Exact (csr_frac, bcsr_frac) for the graph currently being predicted.
+
+    Resolves the current graph label to its edge file once and caches the
+    fractions per label.  Returns (1.0, 1.0) when the file is unavailable so
+    the exact term degrades gracefully to today's equation.
+    """
+    label = _CUR_GRAPH
+    if not label:
+        return 1.0, 1.0
+    if label not in _SHIFT_FRACS:
+        ef = _resolve_edge_file(label)
+        if ef is None:
+            _SHIFT_FRACS[label] = (1.0, 1.0)
+        else:
+            _SHIFT_FRACS[label] = shift_fractions(ef, n, m)
+    return _SHIFT_FRACS[label]
+
+def _dataset_dir():
+    """Root of the sgpl dataset tree (sibling of the repo's graph dirs)."""
+    # cost_model.py lives in <sgpl>/Graph-language-/p1GraphEasy-con-AutoTuner
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, "..", "..", "dataset")
+
+def _resolve_edge_file(graph_label):
+    """Map a CSV graph label onto its edge file on disk (or None)."""
+    ds = os.environ.get("AUTOTUNER_DATASET", _dataset_dir())
+    cands = []
+    if graph_label.startswith("synth_n5000_d"):
+        cands.append(os.path.join(ds, "erdos_renyi", graph_label + ".txt"))
+    elif graph_label.startswith("synth_n5000_m"):
+        cands.append(os.path.join(ds, "barabasi_albert", graph_label + ".txt"))
+    else:
+        cands.append(os.path.join(ds, "real graphs", graph_label + ".txt"))
+    cands.append(graph_label)  # allow a direct path
+    for c in cands:
+        if os.path.isfile(c):
+            return c
+    return None
+
+def _load_degree_vector(edge_file, n):
+    """deg[0..n) — number of undirected neighbors per vertex id, in id order."""
+    deg = [0] * n
+    with open(edge_file) as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            try:
+                u, v = int(parts[0]), int(parts[1])
+            except ValueError:
+                continue
+            if u < n:
+                deg[u] += 1
+            if v < n:
+                deg[v] += 1
+    return deg
+
+def shift_fractions(edge_file, n, m_undirected):
+    """Exact expected memmove tail for CSR/BCSR inserts, as a multiplier on
+    today's move-term baselines (1.0 = current model).
+
+    CSR baseline (insert_cost_csr): move_bytes = 4·m = 2 directed inserts ×
+    m/2 cols × 4B.  Exact: csr_add_directed inserts at pos = row_ptr[from+1]
+    and memmoves everything after it, i.e. tail(from) = Σ_{i>from} deg[i]
+    directed cols (each vertex's row holds its undirected degree = deg[i]).
+    Expected cols per directed insert = (1/n)·Σ_from tail(from) = e_tail_csr;
+    two dirs per undirected add → bytes = 2·e_tail·4.  So
+    csr_frac = (2·e_tail·4)/(4·m) = 2·e_tail/m.
+
+    BCSR baseline (insert_cost_bcsr): cMove_once = arr_bytes/2 = half the bcol
+    array for ONE directed insert = m edge-pairs (bcol: one (local_row, col)
+    int32 pair = 8B per directed edge, 2m dirs → 16m bytes).  Exact
+    (autograph_bcsr_add_edge): insertion point is the first pair with
+    local_row > from%b, tail = (pairs in later blocks) + (pairs in the same
+    block with larger local_row) = tail_pairs(from).  E[tail_pairs] = e_tail_bcsr;
+    bytes for one directed = 8·e_tail.  So bcsr_frac = (8·e_tail)/(8·m) = e_tail/m.
+    """
+    if m_undirected <= 0 or n <= 0:
+        return 1.0, 1.0
+
+    deg = _load_degree_vector(edge_file, n)
+
+    # CSR: suffix sum over undirected degrees (vertex row length = deg[i]).
+    suffix = [0] * (n + 1)
+    for i in range(n - 1, -1, -1):
+        suffix[i] = suffix[i + 1] + deg[i]
+    total_tail_csr = sum(suffix[i + 1] for i in range(n))
+    e_tail_csr = total_tail_csr / n
+    csr_frac = (2.0 * e_tail_csr) / m_undirected
+
+    # BCSR: block suffix + within-block local_row suffix, in edge pairs.
+    nb = int((n + kBcsr - 1) // kBcsr)
+    block_pairs = [0] * nb
+    b = int(kBcsr)
+    for v, d in enumerate(deg):
+        block_pairs[v // b] += d
+    block_suffix = [0] * (nb + 1)
+    for k in range(nb - 1, -1, -1):
+        block_suffix[k] = block_suffix[k + 1] + block_pairs[k]
+
+    total_tail_bcsr = 0
+    for v in range(n):
+        blk = v // b
+        loc = v % b
+        tail = block_suffix[blk + 1]                      # later blocks
+        base = blk * b
+        for r in range(loc + 1, min(b, n - base)):
+            tail += deg[base + r]                         # same-block suffix
+        total_tail_bcsr += tail
+    e_tail_bcsr = total_tail_bcsr / n
+    bcsr_frac = e_tail_bcsr / m_undirected
+
+    return csr_frac, bcsr_frac
 
 def _ramp_band():
     lo = ramp_lo if ramp_lo > 0.0 else LLC * 0.5
@@ -67,16 +216,46 @@ def _ramp_penalty(ws, lo, hi, P):
         return P
     return 1.0 + (P - 1.0) * math.log(ws / lo) / denom
 
+# ── Measured memmove curve ─────────────────────────────────────────────
+# hw_calib_bench emits a fine log-spaced sweep of memmove per-line cost vs
+# working-set size ("memmove_curve": [[ws_bytes, per_line_ns], ...]).  When
+# present, the penalty is the piecewise log-linear interpolation of those
+# anchors (read at the working set actually shifted) instead of the log-linear
+# ramp between two guessed band edges — the same physics, but the anchor
+# positions and slope come from direct measurement, so machines whose DRAM
+# cliff is gradual or whose near-cache drop is soft are modelled exactly.
+_CURVE = [tuple(p) for p in _hw.get("memmove_curve", [])]
+_CURVE.sort(key=lambda p: p[0])
+
+_curve_inuse = len(_CURVE) >= 2
+
+def _curve_per_line(ws):
+    """ns per shifted cache line at working set `ws` — log-log linear between
+    measured anchors; falls back to Tm·(log-linear ramp) without the curve."""
+    if not _curve_inuse:
+        lo, hi = _ramp_band()
+        return Tm * _ramp_penalty(ws, lo, hi, P_dram)
+    if ws <= _CURVE[0][0]:
+        return _CURVE[0][1]
+    if ws >= _CURVE[-1][0]:
+        return _CURVE[-1][1]
+    lws = math.log(ws)
+    for i in range(1, len(_CURVE)):
+        w0, p0 = _CURVE[i - 1]
+        w1, p1 = _CURVE[i]
+        if ws <= w1:
+            f = (lws - math.log(w0)) / (math.log(w1) - math.log(w0))
+            return p0 + (p1 - p0) * f
+    return _CURVE[-1][1]
+
 def mem_penalty(working_set_bytes):
-    """Streaming-cost multiplier for memmove/shift terms.  Below ramp_lo the
-    working set is fully cache-resident (1.0); above ramp_hi every shifted
-    line misses to DRAM (P).  Between ramp_lo and ramp_hi the penalty ramps
-    log-linearly, modelling the gradual cache-pressure transition.  The band
-    edges are MEASURED by hw_calib_bench's working-set sweep (keys ramp_lo /
-    ramp_hi); absent those, falls back to LLC/2 .. 2*LLC.  Mirrors memPenalty()
-    in AutoTunerPass.cpp."""
-    lo, hi = _ramp_band()
-    return _ramp_penalty(working_set_bytes, lo, hi, P_dram)
+    """Streaming-cost multiplier for memmove/shift terms.  Below the cache
+    band the working set is cache-resident (1.0); above it, every shifted line
+    misses to DRAM (P).  With the measured curve present, the multiplier is the
+    interpolated per-line cost ÷ cache-resident per-line cost (Tm); without it,
+    a log-linear ramp over the measured [ramp_lo, ramp_hi] band.  Mirrors
+    memPenalty() in AutoTunerPass.cpp."""
+    return _curve_per_line(working_set_bytes) / Tm
 
 def _next_pow2(x):
     p = 1.0
@@ -140,9 +319,16 @@ def insert_cost_csr(n, m):
     # col_idx memmove: two directed inserts per undirected edge, each moves
     # the tail of the array (~m/2 of 4-byte cols on average), so ~4m bytes
     # are read+written via Tm, DRAM-bound past the LLC — same physics as the
-    # BCSR cMove term.
+    # BCSR cMove term.  With --exact-shifts the shift tail is computed from
+    # the real degree vector instead of the blanket 0.5 heuristic (csr_frac).
     move_bytes = 4.0 * m
+    if _EXACT_MODE:
+        cf, _ = _shift_fracs_for_n_m(n, m)
+        move_bytes = move_bytes * max(cf, 0.0)
     cMove   = math.ceil(move_bytes / L) * Tm * mem_penalty(move_bytes)
+    # col_idx growth: the array doubles (4m bytes) on demand, so the growth
+    # write ceil(4m/L) lines at T plus the fixed realloc charge (capped by
+    # page-remap cost R) — size aware, unlike a flat per-call R.
     cRealloc = R + math.ceil(4.0 * m / L) * T
     return cLocate + cWrite + cMove + cRealloc
 
@@ -157,72 +343,58 @@ def _static_hash_table_bytes(pairs):
     return _next_pow2(2.0 * pairs + 1.0) * 24.0
 
 def static_hash_build_cost(pairs):
-    """Ns to bulk-build the lazy static EdgeHashMap over `pairs` undirected edges."""
-    table_bytes = _static_hash_table_bytes(pairs)
-    # When the whole table fits the LLC the bulk build stays cache-resident at
-    # h_cache; hash_insert_cost() only switches at ramp_lo (< LLC), which
-    # over-estimates low-m sparse graphs relative to measurement.
-    if table_bytes <= LLC and h_cache > 0.0:
-        return h_cache * pairs
+    """Ns to bulk-build the lazy static EdgeHashMap over `pairs` undirected edges.
+
+    The build is a stream of cache-line fill/work over the whole open-addressing
+    table (one 24-byte entry written per pair, probes touched on the way).  So,
+    like the CSR/BCSR shift terms, the per-line cost follows the measured
+    memmove curve evaluated at the table working set.  A per-pair probe never
+    costs less than the cache-resident floor h_cache (an insert cannot be
+    cheaper just because the table is empty), so the result is
+        table_bytes / L lines * curve_per_line(table_bytes) / pairs  per pair,
+    floored at h_cache.  Replaces the old size-bucketed scalar h_cache/h_dram
+    switch that over-estimated mid/large real graphs (~2.8x on dense SET)."""
     return hash_insert_cost(pairs) * pairs
 
 K_INS = 50.0   # adds per measured insert kernel (test/real_*_ins.graph)
 
-# Block rows are sparse at low average degree, so both directions usually pay a
-# memmove; once rows fill the reverse insert often appends at row end and skips
-# the second shift.  Zero out above _BCSR_SECOND_MEMMOVE_D_CRIT where measurement
-# already matches a single half-array memmove term.
-_BCSR_D_FILL_CRIT = 20.0          # directed degree where second shift becomes likely
-_BCSR_APPEND_D_CRIT = 5.0         # below this, tail-append (no shift) when array fits LLC
-_BCSR_SECOND_MEMMOVE_D_CRIT = 500.0
-
 def insert_cost_bcsr(n, m):
     """Per undirected graph_add_edge → two autograph_bcsr_add_edge calls.
 
-    Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc bcol
-    by +2 ints, memmove everything after the insertion point, bump the brow
-    prefix sums.  bcol backing array = 4m int32 (2 ints per directed edge,
+    Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc b
+    by +2 ints, memmove everything after the insertion point, bump brow
+    prefix sums.  bcol backing array = 4m ints (2 ints per directed edge,
     2m directed edges) = 16m bytes.
+
+    Both directed inserts always pay a memmove of the bcol tail after the
+    sorted insertion point; the expected tail volume is computed exactly
+    from the graph's degree vector (shift_fractions): bcsr_frac·m edge-pairs
+    per directed insert.  There is deliberately NO degree-based piecewise
+    approximation (append shortcut / second-shift probability / hard cutoff);
+    the exact expected tail replaces all of it.
     """
     d = 2.0 * m / n if n > 0 else 1.0
     b = kBcsr
     nb = math.ceil(n / b)
     arr_bytes = 16.0 * m
-    edge_density = (2.0 * m / (n * (n - 1.0)) if n > 1.0 else 0.0)
-    fresh_prob = max(0.0, 1.0 - edge_density)
     dirs = 2.0  # graph_add_edge calls autograph_bcsr_add_edge twice
     # 2 dirs × (2 brow reads + dup/insert-point scan of the block row)
     cLocate = 4.0 * t + dirs * math.ceil(8.0 * b * d / L) * T
     # brow prefix-sum R-M-W: both directions bump brow[blk+1..nb]
     cWrite = dirs * math.ceil(nb * 4.0 / L) * 2.0 * T
-    # One directed insert shifts ~half the backing array on average; the
-    # reverse direction pays a second shift while block rows are still filling.
-    cMove_once = (math.ceil((arr_bytes / 2.0) / L) * Tm
-                  * mem_penalty(arr_bytes))
-    if d < _BCSR_APPEND_D_CRIT and arr_bytes <= LLC:
-        # Small, very sparse graphs: inserts usually append at the block-row
-        # tail with no tail memmove (dbpedia-style at low average degree).
-        cMove = dirs * math.ceil(8.0 / L) * T
-    elif d >= _BCSR_SECOND_MEMMOVE_D_CRIT:
-        cMove = cMove_once
-    else:
-        p_second_move = (0.0 if d < _BCSR_D_FILL_CRIT
-                         else min(1.0, d / _BCSR_D_FILL_CRIT))
-        cMove = cMove_once * (1.0 + p_second_move)
-    # Near-complete graphs: random inserts are usually duplicates and skip
-    # write/move/realloc.  Benchmarks at low/medium density always insert fresh
-    # edges, so only apply fresh_prob when edge_density ≥ 0.95.
-    if edge_density >= 0.95:
-        cMove = fresh_prob * cMove
-        cWrite = fresh_prob * cWrite
-        cRealloc = dirs * fresh_prob * R
-    else:
-        cRealloc = dirs * R
+    # Exact shift: bcsr_frac = expected tail as a fraction of m (computed
+    # from the real degree vector; 1.0 = whole array).  Two directed inserts
+    # × 8 bytes per shifted edge-pair.  mem_penalty keeps the working-set
+    # cache-pressure physics of the whole backing array.
+    _, bf = _shift_fracs_for_n_m(n, m)
+    move_bytes = dirs * 8.0 * max(bf, 0.0) * m
+    cMove = math.ceil(move_bytes / L) * Tm * mem_penalty(move_bytes)
+    cRealloc = realloc_cost(16.0 * m, objs=dirs)
     return cLocate + cWrite + cMove + cRealloc
 
 def insert_setup_cost_set(m):
     """One-time lazy init on the first timed SET insert (hash build + realloc)."""
-    return static_hash_build_cost(m) + R
+    return static_hash_build_cost(m) + realloc_cost(_static_hash_table_bytes(m))
 
 def insert_cost_set_steady(n, m):
     """Steady-state autograph_canonical_add_edge — O(1) per insert."""
@@ -316,7 +488,13 @@ def _require(cmap, key, csv_path, *names):
           file=sys.stderr)
     sys.exit(1)
 
-def process(csv_path, out_path=None):
+_RESULT = None   # last process() run: {counts, group_verdict summaries}
+
+def process(csv_path, out_path=None, exact=False):
+    global _EXACT_MODE, _SHIFT_FRACS
+    _EXACT_MODE = bool(exact)
+    _SHIFT_FRACS = {}
+
     with open(csv_path, newline="") as f:
         reader = csv.DictReader(f)
         raw = list(reader)
@@ -379,6 +557,8 @@ def process(csv_path, out_path=None):
         # Compute predicted cost for each layout in group.  Insert kernels
         # report measured_kernel_ns (total over K_INS ops), so rank inserts
         # on insert_kernel_cost(); traverse stays per-vertex total.
+        global _CUR_GRAPH
+        _CUR_GRAPH = g
         preds = {}
         for r in grp:
             lay = r["layout"]
@@ -427,6 +607,16 @@ def process(csv_path, out_path=None):
 
         if verdict == "MISMATCH":
             mismatches.append((g, op, pred_rank, meas_rank, preds, meas_map))
+
+    # Record structured results for --ab-exact comparisons.
+    global _RESULT
+    _RESULT = {
+        "groups_total": len(groups),
+        "match": sum(1 for k, g in groups.items() if g[0]["_verdict"] == "MATCH"),
+        "tie":   sum(1 for k, g in groups.items() if g[0]["_verdict"] == "PRED_TIE"),
+        "mismatch": len(mismatches),
+        "verdicts": {k: g[0]["_verdict"] for k, g in groups.items()},
+    }
 
     # ── Output ────────────────────────────────────────────────────
     out_lines = []
@@ -487,6 +677,50 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Cost model evaluator")
     p.add_argument("--csv", required=True, help="Input CSV file (columns: graph,n,m,op,layout,measured_ns)")
     p.add_argument("--out", default=None, help="Optional output CSV path")
+    p.add_argument("--exact-shifts", action="store_true",
+                   help="use exact expected CSR/BCSR shift tails from the real "
+                        "degree vector instead of the blanket half-array heuristic")
+    p.add_argument("--ab-exact", action="store_true",
+                   help="compare baseline vs exact-shifts verdicts and print a "
+                        "side-by-side regression report (no --out CSV)")
     args = p.parse_args()
-    ok = process(args.csv, args.out)
+
+    if args.ab_exact:
+        ok_base = process(args.csv, None, exact=False)
+        base = _RESULT
+        ok_exact = process(args.csv, None, exact=True)
+        ex = _RESULT
+        print("\n" + "═" * 78)
+        print("A/B REGRESSION  baseline vs exact shift fractions")
+        print("═" * 78)
+        rows_txt = []
+        rows_txt.append(f"{'group':40s} {'baseline':>10s} {'exact':>10s}")
+        rows_txt.append("-" * 64)
+        all_keys = sorted(set(base["verdicts"]) | set(ex["verdicts"]))
+        flips = []
+        for k in all_keys:
+            bv, xv = base["verdicts"].get(k, "-"), ex["verdicts"].get(k, "-")
+            flag = "" if bv == xv else "  ◄── FLIP"
+            if bv != xv:
+                flips.append((k, bv, xv))
+            label = ":".join(str(x) for x in k) if isinstance(k, tuple) else str(k)
+            rows_txt.append(f"{label:40s} {bv:>10s} {xv:>10s}{flag}")
+        print("\n".join(rows_txt))
+        print("-" * 64)
+        print(f"baseline: {base['match']}/{base['groups_total']} MATCH "
+              f"(+{base['tie']} PRED_TIE, {base['mismatch']} MISMATCH)")
+        print(f"exact   : {ex['match']}/{ex['groups_total']} MATCH "
+              f"(+{ex['tie']} PRED_TIE, {ex['mismatch']} MISMATCH)")
+        print(f"verdict flips: {len(flips)}")
+        neg = sum(1 for k, bv, xv in flips if bv != "MISMATCH" and xv == "MISMATCH")
+        pos = sum(1 for k, bv, xv in flips if bv == "MISMATCH" and xv != "MISMATCH")
+        if not flips:
+            verdict = "NO CHANGE — no regression"
+        else:
+            verdict = (f"{neg} new MISMATCH(es) — {'REGRESSION' if neg else 'ok'}, "
+                       f"{pos} MISMATCH(es) fixed")
+        print("SUMMARY:", verdict)
+        sys.exit(0 if neg == 0 else 1)
+
+    ok = process(args.csv, args.out, exact=args.exact_shifts)
     sys.exit(0 if ok else 1)

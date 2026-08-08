@@ -39,8 +39,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Set unlimited stack to prevent segfault on large graphs (BFS recursion depth)
-resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+# Large but FINITE stack: unlimited stack (RLIM_INFINITY) crashes the fresh
+# PCSR insert binary (SIGSEGV), while 1 GiB lets deep BFS recursion run and
+# matches the "unlimited" intent for children.
+resource.setrlimit(resource.RLIMIT_STACK, (1 << 30, 1 << 30))
 
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).resolve().parent

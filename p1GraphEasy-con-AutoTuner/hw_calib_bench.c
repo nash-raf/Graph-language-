@@ -54,6 +54,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 
 static double now_ns(void) {
     struct timespec ts;
@@ -183,6 +184,36 @@ static void measure_Tm_P(long llc, long line, double *out_Tm, double *out_P) {
 }
 
 /* ── Measured ramp band [ramp_lo, ramp_hi] ────────────────────────────── */
+
+/* Fine log-spaced sweep of memmove per-line cost across working-set sizes.
+ * Emitted as the raw curve (ws_bytes, per_line_ns) so cost_model.py can
+ * interpolate the penalty from actual measurements instead of assuming a
+ * log-linear ramp between two band edges.  Log-spaced because the transition
+ * is spread over decades of working-set size (L2 → LLC → DRAM). */
+#define CURVE_MIN_MULT 0.03125
+#define CURVE_MAX_MULT 16.0
+#define CURVE_POINTS   64
+
+static void measure_memmove_curve(long llc, long line,
+                                  long *out_ws, double *out_per,
+                                  int *out_n) {
+    double lo = log(CURVE_MIN_MULT * (double)llc);
+    double hi = log(CURVE_MAX_MULT * (double)llc);
+    int n = 0;
+    for (int i = 0; i < CURVE_POINTS; i++) {
+        double ws = exp(lo + (hi - lo) * (double)i / (double)(CURVE_POINTS - 1));
+        long wsb = (long)(ws + 0.5);
+        if (wsb < line * 8) wsb = line * 8;
+        int passes = (wsb < llc / 4) ? 64 : (wsb < llc) ? 32
+                   : (wsb < 4 * llc) ? 8 : 4;
+        double per = measure_memmove_per_line(wsb, line, passes);
+        if (per <= 0.0) continue;
+        out_ws[n] = wsb;
+        out_per[n] = per;
+        n++;
+    }
+    *out_n = n;
+}
 
 /* Sweep memmove per-line cost across working-set sizes spanning the LLC and
  * derive the band where the penalty transitions from cache-resident (1.0) to
@@ -366,6 +397,14 @@ int main(void) {
     long ramp_lo = 0, ramp_hi = 0;
     measure_ramp_bounds(llc, L, Tm, P, &ramp_lo, &ramp_hi);
 
+    /* Fine-grained memmove curve: raw (ws_bytes, per_line_ns) anchors so
+     * cost_model.py can interpolate the true penalty instead of the
+     * log-linear band approximation above. */
+    long curve[64];
+    double curve_per[64];
+    int n_curve = 0;
+    measure_memmove_curve(llc, L, curve, curve_per, &n_curve);
+
     /* h is size-aware: measure at two table sizes — one cache-resident
      * (~LLC/4 table bytes => ~LLC/(4*24) pairs) and one DRAM-resident
      * (~4*LLC table bytes => ~4*LLC/24 pairs).  The cost model ramps
@@ -384,8 +423,14 @@ int main(void) {
 
     printf("{ \"L\": %ld, \"t\": %.4f, \"T\": %.4f, \"LLC\": %ld, "
            "\"Tm\": %.4f, \"P\": %.4f, \"ramp_lo\": %ld, \"ramp_hi\": %ld, "
-           "\"h\": %.4f, \"h_cache\": %.4f, \"h_dram\": %.4f, \"c\": %.4f }\n",
+           "\"h\": %.4f, \"h_cache\": %.4f, \"h_dram\": %.4f, \"c\": %.4f, "
+           "\"memmove_curve\": [",
            L, t, T, llc, Tm, P, ramp_lo, ramp_hi,
            h, h_cache, h_dram, c);
+    for (int i = 0; i < n_curve; i++) {
+        printf("%s[%ld, %.4f]", i ? ", " : "",
+               curve[i], curve_per[i]);
+    }
+    printf("] }\n");
     return 0;
 }

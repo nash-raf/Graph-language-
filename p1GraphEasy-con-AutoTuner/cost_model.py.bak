@@ -287,77 +287,27 @@ def hash_insert_cost(pairs):
     ratio = math.log(table_bytes / lo) / denom
     return h_cache + (hd - h_cache) * ratio
 
-def read_cost(from_layout, n, m):
-    """C_read(A) — read the source layout's full representation, mirroring
-    readCost() in AutoTunerPass.cpp.  The runtime transition scans the source
-    arrays end-to-end before writing the destination, so the read is the full
-    backing-store size (DRAM-bound past the LLC, hence ceil-bytes/L cache
-    lines at cost T per line).
-      CSR  : row_ptr[0..n] + col_idx[0..m]    = 8(n+1) + 4m      bytes
-      PCSR : row_ptr[0..n] + col_idx[0..g·m] = 8(n+1) + 4 g m   bytes
-      BCSR : brow[0..n_b] + bcol[0..2m]×i32  = 4 n_b + 16m     bytes
-      SET  : edge_pairs[0..m]×(u,v)×i32       = 8m              bytes
-    """
-    g = kPcsr
-    nb = math.ceil(n / kBcsr)
-    if from_layout == "CSR":   return math.ceil((8.0 * (n + 1.0) + 4.0 * m) / L) * T
-    if from_layout == "PCSR":  return math.ceil((8.0 * (n + 1.0) + 4.0 * g * m) / L) * T
-    if from_layout == "BCSR":  return math.ceil((4.0 * nb + 16.0 * m) / L) * T
-    if from_layout == "SET":   return math.ceil(8.0 * m / L) * T
-    return float("inf")
-
-def meta_build_cost(to_layout, n, m):
-    """C-meta-build(B) — write the destination's index/metadata structure,
-    mirroring metaBuildCost() in AutoTunerPass.cpp:
-      CSR/PCSR : row_ptr = 8(n+1) bytes (int64 prefix sums)
-      BCSR     : brow    = 4 n_b bytes  (int32 prefix sums)
-      SET      : (a) rebuild_sets_from_csr_meta builds+destroys a local
-                     EdgeHashMap over the m static pairs — hash_insert_cost
-                     per pair; (b) canonical_edge_count_cached runs the full
-                     O(m) roaring_bitmap_contains scan (c_contains per check)
-                     because live_edge_count was just invalidated;
-                 (c) canonical_node_span triggers one O(n) select-cache
-                     rebuild of the nodes bitmap.
-    """
-    nb = math.ceil(n / kBcsr)
-    if to_layout in ("CSR", "PCSR"):  return math.ceil(8.0 * (n + 1.0) / L) * T
-    if to_layout == "BCSR":           return math.ceil(4.0 * nb / L) * T
-    if to_layout == "SET":
-        return (hash_insert_cost(m) * m
-                + c_contains * m
-                + (math.ceil(4.0 * n / L) + math.ceil(n / 8.0 / L)) * T)
-    return float("inf")
-
-def payload_build_cost(to_layout, n, m):
-    """C-payload-build(B) — write the destination's adjacency payload,
-    mirroring payloadBuildCost() in AutoTunerPass.cpp:
-      CSR  : col_idx = 4m bytes
-      PCSR : col_idx = 4 g m bytes
-      BCSR : barr    = 16m bytes ((local_row,col) int32 pairs)
-      SET  : edges_bitmap + extra_edge_pairs append = 8m bytes
-    """
-    g = kPcsr
-    if to_layout == "CSR":   return math.ceil(4.0 * m / L) * T
-    if to_layout == "PCSR":  return math.ceil(4.0 * g * m / L) * T
-    if to_layout == "BCSR":  return math.ceil(16.0 * m / L) * T
-    if to_layout == "SET":   return math.ceil(8.0 * m / L) * T
-    return float("inf")
-
-def conversion_cost(from_layout, to_layout, n, m):
-    """General physics-based conversion cost A→B = C_read(A) + C_meta-build(B)
-    + C_payload-build(B).  Mirrors conversionCost() in AutoTunerPass.cpp
-    (readCost + metaBuildCost + payloadBuildCost).  Replaces the earlier
-    4-term CSR→SET-only version (which omitted the row_ptr read of the source
-    CSR representation and the SET payload write)."""
-    if from_layout == to_layout:
-        return 0.0
-    return (read_cost(from_layout, n, m)
-            + meta_build_cost(to_layout, n, m)
-            + payload_build_cost(to_layout, n, m))
+def conversion_cost_csr_to_set(n, m):
+    """Physics-based CSR -> SET conversion cost.  Mirrors
+    conversionCostCSRToSET() in AutoTunerPass.cpp.  The runtime
+    (autograph_ensure_layout_set, run BEFORE profile_region_enter) does:
+      - rebuild_sets_from_csr_meta: builds+destroys a local EdgeHashMap over
+        the m static pairs (hash_insert_cost per pair) + scans the CSR arrays
+        (~4m bytes).
+      - refresh_graph_counts_from_canonical: canonical_edge_count_cached runs
+        the full O(m) roaring_bitmap_contains scan (c_contains per check)
+        because live_edge_count was just invalidated; canonical_node_span
+        triggers one O(n) select-cache rebuild of the nodes bitmap.
+    Replaces the crude 0.1*(n+m) alpha the old model used for CSR->SET."""
+    c_hash_build = hash_insert_cost(m) * m
+    c_edge_count = c_contains * m
+    c_sel_cache = (math.ceil(4.0 * n / L) + math.ceil(n / 8.0 / L)) * T
+    c_csr_scan  = math.ceil(4.0 * m / L) * T
+    return c_hash_build + c_edge_count + c_sel_cache + c_csr_scan
 
 # ── Cost model equations ──────────────────────────────────────────────
 
-def insert_cost_csr(n, m, csr_frac=None):
+def insert_cost_csr(n, m):
     d = 2.0 * m / n if n > 0 else 1.0
     cLocate = 2*t + math.ceil(d * 4/L) * T
     # row_ptr prefix-sum update: E[n−from] = n/2 int64 entries per directed
@@ -373,12 +323,10 @@ def insert_cost_csr(n, m, csr_frac=None):
     # BCSR cMove term.  With --exact-shifts the shift tail is computed from
     # the real degree vector instead of the blanket 0.5 heuristic (csr_frac).
     move_bytes = 4.0 * m
-    if csr_frac is not None:
-        move_bytes = move_bytes * max(csr_frac, 0.0)
-    elif _EXACT_MODE:
+    if _EXACT_MODE:
         cf, _ = _shift_fracs_for_n_m(n, m)
         move_bytes = move_bytes * max(cf, 0.0)
-    cMove   = math.ceil(move_bytes / L) * Tm * mem_penalty(8.0*m + move_bytes)
+    cMove   = math.ceil(move_bytes / L) * Tm * mem_penalty(move_bytes)
     # col_idx growth: the array doubles (4m bytes) on demand, so the growth
     # write ceil(4m/L) lines at T plus the fixed realloc charge (capped by
     # page-remap cost R) — size aware, unlike a flat per-call R.
@@ -411,7 +359,7 @@ def static_hash_build_cost(pairs):
 
 K_INS = 50.0   # adds per measured insert kernel (test/real_*_ins.graph)
 
-def insert_cost_bcsr(n, m, bcsr_frac=None):
+def insert_cost_bcsr(n, m):
     """Per undirected graph_add_edge → two autograph_bcsr_add_edge calls.
 
     Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc b
@@ -442,8 +390,6 @@ def insert_cost_bcsr(n, m, bcsr_frac=None):
     # × 8 bytes per shifted edge-pair.  mem_penalty keeps the working-set
     # cache-pressure physics of the whole backing array.
     _, bf = _shift_fracs_for_n_m(n, m)
-    if bcsr_frac is not None:
-        bf = bcsr_frac
     move_bytes = dirs * 8.0 * max(bf, 0.0) * m
     cMove = math.ceil(move_bytes / L) * Tm * mem_penalty(move_bytes)
     cRealloc = realloc_cost(16.0 * m, objs=dirs)
@@ -471,7 +417,7 @@ def insert_cost_set(n, m):
     get_static_edge_hash build; the conversion-time O(m) canonical edge-count
     scan and O(n) select-cache rebuild run inside autograph_ensure_layout_set
     BEFORE profile_region_enter, so they are billed in
-    conversion_cost() (CSR→SET leg), not here.
+    conversion_cost_csr_to_set(), not here.
     """
     return insert_cost_set_steady(n, m) + insert_setup_cost_set(m) / K_INS
 

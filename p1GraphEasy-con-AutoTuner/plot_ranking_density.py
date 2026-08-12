@@ -83,6 +83,29 @@ def near_tie_text(meas_pairs):
     return f"{pct:.1f}% ({l1}/{l2})"
 
 
+def mismatch_gap_text(pred_order, meas_order, meas_map):
+    """Measured % time gap between every layout pair whose relative order is
+    inverted in the prediction vs the measurement (the pairs that cause the
+    MISMATCH).  gap = 100 * (slower - faster) / faster."""
+    meas_map = {l: v for l, v in meas_map.items() if v is not None}
+    pos_p = {l: i for i, l in enumerate(pred_order)}
+    pos_m = {l: i for i, l in enumerate(meas_order)}
+    parts = []
+    for i, u in enumerate(pred_order):
+        if u not in pos_m:
+            continue
+        for v in pred_order[i + 1:]:
+            if v not in pos_m:
+                continue
+            if pos_m[u] > pos_m[v]:
+                t1, t2 = meas_map[u], meas_map[v]
+                fast, slow = min(t1, t2), max(t1, t2)
+                pct = 100.0 * (slow - fast) / max(fast, 1)
+                parts.append(f"{v}/{u} {pct:.1f}%")
+    return " | ".join(parts) if parts else near_tie_text(
+        [(l, meas_map[l]) for l in pred_order])
+
+
 def make_table(rows, title, output_path):
     headers = [
         "Graph / Op", "n", "m", "density",
@@ -95,7 +118,6 @@ def make_table(rows, title, output_path):
     for (g, op), nv, md, dens, pred_pairs, meas_pairs in rows:
         pred_rank = ranking_text(pred_pairs)
         meas_rank = ranking_text(meas_pairs)
-        tie_txt = near_tie_text(meas_pairs)
 
         valid_meas = {l for l, v in meas_pairs if v is not None}
         pred_filtered = [(l, v) for l, v in pred_pairs if l in valid_meas]
@@ -116,6 +138,12 @@ def make_table(rows, title, output_path):
             match_text = "PRED_TIE"
         else:
             match_text = "MISMATCH"
+
+        if match_text == "MISMATCH":
+            meas_map = dict(meas_pairs)
+            tie_txt = mismatch_gap_text(pred_order, meas_order, meas_map)
+        else:
+            tie_txt = near_tie_text(meas_pairs)
 
         dens_s = f"{dens:.4f}" if dens >= 0.01 else f"{dens:.6f}"
         row_data.append([

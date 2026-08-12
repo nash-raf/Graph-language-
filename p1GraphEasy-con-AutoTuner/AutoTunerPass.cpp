@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -53,6 +54,12 @@ namespace
     Value *nodesBmp = nullptr;
     Value *edgesBmp = nullptr;
     Value *edgePairs = nullptr;
+    // Exact expected CSR/BCSR memmove-tail fractions (from the graph's real
+    // degree vector, computed at compile time by IRGenVisitor and delivered
+    // via the autotuner.shift_fracs metadata).  1.0 = blanket half-array
+    // heuristic.  Mirrors shift_fractions() in cost_model.py.
+    double csrFrac = 1.0;
+    double bcsrFrac = 1.0;
     // (degree stats removed — uniform freshProb only needs n and m)
   };
 
@@ -91,10 +98,6 @@ namespace
   constexpr double kPcsrExpansionFactor = 2.0;
   // Runtime-measured BCSR block size (autotuner_runtime.c: bcsr_block_size = 64).
   constexpr double kBcsrBlockSize = 64.0;
-  // BCSR insert memmove heuristics (mirrors cost_model.py).
-  constexpr double kBcsrDFillCrit = 20.0;          // directed degree: second shift likely
-  constexpr double kBcsrAppendDCrit = 5.0;       // tail-append when bcol fits LLC
-  constexpr double kBcsrSecondMemmoveDCrit = 500.0; // single memmove suffices above this
 
   struct HwCalib
   {
@@ -121,6 +124,11 @@ namespace
     double h_dram = -1.0;               // ns per edge_hash_insert when the table is DRAM-resident
                                         // (measured by hw_calib_bench at ~4*LLC table bytes)
     double c = 15.0;                    // ns per sequential-id bitmap contains check
+    // Measured memmove per-line cost curve (cost_model.py _CURVE): a
+    // log-spaced working-set sweep [ws_bytes, per_line_ns] emitted by
+    // hw_calib_bench.  When present (>= 2 points), memPenalty interpolates
+    // this instead of the [ramp_lo, ramp_hi] two-point band.
+    std::vector<std::pair<double, double>> memmoveCurve;
   };
 
   // Log-linear ramp multiplier between lo (penalty 1.0) and hi (penalty P).
@@ -155,11 +163,45 @@ namespace
   // edges are MEASURED by hw_calib_bench's working-set sweep (keys ramp_lo /
   // ramp_hi); absent those, it falls back to LLC/2 .. 2*LLC.  Mirrors
   // mem_penalty() in cost_model.py.
+  // ns per shifted cache line at working set `ws` — log-log linear between
+  // the measured memmove_curve anchors; falls back to Tm·(log-linear ramp)
+  // without the curve.  Mirrors _curve_per_line() in cost_model.py.
+  double curvePerLine(double ws, const HwCalib &hw)
+  {
+    if (hw.memmoveCurve.size() < 2)
+    {
+      double lo, hi;
+      rampBand(hw, lo, hi);
+      return hw.Tm * rampPenalty(ws, lo, hi, hw.P);
+    }
+    const auto &C = hw.memmoveCurve;
+    if (ws <= C.front().first)
+      return C.front().second;
+    if (ws >= C.back().first)
+      return C.back().second;
+    const double lws = std::log(ws);
+    for (size_t i = 1; i < C.size(); ++i)
+    {
+      const double w0 = C[i - 1].first, p0 = C[i - 1].second;
+      const double w1 = C[i].first, p1 = C[i].second;
+      if (ws <= w1)
+      {
+        const double denom = std::log(w1 / w0);
+        if (denom <= 0.0)
+          return p1;
+        const double f = (lws - std::log(w0)) / denom;
+        return p0 + (p1 - p0) * f;
+      }
+    }
+    return C.back().second;
+  }
+
   double memPenalty(double workingSetBytes, const HwCalib &hw)
   {
-    double lo, hi;
-    rampBand(hw, lo, hi);
-    return rampPenalty(workingSetBytes, lo, hi, hw.P);
+    // With the measured curve present, the multiplier is the interpolated
+    // per-line cost ÷ cache-resident per-line cost (hw.Tm).  Without it, the
+    // log-linear ramp over the [ramp_lo, ramp_hi] band.
+    return curvePerLine(workingSetBytes, hw) / hw.Tm;
   }
 
   // Size-aware per-insert cost for an EdgeHashMap bulk build.  The table is
@@ -202,15 +244,11 @@ namespace
   }
 
   // Bulk-build cost for the lazy static EdgeHashMap over `pairs` undirected edges.
-  // When the whole table fits the LLC the build stays cache-resident at h_cache;
-  // hashInsertCost() only switches at ramp_lo (< LLC), which over-estimates
-  // low-m sparse graphs relative to measurement.  Mirrors static_hash_build_cost()
-  // in cost_model.py.
+  // hashInsertCost() already drops to h_cache below ramp_lo, so this is
+  // exactly the per-pair cost × pairs.  Mirrors static_hash_build_cost() in
+  // cost_model.py.
   double staticHashBuildCost(double pairs, const HwCalib &hw)
   {
-    const double tableBytes = staticHashTableBytes(pairs);
-    if (tableBytes <= hw.LLC && hw.h_cache > 0.0)
-      return hw.h_cache * pairs;
     return hashInsertCost(pairs, hw) * pairs;
   }
 
@@ -231,14 +269,16 @@ namespace
     FILE *f = std::fopen(fpath.c_str(), "r");
     if (!f)
       return hw;
-    char buf[512];
-    size_t n = std::fread(buf, 1, sizeof(buf) - 1, f);
-    buf[n] = '\0';
+    std::string text;
+    char chunk[8192];
+    size_t got;
+    while ((got = std::fread(chunk, 1, sizeof(chunk), f)) > 0)
+      text.append(chunk, got);
     std::fclose(f);
-    // Minimal JSON parse: look for "L", "t", "T" keys.
+    // Minimal JSON parse: look for "L", "t", "T", ... keys.
     auto extract = [&](const char *key) -> double
     {
-      const char *p = std::strstr(buf, key);
+      const char *p = std::strstr(text.c_str(), key);
       if (!p)
         return -1.0;
       p = std::strchr(p, ':');
@@ -290,6 +330,36 @@ namespace
     // at the DRAM rate, which is what the legacy h measured).
     if (hw.h_dram <= 0.0 && hw.h > 0.0)
       hw.h_dram = hw.h;
+    // Recalibrated SET-build bounds, mirroring cost_model.py: the measured
+    // corpora plateau at ~34ns/pair (cache-resident) / ~60ns/pair (DRAM),
+    // so hard-cap the calibration values.
+    if (hw.h_cache > 0.0)
+      hw.h_cache = (hw.h_cache > 34.0) ? std::min(hw.h_cache, 34.0) : std::max(hw.h_cache, 34.0);
+    if (hw.h_dram > 0.0)
+      hw.h_dram = std::min(hw.h_dram, 60.0);
+    // memmove_curve: [[ws_bytes, per_line_ns], ...] log-spaced sweep.
+    // Scan every "[ws, perLine]" pair (the first '[' is the outer array).
+    const char *curveStart = std::strstr(text.c_str(), "\"memmove_curve\"");
+    if (curveStart)
+    {
+      const char *p = std::strchr(curveStart, '[');
+      bool first = true;
+      while (p && *p)
+      {
+        double ws = std::strtod(p + 1, nullptr);
+        char *p1 = nullptr;
+        double perLine = std::strtod(p + 1, &p1);
+        if (p1 && *p1 == ',')
+          perLine = std::strtod(p1 + 1, nullptr);
+        if (!first && ws > 0.0 && perLine > 0.0)
+          hw.memmoveCurve.push_back({ws, perLine});
+        first = false;
+        if (!p1 || p1 == p)
+          break;
+        p = std::strchr(p1, '[');
+      }
+      std::sort(hw.memmoveCurve.begin(), hw.memmoveCurve.end());
+    }
     return hw;
   }
 
@@ -475,7 +545,25 @@ namespace
   //        whose independent read+write streams are overlapped by hardware).
   //   2T = read-modify-write cost per cache line (prefix-sum increments:
   //        dependent load→store, cannot overlap).
-  double insertCost(int layout, double n, double m, const HwCalib &hw)
+  // Size-aware realloc.  realloc of a GROWING backing array is amortized
+  // in-place for small arrays (growth bookkeeping ~Tm/line, no copy: the
+  // runtime grows by a few entries per insert and almost never migrates at
+  // these sizes), so the charge is the memmove-curve rate.  For arrays big
+  // enough that the kernel's page-remap path beats memcpy, the flat
+  // page-remap policy cost R applies instead:
+  //     realloc.cost = min(R, lines·Tm·pen).  Mirrors realloc_cost() in
+  //     cost_model.py; use it with objs = number of realloc events.
+  double reallocCost(double arrayBytes, double objs, const HwCalib &hw)
+  {
+    if (arrayBytes <= 0.0)
+      return 0.0;
+    const double copy = std::ceil(arrayBytes / hw.L) * hw.Tm *
+                        memPenalty(arrayBytes, hw);
+    return std::min(copy, hw.R) * objs;
+  }
+
+  double insertCost(int layout, double n, double m, double csrFrac,
+                    double bcsrFrac, const HwCalib &hw)
   {
     const double d = (n > 0) ? (2.0 * m / n) : 1.0;
     const double g = kPcsrExpansionFactor;
@@ -484,7 +572,6 @@ namespace
     const double L = hw.L;
     const double R = hw.R;
     const double gU = g * d;  // g(u) = physical span of vertex u
-    const double u = n / 2.0; // average vertex id for random row_ptr access
 
     switch (layout)
     {
@@ -500,13 +587,13 @@ namespace
       //                                 cost_model.py insert_cost_csr)
       // C_realloc = R + ⌈4m/L⌉·T        (realloc cap + col_idx growth write)
       const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
-      const double prefixBytes = (n - u) * 8.0;
+      const double prefixBytes = n * 8.0;
       const double cWrite =
           1.0 * t + std::ceil(prefixBytes / L) * 2.0 * T *
                         memPenalty(prefixBytes, hw);
-      const double moveBytes = 4.0 * m;
+      const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
       const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm * memPenalty(moveBytes, hw);
+          std::ceil(moveBytes / L) * hw.Tm * memPenalty(8.0 * m + moveBytes, hw);
       const double cRealloc = R + std::ceil(4.0 * m / L) * T;
       return cLocate + cWrite + cMove + cRealloc;
     }
@@ -525,45 +612,29 @@ namespace
       // Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc
       // bcol by +2 ints, memmove everything after the insertion point, bump
       // the brow prefix sums.  bcol backing array = 16m bytes.
+      //
+      // Both directed inserts always pay a memmove of the bcol tail after
+      // the sorted insertion point; the expected tail volume is computed
+      // exactly from the graph's degree vector (bcsrFrac) — deliberately NO
+      // degree-based piecewise approximation (append shortcut / second-shift
+      // probability / hard cutoff); the exact expected tail replaces all of
+      // it.  Mirrors insert_cost_bcsr() in cost_model.py.
       const double b = kBcsrBlockSize;
       const double nb = std::ceil(n / b);
-      const double arrBytes = 16.0 * m;
-      const double edgeDensity =
-          (n > 1.0) ? (2.0 * m / (n * (n - 1.0))) : 0.0;
-      const double freshProb = std::max(0.0, 1.0 - edgeDensity);
       constexpr double kDirs = 2.0;
       const double cLocate =
           4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
-      double cWrite = kDirs * std::ceil(nb * 4.0 / L) * 2.0 * T;
-      const double cMoveOnce =
-          std::ceil((arrBytes / 2.0) / L) * hw.Tm * memPenalty(arrBytes, hw);
-      double cMove;
-      if (d < kBcsrAppendDCrit && arrBytes <= hw.LLC)
-      {
-        // Small, very sparse graphs: tail-append with no memmove.
-        cMove = kDirs * std::ceil(8.0 / L) * T;
-      }
-      else if (d >= kBcsrSecondMemmoveDCrit)
-      {
-        cMove = cMoveOnce;
-      }
-      else
-      {
-        const double pSecondMove =
-            (d < kBcsrDFillCrit) ? 0.0 : std::min(1.0, d / kBcsrDFillCrit);
-        cMove = cMoveOnce * (1.0 + pSecondMove);
-      }
-      double cRealloc;
-      if (edgeDensity >= 0.95)
-      {
-        cMove = freshProb * cMove;
-        cWrite = freshProb * cWrite;
-        cRealloc = kDirs * freshProb * R;
-      }
-      else
-      {
-        cRealloc = kDirs * R;
-      }
+      // brow prefix-sum R-M-W: expected E[nb−blk] = nb/2 int32 entries per
+      // directed insert × 2 dirs = nb int32 entries, 2T per line.
+      const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
+      // Exact shift: bcsrFrac = expected tail / m (from the real degree
+      // vector; 1.0 = whole array).  Two directed inserts × 8 bytes per
+      // shifted edge-pair.  memPenalty keeps the working-set cache-pressure
+      // physics of the whole backing array.
+      const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
+      const double cMove =
+          std::ceil(moveBytes / L) * hw.Tm * memPenalty(moveBytes, hw);
+      const double cRealloc = reallocCost(16.0 * m, kDirs, hw);
       return cLocate + cWrite + cMove + cRealloc;
     }
     case LAYOUT_SET:
@@ -595,7 +666,9 @@ namespace
   //   per-insert cost is hw.h (size-aware: hw.h_cache / hw.h_dram via
   //   hashInsertCost()), measured by hw_calib_bench against a replica of the
   //   open-addressing EdgeHashMap.
-  // Plus one extra_edge_pairs realloc event: R.
+  // Plus one extra_edge_pairs realloc event: size-aware (reallocCost of the
+  // static hash table's backing bytes — mirrors realloc_cost(staticHashTableBytes)
+  // in cost_model.py insert_setup_cost_set).
   //
   // IMPORTANT: the other O(n+m) work the first refresh_graph_counts_from_canonical
   // performs (the canonical_edge_count roaring_bitmap_contains scan = hw.c*m,
@@ -614,7 +687,7 @@ namespace
     if (layout != LAYOUT_SET)
       return 0.0;
     const double cHashBuild = staticHashBuildCost(m, hw);
-    return cHashBuild + hw.R;
+    return cHashBuild + reallocCost(staticHashTableBytes(m), 1.0, hw);
   }
 
   // C_read(A) — read the source layout's full representation.  The runtime
@@ -722,7 +795,7 @@ namespace
   }
 
   double operationCost(const Region &r, int layout, double n, double m,
-                       const HwCalib &hw)
+                       double csrFrac, double bcsrFrac, const HwCalib &hw)
   {
     // Execution cost of a region under the chosen layout L.
     //   operationCost(R, L) = H · totalOps · ( f_T · uTrav(L) + f_I · uIns(L) )
@@ -739,7 +812,7 @@ namespace
     const double totalOps = std::max(1.0, static_cast<double>(r.totalOps));
 
     const double uTrav = traversalCost(layout, n, m, hw);
-    const double uIns = insertCost(layout, n, m, hw);
+    const double uIns = insertCost(layout, n, m, csrFrac, bcsrFrac, hw);
 
     // One-time lazy-init cost for the first insert under this layout (e.g.
     // SET's static-hash build).  Charged once per region, not per op: the
@@ -750,7 +823,8 @@ namespace
   }
 
   double estimateAllCSRPathCost(const std::vector<Region> &regions, double estN,
-                                double estM, const HwCalib &hw)
+                                double estM, double csrFrac, double bcsrFrac,
+                                const HwCalib &hw)
   {
     if (regions.empty())
       return 0.0;
@@ -760,8 +834,8 @@ namespace
     {
       if (!layoutFeasible(R.dominant, LAYOUT_CSR))
         return kInf;
-      total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
-      total += operationCost(R, LAYOUT_CSR, estN, estM, hw);
+total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+      total += operationCost(R, LAYOUT_CSR, estN, estM, csrFrac, bcsrFrac, hw);
       current = LAYOUT_CSR;
     }
     return total;
@@ -782,7 +856,8 @@ namespace
 
   double estimateChosenScheduleCost(const std::vector<Region> &regions,
                                     const std::vector<int> &chosen, double estN,
-                                    double estM, const HwCalib &hw)
+                                    double estM, double csrFrac, double bcsrFrac,
+                                    const HwCalib &hw)
   {
     if (regions.empty() || chosen.size() != regions.size())
       return kInf;
@@ -796,7 +871,7 @@ namespace
       if (!layoutFeasible(regions[i].dominant, layout))
         return kInf;
       total += conversionCost(current, layout, estN, estM, hw);
-      total += operationCost(regions[i], layout, estN, estM, hw);
+      total += operationCost(regions[i], layout, estN, estM, csrFrac, bcsrFrac, hw);
       current = layout;
     }
     return total;
@@ -814,7 +889,8 @@ namespace
   }
 
   LayoutSchedule solveDP(const std::vector<Region> &regions, double estN,
-                         double estM, const HwCalib &hw)
+                         double estM, double csrFrac, double bcsrFrac,
+                         const HwCalib &hw)
   {
     LayoutSchedule S;
     const int R = static_cast<int>(regions.size());
@@ -839,7 +915,7 @@ namespace
       if (!layoutFeasible(regions[0].dominant, l))
         continue;
       dp[0][l] = conversionCost(LAYOUT_CSR, l, estN, estM, hw) +
-                 operationCost(regions[0], l, estN, estM, hw);
+                 operationCost(regions[0], l, estN, estM, csrFrac, bcsrFrac, hw);
     }
 
     for (int i = 1; i < R; ++i)
@@ -848,7 +924,7 @@ namespace
       {
         if (!layoutFeasible(regions[i].dominant, cur))
           continue;
-        const double runCost = operationCost(regions[i], cur, estN, estM, hw);
+        const double runCost = operationCost(regions[i], cur, estN, estM, csrFrac, bcsrFrac, hw);
         for (int prev = 0; prev < LAYOUT_COUNT; ++prev)
         {
           if (dp[i - 1][prev] >= kInf / 2.0)
@@ -891,7 +967,7 @@ namespace
     {
       if (!layoutFeasible(regions[R - 1].dominant, l))
         continue;
-      S.suffixCost[R - 1][l] = operationCost(regions[R - 1], l, estN, estM, hw);
+      S.suffixCost[R - 1][l] = operationCost(regions[R - 1], l, estN, estM, csrFrac, bcsrFrac, hw);
     }
     for (int i = R - 2; i >= 0; --i)
     {
@@ -899,7 +975,7 @@ namespace
       {
         if (!layoutFeasible(regions[i].dominant, l))
           continue;
-        const double here = operationCost(regions[i], l, estN, estM, hw);
+        const double here = operationCost(regions[i], l, estN, estM, csrFrac, bcsrFrac, hw);
         double tail = kInf;
         for (int nxt = 0; nxt < LAYOUT_COUNT; ++nxt)
         {
@@ -961,6 +1037,23 @@ namespace
               G.n = modelN;
             if (auto *modelM = getSizeConstant(sizeMD->getOperand(1).get()))
               G.m = modelM;
+          }
+        }
+        if (MDNode *fracMD = CB->getMetadata("autotuner.shift_fracs"))
+        {
+          auto readFrac = [](Metadata *M) -> std::optional<double>
+          {
+            if (auto *CAM = dyn_cast_or_null<ConstantAsMetadata>(M))
+              if (auto *CFP = dyn_cast_or_null<ConstantFP>(CAM->getValue()))
+                return CFP->getValueAPF().convertToDouble();
+            return std::nullopt;
+          };
+          if (fracMD->getNumOperands() >= 2)
+          {
+            if (auto cf = readFrac(fracMD->getOperand(0).get()))
+              G.csrFrac = std::max(0.0, *cf);
+            if (auto bf = readFrac(fracMD->getOperand(1).get()))
+              G.bcsrFrac = std::max(0.0, *bf);
           }
         }
         G.nodesBmp = CB->getArgOperand(3);
@@ -1560,7 +1653,8 @@ namespace
       }
 
       const int actualLayout = shouldSwitch ? target : current;
-      const double predictedNs = operationCost(R, actualLayout, estN, estM, hw);
+      const double predictedNs = operationCost(R, actualLayout, estN, estM,
+                                                 G.csrFrac, G.bcsrFrac, hw);
 
       if (shouldSwitch)
       {
@@ -1736,11 +1830,13 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     if (metaIt == metaByGraphPtr.end())
       continue;
     auto [estN, estM] = estimateGraphSize(metaIt->second);
+    const double gCsrFrac = metaIt->second.csrFrac;
+    const double gBcsrFrac = metaIt->second.bcsrFrac;
     std::vector<Region> regions = mergeSmallRegions(buildRegions(events));
     if (regions.empty())
       continue;
 
-    LayoutSchedule S = solveDP(regions, estN, estM, hw);
+    LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw);
     if (forcedLayout >= 0)
     {
       for (size_t i = 0; i < S.chosen.size(); ++i)
@@ -1751,8 +1847,10 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       // errs() << "[AutoTuner] Forced layout override: "
       //        << layoutName(forcedLayout) << "\n";
     }
-    const double chosenCost = estimateChosenScheduleCost(regions, S.chosen, estN, estM, hw);
-    const double allCSR = estimateAllCSRPathCost(regions, estN, estM, hw);
+    const double chosenCost = estimateChosenScheduleCost(
+        regions, S.chosen, estN, estM, gCsrFrac, gBcsrFrac, hw);
+    const double allCSR = estimateAllCSRPathCost(
+        regions, estN, estM, gCsrFrac, gBcsrFrac, hw);
 
     bool shouldSkip = false;
     if (forcedLayout < 0 && chosenCost < kInf / 2.0 && allCSR < kInf / 2.0)
@@ -1791,7 +1889,8 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       for (size_t i = 0; i < regions.size(); ++i)
       {
         const double predictedNs =
-            operationCost(regions[i], S.chosen[i], estN, estM, hw);
+            operationCost(regions[i], S.chosen[i], estN, estM,
+                          gCsrFrac, gBcsrFrac, hw);
         totalOpCost += predictedNs;
         errs() << "[AutoTuner]   region=" << i
                << " kind=" << regionTypeName(regions[i].dominant)

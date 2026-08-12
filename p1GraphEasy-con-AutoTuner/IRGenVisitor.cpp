@@ -22,8 +22,11 @@ struct FileGraphEstimate
     int64_t logical_m = 0;
 };
 
-std::optional<FileGraphEstimate> estimateUnweightedGraphFile(const std::string &sourceDir,
-                                                             const std::string &edgeFileName)
+// Resolve an edge file to an absolute path by trying the raw path, then the
+// source directory, then ./test — mirrors the candidate list used by the
+// graph loader.  Returns an empty path when the file cannot be found.
+std::filesystem::path resolveEdgeFile(const std::string &sourceDir,
+                                      const std::string &edgeFileName)
 {
     namespace fs = std::filesystem;
     std::vector<fs::path> candidates;
@@ -35,16 +38,20 @@ std::optional<FileGraphEstimate> estimateUnweightedGraphFile(const std::string &
         candidates.push_back(fs::path("test") / raw);
     }
 
-    fs::path chosen;
     for (const auto &candidate : candidates)
     {
         std::error_code ec;
         if (fs::exists(candidate, ec) && !ec)
-        {
-            chosen = candidate;
-            break;
-        }
+            return candidate;
     }
+    return fs::path{};
+}
+
+std::optional<FileGraphEstimate> estimateUnweightedGraphFile(const std::string &sourceDir,
+                                                             const std::string &edgeFileName)
+{
+    namespace fs = std::filesystem;
+    fs::path chosen = resolveEdgeFile(sourceDir, edgeFileName);
     if (chosen.empty())
         return std::nullopt;
 
@@ -65,6 +72,79 @@ std::optional<FileGraphEstimate> estimateUnweightedGraphFile(const std::string &
         return std::nullopt;
 
     return FileGraphEstimate{maxNode + 1, undirectedEdges};
+}
+
+// Exact expected CSR/BCSR memmove tails, ported from cost_model.py
+// shift_fractions().  Returns (csr_frac, bcsr_frac) multipliers on the
+// baseline move terms (1.0 = current model).  nullopt when the edge file is
+// unavailable, so the caller degrades to the fraction-less equation.
+std::optional<std::pair<double, double>> estimateShiftFractions(int64_t n,
+                                                                int64_t mUndirected,
+                                                                const std::string &sourceDir,
+                                                                const std::string &edgeFileName)
+{
+    namespace fs = std::filesystem;
+    fs::path chosen = resolveEdgeFile(sourceDir, edgeFileName);
+    if (chosen.empty())
+        return std::nullopt;
+    if (n <= 0 || mUndirected <= 0)
+        return std::nullopt;
+
+    std::ifstream in(chosen);
+    if (!in.good())
+        return std::nullopt;
+
+    // deg[v] = number of undirected neighbors of vertex v (in id order);
+    // mirrors _load_degree_vector in cost_model.py.
+    std::vector<int64_t> deg(static_cast<size_t>(n), 0);
+    int64_t u = 0;
+    int64_t v = 0;
+    while (in >> u >> v)
+    {
+        if (u >= 0 && u < n)
+            deg[static_cast<size_t>(u)]++;
+        if (v >= 0 && v < n)
+            deg[static_cast<size_t>(v)]++;
+    }
+
+    // CSR: suffix sum over undirected degrees (vertex row length = deg[i]).
+    // csr_add_directed inserts at pos = row_ptr[from+1] and memmoves
+    // everything after it: tail(from) = sum_{i>from} deg[i].
+    std::vector<int64_t> suffix(static_cast<size_t>(n + 1), 0);
+    for (int64_t i = n - 1; i >= 0; --i)
+        suffix[static_cast<size_t>(i)] = suffix[static_cast<size_t>(i + 1)] + deg[static_cast<size_t>(i)];
+    long double totalTailCsr = 0.0L;
+    for (int64_t i = 0; i < n; ++i)
+        totalTailCsr += static_cast<long double>(suffix[static_cast<size_t>(i + 1)]);
+    const long double eTailCsr = totalTailCsr / n;
+    const double csrFrac = static_cast<double>(2.0L * eTailCsr / mUndirected);
+
+    // BCSR: block suffix + within-block local_row suffix, in edge pairs.
+    constexpr int64_t kB = 64; // kBcsrBlockSize, matches AutoTunerPass.cpp
+    const int64_t nb = (n + kB - 1) / kB;
+    std::vector<int64_t> blockPairs(static_cast<size_t>(nb), 0);
+    for (int64_t vIdx = 0; vIdx < n; ++vIdx)
+        blockPairs[static_cast<size_t>(vIdx / kB)] += deg[static_cast<size_t>(vIdx)];
+    std::vector<int64_t> blockSuffix(static_cast<size_t>(nb + 1), 0);
+    for (int64_t k = nb - 1; k >= 0; --k)
+        blockSuffix[static_cast<size_t>(k)] = blockSuffix[static_cast<size_t>(k + 1)] + blockPairs[static_cast<size_t>(k)];
+
+    long double totalTailBcsr = 0.0L;
+    for (int64_t vIdx = 0; vIdx < n; ++vIdx)
+    {
+        const int64_t blk = vIdx / kB;
+        const int64_t loc = vIdx % kB;
+        long double tail = blockSuffix[static_cast<size_t>(blk + 1)]; // later blocks
+        const int64_t base = blk * kB;
+        const int64_t lim = std::min(kB, n - base);
+        for (int64_t r = loc + 1; r < lim; ++r)
+            tail += static_cast<long double>(deg[static_cast<size_t>(base + r)]);
+        totalTailBcsr += tail;
+    }
+    const long double eTailBcsr = totalTailBcsr / n;
+    const double bcsrFrac = static_cast<double>(eTailBcsr / mUndirected);
+
+    return std::pair<double, double>{csrFrac, bcsrFrac};
 }
 }
 
@@ -3892,6 +3972,24 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
                     llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(I64, fileEstimate->logical_m))};
                 initCall->setMetadata("autotuner.graph_size",
                                       llvm::MDNode::get(Context, sizeOps));
+
+                // Exact expected CSR/BCSR memmove tails from the same edge
+                // file, mirroring cost_model.py shift_fractions().  Absent
+                // the file (estimateShiftFractions returns nullopt), the
+                // pass defaults to the fraction-less equation (frac = 1.0).
+                std::optional<std::pair<double, double>> shiftFracs =
+                    estimateShiftFractions(fileEstimate->n, fileEstimate->logical_m,
+                                           SourceDir, G->edgeFileName);
+                if (shiftFracs)
+                {
+                    llvm::Metadata *fracOps[] = {
+                        llvm::ConstantAsMetadata::get(
+                            llvm::ConstantFP::get(Builder.getDoubleTy(), shiftFracs->first)),
+                        llvm::ConstantAsMetadata::get(
+                            llvm::ConstantFP::get(Builder.getDoubleTy(), shiftFracs->second))};
+                    initCall->setMetadata("autotuner.shift_fracs",
+                                          llvm::MDNode::get(Context, fracOps));
+                }
             }
         }
 

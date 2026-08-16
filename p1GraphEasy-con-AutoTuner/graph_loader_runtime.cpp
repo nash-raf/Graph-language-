@@ -26,6 +26,7 @@ static int omp_get_thread_num() { return 0; }
 #endif
 
 #include "roaring_bitmap.h"
+#include "autotuner_runtime.h"
 
 struct Graph {
     int64_t n;
@@ -973,6 +974,13 @@ extern "C" void graph_ensure_owned_storage(Graph *g) {
             abort();
         /* After convert-to-SET the Graph CSR views can be cleared; skip copy. */
         if (!g->row_ptr) {
+            extra.csr_arrays_owned = true;
+        } else if (autograph_get_layout(g) != LAYOUT_CSR) {
+            /* PCSR/BCSR arrays are heap-allocated by their converters and are
+             * capacity-indexed (PCSR row ends reach ~2m). A CSR-sized (g->m)
+             * copy would truncate the gap-encoded buffer and cause heap
+             * overreads in PCSR gap-slot scans. They are already owned, so no
+             * copy is needed. */
             extra.csr_arrays_owned = true;
         } else {
         size_t row_bytes = static_cast<size_t>(g->n + 1) * sizeof(int64_t);

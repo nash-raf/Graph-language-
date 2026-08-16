@@ -6,9 +6,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 TEST_BIN="$TMP/graph_loader_runtime_test"
 
+gcc -O2 -std=gnu11 -c "$ROOT/autotuner_runtime.c" -o "$TMP/autotuner_runtime.o"
+gcc -O2 -std=gnu11 -c "$ROOT/parallel_runtime.c" -o "$TMP/parallel_runtime.o"
+
 g++ -O2 -std=c++17 -fopenmp -mavx2 -march=native \
   "$ROOT/test/graph_loader_runtime_test.cpp" \
   "$ROOT/graph_loader_runtime.cpp" "$ROOT/roaring_bitmap.cpp" \
+  "$TMP/autotuner_runtime.o" "$TMP/parallel_runtime.o" -lnlopt \
   -o "$TEST_BIN"
 
 cat >"$TMP/unweighted.txt" <<'EOF'

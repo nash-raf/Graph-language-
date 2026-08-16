@@ -70,6 +70,18 @@ typedef struct {
   uint8_t *scratch_round_member;
   int64_t *scratch_offsets;
   int32_t scratch_offsets_cap;
+
+  /* Analytic per-op-class RD tiers (Phase 3): per directed insert
+   * (N, h2, h3) for {scan, move, brow, struct}, computed by the compiler
+   * from the edge file (mirrors analytic_rd.py).  Used to keep runtime-side
+   * profiles/predictions consistent with the compile-time cost model. */
+  double class_tiers[12];
+  uint8_t has_class_tiers;
+
+  /* CSR analytic per-op-class RD tiers (Phase 3 extension): same payload for
+   * the CSR structure (move/brow/struct; scan unused), mirrors AnalyticCSR. */
+  double csr_class_tiers[12];
+  uint8_t has_csr_class_tiers;
 } AutoGraphMeta;
 
 #ifdef __cplusplus
@@ -239,3 +251,12 @@ void convert_bcsr_to_csr(int64_t n, int32_t nblocks, int32_t block_size,
 void autograph_init(void *graph_ptr, int64_t n, int64_t m, 
                     void *nodes_bmp, void *edges_bmp, 
                     void *edge_pairs_table);
+
+/* Phase 3: attach analytic per-op-class RD tiers computed at compile time
+ * (mirrors analytic_rd.py).  tiers must point to 12 doubles in
+ * (N, h2, h3) × {scan, move, brow, struct} order; NULL clears. */
+void autograph_set_class_tiers(void *graph_ptr, const double *tiers);
+
+/* Phase 3 extension: attach the CSR analytic per-op-class RD tiers
+ * (mirrors analytic_rd.py AnalyticCSR; scan unused). */
+void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers);

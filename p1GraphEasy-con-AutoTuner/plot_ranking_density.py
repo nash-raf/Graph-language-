@@ -225,7 +225,12 @@ def process_csv(csv_path, title, out_name=None):
 
 
 def main():
-    targets = [
+    import sys
+    if len(sys.argv) > 1:
+        targets = [(Path(a), " ".join(Path(a).stem.split("_")),
+                    None) for a in sys.argv[1:]]
+    else:
+        targets = [
         (SCRIPT_DIR / "erdos_renyi_runs10.csv", "Erdos-Renyi",
          "erdos_renyi_density_ranking.png"),
         (SCRIPT_DIR / "barabasi_albert_runs10.csv", "Barabasi-Albert",

@@ -38,6 +38,50 @@ namespace
     LAYOUT_COUNT = 4
   };
 
+  // Cache-model selection (exactly one active; AUTOTUNER_CACHE_MODEL):
+  //   Hybrid    -> legacy structural equations + class-tier weighted
+  //                per-line rates on the memory-penalty terms (DEFAULT,
+  //                production cost model)
+  //   Legacy    -> footprint-only memPenalty (no RD correction)
+  //   Aware     -> legacy + cache-aware penalty F(W,h2,h3) (diagnostics)
+  //   ClassTier -> previous experimental class x residency rate model
+  //                (diagnostics only)
+  enum class CacheModel
+  {
+    Hybrid,
+    Legacy,
+    Aware,
+    ClassTier
+  };
+
+  static CacheModel g_cacheModel = CacheModel::Hybrid;
+
+  static CacheModel cacheModelFromEnv()
+  {
+    const char *raw = std::getenv("AUTOTUNER_CACHE_MODEL");
+    if (raw && *raw)
+    {
+      std::string value(raw);
+      std::transform(value.begin(), value.end(), value.begin(),
+                     [](unsigned char c)
+                     { return static_cast<char>(std::tolower(c)); });
+      if (value == "legacy")
+        return CacheModel::Legacy;
+      if (value == "aware")
+        return CacheModel::Aware;
+      if (value == "class_tier")
+        return CacheModel::ClassTier;
+    }
+    return CacheModel::Hybrid;
+  }
+
+  // Class-tier weighted per-line rate: h2·r_L2 + (h3−h2)·r_L3 + (1−h3)·r_DRAM
+  // (the RD/MRC residency fractions applied to a measured per-tier rate).
+  double weightedRate(double h2, double h3, const double rate[3])
+  {
+    return h2 * rate[0] + (h3 - h2) * rate[1] + (1.0 - h3) * rate[2];
+  }
+
   enum class RegionType
   {
     Traverse,
@@ -60,6 +104,19 @@ namespace
     // heuristic.  Mirrors shift_fractions() in cost_model.py.
     double csrFrac = 1.0;
     double bcsrFrac = 1.0;
+    // Analytic per-class RD tiers (Phase 3): per directed insert
+    // (N_s, h2_s, h3_s) for {scan, move, brow, struct}, delivered via the
+    // autotuner.class_tiers metadata (IRGenVisitor::estimateClassTiers,
+    // mirror of analytic_rd.py).  Replaces the BCSR insert line-traffic
+    // terms (T/2T/Tm/P) with class × residency rates.
+    std::array<double, 12> classTiers = {};
+    bool hasClassTiers = false;
+    // CSR analytic per-class RD tiers (Phase 3 extension): same payload for
+    // the CSR structure ({scan,move,brow,struct} with scan unused), via the
+    // autotuner.class_tiers_csr metadata (estimateCsrClassTiers, mirror of
+    // AnalyticCSR).  Replaces the CSR insert line-traffic terms.
+    std::array<double, 12> csrClassTiers = {};
+    bool hasCsrClassTiers = false;
     // (degree stats removed — uniform freshProb only needs n and m)
   };
 
@@ -107,6 +164,9 @@ namespace
     double R = 10000.0; // per-direction realloc cap (ns); heap copy vs O(1) page remap threshold
     // Measured by hw_calib_bench (with conservative fallbacks):
     double LLC = 8.0 * 1024.0 * 1024.0; // last-level-cache capacity in bytes
+    // L2 capacity in bytes (1.25 MiB; matches rd_hist.L2_LINES * 64 and the
+    // cost_model.py L2_BYTES used by the cache-aware penalty F).
+    double l2Bytes = 1310720.0;
     double Tm = 2.5;                    // per-line cost of a cache-resident overlapping memmove
                                         // (read + write per line; distinct from read-only T)
     double P = 4.0;                     // DRAM-bound memmove penalty vs cache-resident (per line)
@@ -129,6 +189,30 @@ namespace
     // hw_calib_bench.  When present (>= 2 points), memPenalty interpolates
     // this instead of the [ramp_lo, ramp_hi] two-point band.
     std::vector<std::pair<double, double>> memmoveCurve;
+    // Per-class per-tier ns/line rates (class_calib.c sweep): the analytic
+    // BCSR insert cost (autotuner.class_tiers metadata) charges each access
+    // class's line traffic at the rate of its RD tier.  scan = sequential
+    // read stream, move/brow = overlapping R-M-W shift, struct = random
+    // chase.  Defaults are this machine's measured class_calib.json values;
+    // hw_calib.json "class_rates": {"seq": [L2,L3,DRAM], "rmw": [...],
+    // "rand": [...], "dep": [...]} overrides them.
+    double seqRate[3] = {0.5235, 1.4058, 4.1822};
+    double rmwRate[3] = {1.6780, 3.1595, 8.5411};
+    double randRate[3] = {7.5485, 16.1414, 118.0597};
+    // Dependent sequential R-M-W (scalar addq $1, mem — the CSR row_ptr
+    // prefix-loop pattern; class_calib.c "dep").  Unlike the streamed
+    // memmove rmw, the load->modify->store serializes per line, so the
+    // L2-resident rate is ~1.6x rmw (L3/DRAM are line-transfer bound and
+    // similar).  Measured on this machine (scalar, no-tree-vectorize).
+    double depRate[3] = {1.6220, 2.1931, 8.6007};
+    // CSR col_idx memmove tail (class_calib.c "csr_move"): the ACTUAL kernel
+    // pattern — libc memmove(dst = src + 4, src, len), int32 elements, 4-byte
+    // overlapping forward shift (backward-copied by glibc).  Measured over
+    // 12 calibration runs; the median ratio vs the BCSR rmw rate is
+    // ~1.00/1.03/0.99 (L2/L3/DRAM) — the same libc memmove moves the same
+    // byte volume, so the rates are indistinguishable within noise.  Baked
+    // as frozen-rmw x median ratio.
+    double csrMoveRate[3] = {1.6756, 3.2460, 8.4735};
   };
 
   // Log-linear ramp multiplier between lo (penalty 1.0) and hi (penalty P).
@@ -202,6 +286,24 @@ namespace
     // per-line cost ÷ cache-resident per-line cost (hw.Tm).  Without it, the
     // log-linear ramp over the [ramp_lo, ramp_hi] band.
     return curvePerLine(workingSetBytes, hw) / hw.Tm;
+  }
+
+  // F(W, h2, h3) — cache-aware extension of the footprint penalty (mirror of
+  // cost_model.py mem_penalty_cache_aware).  The RD/MRC (Sen/Wood) machinery
+  // supplies the residency fractions h2 (L2), h3−h2 (L3), 1−h3 (DRAM); the
+  // calibrated curve supplies the per-line cost proxy p(W)=memPenalty(W):
+  //     F = h2·p(min(W, L2)) + (h3−h2)·p(min(W, LLC)) + (1−h3)·p(W).
+  // Limits: h3=0 -> p(W) (exact legacy); h2=1 -> p(min(W,L2)) (cache-resident
+  // floor); W<=L2 -> p(W).  This is a locality correction to the calibrated
+  // penalty, NOT a replacement of the structural cost terms.
+  double memPenaltyCacheAware(double ws, double h2, double h3,
+                              const HwCalib &hw)
+  {
+    const double l2 = hw.l2Bytes;
+    const double llc = hw.LLC;
+    return h2 * memPenalty(std::min(ws, l2), hw) +
+           (h3 - h2) * memPenalty(std::min(ws, llc), hw) +
+           (1.0 - h3) * memPenalty(ws, hw);
   }
 
   // Size-aware per-insert cost for an EdgeHashMap bulk build.  The table is
@@ -360,6 +462,31 @@ namespace
       }
       std::sort(hw.memmoveCurve.begin(), hw.memmoveCurve.end());
     }
+    // class_rates: {"seq": [L2,L3,DRAM], "rmw": [...], "rand": [...]}.
+    // Mirrors class_rates_model() in cost_model.py.
+    auto parseRateArray = [&](const char *key, double (&dst)[3])
+    {
+      const char *p = std::strstr(text.c_str(), key);
+      if (!p)
+        return;
+      p = std::strchr(p, '[');
+      if (!p)
+        return;
+      for (int i = 0; i < 3; ++i)
+      {
+        double val = std::strtod(p + 1, nullptr);
+        if (val > 0.0)
+          dst[i] = val;
+        p = std::strchr(p + 1, ',');
+        if (!p)
+          break;
+      }
+    };
+    parseRateArray("\"seq\"", hw.seqRate);
+    parseRateArray("\"rmw\"", hw.rmwRate);
+    parseRateArray("\"rand\"", hw.randRate);
+    parseRateArray("\"dep\"", hw.depRate);
+    parseRateArray("\"csr_move\"", hw.csrMoveRate);
     return hw;
   }
 
@@ -563,7 +690,9 @@ namespace
   }
 
   double insertCost(int layout, double n, double m, double csrFrac,
-                    double bcsrFrac, const HwCalib &hw)
+                    double bcsrFrac, const HwCalib &hw,
+                    const double *classTiers = nullptr,
+                    const double *csrClassTiers = nullptr)
   {
     const double d = (n > 0) ? (2.0 * m / n) : 1.0;
     const double g = kPcsrExpansionFactor;
@@ -577,6 +706,45 @@ namespace
     {
     case LAYOUT_CSR:
     {
+      // PRODUCTION (Hybrid): legacy structural decomposition
+      // (locate + write + move + realloc) with the memory-penalty terms
+      // replaced by the class-tier weighted per-line rates:
+      //   C_write = ⌈8n/L⌉ · wrate_brow      (was 2T·memPenalty)
+      //   C_move  = ⌈4m·csrFrac/L⌉ · wrate_move  (was Tm·memPenalty)
+      // wrate uses the autotuner.class_tiers_csr payload (brow/move classes)
+      // at the rmw per-tier rates.  Absent the payload, the footprint-only
+      // legacy equation applies.  Mirrors cost_model.py insert_cost_csr
+      // under AUTOTUNER_CACHE_MODEL=hybrid.
+      if (csrClassTiers && g_cacheModel == CacheModel::Hybrid)
+      {
+        const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
+        const double cWrite =
+            std::ceil(8.0 * n / L) *
+            weightedRate(csrClassTiers[7], csrClassTiers[8], hw.rmwRate);
+        const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
+        const double cMove =
+            std::ceil(moveBytes / L) *
+            weightedRate(csrClassTiers[4], csrClassTiers[5], hw.rmwRate);
+        const double cRealloc = R + std::ceil(4.0 * m / L) * T;
+        return cLocate + cWrite + cMove + cRealloc;
+      }
+      // Class-tier diagnostics: the experimental class × residency rate
+      // model replacing the whole memory terms.
+      if (csrClassTiers && g_cacheModel == CacheModel::ClassTier)
+      {
+        const double *rates[4] = {hw.seqRate, hw.csrMoveRate, hw.depRate,
+                                  hw.randRate};
+        double perDir = 0.0;
+        for (int cls = 0; cls < 4; ++cls)
+        {
+          const double N = csrClassTiers[cls * 3 + 0];
+          const double h2 = csrClassTiers[cls * 3 + 1];
+          const double h3 = csrClassTiers[cls * 3 + 2];
+          perDir += N * (h2 * rates[cls][0] + (h3 - h2) * rates[cls][1] +
+                         (1.0 - h3) * rates[cls][2]);
+        }
+        return 2.0 * t + 2.0 * perDir;
+      }
       // One undirected edge = 2 directed inserts (from→to, to→from).
       // Per directed: realloc + memmove + row_ptr prefix-sum update.
       // C_locate  = 2t + ⌈d·4/L⌉·T       (row_ptr[from+1] random read + scan)
@@ -588,12 +756,20 @@ namespace
       // C_realloc = R + ⌈4m/L⌉·T        (realloc cap + col_idx growth write)
       const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
       const double prefixBytes = n * 8.0;
+      const bool awareCsr = (csrClassTiers && g_cacheModel == CacheModel::Aware);
+      const double browH2 = awareCsr ? csrClassTiers[7] : 0.0;
+      const double browH3 = awareCsr ? csrClassTiers[8] : 0.0;
       const double cWrite =
           1.0 * t + std::ceil(prefixBytes / L) * 2.0 * T *
-                        memPenalty(prefixBytes, hw);
+                        (awareCsr ? memPenaltyCacheAware(prefixBytes, browH2, browH3, hw)
+                                  : memPenalty(prefixBytes, hw));
       const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
+      const double moveH2 = awareCsr ? csrClassTiers[4] : 0.0;
+      const double moveH3 = awareCsr ? csrClassTiers[5] : 0.0;
       const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm * memPenalty(8.0 * m + moveBytes, hw);
+          std::ceil(moveBytes / L) * hw.Tm *
+          (awareCsr ? memPenaltyCacheAware(8.0 * m + moveBytes, moveH2, moveH3, hw)
+                    : memPenalty(8.0 * m + moveBytes, hw));
       const double cRealloc = R + std::ceil(4.0 * m / L) * T;
       return cLocate + cWrite + cMove + cRealloc;
     }
@@ -608,6 +784,53 @@ namespace
     }
     case LAYOUT_BCSR:
     {
+      // PRODUCTION (Hybrid): legacy structural decomposition with the
+      // memory-penalty terms replaced by the class-tier weighted per-line
+      // rates:
+      //   C_move  = ⌈16m·bcsrFrac/L⌉ · wrate_move    (was Tm·memPenalty)
+      //   C_realloc = min(⌈16m/L⌉·wrate_struct, R)·2  (was reallocCost)
+      // C_write (brow prefix) has no memPenalty today and stays unchanged.
+      // wrate uses the autotuner.class_tiers payload (move at rmw, struct
+      // at rand).  Absent the payload, the footprint-only legacy equation
+      // applies.  Mirrors cost_model.py insert_cost_bcsr under
+      // AUTOTUNER_CACHE_MODEL=hybrid.
+      if (classTiers && g_cacheModel == CacheModel::Hybrid)
+      {
+        const double b = kBcsrBlockSize;
+        const double nb = std::ceil(n / b);
+        constexpr double kDirs = 2.0;
+        const double cLocate =
+            4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
+        const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
+        const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
+        const double cMove =
+            std::ceil(moveBytes / L) *
+            weightedRate(classTiers[4], classTiers[5], hw.rmwRate);
+        const double cRealloc =
+            std::min(std::ceil(16.0 * m / L) *
+                         weightedRate(classTiers[10], classTiers[11],
+                                      hw.randRate),
+                     R) *
+            kDirs;
+        return cLocate + cWrite + cMove + cRealloc;
+      }
+      // Class-tier diagnostics: the experimental class × residency rate
+      // model replacing the whole memory terms.
+      if (classTiers && g_cacheModel == CacheModel::ClassTier)
+      {
+        const double *rates[4] = {hw.seqRate, hw.rmwRate, hw.rmwRate,
+                                  hw.randRate};
+        double perDir = 0.0;
+        for (int cls = 0; cls < 4; ++cls)
+        {
+          const double N = classTiers[cls * 3 + 0];
+          const double h2 = classTiers[cls * 3 + 1];
+          const double h3 = classTiers[cls * 3 + 2];
+          perDir += N * (h2 * rates[cls][0] + (h3 - h2) * rates[cls][1] +
+                         (1.0 - h3) * rates[cls][2]);
+        }
+        return 4.0 * t + 2.0 * perDir;
+      }
       // graph_add_edge calls autograph_bcsr_add_edge twice (both directions).
       // Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc
       // bcol by +2 ints, memmove everything after the insertion point, bump
@@ -632,8 +855,13 @@ namespace
       // shifted edge-pair.  memPenalty keeps the working-set cache-pressure
       // physics of the whole backing array.
       const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
+      const bool awareBcsr = (classTiers && g_cacheModel == CacheModel::Aware);
+      const double moveH2 = awareBcsr ? classTiers[4] : 0.0;
+      const double moveH3 = awareBcsr ? classTiers[5] : 0.0;
       const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm * memPenalty(moveBytes, hw);
+          std::ceil(moveBytes / L) * hw.Tm *
+          (awareBcsr ? memPenaltyCacheAware(moveBytes, moveH2, moveH3, hw)
+                     : memPenalty(moveBytes, hw));
       const double cRealloc = reallocCost(16.0 * m, kDirs, hw);
       return cLocate + cWrite + cMove + cRealloc;
     }
@@ -795,7 +1023,9 @@ namespace
   }
 
   double operationCost(const Region &r, int layout, double n, double m,
-                       double csrFrac, double bcsrFrac, const HwCalib &hw)
+                       double csrFrac, double bcsrFrac, const HwCalib &hw,
+                       const double *classTiers = nullptr,
+                       const double *csrClassTiers = nullptr)
   {
     // Execution cost of a region under the chosen layout L.
     //   operationCost(R, L) = H · totalOps · ( f_T · uTrav(L) + f_I · uIns(L) )
@@ -812,7 +1042,8 @@ namespace
     const double totalOps = std::max(1.0, static_cast<double>(r.totalOps));
 
     const double uTrav = traversalCost(layout, n, m, hw);
-    const double uIns = insertCost(layout, n, m, csrFrac, bcsrFrac, hw);
+    const double uIns = insertCost(layout, n, m, csrFrac, bcsrFrac, hw,
+                                   classTiers, csrClassTiers);
 
     // One-time lazy-init cost for the first insert under this layout (e.g.
     // SET's static-hash build).  Charged once per region, not per op: the
@@ -824,7 +1055,9 @@ namespace
 
   double estimateAllCSRPathCost(const std::vector<Region> &regions, double estN,
                                 double estM, double csrFrac, double bcsrFrac,
-                                const HwCalib &hw)
+                                const HwCalib &hw,
+                                const double *classTiers = nullptr,
+                                const double *csrClassTiers = nullptr)
   {
     if (regions.empty())
       return 0.0;
@@ -835,7 +1068,8 @@ namespace
       if (!layoutFeasible(R.dominant, LAYOUT_CSR))
         return kInf;
 total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
-      total += operationCost(R, LAYOUT_CSR, estN, estM, csrFrac, bcsrFrac, hw);
+      total += operationCost(R, LAYOUT_CSR, estN, estM, csrFrac, bcsrFrac, hw,
+                             classTiers, csrClassTiers);
       current = LAYOUT_CSR;
     }
     return total;
@@ -857,7 +1091,9 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
   double estimateChosenScheduleCost(const std::vector<Region> &regions,
                                     const std::vector<int> &chosen, double estN,
                                     double estM, double csrFrac, double bcsrFrac,
-                                    const HwCalib &hw)
+                                    const HwCalib &hw,
+                                    const double *classTiers = nullptr,
+                                    const double *csrClassTiers = nullptr)
   {
     if (regions.empty() || chosen.size() != regions.size())
       return kInf;
@@ -871,7 +1107,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       if (!layoutFeasible(regions[i].dominant, layout))
         return kInf;
       total += conversionCost(current, layout, estN, estM, hw);
-      total += operationCost(regions[i], layout, estN, estM, csrFrac, bcsrFrac, hw);
+      total += operationCost(regions[i], layout, estN, estM, csrFrac, bcsrFrac, hw,
+                             classTiers, csrClassTiers);
       current = layout;
     }
     return total;
@@ -890,7 +1127,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
 
   LayoutSchedule solveDP(const std::vector<Region> &regions, double estN,
                          double estM, double csrFrac, double bcsrFrac,
-                         const HwCalib &hw)
+                         const HwCalib &hw, const double *classTiers = nullptr,
+                         const double *csrClassTiers = nullptr)
   {
     LayoutSchedule S;
     const int R = static_cast<int>(regions.size());
@@ -915,7 +1153,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       if (!layoutFeasible(regions[0].dominant, l))
         continue;
       dp[0][l] = conversionCost(LAYOUT_CSR, l, estN, estM, hw) +
-                 operationCost(regions[0], l, estN, estM, csrFrac, bcsrFrac, hw);
+                 operationCost(regions[0], l, estN, estM, csrFrac, bcsrFrac, hw,
+                               classTiers, csrClassTiers);
     }
 
     for (int i = 1; i < R; ++i)
@@ -924,7 +1163,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       {
         if (!layoutFeasible(regions[i].dominant, cur))
           continue;
-        const double runCost = operationCost(regions[i], cur, estN, estM, csrFrac, bcsrFrac, hw);
+        const double runCost = operationCost(regions[i], cur, estN, estM, csrFrac, bcsrFrac, hw,
+                                             classTiers, csrClassTiers);
         for (int prev = 0; prev < LAYOUT_COUNT; ++prev)
         {
           if (dp[i - 1][prev] >= kInf / 2.0)
@@ -967,7 +1207,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     {
       if (!layoutFeasible(regions[R - 1].dominant, l))
         continue;
-      S.suffixCost[R - 1][l] = operationCost(regions[R - 1], l, estN, estM, csrFrac, bcsrFrac, hw);
+      S.suffixCost[R - 1][l] = operationCost(regions[R - 1], l, estN, estM, csrFrac, bcsrFrac, hw,
+                                             classTiers, csrClassTiers);
     }
     for (int i = R - 2; i >= 0; --i)
     {
@@ -975,7 +1216,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       {
         if (!layoutFeasible(regions[i].dominant, l))
           continue;
-        const double here = operationCost(regions[i], l, estN, estM, csrFrac, bcsrFrac, hw);
+        const double here = operationCost(regions[i], l, estN, estM, csrFrac, bcsrFrac, hw,
+                                          classTiers, csrClassTiers);
         double tail = kInf;
         for (int nxt = 0; nxt < LAYOUT_COUNT; ++nxt)
         {
@@ -1055,6 +1297,42 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
             if (auto bf = readFrac(fracMD->getOperand(1).get()))
               G.bcsrFrac = std::max(0.0, *bf);
           }
+        }
+        if (MDNode *tierMD = CB->getMetadata("autotuner.class_tiers"))
+        {
+          auto readTier = [](Metadata *M) -> std::optional<double>
+          {
+            if (auto *CAM = dyn_cast_or_null<ConstantAsMetadata>(M))
+              if (auto *CFP = dyn_cast_or_null<ConstantFP>(CAM->getValue()))
+                return CFP->getValueAPF().convertToDouble();
+            return std::nullopt;
+          };
+          const unsigned nOps = tierMD->getNumOperands();
+          const unsigned want = 12;
+          for (unsigned i = 0; i < nOps && i < want; ++i)
+          {
+            if (auto d = readTier(tierMD->getOperand(i).get()))
+              G.classTiers[i] = *d;
+          }
+          G.hasClassTiers = (nOps >= want);
+        }
+        if (MDNode *csrTierMD = CB->getMetadata("autotuner.class_tiers_csr"))
+        {
+          auto readTier = [](Metadata *M) -> std::optional<double>
+          {
+            if (auto *CAM = dyn_cast_or_null<ConstantAsMetadata>(M))
+              if (auto *CFP = dyn_cast_or_null<ConstantFP>(CAM->getValue()))
+                return CFP->getValueAPF().convertToDouble();
+            return std::nullopt;
+          };
+          const unsigned nOps = csrTierMD->getNumOperands();
+          const unsigned want = 12;
+          for (unsigned i = 0; i < nOps && i < want; ++i)
+          {
+            if (auto d = readTier(csrTierMD->getOperand(i).get()))
+              G.csrClassTiers[i] = *d;
+          }
+          G.hasCsrClassTiers = (nOps >= want);
         }
         G.nodesBmp = CB->getArgOperand(3);
         G.edgesBmp = CB->getArgOperand(4);
@@ -1654,7 +1932,9 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
 
       const int actualLayout = shouldSwitch ? target : current;
       const double predictedNs = operationCost(R, actualLayout, estN, estM,
-                                                 G.csrFrac, G.bcsrFrac, hw);
+                                                 G.csrFrac, G.bcsrFrac, hw,
+                                                 G.hasClassTiers ? G.classTiers.data() : nullptr,
+                                                 G.hasCsrClassTiers ? G.csrClassTiers.data() : nullptr);
 
       if (shouldSwitch)
       {
@@ -1801,6 +2081,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   // Load hardware calibration (cache-line size, access/transfer costs).
   const HwCalib hw = loadHwCalib();
   const int forcedLayout = forcedLayoutFromEnv();
+  g_cacheModel = cacheModelFromEnv();
 
   // Build per-graph event sequences while preserving order.
   // Canonicalize aliases (reloads of the same init graph) onto one key.
@@ -1832,11 +2113,16 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     auto [estN, estM] = estimateGraphSize(metaIt->second);
     const double gCsrFrac = metaIt->second.csrFrac;
     const double gBcsrFrac = metaIt->second.bcsrFrac;
+    const double *gClassTiers =
+        metaIt->second.hasClassTiers ? metaIt->second.classTiers.data() : nullptr;
+    const double *gCsrClassTiers =
+        metaIt->second.hasCsrClassTiers ? metaIt->second.csrClassTiers.data() : nullptr;
     std::vector<Region> regions = mergeSmallRegions(buildRegions(events));
     if (regions.empty())
       continue;
 
-    LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw);
+    LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw,
+                               gClassTiers, gCsrClassTiers);
     if (forcedLayout >= 0)
     {
       for (size_t i = 0; i < S.chosen.size(); ++i)
@@ -1848,9 +2134,11 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       //        << layoutName(forcedLayout) << "\n";
     }
     const double chosenCost = estimateChosenScheduleCost(
-        regions, S.chosen, estN, estM, gCsrFrac, gBcsrFrac, hw);
+        regions, S.chosen, estN, estM, gCsrFrac, gBcsrFrac, hw, gClassTiers,
+        gCsrClassTiers);
     const double allCSR = estimateAllCSRPathCost(
-        regions, estN, estM, gCsrFrac, gBcsrFrac, hw);
+        regions, estN, estM, gCsrFrac, gBcsrFrac, hw, gClassTiers,
+        gCsrClassTiers);
 
     bool shouldSkip = false;
     if (forcedLayout < 0 && chosenCost < kInf / 2.0 && allCSR < kInf / 2.0)
@@ -1890,7 +2178,8 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       {
         const double predictedNs =
             operationCost(regions[i], S.chosen[i], estN, estM,
-                          gCsrFrac, gBcsrFrac, hw);
+                          gCsrFrac, gBcsrFrac, hw, gClassTiers,
+                          gCsrClassTiers);
         totalOpCost += predictedNs;
         errs() << "[AutoTuner]   region=" << i
                << " kind=" << regionTypeName(regions[i].dominant)

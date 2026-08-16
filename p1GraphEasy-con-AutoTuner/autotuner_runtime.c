@@ -719,7 +719,10 @@ static void rebuild_sets_from_csr_meta(AutoGraphMeta *meta, const int64_t *csr_r
 
 void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *col_idx) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (meta) {
+  /* Only CSR mode: struct.Graph's row_ptr/col_idx alias the CSR arrays here.
+   * In PCSR/BCSR mode they alias the transient arrays (or are NULL), and
+   * storing them into meta->csr_* would poison later conversions. */
+  if (meta && meta->current_layout == LAYOUT_CSR) {
     meta->csr_row_ptr = row_ptr;
     meta->csr_col_idx = col_idx;
   }
@@ -729,6 +732,8 @@ void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
                                       int64_t *row_ptr, int32_t *col_idx) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta)
+    return;
+  if (meta->current_layout != LAYOUT_CSR)
     return;
   meta->csr_n = n;
   meta->csr_m = m;
@@ -1407,6 +1412,46 @@ int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v) {
 /* ══════════════════════════════════════════════════════════════════
  *  BCSR-native mutations
  * ══════════════════════════════════════════════════════════════════ */
+
+/* ── In-situ BCSR shift profiling (env AUTOTUNER_SHIFT_PROFILE=<path>) ──
+ * Accumulates wall-time spent in the autograph_bcsr_add_edge memmove and
+ * realloc-migration counts; dumps one JSON line per process at exit.
+ * Completely inert unless the env var is set. */
+static int64_t shift_prof_ns = 0, shift_prof_cnt = 0, shift_prof_bytes = 0;
+static int64_t shift_prof_reloc_cnt = 0, shift_prof_reloc_bytes = 0;
+static int shift_prof_state = -1; /* -1 uninit, 0 off, 1 on */
+
+static void shift_prof_dump(void) {
+  const char *path = getenv("AUTOTUNER_SHIFT_PROFILE");
+  if (!path || shift_prof_cnt <= 0) return;
+  FILE *f = fopen(path, "a");
+  if (!f) return;
+  fprintf(f,
+          "{\"shift_ns\": %lld, \"shift_cnt\": %lld, \"shift_bytes\": %lld, "
+          "\"shift_per_line\": %.4f, \"reloc_cnt\": %lld, "
+          "\"reloc_bytes\": %lld}\n",
+          (long long)shift_prof_ns, (long long)shift_prof_cnt,
+          (long long)shift_prof_bytes,
+          shift_prof_bytes > 0
+              ? (double)shift_prof_ns / ((double)shift_prof_bytes / 64.0)
+              : 0.0,
+          (long long)shift_prof_reloc_cnt,
+          (long long)shift_prof_reloc_bytes);
+  fclose(f);
+}
+
+static int shift_prof_on(void) {
+  if (shift_prof_state < 0) {
+    if (getenv("AUTOTUNER_SHIFT_PROFILE")) {
+      shift_prof_state = 1;
+      atexit(shift_prof_dump);
+    } else {
+      shift_prof_state = 0;
+    }
+  }
+  return shift_prof_state;
+}
+
 int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || meta->current_layout != LAYOUT_BCSR)
@@ -1447,15 +1492,31 @@ int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to) {
 
   /* Insert the new (local_row, col) pair at insert_pos. */
   int32_t total_ints = brow[nb]; /* = 2 * m */
+  int32_t *old_bcol = bcol;
   int32_t *new_bcol = (int32_t *)realloc(bcol,
       (size_t)(total_ints + 2) * sizeof(int32_t));
   if (!new_bcol)
     return 0;
+  if (shift_prof_on() && new_bcol != old_bcol) {
+    shift_prof_reloc_cnt++;
+    shift_prof_reloc_bytes += (int64_t)total_ints * 4;
+  }
 
   /* Shift everything after the insertion point. */
   if (total_ints > insert_pos) {
-    memmove(&new_bcol[insert_pos + 2], &new_bcol[insert_pos],
-            (size_t)(total_ints - insert_pos) * sizeof(int32_t));
+    size_t mv = (size_t)(total_ints - insert_pos) * sizeof(int32_t);
+    if (shift_prof_on()) {
+      struct timespec ts0, ts1;
+      clock_gettime(CLOCK_MONOTONIC, &ts0);
+      memmove(&new_bcol[insert_pos + 2], &new_bcol[insert_pos], mv);
+      clock_gettime(CLOCK_MONOTONIC, &ts1);
+      shift_prof_ns += (int64_t)(ts1.tv_sec - ts0.tv_sec) * 1000000000LL +
+                       (int64_t)(ts1.tv_nsec - ts0.tv_nsec);
+      shift_prof_cnt++;
+      shift_prof_bytes += (int64_t)mv;
+    } else {
+      memmove(&new_bcol[insert_pos + 2], &new_bcol[insert_pos], mv);
+    }
   }
   new_bcol[insert_pos] = local_row;
   new_bcol[insert_pos + 1] = to;
@@ -2727,8 +2788,36 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
     meta->csr_col_idx = *((int32_t **)(base + 24));
     meta->csr_weights = *((int32_t **)(base + 32));
     meta->csr_owned = 0;
+    meta->has_class_tiers = 0;
+    meta->has_csr_class_tiers = 0;
     autograph_set_layout(meta, LAYOUT_CSR);
 
     /* fprintf(stderr, "[AutoTuner] Initialized Graph %p (n=%ld, m=%ld) in CSR baseline layout\n",
             graph_ptr, (long)n, (long)m); */
+}
+
+void autograph_set_class_tiers(void *graph_ptr, const double *tiers) {
+    AutoGraphMeta *meta = find_or_create_meta(graph_ptr);
+    if (!meta)
+        return;
+    if (!tiers) {
+        meta->has_class_tiers = 0;
+        return;
+    }
+    for (int i = 0; i < 12; ++i)
+        meta->class_tiers[i] = tiers[i];
+    meta->has_class_tiers = 1;
+}
+
+void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers) {
+    AutoGraphMeta *meta = find_or_create_meta(graph_ptr);
+    if (!meta)
+        return;
+    if (!tiers) {
+        meta->has_csr_class_tiers = 0;
+        return;
+    }
+    for (int i = 0; i < 12; ++i)
+        meta->csr_class_tiers[i] = tiers[i];
+    meta->has_csr_class_tiers = 1;
 }

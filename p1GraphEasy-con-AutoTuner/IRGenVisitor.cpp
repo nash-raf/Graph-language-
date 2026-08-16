@@ -2,11 +2,15 @@
 #include "SemanticAnalyzer.h" // For TypeKind enum
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <stdexcept>
+#include <vector>
 
 static uint64_t packEdgeKey(int32_t u, int32_t v)
 {
@@ -145,6 +149,562 @@ std::optional<std::pair<double, double>> estimateShiftFractions(int64_t n,
     const double bcsrFrac = static_cast<double>(eTailBcsr / mUndirected);
 
     return std::pair<double, double>{csrFrac, bcsrFrac};
+}
+
+// ── Analytic per-class RD tiers (Phase 3) ─────────────────────────────
+// Ported from analytic_rd.py (AnalyticBCSR.per_class_per_dir): the
+// replay-free expected-RD model.  For the 100-op workload (K_INS = 50
+// undirected inserts), the expected tier split of each access class's line
+// traffic per directed insert:
+//     RD_k(t) = (b - a_t) + bw_const,   bw_const = b_br + 2 - E[a_br_p]
+// (per-op constant; a_t = block-row start incl. the +2-int32-per-prior-
+// op-in-a-lower-block insertion drift), with first-reference (INF) lines
+// below the running minimum of prior block starts charged to DRAM.
+// Returns per-class (N_s, h2_s, h3_s) per directed insert in the order
+// {scan, move, brow, struct} (12 doubles), or nullopt when the edge file
+// is unavailable (pass falls back to the legacy equation).
+std::optional<std::array<double, 12>> estimateClassTiers(int64_t n,
+                                                         int64_t mUndirected,
+                                                         const std::string &sourceDir,
+                                                         const std::string &edgeFileName)
+{
+    namespace fs = std::filesystem;
+    fs::path chosen = resolveEdgeFile(sourceDir, edgeFileName);
+    if (chosen.empty())
+        return std::nullopt;
+    if (n <= 0 || mUndirected <= 0)
+        return std::nullopt;
+    std::ifstream in(chosen);
+    if (!in.good())
+        return std::nullopt;
+
+    // deg[v] = number of undirected neighbors of vertex v (in id order).
+    std::vector<int64_t> deg(static_cast<size_t>(n), 0);
+    int64_t u = 0, v = 0;
+    while (in >> u >> v)
+    {
+        if (u >= 0 && u < n)
+            deg[static_cast<size_t>(u)]++;
+        if (v >= 0 && v < n)
+            deg[static_cast<size_t>(v)]++;
+    }
+
+    // Block structure (o = o_br = 0, matching the compile-time convention).
+    constexpr int64_t kB = 64;                       // kBcsrBlockSize
+    const int64_t nb = (n + kB - 1) / kB;
+    std::vector<int64_t> brow(static_cast<size_t>(nb + 1), 0); // int32 row offsets
+    std::vector<int64_t> verts(static_cast<size_t>(nb), 0);
+    for (int64_t k = 0; k < nb; ++k)
+    {
+        const int64_t v0 = k * kB;
+        const int64_t v1 = std::min<int64_t>(n, v0 + kB);
+        verts[static_cast<size_t>(k)] = v1 - v0;
+        int64_t e = 0;
+        for (int64_t r = v0; r < v1; ++r)
+            e += deg[static_cast<size_t>(r)];
+        brow[static_cast<size_t>(k + 1)] = brow[static_cast<size_t>(k)] + 2 * e;
+    }
+    // (brow_line, row_lines, b, b_br) in cache lines: ((int32 + 0) // 16).
+    std::vector<double> bl(static_cast<size_t>(nb));
+    std::vector<double> rl(static_cast<size_t>(nb));
+    for (int64_t k = 0; k < nb; ++k)
+    {
+        bl[static_cast<size_t>(k)] = static_cast<double>(brow[static_cast<size_t>(k)] / 16);
+        rl[static_cast<size_t>(k)] = static_cast<double>(
+            (brow[static_cast<size_t>(k + 1)] - brow[static_cast<size_t>(k)] + 15) / 16);
+    }
+    const double b = static_cast<double>((4 * mUndirected + 1) / 16);
+    const double bBr = static_cast<double>((nb - 1) / 16);
+
+    // Block-start weights P(k) = verts_k / n and the insertion drift.
+    std::vector<double> P(static_cast<size_t>(nb));
+    for (int64_t k = 0; k < nb; ++k)
+        P[static_cast<size_t>(k)] = static_cast<double>(verts[static_cast<size_t>(k)]) / n;
+    std::vector<double> drift(static_cast<size_t>(nb), 0.0); // cumsum(P)/8, shifted
+    {
+        double acc = 0.0;
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            drift[static_cast<size_t>(k)] = acc / 8.0;
+            acc += P[static_cast<size_t>(k)];
+        }
+    }
+
+    // E[insert position line | blk = k] (expected_ip, o = 0).
+    std::vector<double> ip(static_cast<size_t>(nb));
+    for (int64_t k = 0; k < nb; ++k)
+    {
+        const int64_t v0 = k * kB;
+        const int64_t v1 = std::min<int64_t>(n, v0 + kB);
+        const int64_t nv = std::max<int64_t>(v1 - v0, 1);
+        double cum = 0.0, total = 0.0;
+        for (int64_t r = v0; r < v1; ++r)
+        {
+            total += cum;
+            cum += static_cast<double>(deg[static_cast<size_t>(r)]);
+        }
+        ip[static_cast<size_t>(k)] = std::floor(
+            (static_cast<double>(brow[static_cast<size_t>(k)]) + 2.0 * total / nv) / 16.0);
+    }
+
+    // a_br[k] = (k + 1) // 16;  E[a_br_p] via the row_lines-weighted CDF.
+    std::vector<double> aBr(static_cast<size_t>(nb));
+    std::vector<double> cumP(static_cast<size_t>(nb));
+    {
+        double acc = 0.0;
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            aBr[static_cast<size_t>(k)] = static_cast<double>((k + 1) / 16);
+            acc += P[static_cast<size_t>(k)];
+            cumP[static_cast<size_t>(k)] = acc;
+        }
+    }
+    double num = 0.0, den = 0.0;
+    for (int64_t j = 0; j < nb; ++j)
+    {
+        double acc = 0.0;
+        for (int64_t i = 0; i <= j; ++i)
+            acc += P[static_cast<size_t>(i)] * aBr[static_cast<size_t>(i)];
+        num += rl[static_cast<size_t>(j)] * cumP[static_cast<size_t>(j)] *
+               (acc / std::max(cumP[static_cast<size_t>(j)], 1e-300));
+        den += rl[static_cast<size_t>(j)] * cumP[static_cast<size_t>(j)];
+    }
+    const double eABrP = num / std::max(den, 1e-300);
+    const double bwConst = bBr + 2.0 - eABrP;
+    std::vector<double> rd0(static_cast<size_t>(nb)); // per-op RD at t = 1
+    std::vector<double> wScan(static_cast<size_t>(nb));
+    std::vector<double> wMove(static_cast<size_t>(nb));
+    std::vector<double> wBrow(static_cast<size_t>(nb));
+    for (int64_t k = 0; k < nb; ++k)
+    {
+        rd0[static_cast<size_t>(k)] = (b - bl[static_cast<size_t>(k)]) + bwConst;
+        wScan[static_cast<size_t>(k)] = rl[static_cast<size_t>(k)];
+        wMove[static_cast<size_t>(k)] = b - ip[static_cast<size_t>(k)] + 1.0;
+        wBrow[static_cast<size_t>(k)] = bBr - aBr[static_cast<size_t>(k)] + 1.0;
+    }
+
+    // INF machinery: survival S over the sorted block-start values.
+    // S[j] = P(start > xs[j]) per draw; ties are order-independent (their
+    // pm mass telescopes), mirroring analytic_rd.py exactly.
+    const int64_t nOps = 100; // K_INS = 50 undirected inserts = 100 directed ops
+    auto survival = [&](const std::vector<double> &xsIn)
+    {
+        std::vector<std::pair<double, double>> items(static_cast<size_t>(nb));
+        for (int64_t k = 0; k < nb; ++k)
+            items[static_cast<size_t>(k)] = {xsIn[static_cast<size_t>(k)], P[static_cast<size_t>(k)]};
+        std::sort(items.begin(), items.end(),
+                  [](const auto &a, const auto &b) { return a.first < b.first; });
+        std::vector<double> xs(static_cast<size_t>(nb));
+        std::vector<double> S(static_cast<size_t>(nb));
+        double acc = 0.0;
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            xs[static_cast<size_t>(k)] = items[static_cast<size_t>(k)].first;
+            acc += items[static_cast<size_t>(k)].second;
+            S[static_cast<size_t>(k)] = 1.0 - acc;
+        }
+        return std::pair<std::vector<double>, std::vector<double>>{xs, S};
+    };
+    auto [xsBlk, SBlk] = survival(bl);
+    auto [xsBr, SBr] = survival(aBr);
+
+    // E[(M_{t-1} - y)^+] for each t (row 0 = all lines first-reference),
+    // y a length-nb vector of line positions; returns (nOps x nb).
+    auto minExcess = [&](const std::vector<double> &xs, const std::vector<double> &S,
+                         const std::vector<double> &y)
+    {
+        std::vector<std::vector<double>> M(static_cast<size_t>(nOps),
+                                           std::vector<double>(static_cast<size_t>(nb), 0.0));
+        // upper_bound index per y[k]
+        std::vector<size_t> idx(static_cast<size_t>(nb));
+        for (int64_t k = 0; k < nb; ++k)
+            idx[static_cast<size_t>(k)] =
+                static_cast<size_t>(std::upper_bound(xs.begin(), xs.end(),
+                                                     y[static_cast<size_t>(k)]) -
+                                    xs.begin());
+        for (int64_t t = 2; t <= nOps; ++t)
+        {
+            const double kk = static_cast<double>(t - 1);
+            std::vector<double> pm(static_cast<size_t>(nb));
+            std::vector<double> sufA(static_cast<size_t>(nb + 1), 0.0);
+            std::vector<double> sufB(static_cast<size_t>(nb + 1), 0.0);
+            for (int64_t j = nb - 1; j >= 0; --j)
+            {
+                const double sCur = std::pow(S[static_cast<size_t>(j)], kk);
+                const double sNext = (j + 1 < nb)
+                                         ? std::pow(S[static_cast<size_t>(j + 1)], kk)
+                                         : 0.0;
+                pm[static_cast<size_t>(j)] = sCur - sNext;
+                sufA[static_cast<size_t>(j)] = sufA[static_cast<size_t>(j + 1)] +
+                                               pm[static_cast<size_t>(j)] *
+                                                   xs[static_cast<size_t>(j)];
+                sufB[static_cast<size_t>(j)] = sufB[static_cast<size_t>(j + 1)] +
+                                               pm[static_cast<size_t>(j)];
+            }
+            for (int64_t k = 0; k < nb; ++k)
+            {
+                const double e = sufA[idx[static_cast<size_t>(k)]] -
+                                 y[static_cast<size_t>(k)] *
+                                     sufB[idx[static_cast<size_t>(k)]];
+                M[static_cast<size_t>(t - 1)][static_cast<size_t>(k)] = std::max(e, 0.0);
+            }
+        }
+        return M;
+    };
+
+    std::vector<double> blEnd(static_cast<size_t>(nb));
+    for (int64_t k = 0; k < nb; ++k)
+        blEnd[static_cast<size_t>(k)] = (k + 1 < nb) ? bl[static_cast<size_t>(k + 1)]
+                                                     : b + 1.0;
+    auto infMove = minExcess(xsBlk, SBlk, ip);
+    auto infBl = minExcess(xsBlk, SBlk, bl);
+    auto infBlEnd = minExcess(xsBlk, SBlk, blEnd);
+    auto infBrow = minExcess(xsBr, SBr, aBr);
+    // row 0 (t = 1): all lines first-reference
+    for (int64_t k = 0; k < nb; ++k)
+    {
+        infMove[0][static_cast<size_t>(k)] = wMove[static_cast<size_t>(k)];
+        infBrow[0][static_cast<size_t>(k)] = wBrow[static_cast<size_t>(k)];
+        infBl[0][static_cast<size_t>(k)] = wScan[static_cast<size_t>(k)];
+        infBlEnd[0][static_cast<size_t>(k)] = 0.0;
+    }
+
+    constexpr double kL2Lines = 20480.0;   // 1.25 MB / 64 B
+    constexpr double kL3Lines = 196608.0;  // 12 MB / 64 B
+    // Per class: c = [L2, L3, DRAM] expected line totals over the workload.
+    std::vector<std::array<double, 3>> c(4, {0.0, 0.0, 0.0});
+    for (int64_t t = 1; t <= nOps; ++t)
+    {
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            const double rd = rd0[static_cast<size_t>(k)] -
+                              static_cast<double>(t - 1) * drift[static_cast<size_t>(k)];
+            for (int cls = 0; cls < 4; ++cls)
+            {
+                double w = 0.0, ei = 0.0;
+                switch (cls)
+                {
+                case 0: w = wScan[static_cast<size_t>(k)]; break;
+                case 1: w = wMove[static_cast<size_t>(k)]; break;
+                case 2: w = wBrow[static_cast<size_t>(k)]; break;
+                default: w = 1.0; break;                       // struct
+                }
+                if (cls == 0)
+                {
+                    ei = infBl[static_cast<size_t>(t - 1)][static_cast<size_t>(k)] -
+                         infBlEnd[static_cast<size_t>(t - 1)][static_cast<size_t>(k)];
+                }
+                else if (cls == 1)
+                {
+                    ei = infMove[static_cast<size_t>(t - 1)][static_cast<size_t>(k)];
+                }
+                else if (cls == 2)
+                {
+                    ei = infBrow[static_cast<size_t>(t - 1)][static_cast<size_t>(k)];
+                }
+                else if (t == 1)
+                {
+                    ei = w;                                    // struct: first op tier 2
+                }
+                ei = std::min(std::max(ei, 0.0), w);
+                const double l2 = (rd < kL2Lines) ? w : 0.0;
+                const double l3 = (rd >= kL2Lines && rd < kL3Lines) ? w : 0.0;
+                const double dram = (rd >= kL3Lines) ? w : 0.0;
+                // INF lines are the lowest-j (highest-RD) lines: take them
+                // from L2 first, then L3; they are always charged DRAM.
+                const double t2 = std::max(l2 - ei, 0.0);
+                const double rem = std::max(ei - l2, 0.0);
+                const double t3 = std::max(l3 - rem, 0.0);
+                const double td = dram + ei;
+                c[static_cast<size_t>(cls)][0] += P[static_cast<size_t>(k)] * t2;
+                c[static_cast<size_t>(cls)][1] += P[static_cast<size_t>(k)] * t3;
+                c[static_cast<size_t>(cls)][2] += P[static_cast<size_t>(k)] * td;
+            }
+        }
+    }
+
+    std::array<double, 12> out;
+    for (int cls = 0; cls < 4; ++cls)
+    {
+        const double tot = c[static_cast<size_t>(cls)][0] +
+                           c[static_cast<size_t>(cls)][1] +
+                           c[static_cast<size_t>(cls)][2];
+        const double h2 = (tot > 0.0) ? c[static_cast<size_t>(cls)][0] / tot : 0.0;
+        const double h3 = (tot > 0.0)
+                              ? (c[static_cast<size_t>(cls)][0] +
+                                 c[static_cast<size_t>(cls)][1]) / tot
+                              : 0.0;
+        out[static_cast<size_t>(cls * 3 + 0)] = tot / nOps;
+        out[static_cast<size_t>(cls * 3 + 1)] = h2;
+        out[static_cast<size_t>(cls * 3 + 2)] = h3;
+    }
+    return out;
+}
+
+// Analytic per-class RD tiers for CSR insertion (Phase 3 extension).  Mirror
+// of AnalyticCSR in analytic_rd.py: move = col_idx memmove tail, brow =
+// row_ptr prefix R-M-W, struct = header line; scan unused (no dup-scan);
+// locate folded into brow.  Returns the uniform 4-class payload
+// (N, h2, h3) x {scan, move, brow, struct} per directed insert with scan=0.
+// Canonical semantics documented in trace_gen.py.
+std::optional<std::array<double, 12>> estimateCsrClassTiers(int64_t n,
+                                                            int64_t mUndirected,
+                                                            const std::string &sourceDir,
+                                                            const std::string &edgeFileName)
+{
+    namespace fs = std::filesystem;
+    fs::path chosen = resolveEdgeFile(sourceDir, edgeFileName);
+    if (chosen.empty())
+        return std::nullopt;
+    if (n <= 0 || mUndirected <= 0)
+        return std::nullopt;
+    std::ifstream in(chosen);
+    if (!in.good())
+        return std::nullopt;
+
+    std::vector<int64_t> deg(static_cast<size_t>(n), 0);
+    int64_t u = 0, v = 0;
+    while (in >> u >> v)
+    {
+        if (u >= 0 && u < n)
+            deg[static_cast<size_t>(u)]++;
+        if (v >= 0 && v < n)
+            deg[static_cast<size_t>(v)]++;
+    }
+
+    // row_ptr[v] = sum_{i<v} deg[i]  (directed col offset; o = o_rp = 0).
+    std::vector<int64_t> rowPtr(static_cast<size_t>(n + 1), 0);
+    for (int64_t i = 1; i <= n; ++i)
+        rowPtr[static_cast<size_t>(i)] =
+            rowPtr[static_cast<size_t>(i - 1)] + deg[static_cast<size_t>(i - 1)];
+
+    constexpr int64_t kB = 64;
+    const int64_t nb = (n + kB - 1) / kB;
+    std::vector<double> P(static_cast<size_t>(nb));
+    std::vector<double> bl(static_cast<size_t>(nb));    // block col start line
+    std::vector<double> ip(static_cast<size_t>(nb));    // E[insert-position line]
+    std::vector<double> aRp(static_cast<size_t>(nb));   // E[row_ptr prefix start line]
+    std::vector<double> rl(static_cast<size_t>(nb));    // block col line span
+    for (int64_t k = 0; k < nb; ++k)
+    {
+        const int64_t v0 = k * kB;
+        const int64_t v1 = std::min<int64_t>(n, v0 + kB);
+        const int64_t nv = std::max<int64_t>(v1 - v0, 1);
+        P[static_cast<size_t>(k)] = static_cast<double>(v1 - v0) / n;
+        const int64_t base = rowPtr[static_cast<size_t>(v0)];
+        bl[static_cast<size_t>(k)] = static_cast<double>(base / 16);
+        int64_t cum = 0;
+        double ipSum = 0.0, aRpSum = 0.0;
+        for (int64_t r = v0; r < v1; ++r)
+        {
+            cum += deg[static_cast<size_t>(r)];
+            ipSum += static_cast<double>((base + cum) / 16);
+            aRpSum += static_cast<double>((r + 1) / 8);
+        }
+        ip[static_cast<size_t>(k)] = ipSum / nv;
+        aRp[static_cast<size_t>(k)] = aRpSum / nv;
+        rl[static_cast<size_t>(k)] = static_cast<double>(
+            (rowPtr[static_cast<size_t>(v1)] - base + 15) / 16);
+    }
+    const double b = static_cast<double>((2 * mUndirected) / 16);
+    const double bRp = static_cast<double>(n / 8);
+
+    // Expected insert drift: +1 int32 per prior op in a lower block = 1/16
+    // line per op (BCSR: 2 int32 -> 1/8).
+    std::vector<double> drift(static_cast<size_t>(nb), 0.0);
+    {
+        double acc = 0.0;
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            drift[static_cast<size_t>(k)] = acc / 16.0;
+            acc += P[static_cast<size_t>(k)];
+        }
+    }
+    // brow-window constant weighted by the block col-line span (mirror of
+    // BCSR's E_a_br_p weighting by row_lines).
+    {
+        std::vector<double> cumP(static_cast<size_t>(nb));
+        double acc = 0.0;
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            acc += P[static_cast<size_t>(k)];
+            cumP[static_cast<size_t>(k)] = acc;
+        }
+        double num = 0.0, den = 0.0;
+        for (int64_t j = 0; j < nb; ++j)
+        {
+            double acc2 = 0.0;
+            for (int64_t i = 0; i <= j; ++i)
+                acc2 += P[static_cast<size_t>(i)] * aRp[static_cast<size_t>(i)];
+            num += rl[static_cast<size_t>(j)] * cumP[static_cast<size_t>(j)] *
+                   (acc2 / std::max(cumP[static_cast<size_t>(j)], 1e-300));
+            den += rl[static_cast<size_t>(j)] * cumP[static_cast<size_t>(j)];
+        }
+        const double eARpP = num / std::max(den, 1e-300);
+        const double bwConst = bRp + 2.0 - eARpP;
+        std::vector<double> rd0(static_cast<size_t>(nb));
+        std::vector<double> rd0Brow(static_cast<size_t>(nb));
+        std::vector<double> wMove(static_cast<size_t>(nb));
+        std::vector<double> wBrow(static_cast<size_t>(nb));
+        std::vector<double> structRd(static_cast<size_t>(nb));
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            rd0[static_cast<size_t>(k)] =
+                (b - bl[static_cast<size_t>(k)]) + bwConst;
+            // brow RD window = the block's OWN brow suffix (not the global
+            // window): high (recently-covered) brow lines stay in L2.
+            rd0Brow[static_cast<size_t>(k)] =
+                (b - bl[static_cast<size_t>(k)]) +
+                (bRp - aRp[static_cast<size_t>(k)] + 2.0);
+            wMove[static_cast<size_t>(k)] = b - ip[static_cast<size_t>(k)] + 1.0;
+            wBrow[static_cast<size_t>(k)] = bRp - aRp[static_cast<size_t>(k)] + 1.0;
+            // struct RD = the op's OWN move+brow line traffic (header line
+            // re-referenced every op, only its own traffic in between).
+            structRd[static_cast<size_t>(k)] =
+                wMove[static_cast<size_t>(k)] + wBrow[static_cast<size_t>(k)];
+        }
+
+        const int64_t nOps = 100; // K_INS = 50 undirected inserts = 100 directed ops
+        auto survival = [&](const std::vector<double> &xsIn)
+        {
+            std::vector<std::pair<double, double>> items(static_cast<size_t>(nb));
+            for (int64_t k = 0; k < nb; ++k)
+                items[static_cast<size_t>(k)] = {xsIn[static_cast<size_t>(k)], P[static_cast<size_t>(k)]};
+            std::sort(items.begin(), items.end(),
+                      [](const auto &a, const auto &b) { return a.first < b.first; });
+            std::vector<double> xs(static_cast<size_t>(nb));
+            std::vector<double> S(static_cast<size_t>(nb));
+            double acc = 0.0;
+            for (int64_t k = 0; k < nb; ++k)
+            {
+                xs[static_cast<size_t>(k)] = items[static_cast<size_t>(k)].first;
+                acc += items[static_cast<size_t>(k)].second;
+                S[static_cast<size_t>(k)] = 1.0 - acc;
+            }
+            return std::pair<std::vector<double>, std::vector<double>>{xs, S};
+        };
+        auto [xsIp, SIp] = survival(ip);
+        auto [xsRp, SRp] = survival(aRp);
+
+        auto minExcess = [&](const std::vector<double> &xs, const std::vector<double> &S,
+                             const std::vector<double> &y)
+        {
+            std::vector<std::vector<double>> M(static_cast<size_t>(nOps),
+                                               std::vector<double>(static_cast<size_t>(nb), 0.0));
+            std::vector<size_t> idx(static_cast<size_t>(nb));
+            for (int64_t k = 0; k < nb; ++k)
+                idx[static_cast<size_t>(k)] =
+                    static_cast<size_t>(std::upper_bound(xs.begin(), xs.end(),
+                                                         y[static_cast<size_t>(k)]) -
+                                        xs.begin());
+            for (int64_t t = 2; t <= nOps; ++t)
+            {
+                const double kk = static_cast<double>(t - 1);
+                std::vector<double> pm(static_cast<size_t>(nb));
+                std::vector<double> sufA(static_cast<size_t>(nb + 1), 0.0);
+                std::vector<double> sufB(static_cast<size_t>(nb + 1), 0.0);
+                for (int64_t j = nb - 1; j >= 0; --j)
+                {
+                    const double sCur = std::pow(S[static_cast<size_t>(j)], kk);
+                    const double sNext = (j + 1 < nb)
+                                             ? std::pow(S[static_cast<size_t>(j + 1)], kk)
+                                             : 0.0;
+                    pm[static_cast<size_t>(j)] = sCur - sNext;
+                    sufA[static_cast<size_t>(j)] = sufA[static_cast<size_t>(j + 1)] +
+                                                   pm[static_cast<size_t>(j)] *
+                                                       xs[static_cast<size_t>(j)];
+                    sufB[static_cast<size_t>(j)] = sufB[static_cast<size_t>(j + 1)] +
+                                                   pm[static_cast<size_t>(j)];
+                }
+                for (int64_t k = 0; k < nb; ++k)
+                {
+                    const double e = sufA[idx[static_cast<size_t>(k)]] -
+                                     y[static_cast<size_t>(k)] *
+                                         sufB[idx[static_cast<size_t>(k)]];
+                    M[static_cast<size_t>(t - 1)][static_cast<size_t>(k)] = std::max(e, 0.0);
+                }
+            }
+            return M;
+        };
+
+        auto infMove = minExcess(xsIp, SIp, ip);
+        auto infBrow = minExcess(xsRp, SRp, aRp);
+        for (int64_t k = 0; k < nb; ++k)
+        {
+            infMove[0][static_cast<size_t>(k)] = wMove[static_cast<size_t>(k)];
+            infBrow[0][static_cast<size_t>(k)] = wBrow[static_cast<size_t>(k)];
+        }
+
+        constexpr double kL2Lines = 20480.0;
+        constexpr double kL3Lines = 196608.0;
+        // classes: 1 = move, 2 = brow, 3 = struct (scan = 0 unused).
+        std::vector<std::array<double, 3>> c(4, {0.0, 0.0, 0.0});
+        for (int64_t t = 1; t <= nOps; ++t)
+        {
+            for (int64_t k = 0; k < nb; ++k)
+            {
+                for (int cls = 1; cls < 4; ++cls)
+                {
+                    double w = 1.0, ei = 0.0;
+                    switch (cls)
+                    {
+                    case 1: w = wMove[static_cast<size_t>(k)]; break;
+                    case 2: w = wBrow[static_cast<size_t>(k)]; break;
+                    default: w = 1.0; break;                       // struct
+                    }
+                    if (cls == 1)
+                    {
+                        ei = infMove[static_cast<size_t>(t - 1)][static_cast<size_t>(k)];
+                    }
+                    else if (cls == 2)
+                    {
+                        ei = infBrow[static_cast<size_t>(t - 1)][static_cast<size_t>(k)];
+                    }
+                    else if (t == 1)
+                    {
+                        ei = w;                                    // struct: first op tier 2
+                    }
+                    ei = std::min(std::max(ei, 0.0), w);
+                    const double rd = (cls == 3)
+                                          ? structRd[static_cast<size_t>(k)]
+                                          : (cls == 2)
+                                                ? rd0Brow[static_cast<size_t>(k)] -
+                                                      static_cast<double>(t - 1) *
+                                                          drift[static_cast<size_t>(k)]
+                                                : rd0[static_cast<size_t>(k)] -
+                                                      static_cast<double>(t - 1) *
+                                                          drift[static_cast<size_t>(k)];
+                    const double l2 = (rd < kL2Lines) ? w : 0.0;
+                    const double l3 = (rd >= kL2Lines && rd < kL3Lines) ? w : 0.0;
+                    const double dram = (rd >= kL3Lines) ? w : 0.0;
+                    const double t2 = std::max(l2 - ei, 0.0);
+                    const double rem = std::max(ei - l2, 0.0);
+                    const double t3 = std::max(l3 - rem, 0.0);
+                    const double td = dram + ei;
+                    c[static_cast<size_t>(cls)][0] += P[static_cast<size_t>(k)] * t2;
+                    c[static_cast<size_t>(cls)][1] += P[static_cast<size_t>(k)] * t3;
+                    c[static_cast<size_t>(cls)][2] += P[static_cast<size_t>(k)] * td;
+                }
+            }
+        }
+
+        std::array<double, 12> out;
+        for (int cls = 0; cls < 4; ++cls)
+        {
+            const double tot = c[static_cast<size_t>(cls)][0] +
+                               c[static_cast<size_t>(cls)][1] +
+                               c[static_cast<size_t>(cls)][2];
+            const double h2 = (tot > 0.0) ? c[static_cast<size_t>(cls)][0] / tot : 0.0;
+            const double h3 = (tot > 0.0)
+                                  ? (c[static_cast<size_t>(cls)][0] +
+                                     c[static_cast<size_t>(cls)][1]) / tot
+                                  : 0.0;
+            out[static_cast<size_t>(cls * 3 + 0)] = tot / nOps;
+            out[static_cast<size_t>(cls * 3 + 1)] = h2;
+            out[static_cast<size_t>(cls * 3 + 2)] = h3;
+        }
+        return out;
+    }
 }
 }
 
@@ -3989,6 +4549,77 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
                             llvm::ConstantFP::get(Builder.getDoubleTy(), shiftFracs->second))};
                     initCall->setMetadata("autotuner.shift_fracs",
                                           llvm::MDNode::get(Context, fracOps));
+                }
+
+                // Analytic per-class RD tiers (Phase 3): per directed insert
+                // (N_s, h2_s, h3_s) for {scan, move, brow, struct}, ported
+                // from analytic_rd.py.  The pass replaces the BCSR insert
+                // line-traffic terms with class × residency rates using
+                // this payload; absent the file, it keeps the legacy
+                // equation.  Mirrors cost_model.py _class_tiers_for_label.
+                std::optional<std::array<double, 12>> classTiers =
+                    estimateClassTiers(fileEstimate->n, fileEstimate->logical_m,
+                                       SourceDir, G->edgeFileName);
+                if (classTiers)
+                {
+                    llvm::SmallVector<llvm::Metadata *, 12> tierOps;
+                    for (double d : *classTiers)
+                        tierOps.push_back(llvm::ConstantAsMetadata::get(
+                            llvm::ConstantFP::get(Builder.getDoubleTy(), d)));
+                    initCall->setMetadata("autotuner.class_tiers",
+                                          llvm::MDNode::get(Context, tierOps));
+
+                    // Also hand the payload to the runtime (per-graph), so
+                    // runtime-side profiling stays consistent with the
+                    // compile-time cost model.
+                    auto *tierArrTy = llvm::ArrayType::get(Builder.getDoubleTy(), 12);
+                    llvm::SmallVector<llvm::Constant *, 12> tierConsts;
+                    for (double d : *classTiers)
+                        tierConsts.push_back(
+                            llvm::ConstantFP::get(Builder.getDoubleTy(), d));
+                    auto *tierArr = llvm::ConstantArray::get(tierArrTy, tierConsts);
+                    auto *tierGV = new llvm::GlobalVariable(
+                        Module, tierArrTy, true, llvm::GlobalValue::InternalLinkage,
+                        tierArr, G->name + "_class_tiers");
+                    llvm::FunctionType *setTiersFT = llvm::FunctionType::get(
+                        voidTy, {opaquePtrTy, opaquePtrTy}, false);
+                    auto setTiersFn =
+                        Module.getOrInsertFunction("autograph_set_class_tiers", setTiersFT);
+                    Builder.CreateCall(setTiersFn, {graphPtr, tierGV});
+                }
+
+                // CSR analytic per-class RD tiers (Phase 3 extension): same
+                // covering machinery over the CSR row_ptr/col_idx structure
+                // (move/brow/struct; scan=0).  The pass replaces the CSR
+                // insert line-traffic terms with class × residency rates via
+                // the autotuner.class_tiers_csr metadata.  Mirrors
+                // cost_model.py _class_tiers_csr_for_label / AnalyticCSR.
+                std::optional<std::array<double, 12>> csrClassTiers =
+                    estimateCsrClassTiers(fileEstimate->n, fileEstimate->logical_m,
+                                          SourceDir, G->edgeFileName);
+                if (csrClassTiers)
+                {
+                    llvm::SmallVector<llvm::Metadata *, 12> csrTierOps;
+                    for (double d : *csrClassTiers)
+                        csrTierOps.push_back(llvm::ConstantAsMetadata::get(
+                            llvm::ConstantFP::get(Builder.getDoubleTy(), d)));
+                    initCall->setMetadata("autotuner.class_tiers_csr",
+                                          llvm::MDNode::get(Context, csrTierOps));
+
+                    auto *csrTierArrTy = llvm::ArrayType::get(Builder.getDoubleTy(), 12);
+                    llvm::SmallVector<llvm::Constant *, 12> csrTierConsts;
+                    for (double d : *csrClassTiers)
+                        csrTierConsts.push_back(
+                            llvm::ConstantFP::get(Builder.getDoubleTy(), d));
+                    auto *csrTierArr = llvm::ConstantArray::get(csrTierArrTy, csrTierConsts);
+                    auto *csrTierGV = new llvm::GlobalVariable(
+                        Module, csrTierArrTy, true, llvm::GlobalValue::InternalLinkage,
+                        csrTierArr, G->name + "_csr_class_tiers");
+                    llvm::FunctionType *setCsrTiersFT = llvm::FunctionType::get(
+                        voidTy, {opaquePtrTy, opaquePtrTy}, false);
+                    auto setCsrTiersFn =
+                        Module.getOrInsertFunction("autograph_set_class_tiers_csr", setCsrTiersFT);
+                    Builder.CreateCall(setCsrTiersFn, {graphPtr, csrTierGV});
                 }
             }
         }

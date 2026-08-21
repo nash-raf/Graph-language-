@@ -23,6 +23,7 @@ echo "=== [1/5] Resolve LLVM flags ==="
 LLVM_CXXFLAGS="$(${LLVM_CONFIG_BIN} --cxxflags)"
 LLVM_LDFLAGS="$(${LLVM_CONFIG_BIN} --ldflags)"
 LLVM_LIBS="$(${LLVM_CONFIG_BIN} --libs core irreader analysis passes executionengine mcjit native support)"
+NVPTX_LIBS="$(${LLVM_CONFIG_BIN} --libs nvptxcodegen nvptxdesc nvptxinfo 2>/dev/null || true)"
 LLVM_SYSTEM_LIBS="$(${LLVM_CONFIG_BIN} --system-libs)"
 
 echo "=== [2/5] Build runtime LLVM IR ==="
@@ -36,7 +37,7 @@ echo "=== [3/5] Build GraphProgram ==="
   pdg.cpp parallel_loop_outline.cpp roaring_bitmap.cpp \
   generated/BaseBaseVisitor.cpp generated/BaseLexer.cpp generated/BaseListener.cpp \
   generated/BaseParser.cpp generated/BaseVisitor.cpp generated/BaseBaseListener.cpp \
-  ${LLVM_LDFLAGS} -lantlr4-runtime ${LLVM_LIBS} ${LLVM_SYSTEM_LIBS} \
+  ${LLVM_LDFLAGS} -lantlr4-runtime ${LLVM_LIBS} ${NVPTX_LIBS} ${LLVM_SYSTEM_LIBS} \
   -o GraphProgram
 
 echo "=== [4/5] Compile DSL: ${INPUT_GRAPH} ==="
@@ -44,9 +45,10 @@ echo "=== [4/5] Compile DSL: ${INPUT_GRAPH} ==="
 
 echo "=== [5/5] Link + Run: ${OUTPUT_BIN} ==="
 "${CLANG_BIN}" -O3 -c parallel_runtime.c -o parallel_runtime.o
+"${CLANG_BIN}" -O3 -c gpu_runtime.c -o gpu_runtime.o
 "${CXX_BIN}" -O3 -mavx2 -march=native -fopenmp \
-  program.o graph_loader_runtime.cpp roaring_bitmap.cpp parallel_runtime.o \
-  -o "${OUTPUT_BIN}"
+  program.o graph_loader_runtime.cpp roaring_bitmap.cpp parallel_runtime.o gpu_runtime.o \
+  -ldl -o "${OUTPUT_BIN}"
 
 echo "=== Running ${OUTPUT_BIN} ==="
 "./${OUTPUT_BIN}"

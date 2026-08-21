@@ -708,15 +708,10 @@ static inline atomic_long *sgpl_doacross_slot(sgpl_doacross_state *state, int32_
 
 static int runtime_debug_enabled(void)
 {
-    /* Debug logging disabled.
-    static int cached = -1;
-    if (cached != -1)
-        return cached;
-
-    cached = sgpl_tdg_env_enabled("GRAPH_PARALLEL_DEBUG", 0);
-    return cached;
-    */
-    return 0;
+    const char *V = getenv("GRAPH_PARALLEL_DEBUG");
+    if (!V)
+        return 0;
+    return strcmp(V, "0") != 0 && strcmp(V, "") != 0;
 }
 
 static int runtime_iter_debug_enabled(void)
@@ -727,8 +722,10 @@ static int runtime_iter_debug_enabled(void)
 
 static int force_doacross_parallel_enabled(void)
 {
-    /* Debug override disabled. Restore getenv("SGPL_FORCE_DOACROSS_PARALLEL") here to re-enable. */
-    return 0;
+    const char *V = getenv("SGPL_FORCE_DOACROSS_PARALLEL");
+    if (!V)
+        return 0;
+    return strcmp(V, "0") != 0 && strcmp(V, "") != 0;
 }
 
 uint64_t sgpl_now_ns(void)
@@ -4688,6 +4685,13 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
     else if (!state || !desc || !desc->has_doacross_profile)
         reason = "missing-profile-desc";
 
+    if (force_doacross_parallel_enabled())
+    {
+        // Explicit test override: bypass sampling/model readiness entirely.
+        g_tls_pending_loop_id = desc ? desc->loop_id : -1;
+        return 1;
+    }
+
     if (!reason && sgpl_loop_try_cached_decision(state, desc, effective_threads, &cached_choice))
     {
         choose_parallel = cached_choice ? 1 : 0;
@@ -4764,12 +4768,6 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
                        ((double)trip_count * sync_per_iter);
         choose_parallel = serial_lhs > parallel_rhs;
         sgpl_loop_store_cached_decision(state, desc, effective_threads, choose_parallel);
-    }
-
-    if (force_doacross_parallel_enabled() && !reason)
-    {
-        choose_parallel = 1;
-        reason = "forced-test";
     }
 
     if (runtime_debug_enabled())

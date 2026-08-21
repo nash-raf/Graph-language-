@@ -68,6 +68,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
   LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
   LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"
   LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
+  NVPTX_LIBS="$($LLVM_CONFIG --libs nvptxcodegen nvptxdesc nvptxinfo 2>/dev/null || true)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
   if [[ -n "${ANTLR_INCLUDE:-}" ]]; then
@@ -99,6 +100,7 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
     $LLVM_LIBS \
+    $NVPTX_LIBS \
     $LLVM_SYSTEM_LIBS \
     -o GraphProgram
 

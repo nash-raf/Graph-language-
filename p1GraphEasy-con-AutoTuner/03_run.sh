@@ -28,9 +28,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 GRAPH_FILE="${GRAPH_FILE:-kcore.graph}"
+GP_BIN="${GP_BIN:-./GraphProgram}"
+GPU_FLAG=""
+if [[ "${SGPL_GPU_BACKEND:-0}" == "1" ]]; then
+  GPU_FLAG="--gpu"
+fi
 
-if [[ ! -x ./GraphProgram ]]; then
-  echo "GraphProgram not found. Run ./02_run.sh test.graph test.graph first." >&2
+if [[ ! -x "$GP_BIN" ]]; then
+  echo "Compiler binary not found at $GP_BIN. Run ./02_run.sh test.graph test.graph first (or set GP_BIN)." >&2
   exit 1
 fi
 
@@ -64,12 +69,13 @@ if [[ ! -f "${HOME}/.config/sgpl/hw_calib.json" ]]; then
   ./hw_calib_bench > "${HOME}/.config/sgpl/hw_calib.json"
 fi
 
-./GraphProgram "$GRAPH_FILE"
+"$GP_BIN" $GPU_FLAG "$GRAPH_FILE"
 
 # 2) Build runtimes
 gcc -O3 -c autotuner_runtime.c -o autotuner_runtime.o
 gcc -O3 -c graph_mutation_runtime.c -o graph_mutation_runtime.o
 gcc -O3 "${NLOPT_CFLAGS[@]}" -c parallel_runtime.c -o parallel_runtime.o
+gcc -O3 -c gpu_runtime.c -o gpu_runtime.o
 gcc -O3 -c runtime.c -o runtime.o
 
 g++ -O3 -mavx2 -march=native -fopenmp -c roaring_bitmap.cpp -o roaring_bitmap.o
@@ -78,7 +84,8 @@ g++ -O2 -std=c++17 -c graph_runtime.cpp -o graph_runtime.o
 
 # 3) Link
 g++ -O3 -fopenmp -no-pie \
-  program.o runtime.o parallel_runtime.o autotuner_runtime.o graph_mutation_runtime.o roaring_bitmap.o graph_loader_runtime.o graph_runtime.o \
+  program.o runtime.o parallel_runtime.o gpu_runtime.o autotuner_runtime.o graph_mutation_runtime.o roaring_bitmap.o graph_loader_runtime.o graph_runtime.o \
+  -ldl \
   "${NLOPT_LDFLAGS[@]}" \
   -o final_program
 
@@ -98,6 +105,9 @@ if [[ "$need_prebuild" -eq 1 ]]; then
     "$SCRIPT_DIR/tools/prebuild_graph_cache.cpp" \
     "$SCRIPT_DIR/graph_loader_runtime.cpp" \
     "$SCRIPT_DIR/roaring_bitmap.cpp" \
+    "$SCRIPT_DIR/autotuner_runtime.o" \
+    "$SCRIPT_DIR/parallel_runtime.o" \
+    "${NLOPT_LDFLAGS[@]}" \
     -o "$PREBUILD_BIN"
 fi
 

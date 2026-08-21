@@ -48,6 +48,13 @@
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "SemanticAnalyzer.h"
 
+#include <llvm/Analysis/AssumptionCache.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#include <llvm/Analysis/ScalarEvolutionExpressions.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/IR/Dominators.h>
+
 using namespace antlr4;
 using namespace llvm;
 
@@ -61,6 +68,11 @@ static cl::opt<std::string> IRBackendOption(
     cl::desc("IR backend to select: auto|cpu|gpu"),
     cl::value_desc("auto|cpu|gpu"),
     cl::init("auto"));
+
+static cl::opt<bool> GpuFlag(
+    "gpu",
+    cl::desc("Run DOALL loops on the GPU when a usable GPU is detected"),
+    cl::init(false));
 
 static cl::opt<bool> EmitIRBackendChoice(
     "print-ir-backend",
@@ -130,6 +142,11 @@ static std::string resolveBackend(std::string &backendReason)
         requestGpu = true;
         backendReason = "FORCE_GPU=1";
     }
+    else if (GpuFlag)
+    {
+        requestGpu = true;
+        backendReason = "--gpu";
+    }
     else if (chosen == "cpu")
     {
         requestGpu = false;
@@ -166,6 +183,110 @@ static void writeBitcodeToFile(Module &M, const std::string &path)
     }
     WriteBitcodeToFile(M, Out);
     Out.flush();
+}
+
+// The DSL emits loops whose induction variable is carried through an alloca
+// (load/store each iteration) and whose arrays are indexed through an i32
+// trunc of that value. SCEV cannot analyze the load (no AddRec) and the
+// trunc/sext-wrapped index makes DependenceInfo report an unknown direction,
+// so such loops are classified SEQUENTIAL even when every iteration writes a
+// distinct array element. Before the PDG runs, canonicalize the IR: promote
+// the indvars to SSA phis and index GEPs with the induction phi directly.
+static void canonicalizeLoopsForAnalysis(Module &M)
+{
+    {
+        FunctionAnalysisManager FAM;
+        PassBuilder PB;
+        PB.registerFunctionAnalyses(FAM);
+        FunctionPassManager FPM;
+        FPM.addPass(llvm::PromotePass());
+        for (Function &F : M)
+            if (!F.isDeclaration())
+                FPM.run(F, FAM);
+    }
+
+    for (Function &F : M)
+    {
+        if (F.isDeclaration())
+            continue;
+        TargetLibraryInfoImpl TLII;
+        TargetLibraryInfo TLI(TLII);
+        AssumptionCache AC(F);
+        DominatorTree DT(F);
+        LoopInfo LI(DT);
+        ScalarEvolution SE(F, TLI, AC, DT, LI);
+
+        SmallVector<Instruction *, 16> Orphans;
+        for (Loop *L : LI.getLoopsInPreorder())
+        {
+            for (BasicBlock *BB : L->blocks())
+            {
+                for (Instruction &I : *BB)
+                {
+                    auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+                    if (!GEP)
+                        continue;
+                    for (Use &U : GEP->indices())
+                    {
+                        Value *Idx = U.get();
+                        // Direct `trunc(phi)` index.
+                        if (auto *Tr = dyn_cast<TruncInst>(Idx))
+                        {
+                            Value *Src = Tr->getOperand(0);
+                            const SCEV *S = SE.getSCEV(Src);
+                            if (auto *AR = dyn_cast<SCEVAddRecExpr>(S))
+                            {
+                                if (AR->getLoop() == L)
+                                {
+                                    U.set(Src);
+                                    if (Tr->use_empty())
+                                        Orphans.push_back(Tr);
+                                }
+                            }
+                            continue;
+                        }
+                        // `add(trunc(phi), C)` index (e.g. a[v+1] = a[v] + 1):
+                        // rewrite to `add(phi, sext(C))` so the carried
+                        // dependence on the array becomes visible to
+                        // DependenceInfo (otherwise the loop is misclassified).
+                        auto *AddI = dyn_cast<BinaryOperator>(Idx);
+                        if (!AddI || AddI->getOpcode() != Instruction::Add)
+                            continue;
+                        Value *A = AddI->getOperand(0);
+                        Value *B = AddI->getOperand(1);
+                        TruncInst *Tr = dyn_cast<TruncInst>(A);
+                        ConstantInt *CI = dyn_cast<ConstantInt>(B);
+                        if (!Tr || !CI)
+                        {
+                            Tr = dyn_cast<TruncInst>(B);
+                            CI = dyn_cast<ConstantInt>(A);
+                        }
+                        if (!Tr || !CI)
+                            continue;
+                        Value *Src = Tr->getOperand(0);
+                        const SCEV *S = SE.getSCEV(Src);
+                        if (auto *AR = dyn_cast<SCEVAddRecExpr>(S))
+                        {
+                            if (AR->getLoop() == L)
+                            {
+                                IRBuilder<> Bld(AddI);
+                                Value *CVal =
+                                    ConstantInt::get(Src->getType(), CI->getSExtValue());
+                                Value *NewAdd = Bld.CreateAdd(Src, CVal, AddI->getName());
+                                U.set(NewAdd);
+                                if (AddI->use_empty())
+                                    Orphans.push_back(AddI);
+                                if (Tr->use_empty())
+                                    Orphans.push_back(Tr);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (Instruction *Orphan : Orphans)
+            Orphan->eraseFromParent();
+    }
 }
 
 int main(int argc, char **argv)
@@ -310,6 +431,8 @@ int main(int argc, char **argv)
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
         // run PDG (you already do this)
+        if (usingGpuIR)
+            canonicalizeLoopsForAnalysis(*M);
         dependencyGraph pdg = runPDGOnModule(*M);
         // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
 
@@ -540,22 +663,6 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
-    // M->print(outs(), nullptr);
-    if (!EmitIRTo.empty())
-    {
-        std::error_code EC;
-        raw_fd_ostream IROut(EmitIRTo, EC, sys::fs::OF_None);
-        if (EC)
-        {
-            errs() << "Could not open IR output file '" << EmitIRTo << "': " << EC.message() << "\n";
-        }
-        else
-        {
-            M->print(IROut, nullptr);
-            IROut.flush();
-        }
-    }
-
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
@@ -726,6 +833,26 @@ int main(int argc, char **argv)
     InitializeAllTargetMCs();
     InitializeAllAsmParsers();
     InitializeAllAsmPrinters();
+
+    if (usingGpuIR)
+        emitGpuKernels(*M, "kernels.ptx");
+
+    // Dump the final module (after GPU kernel emission so embedded PTX payloads
+    // are included) when an IR output path was requested.
+    if (!EmitIRTo.empty())
+    {
+        std::error_code EC;
+        raw_fd_ostream IROut(EmitIRTo, EC, sys::fs::OF_None);
+        if (EC)
+        {
+            errs() << "Could not open IR output file '" << EmitIRTo << "': " << EC.message() << "\n";
+        }
+        else
+        {
+            M->print(IROut, nullptr);
+            IROut.flush();
+        }
+    }
 
     std::string TargetTriple = sys::getDefaultTargetTriple();
     M->setTargetTriple(TargetTriple);

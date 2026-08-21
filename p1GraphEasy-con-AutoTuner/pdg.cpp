@@ -296,34 +296,29 @@ namespace
         unsigned Depth = L->getLoopDepth();
         unsigned Levels = std::min<unsigned>(Depth, Dep.getLevels());
 
-        for (unsigned Level = 1; Level <= Levels; ++Level)
+        // Only the component at THIS loop's own depth decides whether this loop
+        // carries the dependence; components at shallower levels belong to
+        // enclosing loops (they may be unknown/non-zero there without making
+        // this loop sequential).
+        if (Depth <= Levels)
         {
-            DistanceProof Proof = classifyDistanceComponent(Dep, Level);
-            if (Proof.kind == DistanceProofKind::ProvenZero)
-            {
-                continue;
-            }
-
+            DistanceProof Proof = classifyDistanceComponent(Dep, Depth);
             if (Proof.kind == DistanceProofKind::Unknown)
             {
                 Info.kind = CarrierKind::Unknown;
-                Info.level = Level;
+                Info.level = Depth;
                 return Info;
             }
-
-            Info.kind = CarrierKind::ProvenLevel;
-            Info.level = Level;
-            Info.carriedDistance = Proof;
-            return Info;
+            if (Proof.kind != DistanceProofKind::ProvenZero)
+            {
+                Info.kind = CarrierKind::ProvenLevel;
+                Info.level = Depth;
+                Info.carriedDistance = Proof;
+                return Info;
+            }
         }
 
-        if (Levels < Depth)
-        {
-            Info.kind = CarrierKind::Unknown;
-            Info.level = Levels + 1;
-            return Info;
-        }
-
+        // Loop-independent w.r.t. this loop.
         Info.kind = CarrierKind::IntraIteration;
         return Info;
     }
@@ -538,6 +533,42 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
 
     bool phiCarry = false;
     LoopCarrierSummary Summary;
+
+    // Conservative memory pairing: accesses to the same underlying object may
+    // alias regardless of what AA concludes. AA's SCEV reasoning can declare
+    // GEP(phi) vs GEP(phi+1) NoAlias (hiding a distance-1 loop-carried
+    // dependence), and MemorySSA clobbering then never links the store to the
+    // load. Pair them explicitly and let DependenceInfo decide the distance.
+    for (Instruction *A : memInsts)
+    {
+        auto *SI = dyn_cast<StoreInst>(A);
+        if (!SI)
+            continue;
+        Value *ObjS = getUnderlyingObject(SI->getPointerOperand());
+        for (Instruction *B : memInsts)
+        {
+            auto *LI = dyn_cast<LoadInst>(B);
+            if (!LI)
+                continue;
+            if (getUnderlyingObject(LI->getPointerOperand()) == ObjS)
+                createEdge(SI, LI, G, "RAW_MAY");
+        }
+    }
+    for (Instruction *A : memInsts)
+    {
+        auto *SI = dyn_cast<StoreInst>(A);
+        if (!SI)
+            continue;
+        Value *ObjS = getUnderlyingObject(SI->getPointerOperand());
+        for (Instruction *B : memInsts)
+        {
+            auto *SI2 = dyn_cast<StoreInst>(B);
+            if (!SI2 || SI2 == SI)
+                continue;
+            if (getUnderlyingObject(SI2->getPointerOperand()) == ObjS)
+                createEdge(SI, SI2, G, "WAW_MAY");
+        }
+    }
     auto printInstToStderr = [](llvm::Instruction *Inst)
     {
         llvm::raw_os_ostream OS(std::cerr);

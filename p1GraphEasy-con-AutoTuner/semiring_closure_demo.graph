@@ -1,0 +1,53 @@
+// Boolean transitive closure via (max, ×) / (OR, AND) semiring.
+// p1-AT rewrites the triple nest to autograph_closure(max_times).
+graph G {
+    directed: true;
+    edges: file "semiring_demo_edges.txt";
+    TRUE
+};
+
+fn void closure() {
+    int n = numVertices(G);
+    int D[n][n];
+
+    int i = 0;
+    while (i < n) {
+        int j = 0;
+        while (j < n) {
+            if (hasEdge(G, i, j)) {
+                D[i][j] = 1;
+            } else {
+                D[i][j] = 0;
+            }
+            j = j + 1;
+        }
+        D[i][i] = 1;
+        i = i + 1;
+    }
+
+    int k = 0;
+    while (k < n) {
+        i = 0;
+        while (i < n) {
+            int j = 0;
+            while (j < n) {
+                int cand = D[i][k] * D[k][j];
+                if (cand > D[i][j]) {
+                    D[i][j] = cand;
+                }
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        k = k + 1;
+    }
+
+    print "reachable from 0? (1 = yes):";
+    int t = 0;
+    while (t < n) {
+        print D[0][t];
+        t = t + 1;
+    }
+}
+
+closure();

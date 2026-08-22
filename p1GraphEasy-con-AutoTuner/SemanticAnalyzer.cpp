@@ -203,11 +203,33 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Int;
             return TypeKind::Int;
         }
-        // Built-ins: degree/outDegree/inDegree(G, v) -> int
-        if (call->name == "degree" || call->name == "outDegree" || call->name == "inDegree")
+        if (call->name == "numMotifs")
+        {
+            if (call->arguments.size() != 1)
+                error("numMotifs requires exactly 1 motif collection");
+            auto *var = dynamic_cast<VariableNode *>(call->arguments[0].get());
+            Symbol *sym = var ? lookupSymbol(var->name) : nullptr;
+            if (!sym || sym->type != TypeKind::MotifMatches)
+                error("numMotifs argument must be a motif collection");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        if (call->name == "numGraphs")
+        {
+            if (call->arguments.size() != 1)
+                error("numGraphs requires exactly 1 graph collection");
+            auto *var = dynamic_cast<VariableNode *>(call->arguments[0].get());
+            Symbol *sym = var ? lookupSymbol(var->name) : nullptr;
+            if (!sym || sym->type != TypeKind::GraphList)
+                error("numGraphs argument must be a graph collection");
+            call->resolvedType = TypeKind::Int;
+            return TypeKind::Int;
+        }
+        // Built-in: degree(G, v) -> int
+        if (call->name == "degree")
         {
             if (call->arguments.size() != 2)
-                error(call->name + " requires exactly 2 arguments (graph, vertex)");
+                error("degree requires exactly 2 arguments (graph, vertex)");
             call->resolvedType = TypeKind::Int;
             return TypeKind::Int;
         }
@@ -465,6 +487,18 @@ void SemanticAnalyzer::analyzeStatement(ASTNode *node)
     case ASTNodeType::ShowGraph:
         analyzeShowGraph(static_cast<ShowGraphNode *>(node));
         break;
+    case ASTNodeType::DrawGraph:
+        analyzeDrawGraph(static_cast<DrawGraphNode *>(node));
+        break;
+    case ASTNodeType::DrawMotifs:
+        analyzeDrawMotifs(static_cast<DrawMotifsNode *>(node));
+        break;
+    case ASTNodeType::MotifMatchesDecl:
+        analyzeMotifMatchesDecl(static_cast<MotifMatchesDeclNode *>(node));
+        break;
+    case ASTNodeType::GraphListDecl:
+        analyzeGraphListDecl(static_cast<GraphListDeclNode *>(node));
+        break;
     case ASTNodeType::GraphComprehension:
         analyzeGraphComprehension(static_cast<GraphComprehensionNode *>(node));
         break;
@@ -630,6 +664,49 @@ void SemanticAnalyzer::analyzeWhile(WhileStmtNode *ws)
 
 void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
 {
+    if (fs->targetType == ForEachTargetType::Motif)
+    {
+        Symbol *matches = lookupSymbol(fs->graphName);
+        if (!matches || matches->type != TypeKind::MotifMatches)
+            error("foreach motif over undeclared motif collection: " + fs->graphName);
+        if (fs->motifVars.size() != static_cast<size_t>(matches->motifVarCount))
+            error("foreach motif binding count does not match collection: " + fs->graphName);
+
+        enterScope();
+        std::unordered_set<std::string> seen;
+        for (const std::string &name : fs->motifVars)
+        {
+            if (!seen.insert(name).second)
+                error("duplicate foreach motif variable: " + name);
+            Symbol variable;
+            variable.type = TypeKind::Int;
+            declareSymbol(name, variable);
+        }
+        loopDepth++;
+        analyzeBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        loopDepth--;
+        exitScope();
+        return;
+    }
+
+    if (fs->targetType == ForEachTargetType::Graph)
+    {
+        Symbol *graphs = lookupSymbol(fs->graphName);
+        if (!graphs || graphs->type != TypeKind::GraphList)
+            error("foreach graph over undeclared graph collection: " + fs->graphName);
+
+        enterScope();
+        Symbol graphSym;
+        graphSym.isFunction = false;
+        graphSym.type = TypeKind::Graph;
+        declareSymbol(fs->var1, graphSym);
+        loopDepth++;
+        analyzeBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        loopDepth--;
+        exitScope();
+        return;
+    }
+
     if (fs->targetType == ForEachTargetType::Element)
     {
         Symbol *sSym = lookupSymbol(fs->graphName);
@@ -661,9 +738,7 @@ void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
     {
         declareSymbol(fs->var1, varSym);
     }
-    else if (fs->targetType == ForEachTargetType::Neighbor ||
-             fs->targetType == ForEachTargetType::OutNeighbor ||
-             fs->targetType == ForEachTargetType::InNeighbor)
+    else if (fs->targetType == ForEachTargetType::Neighbor)
     {
         declareSymbol(fs->var1, varSym);
         if (fs->adjNodeExpr)
@@ -777,6 +852,22 @@ void SemanticAnalyzer::analyzeGraphUpdate(GraphUpdateNode *upd)
         error("graph update on undeclared graph: " + upd->graphName);
     if (gSym->type != TypeKind::Graph)
         error("graph update only supported on unweighted graphs: " + upd->graphName);
+
+    for (const auto &target : upd->targets)
+    {
+        if (target.kind == GraphUpdateTargetKind::Node)
+        {
+            TypeKind t = analyzeExpr(target.value.get());
+            if (t != TypeKind::Int)
+                error("graph update node target must be int");
+            continue;
+        }
+
+        TypeKind srcType = analyzeExpr(target.src.get());
+        TypeKind dstType = analyzeExpr(target.dst.get());
+        if (srcType != TypeKind::Int || dstType != TypeKind::Int)
+            error("graph update edge endpoints must be int");
+    }
 }
 
 void SemanticAnalyzer::analyzeShowGraph(ShowGraphNode *S)
@@ -784,6 +875,167 @@ void SemanticAnalyzer::analyzeShowGraph(ShowGraphNode *S)
     Symbol *gSym = lookupSymbol(S->graphName);
     if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
         error("showgraph on undeclared graph: " + S->graphName);
+}
+
+void SemanticAnalyzer::analyzeDrawGraph(DrawGraphNode *D)
+{
+    Symbol *gSym = lookupSymbol(D->graphName);
+    if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
+        error("draw on undeclared graph: " + D->graphName);
+
+    const auto dot = D->outputPath.find_last_of('.');
+    const std::string extension =
+        (dot == std::string::npos) ? "" : D->outputPath.substr(dot);
+    if (extension != ".svg" && extension != ".png" &&
+        extension != ".pdf" && extension != ".dot")
+        error("draw output must use .svg, .png, .pdf, or .dot: " + D->outputPath);
+
+    if (D->colorMode != DrawColorMode::None)
+    {
+        Symbol *array = lookupSymbol(D->colorArray);
+        if (!array)
+            error("draw color array is undeclared: " + D->colorArray);
+        if (D->colorMode == DrawColorMode::Categorical &&
+            array->type != TypeKind::IntArray)
+            error("categorical vertex color requires an int array: " + D->colorArray);
+        if (D->colorMode == DrawColorMode::Continuous &&
+            array->type != TypeKind::IntArray &&
+            array->type != TypeKind::RealArray)
+            error("continuous vertex color requires an int or real array: " + D->colorArray);
+        D->colorArrayType = array->type;
+    }
+
+    if (!D->sizeArray.empty())
+    {
+        Symbol *array = lookupSymbol(D->sizeArray);
+        if (!array)
+            error("draw size array is undeclared: " + D->sizeArray);
+        if (array->type != TypeKind::IntArray && array->type != TypeKind::RealArray)
+            error("continuous vertex size requires an int or real array: " + D->sizeArray);
+        D->sizeArrayType = array->type;
+    }
+
+    if (D->edgeWeightLabels && gSym->type != TypeKind::WeightedGraph)
+        error("edge label weight requires a weighted graph: " + D->graphName);
+}
+
+void SemanticAnalyzer::analyzeDrawMotifs(DrawMotifsNode *D)
+{
+    Symbol *gSym = lookupSymbol(D->graphName);
+    if (!gSym || (gSym->type != TypeKind::Graph && gSym->type != TypeKind::WeightedGraph))
+        error("draw motif on undeclared graph: " + D->graphName);
+
+    if (D->outputPrefix.empty())
+        error("draw motif output prefix cannot be empty");
+    if (D->motifEdges.empty())
+        error("draw motif requires at least one motif edge");
+
+    auto graphIt = graphDecls.find(D->graphName);
+    if (graphIt != graphDecls.end())
+    {
+        bool directed = false;
+        if (auto *plain = dynamic_cast<GraphDeclNode *>(graphIt->second))
+            directed = plain->directed;
+        else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
+            directed = weighted->directed;
+        if (!directed)
+            error("draw motif requires directed: true on graph " + D->graphName);
+    }
+
+    std::unordered_set<std::string> vars;
+    std::unordered_set<std::string> edgeKeys;
+    for (const auto &edge : D->motifEdges)
+    {
+        const std::string op = edge.sign == MotifEdgeSign::Negative ? "-|" : "->";
+        if (edge.source == edge.target)
+            error("draw motif does not allow self edges: " + edge.source + op + edge.target);
+        vars.insert(edge.source);
+        vars.insert(edge.target);
+        std::string key = edge.source + "->" + edge.target;
+        if (!edgeKeys.insert(key).second)
+            error("draw motif has duplicate edge: " + key);
+    }
+
+    if (vars.size() < 2)
+        error("draw motif requires at least two distinct variables");
+    if (vars.size() > 6)
+        error("draw motif currently supports up to 6 variables");
+}
+
+void SemanticAnalyzer::analyzeMotifMatchesDecl(MotifMatchesDeclNode *M)
+{
+    Symbol *graph = lookupSymbol(M->graphName);
+    if (!graph || (graph->type != TypeKind::Graph && graph->type != TypeKind::WeightedGraph))
+        error("motif collection uses undeclared graph: " + M->graphName);
+    if (M->motifEdges.empty() || M->variableNames.size() < 2)
+        error("motif collection requires at least one edge and two variables");
+    if (M->variableNames.size() > 6)
+        error("motif collection currently supports up to 6 variables");
+
+    auto graphIt = graphDecls.find(M->graphName);
+    if (graphIt != graphDecls.end())
+    {
+        bool directed = false;
+        if (auto *plain = dynamic_cast<GraphDeclNode *>(graphIt->second))
+            directed = plain->directed;
+        else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
+            directed = weighted->directed;
+        if (!directed)
+            error("motif collections require directed: true on graph " + M->graphName);
+    }
+
+    std::unordered_set<std::string> edgeKeys;
+    for (const auto &edge : M->motifEdges)
+    {
+        if (edge.source == edge.target)
+            error("motif collection does not allow self edges");
+        const std::string key = edge.source + "->" + edge.target;
+        if (!edgeKeys.insert(key).second)
+            error("motif collection has duplicate edge: " + key);
+    }
+
+    Symbol result;
+    result.type = TypeKind::MotifMatches;
+    result.motifVarCount = static_cast<int>(M->variableNames.size());
+    declareSymbol(M->name, result);
+}
+
+void SemanticAnalyzer::analyzeGraphListDecl(GraphListDeclNode *M)
+{
+    Symbol *graph = lookupSymbol(M->graphName);
+    if (!graph || (graph->type != TypeKind::Graph && graph->type != TypeKind::WeightedGraph))
+        error("graph collection uses undeclared graph: " + M->graphName);
+    if (M->motifEdges.empty() || M->variableNames.size() < 2)
+        error("graph collection requires at least one edge and two variables");
+    if (M->variableNames.size() > 6)
+        error("graph collection currently supports up to 6 variables");
+
+    auto graphIt = graphDecls.find(M->graphName);
+    if (graphIt != graphDecls.end())
+    {
+        bool directed = false;
+        if (auto *plain = dynamic_cast<GraphDeclNode *>(graphIt->second))
+            directed = plain->directed;
+        else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
+            directed = weighted->directed;
+        if (!directed)
+            error("graph collections require directed: true on graph " + M->graphName);
+    }
+
+    std::unordered_set<std::string> edgeKeys;
+    for (const auto &edge : M->motifEdges)
+    {
+        if (edge.source == edge.target)
+            error("graph collection does not allow self edges");
+        const std::string key = edge.source + "->" + edge.target;
+        if (!edgeKeys.insert(key).second)
+            error("graph collection has duplicate edge: " + key);
+    }
+
+    Symbol result;
+    result.type = TypeKind::GraphList;
+    result.motifVarCount = static_cast<int>(M->variableNames.size());
+    declareSymbol(M->name, result);
 }
 
 void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
@@ -856,25 +1108,6 @@ void SemanticAnalyzer::validateGraphCondition(GraphConditionNode *cond, GraphDec
     }
     if (cond->op == GraphConditionOp::Degree)
     {
-        return;
-    }
-    if (cond->op == GraphConditionOp::EdgeHas)
-    {
-        if (cond->expr)
-        {
-            TypeKind ty = analyzeExpr(cond->expr.get());
-            if (ty != TypeKind::Int)
-                error("edge has condition requires an int vertex expression");
-        }
-        return;
-    }
-    if (cond->op == GraphConditionOp::VertexInSet)
-    {
-        Symbol *sym = lookupSymbol(cond->setName);
-        if (!sym)
-            error("vertex in condition uses undeclared set: " + cond->setName);
-        if (sym->type != TypeKind::Set)
-            error("vertex in condition requires a set: " + cond->setName);
         return;
     }
     if (cond->op == GraphConditionOp::Connected)

@@ -1,31 +1,36 @@
 graph G {
-  edges: file "../../../synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
-  //edges: file "../../../synth_graphs_unweighted/synth_v_50000_e_50000.txt";
-  TRUE
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/road-belgium-osm.mtx";
 };
 
 int n = numVertices(G);
 int id[n];
-set frontier;
-set next;
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 0;
+int next_size = 0;
+int init_i = 0;
 
-for each vertex v in G {
-  id[v] = v;
+while (init_i < n) {
+  id[init_i] = init_i;
+  frontier[init_i] = init_i;
+  init_i = init_i + 1;
 }
+frontier_size = n;
 
-frontier = G.nodes;
-
-while (setSize(frontier) > 0) {
-  next = {};
-  for each element u in frontier {
+while (frontier_size > 0) {
+  next_size = 0;
+  int i = 0;
+  while (i < frontier_size) {
+    int u = frontier[i];
     for each neighbor v of u in G {
       if (id[u] < id[v]) {
         id[v] = id[u];
-        next.add(v);
+        next_frontier[next_size] = v;
+        next_size = next_size + 1;
       }
     }
+    i = i + 1;
   }
-  frontier = next;
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
 }
-
-//print id[0];

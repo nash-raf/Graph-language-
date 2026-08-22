@@ -9,7 +9,8 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: tutorial.md
-  - Grammar: grammar.md
+  - Language Manual: language.md
+  - Grammar Reference: grammar.md
   - Algorithms: algorithms.md
   - Bron-Kerbosch: bron-kerbosch.md
   - Results: results.md

@@ -11,17 +11,35 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/CallingConv.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsNVPTX.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/CodeGen.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
+#include <cctype>
+
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -59,6 +77,7 @@ namespace
         unsigned DoAcrossPostsPerIter = 0;
         SmallPtrSet<BasicBlock *, 8> DependentBlocks;
         SmallPtrSet<BasicBlock *, 8> IndependentBlocks;
+        bool RequiresIntAppendPriv = false;
     };
 
     struct LoopTransformTarget
@@ -73,6 +92,7 @@ namespace
         SmallVector<BasicBlock *, 8> LoopBlocks;
         SmallVector<BasicBlock *, 8> LoopBody;
         unsigned Depth = 0;
+        bool RequiresIntAppendPriv = false;
     };
 
     struct LoopVersioningInfo
@@ -102,6 +122,8 @@ namespace
         bool Privatized = false;
         uint64_t EnvSize = 0;
         GlobalVariable *PrivOffsetsGV = nullptr;
+        GlobalVariable *PrivKindsGV = nullptr;
+        GlobalVariable *PrivAuxGV = nullptr;
         unsigned NumPrivTargets = 0;
         unsigned NumDoAcrossSyncIds = 0;
         Function *WrapperFn = nullptr;
@@ -135,7 +157,8 @@ namespace
         (void)Header;
         (void)Depth;
         (void)Phase;
-        /* Debug logging disabled. Restore errs() output here to re-enable loop-outliner state traces. */
+        if (getenv("SGPL_OUTLINER_DEBUG"))
+            errs() << "[outliner] " << Phase << " (fn=" << F.getName() << ")\n";
     }
 
     static ParallelMode parseParallelMode(Loop *L)
@@ -451,6 +474,355 @@ namespace
         return std::nullopt;
     }
 
+    struct EnvPrivTarget
+    {
+        uint64_t Offset = 0;
+        int32_t Kind = SGPL_PRIV_ROARING;
+        int64_t AuxSizeOffset = -1;
+        int64_t AuxCapOffset = -1;
+    };
+
+    static Value *stripToNamedPointer(Value *V)
+    {
+        if (!V)
+            return nullptr;
+
+        for (unsigned Depth = 0; Depth < 8; ++Depth)
+        {
+            if (auto *LI = dyn_cast<LoadInst>(V))
+            {
+                V = LI->getPointerOperand();
+                continue;
+            }
+            if (auto *Cast = dyn_cast<CastInst>(V))
+            {
+                V = Cast->getOperand(0);
+                continue;
+            }
+            break;
+        }
+
+        return V;
+    }
+
+    static bool valuesEquivalent(Value *A, Value *B)
+    {
+        if (!A || !B)
+            return false;
+        if (A == B)
+            return true;
+        return stripToNamedPointer(A) == stripToNamedPointer(B);
+    }
+
+    static AllocaInst *traceToAlloca(Value *V)
+    {
+        V = stripToNamedPointer(V);
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+            return traceToAlloca(GEP->getPointerOperand());
+        return dyn_cast<AllocaInst>(V);
+    }
+
+    static bool loopIncrementsAlloca(const LoopTransformTarget &Target, AllocaInst *AI);
+    static bool loopIncrementsGlobal(const LoopTransformTarget &Target, GlobalVariable *GV);
+
+    static bool loopIncrementsAlloca(const LoopTransformTarget &Target, AllocaInst *AI)
+    {
+        if (!AI)
+            return false;
+
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI)
+                    continue;
+                if (SI->getPointerOperand() != AI)
+                    continue;
+
+                Value *Stored = SI->getValueOperand();
+                auto *BO = dyn_cast<BinaryOperator>(Stored);
+                if (!BO || BO->getOpcode() != Instruction::Add)
+                    continue;
+
+                auto *Loaded = dyn_cast<LoadInst>(BO->getOperand(0));
+                if (!Loaded || Loaded->getPointerOperand() != AI)
+                    Loaded = dyn_cast<LoadInst>(BO->getOperand(1));
+                if (!Loaded || Loaded->getPointerOperand() != AI)
+                    continue;
+
+                Value *IncrementOperand =
+                    Loaded == BO->getOperand(0) ? BO->getOperand(1) : BO->getOperand(0);
+                auto *Increment = dyn_cast<ConstantInt>(IncrementOperand);
+                if (Increment && Increment->equalsInt(1))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    static bool loopReadsArrayExceptAppendIndex(const LoopTransformTarget &Target,
+                                                Value *ArrayRoot,
+                                                Value *SizeIndexLoad)
+    {
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *LI = dyn_cast<LoadInst>(&I);
+                if (!LI)
+                    continue;
+
+                Value *Ptr = LI->getPointerOperand();
+                auto *GEP = dyn_cast<GetElementPtrInst>(Ptr);
+                if (!GEP)
+                    continue;
+
+                if (!valuesEquivalent(GEP->getPointerOperand(), ArrayRoot))
+                    continue;
+
+                if (SizeIndexLoad && GEP->getNumIndices() == 1 && GEP->getOperand(1) == SizeIndexLoad)
+                    continue;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static std::optional<std::pair<Value *, Value *>>
+    detectIntAppendPattern(const LoopTransformTarget &Target)
+    {
+        std::optional<std::pair<Value *, Value *>> Match;
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI)
+                    continue;
+
+                auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+                if (!GEP || GEP->getNumIndices() < 1)
+                    continue;
+
+                auto *IdxLoad = dyn_cast<LoadInst>(GEP->getOperand(GEP->getNumOperands() - 1));
+                if (!IdxLoad)
+                    continue;
+
+                Value *SizeRoot = stripToNamedPointer(IdxLoad->getPointerOperand());
+                if (!SizeRoot)
+                    continue;
+
+                if (auto *SizeAI = dyn_cast<AllocaInst>(SizeRoot))
+                {
+                    if (!loopIncrementsAlloca(Target, SizeAI))
+                        continue;
+                }
+                else if (auto *SizeGV = dyn_cast<GlobalVariable>(SizeRoot))
+                {
+                    if (!loopIncrementsGlobal(Target, SizeGV))
+                        continue;
+                }
+                else
+                {
+                    continue;
+                }
+
+                Value *ArrayRoot = stripToNamedPointer(GEP->getPointerOperand());
+                if (!ArrayRoot || loopReadsArrayExceptAppendIndex(Target, ArrayRoot, IdxLoad))
+                    continue;
+
+                std::pair<Value *, Value *> Candidate = std::make_pair(ArrayRoot, SizeRoot);
+                if (Match && (!valuesEquivalent(Match->first, Candidate.first) ||
+                              !valuesEquivalent(Match->second, Candidate.second)))
+                    return std::nullopt;
+                Match = Candidate;
+            }
+        }
+
+        return Match;
+    }
+
+    static bool loopIncrementsGlobal(const LoopTransformTarget &Target, GlobalVariable *GV)
+    {
+        if (!GV)
+            return false;
+
+        for (BasicBlock *BB : Target.LoopBlocks)
+        {
+            for (Instruction &I : *BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI || SI->getPointerOperand() != GV)
+                    continue;
+
+                Value *Stored = SI->getValueOperand();
+                auto *BO = dyn_cast<BinaryOperator>(Stored);
+                if (!BO || BO->getOpcode() != Instruction::Add)
+                    continue;
+
+                auto *Loaded = dyn_cast<LoadInst>(BO->getOperand(0));
+                if (!Loaded || Loaded->getPointerOperand() != GV)
+                    Loaded = dyn_cast<LoadInst>(BO->getOperand(1));
+                if (!Loaded || Loaded->getPointerOperand() != GV)
+                    continue;
+
+                Value *IncrementOperand =
+                    Loaded == BO->getOperand(0) ? BO->getOperand(1) : BO->getOperand(0);
+                auto *Increment = dyn_cast<ConstantInt>(IncrementOperand);
+                if (Increment && Increment->equalsInt(1))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    static GlobalVariable *findVertexCountGlobal(Function &F)
+    {
+        for (GlobalVariable &GV : F.getParent()->globals())
+        {
+            if (!GV.getValueType()->isIntegerTy(32))
+                continue;
+            if (GV.getName() == "n")
+                return &GV;
+        }
+
+        for (GlobalVariable &GV : F.getParent()->globals())
+        {
+            if (!GV.getValueType()->isIntegerTy(32))
+                continue;
+            for (User *U : GV.users())
+            {
+                auto *SI = dyn_cast<StoreInst>(U);
+                if (!SI || SI->getPointerOperand() != &GV)
+                    continue;
+                if (isa<CallInst>(SI->getValueOperand()))
+                    return &GV;
+            }
+        }
+
+        return nullptr;
+    }
+
+    static void remapAppendGlobalsInOutlinedFunction(Function *Outlined,
+                                                     GlobalVariable *FrontierGV,
+                                                     GlobalVariable *SizeGV,
+                                                     Argument *FrontierArg,
+                                                     Argument *SizeArg)
+    {
+        if (!Outlined || !FrontierGV || !SizeGV || !FrontierArg || !SizeArg)
+            return;
+
+        SmallVector<Instruction *, 32> ToErase;
+        for (BasicBlock &BB : *Outlined)
+        {
+            for (Instruction &I : BB)
+            {
+                auto *LI = dyn_cast<LoadInst>(&I);
+                if (!LI)
+                    continue;
+                if (LI->getPointerOperand() == FrontierGV)
+                {
+                    LI->replaceAllUsesWith(FrontierArg);
+                    ToErase.push_back(LI);
+                    continue;
+                }
+                if (LI->getPointerOperand() == SizeGV)
+                {
+                    IRBuilder<> RB(LI);
+                    Value *Loaded = RB.CreateLoad(Type::getInt32Ty(Outlined->getContext()), SizeArg, "next_size.val");
+                    LI->replaceAllUsesWith(Loaded);
+                    ToErase.push_back(LI);
+                }
+            }
+        }
+
+        for (Instruction *I : ToErase)
+            I->eraseFromParent();
+        ToErase.clear();
+
+        for (BasicBlock &BB : *Outlined)
+        {
+            for (Instruction &I : BB)
+            {
+                auto *SI = dyn_cast<StoreInst>(&I);
+                if (!SI || SI->getPointerOperand() != SizeGV)
+                    continue;
+                IRBuilder<> RB(SI);
+                RB.CreateStore(SI->getValueOperand(), SizeArg);
+                ToErase.push_back(SI);
+            }
+        }
+
+        for (Instruction *I : ToErase)
+            I->eraseFromParent();
+    }
+
+    static std::optional<uint64_t>
+    envOffsetForOrigin(Value *Origin,
+                       ArrayRef<Value *> ArgOriginVals,
+                       ArrayRef<int> ParamToEnvFieldIndex,
+                       const StructLayout *EnvLayout)
+    {
+        if (!Origin || !EnvLayout)
+            return std::nullopt;
+
+        for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+        {
+            if (!valuesEquivalent(ArgOriginVals[ParamIndex], Origin))
+                continue;
+            if (ParamIndex >= ParamToEnvFieldIndex.size())
+                return std::nullopt;
+            int EnvFieldIndex = ParamToEnvFieldIndex[ParamIndex];
+            if (EnvFieldIndex < 0)
+                return std::nullopt;
+            return EnvLayout->getElementOffset((unsigned)EnvFieldIndex);
+        }
+
+        return std::nullopt;
+    }
+
+    static int64_t findVertexCapEnvOffset(Function &F,
+                                          ArrayRef<Value *> NewEnvOriginVals,
+                                          ArrayRef<Type *> NewEnvFieldTys,
+                                          const StructLayout *EnvLayout)
+    {
+        int64_t fallback = -1;
+
+        for (unsigned FieldIndex = 0; FieldIndex < NewEnvOriginVals.size(); ++FieldIndex)
+        {
+            Value *Orig = NewEnvOriginVals[FieldIndex];
+            if (!Orig || !NewEnvFieldTys[FieldIndex]->isIntegerTy(32))
+                continue;
+
+            if (fallback < 0)
+                fallback = (int64_t)EnvLayout->getElementOffset(FieldIndex);
+
+            if (auto *AI = dyn_cast<AllocaInst>(stripToNamedPointer(Orig)))
+            {
+                for (User *U : AI->users())
+                {
+                    auto *SI = dyn_cast<StoreInst>(U);
+                    if (!SI || SI->getPointerOperand() != AI)
+                        continue;
+                    if (auto *CI = dyn_cast<CallInst>(SI->getValueOperand()))
+                    {
+                        Function *Callee = CI->getCalledFunction();
+                        if (Callee && Callee->getName() == "numVertices")
+                            return (int64_t)EnvLayout->getElementOffset(FieldIndex);
+                    }
+                }
+            }
+        }
+
+        (void)F;
+        return fallback;
+    }
+
     static bool isTrivialLoopBodyInst(Instruction &I, Loop *L)
     {
         if (isa<PHINode>(&I) || I.isTerminator())
@@ -649,6 +1021,10 @@ namespace
         Candidate.Mode = parseParallelMode(L);
         Candidate.Header = L ? L->getHeader() : nullptr;
         Candidate.Depth = L ? L->getLoopDepth() : 0;
+        Candidate.RequiresIntAppendPriv =
+            Candidate.Header && Candidate.Header->getTerminator() &&
+            Candidate.Header->getTerminator()->getMetadata(
+                "sgpl.frontier.first_wins.doall");
 
         if (Candidate.Mode == ParallelMode::None)
             return std::nullopt;
@@ -694,8 +1070,30 @@ namespace
             return std::nullopt;
         }
 
+        if (Candidate.RequiresIntAppendPriv)
+        {
+            LoopTransformTarget AppendTarget;
+            AppendTarget.Mode = Candidate.Mode;
+            AppendTarget.Header = Candidate.Header;
+            AppendTarget.LoopBlocks = Candidate.LoopBlocks;
+            AppendTarget.LoopBody = Candidate.LoopBody;
+            std::optional<std::pair<Value *, Value *>> AppendPattern =
+                detectIntAppendPattern(AppendTarget);
+            if (!AppendPattern ||
+                !isa<GlobalVariable>(AppendPattern->first) ||
+                !isa<GlobalVariable>(AppendPattern->second) ||
+                !findVertexCountGlobal(F))
+            {
+                logLoopState(F, Candidate.Header, Candidate.Depth,
+                             "skip:frontier-append-privatization-unavailable");
+                return std::nullopt;
+            }
+        }
+
         Candidate.BackedgeCount = SE.getBackedgeTakenCount(L);
-        if (isa<SCEVCouldNotCompute>(Candidate.BackedgeCount))
+        bool HasComputedBackedge =
+            !isa<SCEVCouldNotCompute>(Candidate.BackedgeCount);
+        if (!HasComputedBackedge && !Candidate.RequiresIntAppendPriv)
         {
             logLoopState(F, Candidate.Header, Candidate.Depth, "skip:not-versionable reason=backedge-could-not-compute");
             return std::nullopt;
@@ -709,17 +1107,28 @@ namespace
             return std::nullopt;
         }
 
-        const SCEV *TripCount = SE.getAddExpr(
-            Candidate.BackedgeCount,
-            SE.getOne(Candidate.BackedgeCount->getType()));
         Candidate.Start = AR->getStart();
         Candidate.Step = AR->getStepRecurrence(SE);
-        Candidate.End = SE.getAddExpr(
-            Candidate.Start,
-            SE.getMulExpr(Candidate.Step, TripCount));
-        if (std::optional<const SCEV *> ExitBound = deriveHalfOpenLoopEndFromExitICmp(Candidate, SE))
+        if (HasComputedBackedge)
+        {
+            const SCEV *TripCount = SE.getAddExpr(
+                Candidate.BackedgeCount,
+                SE.getOne(Candidate.BackedgeCount->getType()));
+            Candidate.End = SE.getAddExpr(
+                Candidate.Start,
+                SE.getMulExpr(Candidate.Step, TripCount));
+            Candidate.ConstantTripCount = getConstantTripCount(Candidate, SE);
+        }
+
+        if (std::optional<const SCEV *> ExitBound =
+                deriveHalfOpenLoopEndFromExitICmp(Candidate, SE))
             Candidate.End = *ExitBound;
-        Candidate.ConstantTripCount = getConstantTripCount(Candidate, SE);
+        else if (!Candidate.End)
+        {
+            logLoopState(F, Candidate.Header, Candidate.Depth,
+                         "skip:not-versionable reason=missing-loop-end");
+            return std::nullopt;
+        }
         Candidate.EffectiveBodyInstCount = countEffectiveLoopBodyInstructions(Candidate);
 
         CodeExtractor CE(Candidate.LoopBody, &DT);
@@ -933,6 +1342,7 @@ namespace
         Info.Serial.LoopBlocks = Candidate.LoopBlocks;
         Info.Serial.LoopBody = Candidate.LoopBody;
         Info.Serial.Depth = Candidate.Depth;
+        Info.Serial.RequiresIntAppendPriv = Candidate.RequiresIntAppendPriv;
 
         Info.Parallel.Mode = Candidate.Mode;
         Info.Parallel.Header = ClonedHeader;
@@ -942,6 +1352,7 @@ namespace
         Info.Parallel.ExitBlock = ParallelExitBridge;
         Info.Parallel.IndVar = ClonedIndVar;
         Info.Parallel.Depth = Candidate.Depth;
+        Info.Parallel.RequiresIntAppendPriv = Candidate.RequiresIntAppendPriv;
         Info.Parallel.LoopBlocks = ClonedLoopBlocks;
         for (BasicBlock *BB : ClonedLoopBlocks)
         {
@@ -951,6 +1362,132 @@ namespace
 
         /* Debug logging disabled: multiversion-created */
         return Info;
+    }
+
+    static Constant *createCStringPtr(Module &M, StringRef Text, StringRef GlobalName);
+
+    static bool isGpuBackendEnabled(Module &M)
+    {
+        if (NamedMDNode *NMD = M.getNamedMetadata("graph.ir.backend"))
+        {
+            for (const MDNode *Op : NMD->operands())
+            {
+                if (!Op)
+                    continue;
+                for (const MDOperand &MO : Op->operands())
+                {
+                    if (const MDString *MDS = dyn_cast_or_null<MDString>(MO.get()))
+                    {
+                        if (MDS->getString() == "gpu")
+                            return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    static bool gpuGlobalIsDeviceSafe(const GlobalVariable *GV)
+    {
+        if (!GV)
+            return false;
+        if (GV->isConstant())
+            return false; // constants are never copied at runtime
+        if (GV->isThreadLocal())
+            return false;
+        if (GV->isDeclaration())
+            return false;
+        if (!GV->hasName())
+            return false; // needed for cuModuleGetGlobal lookup by name
+        if (!GV->getValueType()->isSized())
+            return false;
+        return true;
+    }
+
+    static bool gpuFunctionIsDeviceSafe(Function *Fn,
+                                        SmallPtrSetImpl<GlobalVariable *> *ReferencedGlobals,
+                                        SmallPtrSetImpl<Function *> &Visited)
+    {
+        if (!Fn)
+            return false;
+        if (Fn->isIntrinsic())
+            return true;
+        if (!Visited.insert(Fn).second)
+            return true;
+
+        for (BasicBlock &BB : *Fn)
+        {
+            for (Instruction &I : BB)
+            {
+                if (auto *CI = dyn_cast<CallInst>(&I))
+                {
+                    Function *Callee = CI->getCalledFunction();
+                    if (!Callee)
+                        return false;
+                    if (!Callee->isIntrinsic())
+                    {
+                        // DOACROSS bodies carry doacross_wait/post/init calls;
+                        // they are stripped from the device clones in
+                        // emitGpuKernels (the wave barriers subsume them).
+                        StringRef CalleeName = Callee->getName();
+                        if (CalleeName == "doacross_wait" ||
+                            CalleeName == "doacross_post" ||
+                            CalleeName == "doacross_init" ||
+                            CalleeName == "sgpl_doacross_profile_enter" ||
+                            CalleeName == "sgpl_doacross_profile_exit")
+                            continue;
+                        if (Callee->isDeclaration())
+                            return false;
+                        if (!gpuFunctionIsDeviceSafe(Callee, ReferencedGlobals, Visited))
+                            return false;
+                    }
+                }
+
+                for (Value *Op : I.operands())
+                {
+                    if (auto *GV = dyn_cast<GlobalVariable>(Op->stripPointerCasts()))
+                    {
+                        if (!gpuGlobalIsDeviceSafe(GV))
+                            return false;
+                        if (ReferencedGlobals)
+                            ReferencedGlobals->insert(GV);
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    static void stripDeviceIncompatibleIntrinsics(Function &Fn)
+    {
+        SmallVector<Instruction *, 16> ToErase;
+        for (BasicBlock &BB : Fn)
+        {
+            for (Instruction &I : BB)
+            {
+                auto *CI = dyn_cast<CallInst>(&I);
+                if (!CI)
+                    continue;
+                Function *Callee = CI->getCalledFunction();
+                if (!Callee || !Callee->isIntrinsic())
+                    continue;
+                switch (Callee->getIntrinsicID())
+                {
+                case Intrinsic::lifetime_start:
+                case Intrinsic::lifetime_end:
+                case Intrinsic::dbg_declare:
+                case Intrinsic::dbg_value:
+                case Intrinsic::dbg_label:
+                case Intrinsic::dbg_assign:
+                    ToErase.push_back(CI);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        for (Instruction *I : ToErase)
+            I->eraseFromParent();
     }
 
     static ParallelTransformResult transformLoopCloneToParallel(Function &F,
@@ -963,6 +1500,11 @@ namespace
         Module *M = F.getParent();
         LLVMContext &Ctx = F.getContext();
 
+        // Minimum constant DOACROSS dependence distance (in iterations). The
+        // GPU wave kernel uses it as the wave width: wave w owns iterations
+        // [w*d, (w+1)*d), which only depend on strictly earlier waves.
+        unsigned GpuDoAcrossMinDist = 0;
+
         if (!Target.Preheader || !Target.ExitBlock || !Target.Preheader->getTerminator())
         {
             logLoopState(F, Target.Header, Target.Depth, "skip:parallel-clone-invalid-structure");
@@ -971,6 +1513,21 @@ namespace
 
         bool IsDoAcross = Target.Mode == ParallelMode::DoAcross;
         bool IsDoAll = Target.Mode == ParallelMode::DoAll;
+
+        if (Target.RequiresIntAppendPriv)
+        {
+            std::optional<std::pair<Value *, Value *>> AppendPattern =
+                detectIntAppendPattern(Target);
+            if (!AppendPattern ||
+                !isa<GlobalVariable>(AppendPattern->first) ||
+                !isa<GlobalVariable>(AppendPattern->second) ||
+                !findVertexCountGlobal(F))
+            {
+                logLoopState(F, Target.Header, Target.Depth,
+                             "skip:frontier-append-privatization-unavailable");
+                return Result;
+            }
+        }
 
         if (IsDoAcross)
         {
@@ -1017,6 +1574,8 @@ namespace
                             SyncIdRemap[Id] = LocalId;
                             /* Debug logging disabled: doacross-remap */
                         }
+                        if (Dist > 0 && (GpuDoAcrossMinDist == 0 || (unsigned)Dist < GpuDoAcrossMinDist))
+                            GpuDoAcrossMinDist = (unsigned)Dist;
                         Actions.push_back({&I, true, Dist, Id});
                     }
                     if (I.getMetadata("doacross.post"))
@@ -1263,7 +1822,17 @@ namespace
 
             if (auto *AI = dyn_cast_or_null<AllocaInst>(Orig))
             {
-                if (AI->getFunction() == &F && !Inputs.count(AI) && !Outputs.count(AI))
+                bool OnlyUsedInsideLoop = AI->getFunction() == &F;
+                for (User *U : AI->users())
+                {
+                    auto *UseInst = dyn_cast<Instruction>(U);
+                    if (!UseInst || !LoopBlockSet.contains(UseInst->getParent()))
+                    {
+                        OnlyUsedInsideLoop = false;
+                        break;
+                    }
+                }
+                if (OnlyUsedInsideLoop)
                 {
                     ParamUsesPrivateScratch[ParamIndex] = true;
                     ParamPrivateScratchTys[ParamIndex] = AI->getAllocatedType();
@@ -1275,6 +1844,40 @@ namespace
             ParamToEnvFieldIndex[ParamIndex] = (int)NewEnvFieldTys.size();
             NewEnvFieldTys.push_back(ParamTy);
             NewEnvOriginVals.push_back(Orig);
+        }
+
+        int AppendFrontierEnvField = -1;
+        int AppendSizeEnvField = -1;
+        int AppendCapEnvField = -1;
+        GlobalVariable *AppendFrontierGV = nullptr;
+        GlobalVariable *AppendSizeGV = nullptr;
+        GlobalVariable *AppendCapGV = nullptr;
+
+        if (IsDoAll)
+        {
+            if (auto AppendPattern = detectIntAppendPattern(Target))
+            {
+                Value *ArrayRoot = AppendPattern->first;
+                Value *SizeRoot = AppendPattern->second;
+                AppendFrontierGV = dyn_cast<GlobalVariable>(ArrayRoot);
+                AppendSizeGV = dyn_cast<GlobalVariable>(SizeRoot);
+                AppendCapGV = findVertexCountGlobal(F);
+
+                if (AppendFrontierGV && AppendSizeGV && AppendCapGV)
+                {
+                    AppendFrontierEnvField = (int)NewEnvFieldTys.size();
+                    NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+                    NewEnvOriginVals.push_back(nullptr);
+
+                    AppendSizeEnvField = (int)NewEnvFieldTys.size();
+                    NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+                    NewEnvOriginVals.push_back(AppendSizeGV);
+
+                    AppendCapEnvField = (int)NewEnvFieldTys.size();
+                    NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx));
+                    NewEnvOriginVals.push_back(AppendCapGV);
+                }
+            }
         }
 
         bool UnsupportedSharedSet = false;
@@ -1372,7 +1975,21 @@ namespace
             Type *FieldTy = NewEnvFieldTys[FieldIndex];
             Value *StoreVal = nullptr;
 
-            if (!Orig)
+            if ((int)FieldIndex == AppendFrontierEnvField && AppendFrontierGV)
+            {
+                StoreVal = B.CreateLoad(FieldTy, AppendFrontierGV, AppendFrontierGV->getName() + ".captured");
+            }
+            else if ((int)FieldIndex == AppendSizeEnvField && AppendSizeGV)
+            {
+                StoreVal = AppendSizeGV;
+                if (StoreVal->getType() != FieldTy)
+                    StoreVal = B.CreateBitCast(StoreVal, FieldTy);
+            }
+            else if ((int)FieldIndex == AppendCapEnvField && AppendCapGV)
+            {
+                StoreVal = B.CreateLoad(FieldTy, AppendCapGV, AppendCapGV->getName() + ".cap");
+            }
+            else if (!Orig)
             {
                 StoreVal = Constant::getNullValue(FieldTy);
             }
@@ -1396,19 +2013,35 @@ namespace
             B.CreateStore(StoreVal, GEP);
         }
 
-        SmallVector<uint64_t, 4> PrivatizedEnvFieldOffsets;
+        SmallVector<EnvPrivTarget, 4> PrivTargets;
         const StructLayout *EnvLayout = M->getDataLayout().getStructLayout(NewEnvStructTy);
         for (unsigned ParamIndex = 0; ParamIndex < ParamUsesPrivatizedSet.size(); ++ParamIndex)
         {
             if (!ParamUsesPrivatizedSet[ParamIndex])
                 continue;
             unsigned EnvFieldIndex = (unsigned)ParamToEnvFieldIndex[ParamIndex];
-            PrivatizedEnvFieldOffsets.push_back(EnvLayout->getElementOffset(EnvFieldIndex));
+            EnvPrivTarget TargetDesc;
+            TargetDesc.Offset = EnvLayout->getElementOffset(EnvFieldIndex);
+            TargetDesc.Kind = SGPL_PRIV_ROARING;
+            PrivTargets.push_back(TargetDesc);
         }
         for (GlobalVariable *GV : GlobalWriteSharedSets)
         {
             unsigned EnvFieldIndex = GlobalWriteSetEnvFieldIndices.lookup(GV);
-            PrivatizedEnvFieldOffsets.push_back(EnvLayout->getElementOffset(EnvFieldIndex));
+            EnvPrivTarget TargetDesc;
+            TargetDesc.Offset = EnvLayout->getElementOffset(EnvFieldIndex);
+            TargetDesc.Kind = SGPL_PRIV_ROARING;
+            PrivTargets.push_back(TargetDesc);
+        }
+
+        if (AppendFrontierEnvField >= 0 && AppendSizeEnvField >= 0 && AppendCapEnvField >= 0)
+        {
+            EnvPrivTarget TargetDesc;
+            TargetDesc.Offset = EnvLayout->getElementOffset((unsigned)AppendFrontierEnvField);
+            TargetDesc.Kind = SGPL_PRIV_INT_APPEND;
+            TargetDesc.AuxSizeOffset = (int64_t)EnvLayout->getElementOffset((unsigned)AppendSizeEnvField);
+            TargetDesc.AuxCapOffset = (int64_t)EnvLayout->getElementOffset((unsigned)AppendCapEnvField);
+            PrivTargets.push_back(TargetDesc);
         }
         /* Debug logging disabled: privatize-set-output count */
 
@@ -1438,47 +2071,127 @@ namespace
                 LoadedFields.push_back(WB.CreateLoad(NewEnvFieldTys[FieldIndex], FieldGEP, "fload"));
             }
 
-            SmallVector<Value *, 8> CallArgs;
-            CallArgs.reserve(ArgOriginVals.size());
-            unsigned EnvCursor = 0;
-            for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+            if (AppendFrontierGV && AppendSizeGV && AppendFrontierEnvField >= 0 && AppendSizeEnvField >= 0)
             {
-                Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
-                if ((int)ParamIndex == InductionParamIndex)
-                {
-                    CallArgs.push_back(WB.CreateIntCast(IdxArg, ParamTy, true, "idxcast"));
-                    continue;
-                }
+                SmallVector<Type *, 8> NewParamTys;
+                for (Argument &A : Outlined->args())
+                    NewParamTys.push_back(A.getType());
+                NewParamTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+                NewParamTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
 
-                if (ParamUsesPrivateScratch[ParamIndex])
+                FunctionType *NewFT = FunctionType::get(Outlined->getReturnType(), NewParamTys, false);
+                Function *NewOutlined = Function::Create(
+                    NewFT, Outlined->getLinkage(), Outlined->getName() + ".append_priv", M);
+                NewOutlined->copyAttributesFrom(Outlined);
+
+                ValueToValueMapTy VMap;
+                auto NewArgIt = NewOutlined->arg_begin();
+                for (Argument &OldArg : Outlined->args())
                 {
-                    Value *Scratch = WB.CreateAlloca(ParamPrivateScratchTys[ParamIndex], nullptr, "outlined.scratch");
-                    if (Scratch->getType() != ParamTy)
+                    NewArgIt->setName(OldArg.getName());
+                    VMap[&OldArg] = &*NewArgIt++;
+                }
+                Argument *FrontierArg = &*NewArgIt++;
+                Argument *SizeArg = &*NewArgIt++;
+                FrontierArg->setName("append_frontier");
+                SizeArg->setName("append_size");
+
+                SmallVector<ReturnInst *, 8> Returns;
+                CloneFunctionInto(NewOutlined, Outlined, VMap, CloneFunctionChangeType::LocalChangesOnly, Returns);
+                remapAppendGlobalsInOutlinedFunction(NewOutlined, AppendFrontierGV, AppendSizeGV, FrontierArg, SizeArg);
+
+                Outlined->eraseFromParent();
+                Outlined = NewOutlined;
+                Result.Outlined = Outlined;
+
+                SmallVector<Value *, 8> CallArgs;
+                CallArgs.reserve(ArgOriginVals.size() + 2);
+                unsigned EnvCursor = 0;
+                for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+                {
+                    Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
+                    if ((int)ParamIndex == InductionParamIndex)
                     {
-                        if (Scratch->getType()->isPointerTy() && ParamTy->isPointerTy())
-                            Scratch = WB.CreateBitCast(Scratch, ParamTy);
-                        else
-                            Scratch = Constant::getNullValue(ParamTy);
+                        CallArgs.push_back(WB.CreateIntCast(IdxArg, ParamTy, true, "idxcast"));
+                        continue;
                     }
-                    CallArgs.push_back(Scratch);
-                    continue;
+
+                    if (ParamUsesPrivateScratch[ParamIndex])
+                    {
+                        Value *Scratch = WB.CreateAlloca(ParamPrivateScratchTys[ParamIndex], nullptr, "outlined.scratch");
+                        if (Scratch->getType() != ParamTy)
+                        {
+                            if (Scratch->getType()->isPointerTy() && ParamTy->isPointerTy())
+                                Scratch = WB.CreateBitCast(Scratch, ParamTy);
+                            else
+                                Scratch = Constant::getNullValue(ParamTy);
+                        }
+                        CallArgs.push_back(Scratch);
+                        continue;
+                    }
+
+                    Value *FieldValue = LoadedFields[EnvCursor++];
+                    if (FieldValue->getType() != ParamTy)
+                    {
+                        if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
+                            FieldValue = WB.CreateBitCast(FieldValue, ParamTy);
+                        else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
+                            FieldValue = WB.CreateIntCast(FieldValue, ParamTy, true);
+                        else
+                            FieldValue = Constant::getNullValue(ParamTy);
+                    }
+                    CallArgs.push_back(FieldValue);
                 }
 
-                Value *FieldValue = LoadedFields[EnvCursor++];
-                if (FieldValue->getType() != ParamTy)
-                {
-                    if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
-                        FieldValue = WB.CreateBitCast(FieldValue, ParamTy);
-                    else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
-                        FieldValue = WB.CreateIntCast(FieldValue, ParamTy, true);
-                    else
-                        FieldValue = Constant::getNullValue(ParamTy);
-                }
-                CallArgs.push_back(FieldValue);
+                CallArgs.push_back(LoadedFields[(unsigned)AppendFrontierEnvField]);
+                CallArgs.push_back(LoadedFields[(unsigned)AppendSizeEnvField]);
+                WB.CreateCall(Outlined, CallArgs);
+                WB.CreateRetVoid();
             }
+            else
+            {
+                SmallVector<Value *, 8> CallArgs;
+                CallArgs.reserve(ArgOriginVals.size());
+                unsigned EnvCursor = 0;
+                for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+                {
+                    Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
+                    if ((int)ParamIndex == InductionParamIndex)
+                    {
+                        CallArgs.push_back(WB.CreateIntCast(IdxArg, ParamTy, true, "idxcast"));
+                        continue;
+                    }
 
-            WB.CreateCall(Outlined, CallArgs);
-            WB.CreateRetVoid();
+                    if (ParamUsesPrivateScratch[ParamIndex])
+                    {
+                        Value *Scratch = WB.CreateAlloca(ParamPrivateScratchTys[ParamIndex], nullptr, "outlined.scratch");
+                        if (Scratch->getType() != ParamTy)
+                        {
+                            if (Scratch->getType()->isPointerTy() && ParamTy->isPointerTy())
+                                Scratch = WB.CreateBitCast(Scratch, ParamTy);
+                            else
+                                Scratch = Constant::getNullValue(ParamTy);
+                        }
+                        CallArgs.push_back(Scratch);
+                        continue;
+                    }
+
+                    Value *FieldValue = LoadedFields[EnvCursor++];
+                    if (FieldValue->getType() != ParamTy)
+                    {
+                        if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
+                            FieldValue = WB.CreateBitCast(FieldValue, ParamTy);
+                        else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
+                            FieldValue = WB.CreateIntCast(FieldValue, ParamTy, true);
+                        else
+                            FieldValue = Constant::getNullValue(ParamTy);
+                    }
+                    CallArgs.push_back(FieldValue);
+                }
+
+                WB.CreateCall(Outlined, CallArgs);
+                WB.CreateRetVoid();
+            }
         }
         Result.WrapperFn = WrapperFn;
 
@@ -1489,7 +2202,18 @@ namespace
         FunctionCallee ParallelForExFunc = M->getOrInsertFunction(
             "parallel_for_runtime_ex",
             FunctionType::get(VoidTy,
-                              {Int64Ty, Int64Ty, Int64Ty, LoopBodyFnTy, Int8PtrTy, Int64Ty, Int64Ty->getPointerTo(), Int32Ty, Int32Ty, Int32Ty},
+                              {Int64Ty,
+                               Int64Ty,
+                               Int64Ty,
+                               LoopBodyFnTy,
+                               Int8PtrTy,
+                               Int64Ty,
+                               Int64Ty->getPointerTo(),
+                               Int32Ty->getPointerTo(),
+                               Int64Ty->getPointerTo(),
+                               Int32Ty,
+                               Int32Ty,
+                               Int32Ty},
                               false));
 
         Value *StartArg = castIntegerToI64(B, StartV, "start64");
@@ -1498,18 +2222,377 @@ namespace
         Value *NeedsDoAcrossArg = ConstantInt::get(Int32Ty, IsDoAcross ? 1 : 0);
         Value *DoAcrossNumSyncIdsArg = ConstantInt::get(Int32Ty, Result.NumDoAcrossSyncIds);
 
-        if (PrivatizedEnvFieldOffsets.empty())
+        bool EmittedGpu = false;
+        SmallPtrSet<GlobalVariable *, 8> GpuGlobals;
+        SmallPtrSet<Function *, 8> GpuVisited;
+        // DOACROSS loops offload with the cooperative wave kernel when a
+        // constant dependence distance is known (the wave width). Branched
+        // bodies are fine: the barrier stays outside the per-iteration body.
+        bool GpuDoAcrossOk = IsDoAcross ? GpuDoAcrossMinDist > 0 : true;
+        bool GpuEligible = isGpuBackendEnabled(*M) && (IsDoAll || IsDoAcross) &&
+                           PrivTargets.empty() && GpuDoAcrossOk;
+        if (GpuEligible &&
+            gpuFunctionIsDeviceSafe(Outlined, &GpuGlobals, GpuVisited) &&
+            gpuFunctionIsDeviceSafe(WrapperFn, &GpuGlobals, GpuVisited))
+        {
+            const StructLayout *GpuEnvLayout = M->getDataLayout().getStructLayout(NewEnvStructTy);
+            SmallVector<int64_t, 8> GpuPtrOffsets;
+            SmallVector<int64_t, 8> GpuPtrSizes;
+            SmallVector<int64_t, 8> GpuPtrCapOffsets;
+            SmallVector<int64_t, 8> GpuPtrElemSizes;
+            bool GpuPtrLayoutOk = true;
+
+            for (unsigned FieldIndex = 0; FieldIndex < NewEnvFieldTys.size(); ++FieldIndex)
+            {
+                Type *FieldTy = NewEnvFieldTys[FieldIndex];
+                if (!FieldTy->isPointerTy())
+                    continue;
+
+                int64_t Offset = (int64_t)GpuEnvLayout->getElementOffset(FieldIndex);
+                int64_t Size = 0;
+                int64_t CapOffset = -1;
+                int64_t ElemSize = 0;
+
+                if ((int)FieldIndex == AppendFrontierEnvField && AppendCapEnvField >= 0)
+                {
+                    CapOffset = (int64_t)GpuEnvLayout->getElementOffset((unsigned)AppendCapEnvField);
+                    ElemSize = 4;
+                }
+                else
+                {
+                    Value *Orig = stripToNamedPointer(NewEnvOriginVals[FieldIndex]);
+                    if (auto *AI = dyn_cast_or_null<AllocaInst>(Orig))
+                    {
+                        // A variable-length array (e.g. `alloca i32, i64 %n`) has a
+                        // runtime element count that we cannot size at compile time.
+                        // Fall back to CPU rather than copy the wrong number of bytes.
+                        if (AI->isArrayAllocation())
+                        {
+                            GpuPtrLayoutOk = false;
+                            break;
+                        }
+                        Type *AllocTy = AI->getAllocatedType();
+                        if (AllocTy->isSized())
+                            Size = (int64_t)M->getDataLayout().getTypeAllocSize(AllocTy);
+                        else
+                        {
+                            GpuPtrLayoutOk = false;
+                            break;
+                        }
+                    }
+                    else if (auto *GV = dyn_cast_or_null<GlobalVariable>(Orig))
+                    {
+                        Type *ValueTy = GV->getValueType();
+                        if (ValueTy->isSized())
+                            Size = (int64_t)M->getDataLayout().getTypeAllocSize(ValueTy);
+                    }
+                    else
+                    {
+                        GpuPtrLayoutOk = false;
+                        break;
+                    }
+                }
+
+                if (Size <= 0 && CapOffset < 0)
+                {
+                    GpuPtrLayoutOk = false;
+                    break;
+                }
+
+                GpuPtrOffsets.push_back(Offset);
+                GpuPtrSizes.push_back(Size);
+                GpuPtrCapOffsets.push_back(CapOffset);
+                GpuPtrElemSizes.push_back(ElemSize);
+            }
+
+            if (GpuPtrLayoutOk)
+            {
+                stripDeviceIncompatibleIntrinsics(*Outlined);
+                stripDeviceIncompatibleIntrinsics(*WrapperFn);
+
+                // The kernel name becomes the PTX .entry symbol; ptxas rejects
+                // names containing '.' (e.g. a loop header "foreach.cond").
+                // Sanitize it to [A-Za-z0-9_] for the device module.
+                std::string KernelBase =
+                    "gpu_kernel_" + F.getName().str() + "_" + Target.Header->getName().str();
+                std::string KernelName;
+                KernelName.reserve(KernelBase.size());
+                for (char C : KernelBase)
+                    KernelName += (isalnum((unsigned char)C) || C == '_') ? C : '_';
+                FunctionType *KernelFT = FunctionType::get(VoidTy, {Int64Ty, Int64Ty, Int64Ty, Int8PtrTy}, false);
+                Function *KernelFn = Function::Create(KernelFT, GlobalValue::ExternalLinkage, KernelName, M);
+                KernelFn->setCallingConv(CallingConv::PTX_Kernel);
+
+                auto KernelArgIt = KernelFn->arg_begin();
+                Argument *KStart = &*KernelArgIt++;
+                Argument *KEnd = &*KernelArgIt++;
+                Argument *KStep = &*KernelArgIt++;
+                Argument *KEnv = &*KernelArgIt++;
+                KStart->setName("start");
+                KEnd->setName("end");
+                KStep->setName("step");
+                KEnv->setName("env");
+
+                BasicBlock *KEntry = BasicBlock::Create(Ctx, "entry", KernelFn);
+                IRBuilder<> KB(KEntry);
+
+                Function *GetBX = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_ctaid_x);
+                Function *GetTX = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_tid_x);
+                Function *GetBD = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_ntid_x);
+
+                Value *BX = KB.CreateCall(GetBX, {}, "bx");
+                Value *TX = KB.CreateCall(GetTX, {}, "tx");
+                Value *BD = KB.CreateCall(GetBD, {}, "bd");
+
+                Value *BX64 = KB.CreateZExt(BX, Int64Ty, "bx64");
+                Value *TX64 = KB.CreateZExt(TX, Int64Ty, "tx64");
+                Value *BD64 = KB.CreateZExt(BD, Int64Ty, "bd64");
+
+                Value *LinIdx = KB.CreateAdd(KB.CreateMul(BX64, BD64, "blockoff"), TX64, "lin");
+
+                if (IsDoAcross)
+                {
+                    // Cooperative wave/phase kernel. Wave w owns the iterations
+                    // [start + w*d, start + (w+1)*d) where d is the minimum
+                    // constant dependence distance; every producer of those
+                    // iterations lives in a strictly earlier wave. The full
+                    // original body (conditionals and SIMT divergence included)
+                    // runs per assigned iteration, then an unconditional
+                    // cooperative grid sync separates the waves.
+                    //
+                    // Grid sync is emitted as inline PTX (the NVVM
+                    // griddepcontrol intrinsics are not selectable by NVPTX).
+                    // On sm_70..sm_89 the cooperative-groups grid sync is
+                    // simply `bar.sync 0` under a cooperative launch (all
+                    // blocks resident); griddepcontrol is sm_90+ only.
+                    Function *GetGD = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_nctaid_x);
+                    InlineAsm *GridSync = InlineAsm::get(
+                        FunctionType::get(VoidTy, {}, false),
+                        "bar.sync 0;",
+                        "~{memory}",
+                        /*hasSideEffects=*/true);
+
+                    Value *GD = KB.CreateCall(GetGD, {}, "gd");
+                    Value *GD64 = KB.CreateZExt(GD, Int64Ty, "gd64");
+                    Value *NThreads = KB.CreateMul(GD64, BD64, "nthreads");
+
+                    Value *Trip = KB.CreateSDiv(KB.CreateSub(KEnd, KStart), KStep, "trip");
+                    Value *D64 = ConstantInt::get(Int64Ty, GpuDoAcrossMinDist);
+                    Value *NWaves = KB.CreateSDiv(KB.CreateAdd(Trip, D64), D64, "nwaves");
+
+                    BasicBlock *KWloop = BasicBlock::Create(Ctx, "wloop", KernelFn);
+                    BasicBlock *KWbody = BasicBlock::Create(Ctx, "wbody", KernelFn);
+                    BasicBlock *KWcheck = BasicBlock::Create(Ctx, "wcheck", KernelFn);
+                    BasicBlock *KWiter = BasicBlock::Create(Ctx, "witer", KernelFn);
+                    BasicBlock *KWsync = BasicBlock::Create(Ctx, "wsync", KernelFn);
+                    BasicBlock *KWdone = BasicBlock::Create(Ctx, "wdone", KernelFn);
+                    KB.CreateBr(KWloop);
+
+                    IRBuilder<> WB(KWloop);
+                    PHINode *WavePhi = WB.CreatePHI(Int64Ty, 2, "wave");
+                    WavePhi->addIncoming(ConstantInt::get(Int64Ty, 0), KEntry);
+                    Value *WCond = WB.CreateICmpSLT(WavePhi, NWaves, "wave.in.range");
+                    WB.CreateCondBr(WCond, KWbody, KWdone);
+
+                    IRBuilder<> WBB(KWbody);
+                    Value *WaveOff = WBB.CreateMul(WavePhi, D64, "wave.off");
+                    Value *IBase =
+                        WBB.CreateAdd(KStart, WBB.CreateMul(WaveOff, KStep, "wave.off.step"), "ibase");
+                    Value *IEndRaw = WBB.CreateAdd(IBase, WBB.CreateMul(D64, KStep, "wave.width"), "iend.raw");
+                    Value *IEndClamp = WBB.CreateICmpSLT(IEndRaw, KEnd, "iend.clamp");
+                    Value *IEnd = WBB.CreateSelect(IEndClamp, IEndRaw, KEnd, "iend");
+                    Value *IInit = WBB.CreateAdd(IBase, WBB.CreateMul(LinIdx, KStep, "i.init.step"), "iinit");
+                    WBB.CreateBr(KWcheck);
+
+                    IRBuilder<> WCB(KWcheck);
+                    PHINode *IPhi = WCB.CreatePHI(Int64Ty, 2, "i");
+                    IPhi->addIncoming(IInit, KWbody);
+                    Value *ICond = WCB.CreateICmpSLT(IPhi, IEnd, "in.wave");
+                    WCB.CreateCondBr(ICond, KWiter, KWsync);
+
+                    IRBuilder<> WIB(KWiter);
+                    WIB.CreateCall(WrapperFn, {IPhi, KEnv});
+                    Value *INext = WIB.CreateAdd(IPhi, WIB.CreateMul(NThreads, KStep, "i.stride"), "inext");
+                    WIB.CreateBr(KWcheck);
+
+                    IRBuilder<> WSB(KWsync);
+                    WSB.CreateCall(GridSync);
+                    Value *WaveNext = WSB.CreateAdd(WavePhi, ConstantInt::get(Int64Ty, 1), "wave.next");
+                    WSB.CreateBr(KWloop);
+
+                    IRBuilder<> WDB(KWdone);
+                    WDB.CreateRetVoid();
+
+                    WavePhi->addIncoming(WaveNext, KWsync);
+                    IPhi->addIncoming(INext, KWiter);
+                }
+                else
+                {
+                    Value *Iter = KB.CreateAdd(KB.CreateMul(LinIdx, KStep, "strided"), KStart, "i");
+                    Value *InRange = KB.CreateICmpSLT(Iter, KEnd, "in.range");
+
+                    BasicBlock *KBody = BasicBlock::Create(Ctx, "body", KernelFn);
+                    BasicBlock *KDone = BasicBlock::Create(Ctx, "done", KernelFn);
+                    KB.CreateCondBr(InRange, KBody, KDone);
+
+                    KB.SetInsertPoint(KBody);
+                    KB.CreateCall(WrapperFn, {Iter, KEnv});
+                    KB.CreateBr(KDone);
+
+                    KB.SetInsertPoint(KDone);
+                    KB.CreateRetVoid();
+                }
+
+                NamedMDNode *GpuKernels = M->getOrInsertNamedMetadata("graph.gpu.kernels");
+                ValueAsMetadata *KernelVAM = ValueAsMetadata::get(KernelFn);
+                GpuKernels->addOperand(MDNode::get(Ctx, KernelVAM));
+
+                unsigned NumGpuPtrFields = (unsigned)GpuPtrOffsets.size();
+                PointerType *I64PtrTy = cast<PointerType>(Int64Ty->getPointerTo());
+                Value *GpuPtrOffsetsArg = ConstantPointerNull::get(I64PtrTy);
+                Value *GpuPtrSizesArg = ConstantPointerNull::get(I64PtrTy);
+                Value *GpuPtrCapOffsetsArg = ConstantPointerNull::get(I64PtrTy);
+                Value *GpuPtrElemSizesArg = ConstantPointerNull::get(I64PtrTy);
+
+                if (NumGpuPtrFields > 0)
+                {
+                    ArrayType *OffsetsArrTy = ArrayType::get(Int64Ty, NumGpuPtrFields);
+                    SmallVector<Constant *, 8> OffsetsC;
+                    SmallVector<Constant *, 8> SizesC;
+                    SmallVector<Constant *, 8> CapC;
+                    SmallVector<Constant *, 8> ElemC;
+                    for (unsigned P = 0; P < NumGpuPtrFields; ++P)
+                    {
+                        OffsetsC.push_back(ConstantInt::get(Int64Ty, GpuPtrOffsets[P]));
+                        SizesC.push_back(ConstantInt::get(Int64Ty, GpuPtrSizes[P]));
+                        CapC.push_back(ConstantInt::get(Int64Ty, GpuPtrCapOffsets[P]));
+                        ElemC.push_back(ConstantInt::get(Int64Ty, GpuPtrElemSizes[P]));
+                    }
+
+                    auto *OffsetsGV = new GlobalVariable(*M, OffsetsArrTy, true, GlobalValue::PrivateLinkage,
+                                                         ConstantArray::get(OffsetsArrTy, OffsetsC), "gpu_ptr_offsets");
+                    auto *SizesGV = new GlobalVariable(*M, OffsetsArrTy, true, GlobalValue::PrivateLinkage,
+                                                       ConstantArray::get(OffsetsArrTy, SizesC), "gpu_ptr_sizes");
+                    auto *CapGV = new GlobalVariable(*M, OffsetsArrTy, true, GlobalValue::PrivateLinkage,
+                                                     ConstantArray::get(OffsetsArrTy, CapC), "gpu_ptr_cap_offsets");
+                    auto *ElemGV = new GlobalVariable(*M, OffsetsArrTy, true, GlobalValue::PrivateLinkage,
+                                                      ConstantArray::get(OffsetsArrTy, ElemC), "gpu_ptr_elem_sizes");
+
+                    Value *Zero32 = ConstantInt::get(Int32Ty, 0);
+                    GpuPtrOffsetsArg = B.CreateInBoundsGEP(OffsetsArrTy, OffsetsGV, {Zero32, Zero32}, "gpu_offsets_ptr");
+                    GpuPtrSizesArg = B.CreateInBoundsGEP(OffsetsArrTy, SizesGV, {Zero32, Zero32}, "gpu_sizes_ptr");
+                    GpuPtrCapOffsetsArg = B.CreateInBoundsGEP(OffsetsArrTy, CapGV, {Zero32, Zero32}, "gpu_cap_ptr");
+                    GpuPtrElemSizesArg = B.CreateInBoundsGEP(OffsetsArrTy, ElemGV, {Zero32, Zero32}, "gpu_elem_ptr");
+                }
+
+                // Global arrays referenced by the device functions are cloned into
+                // the device module; the runtime copies their data in/out by name.
+                SmallVector<GlobalVariable *, 8> GpuGlobalList(GpuGlobals.begin(), GpuGlobals.end());
+                unsigned NumGpuGlobals = (unsigned)GpuGlobalList.size();
+                PointerType *Int8PtrPtrTy = cast<PointerType>(Int8PtrTy->getPointerTo());
+                Value *GpuGlobalNamesArg = ConstantPointerNull::get(Int8PtrPtrTy);
+                Value *GpuGlobalPtrsArg = ConstantPointerNull::get(Int8PtrPtrTy);
+                Value *GpuGlobalSizesArg = ConstantPointerNull::get(I64PtrTy);
+
+                if (NumGpuGlobals > 0)
+                {
+                    ArrayType *NamesArrTy = ArrayType::get(Int8PtrTy, NumGpuGlobals);
+                    ArrayType *PtrsArrTy = ArrayType::get(Int8PtrTy, NumGpuGlobals);
+                    ArrayType *SizesArrTy = ArrayType::get(Int64Ty, NumGpuGlobals);
+                    SmallVector<Constant *, 8> NamesC;
+                    SmallVector<Constant *, 8> PtrsC;
+                    SmallVector<Constant *, 8> SizesC;
+                    for (GlobalVariable *GV : GpuGlobalList)
+                    {
+                        NamesC.push_back(createCStringPtr(
+                            *M, GV->getName(), std::string("gpu.global.name.") + GV->getName().str()));
+                        PtrsC.push_back(ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy));
+                        SizesC.push_back(ConstantInt::get(
+                            Int64Ty, (uint64_t)M->getDataLayout().getTypeAllocSize(GV->getValueType())));
+                    }
+                    auto *NamesGV = new GlobalVariable(*M, NamesArrTy, true, GlobalValue::PrivateLinkage,
+                                                       ConstantArray::get(NamesArrTy, NamesC), "gpu_global_names");
+                    auto *PtrsGV = new GlobalVariable(*M, PtrsArrTy, true, GlobalValue::PrivateLinkage,
+                                                      ConstantArray::get(PtrsArrTy, PtrsC), "gpu_global_ptrs");
+                    auto *SizesGV = new GlobalVariable(*M, SizesArrTy, true, GlobalValue::PrivateLinkage,
+                                                       ConstantArray::get(SizesArrTy, SizesC), "gpu_global_sizes");
+
+                    Value *Zero32 = ConstantInt::get(Int32Ty, 0);
+                    GpuGlobalNamesArg = B.CreateInBoundsGEP(NamesArrTy, NamesGV, {Zero32, Zero32}, "gpu_global_names_ptr");
+                    GpuGlobalPtrsArg = B.CreateInBoundsGEP(PtrsArrTy, PtrsGV, {Zero32, Zero32}, "gpu_global_ptrs_ptr");
+                    GpuGlobalSizesArg = B.CreateInBoundsGEP(SizesArrTy, SizesGV, {Zero32, Zero32}, "gpu_global_sizes_ptr");
+                }
+
+                FunctionCallee GpuForFn = M->getOrInsertFunction(
+                    "gpu_parallel_for_runtime",
+                    FunctionType::get(VoidTy,
+                                      {Int64Ty,
+                                       Int64Ty,
+                                       Int64Ty,
+                                       Int8PtrTy,
+                                       LoopBodyFnTy,
+                                       Int8PtrTy,
+                                       Int64Ty,
+                                       I64PtrTy,
+                                       I64PtrTy,
+                                       I64PtrTy,
+                                       I64PtrTy,
+                                       Int32Ty,
+                                       Int8PtrPtrTy,
+                                       Int8PtrPtrTy,
+                                       I64PtrTy,
+                                       Int32Ty,
+                                       Int32Ty,
+                                       Int32Ty},
+                                      false));
+
+                Value *KernelNameStr =
+                    createCStringPtr(*M, KernelName, std::string("gpu.kernel.name.") + KernelName);
+                B.CreateCall(GpuForFn,
+                             {StartArg,
+                              EndArg,
+                              StepArg,
+                              KernelNameStr,
+                              CastedWrapper,
+                              RawPtr,
+                              ConstantInt::get(Int64Ty, NewEnvSize),
+                              GpuPtrOffsetsArg,
+                              GpuPtrSizesArg,
+                              GpuPtrCapOffsetsArg,
+                              GpuPtrElemSizesArg,
+                              ConstantInt::get(Int32Ty, NumGpuPtrFields),
+                              GpuGlobalNamesArg,
+                              GpuGlobalPtrsArg,
+                              GpuGlobalSizesArg,
+                              ConstantInt::get(Int32Ty, NumGpuGlobals),
+                              ConstantInt::get(Int32Ty, IsDoAcross ? 1 : 0),
+                              DoAcrossNumSyncIdsArg});
+                EmittedGpu = true;
+            }
+        }
+
+        if (!EmittedGpu && PrivTargets.empty())
         {
             B.CreateCall(ParallelForFunc,
                          {StartArg, EndArg, StepArg, CastedWrapper, RawPtr, NeedsDoAcrossArg, DoAcrossNumSyncIdsArg});
             Result.Privatized = false;
         }
-        else
+        else if (!EmittedGpu)
         {
-            ArrayType *PrivOffsetsTy = ArrayType::get(Int64Ty, PrivatizedEnvFieldOffsets.size());
+            ArrayType *PrivOffsetsTy = ArrayType::get(Int64Ty, PrivTargets.size());
+            ArrayType *PrivKindsTy = ArrayType::get(Int32Ty, PrivTargets.size());
+            ArrayType *PrivAuxTy = ArrayType::get(Int64Ty, PrivTargets.size() * 2);
             SmallVector<Constant *, 4> PrivOffsetConsts;
-            for (uint64_t Offset : PrivatizedEnvFieldOffsets)
-                PrivOffsetConsts.push_back(ConstantInt::get(Int64Ty, Offset));
+            SmallVector<Constant *, 4> PrivKindConsts;
+            SmallVector<Constant *, 8> PrivAuxConsts;
+
+            for (const EnvPrivTarget &TargetDesc : PrivTargets)
+            {
+                PrivOffsetConsts.push_back(ConstantInt::get(Int64Ty, TargetDesc.Offset));
+                PrivKindConsts.push_back(ConstantInt::get(Int32Ty, TargetDesc.Kind));
+                PrivAuxConsts.push_back(ConstantInt::get(Int64Ty, TargetDesc.AuxSizeOffset));
+                PrivAuxConsts.push_back(ConstantInt::get(Int64Ty, TargetDesc.AuxCapOffset));
+            }
 
             Result.PrivOffsetsGV = new GlobalVariable(
                 *M,
@@ -1518,9 +2601,25 @@ namespace
                 GlobalValue::PrivateLinkage,
                 ConstantArray::get(PrivOffsetsTy, PrivOffsetConsts),
                 "priv_offsets");
+            Result.PrivKindsGV = new GlobalVariable(
+                *M,
+                PrivKindsTy,
+                true,
+                GlobalValue::PrivateLinkage,
+                ConstantArray::get(PrivKindsTy, PrivKindConsts),
+                "priv_kinds");
+            Result.PrivAuxGV = new GlobalVariable(
+                *M,
+                PrivAuxTy,
+                true,
+                GlobalValue::PrivateLinkage,
+                ConstantArray::get(PrivAuxTy, PrivAuxConsts),
+                "priv_aux");
 
             Value *Zero32 = ConstantInt::get(Int32Ty, 0);
             Value *PrivOffsetsPtr = B.CreateInBoundsGEP(PrivOffsetsTy, Result.PrivOffsetsGV, {Zero32, Zero32}, "priv_offsets_ptr");
+            Value *PrivKindsPtr = B.CreateInBoundsGEP(PrivKindsTy, Result.PrivKindsGV, {Zero32, Zero32}, "priv_kinds_ptr");
+            Value *PrivAuxPtr = B.CreateInBoundsGEP(PrivAuxTy, Result.PrivAuxGV, {Zero32, Zero32}, "priv_aux_ptr");
             B.CreateCall(ParallelForExFunc,
                          {StartArg,
                           EndArg,
@@ -1529,11 +2628,13 @@ namespace
                           RawPtr,
                           ConstantInt::get(Int64Ty, NewEnvSize),
                           PrivOffsetsPtr,
-                          ConstantInt::get(Int32Ty, (unsigned)PrivatizedEnvFieldOffsets.size()),
+                          PrivKindsPtr,
+                          PrivAuxPtr,
+                          ConstantInt::get(Int32Ty, (unsigned)PrivTargets.size()),
                           NeedsDoAcrossArg,
                           DoAcrossNumSyncIdsArg});
             Result.Privatized = true;
-            Result.NumPrivTargets = PrivatizedEnvFieldOffsets.size();
+            Result.NumPrivTargets = PrivTargets.size();
         }
 
         B.CreateBr(Target.ExitBlock);
@@ -1751,6 +2852,13 @@ namespace
         Result.Changed = Result.Changed || Transform.Changed;
         Result.Outlined = Transform.Outlined;
 
+        // The original loop survives as the serial fallback path; strip the
+        // parallel tag from it so a later outliner pass does not outline it
+        // again (which would create a duplicate kernel/parallel dispatch).
+        // Nested loops keep their own tags.
+        if (Transform.Outlined && Candidate->Header && Candidate->Header->getTerminator())
+            Candidate->Header->getTerminator()->setMetadata("my.loop.parallel", nullptr);
+
         finalizeLoopDispatch(F, Versioning, *Candidate, Transform);
         return Result;
     }
@@ -1827,4 +2935,279 @@ void registerLoopOutlinerPluginWithPassBuilder(PassBuilder &PB)
             }
             return false;
         });
+}
+
+void emitGpuKernels(Module &M, StringRef PtxPath)
+{
+    NamedMDNode *GpuKernelsMD = M.getNamedMetadata("graph.gpu.kernels");
+    if (!GpuKernelsMD || GpuKernelsMD->getNumOperands() == 0)
+        return;
+
+    SmallVector<Function *, 8> Kernels;
+    for (const MDNode *Op : GpuKernelsMD->operands())
+    {
+        if (!Op || Op->getNumOperands() == 0)
+            continue;
+        if (auto *VAM = dyn_cast_or_null<ValueAsMetadata>(Op->getOperand(0)))
+            if (auto *Kernel = dyn_cast<Function>(VAM->getValue()))
+                Kernels.push_back(Kernel);
+    }
+
+    SmallPtrSet<Function *, 16> Seen;
+    SmallVector<Function *, 16> Order;
+    std::function<void(Function *)> Collect = [&](Function *Fn)
+    {
+        if (!Fn || Fn->isDeclaration() || Fn->isIntrinsic())
+            return;
+        if (!Seen.insert(Fn).second)
+            return;
+        Order.push_back(Fn);
+        for (BasicBlock &BB : *Fn)
+        {
+            for (Instruction &I : BB)
+            {
+                if (auto *CI = dyn_cast<CallInst>(&I))
+                    if (Function *Callee = CI->getCalledFunction())
+                        Collect(Callee);
+            }
+        }
+    };
+    for (Function *K : Kernels)
+        Collect(K);
+
+    // Gather the globals referenced by the kernel graph so they can be cloned
+    // into the device module. The runtime then copies their data in/out by name.
+    SmallPtrSet<GlobalVariable *, 16> SeenGlobals;
+    SmallVector<GlobalVariable *, 16> Globals;
+    for (Function *Fn : Order)
+    {
+        for (BasicBlock &BB : *Fn)
+        {
+            for (Instruction &I : BB)
+            {
+                for (Value *Op : I.operands())
+                {
+                    if (auto *GV = dyn_cast<GlobalVariable>(Op->stripPointerCasts()))
+                    {
+                        // Host-only runtime structures (loop descriptors, ...)
+                        // must never be cloned: their names contain '.' which
+                        // is illegal in PTX identifiers, and the GPU path never
+                        // uses them.
+                        if (GV->getName().starts_with("sgpl."))
+                            continue;
+                        if (SeenGlobals.insert(GV).second)
+                            Globals.push_back(GV);
+                    }
+                }
+            }
+        }
+    }
+
+    LLVMContext &Ctx = M.getContext();
+    std::unique_ptr<Module> DeviceModule = std::make_unique<Module>("gpu_kernels", Ctx);
+
+    ValueToValueMapTy VMap;
+    for (GlobalVariable *OldGV : Globals)
+    {
+        GlobalVariable *NewGV = new GlobalVariable(
+            *DeviceModule, OldGV->getValueType(), false, GlobalValue::ExternalLinkage,
+            Constant::getNullValue(OldGV->getValueType()), OldGV->getName());
+        NewGV->setAlignment(OldGV->getAlign());
+        VMap[OldGV] = NewGV;
+    }
+    for (Function *Old : Order)
+    {
+        Function *New = Function::Create(Old->getFunctionType(), GlobalValue::ExternalLinkage,
+                                         Old->getName(), DeviceModule.get());
+        New->copyAttributesFrom(Old);
+        if (Old->getCallingConv() == CallingConv::PTX_Kernel)
+            New->setCallingConv(CallingConv::PTX_Kernel);
+        VMap[Old] = New;
+        auto NewArgIt = New->arg_begin();
+        for (auto OldArgIt = Old->arg_begin(); OldArgIt != Old->arg_end(); ++OldArgIt, ++NewArgIt)
+            VMap[&*OldArgIt] = &*NewArgIt;
+    }
+    for (Function *Old : Order)
+    {
+        Function *New = cast<Function>(VMap[Old]);
+        SmallVector<ReturnInst *, 8> Returns;
+        CloneFunctionInto(New, Old, VMap, CloneFunctionChangeType::DifferentModule, Returns);
+    }
+
+    // Cloned bodies may still reference the host module's intrinsic declarations
+    // (e.g. the NVVM special-register reads). Re-home them into the device module.
+    for (Function &F : *DeviceModule)
+    {
+        SmallVector<CallInst *, 16> IntrinsicCalls;
+        for (BasicBlock &BB : F)
+            for (Instruction &I : BB)
+                if (auto *CI = dyn_cast<CallInst>(&I))
+                    if (Function *Callee = CI->getCalledFunction())
+                        if (Callee->isIntrinsic())
+                            IntrinsicCalls.push_back(CI);
+        for (CallInst *CI : IntrinsicCalls)
+        {
+            Function *OldCallee = CI->getCalledFunction();
+            Function *Decl = Intrinsic::getDeclaration(DeviceModule.get(), OldCallee->getIntrinsicID());
+            CI->setCalledFunction(Decl);
+        }
+    }
+
+    // Drop all instruction metadata (debug, TBAA, ...) from the device module so
+    // cloned instructions never reference DI nodes owned by the host module.
+    for (Function &F : *DeviceModule)
+    {
+        for (BasicBlock &BB : F)
+        {
+            for (Instruction &I : BB)
+            {
+                SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+                I.getAllMetadata(MDs);
+                for (auto &KV : MDs)
+                    I.setMetadata(KV.first, nullptr);
+            }
+        }
+    }
+
+    // DOACROSS bodies carry host-side doacross_wait/post/init calls and the
+// wrapper carries the profile enter/exit hooks (all used only by the CPU
+// fallback path). On the device the cooperative wave barriers subsume them,
+// so strip the calls before inlining.
+    for (Function &F : *DeviceModule)
+    {
+        SmallVector<CallInst *, 16> DoAcrossCalls;
+        for (BasicBlock &BB : F)
+            for (Instruction &I : BB)
+                if (auto *CI = dyn_cast<CallInst>(&I))
+                    if (Function *Callee = CI->getCalledFunction())
+                    {
+                        StringRef N = Callee->getName();
+                        if (N == "doacross_wait" || N == "doacross_post" || N == "doacross_init" ||
+                            N == "sgpl_doacross_profile_enter" || N == "sgpl_doacross_profile_exit")
+                            DoAcrossCalls.push_back(CI);
+                    }
+        for (CallInst *CI : DoAcrossCalls)
+            CI->eraseFromParent();
+    }
+
+    // Inline the wrapper chain (kernel -> wrapper -> outlined body) into the
+    // kernel. A self-contained entry keeps the emitted PTX free of extra
+    // forward-declared .visible .func symbols, which the driver's JIT compiler
+    // rejects when more than one is present.
+    {
+        bool Changed = true;
+        while (Changed)
+        {
+            Changed = false;
+            for (Function &Fn : *DeviceModule)
+            {
+                if (Fn.isDeclaration() || Fn.isIntrinsic())
+                    continue;
+                for (BasicBlock &BB : Fn)
+                {
+                    for (Instruction &I : BB)
+                    {
+                        auto *CI = dyn_cast<CallInst>(&I);
+                        if (!CI)
+                            continue;
+                        Function *Callee = CI->getCalledFunction();
+                        if (!Callee || Callee->isDeclaration() || Callee->isIntrinsic() || Callee == &Fn)
+                            continue;
+                        InlineFunctionInfo IFI;
+                        if (InlineFunction(*CI, IFI).isSuccess())
+                        {
+                            Changed = true;
+                            break;
+                        }
+                    }
+                    if (Changed)
+                        break;
+                }
+                if (Changed)
+                    break;
+            }
+        }
+
+        // Drop now-dead helper functions (wrapper/outlined) so they do not
+        // linger in the PTX as unused declarations.
+        SmallVector<Function *, 4> DeadFns;
+        for (Function &Fn : *DeviceModule)
+            if (!Fn.isDeclaration() && !Fn.isIntrinsic() && Fn.use_empty() &&
+                Fn.getCallingConv() != CallingConv::PTX_Kernel)
+                DeadFns.push_back(&Fn);
+        for (Function *Fn : DeadFns)
+            Fn->eraseFromParent();
+    }
+
+    // Remove the temporary kernel placeholders (and their registry) from the host
+    // module now that their bodies have been cloned into the device module. This
+    // keeps the NVPTX kernel calling convention out of host codegen regardless of
+    // whether PTX emission succeeds below.
+    GpuKernelsMD->eraseFromParent();
+    for (Function *K : Kernels)
+        K->eraseFromParent();
+
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    std::string Error;
+    const Target *NvTarget = TargetRegistry::lookupTarget("nvptx64-nvidia-cuda", Error);
+    if (!NvTarget)
+    {
+        errs() << "[gpu] NVPTX target unavailable (" << Error << "); GPU offload disabled\n";
+        return;
+    }
+
+    TargetOptions Opts;
+    std::optional<Reloc::Model> RM = std::nullopt;
+    std::optional<CodeModel::Model> CM = std::nullopt;
+    std::unique_ptr<TargetMachine> TM(
+        NvTarget->createTargetMachine("nvptx64-nvidia-cuda", "sm_70", "", Opts, RM, CM,
+                                      CodeGenOptLevel::Default, /*JIT=*/false));
+    if (!TM)
+    {
+        errs() << "[gpu] Failed to create NVPTX TargetMachine; GPU offload disabled\n";
+        return;
+    }
+
+    DeviceModule->setDataLayout(TM->createDataLayout());
+    DeviceModule->setTargetTriple("nvptx64-nvidia-cuda");
+
+    SmallString<0> PtxBufStr;
+    raw_svector_ostream PtxBuf(PtxBufStr);
+    legacy::PassManager PM;
+    if (TM->addPassesToEmitFile(PM, PtxBuf, nullptr, CodeGenFileType::AssemblyFile))
+    {
+        errs() << "[gpu] NVPTX TargetMachine cannot emit PTX assembly\n";
+        return;
+    }
+    PM.run(*DeviceModule);
+    std::string PtxText(PtxBufStr.str());
+    if (PtxText.empty())
+    {
+        errs() << "[gpu] NVPTX emitted empty PTX; GPU offload disabled\n";
+        return;
+    }
+
+    std::error_code EC;
+    raw_fd_ostream PtxOS(PtxPath, EC, sys::fs::OF_None);
+    if (EC)
+    {
+        errs() << "[gpu] Could not open '" << PtxPath << "' for writing: " << EC.message() << "\n";
+    }
+    else
+    {
+        PtxOS << PtxText;
+        PtxOS.flush();
+    }
+
+    // Embed the PTX text in the host module so the executable can load the
+    // module without reading kernels.ptx from disk. External linkage and the
+    // exact symbol name make it visible to gpu_runtime.c via a weak extern.
+    Constant *PtxArr = ConstantDataArray::getString(Ctx, PtxText, /*AddNull=*/true);
+    new GlobalVariable(M, PtxArr->getType(), /*isConstant=*/true,
+                       GlobalValue::ExternalLinkage, PtxArr, "gpu_embedded_ptx");
 }

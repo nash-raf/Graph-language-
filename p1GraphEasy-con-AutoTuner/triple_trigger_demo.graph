@@ -1,0 +1,98 @@
+// =============================================================================
+// triple_trigger_demo.graph
+// Three nests in one kernel — targets Polly, PDG DOALL, and PDG DOACROSS.
+// =============================================================================
+//
+// Measured on p1 Autotuner (N≈48):
+//
+//   GRAPH_DISABLE_POLLY=1 :
+//      DOALL  + DOACROSS  (+ matmul outlined as DOALL)
+//      — Polly silent
+//
+//   default (Polly + -polly-parallel) :
+//      Polly GOMP on matmul  +  PDG DOALL on residual
+//      — DOACROSS metadata gone (Polly O3 rewrites poison carried-dep class)
+//
+// So: one source expresses all three; you cannot get GOMP + DOALL + DOACROSS
+// in a *single* default Polly-on compile today (pipeline order).
+// =============================================================================
+graph G {
+  edges: file "triple_trigger_edges.txt";
+  TRUE
+};
+
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n][n];
+  int Bmat[n][n];
+  int C[n][n];
+  int x[n];
+  int y[n];
+  int pref[n];
+  int Q[n];
+
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = i + 1;
+      Bmat[i][j] = j + 1;
+      C[i][j] = 0;
+      j = j + 1;
+    }
+    x[i] = i + 1;
+    y[i] = 1;
+    pref[i] = 1;
+    Q[i] = n - 1 - i;
+    i = i + 1;
+  }
+
+  // -------------------------------------------------------------------------
+  // (1) POLLY — dense affine matmul / Kleene-shaped product
+  //     Default build → GOMP_parallel_loop_runtime_start / kernel_polly_subfn
+  // -------------------------------------------------------------------------
+  i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      int s = 0;
+      int k = 0;
+      while (k < n) {
+        s = s + A[i][k] * Bmat[k][j];
+        k = k + 1;
+      }
+      C[i][j] = s;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+
+  // -------------------------------------------------------------------------
+  // (2) PDG DOALL — no loop-carried deps
+  //     → my.loop.parallel parallel.type=DOALL
+  //     → parallel_for_runtime(..., i32 0, i32 0)
+  // -------------------------------------------------------------------------
+  i = 0;
+  while (i < n) {
+    y[i] = 3 * x[i] + y[i];
+    i = i + 1;
+  }
+
+  // -------------------------------------------------------------------------
+  // (3) PDG DOACROSS — pref[i] depends on pref[i-1]
+  //     Indirect x[Q[i]] keeps this nest out of a clean Polly-only story when
+  //     Polly is off; with Polly off PDG still proves distance-1 carry.
+  //     → parallel.type=DOACROSS
+  //     → parallel_for_runtime(..., i32 1, i32 1)
+  // -------------------------------------------------------------------------
+  i = 1;
+  while (i < n) {
+    int idx = Q[i];
+    pref[i] = pref[i - 1] + x[idx];
+    i = i + 1;
+  }
+
+  print y[n - 1] + pref[n - 1] + C[1][1];
+}
+
+kernel();

@@ -3,30 +3,29 @@
 #include "ASTNode.h"
 #include <stdexcept>
 #include <vector>
+#include <unordered_set>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/DenseSet.h>
 #include <cstring> // for std::memcpy
 #include "llvm/Support/Allocator.h"
 
-namespace {
-bool parseGraphDirectedProperty(const std::vector<BaseParser::GraphPropertyContext *> &props)
+
+namespace
 {
-    bool directed = false;
-    bool seenDirected = false;
-    for (auto *prop : props)
-    {
-        if (!prop)
-            continue;
-        std::string value = prop->boolLiteral()->getText();
-        bool next = (value == "true" || value == "TRUE");
-        if (seenDirected && directed != next)
-            throw std::runtime_error("conflicting directed graph properties");
-        directed = next;
-        seenDirected = true;
-    }
-    return directed;
+// `a -> b;` is a required POSITIVE edge, `a -| b;` a required NEGATIVE one.
+// Every pair with no motif edge is required to be ABSENT, which is what makes
+// matching induced rather than merely monomorphic.
+MotifEdgeSpec parseMotifEdge(BaseParser::MotifEdgeContext *edge)
+{
+    MotifEdgeSpec result;
+    result.source = edge->ID(0)->getText();
+    result.target = edge->ID(1)->getText();
+    result.sign = edge->children[1]->getText() == "-|"
+                      ? MotifEdgeSign::Negative
+                      : MotifEdgeSign::Positive;
+    return result;
 }
-}
+} // namespace
 
 antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 {
@@ -127,8 +126,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         auto *op = ctx->nodeEdgeOperation();
 
-        std::vector<int> nodes;
-        std::vector<std::pair<int,int>> edges;
+        std::vector<GraphUpdateTarget> targets;
         std::string gname;
         GraphUpdateKind kind;
 
@@ -136,62 +134,58 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         {
             kind = GraphUpdateKind::Add;
             gname = add->graphID()->getText();
-            auto *t = add->addTargets();
-
-            if (t->nodeID())
+            auto *t = add->graphUpdateTargets();
+            if (!t)
+                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
+            if (auto *nodeList = t->updateNodeTargetList())
             {
-                nodes.push_back(std::stoi(t->nodeID()->getText()));
-            }
-            else if (t->edge())
-            {
-                int u = std::stoi(t->edge()->nodeID(0)->getText());
-                int v = std::stoi(t->edge()->nodeID(1)->getText());
-                edges.emplace_back(u, v);
-            }
-            else if (t->nodeList())
-            {
-                for (auto *idT : t->nodeList()->nodeID())
-                    nodes.push_back(std::stoi(idT->getText()));
-            }
-            else if (t->edgeList())
-            {
-                for (auto *eCtx : t->edgeList()->edge())
+                for (auto *exprCtx : nodeList->expr())
                 {
-                    int u = std::stoi(eCtx->nodeID(0)->getText());
-                    int v = std::stoi(eCtx->nodeID(1)->getText());
-                    edges.emplace_back(u, v);
+                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
+                    targets.emplace_back(std::move(value));
                 }
+            }
+            else if (auto *edgeList = t->updateEdgeTargetList())
+            {
+                for (auto *edgeCtx : edgeList->updateEdgeTarget())
+                {
+                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
+                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
+                    targets.emplace_back(std::move(src), std::move(dst));
+                }
+            }
+            else
+            {
+                throw std::runtime_error("graph update parse error: malformed add target list");
             }
         }
         else if (auto *rem = op->removeOperation())
         {
             kind = GraphUpdateKind::Remove;
             gname = rem->graphID()->getText();
-            auto *t = rem->removeTargets();
-
-            if (t->nodeID())
+            auto *t = rem->graphUpdateTargets();
+            if (!t)
+                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
+            if (auto *nodeList = t->updateNodeTargetList())
             {
-                nodes.push_back(std::stoi(t->nodeID()->getText()));
-            }
-            else if (t->edge())
-            {
-                int u = std::stoi(t->edge()->nodeID(0)->getText());
-                int v = std::stoi(t->edge()->nodeID(1)->getText());
-                edges.emplace_back(u, v);
-            }
-            else if (t->nodeList())
-            {
-                for (auto *idT : t->nodeList()->nodeID())
-                    nodes.push_back(std::stoi(idT->getText()));
-            }
-            else if (t->edgeList())
-            {
-                for (auto *eCtx : t->edgeList()->edge())
+                for (auto *exprCtx : nodeList->expr())
                 {
-                    int u = std::stoi(eCtx->nodeID(0)->getText());
-                    int v = std::stoi(eCtx->nodeID(1)->getText());
-                    edges.emplace_back(u, v);
+                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
+                    targets.emplace_back(std::move(value));
                 }
+            }
+            else if (auto *edgeList = t->updateEdgeTargetList())
+            {
+                for (auto *edgeCtx : edgeList->updateEdgeTarget())
+                {
+                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
+                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
+                    targets.emplace_back(std::move(src), std::move(dst));
+                }
+            }
+            else
+            {
+                throw std::runtime_error("graph update parse error: malformed remove target list");
             }
         }
         
@@ -200,7 +194,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             throw std::runtime_error("nodeEdgeOperation: unknown alternative");
         }
 
-        auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
+        auto up = std::make_shared<GraphUpdateNode>(kind, gname, std::move(targets));
         return std::static_pointer_cast<ASTNode>(up);
     }
     else if (ctx->graphComprehension())
@@ -233,10 +227,201 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             target, gname, std::move(ops), std::move(operands), cond);
         return std::static_pointer_cast<ASTNode>(node);
     }
+    else if (ctx->motifMatchesDecl())
+    {
+        auto *decl = ctx->motifMatchesDecl();
+        std::vector<MotifEdgeSpec> edges;
+        std::vector<std::string> variables;
+        std::unordered_set<std::string> seen;
+        for (auto *edgeCtx : decl->motifEdge())
+        {
+            MotifEdgeSpec edge = parseMotifEdge(edgeCtx);
+            if (seen.insert(edge.source).second)
+                variables.push_back(edge.source);
+            if (seen.insert(edge.target).second)
+                variables.push_back(edge.target);
+            edges.push_back(std::move(edge));
+        }
+        auto node = std::make_shared<MotifMatchesDeclNode>(
+            decl->ID()->getText(), decl->graphID()->getText(),
+            std::move(edges), std::move(variables));
+        return std::static_pointer_cast<ASTNode>(node);
+    }
+    else if (ctx->graphListDecl())
+    {
+        auto *decl = ctx->graphListDecl();
+        std::vector<MotifEdgeSpec> edges;
+        std::vector<std::string> variables;
+        std::unordered_set<std::string> seen;
+        for (auto *edgeCtx : decl->motifEdge())
+        {
+            MotifEdgeSpec edge = parseMotifEdge(edgeCtx);
+            if (seen.insert(edge.source).second)
+                variables.push_back(edge.source);
+            if (seen.insert(edge.target).second)
+                variables.push_back(edge.target);
+            edges.push_back(std::move(edge));
+        }
+        auto node = std::make_shared<GraphListDeclNode>(
+            decl->ID()->getText(), decl->graphID()->getText(),
+            std::move(edges), std::move(variables));
+        return std::static_pointer_cast<ASTNode>(node);
+    }
     else if (ctx->showgraph())
     {
         std::string gname = ctx->showgraph()->graphID()->getText();
         auto node = std::make_shared<ShowGraphNode>(gname);
+        return std::static_pointer_cast<ASTNode>(node);
+    }
+    else if (ctx->drawgraph())
+    {
+        auto *draw = ctx->drawgraph();
+        std::string output = draw->STRING()->getText();
+        output = output.substr(1, output.size() - 2);
+
+        auto node = std::make_shared<DrawGraphNode>(
+            draw->graphID()->getText(), output);
+
+        bool seenLayout = false;
+        bool seenVertexLabel = false;
+        bool seenVertexColor = false;
+        bool seenVertexSize = false;
+        bool seenEdgeLabel = false;
+
+        for (auto *option : draw->drawOption())
+        {
+            if (option->STRING())
+            {
+                if (seenLayout)
+                    throw std::runtime_error("draw: duplicate layout option");
+                seenLayout = true;
+                std::string value = option->STRING()->getText();
+                value = value.substr(1, value.size() - 2);
+                if (value == "hierarchical") node->layout = DrawLayout::Hierarchical;
+                else if (value == "force") node->layout = DrawLayout::Force;
+                else if (value == "radial") node->layout = DrawLayout::Radial;
+                else if (value == "circular") node->layout = DrawLayout::Circular;
+                else if (value == "clustered") node->layout = DrawLayout::Clustered;
+                else if (value == "auto") node->layout = DrawLayout::Auto;
+                else throw std::runtime_error("draw: unsupported layout: " + value);
+                continue;
+            }
+
+            for (auto *vertexOption : option->vertexDrawOption())
+            {
+                if (auto *mapping = vertexOption->colorMapping())
+                {
+                    if (seenVertexColor)
+                        throw std::runtime_error("draw: duplicate vertex color option");
+                    seenVertexColor = true;
+                    if (mapping->continuousMapping())
+                    {
+                        node->colorMode = DrawColorMode::Continuous;
+                        node->colorArray = mapping->continuousMapping()->ID()->getText();
+                    }
+                    else
+                    {
+                        node->colorMode = DrawColorMode::Categorical;
+                        node->colorArray = mapping->ID()->getText();
+                    }
+                }
+                else if (auto *mapping = vertexOption->continuousMapping())
+                {
+                    if (seenVertexSize)
+                        throw std::runtime_error("draw: duplicate vertex size option");
+                    seenVertexSize = true;
+                    node->sizeArray = mapping->ID()->getText();
+                }
+                else if (vertexOption->getStart()->getText() == "size" &&
+                         vertexOption->ID())
+                {
+                    if (seenVertexSize)
+                        throw std::runtime_error("draw: duplicate vertex size option");
+                    seenVertexSize = true;
+                    node->sizeArray = vertexOption->ID()->getText();
+                }
+                else
+                {
+                    if (seenVertexLabel)
+                        throw std::runtime_error("draw: duplicate vertex label option");
+                    seenVertexLabel = true;
+                    const std::string value = vertexOption->drawBoolLiteral()->getText();
+                    node->vertexLabels = value == "true" || value == "TRUE";
+                }
+            }
+
+            for (auto *edgeOption : option->edgeDrawOption())
+            {
+                if (seenEdgeLabel)
+                    throw std::runtime_error("draw: duplicate edge label option");
+                seenEdgeLabel = true;
+                const std::string value = edgeOption->drawBoolLiteral()->getText();
+                node->edgeWeightLabels = value == "true" || value == "TRUE";
+            }
+        }
+
+        return std::static_pointer_cast<ASTNode>(node);
+    }
+    else if (ctx->drawmotifs())
+    {
+        auto *draw = ctx->drawmotifs();
+        std::string output = draw->STRING()->getText();
+        output = output.substr(1, output.size() - 2);
+
+        auto node = std::make_shared<DrawMotifsNode>(
+            draw->graphID()->getText(), output);
+        node->combinedImage = draw->getText().rfind("drawmotifsof", 0) == 0;
+
+        bool seenLayout = false;
+        bool seenVertexLabel = false;
+        bool seenEdgeLabel = false;
+
+        for (auto *option : draw->drawMotifOption())
+        {
+            if (auto *edge = option->motifEdge())
+            {
+                node->motifEdges.push_back(parseMotifEdge(edge));
+                continue;
+            }
+
+            if (option->STRING())
+            {
+                if (seenLayout)
+                    throw std::runtime_error("draw motif: duplicate layout option");
+                seenLayout = true;
+                std::string value = option->STRING()->getText();
+                value = value.substr(1, value.size() - 2);
+                if (value == "hierarchical") node->layout = DrawLayout::Hierarchical;
+                else if (value == "force") node->layout = DrawLayout::Force;
+                else if (value == "radial") node->layout = DrawLayout::Radial;
+                else if (value == "circular") node->layout = DrawLayout::Circular;
+                else if (value == "clustered") node->layout = DrawLayout::Clustered;
+                else if (value == "auto") node->layout = DrawLayout::Auto;
+                else throw std::runtime_error("draw motif: unsupported layout: " + value);
+                continue;
+            }
+
+            for (auto *vertexOption : option->vertexDrawOption())
+            {
+                if (!vertexOption->drawBoolLiteral())
+                    throw std::runtime_error("draw motif: vertex color/size is not supported for per-match drawings yet");
+                if (seenVertexLabel)
+                    throw std::runtime_error("draw motif: duplicate vertex label option");
+                seenVertexLabel = true;
+                const std::string value = vertexOption->drawBoolLiteral()->getText();
+                node->vertexLabels = value == "true" || value == "TRUE";
+            }
+
+            for (auto *edgeOption : option->edgeDrawOption())
+            {
+                if (seenEdgeLabel)
+                    throw std::runtime_error("draw motif: duplicate edge label option");
+                seenEdgeLabel = true;
+                const std::string value = edgeOption->drawBoolLiteral()->getText();
+                node->edgeLabels = value == "true" || value == "TRUE";
+            }
+        }
+
         return std::static_pointer_cast<ASTNode>(node);
     }
     else if (ctx->sleepStatement())
@@ -781,7 +966,7 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    std::string callee = ctx->functionName()->getText();
+    std::string callee = ctx->ID()->getText();
 
     // collect arguments
     std::vector<ASTNodePtr> args;
@@ -797,10 +982,24 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
         std::make_shared<FunctionCallNode>(callee, std::move(args))};
 }
 
+
+// `directed: true;` may appear anywhere in the graph body; the grammar allows
+// graphProperty* between each section, so scan all of them.
+template <typename Ctx>
+static bool parseDirectedProperty(Ctx *ctx)
+{
+    bool directed = false;
+    for (auto *prop : ctx->graphProperty())
+    {
+        const std::string value = prop->drawBoolLiteral()->getText();
+        directed = value == "true" || value == "TRUE";
+    }
+    return directed;
+}
+
 antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    bool directed = parseGraphDirectedProperty(ctx->graphProperty());
     // std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
 
     if (!ctx->edges())
@@ -811,7 +1010,8 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s), directed);
+        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s));
+    gnode->directed = parseDirectedProperty(ctx);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -855,8 +1055,8 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     auto gnode = std::make_shared<GraphDeclNode>(
         std::move(nm),
         std::move(nd),
-        std::move(ed),
-        directed);
+        std::move(ed));
+    gnode->directed = parseDirectedProperty(ctx);
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
@@ -864,7 +1064,6 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    bool directed = parseGraphDirectedProperty(ctx->graphProperty());
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
@@ -873,7 +1072,8 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s), directed);
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s));
+    gnode->directed = parseDirectedProperty(ctx);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -914,8 +1114,8 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     auto gnode = std::make_shared<WeightedGraphDeclNode>(
         std::move(nm),
         std::move(nd),
-        std::move(ed),
-        directed);
+        std::move(ed));
+    gnode->directed = parseDirectedProperty(ctx);
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
@@ -1078,22 +1278,24 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         var1 = adjCtx->ID()->getText();
         adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(adjCtx->expr()));
     }
-    else if (auto outAdjCtx = dynamic_cast<BaseParser::ForEachOutAdjContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::OutNeighbor;
-        var1 = outAdjCtx->ID()->getText();
-        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(outAdjCtx->expr()));
-    }
-    else if (auto inAdjCtx = dynamic_cast<BaseParser::ForEachInAdjContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::InNeighbor;
-        var1 = inAdjCtx->ID()->getText();
-        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(inAdjCtx->expr()));
-    }
     else if (auto elemCtx = dynamic_cast<BaseParser::ForEachElementContext *>(loopCtx))
     {
         tgt = ForEachTargetType::Element;
         var1 = elemCtx->ID()->getText();
+    }
+    else if (auto graphCtx = dynamic_cast<BaseParser::ForEachGraphContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::Graph;
+        var1 = graphCtx->ID()->getText();
+    }
+    else if (auto motifCtx = dynamic_cast<BaseParser::ForEachMotifContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::Motif;
+        const auto ids = motifCtx->ID();
+        if (!ids.empty())
+            var1 = ids[0]->getText();
+        if (ids.size() > 1)
+            var2 = ids[1]->getText();
     }
     else if (auto plainCtx = dynamic_cast<BaseParser::ForEachPlainContext *>(loopCtx))
     {
@@ -1114,6 +1316,11 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         ctx->graphID()->getText(),
         std::move(adjNodeExpr),
         std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
+
+    // `for each motif (a, b, c)` may bind more names than var1/var2 hold.
+    if (auto motifCtx = dynamic_cast<BaseParser::ForEachMotifContext *>(loopCtx))
+        for (auto *id : motifCtx->ID())
+            fsNode->motifVars.push_back(id->getText());
 
     // Return as ASTNodePtr
     return std::static_pointer_cast<ASTNode>(fsNode);
@@ -1139,6 +1346,13 @@ std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::
         int nid = std::stoi(connCtx->nodeID()->getText());
         return std::make_shared<GraphConditionNode>(nid);
     }
+    else if (auto *motifCtx = dynamic_cast<BaseParser::MotifConditionContext *>(ctx))
+    {
+        std::vector<MotifEdgeSpec> edges;
+        for (auto *edgeCtx : motifCtx->motifEdge())
+            edges.push_back(parseMotifEdge(edgeCtx));
+        return std::make_shared<GraphConditionNode>(std::move(edges));
+    }
     else if (auto *degCtx = dynamic_cast<BaseParser::DegreeConditionContext*>(ctx))
     {
         int val = std::stoi(degCtx->INT()->getText());
@@ -1150,17 +1364,6 @@ std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::
         else if (degCtx->LESSTHAN()) dop = GraphDegreeOp::Lt;
         else if (degCtx->GREATERTHAN()) dop = GraphDegreeOp::Gt;
         return std::make_shared<GraphConditionNode>(dop, val);
-    }
-    else if (auto *edgeHasCtx = dynamic_cast<BaseParser::EdgeHasConditionContext *>(ctx))
-    {
-        ASTNodePtr edgeExpr = safe_any_cast<ASTNodePtr>(
-            visitExpr(edgeHasCtx->expr()),
-            "buildGraphCondition edge has");
-        return std::make_shared<GraphConditionNode>(edgeExpr);
-    }
-    else if (auto *vertexInCtx = dynamic_cast<BaseParser::VertexInSetConditionContext *>(ctx))
-    {
-        return std::make_shared<GraphConditionNode>(vertexInCtx->ID()->getText());
     }
     else if (auto *cycleCtx = dynamic_cast<BaseParser::CycleConditionContext*>(ctx))
     {
@@ -1388,7 +1591,7 @@ SetTargetKind ASTBuilder::parseSetTarget(BaseParser::SetTargetContext *ctx)
 {
     if (ctx->ID() && !ctx->graphID())
         return SetTargetKind::Variable;
-    if (ctx->NODE() || ctx->VERTICES()) // 'nodes' or 'vertices'
+    if (ctx->NODE()) // 'nodes'
         return SetTargetKind::GraphNodes;
     return SetTargetKind::GraphEdges; // falls through to 'edges'
 }

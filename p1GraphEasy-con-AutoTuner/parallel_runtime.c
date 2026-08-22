@@ -31,10 +31,13 @@ extern void roaring_bitmap_clear_thread_local_overrides(void);
 #define SGPL_TDG_MAX_REPORTED_THREADS 1024
 #define SGPL_THREAD_BUDGET_STACK_DEPTH 16
 #define SGPL_MAX_TDG_LEVEL_LOOPS 256
+#define SGPL_APPEND_PARALLEL_COPY_THRESHOLD 16384
 
 static const double SGPL_TDG_UNIT_COST_NS = 250.0;
 static const double SGPL_TDG_BASE_LAUNCH_NS = 18000.0;
 static const double SGPL_TDG_LAUNCH_PER_THREAD_NS = 2800.0;
+static const double SGPL_POOL_BASE_LAUNCH_NS = 1200.0;
+static const double SGPL_POOL_LAUNCH_PER_THREAD_NS = 180.0;
 static const double SGPL_TDG_HT_EFFICIENCY = 0.42;
 static const double SGPL_TDG_MIN_GAIN_FRACTION = 0.12;
 static const int64_t SGPL_TDG_MIN_WORK_FOR_HT = 64;
@@ -96,22 +99,28 @@ static int sgpl_tdg_env_enabled(const char *name, int default_value)
 
 static int tdg_debug_enabled(void)
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached;
 
     cached = sgpl_tdg_env_enabled("SGPL_TDG_DEBUG", 0);
     return cached;
+    */
+    return 0;
 }
 
 static int budget_debug_enabled(void)
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached;
 
     cached = sgpl_tdg_env_enabled("SGPL_BUDGET_DEBUG", 0) || tdg_debug_enabled();
     return cached;
+    */
+    return 0;
 }
 
 static int sgpl_tdg_read_core_ids_once(void)
@@ -480,6 +489,25 @@ typedef struct
 
 typedef struct
 {
+    int32_t **sources;
+    const int64_t *offsets;
+    int32_t *destination;
+} sgpl_append_copy_context;
+
+static _Thread_local int g_tls_is_pool_worker = 0;
+static _Thread_local int32_t g_tls_worker_index = 0;
+
+static pthread_barrier_t g_sgpl_thread_pool_barrier;
+static pthread_mutex_t g_sgpl_thread_pool_run_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_once_t g_sgpl_thread_pool_once = PTHREAD_ONCE_INIT;
+static pthread_t *g_sgpl_thread_pool_threads = NULL;
+static int g_sgpl_thread_pool_size = 0;
+static atomic_int g_sgpl_thread_pool_shutdown = 0;
+static workers_args_t *g_sgpl_thread_pool_job_args = NULL;
+static int g_sgpl_thread_pool_job_nthreads = 0;
+
+typedef struct
+{
     const sgpl_tdg_task_desc *tasks;
     atomic_int next_index;
     int32_t task_count;
@@ -680,12 +708,10 @@ static inline atomic_long *sgpl_doacross_slot(sgpl_doacross_state *state, int32_
 
 static int runtime_debug_enabled(void)
 {
-    static int cached = -1;
-    if (cached != -1)
-        return cached;
-
-    cached = sgpl_tdg_env_enabled("GRAPH_PARALLEL_DEBUG", 0);
-    return cached;
+    const char *V = getenv("GRAPH_PARALLEL_DEBUG");
+    if (!V)
+        return 0;
+    return strcmp(V, "0") != 0 && strcmp(V, "") != 0;
 }
 
 static int runtime_iter_debug_enabled(void)
@@ -696,8 +722,18 @@ static int runtime_iter_debug_enabled(void)
 
 static int force_doacross_parallel_enabled(void)
 {
-    /* Debug override disabled. Restore getenv("SGPL_FORCE_DOACROSS_PARALLEL") here to re-enable. */
-    return 0;
+    const char *V = getenv("SGPL_FORCE_DOACROSS_PARALLEL");
+    if (!V)
+        return 0;
+    return strcmp(V, "0") != 0 && strcmp(V, "") != 0;
+}
+
+static int force_doall_parallel_enabled(void)
+{
+    const char *V = getenv("SGPL_FORCE_DOALL_PARALLEL");
+    if (!V)
+        return 0;
+    return strcmp(V, "0") != 0 && strcmp(V, "") != 0;
 }
 
 uint64_t sgpl_now_ns(void)
@@ -714,10 +750,39 @@ static int sgpl_runtime_thread_count(void)
     if (cached_nthreads > 0)
         return cached_nthreads;
 
-    cached_nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
-    if (cached_nthreads <= 0)
-        cached_nthreads = 1;
+    int online_threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (online_threads <= 0)
+        online_threads = 1;
+
+    cached_nthreads = online_threads;
+    {
+        const char *requested = getenv("SGPL_NUM_THREADS");
+        if (!requested || requested[0] == '\0')
+            requested = getenv("OMP_NUM_THREADS");
+
+        if (requested && requested[0] != '\0')
+        {
+            char *end = NULL;
+            long parsed = strtol(requested, &end, 10);
+            if (end != requested && *end == '\0' && parsed > 0)
+            {
+                if (parsed > online_threads)
+                    parsed = online_threads;
+                cached_nthreads = (int)parsed;
+            }
+        }
+    }
     return cached_nthreads;
+}
+
+int32_t sgpl_configured_worker_count(void)
+{
+    return (int32_t)sgpl_runtime_thread_count();
+}
+
+int32_t sgpl_current_worker_index(void)
+{
+    return g_tls_worker_index;
 }
 
 static int64_t sgpl_compute_trip_count(int64_t start, int64_t end, int64_t step)
@@ -951,11 +1016,13 @@ static void *worker_main(void *_arg)
     int64_t end = a->end;
     int64_t step = a->step;
     int64_t i = 0;
+    int32_t previous_worker_index = g_tls_worker_index;
 
     if (step == 0)
         return NULL;
 
     g_tls_doacross_state = a->doacross_state;
+    g_tls_worker_index = tid;
     if (a->override_originals && a->override_replacements && a->num_override_targets > 0)
     {
         roaring_bitmap_set_thread_local_overrides(a->override_originals,
@@ -985,7 +1052,165 @@ static void *worker_main(void *_arg)
     g_tls_doacross_state = NULL;
     if (a->override_originals && a->override_replacements && a->num_override_targets > 0)
         roaring_bitmap_clear_thread_local_overrides();
+    g_tls_worker_index = previous_worker_index;
     return NULL;
+}
+
+static void *sgpl_thread_pool_worker_entry(void *arg)
+{
+    int tid = (int)(intptr_t)arg;
+
+    g_tls_is_pool_worker = 1;
+    for (;;)
+    {
+        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        if (atomic_load(&g_sgpl_thread_pool_shutdown))
+            break;
+
+        if (tid < g_sgpl_thread_pool_job_nthreads && g_sgpl_thread_pool_job_args)
+            worker_main(&g_sgpl_thread_pool_job_args[tid]);
+
+        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+    }
+    g_tls_is_pool_worker = 0;
+    return NULL;
+}
+
+static void sgpl_thread_pool_init_once(void)
+{
+    int i = 0;
+
+    sgpl_tdg_init_runtime_config();
+    g_sgpl_thread_pool_size = sgpl_runtime_thread_count();
+    if (g_sgpl_thread_pool_size <= 0)
+        g_sgpl_thread_pool_size = 1;
+
+    if (pthread_barrier_init(&g_sgpl_thread_pool_barrier, NULL, (unsigned)(g_sgpl_thread_pool_size + 1)) != 0)
+    {
+        fprintf(stderr, "Runtime Error: failed to init thread pool barrier\n");
+        g_sgpl_thread_pool_size = 0;
+        return;
+    }
+
+    g_sgpl_thread_pool_threads = (pthread_t *)calloc((size_t)g_sgpl_thread_pool_size, sizeof(pthread_t));
+    if (!g_sgpl_thread_pool_threads)
+    {
+        fprintf(stderr, "Runtime Error: failed to allocate thread pool workers\n");
+        pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
+        g_sgpl_thread_pool_size = 0;
+        return;
+    }
+
+    for (i = 0; i < g_sgpl_thread_pool_size; ++i)
+    {
+        if (pthread_create(&g_sgpl_thread_pool_threads[i], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
+        {
+            fprintf(stderr, "Runtime Error: failed to create thread pool worker %d\n", i);
+            atomic_store(&g_sgpl_thread_pool_shutdown, 1);
+            g_sgpl_thread_pool_size = i;
+            break;
+        }
+    }
+}
+
+static void sgpl_thread_pool_ensure_init(void)
+{
+    pthread_once(&g_sgpl_thread_pool_once, sgpl_thread_pool_init_once);
+}
+
+static int sgpl_thread_pool_available(void)
+{
+    sgpl_thread_pool_ensure_init();
+    return g_sgpl_thread_pool_size > 0 && !atomic_load(&g_sgpl_thread_pool_shutdown);
+}
+
+static void sgpl_thread_pool_run(workers_args_t *args, int nthreads)
+{
+    if (!args || nthreads <= 0)
+        return;
+
+    if (nthreads > g_sgpl_thread_pool_size)
+        nthreads = g_sgpl_thread_pool_size;
+
+    pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
+    g_sgpl_thread_pool_job_args = args;
+    g_sgpl_thread_pool_job_nthreads = nthreads;
+    pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+    pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+    g_sgpl_thread_pool_job_args = NULL;
+    g_sgpl_thread_pool_job_nthreads = 0;
+    pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
+}
+
+static void sgpl_append_copy_lane(int64_t lane, void *env)
+{
+    sgpl_append_copy_context *copy = (sgpl_append_copy_context *)env;
+    int64_t count = 0;
+
+    if (!copy || lane < 0 || !copy->sources || !copy->offsets || !copy->destination)
+        return;
+
+    count = copy->offsets[lane + 1] - copy->offsets[lane];
+    if (count <= 0 || !copy->sources[lane])
+        return;
+
+    memcpy(copy->destination + copy->offsets[lane],
+           copy->sources[lane],
+           (size_t)count * sizeof(int32_t));
+}
+
+static int32_t sgpl_priv_target_kind(const int32_t *priv_kinds, int32_t target)
+{
+    if (!priv_kinds)
+        return SGPL_PRIV_ROARING;
+    return priv_kinds[target];
+}
+
+static int32_t sgpl_read_i32_env_field(void *env, int64_t offset, int is_pointer_slot)
+{
+    if (!env || offset < 0)
+        return 0;
+
+    if (is_pointer_slot)
+    {
+        int32_t **slot = (int32_t **)((char *)env + offset);
+        if (!slot || !*slot)
+            return 0;
+        return **slot;
+    }
+
+    return *(int32_t *)((char *)env + offset);
+}
+
+static void sgpl_write_i32_env_field(void *env, int64_t offset, int is_pointer_slot, int32_t value)
+{
+    if (!env || offset < 0)
+        return;
+
+    if (is_pointer_slot)
+    {
+        int32_t **slot = (int32_t **)((char *)env + offset);
+        if (!slot || !*slot)
+            return;
+        **slot = value;
+        return;
+    }
+
+    *(int32_t *)((char *)env + offset) = value;
+}
+
+static int32_t *sgpl_read_i32_ptr_env_field(void *env, int64_t offset)
+{
+    if (!env || offset < 0)
+        return NULL;
+    return *(int32_t **)((char *)env + offset);
+}
+
+static void sgpl_write_i32_ptr_env_field(void *env, int64_t offset, int32_t *value)
+{
+    if (!env || offset < 0)
+        return;
+    *(int32_t **)((char *)env + offset) = value;
 }
 
 static void *sgpl_tdg_worker_main(void *arg)
@@ -1147,14 +1372,14 @@ static int64_t sgpl_tdg_effective_task_units(const sgpl_tdg_task_desc *task,
     return profiled_units;
 }
 
-static void sgpl_parallel_launch_plain_raw(int64_t start,
-                                           int64_t end,
-                                           int64_t step,
-                                           loop_body_fn body,
-                                           void *env,
-                                           int32_t needs_doacross,
-                                           int32_t doacross_num_sync_ids,
-                                           int nthreads)
+static void sgpl_parallel_launch_plain_ephemeral(int64_t start,
+                                                 int64_t end,
+                                                 int64_t step,
+                                                 loop_body_fn body,
+                                                 void *env,
+                                                 int32_t needs_doacross,
+                                                 int32_t doacross_num_sync_ids,
+                                                 int nthreads)
 {
     pthread_t *threads = NULL;
     workers_args_t *args = NULL;
@@ -1203,11 +1428,79 @@ static void sgpl_parallel_launch_plain_raw(int64_t start,
     }
 
     for (i = 0; i < nthreads; ++i)
-    {
         pthread_join(threads[i], NULL);
-    }
 
     free(threads);
+    free(args);
+    sgpl_free_doacross_state(doacross_state);
+}
+
+static void sgpl_parallel_launch_plain_raw(int64_t start,
+                                           int64_t end,
+                                           int64_t step,
+                                           loop_body_fn body,
+                                           void *env,
+                                           int32_t needs_doacross,
+                                           int32_t doacross_num_sync_ids,
+                                           int nthreads)
+{
+    workers_args_t *args = NULL;
+    sgpl_doacross_state *doacross_state = NULL;
+    int i = 0;
+    int use_pool = 0;
+
+    if (step == 0 || !body || nthreads <= 0)
+        return;
+
+    if (needs_doacross)
+    {
+        doacross_state = sgpl_alloc_doacross_state(start, doacross_num_sync_ids);
+        if (!doacross_state)
+        {
+            fprintf(stderr, "Runtime Error: failed to allocate doacross sync table\n");
+            return;
+        }
+        doacross_init_state(doacross_state, start);
+    }
+
+    use_pool = !g_tls_is_pool_worker && !needs_doacross && sgpl_thread_pool_available();
+    if (!use_pool)
+    {
+        sgpl_parallel_launch_plain_ephemeral(start,
+                                             end,
+                                             step,
+                                             body,
+                                             env,
+                                             needs_doacross,
+                                             doacross_num_sync_ids,
+                                             nthreads);
+        return;
+    }
+
+    args = (workers_args_t *)malloc((size_t)nthreads * sizeof(workers_args_t));
+    if (!args)
+    {
+        sgpl_free_doacross_state(doacross_state);
+        return;
+    }
+
+    for (i = 0; i < nthreads; ++i)
+    {
+        args[i].start = start;
+        args[i].end = end;
+        args[i].step = step;
+        args[i].body = body;
+        args[i].env = env;
+        args[i].tid = i;
+        args[i].nthreads = nthreads;
+        args[i].ncpus = nthreads;
+        args[i].doacross_state = doacross_state;
+        args[i].override_originals = NULL;
+        args[i].override_replacements = NULL;
+        args[i].num_override_targets = 0;
+    }
+
+    sgpl_thread_pool_run(args, nthreads);
     free(args);
     sgpl_free_doacross_state(doacross_state);
 }
@@ -1219,20 +1512,29 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
                                           void *env,
                                           int64_t env_size,
                                           const int64_t *priv_offsets,
+                                          const int32_t *priv_kinds,
+                                          const int64_t *priv_aux,
                                           int32_t num_priv_targets,
                                           int32_t needs_doacross,
                                           int32_t doacross_num_sync_ids,
                                           int nthreads)
 {
     pthread_t *threads = NULL;
+    unsigned char *thread_started = NULL;
     workers_args_t *args = NULL;
     void **thread_envs = NULL;
     RoaringBitmap ***priv_bitmaps = NULL;
     RoaringBitmap **priv_originals = NULL;
     RoaringBitmap ***thread_override_replacements = NULL;
+    int32_t ***append_local_bufs = NULL;
+    int32_t ***append_local_sizes = NULL;
     sgpl_doacross_state *doacross_state = NULL;
     int target = 0;
     int tid = 0;
+    int use_pool = 0;
+    int setup_failed = 0;
+    int32_t num_roaring_targets = 0;
+    int32_t roaring_target = 0;
 
     if (step == 0 || !body)
         return;
@@ -1254,20 +1556,42 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
         doacross_init_state(doacross_state, start);
     }
 
-    threads = (pthread_t *)malloc((size_t)nthreads * sizeof(pthread_t));
+    use_pool = !g_tls_is_pool_worker && !needs_doacross && sgpl_thread_pool_available();
+
+    for (target = 0; target < num_priv_targets; ++target)
+    {
+        if (sgpl_priv_target_kind(priv_kinds, target) == SGPL_PRIV_ROARING)
+            ++num_roaring_targets;
+    }
+
+    if (num_roaring_targets > 0)
+        priv_originals = (RoaringBitmap **)calloc((size_t)num_roaring_targets, sizeof(RoaringBitmap *));
     args = (workers_args_t *)malloc((size_t)nthreads * sizeof(workers_args_t));
     thread_envs = (void **)calloc((size_t)nthreads, sizeof(void *));
     priv_bitmaps = (RoaringBitmap ***)calloc((size_t)num_priv_targets, sizeof(RoaringBitmap **));
-    priv_originals = (RoaringBitmap **)calloc((size_t)num_priv_targets, sizeof(RoaringBitmap *));
+    append_local_bufs = (int32_t ***)calloc((size_t)num_priv_targets, sizeof(int32_t **));
+    append_local_sizes = (int32_t ***)calloc((size_t)num_priv_targets, sizeof(int32_t **));
     thread_override_replacements = (RoaringBitmap ***)calloc((size_t)nthreads, sizeof(RoaringBitmap **));
-    if (!threads || !args || !thread_envs || !priv_bitmaps || !priv_originals || !thread_override_replacements)
+    if (!use_pool)
+    {
+        threads = (pthread_t *)malloc((size_t)nthreads * sizeof(pthread_t));
+        thread_started = (unsigned char *)calloc((size_t)nthreads, sizeof(unsigned char));
+    }
+
+    if (!args || !thread_envs || !priv_bitmaps ||
+        (num_roaring_targets > 0 && !priv_originals) || !append_local_bufs ||
+        !append_local_sizes || !thread_override_replacements ||
+        (!use_pool && (!threads || !thread_started)))
     {
         sgpl_free_doacross_state(doacross_state);
         free(threads);
+        free(thread_started);
         free(args);
         free(thread_envs);
         free(priv_bitmaps);
         free(priv_originals);
+        free(append_local_bufs);
+        free(append_local_sizes);
         free(thread_override_replacements);
         return;
     }
@@ -1275,49 +1599,110 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
     if (runtime_debug_enabled())
     {
         fprintf(stderr,
-                "[parallel-runtime] allocating privatized envs targets=%d threads=%d env_size=%lld\n",
+                "[parallel-runtime] allocating privatized envs targets=%d threads=%d env_size=%lld pool=%d\n",
                 num_priv_targets,
                 nthreads,
-                (long long)env_size);
+                (long long)env_size,
+                use_pool);
     }
 
     for (target = 0; target < num_priv_targets; ++target)
     {
+        if (sgpl_priv_target_kind(priv_kinds, target) == SGPL_PRIV_INT_APPEND)
+        {
+            append_local_bufs[target] = (int32_t **)calloc((size_t)nthreads, sizeof(int32_t *));
+            append_local_sizes[target] = (int32_t **)calloc((size_t)nthreads, sizeof(int32_t *));
+            if (!append_local_bufs[target] || !append_local_sizes[target])
+            {
+                setup_failed = 1;
+                break;
+            }
+            continue;
+        }
+
         priv_bitmaps[target] = (RoaringBitmap **)calloc((size_t)nthreads, sizeof(RoaringBitmap *));
         if (!priv_bitmaps[target])
         {
-            num_priv_targets = target;
-            nthreads = 0;
+            setup_failed = 1;
             break;
         }
     }
 
-    for (tid = 0; tid < nthreads; ++tid)
+    for (tid = 0; tid < nthreads && !setup_failed; ++tid)
     {
         void *env_copy = malloc((size_t)env_size);
         if (!env_copy)
+        {
+            setup_failed = 1;
             break;
-        thread_override_replacements[tid] = (RoaringBitmap **)calloc((size_t)num_priv_targets, sizeof(RoaringBitmap *));
-        if (!thread_override_replacements[tid])
+        }
+        if (num_roaring_targets > 0)
+            thread_override_replacements[tid] =
+                (RoaringBitmap **)calloc((size_t)num_roaring_targets, sizeof(RoaringBitmap *));
+        if (num_roaring_targets > 0 && !thread_override_replacements[tid])
         {
             free(env_copy);
+            setup_failed = 1;
             break;
         }
 
         memcpy(env_copy, env, (size_t)env_size);
         thread_envs[tid] = env_copy;
+        roaring_target = 0;
 
         for (target = 0; target < num_priv_targets; ++target)
         {
             int64_t offset = priv_offsets[target];
-            RoaringBitmap **slot = (RoaringBitmap **)((char *)env_copy + offset);
-            RoaringBitmap *original = *(RoaringBitmap **)((char *)env + offset);
-            RoaringBitmap *local = roaring_bitmap_create_like(original);
-            priv_originals[target] = original;
-            priv_bitmaps[target][tid] = local;
-            thread_override_replacements[tid][target] = local;
-            *slot = local;
+            int32_t kind = sgpl_priv_target_kind(priv_kinds, target);
+
+            if (kind == SGPL_PRIV_INT_APPEND)
+            {
+                int64_t size_offset = priv_aux ? priv_aux[target * 2] : -1;
+                int64_t cap_offset = priv_aux ? priv_aux[target * 2 + 1] : -1;
+                int32_t cap = sgpl_read_i32_env_field(env, cap_offset, 0);
+                int32_t *local_buf = NULL;
+                int32_t *local_size = NULL;
+
+                if (cap <= 0)
+                    cap = 1;
+
+                local_buf = (int32_t *)calloc((size_t)cap, sizeof(int32_t));
+                local_size = (int32_t *)calloc(1, sizeof(int32_t));
+                if (!local_buf || !local_size)
+                {
+                    free(local_buf);
+                    free(local_size);
+                    setup_failed = 1;
+                    break;
+                }
+
+                append_local_bufs[target][tid] = local_buf;
+                append_local_sizes[target][tid] = local_size;
+                *local_size = 0;
+                sgpl_write_i32_ptr_env_field(env_copy, offset, local_buf);
+                sgpl_write_i32_ptr_env_field(env_copy, size_offset, local_size);
+                continue;
+            }
+
+            {
+                RoaringBitmap **slot = (RoaringBitmap **)((char *)env_copy + offset);
+                RoaringBitmap *original = *(RoaringBitmap **)((char *)env + offset);
+                RoaringBitmap *local = roaring_bitmap_create_like(original);
+                if (!local)
+                {
+                    setup_failed = 1;
+                    break;
+                }
+                priv_originals[roaring_target] = original;
+                priv_bitmaps[target][tid] = local;
+                thread_override_replacements[tid][roaring_target] = local;
+                *slot = local;
+                ++roaring_target;
+            }
         }
+
+        if (setup_failed)
+            break;
 
         args[tid].start = start;
         args[tid].end = end;
@@ -1330,39 +1715,161 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
         args[tid].doacross_state = doacross_state;
         args[tid].override_originals = priv_originals;
         args[tid].override_replacements = thread_override_replacements[tid];
-        args[tid].num_override_targets = num_priv_targets;
-        pthread_create(&threads[tid], NULL, worker_main, &args[tid]);
+        args[tid].num_override_targets = num_roaring_targets;
     }
 
-    for (tid = 0; tid < nthreads; ++tid)
+    if (setup_failed)
     {
-        if (thread_envs[tid])
-            pthread_join(threads[tid], NULL);
+        /* Runtime diagnostic intentionally disabled. */
+        goto cleanup;
+    }
+
+    if (use_pool)
+        sgpl_thread_pool_run(args, nthreads);
+    else
+    {
+        for (tid = 0; tid < nthreads; ++tid)
+        {
+            if (pthread_create(&threads[tid], NULL, worker_main, &args[tid]) == 0)
+                thread_started[tid] = 1;
+            else
+                worker_main(&args[tid]);
+        }
+        for (tid = 0; tid < nthreads; ++tid)
+        {
+            if (thread_started[tid])
+                pthread_join(threads[tid], NULL);
+        }
     }
 
     for (target = 0; target < num_priv_targets; ++target)
     {
         int64_t offset = priv_offsets[target];
-        RoaringBitmap *original = *(RoaringBitmap **)((char *)env + offset);
+        int32_t kind = sgpl_priv_target_kind(priv_kinds, target);
 
-        if (runtime_debug_enabled())
+        if (kind == SGPL_PRIV_INT_APPEND)
         {
-            fprintf(stderr,
-                    "[parallel-runtime] merging privatized target=%d threads=%d\n",
-                    target,
-                    nthreads);
+            int64_t size_offset = priv_aux ? priv_aux[target * 2] : -1;
+            int64_t cap_offset = priv_aux ? priv_aux[target * 2 + 1] : -1;
+            int32_t *shared_arr = sgpl_read_i32_ptr_env_field(env, offset);
+            int32_t capacity = sgpl_read_i32_env_field(env, cap_offset, 0);
+            int32_t initial_size = sgpl_read_i32_env_field(env, size_offset, 1);
+            int64_t *prefix_offsets = NULL;
+            int64_t total_size = initial_size;
+            int append_valid = shared_arr != NULL && capacity >= 0 &&
+                               initial_size >= 0 && initial_size <= capacity;
+
+            if (!append_valid)
+                continue;
+
+            /* Merge diagnostics intentionally disabled. */
+
+            prefix_offsets = (int64_t *)calloc((size_t)nthreads + 1, sizeof(int64_t));
+            if (!prefix_offsets)
+            {
+                continue;
+            }
+            prefix_offsets[0] = initial_size;
+
+            for (tid = 0; tid < nthreads; ++tid)
+            {
+                int32_t *local = append_local_bufs[target] ? append_local_bufs[target][tid] : NULL;
+                int32_t *local_size_ptr = append_local_sizes[target] ? append_local_sizes[target][tid] : NULL;
+                int64_t local_size = local_size_ptr ? (int64_t)*local_size_ptr : 0;
+
+                if (local_size < 0 || local_size > capacity || (local_size > 0 && !local) ||
+                    total_size > (int64_t)capacity - local_size)
+                {
+                    append_valid = 0;
+                    break;
+                }
+                total_size += local_size;
+                prefix_offsets[tid + 1] = total_size;
+            }
+
+            if (!append_valid)
+            {
+                free(prefix_offsets);
+                continue;
+            }
+
+            if (total_size >= SGPL_APPEND_PARALLEL_COPY_THRESHOLD &&
+                nthreads > 1 && !g_tls_is_pool_worker)
+            {
+                sgpl_append_copy_context copy_context;
+
+                copy_context.sources = append_local_bufs[target];
+                copy_context.offsets = prefix_offsets;
+                copy_context.destination = shared_arr;
+
+                for (tid = 0; tid < nthreads; ++tid)
+                {
+                    args[tid].start = 0;
+                    args[tid].end = nthreads;
+                    args[tid].step = 1;
+                    args[tid].body = sgpl_append_copy_lane;
+                    args[tid].env = &copy_context;
+                    args[tid].tid = tid;
+                    args[tid].nthreads = nthreads;
+                    args[tid].ncpus = nthreads;
+                    args[tid].doacross_state = NULL;
+                    args[tid].override_originals = NULL;
+                    args[tid].override_replacements = NULL;
+                    args[tid].num_override_targets = 0;
+                }
+
+                if (use_pool)
+                    sgpl_thread_pool_run(args, nthreads);
+                else
+                {
+                    memset(thread_started, 0, (size_t)nthreads);
+                    for (tid = 0; tid < nthreads; ++tid)
+                    {
+                        if (pthread_create(&threads[tid], NULL, worker_main, &args[tid]) == 0)
+                            thread_started[tid] = 1;
+                        else
+                            worker_main(&args[tid]);
+                    }
+                    for (tid = 0; tid < nthreads; ++tid)
+                    {
+                        if (thread_started[tid])
+                            pthread_join(threads[tid], NULL);
+                    }
+                }
+            }
+            else
+            {
+                for (tid = 0; tid < nthreads; ++tid)
+                    sgpl_append_copy_lane(tid,
+                                          &(sgpl_append_copy_context){
+                                              append_local_bufs[target],
+                                              prefix_offsets,
+                                              shared_arr});
+            }
+
+            sgpl_write_i32_env_field(env, size_offset, 1, (int32_t)total_size);
+            free(prefix_offsets);
+            continue;
         }
 
-        for (tid = 0; tid < nthreads; ++tid)
         {
-            RoaringBitmap *local = priv_bitmaps[target] ? priv_bitmaps[target][tid] : NULL;
-            if (!local)
-                continue;
-            roaring_bitmap_or_inplace(original, local);
-            roaring_bitmap_free(local);
+            RoaringBitmap *original = *(RoaringBitmap **)((char *)env + offset);
+
+            /* Merge diagnostics intentionally disabled. */
+
+            for (tid = 0; tid < nthreads; ++tid)
+            {
+                RoaringBitmap *local = priv_bitmaps[target] ? priv_bitmaps[target][tid] : NULL;
+                if (!local)
+                    continue;
+                roaring_bitmap_or_inplace(original, local);
+                roaring_bitmap_free(local);
+                priv_bitmaps[target][tid] = NULL;
+            }
         }
     }
 
+cleanup:
     for (tid = 0; tid < nthreads; ++tid)
     {
         free(thread_envs[tid]);
@@ -1371,14 +1878,37 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
 
     for (target = 0; target < num_priv_targets; ++target)
     {
+        if (priv_bitmaps[target])
+        {
+            for (tid = 0; tid < nthreads; ++tid)
+            {
+                if (priv_bitmaps[target][tid])
+                    roaring_bitmap_free(priv_bitmaps[target][tid]);
+            }
+        }
+        if (append_local_bufs[target])
+        {
+            for (tid = 0; tid < nthreads; ++tid)
+                free(append_local_bufs[target][tid]);
+        }
+        if (append_local_sizes[target])
+        {
+            for (tid = 0; tid < nthreads; ++tid)
+                free(append_local_sizes[target][tid]);
+        }
+        free(append_local_bufs[target]);
+        free(append_local_sizes[target]);
         free(priv_bitmaps[target]);
     }
 
     free(threads);
+    free(thread_started);
     free(args);
     free(thread_envs);
     free(priv_bitmaps);
     free(priv_originals);
+    free(append_local_bufs);
+    free(append_local_sizes);
     free(thread_override_replacements);
     sgpl_free_doacross_state(doacross_state);
 }
@@ -1540,7 +2070,11 @@ static int32_t sgpl_loop_pool_lookup_assigned_threads(int32_t loop_id)
         return pool->entries[i].assigned_threads;
     }
 
-    return 1;
+    // Loop not in this level's plan (e.g. DOALL/DOACROSS nested under a TDG
+    // task that only scheduled the outer graph-init task). Returning 1 here
+    // forced sgpl_should_parallelize_* into permanent single-thread / serial
+    // mode. Return 0 so the caller falls back to the live thread budget.
+    return 0;
 }
 
 static int32_t sgpl_loop_effective_decision_threads_for_loop_id(int32_t loop_id)
@@ -3312,6 +3846,8 @@ static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_de
                                           env,
                                           desc->env_size,
                                           desc->priv_offsets,
+                                          NULL,
+                                          NULL,
                                           desc->num_priv_targets,
                                           desc && desc->mode == SGPL_LOOP_DOACROSS ? 1 : 0,
                                           desc ? desc->doacross_num_sync_ids : 0,
@@ -3364,6 +3900,9 @@ static double sgpl_get_thread_launch_overhead_ns(int threads)
 
     if (threads <= 0)
         return 0.0;
+
+    if (sgpl_thread_pool_available() && !g_tls_is_pool_worker)
+        return SGPL_POOL_BASE_LAUNCH_NS + SGPL_POOL_LAUNCH_PER_THREAD_NS * (double)threads;
 
     if (threads < SGPL_TDG_MAX_REPORTED_THREADS && g_launch_thread_cost_valid[threads])
         return g_launch_thread_costs[threads];
@@ -3458,6 +3997,23 @@ static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_lo
 {
     sgpl_launch_overhead_detail detail;
 
+    if (sgpl_thread_pool_available() && !g_tls_is_pool_worker)
+    {
+        detail.thread_ns = SGPL_POOL_BASE_LAUNCH_NS + SGPL_POOL_LAUNCH_PER_THREAD_NS * (double)threads;
+        detail.path_ns = 0.0;
+        if (desc && desc->runtime_kind == SGPL_RUNTIME_PRIVATIZED)
+        {
+            /* Privatized path still copies env + allocates per-thread buffers. */
+            detail.path_ns = 2500.0 + 400.0 * (double)threads;
+            if (desc->num_priv_targets > 0)
+                detail.path_ns += 800.0 * (double)desc->num_priv_targets;
+        }
+        if (desc && desc->mode == SGPL_LOOP_DOACROSS)
+            detail.path_ns += 1500.0;
+        detail.total_ns = detail.thread_ns + detail.path_ns;
+        return detail;
+    }
+
     detail.thread_ns = sgpl_get_thread_launch_overhead_ns(threads);
     detail.path_ns = sgpl_get_path_launch_overhead_ns(desc, threads);
     detail.total_ns = detail.thread_ns + detail.path_ns;
@@ -3496,6 +4052,22 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
     }
 
     effective_threads = sgpl_loop_effective_decision_threads_for_loop_id(desc ? desc->loop_id : -1);
+
+    if (force_doall_parallel_enabled() && effective_threads > 1 && trip_count > 0)
+    {
+        // Explicit test override: bypass cost-model warmup for ablation benches.
+        g_tls_pending_loop_id = desc ? desc->loop_id : -1;
+        if (runtime_debug_enabled())
+        {
+            fprintf(stderr,
+                    "[parallel-runtime] cost-doall loop=%s loop_id=%d choose=parallel reason=force-env P=%d N=%lld\n",
+                    sgpl_loop_debug_name(desc),
+                    desc ? desc->loop_id : -1,
+                    effective_threads,
+                    (long long)trip_count);
+        }
+        return 1;
+    }
 
     if (effective_threads <= 1 || trip_count <= 0 || !state)
     {
@@ -4141,6 +4713,13 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
     else if (!state || !desc || !desc->has_doacross_profile)
         reason = "missing-profile-desc";
 
+    if (force_doacross_parallel_enabled())
+    {
+        // Explicit test override: bypass sampling/model readiness entirely.
+        g_tls_pending_loop_id = desc ? desc->loop_id : -1;
+        return 1;
+    }
+
     if (!reason && sgpl_loop_try_cached_decision(state, desc, effective_threads, &cached_choice))
     {
         choose_parallel = cached_choice ? 1 : 0;
@@ -4217,12 +4796,6 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
                        ((double)trip_count * sync_per_iter);
         choose_parallel = serial_lhs > parallel_rhs;
         sgpl_loop_store_cached_decision(state, desc, effective_threads, choose_parallel);
-    }
-
-    if (force_doacross_parallel_enabled() && !reason)
-    {
-        choose_parallel = 1;
-        reason = "forced-test";
     }
 
     if (runtime_debug_enabled())
@@ -4342,31 +4915,52 @@ void parallel_for_runtime(int64_t start,
                 (long long)trip_count,
                 atomic_load(&g_sgpl_reserved_threads));
     }
-    if (granted_threads <= 1)
     {
-        if (runtime_debug_enabled())
+        int force_parallel = force_doall_parallel_enabled() ||
+                             (needs_doacross && force_doacross_parallel_enabled());
+        int borrowed = 0;
+        if (granted_threads <= 1 && force_parallel)
         {
-            fprintf(stderr,
-                    "[parallel-runtime] plain-call=%ld budget-fallback=serial trips=%lld reserved=%d\n",
-                    call_index,
-                    (long long)trip_count,
-                    atomic_load(&g_sgpl_reserved_threads));
+            // Parent TDG task often reserves the whole machine; nested outlined
+            // loops then see granted=1. Force path borrows hardware threads
+            // without touching the budget counters (ablation / peak speedup).
+            granted_threads = sgpl_runtime_thread_count();
+            borrowed = 1;
+            if (runtime_debug_enabled())
+            {
+                fprintf(stderr,
+                        "[parallel-runtime] plain-call=%ld force-borrow threads=%d (budget was exhausted)\n",
+                        call_index,
+                        granted_threads);
+            }
         }
-        g_tls_pending_loop_id = -1;
-        sgpl_run_loop_serial(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
-        return;
-    }
+        if (granted_threads <= 1)
+        {
+            if (runtime_debug_enabled())
+            {
+                fprintf(stderr,
+                        "[parallel-runtime] plain-call=%ld budget-fallback=serial trips=%lld reserved=%d\n",
+                        call_index,
+                        (long long)trip_count,
+                        atomic_load(&g_sgpl_reserved_threads));
+            }
+            g_tls_pending_loop_id = -1;
+            sgpl_run_loop_serial(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
+            return;
+        }
 
-    g_tls_pending_loop_id = -1;
-    sgpl_parallel_launch_plain_raw(start,
-                                   end,
-                                   step,
-                                   body,
-                                   env,
-                                   needs_doacross,
-                                   doacross_num_sync_ids,
-                                   granted_threads);
-    sgpl_loop_pool_release(loop_id, granted_threads);
+        g_tls_pending_loop_id = -1;
+        sgpl_parallel_launch_plain_raw(start,
+                                       end,
+                                       step,
+                                       body,
+                                       env,
+                                       needs_doacross,
+                                       doacross_num_sync_ids,
+                                       granted_threads);
+        if (!borrowed)
+            sgpl_loop_pool_release(loop_id, granted_threads);
+    }
 }
 
 void parallel_for_runtime_ex(int64_t start,
@@ -4376,6 +4970,8 @@ void parallel_for_runtime_ex(int64_t start,
                              void *env,
                              int64_t env_size,
                              const int64_t *priv_offsets,
+                             const int32_t *priv_kinds,
+                             const int64_t *priv_aux,
                              int32_t num_priv_targets,
                              int32_t needs_doacross,
                              int32_t doacross_num_sync_ids)
@@ -4431,32 +5027,52 @@ void parallel_for_runtime_ex(int64_t start,
                 (long long)env_size,
                 num_priv_targets);
     }
-    if (granted_threads <= 1)
     {
-        if (runtime_debug_enabled())
+        int force_parallel = force_doall_parallel_enabled() ||
+                             (needs_doacross && force_doacross_parallel_enabled());
+        int borrowed = 0;
+        if (granted_threads <= 1 && force_parallel)
         {
-            fprintf(stderr,
-                    "[parallel-runtime] ex-call=%ld budget-fallback=serial trips=%lld reserved=%d\n",
-                    call_index,
-                    (long long)trip_count,
-                    atomic_load(&g_sgpl_reserved_threads));
+            granted_threads = sgpl_runtime_thread_count();
+            borrowed = 1;
+            if (runtime_debug_enabled())
+            {
+                fprintf(stderr,
+                        "[parallel-runtime] ex-call=%ld force-borrow threads=%d (budget was exhausted)\n",
+                        call_index,
+                        granted_threads);
+            }
         }
-        g_tls_pending_loop_id = -1;
-        sgpl_run_loop_serial(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
-        return;
-    }
+        if (granted_threads <= 1)
+        {
+            if (runtime_debug_enabled())
+            {
+                fprintf(stderr,
+                        "[parallel-runtime] ex-call=%ld budget-fallback=serial trips=%lld reserved=%d\n",
+                        call_index,
+                        (long long)trip_count,
+                        atomic_load(&g_sgpl_reserved_threads));
+            }
+            g_tls_pending_loop_id = -1;
+            sgpl_run_loop_serial(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
+            return;
+        }
 
-    g_tls_pending_loop_id = -1;
-    sgpl_parallel_launch_priv_raw(start,
-                                  end,
-                                  step,
-                                  body,
-                                  env,
-                                  env_size,
-                                  priv_offsets,
-                                  num_priv_targets,
-                                  needs_doacross,
-                                  doacross_num_sync_ids,
-                                  granted_threads);
-    sgpl_loop_pool_release(loop_id, granted_threads);
+        g_tls_pending_loop_id = -1;
+        sgpl_parallel_launch_priv_raw(start,
+                                      end,
+                                      step,
+                                      body,
+                                      env,
+                                      env_size,
+                                      priv_offsets,
+                                      priv_kinds,
+                                      priv_aux,
+                                      num_priv_targets,
+                                      needs_doacross,
+                                      doacross_num_sync_ids,
+                                      granted_threads);
+        if (!borrowed)
+            sgpl_loop_pool_release(loop_id, granted_threads);
+    }
 }

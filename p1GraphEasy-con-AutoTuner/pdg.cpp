@@ -101,6 +101,7 @@ static void analyzeTaskArguments(llvm::Function *extractedFunc,
 
 static bool tdgDebugEnabled()
 {
+    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached != 0;
@@ -115,6 +116,8 @@ static bool tdgDebugEnabled()
     std::string value(raw);
     cached = (value != "0" && value != "false" && value != "FALSE") ? 1 : 0;
     return cached != 0;
+    */
+    return false;
 }
 
 // global collector (keeps a single combined graph you can print later)
@@ -293,34 +296,29 @@ namespace
         unsigned Depth = L->getLoopDepth();
         unsigned Levels = std::min<unsigned>(Depth, Dep.getLevels());
 
-        for (unsigned Level = 1; Level <= Levels; ++Level)
+        // Only the component at THIS loop's own depth decides whether this loop
+        // carries the dependence; components at shallower levels belong to
+        // enclosing loops (they may be unknown/non-zero there without making
+        // this loop sequential).
+        if (Depth <= Levels)
         {
-            DistanceProof Proof = classifyDistanceComponent(Dep, Level);
-            if (Proof.kind == DistanceProofKind::ProvenZero)
-            {
-                continue;
-            }
-
+            DistanceProof Proof = classifyDistanceComponent(Dep, Depth);
             if (Proof.kind == DistanceProofKind::Unknown)
             {
                 Info.kind = CarrierKind::Unknown;
-                Info.level = Level;
+                Info.level = Depth;
                 return Info;
             }
-
-            Info.kind = CarrierKind::ProvenLevel;
-            Info.level = Level;
-            Info.carriedDistance = Proof;
-            return Info;
+            if (Proof.kind != DistanceProofKind::ProvenZero)
+            {
+                Info.kind = CarrierKind::ProvenLevel;
+                Info.level = Depth;
+                Info.carriedDistance = Proof;
+                return Info;
+            }
         }
 
-        if (Levels < Depth)
-        {
-            Info.kind = CarrierKind::Unknown;
-            Info.level = Levels + 1;
-            return Info;
-        }
-
+        // Loop-independent w.r.t. this loop.
         Info.kind = CarrierKind::IntraIteration;
         return Info;
     }
@@ -465,12 +463,6 @@ static std::string escapeForDot(const std::string &s)
 //             ofs << "  \"" << nodeName(id) << "\" [label=\"" << s
 //                 << "\", shape=box, style=filled, fillcolor=lightblue];\n";
 //         }
-//         else if (I == G.controlBarrier)
-//         {
-//             s = "CONTROL_BARRIER";
-//             ofs << "  \"" << nodeName(id) << "\" [label=\"" << s
-//                 << "\", shape=box, style=filled, fillcolor=lightgreen];\n";
-//         }
 //         else
 //         {
 //             llvm::raw_string_ostream rso(s);
@@ -491,6 +483,29 @@ static std::string escapeForDot(const std::string &s)
 //     ofs.close();
 //     llvm::nulls() << "Wrote " << filename << "\n";
 // }
+
+static bool loopHasTerminatorMetadata(const llvm::Loop *L, llvm::StringRef Name)
+{
+    return L && L->getHeader() && L->getHeader()->getTerminator() &&
+           L->getHeader()->getTerminator()->getMetadata(Name);
+}
+
+static void markNestedLoopsSequential(llvm::Loop *L)
+{
+    if (!L)
+        return;
+    llvm::LLVMContext &Ctx = L->getHeader()->getContext();
+    for (llvm::Loop *SubLoop : L->getSubLoops())
+    {
+        if (SubLoop && SubLoop->getHeader() && SubLoop->getHeader()->getTerminator())
+        {
+            SubLoop->getHeader()->getTerminator()->setMetadata(
+                "sgpl.frontier.nested.sequential",
+                llvm::MDNode::get(Ctx, llvm::MDString::get(Ctx, "required")));
+        }
+        markNestedLoopsSequential(SubLoop);
+    }
+}
 
 static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
@@ -517,7 +532,49 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     }
 
     bool phiCarry = false;
+    // Store-forwarded prefix/reduction PHIs (O1+ turns load pref[i-1] into a
+    // header PHI). Those are distance-1 DOACROSS, not irreducible sequential
+    // carries. Track them separately so we do not force SEQUENTIAL the way a
+    // true opaque phiCarry does.
+    bool hasScalarDoAcrossPhi = false;
+    SmallVector<PHINode *, 4> ScalarDoAcrossPhis;
     LoopCarrierSummary Summary;
+
+    // Conservative memory pairing: accesses to the same underlying object may
+    // alias regardless of what AA concludes. AA's SCEV reasoning can declare
+    // GEP(phi) vs GEP(phi+1) NoAlias (hiding a distance-1 loop-carried
+    // dependence), and MemorySSA clobbering then never links the store to the
+    // load. Pair them explicitly and let DependenceInfo decide the distance.
+    for (Instruction *A : memInsts)
+    {
+        auto *SI = dyn_cast<StoreInst>(A);
+        if (!SI)
+            continue;
+        Value *ObjS = getUnderlyingObject(SI->getPointerOperand());
+        for (Instruction *B : memInsts)
+        {
+            auto *LI = dyn_cast<LoadInst>(B);
+            if (!LI)
+                continue;
+            if (getUnderlyingObject(LI->getPointerOperand()) == ObjS)
+                createEdge(SI, LI, G, "RAW_MAY");
+        }
+    }
+    for (Instruction *A : memInsts)
+    {
+        auto *SI = dyn_cast<StoreInst>(A);
+        if (!SI)
+            continue;
+        Value *ObjS = getUnderlyingObject(SI->getPointerOperand());
+        for (Instruction *B : memInsts)
+        {
+            auto *SI2 = dyn_cast<StoreInst>(B);
+            if (!SI2 || SI2 == SI)
+                continue;
+            if (getUnderlyingObject(SI2->getPointerOperand()) == ObjS)
+                createEdge(SI, SI2, G, "WAW_MAY");
+        }
+    }
     auto printInstToStderr = [](llvm::Instruction *Inst)
     {
         llvm::raw_os_ostream OS(std::cerr);
@@ -530,7 +587,127 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         /* Debug logging disabled. Restore std::cerr logging here to re-enable loop-classify traces. */
     };
 
-    // --- PHI handling: only mark phiCarry when the PHI is NOT an induction variable (SCEV AddRec) ---
+    // --- PHI handling ---
+    // Canonical inductions (SCEV AddRec for this loop) are ignored.
+    // A loop-carried scalar PHI whose latch value is a simple binop that uses
+    // the PHI itself is the post-O* store-forwarded form of
+    //   a[i] = a[i-1] + f(i)
+    // and is DOACROSS with distance 1. Any other non-induction carried PHI
+    // still forces SEQUENTIAL (phiCarry).
+
+    auto isStoreForwardedDoAcrossPhi = [&](PHINode *PN) -> bool {
+        if (!PN->getType()->isIntegerTy() && !PN->getType()->isFloatingPointTy())
+            return false;
+        if (PN->getNumIncomingValues() < 2)
+            return false;
+
+        Value *LatchVal = nullptr;
+        bool SawOutside = false;
+        bool SawInside = false;
+        for (unsigned k = 0, n = PN->getNumIncomingValues(); k < n; ++k)
+        {
+            BasicBlock *IncBB = PN->getIncomingBlock(k);
+            if (!IncBB)
+                return false;
+            if (L->contains(IncBB) && IncBB != L->getLoopPreheader())
+            {
+                SawInside = true;
+                LatchVal = PN->getIncomingValue(k);
+            }
+            else
+            {
+                SawOutside = true;
+            }
+        }
+        if (!SawInside || !SawOutside || !LatchVal)
+            return false;
+
+        // Latch value must be computed in the loop and depend on the PHI
+        // (covers both `add PN, x` and O3-unrolled chains that end in PN).
+        auto *LatchInst = dyn_cast<Instruction>(LatchVal);
+        if (!LatchInst || !L->contains(LatchInst->getParent()))
+            return false;
+
+        SmallPtrSet<const Value *, 16> Visited;
+        SmallVector<Value *, 8> Worklist;
+        Worklist.push_back(LatchVal);
+        bool Depends = false;
+        while (!Worklist.empty())
+        {
+            Value *V = Worklist.pop_back_val();
+            if (V == PN)
+            {
+                Depends = true;
+                break;
+            }
+            auto *I = dyn_cast<Instruction>(V);
+            if (!I || !L->contains(I->getParent()))
+                continue;
+            if (!Visited.insert(I).second)
+                continue;
+            for (Value *Op : I->operands())
+                Worklist.push_back(Op);
+        }
+        if (!Depends)
+            return false;
+
+        // Trip inductions are used as GEP indices (possibly through casts).
+        // Value recurrences (prefix/reduction) are not.
+        for (User *U : PN->users())
+        {
+            if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
+            {
+                if (L->contains(GEP->getParent()))
+                    return false;
+            }
+            if (auto *Cast = dyn_cast<CastInst>(U))
+            {
+                if (!L->contains(Cast->getParent()))
+                    continue;
+                for (User *U2 : Cast->users())
+                {
+                    if (auto *GEP = dyn_cast<GetElementPtrInst>(U2))
+                    {
+                        if (L->contains(GEP->getParent()))
+                            return false;
+                    }
+                }
+            }
+        }
+
+        // Must be a *value* recurrence stored to memory.
+        SmallPtrSet<const Value *, 16> Seen;
+        SmallVector<Value *, 8> Users;
+        Users.push_back(PN);
+        bool FeedsStoreValue = false;
+        while (!Users.empty())
+        {
+            Value *V = Users.pop_back_val();
+            if (!Seen.insert(V).second)
+                continue;
+            for (User *U : V->users())
+            {
+                if (auto *SI = dyn_cast<StoreInst>(U))
+                {
+                    if (L->contains(SI->getParent()) && SI->getValueOperand() == V)
+                    {
+                        FeedsStoreValue = true;
+                        break;
+                    }
+                    continue;
+                }
+                // Follow through arithmetic that stays in the loop (unrolled adds).
+                if (auto *BO = dyn_cast<BinaryOperator>(U))
+                {
+                    if (L->contains(BO->getParent()))
+                        Users.push_back(BO);
+                }
+            }
+            if (FeedsStoreValue)
+                break;
+        }
+        return FeedsStoreValue;
+    };
 
     if (BasicBlock *Header = L->getHeader())
     {
@@ -538,35 +715,110 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         {
             if (PHINode *PN = dyn_cast<PHINode>(&I))
             {
-                // Use ScalarEvolution to decide if PN is a canonical induction (AddRec for this loop).
-                const SCEV *PS = SE.getSCEV(PN);
-                if (const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(PS))
-                {
-                    // If this AddRec is for this loop, it's an induction recurrence — ignore.
-                    if (AR->getLoop() == L)
-                    {
-                        // canonical induction variable -> do not treat as carried scalar that forces sequential
-                        continue;
-                    }
-                }
-
+                bool hasLoopCarriedIncoming = false;
                 for (unsigned k = 0, n = PN->getNumIncomingValues(); k < n; ++k)
                 {
                     BasicBlock *IncBB = PN->getIncomingBlock(k);
                     if (IncBB && L->contains(IncBB) && IncBB != L->getLoopPreheader())
                     {
-                        phiCarry = true;
-                        logLoopClassify("phi-carry detected on non-induction phi");
-                        /* Debug logging disabled: phi print */
+                        hasLoopCarriedIncoming = true;
                         break;
                     }
                 }
-                if (phiCarry)
-                    break;
+                if (!hasLoopCarriedIncoming)
+                    continue;
+
+                // Prefer store-forwarded DOACROSS recognition *before* the
+                // AddRec induction skip: `{init,+,c}` prefixes are AddRecs too
+                // but are value recurrences, not trip inductions.
+                if (isStoreForwardedDoAcrossPhi(PN))
+                {
+                    hasScalarDoAcrossPhi = true;
+                    ScalarDoAcrossPhis.push_back(PN);
+                    Summary.hasProvenCarriedDep = true;
+                    Summary.hasProofOfNoCarriedDeps = false;
+                    Summary.constantDistances.push_back(1);
+                    logLoopClassify("store-forwarded scalar phi treated as DOACROSS distance=1");
+                    continue;
+                }
+
+                // Canonical induction (SCEV AddRec for this loop) — ignore.
+                const SCEV *PS = SE.getSCEV(PN);
+                if (const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(PS))
+                {
+                    if (AR->getLoop() == L)
+                        continue;
+                }
+
+                phiCarry = true;
+                logLoopClassify("phi-carry detected on non-induction phi");
+                break;
             }
             else
             {
                 break;
+            }
+        }
+    }
+
+    // Attach doacross wait/post so the outliner can instrument sync around the
+    // forwarded recurrence (there is no RAW load/store pair left after O*).
+    if (hasScalarDoAcrossPhi && !ScalarDoAcrossPhis.empty())
+    {
+        LLVMContext &Ctx = F.getContext();
+        int32_t syncBase = 900000; // avoid colliding with PDG node ids when both exist
+        for (size_t pi = 0; pi < ScalarDoAcrossPhis.size(); ++pi)
+        {
+            PHINode *PN = ScalarDoAcrossPhis[pi];
+            int32_t syncId = syncBase + (int32_t)pi;
+            Metadata *IDVal =
+                ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), syncId));
+            MDNode *IDNode = MDNode::get(Ctx, IDVal);
+            Metadata *DistVal =
+                ConstantAsMetadata::get(ConstantInt::get(Type::getInt64Ty(Ctx), 1));
+            MDNode *DistNode = MDNode::get(Ctx, DistVal);
+
+            // Wait: first in-loop user of the PHI (consumes previous iteration).
+            Instruction *WaitAt = nullptr;
+            for (User *U : PN->users())
+            {
+                if (auto *UI = dyn_cast<Instruction>(U))
+                {
+                    if (L->contains(UI->getParent()) && UI != PN)
+                    {
+                        WaitAt = UI;
+                        break;
+                    }
+                }
+            }
+            if (WaitAt)
+            {
+                WaitAt->setMetadata("doacross.wait",
+                                    MDNode::get(Ctx, MDString::get(Ctx, "doacross.wait")));
+                WaitAt->setMetadata("doacross.dist", DistNode);
+                WaitAt->setMetadata("doacross.src", IDNode);
+            }
+
+            // Post: latch incoming value (produces this iteration's carry).
+            BasicBlock *Latch = L->getLoopLatch();
+            Value *LatchVal = Latch ? PN->getIncomingValueForBlock(Latch) : nullptr;
+            if (!LatchVal)
+            {
+                for (unsigned k = 0, n = PN->getNumIncomingValues(); k < n; ++k)
+                {
+                    BasicBlock *IncBB = PN->getIncomingBlock(k);
+                    if (IncBB && L->contains(IncBB) && IncBB != L->getLoopPreheader())
+                    {
+                        LatchVal = PN->getIncomingValue(k);
+                        break;
+                    }
+                }
+            }
+            if (auto *PostAt = dyn_cast_or_null<Instruction>(LatchVal))
+            {
+                PostAt->setMetadata("doacross.post",
+                                    MDNode::get(Ctx, MDString::get(Ctx, "doacross.post")));
+                PostAt->setMetadata("doacross.id", IDNode);
             }
         }
     }
@@ -752,12 +1004,26 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // }
 
     // final classification
+    const bool IsVerifiedFrontier =
+        loopHasTerminatorMetadata(L, "sgpl.frontier.first_wins.candidate");
+    const bool IsNestedFrontierLoop =
+        loopHasTerminatorMetadata(L, "sgpl.frontier.nested.sequential");
+
     std::string classification;
-    if (phiCarry)
+    if (IsNestedFrontierLoop)
     {
         classification = "SEQUENTIAL";
     }
-    else if (Summary.hasProofOfNoCarriedDeps)
+    else if (IsVerifiedFrontier)
+    {
+        classification = "DOALL";
+        markNestedLoopsSequential(L);
+    }
+    else if (phiCarry)
+    {
+        classification = "SEQUENTIAL";
+    }
+    else if (Summary.hasProofOfNoCarriedDeps && !hasScalarDoAcrossPhi)
     {
         classification = "DOALL";
     }
@@ -767,6 +1033,7 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     }
     else
     {
+        // Includes memory-carried DOACROSS and store-forwarded scalar PHIs.
         classification = "DOACROSS";
     }
     // llvm::nulls()() << "\n\n\nLoop header ";
@@ -782,6 +1049,12 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         if (llvm::Instruction *MM = NN->getTerminator())
         {
             MM->setMetadata("my.loop.parallel", Node);
+            if (IsVerifiedFrontier)
+            {
+                MM->setMetadata(
+                    "sgpl.frontier.first_wins.doall",
+                    MDNode::get(Ctx, MDString::get(Ctx, "requires-int-append-priv")));
+            }
         }
     };
 
@@ -790,7 +1063,8 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                      " hasUnschedulableCarriedDep=" + Twine(Summary.hasUnschedulableCarriedDep ? 1 : 0) +
                      " hasUnknownAttributedDep=" + Twine(Summary.hasUnknownAttributedDep ? 1 : 0) +
                      " hasProofOfNoCarriedDeps=" + Twine(Summary.hasProofOfNoCarriedDeps ? 1 : 0) +
-                     " phiCarry=" + Twine(phiCarry ? 1 : 0))
+                     " phiCarry=" + Twine(phiCarry ? 1 : 0) +
+                     " scalarDoAcrossPhi=" + Twine(hasScalarDoAcrossPhi ? 1 : 0))
                         .str());
 
     // llvm::nulls()() << "Loop header ";
@@ -978,7 +1252,18 @@ void buildGraph(llvm::Function &F,
             // Handle call instructions - add them to barriers and ensure argument dependencies
             if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I))
             {
-                barrierInsts.push_back(CI);
+                // Exempt argmemonly calls from barrier treatment. Such calls only
+                // access memory through pointer arguments, so they don't create
+                // function-wide memory barriers. This lets neighbor iteration
+                // calls (init/next) coexist with loop parallelization.
+                // Argument dependency edges are still created.
+                bool isArgMemOnly = false;
+                if (llvm::Function *Callee = CI->getCalledFunction())
+                    isArgMemOnly = Callee->onlyAccessesArgMemory();
+
+                if (!isArgMemOnly)
+                    barrierInsts.push_back(CI);
+
                 // Ensure all arguments are connected (though def-use should catch this)
                 for (llvm::Use &Arg : CI->args())
                 {
@@ -3216,9 +3501,73 @@ namespace llvm
             return CI->arg_size() == 0;
         };
 
+        auto touchesMutableGlobals = [&](Function *Root) -> bool
+        {
+            if (!Root || Root->isDeclaration())
+                return false;
+
+            DenseSet<Function *> visitedFunctions;
+            SmallVector<Function *, 8> worklist;
+            worklist.push_back(Root);
+
+            auto referencesMutableGlobal = [](Value *V) -> bool
+            {
+                if (!V)
+                    return false;
+                Value *base = V->stripPointerCasts();
+                auto *GV = dyn_cast<GlobalVariable>(base);
+                return GV && !GV->isConstant();
+            };
+
+            while (!worklist.empty())
+            {
+                Function *F = worklist.pop_back_val();
+                if (!F || F->isDeclaration() || !visitedFunctions.insert(F).second)
+                    continue;
+
+                for (BasicBlock &BB : *F)
+                {
+                    for (Instruction &I : BB)
+                    {
+                        if (auto *LI = dyn_cast<LoadInst>(&I))
+                        {
+                            if (referencesMutableGlobal(LI->getPointerOperand()))
+                                return true;
+                        }
+                        else if (auto *SI = dyn_cast<StoreInst>(&I))
+                        {
+                            if (referencesMutableGlobal(SI->getPointerOperand()))
+                                return true;
+                        }
+                        else if (auto *CB = dyn_cast<CallBase>(&I))
+                        {
+                            for (Value *Arg : CB->args())
+                            {
+                                if (referencesMutableGlobal(Arg))
+                                    return true;
+                            }
+                            if (Function *Callee = CB->getCalledFunction())
+                                worklist.push_back(Callee);
+                        }
+                    }
+                }
+            }
+
+            return false;
+        };
+
+        DenseMap<unsigned, bool> taskTouchesMutableGlobals;
+
         auto isHoistSafe = [&](unsigned taskId, CallInst *CI, Instruction *launchPoint) -> bool
         {
             if (!isLocallyLaunchable(taskId, CI))
+                return false;
+
+            auto it = taskTouchesMutableGlobals.find(taskId);
+            if (it == taskTouchesMutableGlobals.end())
+                it = taskTouchesMutableGlobals.insert({taskId, touchesMutableGlobals(wrapperFunctions[taskId])}).first;
+            bool touchesGlobals = it->second;
+            if (launchPoint != CI && touchesGlobals)
                 return false;
 
             TaskArgumentInfo &argInfo = taskArgInfo[taskId];

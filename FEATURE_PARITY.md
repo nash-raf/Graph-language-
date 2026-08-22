@@ -30,6 +30,10 @@ propagation to the other GraphEasy families.
 | Independent set-copy semantics | [x] | [ ] | [x] | [x] | Set mutation and Bron-Kerbosch tests |
 | Basic `show G;` Graphviz PNG output | [x] | [x] | [x] | [x] | Existing implementation |
 | Static visualization v2 | [x] | [ ] | [ ] | [ ] | P2 draw tests |
+| `weights: true/positive/zero/negative` | [x] | [ ] | [ ] | [ ] | P2 weight-mode tests |
+| Signed motif edges `->` and `-|` | [x] | [ ] | [ ] | [ ] | P2 signed motif tests |
+| Iterable `motifs` match collections | [x] | [ ] | [ ] | [ ] | P2 motif collection test |
+| Motif automorphism deduplication | [x] | [ ] | [ ] | [ ] | P2 symmetric bi-fan test and Milo E. coli counts |
 
 ## Next Propagation Work
 
@@ -47,7 +51,7 @@ through P1 before checking the boxes.
 ## Static Visualization V2
 
 Status: implemented and tested in `p2GraphEasy`. Not yet propagated.
-Interactive HTML and motif-specific highlighting are intentionally postponed.
+Interactive HTML is intentionally postponed.
 
 ### Minimal Form
 
@@ -120,3 +124,5 @@ prints edge weights.
 - [x] Graphs above the static-rendering limit require filtering.
 - [x] Graphviz runs without shell-string interpolation.
 - [x] Focused parser, semantic, runtime, and output tests pass.
+- [x] Positive motif edges use arrows and negative motif edges use inhibition bars.
+- [x] Multiple motif occurrences can be rendered separately or in one clustered image.

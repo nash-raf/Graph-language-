@@ -24,6 +24,10 @@ statement:
 	| assignmentStatement
 	| queryStatement
 	| showgraph
+	| drawgraph
+	| drawmotifs
+	| motifMatchesDecl
+	| graphListDecl
 	| nodeEdgeOperation
 	| setOperation
 	| setMethodCall
@@ -38,9 +42,13 @@ graphDef
     | GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* '}' ';'          # UnweightedGraphDef
 ;
 
+// `directed: true;` is what makes a motif's `->` meaningful: on an undirected
+// graph every edge is stored both ways, so a -> b and b -> a are the same edge
+// and directed motifs collapse.
+graphProperty:
+	'directed' ':' drawBoolLiteral ';';
+
 //in graphDef
-graphProperty: 'directed' ':' boolLiteral ';';
-boolLiteral: TRUE | FALSE | 'true' | 'false';
 nodes: 'nodes:' nodeList ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
 nodeList: nodeID (',' nodeID)*;
@@ -72,14 +80,14 @@ setOperation:
 
 setTarget:
     ID
-    | graphID '.' (NODE | VERTICES)
+    | graphID '.' 'nodes'
     | graphID '.' 'edges'
     ;
 
 setExpr:
     setExpr UNION setExpr          # SetUnion
     | setExpr INTERSECT setExpr    # SetIntersect
-	| graphID '.' (NODE | VERTICES) # GraphNodesSet
+	| graphID '.' 'nodes'          # GraphNodesSet
     | graphID '.' 'edges'          # GraphEdgesSet
     | ID                           # SetId
     | setInitializer               # SetLiteral
@@ -115,10 +123,21 @@ condition:
 
 //graphcondition
 graphComprehension:
-	GRAPH? ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
+	ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
 
 graphExpr:
 	graphID ((AND | OR) graphID)*;
+
+// A motif is a fixed, compile-time-known subgraph pattern.  `motifs` collects
+// the vertex bindings, `graphs` collects one induced subgraph per match.
+motifMatchesDecl:
+	'motifs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+
+graphListDecl:
+	'graphs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+
+// '->' requires a positive edge, '-|' a negative one.
+motifEdge: ID ('->' | '-|') ID ';';
 
 graphCondition:
 	graphCondition AND graphCondition	# GraphLogicalAnd
@@ -132,9 +151,8 @@ graphCondition:
 		| GREATERTHAN
 	) INT						# DegreeCondition
 	| 'connected' 'with' nodeID	# ConnectedCondition
-	| 'edge' 'has' expr		# EdgeHasCondition
-	| 'vertex' 'in' ID		# VertexInSetCondition
 	| 'cycle'					# CycleCondition
+	| 'motif' '{' motifEdge+ '}'	# MotifCondition
 	| '(' graphCondition ')'	# ParenGraphCondition;
 
 //loop
@@ -143,19 +161,21 @@ foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
 loopTarget:
 	'vertex' ID					# forEachVertex
 	| 'edge' ID ',' ID			# forEachEdge
-	| 'out' 'neighbor' ID 'of' expr	# forEachOutAdj
-	| 'in' 'neighbor' ID 'of' expr	# forEachInAdj
 	| 'neighbor' ID 'of' expr	# forEachAdj
 	| 'element' ID				# forEachElement
+	| 'graph' ID				# ForEachGraph
+	| 'motif' '(' ID (',' ID)+ ')'	# ForEachMotif
 	| ID						# forEachPlain;
 whileStatement: 'while' '(' condition ')' block;
 
 nodeEdgeOperation: addOperation | removeOperation;
 
-addOperation: 'add' addTargets 'to' graphID ';';
-removeOperation: 'remove' removeTargets 'from' graphID ';';
-addTargets: nodeID | edge | nodeList | edgeList;
-removeTargets: nodeID | edge | nodeList | edgeList;
+addOperation: 'add' graphUpdateTargets 'to' graphID ';';
+removeOperation: 'remove' graphUpdateTargets 'from' graphID ';';
+graphUpdateTargets: updateNodeTargetList | updateEdgeTargetList;
+updateNodeTargetList: expr (',' expr)*;
+updateEdgeTargetList: updateEdgeTarget (',' updateEdgeTarget)*;
+updateEdgeTarget: expr '->' expr;
 
 
 
@@ -187,8 +207,42 @@ type:
 	| 'bool'
 	| 'set';
 
-functionCall: functionName '(' argumentList? ')';
-functionName: ID | 'degree';
+drawgraph:
+	'draw' graphID 'to' STRING ('{' drawOption* '}')? ';';
+
+drawmotifs:
+	'draw' ('motif' | 'motifs') 'of' graphID 'to' STRING '{' drawMotifOption* '}' ';';
+
+drawMotifOption:
+	motifEdge
+	| 'layout' ':' STRING ';'
+	| 'vertices' '{' vertexDrawOption* '}'
+	| 'edges' '{' edgeDrawOption* '}';
+
+drawOption:
+	'layout' ':' STRING ';'
+	| 'vertices' '{' vertexDrawOption* '}'
+	| 'edges' '{' edgeDrawOption* '}';
+
+vertexDrawOption:
+	'labels' ':' drawBoolLiteral ';'
+	| 'color' ':' colorMapping ';'
+	| 'size' ':' (continuousMapping | ID) ';';
+
+edgeDrawOption:
+	'labels' ':' drawBoolLiteral ';';
+
+colorMapping:
+	'categorical' '(' ID ')'
+	| continuousMapping
+	| ID;
+
+continuousMapping:
+	'continuous' '(' ID ')';
+
+drawBoolLiteral: TRUE | FALSE | 'true' | 'false';
+
+functionCall: ID '(' argumentList? ')';
 argumentList: expr (',' expr)*;
 
 // Sleep statement
@@ -261,7 +315,6 @@ arrayAssignStatement:
 // op: '==' | '!=' | '<' | '>' | '<=' | '>=' | '||' | '&&'; // Tokens
 EDGE: 'edges';
 NODE: 'nodes';
-VERTICES: 'vertices';
 TRUE: 'TRUE';
 FALSE: 'FALSE';
 OF: 'of';

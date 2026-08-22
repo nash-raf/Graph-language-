@@ -1,5 +1,5 @@
 graph G {
-  edges: file "Graph-language-/p1GraphEasy-con-AutoTuner/synth_v_1000000_e_1000000.txt";
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/web-hudong.edges";
 };
 
 int n = numVertices(G);

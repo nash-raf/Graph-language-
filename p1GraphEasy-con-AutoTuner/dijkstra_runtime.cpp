@@ -21,6 +21,7 @@ extern "C"
         int64_t *row_ptr; // CSR row pointer (size n+1)
         int32_t *col_idx; // CSR column indices (size m)
         int32_t *weights; // edge weights (size m), may be null => treat as 1
+        int32_t directed; // see graph_loader_runtime.cpp
     };
 
     // New: return distances as an allocated int32_t array and its size.

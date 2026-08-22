@@ -16,6 +16,7 @@ struct Symbol
 {
     TypeKind type = TypeKind::Unknown;
     bool isFunction = false;
+    int motifVarCount = 0; // arity of a MotifMatches collection
     FunctionInfo func;
 };
 
@@ -35,6 +36,10 @@ private:
     void enterScope();
     void exitScope();
 
+    void analyzeDrawGraph(DrawGraphNode *D);
+    void analyzeDrawMotifs(DrawMotifsNode *D);
+    void analyzeMotifMatchesDecl(MotifMatchesDeclNode *M);
+    void analyzeGraphListDecl(GraphListDeclNode *M);
     void declareSymbol(const std::string &name, const Symbol &sym);
     Symbol *lookupSymbol(const std::string &name);
 

@@ -6,58 +6,19 @@
 #include <vector>
 
 // The Graph struct must match the LLVM IR layout exactly:
-//   { i64 n, i64 m, i64* row_ptr, i32* col_idx, i32* weights,
-//     i32 directed, i64* in_row_ptr, i32* in_col_idx }
+//   { i64 n, i64 m, i64* row_ptr, i32* col_idx, i32* weights }
 struct GraphCSR {
     int64_t n;           // number of vertices
     int64_t m;           // number of directed edges (2x for undirected)
     int64_t *row_ptr;    // size n+1
     int32_t *col_idx;    // size m
     int32_t *weights;    // size m (may be null for unweighted)
-    int32_t directed;
-    int64_t *in_row_ptr;
-    int32_t *in_col_idx;
+    // Appended after the original five fields so the byte offsets that
+    // autotuner_runtime.c hard-codes (16/24/32) stay valid.  Every struct
+    // Graph / GraphCSR declaration in the tree must carry this field, because
+    // subgraphs built here are handed back to code that reads it.
+    int32_t directed;    // 1 = edges stored one-way, 0 = symmetrized
 };
-
-static void init_incoming_csr(GraphCSR *G)
-{
-    if (!G)
-        return;
-    if (!G->directed)
-    {
-        G->in_row_ptr = nullptr;
-        G->in_col_idx = nullptr;
-        return;
-    }
-
-    G->in_row_ptr = reinterpret_cast<int64_t *>(calloc(G->n + 1, sizeof(int64_t)));
-    G->in_col_idx = G->m > 0
-        ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * G->m))
-        : nullptr;
-
-    for (int64_t u = 0; u < G->n; ++u)
-    {
-        for (int64_t i = G->row_ptr[u]; i < G->row_ptr[u + 1]; ++i)
-        {
-            int32_t v = G->col_idx[i];
-            if (v >= 0 && v < G->n)
-                G->in_row_ptr[v + 1]++;
-        }
-    }
-    for (int64_t i = 1; i <= G->n; ++i)
-        G->in_row_ptr[i] += G->in_row_ptr[i - 1];
-
-    std::vector<int64_t> next(G->in_row_ptr, G->in_row_ptr + G->n + 1);
-    for (int64_t u = 0; u < G->n; ++u)
-    {
-        for (int64_t i = G->row_ptr[u]; i < G->row_ptr[u + 1]; ++i)
-        {
-            int32_t v = G->col_idx[i];
-            if (v >= 0 && v < G->n)
-                G->in_col_idx[next[v]++] = static_cast<int32_t>(u);
-        }
-    }
-}
 
 // ---------------------------------------------------------------
 // neighbors(G, v) -> roaring bitmap of v's neighbors
@@ -110,8 +71,7 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
         sub->row_ptr[0] = 0;
         sub->col_idx = nullptr;
         sub->weights = nullptr;
-        sub->directed = G->directed;
-        init_incoming_csr(sub);
+        sub->directed = G ? G->directed : 0;
         return sub;
     }
 
@@ -164,10 +124,10 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
     sub->col_idx = totalEdges > 0
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
         : nullptr;
+    sub->directed = G->directed;
     sub->weights = (G->weights && totalEdges > 0)
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
         : nullptr;
-    sub->directed = G->directed;
 
     // Build row_ptr via prefix sum
     sub->row_ptr[0] = 0;
@@ -198,7 +158,6 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
         }
     }
 
-    init_incoming_csr(sub);
     return sub;
 }
 
@@ -242,10 +201,11 @@ extern "C" void *graph_orient(void *graphRaw, int32_t *order)
     dag->col_idx = totalEdges > 0
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
         : nullptr;
+    // A DAG orientation keeps each edge once, so it is directed by construction.
+    dag->directed = 1;
     dag->weights = (G->weights && totalEdges > 0)
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * totalEdges))
         : nullptr;
-    dag->directed = 1;
 
     // Build row_ptr
     dag->row_ptr[0] = 0;
@@ -274,7 +234,6 @@ extern "C" void *graph_orient(void *graphRaw, int32_t *order)
         }
     }
 
-    init_incoming_csr(dag);
     return dag;
 }
 

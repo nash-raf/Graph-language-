@@ -1435,6 +1435,114 @@ extern "C" void roaring_bitmap_portable_serialize(RoaringBitmap *bm, uint8_t *bu
     }
 }
 
+extern "C" RoaringBitmap *roaring_bitmap_portable_deserialize(
+    const uint8_t *data, size_t size)
+{
+    if (!data || size < sizeof(size_t))
+        return nullptr;
+
+    const uint8_t *ptr = data;
+    const uint8_t *end = data + size;
+    size_t num_containers = 0;
+    std::memcpy(&num_containers, ptr, sizeof(num_containers));
+    ptr += sizeof(num_containers);
+    if (num_containers > 65536)
+        return nullptr;
+
+    RoaringBitmap *bm =
+        roaring_bitmap_create(32 * 1024, std::max<size_t>(8, num_containers));
+    if (!bm)
+        return nullptr;
+
+    uint16_t previous_key = 0;
+    for (size_t i = 0; i < num_containers; ++i)
+    {
+        if (static_cast<size_t>(end - ptr) <
+            sizeof(uint16_t) + sizeof(uint8_t))
+        {
+            roaring_bitmap_free(bm);
+            return nullptr;
+        }
+
+        Container &c = bm->containers[i];
+        std::memcpy(&c.key, ptr, sizeof(c.key));
+        ptr += sizeof(c.key);
+        uint8_t type = *ptr++;
+        if (i > 0 && c.key <= previous_key)
+        {
+            roaring_bitmap_free(bm);
+            return nullptr;
+        }
+        previous_key = c.key;
+
+        if (type == BITMAP_CONTAINER)
+        {
+            if (static_cast<size_t>(end - ptr) < 8192)
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            c.type = BITMAP_CONTAINER;
+            c.bitmap.bits = bm->arena.alloc(8192);
+            if (!c.bitmap.bits)
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            std::memcpy(c.bitmap.bits, ptr, 8192);
+            c.bitmap.cardinality = compute_bitmap_cardinality(c.bitmap.bits);
+            ptr += 8192;
+        }
+        else if (type == ARRAY_CONTAINER)
+        {
+            if (static_cast<size_t>(end - ptr) < sizeof(size_t))
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            size_t cardinality = 0;
+            std::memcpy(&cardinality, ptr, sizeof(cardinality));
+            ptr += sizeof(cardinality);
+            if (cardinality > 65536 ||
+                cardinality >
+                    static_cast<size_t>(end - ptr) / sizeof(uint16_t))
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            c.type = ARRAY_CONTAINER;
+            c.array.cardinality = cardinality;
+            c.array.capacity = cardinality;
+            if (cardinality > 0)
+            {
+                c.array.values = reinterpret_cast<uint16_t *>(
+                    bm->arena.alloc(cardinality * sizeof(uint16_t)));
+                if (!c.array.values)
+                {
+                    roaring_bitmap_free(bm);
+                    return nullptr;
+                }
+                std::memcpy(c.array.values, ptr,
+                            cardinality * sizeof(uint16_t));
+            }
+            ptr += cardinality * sizeof(uint16_t);
+        }
+        else
+        {
+            roaring_bitmap_free(bm);
+            return nullptr;
+        }
+        bm->num_containers++;
+    }
+
+    if (ptr != end)
+    {
+        roaring_bitmap_free(bm);
+        return nullptr;
+    }
+    return bm;
+}
+
 // -------------------------------
 // Runtime helpers (for LLVM IR)
 // -------------------------------

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 
 # ─── LLVM toolchain ────────────────────────────────────────────────────────────
 LLVM_PREFIX="${LLVM_PREFIX:-/usr/local/llvm-20-polly-rtti}"
@@ -33,24 +33,25 @@ BASE_GPL="${GPL_SRC%.*}"
 if [[ -n "$IR_OVERRIDE" ]]; then
   IR_SRC="$IR_OVERRIDE"
   BASE="${IR_OVERRIDE%.*}"
-  echo ">>> Using existing IR: ${IR_SRC}"
+  # echo ">>> Using existing IR: ${IR_SRC}"
 else
   IR_SRC="${BASE_GPL}.ll"
   BASE="$BASE_GPL"
-  echo ">>> Will generate IR to: ${IR_SRC}"
+  # echo ">>> Will generate IR to: ${IR_SRC}"
 fi
 
-echo ">>> DSL input: ${GP_INPUT}"
+# echo ">>> DSL input: ${GP_INPUT}"
 
 # ----------------------------------------------------------------------------- 
 # 1) ANTLR generation (if needed)
 # -----------------------------------------------------------------------------
 if [[ -z "$IR_OVERRIDE" ]]; then
   if [[ ! -d generated ]]; then
-    echo "=== [1] Generating ANTLR parser/lexer ==="
+    # echo "=== [1] Generating ANTLR parser/lexer ==="
     antlr4 -Dlanguage=Cpp -visitor Base.g4 -o generated
   else
-    echo "=== [1] Skipping ANTLR generation (generated/ exists)"
+    # echo "=== [1] Skipping ANTLR generation (generated/ exists)"
+    :
   fi
 fi
 
@@ -61,12 +62,13 @@ fi
 
 
 if [[ -z "$IR_OVERRIDE" ]]; then
-  echo "=== [2] Compiling GraphProgram ==="
+  # echo "=== [2] Compiling GraphProgram ==="
 
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
   LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
   LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"
   LLVM_LIBS="$($LLVM_CONFIG --libs core irreader analysis passes executionengine mcjit native support)"
+  NVPTX_LIBS="$($LLVM_CONFIG --libs nvptxcodegen nvptxdesc nvptxinfo 2>/dev/null || true)"
   LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 
   if [[ -n "${ANTLR_INCLUDE:-}" ]]; then
@@ -77,9 +79,13 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     ANTLR_INCLUDE="-I/usr/include/antlr4-runtime"
   fi
 
-  echo "=== [2/5] Build runtime LLVM IR ==="
+  # echo "=== [2/5] Build runtime LLVM IR ==="
   "${CLANG_BIN}" -S -emit-llvm -O2 autotuner_runtime.c -o autotuner_runtime.ll
   "${CLANG_BIN}" -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 bfs_runtime.cpp -o bfs_runtime.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 bfs_runtime_src.cpp -o bfs_runtime_src.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 dfs_runtime.cpp -o dfs_runtime.ll
+  "${CLANG_BIN}" -x c++ -S -emit-llvm -O2 dfs_runtime_src.cpp -o dfs_runtime_src.ll
 
 
   "$CXX_BIN" \
@@ -94,8 +100,9 @@ if [[ -z "$IR_OVERRIDE" ]]; then
     $LLVM_LDFLAGS \
     -lantlr4-runtime \
     $LLVM_LIBS \
+    $NVPTX_LIBS \
     $LLVM_SYSTEM_LIBS \
     -o GraphProgram
 
-  echo ">>> GraphProgram build complete"
+  # echo ">>> GraphProgram build complete"
 fi

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 
 #include "antlr4-runtime.h"
 #include "BaseLexer.h"
@@ -13,6 +14,7 @@
 
 #include "pdg.h"
 #include "parallel_loop_outline.h"
+#include "AutoTunerPass.h"
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -38,6 +40,10 @@
 #include <llvm/Support/CodeGen.h> // CodeGenFileType, CodeGenOptLevel
 #include <llvm/IR/LegacyPassManager.h>
 
+#include <polly/RegisterPasses.h>
+#include <polly/LinkAllPasses.h>
+#include <llvm/TargetParser/SubtargetFeature.h>
+
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/SourceMgr.h>
@@ -46,19 +52,33 @@
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "SemanticAnalyzer.h"
 
+#include <llvm/Analysis/AssumptionCache.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#include <llvm/Analysis/ScalarEvolutionExpressions.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/IR/Dominators.h>
+
 using namespace antlr4;
 using namespace llvm;
 
+// Not cl::Required: the Polly flag parse deliberately passes only flags, so a
+// required positional would abort before the filename is recovered from argv.
 static cl::opt<std::string> InputFilename(
     cl::Positional,
     cl::desc("<input-graph-file>"),
-    cl::Required);
+    cl::init(""));
 
 static cl::opt<std::string> IRBackendOption(
     "ir-backend",
     cl::desc("IR backend to select: auto|cpu|gpu"),
     cl::value_desc("auto|cpu|gpu"),
     cl::init("auto"));
+
+static cl::opt<bool> GpuFlag(
+    "gpu",
+    cl::desc("Run DOALL loops on the GPU when a usable GPU is detected"),
+    cl::init(false));
 
 static cl::opt<bool> EmitIRBackendChoice(
     "print-ir-backend",
@@ -128,6 +148,11 @@ static std::string resolveBackend(std::string &backendReason)
         requestGpu = true;
         backendReason = "FORCE_GPU=1";
     }
+    else if (GpuFlag)
+    {
+        requestGpu = true;
+        backendReason = "--gpu";
+    }
     else if (chosen == "cpu")
     {
         requestGpu = false;
@@ -166,26 +191,311 @@ static void writeBitcodeToFile(Module &M, const std::string &path)
     Out.flush();
 }
 
+// The DSL emits loops whose induction variable is carried through an alloca
+// (load/store each iteration) and whose arrays are indexed through an i32
+// trunc of that value. SCEV cannot analyze the load (no AddRec) and the
+// trunc/sext-wrapped index makes DependenceInfo report an unknown direction,
+// so such loops are classified SEQUENTIAL even when every iteration writes a
+// distinct array element. Before the PDG runs, canonicalize the IR: promote
+// the indvars to SSA phis and index GEPs with the induction phi directly.
+static void canonicalizeLoopsForAnalysis(Module &M)
+{
+    {
+        FunctionAnalysisManager FAM;
+        PassBuilder PB;
+        PB.registerFunctionAnalyses(FAM);
+        FunctionPassManager FPM;
+        FPM.addPass(llvm::PromotePass());
+        for (Function &F : M)
+            if (!F.isDeclaration())
+                FPM.run(F, FAM);
+    }
+
+    for (Function &F : M)
+    {
+        if (F.isDeclaration())
+            continue;
+        TargetLibraryInfoImpl TLII;
+        TargetLibraryInfo TLI(TLII);
+        AssumptionCache AC(F);
+        DominatorTree DT(F);
+        LoopInfo LI(DT);
+        ScalarEvolution SE(F, TLI, AC, DT, LI);
+
+        SmallVector<Instruction *, 16> Orphans;
+        for (Loop *L : LI.getLoopsInPreorder())
+        {
+            for (BasicBlock *BB : L->blocks())
+            {
+                for (Instruction &I : *BB)
+                {
+                    auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+                    if (!GEP)
+                        continue;
+                    for (Use &U : GEP->indices())
+                    {
+                        Value *Idx = U.get();
+                        // Direct `trunc(phi)` index.
+                        if (auto *Tr = dyn_cast<TruncInst>(Idx))
+                        {
+                            Value *Src = Tr->getOperand(0);
+                            const SCEV *S = SE.getSCEV(Src);
+                            if (auto *AR = dyn_cast<SCEVAddRecExpr>(S))
+                            {
+                                if (AR->getLoop() == L)
+                                {
+                                    U.set(Src);
+                                    if (Tr->use_empty())
+                                        Orphans.push_back(Tr);
+                                }
+                            }
+                            continue;
+                        }
+                        // `add(trunc(phi), C)` index (e.g. a[v+1] = a[v] + 1):
+                        // rewrite to `add(phi, sext(C))` so the carried
+                        // dependence on the array becomes visible to
+                        // DependenceInfo (otherwise the loop is misclassified).
+                        auto *AddI = dyn_cast<BinaryOperator>(Idx);
+                        if (!AddI || AddI->getOpcode() != Instruction::Add)
+                            continue;
+                        Value *A = AddI->getOperand(0);
+                        Value *B = AddI->getOperand(1);
+                        TruncInst *Tr = dyn_cast<TruncInst>(A);
+                        ConstantInt *CI = dyn_cast<ConstantInt>(B);
+                        if (!Tr || !CI)
+                        {
+                            Tr = dyn_cast<TruncInst>(B);
+                            CI = dyn_cast<ConstantInt>(A);
+                        }
+                        if (!Tr || !CI)
+                            continue;
+                        Value *Src = Tr->getOperand(0);
+                        const SCEV *S = SE.getSCEV(Src);
+                        if (auto *AR = dyn_cast<SCEVAddRecExpr>(S))
+                        {
+                            if (AR->getLoop() == L)
+                            {
+                                IRBuilder<> Bld(AddI);
+                                Value *CVal =
+                                    ConstantInt::get(Src->getType(), CI->getSExtValue());
+                                Value *NewAdd = Bld.CreateAdd(Src, CVal, AddI->getName());
+                                U.set(NewAdd);
+                                if (AddI->use_empty())
+                                    Orphans.push_back(AddI);
+                                if (Tr->use_empty())
+                                    Orphans.push_back(Tr);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (Instruction *Orphan : Orphans)
+            Orphan->eraseFromParent();
+    }
+}
+
+
+// Dump the module as bitcode; used by DUMP_LLVM_BC_PRE / DUMP_LLVM_BC_POST so a
+// benchmark can count polly.* references and GOMP_parallel calls directly from
+// the IR instead of re-deriving them from the object file.
+static void dumpModuleBitcode(llvm::Module &M, const char *path)
+{
+    std::error_code EC;
+    raw_fd_ostream out(path, EC, sys::fs::OF_None);
+    if (EC)
+    {
+        errs() << "Error opening '" << path << "' for writing: " << EC.message() << "\n";
+        return;
+    }
+    WriteBitcodeToFile(M, out);
+    out.flush();
+}
+
+/* Build the Polly-enabled O3 pipeline.
+ *
+ * Four things have to be true for Polly to actually transform anything, and
+ * p1-AT previously had none of them:
+ *
+ *  1. The PassBuilder must be constructed WITH a TargetMachine.  Without one,
+ *     every function gets a no-op TargetTransformInfo -- no vector registers,
+ *     unit cost per instruction -- so the vectorizers and Polly's own
+ *     profitability and register-tiling heuristics optimize for an imaginary
+ *     scalar machine.
+ *  2. polly::registerPollyPasses(PB) must run BEFORE cl::ParseCommandLineOptions,
+ *     or Polly's own cl::opt flags do not exist yet when the flags are parsed.
+ *  3. The pipeline must be buildPerModuleDefaultPipeline, not
+ *     buildModuleOptimizationPipeline: Polly hooks itself into
+ *     ScalarOptimizerLateEP, which lives in the module SIMPLIFICATION half.
+ *     With the optimization half alone its canonicalization runs but SCoP
+ *     detection and codegen never do.  This one is decisive.
+ *  4. -polly has to be on; it is off by default.
+ *
+ * Flag defaults match p2GraphEasy, where they were measured:
+ *   - the matmul pattern matcher is DISABLED (it accounted for ~97% of Polly
+ *     compile time -- 30.2 s vs 0.73 s on a matmul-shaped kernel -- and also
+ *     blocked parallelization);
+ *   - -polly-parallel is ENABLED (mean speedup over 32 kernels 1.61x -> 2.79x).
+ * GRAPH_POLLY_MATMUL_OPT / GRAPH_POLLY_NO_PARALLEL / GRAPH_DISABLE_POLLY and
+ * GRAPH_POLLY_EXTRA_FLAGS override, and GRAPH_TARGET_CPU=generic restores the
+ * untuned cost model.
+ */
+static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
+                                                         PassBuilder *&PBOut,
+                                                         std::unique_ptr<PassBuilder> &PBStorage)
+{
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    std::string triple = sys::getDefaultTargetTriple();
+    std::string lookupError;
+    const Target *target = TargetRegistry::lookupTarget(triple, lookupError);
+    if (!target)
+    {
+        errs() << "Failed to lookup target for triple '" << triple << "': " << lookupError << "\n";
+        return nullptr;
+    }
+
+    std::string cpu;
+    std::string features;
+    if (const char *cpuEnv = std::getenv("GRAPH_TARGET_CPU"))
+        cpu = cpuEnv;
+    else
+        cpu = std::string(sys::getHostCPUName());
+    if (cpu != "generic")
+    {
+        SubtargetFeatures featureList;
+        for (const auto &feature : sys::getHostCPUFeatures())
+            featureList.AddFeature(feature.first(), feature.second);
+        features = featureList.getString();
+    }
+
+    TargetOptions opts;
+    std::unique_ptr<TargetMachine> TM(target->createTargetMachine(
+        triple, cpu, features, opts, /*RM=*/std::nullopt, /*CM=*/std::nullopt,
+        llvm::CodeGenOptLevel::Default, /*JIT=*/false));
+    if (!TM)
+    {
+        errs() << "Failed to create TargetMachine for triple '" << triple << "'\n";
+        return nullptr;
+    }
+
+    PBStorage = std::make_unique<PassBuilder>(TM.get());
+    PBOut = PBStorage.get();
+    polly::registerPollyPasses(*PBOut);
+
+    // Flags-only argv: the positional input filename must not reach the flag
+    // parser, so it is recovered separately below.
+    std::vector<std::string> flagArgs;
+    auto hasArg = [&](const char *a) {
+        for (int i = 1; i < argc; ++i)
+            if (std::strcmp(argv[i], a) == 0)
+                return true;
+        return false;
+    };
+
+    if (isTruthyEnv("GRAPH_DISABLE_POLLY"))
+    {
+        flagArgs.emplace_back("-polly=false");
+    }
+    else if (!hasArg("-polly"))
+    {
+        flagArgs.emplace_back("-polly");
+        if (!isTruthyEnv("GRAPH_POLLY_MATMUL_OPT") &&
+            !hasArg("-polly-pattern-matching-based-opts"))
+            flagArgs.emplace_back("-polly-pattern-matching-based-opts=false");
+        if (!isTruthyEnv("GRAPH_POLLY_NO_PARALLEL") && !hasArg("-polly-parallel"))
+            flagArgs.emplace_back("-polly-parallel");
+    }
+
+    if (const char *extra = std::getenv("GRAPH_POLLY_EXTRA_FLAGS"))
+    {
+        std::string token;
+        for (const char *p = extra;; ++p)
+        {
+            if (*p == ' ' || *p == '\t' || *p == '\0')
+            {
+                if (!token.empty())
+                {
+                    flagArgs.push_back(token);
+                    token.clear();
+                }
+                if (*p == '\0')
+                    break;
+            }
+            else
+                token.push_back(*p);
+        }
+    }
+
+    for (int i = 1; i < argc; ++i)
+    {
+        const char *a = argv[i];
+        if (a[0] != '-')
+            continue;
+        flagArgs.emplace_back(a);
+        if (i + 1 < argc && argv[i + 1][0] != '-')
+            flagArgs.emplace_back(argv[++i]);
+    }
+
+    // Collect every string first, THEN take pointers: growing the vector after
+    // taking a pointer into it reallocates and leaves the pointer dangling,
+    // which shows up as a garbled filename rather than as a crash.
+    std::vector<char *> parseArgv;
+    parseArgv.reserve(1 + flagArgs.size());
+    parseArgv.push_back(argv[0]);
+    for (auto &arg : flagArgs)
+        parseArgv.push_back(const_cast<char *>(arg.c_str()));
+    cl::ParseCommandLineOptions(static_cast<int>(parseArgv.size()), parseArgv.data());
+
+    return TM;
+}
+
 int main(int argc, char **argv)
 {
     InitLLVM initLLVM(argc, argv);
-    cl::ParseCommandLineOptions(argc, argv);
+
+    PassBuilder *PollyPB = nullptr;
+    std::unique_ptr<PassBuilder> PollyPBStorage;
+    std::unique_ptr<TargetMachine> PollyTM =
+        setUpPollyPipeline(argc, argv, PollyPB, PollyPBStorage);
+    if (!PollyTM)
+        return 1;
 
     std::string backendSelectionReason;
     const std::string activeIRBackend = resolveBackend(backendSelectionReason);
 
-    errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
+    // errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
 
     const bool usingGpuIR = activeIRBackend == "gpu";
     if (usingGpuIR)
     {
-        errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
+        // errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
     }
 
-    std::ifstream in(InputFilename);
+    // InputFilename is positional and the flag-only parse above deliberately
+    // skipped it, so fall back to the first non-flag argument.
+    std::string infile = InputFilename;
+    if (infile.empty())
+        for (int i = 1; i < argc; ++i)
+            if (argv[i][0] != '-')
+            {
+                infile = argv[i];
+                break;
+            }
+    if (infile.empty())
+    {
+        std::cerr << "No input filename provided.\n";
+        return 1;
+    }
+
+    std::ifstream in(infile);
     if (!in.good())
     {
-        std::cerr << "Failed to open input file: " << InputFilename << "\n";
+        std::cerr << "Failed to open input file: " << infile << "\n";
         return 1;
     }
 
@@ -194,6 +504,11 @@ int main(int argc, char **argv)
     CommonTokenStream tokens(&lexer);
     BaseParser parser(&tokens);
     auto tree = parser.program();
+    if (parser.getNumberOfSyntaxErrors() > 0)
+    {
+        errs() << "Syntax error: failed to parse '" << infile << "'\n";
+        return 1;
+    }
 
     ASTBuilder astB;
     auto progAny = astB.visitProgram(tree);
@@ -221,7 +536,11 @@ int main(int argc, char **argv)
 
     IRBuilder<> IRB(Ctx);
 
-    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend);
+    std::filesystem::path inputPath(infile);
+    std::string sourceDir = inputPath.has_parent_path()
+                                ? inputPath.parent_path().string()
+                                : std::string(".");
+    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend, sourceDir);
     irgen.visitProgram(prog);
 
     {
@@ -250,6 +569,80 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
+
+    // ---------------------------------------------------------------------
+    // Polly.
+    //
+    // This has to run HERE, immediately after IRGen and BEFORE the PDG /
+    // min-cut / reconstructParallelIR / loop-outliner machinery below.  That
+    // machinery rewrites every loop body into a callback invoked through
+    // parallel_for_runtime, which leaves no loop nest in the caller and an
+    // opaque callee in its place -- measured on a 512x512 matmul, stock `opt`
+    // finds 218 polly.* references in the IR before those passes and exactly 0
+    // after, so running Polly at the end (where the object file is emitted)
+    // cannot ever fire.
+    //
+    // Consequence worth stating plainly: when Polly is enabled it, not the
+    // outliner, is what parallelizes these loops.  Set GRAPH_DISABLE_POLLY=1 to
+    // hand the loops back to the autotuner untouched.
+    // ---------------------------------------------------------------------
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
+        dumpModuleBitcode(*M, dumpPath);
+
+    if (!isTruthyEnv("GRAPH_DISABLE_POLLY"))
+    {
+        M->setTargetTriple(sys::getDefaultTargetTriple());
+        M->setDataLayout(PollyTM->createDataLayout());
+
+        LoopAnalysisManager PollyLAM;
+        FunctionAnalysisManager PollyFAM;
+        CGSCCAnalysisManager PollyCGAM;
+        ModuleAnalysisManager PollyMAM;
+        PollyPB->registerModuleAnalyses(PollyMAM);
+        PollyPB->registerCGSCCAnalyses(PollyCGAM);
+        PollyPB->registerFunctionAnalyses(PollyFAM);
+        PollyPB->registerLoopAnalyses(PollyLAM);
+        PollyPB->crossRegisterProxies(PollyLAM, PollyFAM, PollyCGAM, PollyMAM);
+
+        // Canonicalization SCoP detection depends on: until mem2reg runs, the
+        // loop bounds and array subscripts are still loads and stores and
+        // nothing looks affine.
+        FunctionPassManager CanonFPM;
+        CanonFPM.addPass(PromotePass());
+        CanonFPM.addPass(LoopSimplifyPass());
+        CanonFPM.addPass(SimplifyCFGPass());
+        ModulePassManager CanonMPM;
+        CanonMPM.addPass(createModuleToFunctionPassAdaptor(std::move(CanonFPM)));
+        CanonMPM.run(*M, PollyMAM);
+
+        ModulePassManager OptMPM =
+            PollyPB->buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+        OptMPM.run(*M, PollyMAM);
+    }
+
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
+        dumpModuleBitcode(*M, dumpPath);
+
+    // Run autotuner on user IR before PDG/outlining (which moves calls into
+    // separate task functions) and before linking runtime IR modules.
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager LocalMAM;
+
+        PassBuilder LocalPB;
+        LocalPB.registerModuleAnalyses(LocalMAM);
+        LocalPB.registerCGSCCAnalyses(CGAM);
+        LocalPB.registerFunctionAnalyses(FAM);
+        LocalPB.registerLoopAnalyses(LAM);
+        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
+
+        ModulePassManager TuneMPM;
+        TuneMPM.addPass(AutoTunerModulePass());
+        TuneMPM.run(*M, LocalMAM);
+    }
+
     // {
     //     ModuleAnalysisManager MAM;
     //     dependencyGraph pdg = runPDGOnModule(*M);
@@ -264,6 +657,9 @@ int main(int argc, char **argv)
 
     //     MPM.run(*M, MAM);
     // }
+    // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
+    // a true serial / Polly-only baseline against DOALL/DOACROSS outlining.
+    if (!isTruthyEnv("GRAPH_DISABLE_PDG"))
     {
         // Create all analysis managers and register them with PassBuilder
         LoopAnalysisManager LAM;
@@ -279,6 +675,8 @@ int main(int argc, char **argv)
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
         // run PDG (you already do this)
+        if (usingGpuIR)
+            canonicalizeLoopsForAnalysis(*M);
         dependencyGraph pdg = runPDGOnModule(*M);
         // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
 
@@ -332,6 +730,7 @@ int main(int argc, char **argv)
 
         // errs() << "--------------------------------\n";
 
+#if 0
         for (unsigned i = 0; i < taskLevels.size(); ++i)
 
         {
@@ -385,6 +784,7 @@ int main(int argc, char **argv)
 
             errs() << "\n";
         }
+#endif
 
         unsigned maxParallelTasks = 0;
 
@@ -441,6 +841,7 @@ int main(int argc, char **argv)
             maxParallelTasks = std::max(maxParallelTasks, parallelTasksInLevel);
         }
 
+#if 0
         errs() << "Detailed Metrics:\n";
 
         errs() << "-----------------\n";
@@ -480,6 +881,7 @@ int main(int argc, char **argv)
 
             errs() << "\n";
         }
+#endif
 
         // ====================================================================
 
@@ -488,6 +890,12 @@ int main(int argc, char **argv)
         // ====================================================================
 
         reconstructParallelIR(*M, pdg, TG, taskLevels);
+
+        // After PDG annotation / parallel IR rewrite, before outlining.  Used by
+        // the Polly-vs-PDG trigger matrix to count my.loop.parallel DOALL|DOACROSS
+        // metadata that the outliner subsequently consumes.
+        if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PDG"))
+            dumpModuleBitcode(*M, dumpPath);
 
         // optional: you can still call your helper which creates its own managers
         runLoopOutlinerOnModule(*M);
@@ -505,22 +913,10 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
-    // M->print(outs(), nullptr);
-    if (!EmitIRTo.empty())
-    {
-        std::error_code EC;
-        raw_fd_ostream IROut(EmitIRTo, EC, sys::fs::OF_None);
-        if (EC)
-        {
-            errs() << "Could not open IR output file '" << EmitIRTo << "': " << EC.message() << "\n";
-        }
-        else
-        {
-            M->print(IROut, nullptr);
-            IROut.flush();
-        }
-    }
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_FINAL"))
+        dumpModuleBitcode(*M, dumpPath);
 
+    if (!isTruthyEnv("GRAPH_DISABLE_PDG"))
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
@@ -541,6 +937,9 @@ int main(int argc, char **argv)
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
         MPM.run(*M, MAM);
     }
+
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))
+        dumpModuleBitcode(*M, dumpPath);
 
     {
         llvm::SMDiagnostic Err;
@@ -692,33 +1091,34 @@ int main(int argc, char **argv)
     InitializeAllAsmParsers();
     InitializeAllAsmPrinters();
 
+    if (usingGpuIR)
+        emitGpuKernels(*M, "kernels.ptx");
+
+    // Dump the final module (after GPU kernel emission so embedded PTX payloads
+    // are included) when an IR output path was requested.
+    if (!EmitIRTo.empty())
+    {
+        std::error_code EC;
+        raw_fd_ostream IROut(EmitIRTo, EC, sys::fs::OF_None);
+        if (EC)
+        {
+            errs() << "Could not open IR output file '" << EmitIRTo << "': " << EC.message() << "\n";
+        }
+        else
+        {
+            M->print(IROut, nullptr);
+            IROut.flush();
+        }
+    }
+
     std::string TargetTriple = sys::getDefaultTargetTriple();
     M->setTargetTriple(TargetTriple);
 
-    std::string Error;
-    const Target *Target = TargetRegistry::lookupTarget(TargetTriple, Error);
-    if (!Target)
-    {
-        errs() << "Failed to lookup target for triple '" << TargetTriple << "': " << Error << "\n";
-        return 1;
-    }
-
-    TargetOptions Opts;
-    std::optional<llvm::Reloc::Model> RM = std::nullopt;
-    std::optional<llvm::CodeModel::Model> CM = std::nullopt;
-
-    // LLVM 20: use CodeGenOptLevel
-    auto OptLevel = llvm::CodeGenOptLevel::Default;
-
-    // Use the full modern signature for createTargetMachine (LLVM 18+ / 20)
-    auto TM = Target->createTargetMachine(TargetTriple, "generic", /*Features=*/"", Opts, RM, CM, OptLevel, /*JIT=*/false);
-
-    if (!TM)
-    {
-        errs() << "Failed to create TargetMachine for triple '" << TargetTriple << "'\n";
-        return 1;
-    }
-
+    // Reuse the TargetMachine the Polly pipeline was built with.  A second one
+    // created here with "generic" and no features would describe a different
+    // machine than the one the optimizer costed against, so the vector width
+    // Polly assumed and the vector width codegen emits could disagree.
+    TargetMachine *TM = PollyTM.get();
     M->setDataLayout(TM->createDataLayout());
 
     std::error_code EC;

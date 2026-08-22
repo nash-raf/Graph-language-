@@ -45,6 +45,19 @@ def llvm_flags():
             text=True,
         ).strip()
     )
+    # NVPTX backend is optional: if this LLVM does not ship NVPTX codegen, the
+    # GPU path gracefully degrades to CPU at runtime.
+    try:
+        nvptx_libs = shlex.split(
+            subprocess.check_output(
+                [LLVM_CONFIG, "--libs", "nvptxcodegen", "nvptxdesc", "nvptxinfo"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        )
+        libs += nvptx_libs
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
     system_libs = shlex.split(subprocess.check_output([LLVM_CONFIG, "--system-libs"], text=True).strip())
     return cxxflags, ldflags, libs, system_libs
 
@@ -136,6 +149,7 @@ def run_one(project_dir: Path, graph_file: Path, case_name: str, autotuner: bool
 
     try:
         run([CLANG, "-O3", "-c", "parallel_runtime.c", "-o", "parallel_runtime.o"], cwd=project_dir)
+        run([CLANG, "-O3", "-c", "gpu_runtime.c", "-o", "gpu_runtime.o"], cwd=project_dir)
         bin_name = f"final_program_bench_{case_name}"
         link_cmd = [
             CXX,
@@ -147,6 +161,8 @@ def run_one(project_dir: Path, graph_file: Path, case_name: str, autotuner: bool
             "graph_loader_runtime.cpp",
             "roaring_bitmap.cpp",
             "parallel_runtime.o",
+            "gpu_runtime.o",
+            "-ldl",
             "-o",
             bin_name,
         ]

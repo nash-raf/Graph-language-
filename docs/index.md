@@ -1,46 +1,69 @@
-# GraphEasy Language
+# GraphEasy
 
-GraphEasy is an efficient, easy-to-use DSL for describing graphs and writing graph algorithms. Programs are written in `.graph` files, compiled by `GraphProgram`, and linked with a C++ runtime.
+GraphEasy is a graph DSL for writing graph algorithms in a direct, readable way. A program declares a graph, traverses vertices or edges, builds subgraphs with graph comprehension, and can print or draw the result.
 
-- **Repo**: https://github.com/nash-raf/Graph-language-
-- **Getting Started**: See [Getting Started](tutorial.md)
+The goal is simple: describe the graph problem first, then worry about low-level implementation details later.
 
-## What you can do
+## Why GraphEasy
 
-- Load graphs from an edgelist file or define them inline
-- Run built-in graph queries (BFS, DFS, Dijkstra, and more)
-- Write custom algorithms with `for each` loops over vertices, edges, neighbors, or sets
-- Use arrays, sets, conditionals, and while-loops in a C-like syntax
-- Filter and combine graphs with graph comprehensions
+Graph programs often mix two different concerns:
 
-## Documentation
+- what graph pattern or algorithm the user wants
+- how the graph is stored and traversed efficiently
 
-| Section | Description |
-| --- | --- |
-| [Getting Started](tutorial.md) | How to write and run a small GraphEasy program |
-| [Grammar](grammar.md) | Core syntax from `Base.g4` and benchmark extensions |
-| [Algorithms](algorithms.md) | The five benchmark algorithms in GraphEasy |
-| [Bron-Kerbosch](bron-kerbosch.md) | How GraphEasy describes recursive maximal-clique search |
-| [Results](results.md) | Placeholder for plots and benchmark summaries |
+GraphEasy keeps the first part visible. Users write code over graphs, vertices, edges, neighbors, sets, arrays, and graph comprehensions.
 
-## Quick example
-
-```
+```graph
 graph G {
-  edges: file 'edgelist.txt';
+  directed:true;
+  edges: file "network.txt";
 };
 
-query path : "bfs" of G;
-print path;
+motifs FFL = [G where motif {
+  source->middle;
+  source->target;
+  middle->target;
+}];
+
+print numMotifs(FFL);
 ```
 
-## Running a program (p2GraphEasy)
+This example finds feed-forward loops in a directed network.
 
-From the `p2GraphEasy` directory:
+## What You Can Write
+
+| Task | GraphEasy feature |
+| --- | --- |
+| Load a graph | `edges: file "graph.txt";` |
+| Preserve direction | `directed:true;` |
+| Traverse vertices | `for each vertex v in G` |
+| Traverse neighbors | `for each neighbor v of u in G` |
+| Use frontiers | `set frontier; frontier.add(v);` |
+| Build subgraphs | `graph H = [G where vertex in P];` |
+| Find motifs | `motifs M = [G where motif { ... }];` |
+| Draw graphs | `draw G to "graph.png";` |
+| Run algorithms | BFS, CC, KCore, PageRank, SSSP |
+
+## Documentation Path
+
+Read the docs in this order:
+
+| Section | Use it for |
+| --- | --- |
+| [Getting Started](tutorial.md) | Write an edge list, declare a graph, run the first program |
+| [Language Manual](language.md) | Learn graphs, direction, types, loops, functions, comprehension, motifs, and drawing |
+| [Algorithms](algorithms.md) | See BFS, CC, KCore, PageRank, and SSSP written in GraphEasy |
+| [Bron-Kerbosch](bron-kerbosch.md) | Learn a recursive graph-comprehension example |
+| [Grammar Reference](grammar.md) | Check the lower-level syntax rules |
+| [Results](results.md) | See benchmark plots and comparison results |
+
+## Run A Program
+
+From `p2GraphEasy`:
 
 ```bash
-./1run.sh test.graph test.graph   # compile GraphProgram + your program
-./2final_run.sh                   # link and run
+./1run.sh test.graph test.graph
+./2final_run.sh
 ```
 
-See [Grammar](grammar.md) for syntax, [Algorithms](algorithms.md) for complete benchmark programs, and [Bron-Kerbosch](bron-kerbosch.md) for a recursive maximal-clique example.
+The first command compiles the `.graph` program. The second command links and runs the generated executable.

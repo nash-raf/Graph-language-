@@ -32,9 +32,25 @@ enum class TypeKind
     Graph,
     WeightedGraph,
     Set,
+    MotifMatches, // a `motifs M = [...]` collection of vertex bindings
+    GraphList,    // a `graphs L = [...]` collection of induced subgraphs
     Void,
     Unknown
 };
+
+// A motif edge as written in the source: `a -> b;` is Positive, `a -| b;`
+// Negative.  Both are REQUIRED edges of the pattern; a pair with no motif edge
+// between it is required to be ABSENT, which is what makes matching induced
+// rather than merely monomorphic.
+enum class MotifEdgeSign { Positive = 1, Negative = -1 };
+
+struct MotifEdgeSpec
+{
+    std::string source;
+    std::string target;
+    MotifEdgeSign sign = MotifEdgeSign::Positive;
+};
+
 
 enum class ASTNodeType
 {
@@ -67,6 +83,10 @@ enum class ASTNodeType
     SleepStmt,
     GraphUpdate,
     ShowGraph,
+    DrawGraph,
+    DrawMotifs,
+    MotifMatchesDecl,
+    GraphListDecl,
     GraphComprehension,
     SetDecl,
     SetLiteral,
@@ -85,8 +105,9 @@ enum class ASTNodeType
 };
 
 enum class GraphUpdateKind { Add, Remove };
+enum class GraphUpdateTargetKind { Node, Edge };
 enum class GraphDegreeOp { None, Eq, Ne, Le, Ge, Lt, Gt };
-enum class GraphConditionOp { And, Or, Connected, Cycle, Degree, EdgeHas, VertexInSet };
+enum class GraphConditionOp { And, Or, Connected, Cycle, Degree, Motif };
 
 
 template <typename T>
@@ -130,10 +151,14 @@ public:
     int nodeId = -1;  // for Connected
     GraphDegreeOp degreeOp = GraphDegreeOp::None;
     int degreeValue = -1;
-    ASTNodePtr expr;        // for EdgeHas
-    std::string setName;    // for VertexInSet
     std::shared_ptr<GraphConditionNode> left;   // for And/Or
     std::shared_ptr<GraphConditionNode> right;  // for And/Or
+    std::vector<MotifEdgeSpec> motifEdges;      // for Motif
+
+    // Motif: 'motif { a -> b; ... }'
+    GraphConditionNode(std::vector<MotifEdgeSpec> edges)
+        : ASTNode(ASTNodeType::GraphComprehension), op(GraphConditionOp::Motif),
+          motifEdges(std::move(edges)) {}
 
     // Connected: 'connected with nodeID'
     GraphConditionNode(int nid)
@@ -149,18 +174,6 @@ public:
           op(GraphConditionOp::Degree),
           degreeOp(dop),
           degreeValue(val) {}
-
-    // EdgeHas: 'edge has expr'
-    explicit GraphConditionNode(ASTNodePtr edgeExpr)
-        : ASTNode(ASTNodeType::GraphComprehension),
-          op(GraphConditionOp::EdgeHas),
-          expr(std::move(edgeExpr)) {}
-
-    // VertexInSet: 'vertex in setName'
-    explicit GraphConditionNode(const std::string &set)
-        : ASTNode(ASTNodeType::GraphComprehension),
-          op(GraphConditionOp::VertexInSet),
-          setName(set) {}
 
     // And/Or: binary condition
     GraphConditionNode(GraphConditionOp o,
@@ -194,23 +207,36 @@ public:
 };
 
 
+struct GraphUpdateTarget
+{
+    GraphUpdateTargetKind kind;
+    ASTNodePtr value;
+    ASTNodePtr src;
+    ASTNodePtr dst;
+
+    explicit GraphUpdateTarget(ASTNodePtr nodeValue)
+        : kind(GraphUpdateTargetKind::Node), value(std::move(nodeValue)) {}
+
+    GraphUpdateTarget(ASTNodePtr sourceValue, ASTNodePtr destValue)
+        : kind(GraphUpdateTargetKind::Edge),
+          src(std::move(sourceValue)),
+          dst(std::move(destValue)) {}
+};
+
 class GraphUpdateNode : public ASTNode {
-    public: 
-    
+    public:
+
         GraphUpdateKind kind;
         std::string graphName;
-        std::vector<int> nodes;
-        std::vector<std::pair<int, int>> edges;
-    
+        std::vector<GraphUpdateTarget> targets;
+
         GraphUpdateNode(GraphUpdateKind k,
                         const std::string &g,
-                        const std::vector<int> &n,
-                        const std::vector<std::pair<int, int>> &e)
+                        std::vector<GraphUpdateTarget> t)
             : ASTNode(ASTNodeType::GraphUpdate),
               kind(k),
               graphName(g),
-              nodes(n),
-              edges(e)
+              targets(std::move(t))
         {}
     };
 
@@ -413,9 +439,9 @@ enum class ForEachTargetType
     Vertex,
     Edge,
     Neighbor,
-    OutNeighbor,
-    InNeighbor,
-    Element  // for iterating over set elements
+    Element, // for iterating over set elements
+    Graph,   // one induced subgraph per motif match
+    Motif    // the vertex binding of one motif match
 };
 
 struct ForEachStmtNode : ASTNode
@@ -423,6 +449,7 @@ struct ForEachStmtNode : ASTNode
     ForEachTargetType targetType; // vertex, edge, neighbor, element
     std::string var1;             // e.g., vertex or first edge ID or neighbor var or element var
     std::string var2;             // e.g., second edge ID (optional)
+    std::vector<std::string> motifVars; // `for each motif (a,b,c)` binding names
     std::string graphName;        // the graph/set over which to iterate
     ASTNodePtr adjNodeExpr;       // expression for neighbor-of (nullptr if not neighbor loop)
     ASTNodePtr body;              // loop body
@@ -690,19 +717,18 @@ public:
 class GraphDeclNode : public ASTNode
 {
 public:
-    std::string name;
+        // Set by `directed: true;` in the graph body.
+    bool directed = false;
+std::string name;
     std::unique_ptr<NodeListNode> nodes;
     std::unique_ptr<EdgeListNode> edges;
 
     bool isFileGraph = false;
     std::string edgeFileName;
-    bool directed = false;
 
     size_t n = 0, m = 0;
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
-    size_t *in_row_ptr = nullptr;
-    int32_t *in_col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
     std::vector<int> node_ids;
     std::vector<std::pair<int, int>> edge_list;
@@ -711,12 +737,11 @@ public:
     std::vector<uint8_t> edges_blob;
 
     // File-based graph: defer all loading to runtime
-    GraphDeclNode(std::string nm, std::string fileName, bool isDirected = false)
+    GraphDeclNode(std::string nm, std::string fileName)
         : ASTNode(ASTNodeType::GraphDecl),
           name(std::move(nm)),
           isFileGraph(true),
-          edgeFileName(std::move(fileName)),
-          directed(isDirected)
+          edgeFileName(std::move(fileName))
     {
     }
 
@@ -724,13 +749,11 @@ public:
     GraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
-        std::unique_ptr<EdgeListNode> eList,
-        bool isDirected = false)
+        std::unique_ptr<EdgeListNode> eList)
         : ASTNode(ASTNodeType::GraphDecl),
           name(std::move(nm)),
           nodes(std::move(nList)),
-          edges(std::move(eList)),
-          directed(isDirected)
+          edges(std::move(eList))
     {
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
@@ -740,47 +763,29 @@ public:
             id2idx[nodeIds[i]] = i;
 
         auto edgeList = edges->materializeEdges();
-        m = (directed ? 1 : 2) * edgeList.size();
+        m = 2 * edgeList.size();
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
-        in_row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
-        std::memset(in_row_ptr, 0, (n + 1) * sizeof(size_t));
         for (auto &e : edgeList)
         {
             int u0 = e.first, v0 = e.second;
             size_t u = id2idx.at(u0);
             size_t v = id2idx.at(v0);
             row_ptr[u + 1]++;
-            in_row_ptr[v + 1]++;
-            if (!directed)
-            {
-                row_ptr[v + 1]++;
-                in_row_ptr[u + 1]++;
-            }
+            row_ptr[v + 1]++;
         }
 
         for (size_t i = 1; i <= n; ++i)
-        {
             row_ptr[i] += row_ptr[i - 1];
-            in_row_ptr[i] += in_row_ptr[i - 1];
-        }
 
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
-        in_col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
-        size_t *inNext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
-        std::memcpy(inNext, in_row_ptr, sizeof(size_t) * (n + 1));
         for (auto &e : edgeList)
         {
             size_t u = id2idx[e.first], v = id2idx[e.second];
             col_idx[next[u]++] = static_cast<int32_t>(v);
-            in_col_idx[inNext[v]++] = static_cast<int32_t>(u);
-            if (!directed)
-            {
-                col_idx[next[v]++] = static_cast<int32_t>(u);
-                in_col_idx[inNext[u]++] = static_cast<int32_t>(v);
-            }
+            col_idx[next[v]++] = static_cast<int32_t>(u);
         }
 
         node_ids = nodeIds;
@@ -817,20 +822,19 @@ public:
 class WeightedGraphDeclNode : public ASTNode
 {
 public:
-    std::string name;
+        // Set by `directed: true;` in the graph body.
+    bool directed = false;
+std::string name;
     std::unique_ptr<NodeListNode> nodes;
     std::unique_ptr<WeightedEdgeListNode> edges;
 
     bool isFileGraph = false;
     std::string edgeFileName;
-    bool directed = false;
 
     size_t n = 0, m = 0; // number of nodes and edges
     size_t *row_ptr = nullptr;
     int32_t *col_idx = nullptr;
     int32_t *weights = nullptr;
-    size_t *in_row_ptr = nullptr;
-    int32_t *in_col_idx = nullptr;
     llvm::BumpPtrAllocator arena;
     std::vector<int> node_ids;
     std::vector<std::pair<int, int>> edge_list;
@@ -838,31 +842,28 @@ public:
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
 
-    WeightedGraphDeclNode(std::string nm, std::string fileName, bool isDirected = false)
+    WeightedGraphDeclNode(std::string nm, std::string fileName)
         : ASTNode(ASTNodeType::WeightedGraphDecl),
           name(std::move(nm)),
           isFileGraph(true),
-          edgeFileName(std::move(fileName)),
-          directed(isDirected)
+          edgeFileName(std::move(fileName))
     {
     }
 
     WeightedGraphDeclNode(
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
-        std::unique_ptr<WeightedEdgeListNode> eList,
-        bool isDirected = false)
+        std::unique_ptr<WeightedEdgeListNode> eList)
         : ASTNode(ASTNodeType::WeightedGraphDecl),
           name(std::move(nm)),
           nodes(std::move(nList)),
-          edges(std::move(eList)),
-          directed(isDirected)
+          edges(std::move(eList))
     {
         auto t0 = std::chrono::high_resolution_clock::now();
 
         auto nodeIds = nodes->materializeNodeIds();
         n = nodeIds.size();
-        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
+        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << n << " nodes\n";
 
         // Map arbitrary IDs → contiguous [0..n-1]
         // std::unordered_map<int, int> id2idx;
@@ -873,57 +874,39 @@ public:
         std::vector<std::pair<int, int>> edgeList;
         llvm::DenseMap<std::pair<int, int>, int> weightMap;
         edges->materializeEdges(edgeList, weightMap);
-        m = (directed ? 1 : 2) * edgeList.size();
-        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
+        m = 2 * edgeList.size();
+        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << m << " edges\n";
         // 1) degree counts go into row_ptr[i+1]
         row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memset(row_ptr, 0, (n + 1) * sizeof(size_t));
-        in_row_ptr = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
-        std::memset(in_row_ptr, 0, (n + 1) * sizeof(size_t));
         for (auto &e : edgeList)
         {
             int u0 = e.first, v0 = e.second;
             size_t u = id2idx.at(u0);
             size_t v = id2idx.at(v0);
             row_ptr[u + 1]++;
-            in_row_ptr[v + 1]++;
-            if (!directed)
-            {
-                row_ptr[v + 1]++;
-                in_row_ptr[u + 1]++;
-            }
+            row_ptr[v + 1]++;
         }
 
         // 2) exclusive prefix‑sum
         for (size_t i = 1; i <= n; ++i)
-        {
             row_ptr[i] += row_ptr[i - 1];
-            in_row_ptr[i] += in_row_ptr[i - 1];
-        }
 
         // 3) allocate col_idx and scatter
         col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         weights = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
-        in_col_idx = static_cast<int32_t *>(arena.Allocate(sizeof(int32_t) * (m), alignof(int32_t)));
         size_t *next = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         size_t *wnext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
-        size_t *inNext = static_cast<size_t *>(arena.Allocate(sizeof(size_t) * (n + 1), alignof(size_t)));
         std::memcpy(next, row_ptr, sizeof(size_t) * (n + 1));
         std::memcpy(wnext, row_ptr, sizeof(size_t) * (n + 1));
-        std::memcpy(inNext, in_row_ptr, sizeof(size_t) * (n + 1));
         for (auto &e : edgeList)
         {
             size_t u = id2idx[e.first], v = id2idx[e.second];
             col_idx[next[u]++] = static_cast<int32_t>(v);
-            in_col_idx[inNext[v]++] = static_cast<int32_t>(u);
+            col_idx[next[v]++] = static_cast<int32_t>(u);
             int w = weightMap[{e.first, e.second}];
             weights[wnext[u]++] = w;
-            if (!directed)
-            {
-                col_idx[next[v]++] = static_cast<int32_t>(u);
-                in_col_idx[inNext[u]++] = static_cast<int32_t>(v);
-                weights[wnext[v]++] = w;
-            }
+            weights[wnext[v]++] = w;
         }
 
         // debug
@@ -934,10 +917,10 @@ public:
         // std::cerr << "\n";
         auto t1 = std::chrono::high_resolution_clock::now();
         auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-        std::cerr << "[ASTBuilder] fulledge '"
-                  << "' in " << dur.count() << " ms\n";
+        // std::cerr << "[ASTBuilder] fulledge '"
+        //           << "' in " << dur.count() << " ms\n";
 
-        std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
+        // std::cerr << "[ASTBuilder] Weighted graph '" << name << "' with " << weights[0] << " weights\n";
 
         node_ids = nodeIds;
         edge_list = edgeList;
@@ -1207,6 +1190,93 @@ public:
     size_t cols = 0;        // static col count
     ASTNodePtr rowsExpr;    // dynamic row expression
     ASTNodePtr colsExpr;    // dynamic col expression
+};
+
+
+class MotifMatchesDeclNode : public ASTNode
+{
+public:
+    std::string name;
+    std::string graphName;
+    std::vector<MotifEdgeSpec> motifEdges;
+    std::vector<std::string> variableNames; // first-appearance order
+
+    MotifMatchesDeclNode(std::string resultName, std::string graph,
+                         std::vector<MotifEdgeSpec> edges,
+                         std::vector<std::string> variables)
+        : ASTNode(ASTNodeType::MotifMatchesDecl),
+          name(std::move(resultName)), graphName(std::move(graph)),
+          motifEdges(std::move(edges)), variableNames(std::move(variables)) {}
+};
+
+class GraphListDeclNode : public ASTNode
+{
+public:
+    std::string name;
+    std::string graphName;
+    std::vector<MotifEdgeSpec> motifEdges;
+    std::vector<std::string> variableNames;
+
+    GraphListDeclNode(std::string resultName, std::string graph,
+                      std::vector<MotifEdgeSpec> edges,
+                      std::vector<std::string> variables)
+        : ASTNode(ASTNodeType::GraphListDecl),
+          name(std::move(resultName)), graphName(std::move(graph)),
+          motifEdges(std::move(edges)), variableNames(std::move(variables)) {}
+};
+
+enum class DrawLayout
+{
+    Auto,
+    Hierarchical,
+    Force,
+    Radial,
+    Circular,
+    Clustered
+};
+
+enum class DrawColorMode
+{
+    None,
+    Categorical,
+    Continuous
+};
+
+class DrawGraphNode : public ASTNode
+{
+public:
+    std::string graphName;
+    std::string outputPath;
+    DrawLayout layout = DrawLayout::Auto;
+    bool vertexLabels = true;
+    DrawColorMode colorMode = DrawColorMode::None;
+    std::string colorArray;
+    TypeKind colorArrayType = TypeKind::Unknown;
+    std::string sizeArray;
+    TypeKind sizeArrayType = TypeKind::Unknown;
+    bool edgeWeightLabels = false;
+
+    DrawGraphNode(std::string graph, std::string output)
+        : ASTNode(ASTNodeType::DrawGraph),
+          graphName(std::move(graph)),
+          outputPath(std::move(output)) {}
+};
+
+class DrawMotifsNode : public ASTNode
+{
+public:
+    std::string graphName;
+    std::string outputPrefix;
+    DrawLayout layout = DrawLayout::Auto;
+    bool vertexLabels = true;
+    bool edgeLabels = false;
+    bool combinedImage = false;
+    std::vector<MotifEdgeSpec> motifEdges;
+
+    DrawMotifsNode(std::string graph, std::string output)
+        : ASTNode(ASTNodeType::DrawMotifs),
+          graphName(std::move(graph)),
+          outputPrefix(std::move(output)) {}
 };
 
 #endif // ASTNODE_H

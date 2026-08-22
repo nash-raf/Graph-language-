@@ -7,8 +7,11 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
+#include <utility>
 
 #include "ASTNode.h"
+#include "MotifPattern.h"
+#include "MotifIRBuilder.h"
 
 class IRGenVisitor
 {
@@ -16,20 +19,34 @@ public:
     IRGenVisitor(llvm::LLVMContext &C,
                  llvm::Module &M,
                  llvm::IRBuilder<> &B,
-                 const std::string &backend = "cpu")
-        : Context(C), Module(M), Builder(B), SelectedIRBackend(backend)
+                 const std::string &backend = "cpu",
+                 std::string sourceDir = ".")
+        : Context(C), Module(M), Builder(B), SelectedIRBackend(backend),
+          SourceDir(std::move(sourceDir))
     {
-        // Build the Graph struct type:
-        // { i64 n, i64 m, i64* row_ptr, i32* col_idx, i32* weights,
-        //   i32 directed, i64* in_row_ptr, i32* in_col_idx }
+        // Build the Graph struct type: { i64, i64, i64*, i32*, i32* }
         llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
-        llvm::Type *I32 = llvm::Type::getInt32Ty(Context);
         llvm::Type *I32P = llvm::PointerType::get(llvm::Type::getInt32Ty(Context), 0);
         llvm::Type *I64P = llvm::PointerType::get(llvm::Type::getInt64Ty(Context), 0);
+        // { i64 n, i64 m, i64* row_ptr, i32* col_idx, i32* weights, i32 directed }
+        // `directed` is appended so the field indices the rest of IRGen already
+        // uses (0..4) are unchanged and autotuner_runtime.c's hard-coded byte
+        // offsets 16/24/32 stay valid.
         GraphTy = llvm::StructType::create(
             Context,
-            {I64, I64, I64P, I32P, I32P, I32, I64P, I32P},
+            {I64, I64, I64P, I32P, I32P, llvm::Type::getInt32Ty(Context)},
             "struct.Graph");
+        // Must mirror MotifMatchesRuntime in runtime.c exactly
+        // ({i32 count, i32 var_count, i32* bindings, i32 capacity}, 24 bytes,
+        // align 8) so a value produced by the runtime path and one produced by
+        // the IR path stay interchangeable.
+        MotifMatchesTy = llvm::StructType::create(
+            Context,
+            {llvm::Type::getInt32Ty(Context), llvm::Type::getInt32Ty(Context),
+             I32P, llvm::Type::getInt32Ty(Context)},
+            "struct.MotifMatches");
+
+        readBackendFlags();
     }
 
     /// Entry point: lower the AST root into LLVM IR
@@ -64,6 +81,21 @@ public:
     llvm::Function *getPrintfFunction();
     void visitGraphUpdate(GraphUpdateNode *upd);
     void visitShowGraph(ShowGraphNode *S);
+    void visitDrawGraph(DrawGraphNode *D);
+    void visitDrawMotifs(DrawMotifsNode *D);
+    void emitEnsureInCsr(llvm::Value *graphPtr);
+    // Non-zero while re-lowering a dense semiring-closure nest as its own
+    // fallback, so the detector does not match the same loop again.
+    int ClosureFallbackDepth = 0;
+    llvm::Value *load2DArrayBase(const std::string &name);
+    void visitMotifMatchesDecl(MotifMatchesDeclNode *M);
+    MotifIRBuilder::GraphInputs loadMotifGraphInputs(const std::string &graphName,
+                                                     const std::string &label);
+    llvm::Value *emitMotifMatchesIR(const std::string &graphName,
+                                    const std::string &label,
+                                    const std::vector<MotifEdgeSpec> &edges,
+                                    const std::vector<std::string> &varNames);
+    void visitGraphListDecl(GraphListDeclNode *M);
     void visitGraphComprehension(GraphComprehensionNode *GC);
 
     void visitSetDecl(SetDeclNode *SD);
@@ -81,6 +113,7 @@ private:
     llvm::Module &Module;
     llvm::IRBuilder<> &Builder;
     std::string SelectedIRBackend;
+    std::string SourceDir;
 
     enum class SetValueKind
     {
@@ -106,6 +139,22 @@ private:
     llvm::Value *loadGraphValue(const std::string &name);
     llvm::StructType *GraphTy;
     std::unordered_map<std::string, llvm::Value *> GraphMap;
+    llvm::StructType *MotifMatchesTy = nullptr;
+
+    // Selected by environment variable, not a CLI flag: main.cpp forwards every
+    // '-' argument to Polly's option parser, which would reject an unknown one.
+    enum class MotifBackend
+    {
+        Runtime,
+        IR
+    };
+    MotifBackend MotifBackendMode = MotifBackend::Runtime;
+    bool MotifAdjacencyDriven = false;
+    void readBackendFlags();
+
+    std::unordered_map<std::string, llvm::Value *> MotifMatchesMap;
+    std::unordered_map<std::string, llvm::Value *> GraphListMatchesMap;
+    std::unordered_map<std::string, std::string> GraphListSourceMap;
     std::unordered_map<std::string, GraphDeclNode *> GraphAstMap;
 
     std::unordered_map<std::string, llvm::Value *> GraphNodesMap;
@@ -120,10 +169,11 @@ private:
     };
     std::vector<LoopInfo> LoopStack;
 
-    // 2D array metadata: name -> {cols alloca}
+    // 2D array metadata: name -> {rows, cols} extents (runtime i32 values)
     struct Array2DMeta
     {
-        llvm::Value *colsVal; // number of columns (i32)
+        llvm::Value *rowsVal = nullptr;
+        llvm::Value *colsVal = nullptr;
     };
     std::unordered_map<std::string, Array2DMeta> Array2DMap;
 

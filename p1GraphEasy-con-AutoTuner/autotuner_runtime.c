@@ -1900,6 +1900,52 @@ static int autograph_should_use_pull(const AutoGraphMeta *meta,
   return use_pull;
 }
 
+/* Tiny frontiers / little edge work: parallel launch + lane merge loses to a
+ * straight serial push.  Keep motif semantics (activate-once / atomics) but
+ * skip the worker pool so small graphs don't regress below 1×. */
+static int64_t autograph_frontier_push_work(const AutoGraphMeta *meta,
+                                            const int32_t *frontier,
+                                            int32_t frontier_size) {
+  int64_t push_edge_work = 0;
+  for (int32_t i = 0; i < frontier_size; ++i) {
+    int64_t row_work = autograph_frontier_row_work(meta, frontier[i]);
+    if (row_work > INT64_MAX - push_edge_work)
+      return INT64_MAX;
+    push_edge_work += row_work;
+  }
+  return push_edge_work;
+}
+
+static int autograph_edgemap_prefer_serial(const AutoGraphMeta *meta,
+                                          const int32_t *frontier,
+                                          int32_t frontier_size) {
+  const char *force = getenv("SGPL_EDGEMAP_SERIAL");
+  if (force && force[0] && strcmp(force, "0") != 0 &&
+      strcmp(force, "false") != 0)
+    return 1;
+  /* Parallel fork/merge loses on small frontiers; keep serial until the
+   * push edge volume is clearly large enough to amortize thread overhead. */
+  if (frontier_size < 1024)
+    return 1;
+  if (autograph_frontier_push_work(meta, frontier, frontier_size) < 65536)
+    return 1;
+  return 0;
+}
+
+/* PeelK pays atomics on every edge even in the "parallel" path; require a
+ * larger frontier before leaving the non-atomic serial fast path. */
+static int autograph_peel_prefer_serial(const AutoGraphMeta *meta,
+                                        const int32_t *frontier,
+                                        int32_t frontier_size) {
+  if (autograph_edgemap_prefer_serial(meta, frontier, frontier_size))
+    return 1;
+  if (frontier_size < 4096)
+    return 1;
+  if (autograph_frontier_push_work(meta, frontier, frontier_size) < 262144)
+    return 1;
+  return 0;
+}
+
 typedef struct {
   AutoGraphMeta *meta;
   const int32_t *frontier;
@@ -2195,6 +2241,10 @@ static int32_t autograph_edgemap_cas_first(void *graph_ptr,
   int32_t lane_count = sgpl_configured_worker_count();
   if (lane_count < 1)
     lane_count = 1;
+  int prefer_serial =
+      autograph_edgemap_prefer_serial(meta, frontier, frontier_size);
+  if (prefer_serial)
+    lane_count = 1;
   if (!autograph_scratch_ensure(meta, lane_count))
     return initial_next_size;
   autograph_scratch_reset_lanes(meta, lane_count);
@@ -2212,12 +2262,16 @@ static int32_t autograph_edgemap_cas_first(void *graph_ptr,
       .frontier_membership = NULL,
   };
 
-  int use_pull = autograph_should_use_pull(meta, frontier, frontier_size);
+  int use_pull =
+      !prefer_serial && autograph_should_use_pull(meta, frontier, frontier_size);
   if (use_pull) {
     autograph_fill_frontier_membership(meta, frontier, frontier_size);
     env.frontier_membership = meta->scratch_membership;
     parallel_for_runtime(0, lane_count, 1,
                          autograph_frontier_pull_partition_body, &env, 0, 0);
+  } else if (prefer_serial) {
+    for (int32_t i = 0; i < frontier_size; ++i)
+      autograph_frontier_push_body(i, &env);
   } else {
     parallel_for_runtime(0, frontier_size, 1, autograph_frontier_push_body, &env,
                          0, 0);
@@ -2648,6 +2702,10 @@ static int32_t autograph_edgemap_motif(void *graph_ptr, int32_t mode,
   int32_t lane_count = sgpl_configured_worker_count();
   if (lane_count < 1)
     lane_count = 1;
+  int prefer_serial =
+      autograph_edgemap_prefer_serial(meta, frontier, frontier_size);
+  if (prefer_serial)
+    lane_count = 1;
   if (!autograph_scratch_ensure(meta, lane_count))
     return initial_next_size;
   autograph_scratch_reset_lanes(meta, lane_count);
@@ -2670,7 +2728,8 @@ static int32_t autograph_edgemap_motif(void *graph_ptr, int32_t mode,
       .round_member = meta->scratch_round_member,
   };
 
-  int use_pull = autograph_should_use_pull(meta, frontier, frontier_size);
+  int use_pull =
+      !prefer_serial && autograph_should_use_pull(meta, frontier, frontier_size);
   /* Weighted pull needs CSR weights; stay on push if weights missing. */
   if (env.weighted && !meta->csr_weights)
     use_pull = 0;
@@ -2681,6 +2740,9 @@ static int32_t autograph_edgemap_motif(void *graph_ptr, int32_t mode,
       env.frontier_membership = meta->scratch_membership;
       parallel_for_runtime(0, lane_count, 1, autograph_motif_write_min_pull_body,
                            &env, 0, 0);
+    } else if (prefer_serial) {
+      for (int32_t i = 0; i < frontier_size; ++i)
+        autograph_motif_write_min_push_body(i, &env);
     } else {
       parallel_for_runtime(0, frontier_size, 1,
                            autograph_motif_write_min_push_body, &env, 0, 0);
@@ -2694,6 +2756,9 @@ static int32_t autograph_edgemap_motif(void *graph_ptr, int32_t mode,
                          autograph_motif_peel_mark_removed_body, &env, 0, 0);
     parallel_for_runtime(0, lane_count, 1,
                          autograph_motif_peel_pull_partition_body, &env, 0, 0);
+  } else if (prefer_serial) {
+    for (int32_t i = 0; i < frontier_size; ++i)
+      autograph_motif_peel_push_body(i, &env);
   } else {
     parallel_for_runtime(0, frontier_size, 1, autograph_motif_peel_push_body,
                          &env, 0, 0);

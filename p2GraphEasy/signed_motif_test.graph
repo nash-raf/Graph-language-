@@ -1,0 +1,29 @@
+graph G {
+    directed: true;
+    weights: true;
+    edges: file "signed_motif_test_edges.txt";
+};
+
+graph IncoherentFFL = [G where motif {
+    a->b;
+    b-|c;
+    a->c;
+}];
+
+draw IncoherentFFL to "signed_motif_comprehension.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: true; }
+};
+
+draw motifs of G to "signed_motif_matches.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: true; }
+    a->b;
+    b-|c;
+    a->c;
+};
+
+print numVertices(IncoherentFFL);
+print numEdges(IncoherentFFL);

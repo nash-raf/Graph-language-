@@ -1,0 +1,51 @@
+graph G {
+  edges: file "synth_v_1000000_e_1000000.txt";
+};
+
+int n = numVertices(G);
+int visited[n];
+int parent[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 1;
+int next_size = 0;
+int init_i = 0;
+
+while (init_i < n) {
+  visited[init_i] = 0;
+  parent[init_i] = -1;
+  init_i = init_i + 1;
+}
+
+frontier[0] = 0;
+visited[0] = 1;
+parent[0] = 0;
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int i = 0;
+  while (i < frontier_size) {
+    int v = frontier[i];
+    for each neighbor u of v in G {
+      if (visited[u] == 0) {
+        visited[u] = 1;
+        parent[u] = v;
+        next_frontier[next_size] = u;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+int reached = 0;
+int j = 0;
+while (j < n) {
+  if (visited[j] == 1) {
+    reached = reached + 1;
+  }
+  j = j + 1;
+}
+print reached;

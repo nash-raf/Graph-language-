@@ -1,0 +1,33 @@
+graph Positive {
+    directed: true;
+    weights: positive;
+    edges: file "positive_mode_test_edges.txt";
+};
+
+graph Negative {
+    directed: true;
+    weights: negative;
+    edges: file "positive_mode_test_edges.txt";
+};
+
+graph Zero {
+    directed: true;
+    weights: zero;
+    edges: file "positive_mode_test_edges.txt";
+};
+
+draw motifs of Positive to "positive_mode_matches.png" {
+    a->b;
+    b->c;
+    a->c;
+};
+
+draw motifs of Negative to "negative_mode_matches.png" {
+    a-|b;
+    b-|c;
+    a-|c;
+};
+
+draw Zero to "zero_mode_graph.png" {
+    edges { labels: true; }
+};

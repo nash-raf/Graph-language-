@@ -340,8 +340,7 @@ static void dumpModuleBitcode(llvm::Module &M, const char *path)
  * GRAPH_POLLY_EXTRA_FLAGS override, and GRAPH_TARGET_CPU=generic restores the
  * untuned cost model.
  */
-static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
-                                                         PassBuilder *&PBOut,
+static std::unique_ptr<TargetMachine> setUpPollyPipeline(PassBuilder *&PBOut,
                                                          std::unique_ptr<PassBuilder> &PBStorage)
 {
     InitializeAllTargetInfos();
@@ -387,6 +386,18 @@ static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
     PBOut = PBStorage.get();
     polly::registerPollyPasses(*PBOut);
 
+    return TM;
+}
+
+
+// Parse the Polly flags.
+//
+// Deliberately called AFTER the source has been parsed, because the value of
+// -polly-only-func depends on which functions the program declares (see the
+// call site).  Polly's cl::opts have to exist before this runs, which
+// registerPollyPasses in setUpPollyPipeline has already ensured.
+static void parsePollyFlags(int argc, char **argv, const std::string &onlyFuncs)
+{
     // Flags-only argv: the positional input filename must not reach the flag
     // parser, so it is recovered separately below.
     std::vector<std::string> flagArgs;
@@ -400,6 +411,15 @@ static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
     if (isTruthyEnv("GRAPH_DISABLE_POLLY"))
     {
         flagArgs.emplace_back("-polly=false");
+    }
+    else if (!onlyFuncs.empty() && !hasArg("-polly-only-func"))
+    {
+        flagArgs.emplace_back("-polly");
+        flagArgs.emplace_back("-polly-only-func=" + onlyFuncs);
+        if (!isTruthyEnv("GRAPH_POLLY_MATMUL_OPT"))
+            flagArgs.emplace_back("-polly-pattern-matching-based-opts=false");
+        if (!isTruthyEnv("GRAPH_POLLY_NO_PARALLEL") && !hasArg("-polly-parallel"))
+            flagArgs.emplace_back("-polly-parallel");
     }
     else if (!hasArg("-polly"))
     {
@@ -451,7 +471,7 @@ static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
         parseArgv.push_back(const_cast<char *>(arg.c_str()));
     cl::ParseCommandLineOptions(static_cast<int>(parseArgv.size()), parseArgv.data());
 
-    return TM;
+
 }
 
 int main(int argc, char **argv)
@@ -461,9 +481,10 @@ int main(int argc, char **argv)
     PassBuilder *PollyPB = nullptr;
     std::unique_ptr<PassBuilder> PollyPBStorage;
     std::unique_ptr<TargetMachine> PollyTM =
-        setUpPollyPipeline(argc, argv, PollyPB, PollyPBStorage);
+        setUpPollyPipeline(PollyPB, PollyPBStorage);
     if (!PollyTM)
         return 1;
+    bool pollyFlagsParsed = false;
 
     std::string backendSelectionReason;
     const std::string activeIRBackend = resolveBackend(backendSelectionReason);
@@ -510,9 +531,21 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    ASTBuilder astB;
-    auto progAny = astB.visitProgram(tree);
-    auto prog = std::any_cast<ProgramNodePtr>(progAny);
+    // ASTBuilder throws std::runtime_error for forms the front end does not
+    // accept ("graph must have edges", "inline weighted edges not yet
+    // supported").  Uncaught, those reach std::terminate and the compiler core
+    // dumps instead of reporting -- so catch them the way semantic errors are.
+    ProgramNodePtr prog;
+    try
+    {
+        ASTBuilder astB;
+        prog = std::any_cast<ProgramNodePtr>(astB.visitProgram(tree));
+    }
+    catch (const std::exception &ex)
+    {
+        errs() << "Error: " << ex.what() << "\n";
+        return 1;
+    }
 
     LLVMContext Ctx;
     auto M = std::make_unique<Module>("my_module", Ctx);
@@ -541,7 +574,15 @@ int main(int argc, char **argv)
                                 ? inputPath.parent_path().string()
                                 : std::string(".");
     IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend, sourceDir);
-    irgen.visitProgram(prog);
+    try
+    {
+        irgen.visitProgram(prog);
+    }
+    catch (const std::exception &ex)
+    {
+        errs() << "Error: " << ex.what() << "\n";
+        return 1;
+    }
 
     {
         LoopAnalysisManager LAM;
@@ -588,6 +629,39 @@ int main(int argc, char **argv)
     // ---------------------------------------------------------------------
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
         dumpModuleBitcode(*M, dumpPath);
+
+    // Confine Polly to the user's `fn` functions, never to main.
+    //
+    // Top-level statements end up in main, and main is exactly what the PDG /
+    // min-cut / reconstructParallelIR machinery below rewrites into task_N
+    // functions.  Letting Polly transform main first is a SILENT MISCOMPILE:
+    // on `while (i < n) { a[i] = <constant>; i = i + 1; }` at top level Polly
+    // rewrites the invariant-store loop, the outliner then moves the rewritten
+    // code into a task function, and the result segfaults inside task_1.  The
+    // same loop inside a `fn` is fine, because the outliner does not touch it.
+    //
+    // Polly's -polly-only-func filter expresses exactly this, which is why the
+    // flags are parsed here rather than at start-up: the value is not known
+    // until the source has been parsed.  With no user functions at all there is
+    // nothing Polly may safely touch, so it stays off.
+    if (!pollyFlagsParsed)
+    {
+        std::string onlyFuncs;
+        for (const auto &node : prog->topLevel)
+            if (node->type == ASTNodeType::FunctionDecl)
+            {
+                auto *fd = static_cast<FunctionDeclNode *>(node.get());
+                if (fd->name == "main")
+                    continue;
+                if (!onlyFuncs.empty())
+                    onlyFuncs += ",";
+                onlyFuncs += "^" + fd->name + "$";
+            }
+        parsePollyFlags(argc, argv, onlyFuncs);
+        pollyFlagsParsed = true;
+        if (onlyFuncs.empty())
+            setenv("GRAPH_DISABLE_POLLY", "1", 1);
+    }
 
     if (!isTruthyEnv("GRAPH_DISABLE_POLLY"))
     {

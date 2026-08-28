@@ -746,7 +746,9 @@ bool moduleRequiresCSRLayout(Module &M,
                              const std::map<Value *, GraphMeta> &metaByGraphPtr) {
   auto csrRuntimeCall = [](StringRef fn) {
     return fn == "graph_get_edge_weight" || fn == "graph_get_edge_weight_by_id" ||
-           fn == "graph_get_edge_src_by_id" || fn == "graph_get_edge_dst_by_id";
+           fn == "graph_get_edge_src_by_id" || fn == "graph_get_edge_dst_by_id" ||
+           fn == "autograph_neighbor_iter_init" ||
+           fn == "autograph_neighbor_iter_next";
   };
 
   for (Function &F : M) {
@@ -768,8 +770,9 @@ bool moduleRequiresCSRLayout(Module &M,
           continue;
 
         // Opaque-pointer IRGen: row_ptr +16, col_idx +24, weights +32 bytes.
+        // 1-index GEP operands are [ptr, index0] — the offset is operand 1, not 2.
         if (GEP->getNumIndices() == 1) {
-          if (auto *byteOff = dyn_cast<ConstantInt>(GEP->getOperand(2))) {
+          if (auto *byteOff = dyn_cast<ConstantInt>(GEP->getOperand(1))) {
             const int64_t off = byteOff->getSExtValue();
             if (off == 16 || off == 24 || off == 32)
               return true;

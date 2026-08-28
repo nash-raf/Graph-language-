@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -22,12 +22,13 @@ public:
     T__44 = 45, T__45 = 46, T__46 = 47, T__47 = 48, T__48 = 49, T__49 = 50, 
     T__50 = 51, T__51 = 52, T__52 = 53, T__53 = 54, T__54 = 55, T__55 = 56, 
     T__56 = 57, T__57 = 58, T__58 = 59, T__59 = 60, T__60 = 61, T__61 = 62, 
-    T__62 = 63, T__63 = 64, T__64 = 65, GRAPH = 66, WEIGHTS = 67, SET = 68, 
-    UNION = 69, INTERSECT = 70, NOT = 71, MODULO = 72, EDGE = 73, NODE = 74, 
-    VERTICES = 75, TRUE = 76, FALSE = 77, OF = 78, PLUS = 79, MINUS = 80, 
-    TIMES = 81, DIVIDE = 82, AND = 83, OR = 84, EQUAL = 85, NOTEQUAL = 86, 
-    LESSTHAN = 87, GREATERTHAN = 88, LESSEQUAL = 89, GREATEREQUAL = 90, 
-    ID = 91, INT = 92, REAL = 93, STRING = 94, Comment = 95, WS = 96
+    T__62 = 63, T__63 = 64, T__64 = 65, T__65 = 66, T__66 = 67, T__67 = 68, 
+    T__68 = 69, T__69 = 70, T__70 = 71, T__71 = 72, GRAPH = 73, WEIGHTS = 74, 
+    SET = 75, UNION = 76, INTERSECT = 77, NOT = 78, MODULO = 79, EDGE = 80, 
+    NODE = 81, VERTICES = 82, TRUE = 83, FALSE = 84, OF = 85, PLUS = 86, 
+    MINUS = 87, TIMES = 88, DIVIDE = 89, AND = 90, OR = 91, EQUAL = 92, 
+    NOTEQUAL = 93, LESSTHAN = 94, GREATERTHAN = 95, LESSEQUAL = 96, GREATEREQUAL = 97, 
+    ID = 98, INT = 99, REAL = 100, STRING = 101, Comment = 102, WS = 103
   };
 
   explicit BaseLexer(antlr4::CharStream *input);

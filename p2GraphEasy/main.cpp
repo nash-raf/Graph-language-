@@ -24,6 +24,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Format.h>
 #include <llvm/TargetParser/Host.h>
+#include <llvm/TargetParser/SubtargetFeature.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Support/TargetSelect.h>
@@ -117,13 +118,63 @@ int main(int argc, char **argv)
     // We must register Polly with the PassBuilder before parsing Polly flags
     // but we must avoid parsing positional arguments with the flag parser.
 
+    // --- TargetMachine, built BEFORE the PassBuilder ---
+    // A PassBuilder constructed without a TargetMachine gives every function a
+    // no-op TargetTransformInfo: no vector registers, unit cost for every
+    // instruction. The loop vectorizer, the SLP vectorizer and Polly's own
+    // profitability / register-tiling heuristics all consult TTI, so building the
+    // O3 pipeline without one optimizes for an imaginary scalar machine. The TM
+    // used to be created after OptMPM.run(), i.e. far too late to matter.
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    std::string TargetTriple = sys::getDefaultTargetTriple();
+    std::string TargetLookupError;
+    const Target *TheTarget = TargetRegistry::lookupTarget(TargetTriple, TargetLookupError);
+    if (!TheTarget)
+    {
+        errs() << "Failed to lookup target for triple '" << TargetTriple
+               << "': " << TargetLookupError << "\n";
+        return 1;
+    }
+
+    // Default to the host CPU so the cost model sees the SIMD width we actually
+    // run on. GRAPH_TARGET_CPU=generic restores the previous behaviour.
+    std::string TargetCPU;
+    std::string TargetFeatures;
+    if (const char *cpuEnv = std::getenv("GRAPH_TARGET_CPU"))
+        TargetCPU = cpuEnv;
+    else
+        TargetCPU = std::string(sys::getHostCPUName());
+    if (TargetCPU != "generic")
+    {
+        SubtargetFeatures featureList;
+        for (const auto &feature : sys::getHostCPUFeatures())
+            featureList.AddFeature(feature.first(), feature.second);
+        TargetFeatures = featureList.getString();
+    }
+
+    TargetOptions TargetOpts;
+    std::unique_ptr<TargetMachine> TM(TheTarget->createTargetMachine(
+        TargetTriple, TargetCPU, TargetFeatures, TargetOpts,
+        /*RM=*/std::nullopt, /*CM=*/std::nullopt,
+        llvm::CodeGenOptLevel::Default, /*JIT=*/false));
+    if (!TM)
+    {
+        errs() << "Failed to create TargetMachine for triple '" << TargetTriple << "'\n";
+        return 1;
+    }
+
     // --- New Pass Manager setup (early, to register Polly) ---
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
     CGSCCAnalysisManager CGAM;
     ModuleAnalysisManager MAM;
 
-    PassBuilder PB;
+    PassBuilder PB(TM.get());
 
     // --- Polly integration using PassBuilder (Fedora packaging API) ---
     // errs() << "DEBUG: about to call polly::registerPollyPasses(PB)\n";
@@ -180,6 +231,34 @@ int main(int argc, char **argv)
     else if (!hasArg("-polly"))
     {
         appendPollyFlag("-polly");
+
+        // Polly's matmul pattern matcher is responsible for essentially ALL of
+        // Polly's compile time here: on a matmul-shaped kernel it takes
+        // compilation from 0.73 s to 30.2 s (41x) while improving runtime only
+        // from 0.275 s to 0.202 s. Break-even is ~400 executions of the compiled
+        // binary; for compile-once-run-once work it is a 30x end-to-end loss.
+        //
+        // Generic tiling still runs and still delivers ~2.5x, so this trades
+        // roughly a quarter of the speedup for a 41x faster build. Set
+        // GRAPH_POLLY_MATMUL_OPT=1 for production builds where the binary is
+        // executed enough times to amortize the compile.
+        if (!isTruthyEnv("GRAPH_POLLY_MATMUL_OPT") &&
+            !hasArg("-polly-pattern-matching-based-opts"))
+        {
+            appendPollyFlag("-polly-pattern-matching-based-opts=false");
+        }
+
+        // OpenMP parallelization is a SEPARATE mechanism from tiling and is off
+        // in stock Polly. Measured across 32 kernels it lifts the mean speedup
+        // from 1.61x to 2.79x (triangle count alone: 2.40x -> 4.20x), because
+        // once the matmul pattern matcher is disabled the generic tiled band is
+        // permutable and parallel. Set GRAPH_POLLY_NO_PARALLEL=1 to opt out --
+        // worth doing for kernels with a sequential outer dependence, where the
+        // extra threads cost a little and gain nothing.
+        if (!isTruthyEnv("GRAPH_POLLY_NO_PARALLEL") && !hasArg("-polly-parallel"))
+        {
+            appendPollyFlag("-polly-parallel");
+        }
     }
 
     if (const char *extra = std::getenv("GRAPH_POLLY_EXTRA_FLAGS"))
@@ -236,7 +315,11 @@ int main(int argc, char **argv)
         cl::ParseCommandLineOptions(parseArgc, mutableArgv.data());
     }
     // Build O3 pipeline *after* parsing flags so Polly's cl::opts (e.g. -polly) are respected.
-    OptMPM = PB.buildModuleOptimizationPipeline(OptimizationLevel::O3, ThinOrFullLTOPhase::None);
+    // Must be the full per-module pipeline, not just buildModuleOptimizationPipeline:
+    // Polly hooks itself into ScalarOptimizerLateEP, which only exists inside the
+    // module *simplification* half. With the optimization half alone, Polly's
+    // canonicalization runs but its SCoP detection and codegen never do.
+    OptMPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
 
     // ------------------
     // INPUT FILE (positional) NOW
@@ -551,46 +634,18 @@ int main(int argc, char **argv)
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
         writeBitcodeToFile(*M, dumpPath);
 
+    // Canonicalize before the O3+Polly pipeline, not after: SCoP detection needs
+    // loops already in canonical form with promoted induction variables.
+    MPM.run(*M, MAM);
     OptMPM.run(*M, MAM);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
         writeBitcodeToFile(*M, dumpPath);
-    MPM.run(*M, MAM);
 
     auto t_opt = std::chrono::high_resolution_clock::now();
-    InitializeAllTargetInfos();
-    InitializeAllTargets();
-    InitializeAllTargetMCs();
-    InitializeAllAsmParsers();
-    InitializeAllAsmPrinters();
-
-    std::string TargetTriple = sys::getDefaultTargetTriple();
+    // Targets, triple and TargetMachine were all set up before the PassBuilder so
+    // that the optimizer runs with a real cost model; reuse the same TM here.
     M->setTargetTriple(TargetTriple);
-
-    std::string Error;
-    const Target *Target = TargetRegistry::lookupTarget(TargetTriple, Error);
-    if (!Target)
-    {
-        errs() << "Failed to lookup target for triple '" << TargetTriple << "': " << Error << "\n";
-        return 1;
-    }
-
-    TargetOptions Opts;
-    std::optional<llvm::Reloc::Model> RM = std::nullopt;
-    std::optional<llvm::CodeModel::Model> CM = std::nullopt;
-
-    // LLVM 20: use CodeGenOptLevel
-    auto OptLevel = llvm::CodeGenOptLevel::Default;
-
-    // Use the full modern signature for createTargetMachine (LLVM 18+ / 20)
-    auto TM = Target->createTargetMachine(TargetTriple, "generic", /*Features=*/"", Opts, RM, CM, OptLevel, /*JIT=*/false);
-
-    if (!TM)
-    {
-        errs() << "Failed to create TargetMachine for triple '" << TargetTriple << "'\n";
-        return 1;
-    }
-
     M->setDataLayout(TM->createDataLayout());
 
     std::error_code EC;

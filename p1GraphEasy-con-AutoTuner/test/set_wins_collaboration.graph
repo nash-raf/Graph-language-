@@ -1,0 +1,23 @@
+// Realistic workload: small dense collaboration network where new members
+// join and form dense connections in large batches.  Pure update-heavy
+// workload — no traversals, so the AutoTuner can safely pick SET.
+//
+// Cost model predictions (n=20, m=190):
+//   SET insert:  ~502 ns/op   PCSR insert: ~1353 ns/op   CSR insert: ~958 ns/op
+//   SET is ~2.7x cheaper, and with 256 inserts the savings dominate.
+
+graph team_graph {
+  edges: file "small_dense_20.txt";
+};
+
+// Ingest batches of new team members.
+int batch = 0;
+while (batch < 128) {
+  int new_member = 20 + batch;
+  int hub = batch % 10;
+  add new_member->hub, hub->new_member to team_graph;
+  batch = batch + 1;
+}
+
+print "Total edges: ";
+print numEdges(team_graph);

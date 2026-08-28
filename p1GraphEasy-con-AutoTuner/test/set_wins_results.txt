@@ -1,0 +1,45 @@
+set_wins_collaboration.graph — Benchmark Results
+=================================================
+n=20, m=190 (complete graph)
+Workload: 128 iterations × 2 edge inserts (growing vertex set 20→148)
+           add new_member->hub, hub->new_member to team_graph;
+           (128 call-site executions, each adding 2 edges)
+
+Region: single Insert region, visits=128 (loop iterations)
+
+=== Predicted (from AutoTunerPass cost model) ===
+
+Layout   total_pred_ns   per_call_ns   per_edge_ns
+------   -------------   -----------   -----------
+CSR         122,589          958           479
+PCSR        173,135        1,353           676
+BCSR      5,198,407       40,613        20,306
+SET          64,204          502           251
+
+  Predicted best:  SET  (251 ns/edge)
+
+=== Measured (pure_kernel_ns from runtime) ===
+
+Layout   total_meas_ns   per_call_ns   per_edge_ns
+------   -------------   -----------   -----------
+CSR      12,880,475      100,629        50,315
+PCSR     15,811,041      123,524        61,762
+BCSR     12,600,434       98,441        49,220
+SET          161,675        1,263           632
+
+  Measured best:  SET  (632 ns/edge)
+
+=== Comparison ===
+
+Layout   Predicted   Measured   Pred/Meas Ratio   Verdict
+------   ---------   --------   ----------------   -------
+CSR          122K     12.88M        0.0095x         off ×105
+PCSR         173K     15.81M        0.0109x         off ×91
+BCSR        5.198M    12.60M        0.4126x         off ×2.4
+SET          64K        162K        0.3970x         off ×2.5
+
+=== Best layout ===
+
+Predicted best:  SET  (251 ns/edge)
+Measured best:   SET  (632 ns/edge)
+Verdict:         MATCH ✓

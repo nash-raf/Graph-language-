@@ -24,6 +24,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Format.h>
 #include <llvm/TargetParser/Host.h>
+#include <llvm/TargetParser/SubtargetFeature.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Support/TargetSelect.h>
@@ -130,13 +131,59 @@ int main(int argc, char **argv)
     // We must register Polly with the PassBuilder before parsing Polly flags
     // but we must avoid parsing positional arguments with the flag parser.
 
+    // --- TargetMachine, built BEFORE the PassBuilder ---
+    // A PassBuilder with no TargetMachine hands every function a no-op
+    // TargetTransformInfo: no vector registers, unit cost per instruction. The
+    // loop/SLP vectorizers and Polly's profitability heuristics all consult it,
+    // so the whole O3 pipeline was optimizing for an imaginary scalar machine.
+    // The TM used to be created only at codegen time, long after OptMPM.run().
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    std::string TargetTriple = sys::getDefaultTargetTriple();
+    std::string TargetLookupError;
+    const Target *TheTarget = TargetRegistry::lookupTarget(TargetTriple, TargetLookupError);
+    if (!TheTarget)
+    {
+        errs() << "Failed to lookup target for triple '" << TargetTriple
+               << "': " << TargetLookupError << "\n";
+        return 1;
+    }
+
+    std::string TargetCPU;
+    std::string TargetFeatures;
+    if (const char *cpuEnv = std::getenv("GRAPH_TARGET_CPU"))
+        TargetCPU = cpuEnv;
+    else
+        TargetCPU = std::string(sys::getHostCPUName());
+    if (TargetCPU != "generic")
+    {
+        SubtargetFeatures featureList;
+        for (const auto &feature : sys::getHostCPUFeatures())
+            featureList.AddFeature(feature.first(), feature.second);
+        TargetFeatures = featureList.getString();
+    }
+
+    TargetOptions HostTargetOpts;
+    std::unique_ptr<TargetMachine> TM(TheTarget->createTargetMachine(
+        TargetTriple, TargetCPU, TargetFeatures, HostTargetOpts,
+        std::nullopt, std::nullopt, llvm::CodeGenOptLevel::Default, false));
+    if (!TM)
+    {
+        errs() << "Failed to create TargetMachine for triple '" << TargetTriple << "'\n";
+        return 1;
+    }
+
     // --- New Pass Manager setup (early, to register Polly) ---
     LoopAnalysisManager LAM;
     FunctionAnalysisManager FAM;
     CGSCCAnalysisManager CGAM;
     ModuleAnalysisManager MAM;
 
-    PassBuilder PB;
+    PassBuilder PB(TM.get());
 
     // --- Polly integration using PassBuilder (Fedora packaging API) ---
     // errs() << "DEBUG: about to call polly::registerPollyPasses(PB)\n";
@@ -169,8 +216,10 @@ int main(int argc, char **argv)
     std::vector<const char *> parseArgv;
     std::vector<std::string> storedArgs; // keep strings alive for c_str()
 
-    // program name
-    parseArgv.push_back(argv[0]);
+    // NOTE: pointers into storedArgs are taken ONCE, after every string has
+    // been appended. Taking them as we go (storedArgs.back().c_str()) dangles
+    // as soon as the vector reallocates -- which manifested as Polly receiving
+    // garbage flags and the driver reporting "Failed to open input file".
 
     // helper to check existing args in original argv
     auto hasArg = [&](const char *a)
@@ -181,11 +230,34 @@ int main(int argc, char **argv)
         return false;
     };
 
-    // Force-enable polly if caller didn't pass it
-    if (!hasArg("-polly"))
+    auto pushFlag = [&](const std::string &flag) { storedArgs.emplace_back(flag); };
+
+    // GRAPH_DISABLE_POLLY lets us A/B the same source without rebuilding.
+    if (isTruthyEnvVar("GRAPH_DISABLE_POLLY"))
     {
-        storedArgs.emplace_back("-polly");
-        parseArgv.push_back(storedArgs.back().c_str());
+        pushFlag("-polly=false");
+    }
+    else if (!hasArg("-polly"))
+    {
+        pushFlag("-polly");
+        // Polly's matmul pattern matcher accounts for essentially all of its
+        // compile time (30.2 s vs 0.73 s on a 768-cube kernel) AND produces a
+        // non-parallel schedule that blocks -polly-parallel. Off by default;
+        // GRAPH_POLLY_MATMUL_OPT=1 restores it.
+        if (!isTruthyEnvVar("GRAPH_POLLY_MATMUL_OPT") &&
+            !hasArg("-polly-pattern-matching-based-opts"))
+            pushFlag("-polly-pattern-matching-based-opts=false");
+    }
+
+    if (const char *extra = std::getenv("GRAPH_POLLY_EXTRA_FLAGS"))
+    {
+        std::string flags(extra), token;
+        for (char c : flags)
+        {
+            if (c == ' ' || c == '\t') { if (!token.empty()) { pushFlag(token); token.clear(); } }
+            else token.push_back(c);
+        }
+        if (!token.empty()) pushFlag(token);
     }
 
     // Append any ORIGINAL *flag* arguments (those that start with '-') from argv.
@@ -197,16 +269,21 @@ int main(int argc, char **argv)
         {
             // include flag
             storedArgs.emplace_back(a);
-            parseArgv.push_back(storedArgs.back().c_str());
             // if next token exists and is not a flag, treat it as the flag's value
             if (i + 1 < argc && argv[i + 1][0] != '-')
             {
                 storedArgs.emplace_back(argv[i + 1]);
-                parseArgv.push_back(storedArgs.back().c_str());
                 ++i; // skip the value we consumed
             }
         }
     }
+
+    // Materialize parseArgv now that storedArgs is final and will not reallocate.
+    parseArgv.clear();
+    parseArgv.reserve(1 + storedArgs.size());
+    parseArgv.push_back(argv[0]);
+    for (const auto &arg : storedArgs)
+        parseArgv.push_back(arg.c_str());
 
     // Parse only the flags so polly's flags are registered without confusing positional args.
     {
@@ -219,7 +296,12 @@ int main(int argc, char **argv)
         cl::ParseCommandLineOptions(parseArgc, mutableArgv.data());
     }
     // Build O3 pipeline *after* parsing flags so Polly's cl::opts (e.g. -polly) are respected.
-    OptMPM = PB.buildModuleOptimizationPipeline(OptimizationLevel::O3, ThinOrFullLTOPhase::None);
+    // Must be the FULL per-module pipeline, not just the optimization half:
+    // Polly registers itself at ScalarOptimizerLateEP, an extension point that
+    // only exists inside module *simplification*. With the optimization half
+    // alone, Polly's canonicalization ran but its SCoP detection and code
+    // generation never did -- which is why Polly appeared enabled yet inert.
+    OptMPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
 
     // ------------------
     // INPUT FILE (positional) NOW
@@ -597,8 +679,17 @@ int main(int argc, char **argv)
     // Strip it so the compiler stays quiet and codegen proceeds consistently.
     stripTBAAMetadata(*M);
 
-    OptMPM.run(*M, MAM);
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
+        writeBitcodeToFile(*M, dumpPath);
+
+    // Canonicalize BEFORE O3+Polly, not after: SCoP detection needs loops
+    // already in canonical form with promoted induction variables. Running
+    // canonicalization afterwards meant Polly always saw un-canonicalized IR.
     MPM.run(*M, MAM);
+    OptMPM.run(*M, MAM);
+
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
+        writeBitcodeToFile(*M, dumpPath);
 
     if (llvm::verifyModule(*M, &llvm::errs()))
     {
@@ -611,39 +702,8 @@ int main(int argc, char **argv)
         M->print(llvm::outs(), nullptr);
 
     auto t_opt = std::chrono::high_resolution_clock::now();
-    InitializeAllTargetInfos();
-    InitializeAllTargets();
-    InitializeAllTargetMCs();
-    InitializeAllAsmParsers();
-    InitializeAllAsmPrinters();
-
-    std::string TargetTriple = sys::getDefaultTargetTriple();
+    // Targets/triple/TargetMachine were set up before the PassBuilder; reuse them.
     M->setTargetTriple(TargetTriple);
-
-    std::string Error;
-    const Target *Target = TargetRegistry::lookupTarget(TargetTriple, Error);
-    if (!Target)
-    {
-        errs() << "Failed to lookup target for triple '" << TargetTriple << "': " << Error << "\n";
-        return 1;
-    }
-
-    TargetOptions Opts;
-    std::optional<llvm::Reloc::Model> RM = std::nullopt;
-    std::optional<llvm::CodeModel::Model> CM = std::nullopt;
-
-    // LLVM 20: use CodeGenOptLevel
-    auto OptLevel = llvm::CodeGenOptLevel::Default;
-
-    // Use the full modern signature for createTargetMachine (LLVM 18+ / 20)
-    auto TM = Target->createTargetMachine(TargetTriple, "generic", /*Features=*/"", Opts, RM, CM, OptLevel, /*JIT=*/false);
-
-    if (!TM)
-    {
-        errs() << "Failed to create TargetMachine for triple '" << TargetTriple << "'\n";
-        return 1;
-    }
-
     M->setDataLayout(TM->createDataLayout());
 
     std::error_code EC;

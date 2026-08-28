@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -31,6 +31,9 @@ public:
 
   virtual void enterGraphProperty(BaseParser::GraphPropertyContext *ctx) = 0;
   virtual void exitGraphProperty(BaseParser::GraphPropertyContext *ctx) = 0;
+
+  virtual void enterWeightMode(BaseParser::WeightModeContext *ctx) = 0;
+  virtual void exitWeightMode(BaseParser::WeightModeContext *ctx) = 0;
 
   virtual void enterBoolLiteral(BaseParser::BoolLiteralContext *ctx) = 0;
   virtual void exitBoolLiteral(BaseParser::BoolLiteralContext *ctx) = 0;
@@ -128,6 +131,12 @@ public:
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext *ctx) = 0;
 
+  virtual void enterMotifMatchesDecl(BaseParser::MotifMatchesDeclContext *ctx) = 0;
+  virtual void exitMotifMatchesDecl(BaseParser::MotifMatchesDeclContext *ctx) = 0;
+
+  virtual void enterGraphListDecl(BaseParser::GraphListDeclContext *ctx) = 0;
+  virtual void exitGraphListDecl(BaseParser::GraphListDeclContext *ctx) = 0;
+
   virtual void enterGraphExpr(BaseParser::GraphExprContext *ctx) = 0;
   virtual void exitGraphExpr(BaseParser::GraphExprContext *ctx) = 0;
 
@@ -146,6 +155,9 @@ public:
   virtual void enterConnectedCondition(BaseParser::ConnectedConditionContext *ctx) = 0;
   virtual void exitConnectedCondition(BaseParser::ConnectedConditionContext *ctx) = 0;
 
+  virtual void enterMotifCondition(BaseParser::MotifConditionContext *ctx) = 0;
+  virtual void exitMotifCondition(BaseParser::MotifConditionContext *ctx) = 0;
+
   virtual void enterGraphLogicalOr(BaseParser::GraphLogicalOrContext *ctx) = 0;
   virtual void exitGraphLogicalOr(BaseParser::GraphLogicalOrContext *ctx) = 0;
 
@@ -154,6 +166,9 @@ public:
 
   virtual void enterVertexInSetCondition(BaseParser::VertexInSetConditionContext *ctx) = 0;
   virtual void exitVertexInSetCondition(BaseParser::VertexInSetConditionContext *ctx) = 0;
+
+  virtual void enterMotifEdge(BaseParser::MotifEdgeContext *ctx) = 0;
+  virtual void exitMotifEdge(BaseParser::MotifEdgeContext *ctx) = 0;
 
   virtual void enterLoopStatement(BaseParser::LoopStatementContext *ctx) = 0;
   virtual void exitLoopStatement(BaseParser::LoopStatementContext *ctx) = 0;
@@ -178,6 +193,12 @@ public:
 
   virtual void enterForEachElement(BaseParser::ForEachElementContext *ctx) = 0;
   virtual void exitForEachElement(BaseParser::ForEachElementContext *ctx) = 0;
+
+  virtual void enterForEachGraph(BaseParser::ForEachGraphContext *ctx) = 0;
+  virtual void exitForEachGraph(BaseParser::ForEachGraphContext *ctx) = 0;
+
+  virtual void enterForEachMotif(BaseParser::ForEachMotifContext *ctx) = 0;
+  virtual void exitForEachMotif(BaseParser::ForEachMotifContext *ctx) = 0;
 
   virtual void enterForEachPlain(BaseParser::ForEachPlainContext *ctx) = 0;
   virtual void exitForEachPlain(BaseParser::ForEachPlainContext *ctx) = 0;
@@ -205,6 +226,30 @@ public:
 
   virtual void enterShowgraph(BaseParser::ShowgraphContext *ctx) = 0;
   virtual void exitShowgraph(BaseParser::ShowgraphContext *ctx) = 0;
+
+  virtual void enterDrawgraph(BaseParser::DrawgraphContext *ctx) = 0;
+  virtual void exitDrawgraph(BaseParser::DrawgraphContext *ctx) = 0;
+
+  virtual void enterDrawmotifs(BaseParser::DrawmotifsContext *ctx) = 0;
+  virtual void exitDrawmotifs(BaseParser::DrawmotifsContext *ctx) = 0;
+
+  virtual void enterDrawMotifOption(BaseParser::DrawMotifOptionContext *ctx) = 0;
+  virtual void exitDrawMotifOption(BaseParser::DrawMotifOptionContext *ctx) = 0;
+
+  virtual void enterDrawOption(BaseParser::DrawOptionContext *ctx) = 0;
+  virtual void exitDrawOption(BaseParser::DrawOptionContext *ctx) = 0;
+
+  virtual void enterVertexDrawOption(BaseParser::VertexDrawOptionContext *ctx) = 0;
+  virtual void exitVertexDrawOption(BaseParser::VertexDrawOptionContext *ctx) = 0;
+
+  virtual void enterEdgeDrawOption(BaseParser::EdgeDrawOptionContext *ctx) = 0;
+  virtual void exitEdgeDrawOption(BaseParser::EdgeDrawOptionContext *ctx) = 0;
+
+  virtual void enterColorMapping(BaseParser::ColorMappingContext *ctx) = 0;
+  virtual void exitColorMapping(BaseParser::ColorMappingContext *ctx) = 0;
+
+  virtual void enterContinuousMapping(BaseParser::ContinuousMappingContext *ctx) = 0;
+  virtual void exitContinuousMapping(BaseParser::ContinuousMappingContext *ctx) = 0;
 
   virtual void enterFunction(BaseParser::FunctionContext *ctx) = 0;
   virtual void exitFunction(BaseParser::FunctionContext *ctx) = 0;

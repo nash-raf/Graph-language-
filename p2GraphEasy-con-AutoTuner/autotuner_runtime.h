@@ -34,10 +34,15 @@ typedef struct {
   uint8_t *extra_edge_live;  /* 1 if active */
   int64_t extra_edge_count;
   int64_t extra_edge_capacity;
+  int32_t canonical_dirty;
+
+  /* Incrementally tracked live undirected edge count (avoids O(m) scan). */
+  int64_t live_edge_count;
 
   /* Transient CSR arrays (allocated on demand) */
   int64_t *csr_row_ptr;
   int32_t *csr_col_idx;
+  int32_t *csr_weights;   /* optional; aligned with csr_col_idx when weighted */
   int64_t csr_n;
   int64_t csr_m;
   int32_t csr_owned;      /* 0 = borrowed from graph loader, 1 = autotuner-allocated */
@@ -52,6 +57,31 @@ typedef struct {
   int32_t *bcsr_bcol_idx; 
   int32_t bcsr_block_size;
   int32_t bcsr_nblocks;
+
+  /* Bumped on every layout convert so live neighbor iterators can detect
+   * that their snapshot of CSR/PCSR/BCSR arrays is no longer valid. */
+  int32_t layout_epoch;
+
+  /* Persistent frontier scratch (BFS + motif steps). Owned by runtime. */
+  void *scratch_lanes; /* AutoFrontierLane* */
+  int32_t scratch_lane_count;
+  int64_t scratch_n;
+  uint8_t *scratch_membership;
+  uint8_t *scratch_round_member;
+  int64_t *scratch_offsets;
+  int32_t scratch_offsets_cap;
+
+  /* Analytic per-op-class RD tiers (Phase 3): per directed insert
+   * (N, h2, h3) for {scan, move, brow, struct}, computed by the compiler
+   * from the edge file (mirrors analytic_rd.py).  Used to keep runtime-side
+   * profiles/predictions consistent with the compile-time cost model. */
+  double class_tiers[12];
+  uint8_t has_class_tiers;
+
+  /* CSR analytic per-op-class RD tiers (Phase 3 extension): same payload for
+   * the CSR structure (move/brow/struct; scan unused), mirrors AnalyticCSR. */
+  double csr_class_tiers[12];
+  uint8_t has_csr_class_tiers;
 } AutoGraphMeta;
 
 #ifdef __cplusplus
@@ -83,6 +113,14 @@ int autograph_canonical_add_node(void *graph_ptr, int32_t node_label);
 int autograph_canonical_remove_node(void *graph_ptr, int32_t node_label);
 int autograph_canonical_add_edge(void *graph_ptr, int32_t u, int32_t v);
 int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v);
+void autograph_mark_canonical_dirty(void *graph_ptr);
+void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
+                                      int64_t *row_ptr, int32_t *col_idx);
+void autograph_sync_canonical_if_dirty(void *graph_ptr);
+void autograph_profile_region_enter(int32_t region_id, int32_t kind,
+                                    int32_t layout, double predicted_ns);
+void autograph_profile_region_exit(int32_t region_id);
+void autograph_profile_record_kernel_ns(int32_t kind, uint64_t elapsed_ns);
 
 /* Notify runtime after CSR realloc (e.g. from csr_add_directed) */
 void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *col_idx);
@@ -90,6 +128,93 @@ void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *c
 /* Option B: Convert to SET from current layout (rebuild bitmaps from adjacency).
  * Call from mutation path when an out-of-bounds op would require bitmaps. */
 void autograph_ensure_layout_set(void *graph_ptr);
+
+/* ── Representation-agnostic neighbor iterator ────────────────────
+ *
+ * Iterates over neighbors of vertex u under the current layout
+ * (CSR/PCSR/BCSR/SET) without materializing an intermediate buffer.
+ * Usage:
+ *   AutoNeighborIter iter;
+ *   autograph_neighbor_iter_init(graph_ptr, u, &iter);
+ *   int32_t v;
+ *   while (autograph_neighbor_iter_next(&iter, &v)) { ... }
+ */
+typedef struct {
+  void *meta;     /* AutoGraphMeta* */
+  int64_t u;      /* source vertex */
+  int64_t pos;    /* current iteration position */
+  int64_t end;    /* end position */
+  int32_t state;  /* layout-specific (BCSR local_row, SET phase) */
+  int32_t layout; /* LAYOUT_* snapshotted at init */
+  int32_t epoch;  /* meta->layout_epoch at init */
+  int32_t pad;
+} AutoNeighborIter;
+
+void autograph_neighbor_iter_init(void *graph_ptr, int64_t u,
+                                  AutoNeighborIter *iter);
+int  autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v);
+
+/* Execute one structurally-verified first-wins frontier step.  The runtime
+ * automatically chooses sparse push or dense pull and traverses the active
+ * graph layout directly (without materializing neighbor arrays). */
+int32_t autograph_frontier_step(void *graph_ptr,
+                                const int32_t *frontier,
+                                int32_t frontier_size,
+                                int32_t *next_frontier,
+                                int32_t initial_next_size,
+                                int32_t *claim,
+                                int32_t expected,
+                                int32_t desired,
+                                int32_t *parent);
+
+/* Compositional frontier operators (internal combine kinds). */
+enum {
+  SGPL_COMBINE_CAS_FIRST = 0,
+  SGPL_COMBINE_MIN_COPY = 1,
+  SGPL_COMBINE_PEEL_K = 2,
+  SGPL_COMBINE_MIN_WEIGHTED = 3
+};
+
+/* Unified EdgeMap: sparse push or owner-computes pull over array frontier.
+ *   CAS_FIRST:     prop0=claim, prop1=parent, scalar0=expected, scalar1=desired
+ *   MIN_COPY:      prop0=labels (min copy prop[u] into prop[v])
+ *   MIN_WEIGHTED:  prop0=dist (min prop[u]+w into prop[v]); CSR weights required
+ *   PEEL_K:        prop0=alive, prop1=deg, scalar0=k */
+int32_t autograph_edgemap(void *graph_ptr,
+                          int32_t combine,
+                          const int32_t *frontier,
+                          int32_t frontier_size,
+                          int32_t *next_frontier,
+                          int32_t initial_next_size,
+                          int32_t *prop0,
+                          int32_t *prop1,
+                          int32_t scalar0,
+                          int32_t scalar1);
+
+/* Generalized array-frontier motif step (non-BFS). Modes:
+ *   SGPL_MOTIF_WRITE_MIN           — RelaxMin: prop[v] = min(prop[v], prop[u])
+ *   SGPL_MOTIF_PEEL_K              — prop0 = alive, prop1 = deg, scalar = k
+ *   SGPL_MOTIF_RELAX_MIN_WEIGHTED  — RelaxMin: prop[v] = min(prop[v], prop[u]+w)
+ * Thin wrappers over autograph_edgemap for ABI compatibility. */
+enum {
+  SGPL_MOTIF_WRITE_MIN = 1,
+  SGPL_MOTIF_PEEL_K = 2,
+  SGPL_MOTIF_RELAX_MIN_WEIGHTED = 3
+};
+
+int32_t autograph_motif_frontier_step(void *graph_ptr,
+                                      int32_t mode,
+                                      const int32_t *frontier,
+                                      int32_t frontier_size,
+                                      int32_t *next_frontier,
+                                      int32_t initial_next_size,
+                                      int32_t *prop0,
+                                      int32_t *prop1,
+                                      int32_t scalar);
+
+/* BCSR-native edge mutation. Returns 1 on success, 0 on failure/skip. */
+int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to);
+int autograph_bcsr_remove_edge(void *graph_ptr, int32_t from, int32_t to);
 
 /* ── Low-level conversion helpers ── */
 void build_csr_from_set(int64_t n, int64_t pair_count, void *edges_bitmap, void *edge_pairs,
@@ -123,6 +248,15 @@ void convert_bcsr_to_csr(int64_t n, int32_t nblocks, int32_t block_size,
 #endif /* AUTOTUNER_RUNTIME_H */
 
 /* Register a new graph with the Set-Base Architecture */
-void autograph_init(void *graph_ptr, int64_t n, int64_t m,
-                    void *nodes_bmp, void *edges_bmp,
+void autograph_init(void *graph_ptr, int64_t n, int64_t m, 
+                    void *nodes_bmp, void *edges_bmp, 
                     void *edge_pairs_table);
+
+/* Phase 3: attach analytic per-op-class RD tiers computed at compile time
+ * (mirrors analytic_rd.py).  tiers must point to 12 doubles in
+ * (N, h2, h3) × {scan, move, brow, struct} order; NULL clears. */
+void autograph_set_class_tiers(void *graph_ptr, const double *tiers);
+
+/* Phase 3 extension: attach the CSR analytic per-op-class RD tiers
+ * (mirrors analytic_rd.py AnalyticCSR; scan unused). */
+void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers);

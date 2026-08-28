@@ -1,0 +1,13 @@
+graph G {
+  edges: file "/home/user/Course/msk1/grapheasy_algo/graphs/validation_100n_100e_w.txt";
+  TRUE
+};
+for each neighbor v of 0 in G {
+  print v;
+  print weight(G, 0, v);
+}
+print -1;
+for each neighbor v of 5 in G {
+  print v;
+  print weight(G, 5, v);
+}

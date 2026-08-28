@@ -1,0 +1,64 @@
+// ---------------------------------------------------------------------------
+// All-pairs shortest paths as a Kleene closure over the (min, +) semiring.
+// Written in ordinary GraphEasy: while loops and a 2D array.
+// There is NO `query` statement anywhere in this file.
+//
+// To get transitive closure instead, change exactly two lines (see below).
+// ---------------------------------------------------------------------------
+graph G {
+    directed: true;
+    weights: TRUE;
+    edges: file "semiring_demo_edges.txt";
+    TRUE
+};
+
+fn void closure() {
+    int n = numVertices(G);
+    int BIG = 1000000;
+    int D[n][n];
+
+    // Build the weight matrix: semiring identity on the diagonal,
+    // annihilator (BIG) where there is no edge.  NB: `INF` is a reserved
+    // keyword in the grammar, so it cannot be used as a variable name.
+    int i = 0;
+    while (i < n) {
+        int j = 0;
+        while (j < n) {
+            if (hasEdge(G, i, j)) {
+                D[i][j] = weight(G, i, j);
+            } else {
+                D[i][j] = BIG;
+            }
+            j = j + 1;
+        }
+        D[i][i] = 0;
+        i = i + 1;
+    }
+
+    // The closure itself.   combine = +      select = min
+    int k = 0;
+    while (k < n) {
+        i = 0;
+        while (i < n) {
+            int j = 0;
+            while (j < n) {
+                int cand = D[i][k] + D[k][j];      // <-- combine
+                if (cand < D[i][j]) {              // <-- select
+                    D[i][j] = cand;
+                }
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        k = k + 1;
+    }
+
+    print "shortest distance from 0 to each vertex:";
+    int t = 0;
+    while (t < n) {
+        print D[0][t];
+        t = t + 1;
+    }
+}
+
+closure();

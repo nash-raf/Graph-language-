@@ -8,6 +8,8 @@
 #include <unordered_set>
 
 #include "ASTNode.h"
+#include "MotifPattern.h"
+#include "MotifIRBuilder.h"
 
 class IRGenVisitor
 {
@@ -28,7 +30,25 @@ public:
             Context,
             {I64, I64, I64P, I32P, I32P, I32, I64P, I32P},
             "struct.Graph");
+        // Must mirror MotifMatchesRuntime in runtime.c exactly
+        // ({i32 count, i32 var_count, i32* bindings, i32 capacity}, 24 bytes,
+        // align 8). The old 3-field version happened to work because GEPs only
+        // touch fields 0..2, but during the dev-flag window a value produced by
+        // the runtime path and one produced by the IR path must be
+        // interchangeable, so the layouts have to agree exactly.
+        MotifMatchesTy = llvm::StructType::create(
+            Context,
+            {I32, I32, I32P, I32},
+            "struct.MotifMatches");
+
+        readBackendFlags();
     }
+
+    enum class MotifBackend
+    {
+        Runtime,
+        IR
+    };
 
     /// Entry point: lower the AST root into LLVM IR
     void visitProgram(ProgramNodePtr prog);
@@ -63,6 +83,16 @@ public:
     void visitGraphUpdate(GraphUpdateNode *upd);
     void visitShowGraph(ShowGraphNode *S);
     void visitDrawGraph(DrawGraphNode *D);
+    void visitDrawMotifs(DrawMotifsNode *D);
+    void emitEnsureInCsr(llvm::Value *graphPtr);
+    void visitMotifMatchesDecl(MotifMatchesDeclNode *M);
+    MotifIRBuilder::GraphInputs loadMotifGraphInputs(const std::string &graphName,
+                                                    const std::string &label);
+    llvm::Value *emitMotifMatchesIR(const std::string &graphName,
+                                    const std::string &label,
+                                    const std::vector<MotifEdgeSpec> &edges,
+                                    const std::vector<std::string> &varNames);
+    void visitGraphListDecl(GraphListDeclNode *M);
     void visitGraphComprehension(GraphComprehensionNode *GC);
 
     void visitSetDecl(SetDeclNode *SD);
@@ -101,9 +131,21 @@ private:
     llvm::Type *getLLVMTypeFromTypeKind(TypeKind kind);
     llvm::Type *getStorageValueType(llvm::Value *storage);
     llvm::Value *lookupNamedStorage(const std::string &name);
+    llvm::Value *load2DArrayBase(const std::string &name);
     llvm::Value *loadGraphValue(const std::string &name);
     llvm::StructType *GraphTy;
+    llvm::StructType *MotifMatchesTy;
+
+    // Selected by environment variable, not by a CLI flag: main.cpp forwards
+    // every '-' argument to Polly's option parser, which would reject an
+    // unknown one. Matches the existing GRAPH_TARGET_CPU / DUMP_LLVM_BC_* style.
+    MotifBackend MotifBackendMode = MotifBackend::Runtime;
+    bool MotifAdjacencyDriven = false;
+    void readBackendFlags();
     std::unordered_map<std::string, llvm::Value *> GraphMap;
+    std::unordered_map<std::string, llvm::Value *> MotifMatchesMap;
+    std::unordered_map<std::string, llvm::Value *> GraphListMatchesMap;
+    std::unordered_map<std::string, std::string> GraphListSourceMap;
     std::unordered_map<std::string, GraphDeclNode *> GraphAstMap;
 
     std::unordered_map<std::string, llvm::Value *> GraphNodesMap;
@@ -118,9 +160,10 @@ private:
     };
     std::vector<LoopInfo> LoopStack;
 
-    // 2D array metadata: name -> {cols alloca}
+    // 2D array metadata: dimensions used to flatten a[row][col].
     struct Array2DMeta
     {
+        llvm::Value *rowsVal; // number of rows (i32)
         llvm::Value *colsVal; // number of columns (i32)
     };
     std::unordered_map<std::string, Array2DMeta> Array2DMap;

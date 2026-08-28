@@ -1,0 +1,66 @@
+graph fb_pages_company {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/fb-pages-company.txt";
+};
+
+for each vertex v in fb_pages_company {
+    for each neighbor u of v in fb_pages_company {
+    };
+};
+
+add 10476->1824 to fb_pages_company;
+add 409->12149 to fb_pages_company;
+add 4506->4012 to fb_pages_company;
+add 3657->2286 to fb_pages_company;
+add 12066->1679 to fb_pages_company;
+add 11087->12135 to fb_pages_company;
+add 8935->1424 to fb_pages_company;
+add 9674->6912 to fb_pages_company;
+add 520->488 to fb_pages_company;
+add 1535->3582 to fb_pages_company;
+add 3811->8279 to fb_pages_company;
+add 9863->434 to fb_pages_company;
+add 9195->3257 to fb_pages_company;
+add 11731->10647 to fb_pages_company;
+add 11490->8928 to fb_pages_company;
+add 6873->3611 to fb_pages_company;
+add 7359->9654 to fb_pages_company;
+add 4557->13261 to fb_pages_company;
+add 106->12432 to fb_pages_company;
+add 13202->2615 to fb_pages_company;
+add 11438->6924 to fb_pages_company;
+add 5574->4552 to fb_pages_company;
+add 2547->3527 to fb_pages_company;
+add 12509->5514 to fb_pages_company;
+add 1674->1519 to fb_pages_company;
+add 6224->1584 to fb_pages_company;
+add 5881->13885 to fb_pages_company;
+add 5635->9891 to fb_pages_company;
+add 4333->13223 to fb_pages_company;
+add 711->11955 to fb_pages_company;
+add 7527->8785 to fb_pages_company;
+add 2045->6201 to fb_pages_company;
+add 1291->9044 to fb_pages_company;
+add 4803->13588 to fb_pages_company;
+add 10299->10133 to fb_pages_company;
+add 5925->9459 to fb_pages_company;
+add 3150->11543 to fb_pages_company;
+add 1139->750 to fb_pages_company;
+add 10834->3733 to fb_pages_company;
+add 12665->4741 to fb_pages_company;
+add 1307->14013 to fb_pages_company;
+add 3814->1654 to fb_pages_company;
+add 6227->4554 to fb_pages_company;
+add 7428->10415 to fb_pages_company;
+add 13666->5977 to fb_pages_company;
+add 2664->6065 to fb_pages_company;
+add 5820->3432 to fb_pages_company;
+add 10980->4374 to fb_pages_company;
+add 11498->11199 to fb_pages_company;
+add 10617->1169 to fb_pages_company;
+
+for each vertex v in fb_pages_company {
+    for each neighbor u of v in fb_pages_company {
+    };
+};
+
+print numEdges(fb_pages_company);

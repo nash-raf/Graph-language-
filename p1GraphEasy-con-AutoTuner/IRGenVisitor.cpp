@@ -1582,6 +1582,14 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
         Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
                             Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
+        // Field 5 is malloc'd garbage unless written.  A derived graph is as
+        // directed as the graph it came from -- getting this wrong makes
+        // numEdges report m instead of m/2 (or the reverse) on the result.
+        llvm::Value *srcDirected = Builder.CreateLoad(
+            Builder.getInt32Ty(),
+            Builder.CreateStructGEP(GraphTy, loadGraphValue(GC->graphName), 5),
+            "src.directed");
+        Builder.CreateStore(srcDirected, Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
         return newGraphPtr;
     };
 
@@ -3972,6 +3980,10 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
             llvm::MDNode::get(Context,
                               {llvm::MDString::get(Context, pattern.matrixName),
                                llvm::MDString::get(Context, semiringName)}));
+        // Always take the engine path when the matrix shape is valid.  Profit
+        // decisions live inside autograph_closure (serial vs blocked); do not
+        // branch on the return code here — later TDG outlining can drop the
+        // fallback nest and leave D uncomputed if the engine declines.
         Builder.CreateBr(doneBB);
 
         Builder.SetInsertPoint(fallbackBB);
@@ -3985,16 +3997,25 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
         return true;
     };
 
-    if (!ClosureFallbackDepth)
+    // GRAPH_DISABLE_MOTIF=1 skips frontier EdgeMap + dense semiring-closure
+    // rewrites so ablation benches can time the naïve loop lowering.
+    const bool disableMotif = []() {
+        const char *v = std::getenv("GRAPH_DISABLE_MOTIF");
+        return v && v[0] && std::strcmp(v, "0") != 0 &&
+               std::strcmp(v, "false") != 0;
+    }();
+
+    if (!disableMotif && !ClosureFallbackDepth)
         if (auto closure = detectSemiringClosureNest(ws))
             if (emitSemiringClosure(*closure))
                 return;
 
-    if (auto edgeMap = analyzeFrontierEdgeMap(ws))
-    {
-        emitEdgeMap(*edgeMap);
-        return;
-    }
+    if (!disableMotif)
+        if (auto edgeMap = analyzeFrontierEdgeMap(ws))
+        {
+            emitEdgeMap(*edgeMap);
+            return;
+        }
 
     auto *condBB = llvm::BasicBlock::Create(Context, "loopcond", parent);
     auto *bodyBB = llvm::BasicBlock::Create(Context, "loopbody", parent);
@@ -4867,9 +4888,18 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Value *graphPtr = loadGraphValue(varArg->name);
             llvm::Value *mPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr");
             llvm::Value *mVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), mPtr, "m_val");
-            llvm::Value *mHalf = Builder.CreateUDiv(mVal,
-                                                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
-            return Builder.CreateTrunc(mHalf, Builder.getInt32Ty(), "numEdges");
+            // m counts CSR entries.  An undirected graph stores each edge in
+            // both rows, so its logical edge count is m/2; a directed graph
+            // stores each edge once, so it is m.  Halving unconditionally --
+            // which was correct while every graph was undirected -- reports
+            // half the edges of a directed graph.
+            llvm::Value *directedPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr");
+            llvm::Value *directedVal = Builder.CreateLoad(Builder.getInt32Ty(), directedPtr, "g_directed");
+            llvm::Value *isDirected = Builder.CreateICmpNE(directedVal, Builder.getInt32(0), "is_directed");
+            llvm::Value *mHalf = Builder.CreateUDiv(
+                mVal, llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
+            llvm::Value *logicalEdges = Builder.CreateSelect(isDirected, mVal, mHalf, "logical_edges");
+            return Builder.CreateTrunc(logicalEdges, Builder.getInt32Ty(), "numEdges");
         }
 
         // Built-in: degree(G, v) -> int
@@ -6151,6 +6181,13 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         llvm::Value *wtPtr = Builder.CreateStructGEP(
             GraphTy, graphPtr, 4, "g_w_ptr");
         Builder.CreateStore(wPtr, wtPtr);
+    }
+
+    // GEP + store into field 5: directed
+    {
+        llvm::Value *dirPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 5, "g_directed_ptr");
+        Builder.CreateStore(Builder.getInt32(G->directed ? 1 : 0), dirPtr);
     }
 
     llvm::Value *graphStorage = nullptr;

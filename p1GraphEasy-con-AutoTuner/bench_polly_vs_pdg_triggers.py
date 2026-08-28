@@ -256,7 +256,320 @@ kernel();
 """
 
 
+def k_fib_doacross(edge: str) -> str:
+    """Two-term recurrence a[i]=a[i-1]+a[i-2] — PDG DOACROSS when Polly off."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int i = 0;
+  while (i < n) {
+    if (i < 2) { a[i] = i + 1; } else { a[i] = 0; }
+    i = i + 1;
+  }
+  i = 2;
+  while (i < n) {
+    a[i] = a[i - 1] + a[i - 2];
+    i = i + 1;
+  }
+  print a[n - 1];
+}
+kernel();
+"""
+
+
+def k_dense_ffl_count(edge: str) -> str:
+    """Dense triple nest (Polly-visible FFL count), not CSR motif."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n][n];
+  int count = 0;
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = 0;
+      if (i != j) {
+        int s = i + j;
+        int r = s - (s / 3) * 3;
+        if (r != 0) { A[i][j] = 1; }
+      }
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  int a = 0;
+  while (a < n) {
+    int b = 0;
+    while (b < n) {
+      int c = 0;
+      while (c < n) {
+        int prod = A[a][b] * A[a][c] * A[b][c];
+        count = count + prod;
+        c = c + 1;
+      }
+      b = b + 1;
+    }
+    a = a + 1;
+  }
+  print count;
+}
+kernel();
+"""
+
+
+def k_transpose_2d(edge: str) -> str:
+    """Pure affine 2D copy/transpose — Polly sweet spot."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n][n];
+  int B[n][n];
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = i + j;
+      B[i][j] = 0;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      B[j][i] = A[i][j];
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  print B[1][1];
+}
+kernel();
+"""
+
+
+def k_bfs_frontier(edge: str) -> str:
+    """Array BFS + neighbor walk — opaque CSR, Polly silent."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int visited[n];
+  int parent[n];
+  int frontier[n];
+  int next_frontier[n];
+  int frontier_size = 1;
+  int next_size = 0;
+  int i = 0;
+  while (i < n) {
+    visited[i] = 0;
+    parent[i] = -1;
+    i = i + 1;
+  }
+  frontier[0] = 0;
+  visited[0] = 1;
+  parent[0] = 0;
+  while (frontier_size > 0) {
+    next_size = 0;
+    i = 0;
+    while (i < frontier_size) {
+      int v = frontier[i];
+      for each neighbor u of v in G {
+        if (visited[u] == 0) {
+          visited[u] = 1;
+          parent[u] = v;
+          next_frontier[next_size] = u;
+          next_size = next_size + 1;
+        }
+      }
+      i = i + 1;
+    }
+    i = 0;
+    while (i < next_size) {
+      frontier[i] = next_frontier[i];
+      i = i + 1;
+    }
+    frontier_size = next_size;
+  }
+  print parent[n - 1];
+}
+kernel();
+"""
+
+
+def k_reduction_sum(edge: str) -> str:
+    """Affine sum reduction — DOALL when Polly off."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n];
+  int sum = 0;
+  int i = 0;
+  while (i < n) {
+    A[i] = i + 1;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) {
+    sum = sum + A[i];
+    i = i + 1;
+  }
+  print sum;
+}
+kernel();
+"""
+
+
+def k_saxpy_prefix_combo(edge: str) -> str:
+    """Saxpy DOALL + prefix DOACROSS, no matmul — tests Polly vs PDG split."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int x[n];
+  int y[n];
+  int pref[n];
+  int i = 0;
+  while (i < n) {
+    x[i] = i + 1;
+    y[i] = 1;
+    pref[i] = 1;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) {
+    y[i] = 3 * x[i] + y[i];
+    i = i + 1;
+  }
+  i = 1;
+  while (i < n) {
+    pref[i] = pref[i - 1] + x[i];
+    i = i + 1;
+  }
+  print y[n - 1] + pref[n - 1];
+}
+kernel();
+"""
+
+
+def k_combo_triple(edge: str) -> str:
+    """Matmul (Polly) + saxpy (DOALL) + prefix/gather (DOACROSS) — same as DOACROSS suite case 10."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n][n];
+  int Bmat[n][n];
+  int C[n][n];
+  int x[n];
+  int y[n];
+  int pref[n];
+  int Q[n];
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = i + 1;
+      Bmat[i][j] = j + 1;
+      C[i][j] = 0;
+      j = j + 1;
+    }
+    x[i] = i + 1;
+    y[i] = 1;
+    pref[i] = 1;
+    Q[i] = n - 1 - i;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      int s = 0;
+      int k = 0;
+      while (k < n) {
+        s = s + A[i][k] * Bmat[k][j];
+        k = k + 1;
+      }
+      C[i][j] = s;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) { y[i] = 3 * x[i] + y[i]; i = i + 1; }
+  i = 1;
+  while (i < n) {
+    int idx = Q[i];
+    pref[i] = pref[i - 1] + x[idx];
+    i = i + 1;
+  }
+  print y[n - 1] + pref[n - 1] + C[1][1];
+}
+kernel();
+"""
+
+
+def k_stencil_1d(edge: str) -> str:
+    """1D Jacobi-style smooth — loop-carried on a[i-1], a[i+1]."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int b[n];
+  int i = 0;
+  while (i < n) {
+    a[i] = i + 1;
+    b[i] = 0;
+    i = i + 1;
+  }
+  i = 1;
+  while (i < n - 1) {
+    b[i] = a[i - 1] + a[i] + a[i + 1];
+    i = i + 1;
+  }
+  print b[n / 2];
+}
+kernel();
+"""
+
+
+def k_edge_only_walk(edge: str) -> str:
+    """for each edge — opaque iteration, not affine."""
+    return header(edge) + """
+fn void kernel() {
+  int sum = 0;
+  for each edge u, v in G {
+    sum = sum + u + v;
+  }
+  print sum;
+}
+kernel();
+"""
+
+
+def k_2d_init_only(edge: str) -> str:
+    """Double-nested init only — small SCoP, often no GOMP at small N."""
+    return header(edge) + """
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n][n];
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = i * n + j;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  print A[1][1];
+}
+kernel();
+"""
+
+
 KERNELS = {
+    # --- original 7 ---
     "affine_matmul": k_affine_matmul,
     "affine_saxpy": k_affine_saxpy,
     "affine_prefix": k_affine_prefix,
@@ -264,6 +577,17 @@ KERNELS = {
     "nonaffine_branch": k_nonaffine_data_dep_branch,
     "csr_neighbor": k_csr_neighbor_walk,
     "mixed_affine_indirect": k_mixed_affine_plus_indirect,
+    # --- extended trigger patterns ---
+    "fib_doacross": k_fib_doacross,
+    "dense_ffl_count": k_dense_ffl_count,
+    "transpose_2d": k_transpose_2d,
+    "bfs_frontier": k_bfs_frontier,
+    "reduction_sum": k_reduction_sum,
+    "saxpy_prefix_combo": k_saxpy_prefix_combo,
+    "combo_triple": k_combo_triple,
+    "stencil_1d": k_stencil_1d,
+    "edge_only_walk": k_edge_only_walk,
+    "2d_init_only": k_2d_init_only,
 }
 
 # Polly configs: name → env mutations (on top of clean PATH)
@@ -327,6 +651,66 @@ def scop_count(bc: Path) -> int:
         check=False,
     )
     return (proc.stdout + proc.stderr).count("Valid Region for Scop")
+
+
+def trigger_pattern(row: dict) -> str:
+    """Coarse Polly vs PDG vs outline quadrant (polly_on row preferred)."""
+    if row["cfg"] == "polly_off":
+        polly_fires = False
+    else:
+        polly_fires = row["post_gomp"] > 0 or row["post_polly_refs"] > 0
+    pdg_fires = row["pdg_doall"] > 0 or row["pdg_doacross"] > 0
+    outlined = row["out_pfr"] > 0 or row["out_pfr_ex"] > 0
+
+    if polly_fires and pdg_fires and outlined:
+        return "Polly+PDG+outline (different nests)"
+    if polly_fires and pdg_fires:
+        return "Polly+PDG metadata (mixed program)"
+    if polly_fires and outlined:
+        return "Polly GOMP + residual outline"
+    if polly_fires and not pdg_fires:
+        return "Polly only (PDG idle on consumed nests)"
+    if not polly_fires and pdg_fires and outlined:
+        return "PDG+outline only (Polly silent)"
+    if not polly_fires and pdg_fires and not outlined:
+        return "PDG classifies, no outline (opaque/non-profit)"
+    if not polly_fires and not pdg_fires:
+        return "Neither fires"
+    if pdg_fires:
+        return "PDG metadata only"
+    return "other"
+
+
+def pattern_summary(rows: list[dict]) -> list[str]:
+    """Build trigger-pattern cheat sheet from polly_on rows."""
+    on_rows = [r for r in rows if r.get("ok") and r["cfg"] == "polly_on"]
+    lines = [
+        "## Trigger patterns (polly_on, one row per kernel)",
+        "",
+        "| kernel | SCoPs | GOMP | PDG DOALL | PDG DOACROSS | outlined | pattern |",
+        "|---|---:|---:|---:|---:|---:|---|",
+    ]
+    for r in on_rows:
+        pat = trigger_pattern(r)
+        lines.append(
+            f"| {r['kernel']} | {r['pre_scops']} | {r['post_gomp']} | "
+            f"{r['pdg_doall']} | {r['pdg_doacross']} | {r['out_pfr']} | {pat} |"
+        )
+    lines += [
+        "",
+        "## Quadrant guide",
+        "",
+        "| Polly | PDG | Outline | Example kernels |",
+        "|---|---|---|---|",
+        "| yes (GOMP) | yes | yes | `combo_triple`, `mixed_affine_indirect` |",
+        "| yes (GOMP) | partial | partial | `affine_matmul`, `transpose_2d`, `dense_ffl_count` |",
+        "| yes (xform) | yes | no | `affine_prefix`, `fib_doacross` (Polly eats carried loop) |",
+        "| scop only | yes | varies | `affine_saxpy` (tiny nest, detect but no GOMP) |",
+        "| no | yes | no | `csr_neighbor`, `bfs_frontier`, `edge_only_walk`, `nonaffine_indirect` |",
+        "| no | yes | yes | same kernels with `polly_off` |",
+        "",
+    ]
+    return lines
 
 
 def classify_row(row: dict) -> str:
@@ -562,6 +946,8 @@ def main() -> int:
             f"{r['post_gomp']} | {r['pdg_doall']} | {r['pdg_doacross']} | "
             f"{r['out_pfr']} | `{r['bucket']}` |"
         )
+
+    lines += pattern_summary([r for r in rows if r.get("ok")])
 
     lines += [
         "",

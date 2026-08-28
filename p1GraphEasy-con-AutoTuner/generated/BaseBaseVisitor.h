@@ -27,11 +27,7 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override {
+  virtual std::any visitGraphDef(BaseParser::GraphDefContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -39,7 +35,7 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitBoolLiteral(BaseParser::BoolLiteralContext *ctx) override {
+  virtual std::any visitWeighted(BaseParser::WeightedContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -171,15 +167,23 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitMotifMatchesDecl(BaseParser::MotifMatchesDeclContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitGraphListDecl(BaseParser::GraphListDeclContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitMotifEdge(BaseParser::MotifEdgeContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual std::any visitDegreeCondition(BaseParser::DegreeConditionContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitEdgeHasCondition(BaseParser::EdgeHasConditionContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -191,15 +195,15 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitMotifCondition(BaseParser::MotifConditionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitGraphLogicalOr(BaseParser::GraphLogicalOrContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual std::any visitParenGraphCondition(BaseParser::ParenGraphConditionContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitVertexInSetCondition(BaseParser::VertexInSetConditionContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -219,19 +223,19 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitForEachOutAdj(BaseParser::ForEachOutAdjContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitForEachInAdj(BaseParser::ForEachInAdjContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
   virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual std::any visitForEachElement(BaseParser::ForEachElementContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitForEachGraph(BaseParser::ForEachGraphContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitForEachMotif(BaseParser::ForEachMotifContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -255,11 +259,19 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitAddTargets(BaseParser::AddTargetsContext *ctx) override {
+  virtual std::any visitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitRemoveTargets(BaseParser::RemoveTargetsContext *ctx) override {
+  virtual std::any visitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -291,11 +303,43 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override {
+  virtual std::any visitDrawgraph(BaseParser::DrawgraphContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitFunctionName(BaseParser::FunctionNameContext *ctx) override {
+  virtual std::any visitDrawmotifs(BaseParser::DrawmotifsContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitDrawMotifOption(BaseParser::DrawMotifOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitDrawOption(BaseParser::DrawOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitVertexDrawOption(BaseParser::VertexDrawOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitEdgeDrawOption(BaseParser::EdgeDrawOptionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitColorMapping(BaseParser::ColorMappingContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitContinuousMapping(BaseParser::ContinuousMappingContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitDrawBoolLiteral(BaseParser::DrawBoolLiteralContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override {
     return visitChildren(ctx);
   }
 

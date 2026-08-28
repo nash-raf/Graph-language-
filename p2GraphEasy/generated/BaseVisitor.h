@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -30,6 +30,8 @@ public:
     virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
 
     virtual std::any visitGraphProperty(BaseParser::GraphPropertyContext *context) = 0;
+
+    virtual std::any visitWeightMode(BaseParser::WeightModeContext *context) = 0;
 
     virtual std::any visitBoolLiteral(BaseParser::BoolLiteralContext *context) = 0;
 
@@ -95,6 +97,10 @@ public:
 
     virtual std::any visitGraphComprehension(BaseParser::GraphComprehensionContext *context) = 0;
 
+    virtual std::any visitMotifMatchesDecl(BaseParser::MotifMatchesDeclContext *context) = 0;
+
+    virtual std::any visitGraphListDecl(BaseParser::GraphListDeclContext *context) = 0;
+
     virtual std::any visitGraphExpr(BaseParser::GraphExprContext *context) = 0;
 
     virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *context) = 0;
@@ -107,11 +113,15 @@ public:
 
     virtual std::any visitConnectedCondition(BaseParser::ConnectedConditionContext *context) = 0;
 
+    virtual std::any visitMotifCondition(BaseParser::MotifConditionContext *context) = 0;
+
     virtual std::any visitGraphLogicalOr(BaseParser::GraphLogicalOrContext *context) = 0;
 
     virtual std::any visitParenGraphCondition(BaseParser::ParenGraphConditionContext *context) = 0;
 
     virtual std::any visitVertexInSetCondition(BaseParser::VertexInSetConditionContext *context) = 0;
+
+    virtual std::any visitMotifEdge(BaseParser::MotifEdgeContext *context) = 0;
 
     virtual std::any visitLoopStatement(BaseParser::LoopStatementContext *context) = 0;
 
@@ -128,6 +138,10 @@ public:
     virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *context) = 0;
 
     virtual std::any visitForEachElement(BaseParser::ForEachElementContext *context) = 0;
+
+    virtual std::any visitForEachGraph(BaseParser::ForEachGraphContext *context) = 0;
+
+    virtual std::any visitForEachMotif(BaseParser::ForEachMotifContext *context) = 0;
 
     virtual std::any visitForEachPlain(BaseParser::ForEachPlainContext *context) = 0;
 
@@ -148,6 +162,10 @@ public:
     virtual std::any visitShowgraph(BaseParser::ShowgraphContext *context) = 0;
 
     virtual std::any visitDrawgraph(BaseParser::DrawgraphContext *context) = 0;
+
+    virtual std::any visitDrawmotifs(BaseParser::DrawmotifsContext *context) = 0;
+
+    virtual std::any visitDrawMotifOption(BaseParser::DrawMotifOptionContext *context) = 0;
 
     virtual std::any visitDrawOption(BaseParser::DrawOptionContext *context) = 0;
 

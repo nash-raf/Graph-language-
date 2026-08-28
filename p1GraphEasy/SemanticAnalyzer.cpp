@@ -203,11 +203,11 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
             call->resolvedType = TypeKind::Int;
             return TypeKind::Int;
         }
-        // Built-ins: degree/outDegree/inDegree(G, v) -> int
-        if (call->name == "degree" || call->name == "outDegree" || call->name == "inDegree")
+        // Built-in: degree(G, v) -> int
+        if (call->name == "degree")
         {
             if (call->arguments.size() != 2)
-                error(call->name + " requires exactly 2 arguments (graph, vertex)");
+                error("degree requires exactly 2 arguments (graph, vertex)");
             call->resolvedType = TypeKind::Int;
             return TypeKind::Int;
         }
@@ -661,9 +661,7 @@ void SemanticAnalyzer::analyzeForEach(ForEachStmtNode *fs)
     {
         declareSymbol(fs->var1, varSym);
     }
-    else if (fs->targetType == ForEachTargetType::Neighbor ||
-             fs->targetType == ForEachTargetType::OutNeighbor ||
-             fs->targetType == ForEachTargetType::InNeighbor)
+    else if (fs->targetType == ForEachTargetType::Neighbor)
     {
         declareSymbol(fs->var1, varSym);
         if (fs->adjNodeExpr)
@@ -777,6 +775,22 @@ void SemanticAnalyzer::analyzeGraphUpdate(GraphUpdateNode *upd)
         error("graph update on undeclared graph: " + upd->graphName);
     if (gSym->type != TypeKind::Graph)
         error("graph update only supported on unweighted graphs: " + upd->graphName);
+
+    for (const auto &target : upd->targets)
+    {
+        if (target.kind == GraphUpdateTargetKind::Node)
+        {
+            TypeKind t = analyzeExpr(target.value.get());
+            if (t != TypeKind::Int)
+                error("graph update node target must be int");
+            continue;
+        }
+
+        TypeKind srcType = analyzeExpr(target.src.get());
+        TypeKind dstType = analyzeExpr(target.dst.get());
+        if (srcType != TypeKind::Int || dstType != TypeKind::Int)
+            error("graph update edge endpoints must be int");
+    }
 }
 
 void SemanticAnalyzer::analyzeShowGraph(ShowGraphNode *S)

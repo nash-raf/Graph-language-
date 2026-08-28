@@ -1,0 +1,60 @@
+// Floyd-Warshall rewritten for the current grammar: `while` instead of the
+// C-style `for` used by floyd_warshall*.graph (which no longer parses), and
+// inside a `fn` so induction variables are locals rather than globals.
+// Tiny input (8 vertices) so dist is 64 ints.
+graph G {
+  edges: file "edgelistw.txt";
+  TRUE
+};
+
+fn void floydWarshall() {
+  int n = numVertices(G);
+  int dist[n][n];
+  int inf = 1000000000;
+
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      if (i == j) {
+        dist[i][j] = 0;
+      } else {
+        dist[i][j] = inf;
+      }
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+
+  for each edge u, v in G {
+    int w = weight(G, u, v);
+    if (w < dist[u][v]) {
+      dist[u][v] = w;
+      dist[v][u] = w;
+    }
+  }
+
+  int k = 0;
+  while (k < n) {
+    i = 0;
+    while (i < n) {
+      int j = 0;
+      while (j < n) {
+        if (dist[i][k] != inf && dist[k][j] != inf) {
+          int nd = dist[i][k] + dist[k][j];
+          if (nd < dist[i][j]) {
+            dist[i][j] = nd;
+          }
+        }
+        j = j + 1;
+      }
+      i = i + 1;
+    }
+    k = k + 1;
+  }
+
+  int r = dist[1][4];
+  print r;
+}
+
+floydWarshall();

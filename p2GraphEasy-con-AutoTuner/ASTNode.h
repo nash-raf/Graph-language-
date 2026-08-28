@@ -31,6 +31,8 @@ enum class TypeKind
     RealArray,
     Graph,
     WeightedGraph,
+    MotifMatches,
+    GraphList,
     Set,
     Void,
     Unknown
@@ -67,6 +69,10 @@ enum class ASTNodeType
     SleepStmt,
     GraphUpdate,
     ShowGraph,
+    DrawGraph,
+    DrawMotifs,
+    MotifMatchesDecl,
+    GraphListDecl,
     GraphComprehension,
     SetDecl,
     SetLiteral,
@@ -86,7 +92,16 @@ enum class ASTNodeType
 
 enum class GraphUpdateKind { Add, Remove };
 enum class GraphDegreeOp { None, Eq, Ne, Le, Ge, Lt, Gt };
-enum class GraphConditionOp { And, Or, Connected, Cycle, Degree, EdgeHas, VertexInSet };
+enum class GraphConditionOp { And, Or, Connected, Cycle, Degree, EdgeHas, VertexInSet, Motif };
+enum class GraphWeightMode { None = 0, FromFile = 1, Positive = 2, Zero = 3, Negative = 4 };
+enum class MotifEdgeSign { Positive = 1, Negative = -1 };
+
+struct MotifEdgeSpec
+{
+    std::string source;
+    std::string target;
+    MotifEdgeSign sign = MotifEdgeSign::Positive;
+};
 
 
 template <typename T>
@@ -132,6 +147,7 @@ public:
     int degreeValue = -1;
     ASTNodePtr expr;        // for EdgeHas
     std::string setName;    // for VertexInSet
+    std::vector<MotifEdgeSpec> motifEdges; // for Motif
     std::shared_ptr<GraphConditionNode> left;   // for And/Or
     std::shared_ptr<GraphConditionNode> right;  // for And/Or
 
@@ -162,6 +178,12 @@ public:
           op(GraphConditionOp::VertexInSet),
           setName(set) {}
 
+    // Motif: 'motif { a->b; ... }'
+    explicit GraphConditionNode(std::vector<MotifEdgeSpec> edges)
+        : ASTNode(ASTNodeType::GraphComprehension),
+          op(GraphConditionOp::Motif),
+          motifEdges(std::move(edges)) {}
+
     // And/Or: binary condition
     GraphConditionNode(GraphConditionOp o,
                        std::shared_ptr<GraphConditionNode> l,
@@ -191,6 +213,38 @@ public:
           ops(std::move(opList)),
           graphOperands(std::move(operands)),
           condition(cond) {}
+};
+
+class MotifMatchesDeclNode : public ASTNode
+{
+public:
+    std::string name;
+    std::string graphName;
+    std::vector<MotifEdgeSpec> motifEdges;
+    std::vector<std::string> variableNames;
+
+    MotifMatchesDeclNode(std::string resultName, std::string graph,
+                         std::vector<MotifEdgeSpec> edges,
+                         std::vector<std::string> variables)
+        : ASTNode(ASTNodeType::MotifMatchesDecl),
+          name(std::move(resultName)), graphName(std::move(graph)),
+          motifEdges(std::move(edges)), variableNames(std::move(variables)) {}
+};
+
+class GraphListDeclNode : public ASTNode
+{
+public:
+    std::string name;
+    std::string graphName;
+    std::vector<MotifEdgeSpec> motifEdges;
+    std::vector<std::string> variableNames;
+
+    GraphListDeclNode(std::string resultName, std::string graph,
+                      std::vector<MotifEdgeSpec> edges,
+                      std::vector<std::string> variables)
+        : ASTNode(ASTNodeType::GraphListDecl),
+          name(std::move(resultName)), graphName(std::move(graph)),
+          motifEdges(std::move(edges)), variableNames(std::move(variables)) {}
 };
 
 
@@ -415,7 +469,9 @@ enum class ForEachTargetType
     Neighbor,
     OutNeighbor,
     InNeighbor,
-    Element  // for iterating over set elements
+    Element,  // for iterating over set elements
+    Graph,    // for iterating over graph collections
+    Motif
 };
 
 struct ForEachStmtNode : ASTNode
@@ -426,6 +482,7 @@ struct ForEachStmtNode : ASTNode
     std::string graphName;        // the graph/set over which to iterate
     ASTNodePtr adjNodeExpr;       // expression for neighbor-of (nullptr if not neighbor loop)
     ASTNodePtr body;              // loop body
+    std::vector<std::string> motifVars;
 
     ForEachStmtNode(ForEachTargetType tgt, const std::string &v1, const std::string &v2,
                     const std::string &gName, ASTNodePtr adjExpr, ASTNodePtr bd)
@@ -588,6 +645,60 @@ public:
 
     ShowGraphNode(const std::string &g)
         : ASTNode(ASTNodeType::ShowGraph), graphName(g) {}
+};
+
+enum class DrawLayout
+{
+    Auto,
+    Hierarchical,
+    Force,
+    Radial,
+    Circular,
+    Clustered
+};
+
+enum class DrawColorMode
+{
+    None,
+    Categorical,
+    Continuous
+};
+
+class DrawGraphNode : public ASTNode
+{
+public:
+    std::string graphName;
+    std::string outputPath;
+    DrawLayout layout = DrawLayout::Auto;
+    bool vertexLabels = true;
+    DrawColorMode colorMode = DrawColorMode::None;
+    std::string colorArray;
+    TypeKind colorArrayType = TypeKind::Unknown;
+    std::string sizeArray;
+    TypeKind sizeArrayType = TypeKind::Unknown;
+    bool edgeWeightLabels = false;
+
+    DrawGraphNode(std::string graph, std::string output)
+        : ASTNode(ASTNodeType::DrawGraph),
+          graphName(std::move(graph)),
+          outputPath(std::move(output)) {}
+};
+
+class DrawMotifsNode : public ASTNode
+{
+public:
+    std::string graphName;
+    std::string outputPrefix;
+    DrawLayout layout = DrawLayout::Auto;
+    bool vertexLabels = true;
+    bool edgeLabels = false;
+    bool combinedImage = false;
+    std::vector<MotifEdgeSpec> motifEdges;
+
+    DrawMotifsNode(std::string graph, std::string output)
+        : ASTNode(ASTNodeType::DrawMotifs),
+          graphName(std::move(graph)),
+          outputPrefix(std::move(output)) {}
 };
 
 
@@ -824,6 +935,7 @@ public:
     bool isFileGraph = false;
     std::string edgeFileName;
     bool directed = false;
+    GraphWeightMode weightMode = GraphWeightMode::FromFile;
 
     size_t n = 0, m = 0; // number of nodes and edges
     size_t *row_ptr = nullptr;
@@ -838,12 +950,14 @@ public:
     std::vector<uint8_t> nodes_blob;
     std::vector<uint8_t> edges_blob;
 
-    WeightedGraphDeclNode(std::string nm, std::string fileName, bool isDirected = false)
+    WeightedGraphDeclNode(std::string nm, std::string fileName, bool isDirected = false,
+                          GraphWeightMode mode = GraphWeightMode::FromFile)
         : ASTNode(ASTNodeType::WeightedGraphDecl),
           name(std::move(nm)),
           isFileGraph(true),
           edgeFileName(std::move(fileName)),
-          directed(isDirected)
+          directed(isDirected),
+          weightMode(mode)
     {
     }
 
@@ -851,12 +965,14 @@ public:
         std::string nm,
         std::unique_ptr<NodeListNode> nList,
         std::unique_ptr<WeightedEdgeListNode> eList,
-        bool isDirected = false)
+        bool isDirected = false,
+        GraphWeightMode mode = GraphWeightMode::FromFile)
         : ASTNode(ASTNodeType::WeightedGraphDecl),
           name(std::move(nm)),
           nodes(std::move(nList)),
           edges(std::move(eList)),
-          directed(isDirected)
+          directed(isDirected),
+          weightMode(mode)
     {
         auto t0 = std::chrono::high_resolution_clock::now();
 

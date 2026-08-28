@@ -1,0 +1,67 @@
+graph G {
+  edges: file "/home/user/Course/msk1/benchmark/bfs_parent_validation/large_10m_unweighted.txt";
+};
+
+int n = numVertices(G);
+int visited[n];
+int parent[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 1;
+int next_size = 0;
+int init_i = 0;
+
+while (init_i < n) {
+  visited[init_i] = 0;
+  parent[init_i] = -1;
+  init_i = init_i + 1;
+}
+
+frontier[0] = 0;
+visited[0] = 1;
+parent[0] = 0;
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int i = 0;
+
+  while (i < frontier_size) {
+    int v = frontier[i];
+
+    for each neighbor u of v in G {
+      if (visited[u] == 0) {
+        visited[u] = 1;
+        parent[u] = v;
+        next_frontier[next_size] = u;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+
+int visited_count = 0;
+real parent_checksum = 0.0;
+int scan_i = 0;
+
+while (scan_i < n) {
+  if (visited[scan_i] == 1) {
+    visited_count = visited_count + 1;
+  }
+  parent_checksum = parent_checksum + parent[scan_i];
+  scan_i = scan_i + 1;
+}
+
+print visited_count;
+print parent_checksum;
+print parent[0];
+print parent[1];
+print parent[2];
+print parent[104730];
+print parent[209461];
+print parent[209462];
+print parent[9999999];

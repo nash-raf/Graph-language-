@@ -1,0 +1,8 @@
+graph G2 { edges: file "edgelist.txt"; };
+
+query bfs1: "bfs" of G2;
+query bfs2: "bfs" of G2;
+
+add 0->1, 1->2, 2->3, 3->4 to G2;
+
+query bfs3: "bfs" of G2;

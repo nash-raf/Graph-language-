@@ -343,6 +343,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitFunctionName(BaseParser::FunctionNameContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitArgumentList(BaseParser::ArgumentListContext *ctx) override {
     return visitChildren(ctx);
   }

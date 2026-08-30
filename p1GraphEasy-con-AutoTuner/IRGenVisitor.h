@@ -61,6 +61,7 @@ public:
     void visitStatement(ASTNode *node);
     void visitWhile(WhileStmtNode *ws);
     void visitForEach(ForEachStmtNode *fs);
+    void emitAutoGraphInit(llvm::Value *graphPtr);
     void visitFunctionDecl(FunctionDeclNode *funcDecl);
     llvm::Value *visitGraphDecl(GraphDeclNode *G);
     llvm::Value *visitWeightedGraphDecl(WeightedGraphDeclNode *G);

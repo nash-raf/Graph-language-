@@ -485,6 +485,8 @@ int main(int argc, char **argv)
     if (!PollyTM)
         return 1;
     bool pollyFlagsParsed = false;
+    bool polly_disabled_no_user_fn = false;
+    bool polly_owns_user_fns = false;
 
     std::string backendSelectionReason;
     const std::string activeIRBackend = resolveBackend(backendSelectionReason);
@@ -659,11 +661,22 @@ int main(int argc, char **argv)
             }
         parsePollyFlags(argc, argv, onlyFuncs);
         pollyFlagsParsed = true;
+        // With no user `fn`, -polly-only-func has nothing to match, so Polly
+        // transforms nothing -- but the O3 pipeline below must still run.  The
+        // two were previously gated on one flag, which silently dropped ALL
+        // optimisation for such programs.
         if (onlyFuncs.empty())
-            setenv("GRAPH_DISABLE_POLLY", "1", 1);
+            polly_disabled_no_user_fn = true;
+        else
+            polly_owns_user_fns = true;
     }
 
-    if (!isTruthyEnv("GRAPH_DISABLE_POLLY"))
+    // GRAPH_NO_O3 skips the whole optimisation block, Polly included.  Kept
+    // separate from GRAPH_DISABLE_POLLY so the two can be bisected apart: O3
+    // runs before the PDG/outliner and can restructure loops out of the shapes
+    // the outliner recognises.
+    if (!isTruthyEnv("GRAPH_NO_O3") &&
+        (!isTruthyEnv("GRAPH_DISABLE_POLLY") || polly_disabled_no_user_fn))
     {
         M->setTargetTriple(sys::getDefaultTargetTriple());
         M->setDataLayout(PollyTM->createDataLayout());
@@ -963,7 +976,11 @@ int main(int argc, char **argv)
 
         // ====================================================================
 
-        reconstructParallelIR(*M, pdg, TG, taskLevels);
+        // GRAPH_NO_PARALLEL_IR / GRAPH_NO_OUTLINER exist to bisect miscompiles:
+        // both passes rewrite main, and a wrong answer that only appears at top
+        // level is almost always one of them.
+        if (!isTruthyEnv("GRAPH_NO_PARALLEL_IR"))
+            reconstructParallelIR(*M, pdg, TG, taskLevels);
 
         // After PDG annotation / parallel IR rewrite, before outlining.  Used by
         // the Polly-vs-PDG trigger matrix to count my.loop.parallel DOALL|DOACROSS
@@ -972,7 +989,16 @@ int main(int argc, char **argv)
             dumpModuleBitcode(*M, dumpPath);
 
         // optional: you can still call your helper which creates its own managers
-        runLoopOutlinerOnModule(*M);
+        // Polly and the outliner must not both transform a program.  Measured on
+        // an affine matmul kernel: Polly alone gives 723964781 in 0.23 s, the
+        // outliner alone gives 723964781 in 0.23 s, and both together segfault
+        // on a worker thread inside outlined_task_*[parallel] -- the outliner
+        // hoists Polly's rewritten body onto the pool.  When Polly is live for
+        // this program, it owns the optimisation.
+        const bool outlinerEnabled =
+            !isTruthyEnv("GRAPH_NO_OUTLINER") && !polly_owns_user_fns;
+        if (outlinerEnabled)
+            runLoopOutlinerOnModule(*M);
 
         // Build function-level cleanup pipeline
         FunctionPassManager FPM;
@@ -1005,7 +1031,8 @@ int main(int argc, char **argv)
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
         FunctionPassManager FPM;
-        registerLoopOutlinerPass(FPM);
+        if (!isTruthyEnv("GRAPH_NO_OUTLINER") && !polly_owns_user_fns)
+            registerLoopOutlinerPass(FPM);
 
         ModulePassManager MPM;
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));

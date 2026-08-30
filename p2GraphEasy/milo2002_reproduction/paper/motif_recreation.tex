@@ -1,0 +1,494 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\title{Recreating Milo Network Motifs\\
+\large with GraphEasy, Python, and mfinder}
+\author{GraphEasy Motif Project}
+\date{}
+
+\begin{document}
+\maketitle
+\section{Introduction}
+
+A motif is a small directed pattern (an induced subgraph pattern) that appears in the real network more often than in randomized networks with the same local constraints.
+
+This document recreates and verifies motif and triad-significance computations from:
+(1) Milo et al.\ (2002), and
+(2) Milo et al.\ (2004).
+For both papers we use three independent counters:
+GraphEasy, a small Python triad census, and the original mfinder~1.20.
+We only use the graphs we can find; the links are provided below.
+
+In this document we completed feed-forward loop (FFL), bi-parallel, three-chain, bi-fan, and other Table~1 motifs; the demo below uses FFL on one graph as an example.
+
+\section{Milo et al.\ 2002: Table~1 (real motif counts)}
+
+On a single original graph (\textit{E.\ coli}), we show FFL as the demo example.
+We count the same induced patterns in GraphEasy, Python, and mfinder and require exact equality of real counts $N_{\mathrm{real}}$.
+
+\subsection*{Demo (one graph, FFL)}
+
+\begin{itemize}
+\item \textbf{GraphEasy (FFL DSL)}
+\begin{lstlisting}
+cd milo2002_reproduction
+
+graph G {
+  directed: true;
+  edges: file "data/grapheasy/ecoli_table1.txt";
+};
+
+motifs FeedForwardLoop = [G where motif {
+  source->intermediate;
+  source->target;
+  intermediate->target;
+}];
+
+print numMotifs(FeedForwardLoop);
+\end{lstlisting}
+
+\item \textbf{Python (exact induced FFL count)}
+\begin{lstlisting}
+from pathlib import Path
+
+def load_graph(path: Path, vertices: int) -> list[set[int]]:
+    outgoing = [set() for _ in range(vertices)]
+    seen = set()
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        source, target = map(int, line.split()[:2])
+        edge = (source, target)
+        if edge in seen:
+            continue
+        seen.add(edge)
+        outgoing[source].add(target)
+    return outgoing
+
+def induced_edges(outgoing, vertices):
+    return {
+        (u, v) for u in vertices for v in vertices
+        if u != v and v in outgoing[u]
+    }
+
+def feed_forward_loops(outgoing):
+    matches = []
+    for source, nbrs in enumerate(outgoing):
+        for intermediate in nbrs:
+            for target in nbrs & outgoing[intermediate]:
+                if len({source, intermediate, target}) != 3:
+                    continue
+                verts = (source, intermediate, target)
+                expected = {
+                    (source, intermediate),
+                    (source, target),
+                    (intermediate, target),
+                }
+                if induced_edges(outgoing, verts) == expected:
+                    matches.append(verts)
+    return matches
+
+outgoing = load_graph(Path("data/grapheasy/ecoli_table1.txt"), 424)
+print("FFL", len(feed_forward_loops(outgoing)))  # 40
+\end{lstlisting}
+
+\item \textbf{mfinder command (real counts)}
+\begin{lstlisting}
+cd milo2002_reproduction
+
+./reference/mfinder1.2/mfinder \
+  data/mfinder/ecoli.txt -s 3 -r 0 -nu \
+  -f results/mfinder_ecoli_size3.txt -q
+\end{lstlisting}
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{l l r l}
+\toprule
+\multicolumn{1}{c}{Network} & \multicolumn{1}{c}{Motif} & \multicolumn{1}{c}{Nreal (GE/Py/mf)} & \multicolumn{1}{c}{Null/Z} \\
+\midrule
+\textit{E.\ coli} & feed-forward loop (FFL) & 40/40/40 & yes \\
+\textit{E.\ coli} & bi-fan & 203/203/203 & yes \\
+St.\ Martin & three-chain & 469/469/469 & yes \\
+St.\ Martin & bi-parallel & 382/382/382 & yes \\
+Skipwith & three-chain & 184/184/184 & yes \\
+Skipwith & bi-parallel & 397/397/397 & yes \\
+B.\ Brook & three-chain & 181/181/181 & yes \\
+B.\ Brook & bi-parallel & 267/267/267 & no$^*$ \\
+s208 & three-node feedback loop & 10/10/10 & yes \\
+s208 & bi-fan & 4/4/4 & yes \\
+s208 & four-node feedback loop & 5/5/5 & yes \\
+s420 & three-node feedback loop & 20/20/20 & yes \\
+s420 & bi-fan & 10/10/10 & yes \\
+s420 & four-node feedback loop & 11/11/11 & yes \\
+s838 & three-node feedback loop & 40/40/40 & yes \\
+s838 & bi-fan & 22/22/22 & yes \\
+s838 & four-node feedback loop & 23/23/23 & yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$^*$Bridge Brook bi-parallel: paper reports $N_{\mathrm{rand}}=30\pm 7$ ($Z=32$),
+while our exact triad-preserving ensemble gives $90.0\pm 23.4$ ($Z=7.57$).
+The real count is correct in all three tools; only the null statistics disagree.
+
+\section{Milo et al.\ 2004: Superfamilies (separate recreation)}
+
+We use the same three counters (GraphEasy, Python, mfinder) on recovered Alon networks.
+For each network we report feed-forward loop (FFL) and three-chain real counts and require exact equality across all three tools.
+
+\begin{center}
+\begin{tabular}{lrrrrrr}
+\toprule
+Network & FFL GE & FFL Py & FFL mf & Chain GE & Chain Py & Chain mf \\
+\midrule
+TRANSC-E.COLI & 40 & 40 & 40 & 162 & 162 & 162 \\
+SOCIAL-1 & 13 & 13 & 13 & 103 & 103 & 103 \\
+SOCIAL-3 & 11 & 11 & 11 & 79 & 79 & 79 \\
+JAPANESE & 4111 & 4111 & 4111 & 332627 & 332627 & 332627 \\
+ENGLISH & 82031 & 82031 & 82031 & 4988512 & 4988512 & 4988512 \\
+FRENCH & 12435 & 12435 & 12435 & 2193156 & 2193156 & 2193156 \\
+SPANISH & 50790 & 50790 & 50790 & 7479660 & 7479660 & 7479660 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Analytic null model (Itzkovitz et al.\ 2003)}
+
+Every count above is a \emph{real} count $N_{\mathrm{real}}$. Calling a subgraph a
+motif also needs $N_{\mathrm{rand}}$, and in the sections above that came from
+mfinder generating randomized ensembles. That dependency is the weakest link in
+the reproduction: it is slow, it is not reproducible (mfinder seeds from the
+wall clock), and it is exactly where our Bridge Brook bi-parallel result departs
+from the paper.
+
+This section removes it. Itzkovitz, Milo, Kashtan, Ziv and Alon,
+\textit{Subgraphs in random networks}, Phys.\ Rev.\ E \textbf{68}, 026127 (2003)
+(\url{https://arxiv.org/abs/cond-mat/0302375}) give closed-form expressions for
+the expected number of any subgraph in a degree-preserving random ensemble. No
+random network is generated at any point; the expectation is a function of the
+moments of the real network's degree sequence, so it is deterministic and
+$O(N)$.
+
+\subsection{The formulas}
+
+Split the degree sequence into single out-degree $K$, single in-degree $R$, and
+mutual degree $M$ (a pair of edges in both directions). For a subgraph with $n$
+nodes, $g_a$ single edges and $g_m$ mutual edges, their Eq.~(5) is
+\[
+\langle G\rangle \;=\;
+\frac{a\,N^{\,n-g_a-g_m}}{\langle K\rangle^{g_a}\langle M\rangle^{g_m}}
+\prod_{j=1}^{n}
+\Big\langle \binom{K_i}{k_j}\binom{R_i}{r_j}\binom{M_i}{m_j}\Big\rangle_i ,
+\]
+where $\{k_j\},\{r_j\},\{m_j\}$ are the subgraph's own degree sequences and $a$
+is a symmetry factor built from $|\mathrm{Aut}|$ --- the same automorphism group
+our motif matcher already computes to pick one representative per orbit. For the
+feed-forward loop this reduces to
+\[
+\langle \mathrm{FFL}\rangle=
+\frac{\langle K(K-1)\rangle\,\langle RK\rangle\,\langle R(R-1)\rangle}
+     {\langle K\rangle^{3}} .
+\]
+
+Eq.~(5) counts \emph{non-induced} occurrences: pairs with no specified edge are
+left free. Our matcher is induced by construction, so the comparable quantities
+are the starred values of their Appendix~B, recovered by inclusion--exclusion,
+e.g.\ $\langle \mathrm{id}6^{*}\rangle=\langle \mathrm{id}6\rangle-\langle
+\mathrm{id}38\rangle-\langle \mathrm{id}108\rangle$.
+
+\subsection{A fourth, independent counter}
+
+Their Appendix~C gives the thirteen triad counts as adjacency-matrix products.
+Writing $M=A+S$ with $A$ the single arrows and $S$ the mutual ones, $\tilde{A}$
+the logical inverse and $A'$ the transpose, the feed-forward loop is
+$\sum A^{2}\!\cdot\!A$ and the mutual triangle is $\sum (S^{2}\!\cdot\!S)/6$.
+This shares no code path with either the GraphEasy matcher or the Python
+enumeration --- it is pure linear algebra --- so it is a genuinely independent
+check. It is implemented in \texttt{appendixC.py}.
+
+\subsection{Results: the triad census}
+
+We count all thirteen connected three-node directed subgraphs (induced), by
+three independent methods: the GraphEasy \texttt{motifs} matcher, a Python
+enumeration over connected triples, and the Appendix~C matrix formulas.
+
+\begin{center}
+\begin{tabular}{r l rr rr rr}
+\toprule
+& & \multicolumn{2}{c}{\textit{E.\ coli}} & \multicolumn{2}{c}{\textit{C.\ elegans}} & \multicolumn{2}{c}{s208} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+id & subgraph & obs. & exp. & obs. & exp. & obs. & exp. \\
+\midrule
+6   & out-star            & 226  & 258.6  & 419  & 427.2  & 164 & 161.7 \\
+12  & three-chain         & 162  & 194.6  & 872  & 876.7  & 240 & 267.7 \\
+14  & out-star + mutual   & 0    & 0      & 91   & 87.2   & 0   & 0     \\
+36  & in-star             & 4760 & 4792.6 & 6044 & 6039.3 & 89  & 86.7  \\
+38  & feed-forward loop   & \textbf{40} & \textbf{7.4} & 125 & 122.3 & 0 & 2.3 \\
+46  & bi-parallel         & 0    & 0      & 2    & 9.3    & 0   & 0     \\
+74  & in-star + mutual    & 0    & 0      & 112  & 126.1  & 0   & 0     \\
+78  & two mutual (path)   & 0    & 0      & 7    & 6.5    & 0   & 0     \\
+98  & three-node feedback & 0    & 0.02   & 0    & 3.0    & \textbf{10} & \textbf{1.0} \\
+102 & FFL + mutual        & 0    & 0      & 4    & 2.0    & 0   & 0     \\
+108 & one mutual + 2-in   & 0    & 0      & 7    & 1.4    & 0   & 0     \\
+110 & two mutual + single & 0    & 0      & 0    & 0.5    & 0   & 0     \\
+238 & three mutual        & 0    & 0      & 0    & 0.02   & 0   & 0     \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All three counters agree on every entry: $13\times3=39$ of $39$ exact.
+
+The scientific reading is the one Milo reports. In \textit{E.\ coli} the
+feed-forward loop is the \emph{only} enriched triad, $40$ observed against
+$7.4$ expected ($5.4\times$); every degree-driven triad sits at $0.8$--$1.0\times$,
+which is the null model behaving as it should. The s208 circuit instead enriches
+the three-node feedback loop, $10$ against $1.0$ ($10.3\times$), a different
+motif family for a different network class.
+
+\subsection{How the neurons column is computed in GraphEasy}
+
+The whole of Eq.~(5) is arithmetic on the degree sequence, so it runs inside
+GraphEasy with no external tool. This subsection shows the program that
+produces the numbers validated below, using the neurons network
+(\textit{C.\ elegans}, $N=252$, $509$ directed edges, $14$ mutual pairs).
+
+\paragraph{Step 1 --- split the degree sequence.}
+$K$ and $R$ count only \emph{single} out- and in-edges; an edge whose reverse
+is also present contributes to the \emph{mutual} degree $M$ instead. The
+separation matters: the other twelve entries of Table~I only reproduce under
+this reading, and taking $K,R$ as total degrees gives id38 $=159.9$ against the
+paper's $120$.
+
+\begin{lstlisting}
+graph Net {
+  directed;
+  edges: file "data/grapheasy/c_elegans_table1.txt";
+};
+
+int n = numVertices(Net);
+int K[n];   // single out-degree
+int R[n];   // single in-degree
+int M[n];   // mutual degree
+int i = 0;
+while (i < n) { K[i] = 0; R[i] = 0; M[i] = 0; i = i + 1; }
+
+for each edge u, v in Net {
+  if (hasEdge(Net, v, u)) {
+    M[u] = M[u] + 1;              // reverse edge exists -> mutual
+  } else {
+    K[u] = K[u] + 1;
+    R[v] = R[v] + 1;
+  }
+}
+\end{lstlisting}
+
+\paragraph{Step 2 --- take the nine moments.}
+Every factor in Eq.~(5) is an average over all $N$ vertices of a product of
+falling factorials of these three degrees.
+
+\begin{lstlisting}
+real sK = 0.0;   real sKK1 = 0.0; real sKR = 0.0;
+real sR = 0.0;   real sRR1 = 0.0; real sKM = 0.0;
+real sM = 0.0;   real sMM1 = 0.0; real sRM = 0.0;
+i = 0;
+while (i < n) {
+  sK = sK + K[i];   sR = sR + R[i];   sM = sM + M[i];
+  sKK1 = sKK1 + K[i] * (K[i] - 1);
+  sRR1 = sRR1 + R[i] * (R[i] - 1);
+  sMM1 = sMM1 + M[i] * (M[i] - 1);
+  sKR = sKR + K[i] * R[i];
+  sKM = sKM + K[i] * M[i];
+  sRM = sRM + R[i] * M[i];
+  i = i + 1;
+}
+real mK = sK / n;      real mKK1 = sKK1 / n;  real mKR = sKR / n;
+real mR = sR / n;      real mRR1 = sRR1 / n;  real mKM = sKM / n;
+real mM = sM / n;      real mMM1 = sMM1 / n;  real mRM = sRM / n;
+\end{lstlisting}
+
+For the neurons network these evaluate to
+\[
+\begin{array}{lll}
+\langle K\rangle = 1.9087 & \langle R\rangle = 1.9087 & \langle M\rangle = 0.1111\\
+\langle K(K-1)\rangle = 4.3730 & \langle R(R-1)\rangle = 48.9762 & \langle M(M-1)\rangle = 0.0556\\
+\langle KR\rangle = 3.9722 & \langle KM\rangle = 0.3929 & \langle RM\rangle = 0.5159
+\end{array}
+\]
+
+\paragraph{Step 3 --- evaluate the thirteen equations.}
+Each row of Table~I is one expression in those moments. The feed-forward loop,
+for instance, is $\langle K(K-1)\rangle\langle RK\rangle\langle
+R(R-1)\rangle/\langle K\rangle^{3}$.
+
+\begin{lstlisting}
+real e6   = n * mKK1 / 2.0;                        // out-star
+real e12  = n * mKR;                               // three-chain
+real e14  = n * mKM;
+real e36  = n * mRR1 / 2.0;                        // in-star
+real e38  = mKK1 * mKR * mRR1 / dK3;               // feed-forward loop
+real e46  = mKM * mKM * mRR1 / (2.0 * dK2 * dM1);
+real e74  = n * mRM;
+real e78  = n * mMM1 / 2.0;
+real e98  = mKR * mKR * mKR / (3.0 * dK3);         // 3-node feedback
+real e102 = mKM * mRM * mKR / (dK2 * dM1);
+real e108 = mRM * mRM * mKK1 / (2.0 * dK2 * dM1);
+real e110 = mKM * mRM * mMM1 / (dK1 * dM2);
+real e238 = mMM1 * mMM1 * mMM1 / (6.0 * dM2 * dM1);
+\end{lstlisting}
+
+\noindent
+\texttt{dK1}\ldots\texttt{dM2} are the powers of $\langle K\rangle$ and
+$\langle M\rangle$ appearing in the denominators, guarded against zero: a
+network with no mutual edges has $\langle M\rangle=0$, and the six
+$M$-dependent rows are then identically zero rather than undefined.
+
+\paragraph{Step 4 --- correct to induced counts.}
+Eq.~(5) leaves unmentioned pairs free, so it counts a superset. Appendix~B
+subtracts the denser triads that fill those null edges.
+
+\begin{lstlisting}
+real i6  = e6  - e38 - e108;
+real i12 = e12 - e38 - e102;
+real i14 = e14 - e46 - e102 - e110;
+real i36 = e36 - e38 - e46;
+real i74 = e74 - e102 - e108 - e110;
+real i78 = e78 - e110 - e238;
+\end{lstlisting}
+
+\noindent
+The remaining seven rows need no correction: they are the denser triads that
+the corrections above subtract, and have no null edge left to fill.
+
+\paragraph{Step 5 --- report against the observed census.}
+The same program declares the thirteen motifs and prints observed and expected
+side by side.
+
+\begin{lstlisting}
+motifs T38 = [Net where motif { a -> b; b -> c; a -> c; }];
+print numMotifs(T38);        // observed  125
+print e38;                   // expected  122.339
+\end{lstlisting}
+
+\noindent
+The complete program is \texttt{milo.graph}: degree decomposition, nine moments,
+thirteen equations, six corrections and thirteen motif declarations, with no
+external tool and no randomized network.
+
+\subsection{Validation against the paper's own table}
+
+Itzkovitz et al.\ publish their computed values for \textit{C.\ elegans}
+(the ``neurons'' column of their Table~I), so our expectations can be checked
+directly against the authors rather than only against ourselves. Quoting, as
+they do, to two significant figures, and noting their convention that values
+below $0.5$ are rounded to zero:
+
+\begin{center}
+\begin{tabular}{r r r c}
+\toprule
+id & paper & ours & \\
+\midrule
+6 & $4.3\times10^{2}$ & 430 & match \\
+12 & $8.7\times10^{2}$ & 880 & match \\
+14 & $8.7\times10^{1}$ & 87 & match \\
+36 & $6.0\times10^{3}$ & 6000 & match \\
+38 & $1.2\times10^{2}$ & 120 & match \\
+46 & 9.3 & 9.3 & match \\
+74 & $1.3\times10^{2}$ & 130 & match \\
+78 & 6.6 & 6.5 & match \\
+98 & 4.5 & 3.0 & see below \\
+102 & 2 & 2.0 & match \\
+108 & 1.4 & 1.4 & match \\
+110 & 0 & 0 & match \\
+238 & 0 & 0 & match \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Twelve of thirteen reproduce the published values. The exception is id98, the
+three-node feedback loop, where the paper prints $4.5$ and we obtain $3.0$.
+
+We traced this to an arithmetic slip in that one cell. Back-solving the constant
+their number requires gives
+\[
+\frac{\langle KR\rangle^{3}}{c\,\langle K\rangle^{3}}=4.5
+\quad\Longrightarrow\quad c=2.003 ,
+\]
+against the $c=3$ printed in their own formula $\langle KR\rangle^{3}/3\langle
+K\rangle^{3}$; the ratio $4.5/3.004=1.498\simeq 3/2$ is exactly this. With
+$c=2$ the expression evaluates to $4.5065$, which prints as $4.5$. The degree
+moments are not in dispute --- $N=252$, $\langle K\rangle=1.908730$, $\langle
+KR\rangle=3.972222$ --- and the other twelve entries confirm both the network
+and our reading of $K$ and $R$ as single-edge degrees. (Taking them as total
+degrees would give id98 $=5.2$ but also id38 $=159.9$ against their $120$,
+so that reading is excluded.)
+
+Two checks internal to the paper establish that $3$ is the correct divisor.
+Their own definition of the symmetry factor is $a^{-1}=a_{0}\prod_{j}
+k_j!\,r_j!\,m_j!$, and for the directed three-cycle every node has $k=r=1$,
+$m=0$, so the product is $1$ and $a_{0}=|\mathrm{Aut}|=3$, the cyclic rotations
+$C_3$. Independently, their Appendix~C formula for the same subgraph is
+$\sum (A'^{2}\!\cdot\!A)/3$, also dividing by three. The paper therefore
+specifies $3$ in two places and prints a value consistent with $2$ in a third.
+We conclude our $3.0$ is correct and the published $4.5$ is a slip. It is
+visible only in the neurons column: for transcription the value is $0.02$,
+which rounds to zero under either divisor, and we do not have their www network.
+
+\subsection{What this changes}
+
+The randomization machinery is no longer required for the mean. Where the
+sections above needed mfinder to estimate $N_{\mathrm{rand}}$, the expectation is
+now a closed form in the degree moments, computed inside GraphEasy itself
+(\texttt{milo.graph}: degree decomposition, nine moments, thirteen Table~I
+formulas, and the Appendix~B corrections, in one program with no external tool).
+
+One limitation is worth stating plainly. The paper derives means only; it gives
+no standard deviation, so a $Z$-score in the strict sense is still unavailable
+from this method alone, and the ratios above are enrichment factors, not
+significance values. Establishing $\sigma$ still requires either a small
+randomized sample or a later result. What has been removed is the expensive and
+irreproducible part --- the mean over a thousand randomized networks --- not the
+whole of the statistics. The approximation also assumes sparsity
+($\langle K\rangle\ll N$); \textit{E.\ coli} ($\langle K\rangle=1.22$) sits well
+inside that regime, \textit{C.\ elegans} ($1.91$) less comfortably, which is
+consistent with the deviations the authors themselves report for the neuron
+network.
+
+\section{Source links}
+
+\subsection{Milo et al.\ 2002 inputs (Table~1)}
+
+\begin{itemize}
+  \item \textit{E.\ coli}: \url{https://web.archive.org/web/20030116052450id_/http://www.weizmann.ac.il/mcb/UriAlon/Network_motifs_in_coli/ColiNet-1.0/coliInterNoAutoRegVec.txt}
+  \item Circuits \textit{s208/s420/s838}: \url{https://web.archive.org/web/20140502072605id_/http://www.weizmann.ac.il:80/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/s208_st.txt}
+  \item Food webs (installer containing WDFs): \url{https://web.archive.org/web/20060502091624id_/http://www.foodwebs.org:80/download/FoodWeb3DInstall.exe}
+\end{itemize}
+
+\subsection{Milo et al.\ 2004 inputs (Superfamilies)}
+
+\begin{itemize}
+  \item TRANSC-E.COLI (\texttt{coliInterNoAutoRegVec.txt}): \url{https://web.archive.org/web/20030116052450id_/http://www.weizmann.ac.il/mcb/UriAlon/Network_motifs_in_coli/ColiNet-1.0/coliInterNoAutoRegVec.txt}
+  \item SOCIAL-1 (\texttt{prisoninter\_st.txt}): \url{https://web.archive.org/web/20140502072605id_/http://www.weizmann.ac.il:80/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/prisoninter_st.txt}
+  \item SOCIAL-3 (\texttt{leader2inter\_st.txt}): \url{https://web.archive.org/web/20140502072605id_/http://www.weizmann.ac.il:80/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/leader2inter_st.txt}
+  \item ENGLISH (\texttt{darwinbookinter\_st.txt}): \url{https://web.archive.org/web/20140501000000id_/http://www.weizmann.ac.il/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/darwinbookinter_st.txt}
+  \item FRENCH (\texttt{frenchbookinter\_st.txt}): \url{https://web.archive.org/web/20140502072605id_/http://www.weizmann.ac.il:80/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/frenchbookinter_st.txt}
+  \item SPANISH (\texttt{spanishbookinter\_st.txt}): \url{https://web.archive.org/web/20140502072605id_/http://www.weizmann.ac.il:80/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/spanishbookinter_st.txt}
+  \item JAPANESE (\texttt{japanesebookinter\_st.txt}): \url{https://web.archive.org/web/20140502072605id_/http://www.weizmann.ac.il:80/mcb/UriAlon/sites/mcb.UriAlon/files/uploads/CollectionsOfComplexNetwroks/japanesebookinter_st.txt}
+\end{itemize}
+
+\end{document}

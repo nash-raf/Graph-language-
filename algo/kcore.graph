@@ -1,0 +1,73 @@
+// k-core peeling.  Array frontier for the same reason as cc.graph:
+// 0.64s (set) vs 0.12s (array), identical result.  Duplicates in the
+// worklist are harmless -- the alive[] test skips an already-peeled vertex,
+// exactly as the set version's dedup did.
+// k-core peeling -- identical algorithm to kcore.graph, but the worklist is an
+// array frontier (the shape the compiler's edgemap engine recognises) instead
+// of a set.  Duplicates in the worklist are harmless: the alive[] test skips a
+// vertex that was already peeled, exactly as the set version's dedup did.
+graph G {
+  edges: file "/home/user/Course/msk1/synth_graphs_unweighted/synth_v_1000000_e_1000000.txt";
+};
+
+int n = numVertices(G);
+int k = 5;
+int deg[n];
+int alive[n];
+int cap = 4000000;
+int frontier[cap];
+int next_frontier[cap];
+int frontier_size = 0;
+int next_size = 0;
+
+for each vertex v in G {
+  deg[v] = 0;
+  alive[v] = 1;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    deg[u] = deg[u] + 1;
+  }
+}
+
+int i = 0;
+while (i < n) {
+  if (deg[i] < k) {
+    frontier[frontier_size] = i;
+    frontier_size = frontier_size + 1;
+  }
+  i = i + 1;
+}
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int p = 0;
+  while (p < frontier_size) {
+    int u = frontier[p];
+    if (alive[u] == 1) {
+      alive[u] = 0;
+      for each neighbor v of u in G {
+        if (alive[v] == 1) {
+          deg[v] = deg[v] - 1;
+          if (deg[v] < k) {
+            next_frontier[next_size] = v;
+            next_size = next_size + 1;
+          }
+        }
+      }
+    }
+    p = p + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+int survivors = 0;
+int q = 0;
+while (q < n) {
+  if (alive[q] == 1) { survivors = survivors + 1; }
+  q = q + 1;
+}
+print "kcore_size";
+print survivors;

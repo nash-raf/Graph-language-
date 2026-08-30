@@ -246,7 +246,12 @@ continuousMapping:
 
 drawBoolLiteral: TRUE | FALSE | 'true' | 'false';
 
-functionCall: ID '(' argumentList? ')';
+// 'degree' is an implicit keyword token (it appears in graphCondition), so it
+// cannot match ID.  Without this alternative the degree() builtin -- which
+// IRGen already implements as an O(1) row_ptr[v+1]-row_ptr[v] -- is
+// unreachable from the surface syntax.
+functionCall: functionName '(' argumentList? ')';
+functionName: ID | 'degree';
 argumentList: expr (',' expr)*;
 
 // Sleep statement

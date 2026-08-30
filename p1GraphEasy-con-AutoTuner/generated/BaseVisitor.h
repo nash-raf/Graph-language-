@@ -183,6 +183,8 @@ public:
 
     virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *context) = 0;
 
+    virtual std::any visitFunctionName(BaseParser::FunctionNameContext *context) = 0;
+
     virtual std::any visitArgumentList(BaseParser::ArgumentListContext *context) = 0;
 
     virtual std::any visitSleepStatement(BaseParser::SleepStatementContext *context) = 0;

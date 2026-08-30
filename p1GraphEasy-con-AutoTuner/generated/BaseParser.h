@@ -48,11 +48,11 @@ public:
     RuleDrawmotifs = 48, RuleDrawMotifOption = 49, RuleDrawOption = 50, 
     RuleVertexDrawOption = 51, RuleEdgeDrawOption = 52, RuleColorMapping = 53, 
     RuleContinuousMapping = 54, RuleDrawBoolLiteral = 55, RuleFunctionCall = 56, 
-    RuleArgumentList = 57, RuleSleepStatement = 58, RuleBlock = 59, RuleReturnStatement = 60, 
-    RuleBreakStatement = 61, RuleContinueStatement = 62, RulePrintStatement = 63, 
-    RulePrintExpr = 64, RulePrintArrayStatement = 65, RulePrintgraph = 66, 
-    RuleExpr = 67, RuleArrayDeclarator = 68, RuleArrayInitializer = 69, 
-    RuleAssignmentStatement = 70, RuleArrayAssignStatement = 71, RuleWeights = 72
+    RuleFunctionName = 57, RuleArgumentList = 58, RuleSleepStatement = 59, 
+    RuleBlock = 60, RuleReturnStatement = 61, RuleBreakStatement = 62, RuleContinueStatement = 63, 
+    RulePrintStatement = 64, RulePrintExpr = 65, RulePrintArrayStatement = 66, 
+    RulePrintgraph = 67, RuleExpr = 68, RuleArrayDeclarator = 69, RuleArrayInitializer = 70, 
+    RuleAssignmentStatement = 71, RuleArrayAssignStatement = 72, RuleWeights = 73
   };
 
   explicit BaseParser(antlr4::TokenStream *input);
@@ -129,6 +129,7 @@ public:
   class ContinuousMappingContext;
   class DrawBoolLiteralContext;
   class FunctionCallContext;
+  class FunctionNameContext;
   class ArgumentListContext;
   class SleepStatementContext;
   class BlockContext;
@@ -1475,7 +1476,7 @@ public:
   public:
     FunctionCallContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
-    antlr4::tree::TerminalNode *ID();
+    FunctionNameContext *functionName();
     ArgumentListContext *argumentList();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -1486,6 +1487,21 @@ public:
   };
 
   FunctionCallContext* functionCall();
+
+  class  FunctionNameContext : public antlr4::ParserRuleContext {
+  public:
+    FunctionNameContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ID();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  FunctionNameContext* functionName();
 
   class  ArgumentListContext : public antlr4::ParserRuleContext {
   public:

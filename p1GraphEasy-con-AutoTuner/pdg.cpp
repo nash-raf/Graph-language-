@@ -507,6 +507,70 @@ static void markNestedLoopsSequential(llvm::Loop *L)
     }
 }
 
+
+// A store whose ADDRESS depends on a value loaded inside the loop is a scatter:
+// the index comes from data (typically an adjacency list), so two iterations can
+// target the same location and the compiler cannot prove otherwise by looking at
+// the subscript.  PageRank's `next_rank[v] += contrib` over `for each neighbor v`
+// is exactly this shape.
+//
+// The generic DOALL branch below fires on Summary.hasProofOfNoCarriedDeps, but
+// for an indirect store that flag means "no dependence was found", not "no
+// dependence exists" -- absence of evidence, treated as evidence of absence.
+// Parallelising anyway produces a racy scatter: measured on PageRank this gave
+// 4.7e8 where the answer is 0.999, wrong on 3 of 4 test graphs, and the value
+// changed when a print was added.  Refuse DOALL for such loops.
+
+// Polly and the loop outliner must not both transform the same function.
+//
+// Polly rewrites an affine nest into its own control flow (blocks named
+// polly.*); the outliner then hoists that rewritten body into a task and runs
+// it on the worker pool, and the result segfaults inside
+// outlined_task_*[parallel].  Each transform is fine alone -- Polly-only and
+// outliner-only both produce 723964781 on the matmul kernel -- so the fix is to
+// give them disjoint ownership rather than to change either.
+//
+// Polly is already confined to user `fn` functions, so declining to annotate a
+// Polly-transformed function leaves the outliner its natural territory: the
+// graph traversal loops in main.
+static bool functionWasTransformedByPolly(llvm::Function &F)
+{
+    for (llvm::BasicBlock &BB : F)
+        if (BB.hasName() && BB.getName().starts_with("polly."))
+            return true;
+    return false;
+}
+
+static bool loopHasIndirectStore(llvm::Loop *L)
+{
+    for (llvm::BasicBlock *BB : L->blocks())
+    {
+        for (llvm::Instruction &I : *BB)
+        {
+            auto *SI = llvm::dyn_cast<llvm::StoreInst>(&I);
+            if (!SI)
+                continue;
+            llvm::SmallVector<llvm::Value *, 8> Work{SI->getPointerOperand()};
+            llvm::SmallPtrSet<llvm::Value *, 16> Seen;
+            while (!Work.empty())
+            {
+                llvm::Value *V = Work.pop_back_val();
+                if (!Seen.insert(V).second)
+                    continue;
+                if (auto *LD = llvm::dyn_cast<llvm::LoadInst>(V))
+                    if (L->contains(LD))
+                        return true;
+                if (auto *In = llvm::dyn_cast<llvm::Instruction>(V))
+                    if (L->contains(In))
+                        for (llvm::Use &U : In->operands())
+                            Work.push_back(U.get());
+            }
+        }
+    }
+    return false;
+}
+
+
 static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
                                           llvm::ScalarEvolution &SE,
@@ -1010,7 +1074,12 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         loopHasTerminatorMetadata(L, "sgpl.frontier.nested.sequential");
 
     std::string classification;
-    if (IsNestedFrontierLoop)
+    if (functionWasTransformedByPolly(F))
+    {
+        // Polly owns this function; leave its loops alone.
+        classification = "SEQUENTIAL";
+    }
+    else if (IsNestedFrontierLoop)
     {
         classification = "SEQUENTIAL";
     }
@@ -1023,9 +1092,21 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     {
         classification = "SEQUENTIAL";
     }
-    else if (Summary.hasProofOfNoCarriedDeps && !hasScalarDoAcrossPhi)
+    else if (Summary.hasProofOfNoCarriedDeps && !hasScalarDoAcrossPhi &&
+             !loopHasIndirectStore(L))
     {
         classification = "DOALL";
+    }
+    else if (Summary.hasProofOfNoCarriedDeps && !hasScalarDoAcrossPhi)
+    {
+        // Indirect (scatter) store.  NOT DoAcross: that mode needs the
+        // dependence to be characterised as sync ids, and a scatter through an
+        // adjacency list has no statically known pattern -- the runtime aborts
+        // with "doacross loop missing sync-id metadata" when num_ids is 0.
+        // Sequential is the only sound and runnable choice here.  Making such
+        // loops genuinely parallel needs atomic read-modify-write on the
+        // scatter, which is a codegen change, not a classification one.
+        classification = "SEQUENTIAL";
     }
     else if (Summary.hasUnschedulableCarriedDep || Summary.hasUnknownAttributedDep)
     {

@@ -260,6 +260,9 @@ public:
   virtual void enterFunctionCall(BaseParser::FunctionCallContext *ctx) = 0;
   virtual void exitFunctionCall(BaseParser::FunctionCallContext *ctx) = 0;
 
+  virtual void enterFunctionName(BaseParser::FunctionNameContext *ctx) = 0;
+  virtual void exitFunctionName(BaseParser::FunctionNameContext *ctx) = 0;
+
   virtual void enterArgumentList(BaseParser::ArgumentListContext *ctx) = 0;
   virtual void exitArgumentList(BaseParser::ArgumentListContext *ctx) = 0;
 

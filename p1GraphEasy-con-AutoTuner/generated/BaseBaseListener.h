@@ -262,6 +262,9 @@ public:
   virtual void enterFunctionCall(BaseParser::FunctionCallContext * /*ctx*/) override { }
   virtual void exitFunctionCall(BaseParser::FunctionCallContext * /*ctx*/) override { }
 
+  virtual void enterFunctionName(BaseParser::FunctionNameContext * /*ctx*/) override { }
+  virtual void exitFunctionName(BaseParser::FunctionNameContext * /*ctx*/) override { }
+
   virtual void enterArgumentList(BaseParser::ArgumentListContext * /*ctx*/) override { }
   virtual void exitArgumentList(BaseParser::ArgumentListContext * /*ctx*/) override { }
 

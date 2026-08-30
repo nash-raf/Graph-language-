@@ -959,7 +959,8 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    std::string callee = ctx->ID()->getText();
+    // functionName is ID or the 'degree' keyword; getText() covers both.
+    std::string callee = ctx->functionName()->getText();
 
     // collect arguments
     std::vector<ASTNodePtr> args;

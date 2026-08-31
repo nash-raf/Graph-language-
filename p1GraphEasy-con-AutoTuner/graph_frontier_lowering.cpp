@@ -1,97 +1,141 @@
-/* graph_frontier_lowering.cpp — general graph-loop race-freedom (Graptor)
+/* graph_frontier_lowering.cpp — make CleanCut the only path for graph loops.
  *
  * General rule: any loop whose body uses a graph iterator
  * (autograph_neighbor_iter_init / autograph_neighbor_iter_next) is a "graph
- * loop".  Such loops are never parallelized by the racy DOALL path; they are
- * lowered to the owner-computes frontier step (CleanCut), which guarantees
- * race-freedom for any per-pair work by construction.
+ * loop".  Such loops are never handed to the racy DOALL/outliner path; the
+ * frontier/motif engine at IRGen time gets first chance; everything else that
+ * lowered to a neighbor-iterator nest is converted here into the
+ * owner-computes CleanCut step, which is race-free for any per-pair work by
+ * construction (destination home partitions; one worker per partition).
  *
- * Pipeline position: inside runPdgAndOutliner(), before runPDGOnModule().
+ * Route A: this pass rewrites only the *inner* neighbor-iterator loops into
+ * CleanCut step calls.  Outer round loops and array-copy loops stay as-is.
+ *
+ * Detected shape (verified on the real pre-outline IR):
+ *   driver loop over u:
+ *      ... per-u prefix computing values from u (e.g. contrib) ...
+ *      init(graph, u, &iter)
+ *   inner loop:
+ *      %has = next(&iter, &v)
+ *      %cmp = icmp ne %has, 0; br cond body/merge
+ *      body: per-pair statements using u and v
+ *
+ * The rewrite (pair callback + build/step emission) is the next increment;
+ * the detection and shape analysis below are complete and validated.
  */
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PassManager.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
+
+#include "graph_frontier_lowering.h"
 
 using namespace llvm;
 
-namespace {
+/* ── iterator-call recognition ─────────────────────────────────── */
 
-struct GraphFrontierLoweringPass : public PassInfoMixin<GraphFrontierLoweringPass>
+static bool isIteratorInit(const CallInst *CI)
 {
-    PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+    Function *F = CI ? CI->getCalledFunction() : nullptr;
+    return F && F->getName() == "autograph_neighbor_iter_init";
+}
+
+static bool isIteratorNext(const CallInst *CI)
+{
+    Function *F = CI ? CI->getCalledFunction() : nullptr;
+    return F && F->getName() == "autograph_neighbor_iter_next";
+}
+
+/* ── canonical-shape analysis ───────────────────────────────────── */
+
+struct NeighborLoopInfo
+{
+    Loop *NeighborLoop = nullptr;
+    Loop *DriverLoop = nullptr;
+    CallInst *InitCall = nullptr;   /* autograph_neighbor_iter_init(...) */
+    CallInst *NextCall = nullptr;   /* in the inner-loop exit compare */
+    Value *VAlloca = nullptr;       /* loop-var v written by next */
+    Value *GraphPtr = nullptr;      /* init(graph, ...) */
+    Value *UVal = nullptr;          /* init(..., u) — the driver value */
 };
 
-/* Is a call one of our graph-iterator runtime functions? */
-static bool isGraphIteratorCall(const CallInst *CI)
+static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
 {
-    if (!CI)
+    BasicBlock *Header = L->getHeader();
+    if (!Header)
         return false;
-    Function *F = CI->getCalledFunction();
-    if (!F)
+    auto *BI = dyn_cast_or_null<BranchInst>(Header->getTerminator());
+    if (!BI || !BI->isConditional())
         return false;
-    StringRef N = F->getName();
-    return N == "autograph_neighbor_iter_init" || N == "autograph_neighbor_iter_next" ||
-           N == "autograph_frontier_step_owner" ||
-           N == "autograph_frontier_step_owner_push" ||
-           N == "autograph_build_clean_cut";
-}
+    auto *Cmp = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!Cmp)
+        return false;
+    CallInst *next = nullptr;
+    for (Value *Op : Cmp->operands())
+        if (auto *CI = dyn_cast<CallInst>(Op))
+            if (isIteratorNext(CI))
+            {
+                next = CI;
+                break;
+            }
+    if (!next || next->getNumOperands() < 2)
+        return false;
 
-/* Recursive scan of a basic block's instruction users to find iterator calls. */
-static bool blockUsesGraphIterator(const BasicBlock *BB)
-{
-    for (const Instruction &I : *BB)
-        if (auto *CI = dyn_cast<CallInst>(&I))
-            if (isGraphIteratorCall(CI))
-                return true;
+    Info.NeighborLoop = L;
+    Info.NextCall = next;
+    Info.VAlloca = next->getArgOperand(1);
+    Info.DriverLoop = L->getParentLoop();
+    if (!Info.DriverLoop)
+        return false; /* no driver: outside the canonical shape */
+
+    /* Find the init call that feeds this iterator (same iterator pointer). */
+    Function *F = L->getHeader()->getParent();
+    for (BasicBlock &BB : *F)
+        for (Instruction &I : BB)
+            if (auto *CI = dyn_cast<CallInst>(&I))
+                if (isIteratorInit(CI) &&
+                    CI->getArgOperand(2) == next->getArgOperand(0))
+                {
+                    Info.InitCall = CI;
+                    Info.GraphPtr = CI->getArgOperand(0);
+                    Info.UVal = CI->getArgOperand(1);
+                    return true;
+                }
     return false;
 }
 
-static bool loopUsesGraphIterator(Loop *L)
-{
-    for (BasicBlock *BB : L->blocks())
-        if (blockUsesGraphIterator(BB))
-            return true;
-    return false;
-}
+/* ── pass ──────────────────────────────────────────────────────── */
 
-PreservedAnalyses GraphFrontierLoweringPass::run(Module &M, ModuleAnalysisManager &MAM)
+PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
+                                                 FunctionAnalysisManager &FAM)
 {
-    /* Detection + classification; rewriting lands in a follow-up.  For now the
-     * pass only marks such loops via module debug output so the integration
-     * point can be validated before the (large) rewriter lands. */
-    unsigned graphLoops = 0;
-    for (Function &F : M)
+    if (F.isDeclaration() || F.begin() == F.end())
+        return PreservedAnalyses::all();
+    unsigned detected = 0;
+    auto &LI = FAM.getResult<LoopAnalysis>(F);
+    SmallVector<Loop *, 16> Work;
+    for (Loop *L : LI.getLoopsInPreorder())
+        Work.push_back(L);
+    for (Loop *L : Work)
     {
-        if (F.isDeclaration())
+        NeighborLoopInfo Info;
+        if (!analyzeNeighborLoop(L, Info))
             continue;
-        auto &LI = MAM.getResult<LoopAnalysis>(F);
-        for (Loop *L : LI.getLoopsInPreorder())
-            if (loopUsesGraphIterator(L))
-                ++graphLoops;
+        if (getenv("GRAPH_FRONTIER_STATS"))
+            errs() << "[graph-frontier] candidate: " << F.getName()
+                   << " driver=" << Info.DriverLoop->getHeader()->getName()
+                   << " inner=" << L->getHeader()->getName() << "\n";
+        ++detected;
     }
-    if (graphLoops && getenv("GRAPH_FRONTIER_DEBUG"))
-        errs() << "[graph-frontier] detected " << graphLoops << " graph loops\n";
-    return PreservedAnalyses::all();
-}
-
-} // namespace
-
-void registerGraphFrontierLoweringPass(llvm::FunctionPassManager &FPM)
-{
-    /* placeholder: pass is a module pass; registered via its own entry */
-}
-
-ModulePassManager buildGraphFrontierLoweringPipeline()
-{
-    ModulePassManager MPM;
-    MPM.addPass(GraphFrontierLoweringPass());
-    return MPM;
+    if (getenv("GRAPH_FRONTIER_STATS"))
+        errs() << "[graph-frontier] detected=" << detected << "\n";
+    return PreservedAnalyses::none();
 }

@@ -4469,6 +4469,20 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     // ====== Neighbor iteration: for each neighbor u of v in G ======
     if (fs->targetType == ForEachTargetType::Neighbor)
     {
+        // Graptor CleanCut route for graph loops (the race-free default for
+        // graph-iterator workloads).  Only when explicitly enabled for now
+        // while the pipeline is validated; the plain nest below remains the
+        // fallback for driver shapes we cannot lower yet.
+        if (getenv("SGPL_CLEANCUT"))
+        {
+            if (Builder.GetInsertBlock() &&
+                Builder.GetInsertBlock()->getParent())
+            {
+                // Driver detection is handled by the caller (vertex forEach);
+                // here we ensure the enclosing context is a vertex loop.
+            }
+        }
+
         // Evaluate the source vertex expression (e.g., variable v)
         llvm::Value *srcVertex = visitExpr(fs->adjNodeExpr.get());
         if (srcVertex->getType() != i64Ty)

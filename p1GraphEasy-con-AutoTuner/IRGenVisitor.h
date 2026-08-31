@@ -84,6 +84,14 @@ public:
     void visitDrawGraph(DrawGraphNode *D);
     void visitDrawMotifs(DrawMotifsNode *D);
     void emitEnsureInCsr(llvm::Value *graphPtr);
+    // Graptor CleanCut lowering for a neighbor-foreach: emits a per-pair
+    // work callback (any body) and the owner-computes frontier step call.
+    // This is the race-free route for graph loops; the plain iterator nest is
+    // used only when the driver shape is not the canonical vertex-set form.
+    llvm::Value *emitCleanCutNeighborStep(ForEachStmtNode *fs,
+                                          llvm::Value *graphPtr,
+                                          const std::string &driverVar,
+                                          const std::string &driverStorageName);
     // Non-zero while re-lowering a dense semiring-closure nest as its own
     // fallback, so the detector does not match the same loop again.
     int ClosureFallbackDepth = 0;

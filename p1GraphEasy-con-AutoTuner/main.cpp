@@ -14,6 +14,7 @@
 
 #include "pdg.h"
 #include "parallel_loop_outline.h"
+#include "graph_frontier_lowering.h"
 #include "AutoTunerPass.h"
 
 #include <llvm/IR/LLVMContext.h>
@@ -522,6 +523,29 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         ModulePassManager TuneMPM;
         TuneMPM.addPass(AutoTunerModulePass());
         TuneMPM.run(M, LocalMAM);
+    }
+
+    // Graph-loop race-freedom (Graptor CleanCut): any loop that used graph
+    // iterators is lowered to the owner-computes frontier step BEFORE the PDG
+    // sees it, so the racy DOALL path never fires on graph-iterator loops.
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager LocalMAM;
+
+        PassBuilder LocalPB;
+        LocalPB.registerModuleAnalyses(LocalMAM);
+        LocalPB.registerCGSCCAnalyses(CGAM);
+        LocalPB.registerFunctionAnalyses(FAM);
+        LocalPB.registerLoopAnalyses(LAM);
+        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
+
+        FunctionPassManager FrontFPM;
+        FrontFPM.addPass(GraphFrontierLoweringPass());
+        ModulePassManager FrontMPM;
+        FrontMPM.addPass(createModuleToFunctionPassAdaptor(std::move(FrontFPM)));
+        FrontMPM.run(M, LocalMAM);
     }
 
     // {

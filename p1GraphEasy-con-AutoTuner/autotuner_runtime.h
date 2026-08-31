@@ -47,6 +47,13 @@ typedef struct {
   int64_t csr_m;
   int32_t csr_owned;      /* 0 = borrowed from graph loader, 1 = autotuner-allocated */
 
+  /* Reverse (in-)adjacency for directed traversal: in_row_ptr/in_col_idx
+   * mirror the Graph struct's transpose cells; built on demand by
+   * autograph_ensure_transpose.  For undirected graphs in_row_ptr == NULL
+   * (the forward CSR is symmetric). */
+  int64_t *in_row_ptr;
+  int32_t *in_col_idx;
+
   /* Transient PCSR arrays (allocated on demand) */
   int64_t *pcsr_row_ptr;
   int32_t *pcsr_col_idx;
@@ -138,6 +145,12 @@ int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v);
 void autograph_mark_canonical_dirty(void *graph_ptr);
 void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
                                       int64_t *row_ptr, int32_t *col_idx);
+
+/* Build (once, O(E)) the reverse adjacency (transpose) for directed graphs so
+ * that pull-style owner-computes traversal can scan in-edges.  For directed
+ * layouts the transpose lives in the Graph struct (in_row_ptr/in_col_idx);
+ * this mirrors those cells into the meta.  Returns 1 if usable, 0 otherwise. */
+int autograph_ensure_transpose(void *graph_ptr);
 void autograph_sync_canonical_if_dirty(void *graph_ptr);
 void autograph_profile_region_enter(int32_t region_id, int32_t kind,
                                     int32_t layout, double predicted_ns);

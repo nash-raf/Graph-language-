@@ -2278,7 +2278,17 @@ static void autograph_owner_scan_vertex(AutoOwnerStepEnv *env, int64_t peer) {
   if (peer < 0 || peer >= env->n)
     return;
   AutoGraphMeta *meta = env->meta;
-  /* inbound neighbours: row of `peer` in the (symmetric, undirected) CSR */
+  /* inbound neighbours: transpose row of `peer` for directed graphs; forward
+   * (symmetric) CSR row of `peer` for undirected. */
+  if (meta->in_row_ptr && meta->in_col_idx) {
+    for (int64_t j = meta->in_row_ptr[peer]; j < meta->in_row_ptr[peer + 1];
+         ++j) {
+      int32_t src = meta->in_col_idx[j];
+      if (env->membership == NULL || env->membership[src])
+        env->work_fn(src, (int32_t)peer, peer, env->work_env);
+    }
+    return;
+  }
   switch (meta->current_layout) {
   case LAYOUT_CSR:
     if (meta->csr_row_ptr && meta->csr_col_idx)
@@ -2385,6 +2395,11 @@ int32_t autograph_frontier_step_owner(void *graph_ptr,
   if (lane_count < 1)
     lane_count = 1;
 
+  /* Directed graphs need the reverse adjacency for in-edge scans; build it on
+   * demand (no-op when the struct already carries it). */
+  if (meta->in_row_ptr == NULL || meta->in_col_idx == NULL)
+    autograph_ensure_transpose(graph_ptr);
+
   AutoOwnerStepEnv env = {
       .meta = meta,
       .lane_count = lane_count,
@@ -2485,9 +2500,9 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   if (partitions <= 0) {
     const char *env = getenv("SGPL_CLEANCUT_PARTITIONS");
     partitions = env ? (int32_t)strtol(env, NULL, 10) : workers * 4;
+    if (partitions < workers)
+      partitions = workers;
   }
-  if (partitions < workers)
-    partitions = workers;
   int64_t n = meta->csr_n;
   if ((int64_t)partitions > n)
     partitions = (int32_t)n;
@@ -2558,8 +2573,6 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   for (int64_t u = 0; u < n; ++u) {
     int64_t lo = meta->csr_row_ptr[u];
     int64_t hi = meta->csr_row_ptr[u + 1];
-    int64_t per_p_edge[512];
-    int per_p_present = 0;
     for (int64_t j = lo; j < hi; ++j) {
       int32_t v = meta->csr_col_idx[j];
       int32_t p = CC_PART_OF(v);
@@ -2578,8 +2591,6 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
         ci[p][edge_idx[p]++] = v;
       }
     }
-    (void)per_p_edge;
-    (void)per_p_present;
   }
   for (int32_t p = 0; p < partitions; ++p)
     rp[p][row_counts[p]] = edge_counts[p];
@@ -3242,6 +3253,8 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
     meta->csr_row_ptr = *((int64_t **)(base + 16));
     meta->csr_col_idx = *((int32_t **)(base + 24));
     meta->csr_weights = *((int32_t **)(base + 32));
+    meta->in_row_ptr = *((int64_t **)(base + 48));
+    meta->in_col_idx = *((int32_t **)(base + 56));
     meta->csr_owned = 0;
     meta->has_class_tiers = 0;
     meta->has_csr_class_tiers = 0;
@@ -3249,6 +3262,74 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
 
     /* fprintf(stderr, "[AutoTuner] Initialized Graph %p (n=%ld, m=%ld) in CSR baseline layout\n",
             graph_ptr, (long)n, (long)m); */
+}
+
+/* Build (once, O(E)) the reverse adjacency (transpose) for directed graphs so
+ * pull-style owner-computes traversal can scan in-edges.  The transpose lives
+ * in the Graph struct's cells at byte offsets 40 (in_row_ptr) and 48
+ * (in_col_idx); this mirrors (or builds) them into the meta.  Undirected
+ * graphs already have symmetric CSR — returns 1 with in_row_ptr left NULL. */
+int autograph_ensure_transpose(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta)
+    return 0;
+  if (meta->in_row_ptr)
+    return 1; /* already built/aliased */
+
+  char *base = (char *)graph_ptr;
+  int64_t *g_in_rp = *((int64_t **)(base + 48));
+  int32_t *g_in_ci = *((int32_t **)(base + 56));
+  if (g_in_rp && g_in_ci) {
+    meta->in_row_ptr = g_in_rp;
+    meta->in_col_idx = g_in_ci;
+    return 1;
+  }
+
+  /* Build from the forward CSR: for each edge (u -> v), append u to in-list of
+   * v.  Direct use of the forward CSR assumes no self-referential transpose is
+   * present; this is the standard one-pass CSR transpose (O(E), two passes). */
+  int64_t n = meta->csr_n;
+  if (n <= 0 || !meta->csr_row_ptr || !meta->csr_col_idx)
+    return 0;
+
+  int64_t *irp = (int64_t *)calloc((size_t)(n + 1), sizeof(int64_t));
+  if (!irp)
+    return 0;
+  for (int64_t u = 0; u < n; ++u) {
+    for (int64_t j = meta->csr_row_ptr[u]; j < meta->csr_row_ptr[u + 1]; ++j) {
+      int32_t v = meta->csr_col_idx[j];
+      if (v >= 0 && v < n)
+        irp[v + 1]++;
+    }
+  }
+  for (int64_t i = 1; i <= n; ++i)
+    irp[i] += irp[i - 1];
+  int64_t total = irp[n];
+  int32_t *ici = total > 0 ? (int32_t *)malloc((size_t)total * sizeof(int32_t))
+                           : NULL;
+  if (total > 0 && !ici) {
+    free(irp);
+    return 0;
+  }
+  int64_t *cursor = (int64_t *)malloc((size_t)(n + 1) * sizeof(int64_t));
+  if (!cursor) {
+    free(irp);
+    free(ici);
+    return 0;
+  }
+  memcpy(cursor, irp, (size_t)(n + 1) * sizeof(int64_t));
+  for (int64_t u = 0; u < n; ++u) {
+    for (int64_t j = meta->csr_row_ptr[u]; j < meta->csr_row_ptr[u + 1]; ++j) {
+      int32_t v = meta->csr_col_idx[j];
+      if (v >= 0 && v < n)
+        ici[cursor[v]++] = (int32_t)u;
+    }
+  }
+  free(cursor);
+
+  meta->in_row_ptr = irp;
+  meta->in_col_idx = ici;
+  return 1;
 }
 
 void autograph_set_class_tiers(void *graph_ptr, const double *tiers) {

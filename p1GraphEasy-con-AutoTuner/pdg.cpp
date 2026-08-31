@@ -2111,13 +2111,13 @@ namespace llvm
         return blocks;
     }
 
-    // COMPLETE REPLACEMENT for performMinCutAndCreateTaskGraph
-    // COMPLETE REPLACEMENT for performMinCutAndCreateTaskGraph
-    TaskGraph performMinCutAndCreateTaskGraph(const dependencyGraph &G)
+    // COMPLETE REPLACEMENT for the deprecated min-cut-named task-graph builder:
+    // partitioning is SCC-based (Tarjan), not minimum-cut.
+    TaskGraph buildSccTaskGraph(const dependencyGraph &G)
     {
         TaskGraph TG;
 
-        llvm::nulls() << "\nPerforming SCC-aware min-cut partitioning...\n";
+        llvm::nulls() << "\nPerforming SCC-aware task partitioning...\n";
 
         // Step 1: Find strongly connected components (these are loop-carried dependencies)
         SmallVector<SmallVector<unsigned>> sccs = findStronglyConnectedComponents(G);

@@ -1,0 +1,19 @@
+benchmark,backend,size,median_sec,gpu_fired,notes
+algo_bfs_parent,cpu,-,0.104327,False,default pipeline Polly ON
+algo_bfs_parent,gpu,-,0.099824,False,"default pipeline Polly ON, GPU inert"
+algo_cc,cpu,-,1.351606,False,default pipeline Polly ON
+algo_cc,gpu,-,1.360581,False,"default pipeline Polly ON, GPU inert"
+algo_kcore,cpu,-,0.640467,False,default pipeline Polly ON
+algo_kcore,gpu,-,0.571849,False,"default pipeline Polly ON, GPU inert"
+algo_pagerank,cpu,-,1.894357,False,default pipeline Polly ON
+algo_pagerank,gpu,-,1.928173,False,"default pipeline Polly ON, GPU inert"
+algo_sssp,cpu,-,0.69492,False,default pipeline Polly ON
+algo_sssp,gpu,-,0.682677,False,"default pipeline Polly ON, GPU inert"
+saxpy_1000000,cpu,1000000,0.079788,True,"forced parallel, Polly OFF"
+saxpy_1000000,gpu,1000000,0.326947,True,"forced parallel, Polly OFF; kernels verified on GPU"
+saxpy_4000000,cpu,4000000,0.246006,True,"forced parallel, Polly OFF"
+saxpy_4000000,gpu,4000000,0.490462,True,"forced parallel, Polly OFF; kernels verified on GPU"
+saxpy_16000000,cpu,16000000,0.843789,True,"forced parallel, Polly OFF"
+saxpy_16000000,gpu,16000000,1.20821,True,"forced parallel, Polly OFF; kernels verified on GPU"
+saxpy_64000000,cpu,64000000,3.373544,True,"forced parallel, Polly OFF"
+saxpy_64000000,gpu,64000000,4.352888,True,"forced parallel, Polly OFF; kernels verified on GPU"

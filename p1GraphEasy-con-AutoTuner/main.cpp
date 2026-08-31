@@ -31,6 +31,7 @@
 
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 #include <llvm/Transforms/Utils/LoopSimplify.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/TargetParser/Host.h>
 
@@ -41,6 +42,7 @@
 #include <llvm/IR/LegacyPassManager.h>
 
 #include <polly/RegisterPasses.h>
+#include <polly/ScopDetection.h>
 #include <polly/LinkAllPasses.h>
 #include <llvm/TargetParser/SubtargetFeature.h>
 
@@ -331,7 +333,14 @@ static void dumpModuleBitcode(llvm::Module &M, const char *path)
  *     detection and codegen never do.  This one is decisive.
  *  4. -polly has to be on; it is off by default.
  *
- * Flag defaults match p2GraphEasy, where they were measured:
+ * Polly is ENABLED by default but not force-enabled: it is injected only
+ * when the caller has not expressed an intent, and it can always be turned
+ * off or tuned -- GRAPH_DISABLE_POLLY=1 / -polly=false disable it, and
+ * explicit -polly-parallel / -polly-pattern-matching-based-opts or the
+ * GRAPH_POLLY_* env vars override the defaults.  When Polly is off the
+ * normal pipeline (O3 + PDG + loop outliner + autotuner) runs untouched.
+ *
+ * When Polly is on, flag defaults match p2GraphEasy, where they were measured:
  *   - the matmul pattern matcher is DISABLED (it accounted for ~97% of Polly
  *     compile time -- 30.2 s vs 0.73 s on a matmul-shaped kernel -- and also
  *     blocked parallelization);
@@ -397,6 +406,12 @@ static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
         return false;
     };
 
+    // Polly is enabled by default but NOT force-enabled: it is injected only
+    // when the caller has not expressed an intent, and every knob can turn it
+    // off or tune it -- GRAPH_DISABLE_POLLY=1 / -polly=false disable it,
+    // explicit -polly-parallel / -polly-pattern-matching-based-opts and the
+    // GRAPH_POLLY_* env vars override the defaults.  When Polly is off the
+    // normal pipeline (O3 + PDG + loop outliner + autotuner) runs untouched.
     if (isTruthyEnv("GRAPH_DISABLE_POLLY"))
     {
         flagArgs.emplace_back("-polly=false");
@@ -452,6 +467,364 @@ static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
     cl::ParseCommandLineOptions(static_cast<int>(parseArgv.size()), parseArgv.data());
 
     return TM;
+}
+
+// Counts Polly-profitable SCoPs by running Polly's ScopAnalysis (detection
+// only, no codegen) on every function.  Detection already applies Polly's
+// profitability heuristic, so a non-zero count means Polly would transform
+// this program.
+struct PollyProbePass : public llvm::PassInfoMixin<PollyProbePass>
+{
+    unsigned *Counter;
+
+    PollyProbePass(unsigned *C) : Counter(C) {}
+
+    llvm::PreservedAnalyses run(llvm::Function &F, llvm::FunctionAnalysisManager &FAM)
+    {
+        auto &SD = FAM.getResult<polly::ScopAnalysis>(F);
+        *Counter += std::distance(SD.begin(), SD.end());
+        return llvm::PreservedAnalyses::all();
+    }
+};
+
+// Runs the autotuner region-annotation pass, the PDG (dependency graph +
+// SCC task graph + parallel-IR reconstruction) and the loop-outliner
+// machinery that rewrites parallelizable loops into
+// parallel_for_runtime / gpu_parallel_for_runtime callbacks.
+//
+// By default the ORDER is decided by a Polly profitability probe (see main):
+// when Polly detects profitable SCoPs it runs FIRST (the outliner follows);
+// otherwise the outliner runs first and the O3/Polly pipeline runs at the
+// end of the optimization sequence.  GRAPH_OUTLINER_FIRST=1 forces the
+// outliner first; GRAPH_DISABLE_POLLY=1 skips Polly entirely.
+static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
+{
+    // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
+    // a true serial / Polly-only baseline against DOALL/DOACROSS outlining.
+    if (isTruthyEnv("GRAPH_DISABLE_PDG"))
+        return;
+
+    // Run autotuner on user IR before PDG/outlining (which moves calls into
+    // separate task functions) and before linking runtime IR modules.
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager LocalMAM;
+
+        PassBuilder LocalPB;
+        LocalPB.registerModuleAnalyses(LocalMAM);
+        LocalPB.registerCGSCCAnalyses(CGAM);
+        LocalPB.registerFunctionAnalyses(FAM);
+        LocalPB.registerLoopAnalyses(LAM);
+        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
+
+        ModulePassManager TuneMPM;
+        TuneMPM.addPass(AutoTunerModulePass());
+        TuneMPM.run(M, LocalMAM);
+    }
+
+    // {
+    //     ModuleAnalysisManager MAM;
+    //     dependencyGraph pdg = runPDGOnModule(M);
+    //     (void)pdg;
+    //     runLoopOutlinerOnModule(M);
+    //     FunctionPassManager FPM;
+    //     FPM.addPass(llvm::SimplifyCFGPass());
+    //     FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
+    //     FPM.addPass(llvm::DCEPass());
+    //     ModulePassManager MPM;
+    //     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+    //     MPM.run(M, MAM);
+    // }
+    // Create all analysis managers and register them with PassBuilder
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager MAM;
+
+        PassBuilder PB;
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+        // run PDG (you already do this)
+        if (usingGpuIR)
+            canonicalizeLoopsForAnalysis(M);
+        dependencyGraph pdg = runPDGOnModule(M);
+        // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
+
+        //        << pdg.edges.size() << " edges\n\n";
+
+        // // Step 2: Perform SCC-based task partitioning and create task graph
+
+        // errs() << "Performing SCC-based task partitioning...\n";
+
+        TaskGraph TG = buildSccTaskGraph(pdg);
+
+        // errs() << "✓ Created task graph with " << TG.tasks.size() << " tasks\n";
+
+        // errs() << "✓ Identified " << TG.cutVertices.size()
+
+        //        << " cut vertices (serial bottlenecks)\n\n";
+
+        // // Step 3: Perform topological sort on task graph
+
+        // errs() << "Computing task schedule...\n";
+
+        SmallVector<SmallVector<unsigned>> taskLevels = topologicalSortTaskGraph(TG);
+
+        // errs() << "✓ Scheduled into " << taskLevels.size() << " levels\n\n";
+
+        // // Step 4: Analyze parallelism potential
+
+        // errs() << "Parallelism Analysis:\n";
+
+        // errs() << "---------------------\n";
+
+        unsigned totalVertices = pdg.nodes.size();
+
+        unsigned numCutVertices = TG.cutVertices.size();
+
+        unsigned numComponents = TG.tasks.size() - numCutVertices;
+
+        // errs() << "  Total IR instructions: " << totalVertices << "\n";
+
+        // errs() << "  Serial bottlenecks (cut vertices): " << numCutVertices
+
+        //        << " (" << (100.0 * numCutVertices / totalVertices) << "%)\n";
+
+        // errs() << "  Parallel components: " << numComponents << "\n";
+
+        // errs() << "  Critical path length: " << taskLevels.size() << " levels\n\n";
+
+        // // Step 5: Print task schedule with details
+
+        // errs() << "Task Schedule (Level-by-Level):\n";
+
+        // errs() << "--------------------------------\n";
+
+#if 0
+        for (unsigned i = 0; i < taskLevels.size(); ++i)
+
+        {
+
+            errs() << "Level " << i << " (" << taskLevels[i].size() << " tasks):\n";
+
+            // Separate cut vertices and components for clarity
+
+            SmallVector<unsigned> cutTasks, componentTasks;
+
+            for (unsigned taskId : taskLevels[i])
+
+            {
+
+                if (TG.tasks[taskId].isCutVertex)
+
+                    cutTasks.push_back(taskId);
+
+                else
+
+                    componentTasks.push_back(taskId);
+
+            }
+
+            // Print cut vertices first (these must execute serially)
+
+            for (unsigned taskId : cutTasks)
+
+            {
+
+                const TaskNode &task = TG.tasks[taskId];
+
+                errs() << "  [SERIAL] Task " << taskId << ": Cut Vertex (order="
+
+                       << TG.cutVertexOrder.lookup(task.originalVertex)
+
+                       << ", vertex=" << task.originalVertex << ")\n";
+
+            }
+
+            // Print components (these can potentially run in parallel)
+
+            for (unsigned taskId : componentTasks)
+
+            {
+
+                const TaskNode &task = TG.tasks[taskId];
+
+                errs() << "  [PARALLEL] Task " << taskId << ": Component with "
+
+                       << task.vertices.size() << " instruction(s)\n";
+
+            }
+
+            errs() << "\n";
+
+        }
+#endif
+
+        unsigned maxParallelTasks = 0;
+
+        unsigned totalParallelOps = 0;
+
+        unsigned totalSerialOps = 0;
+
+        for (const auto &level : taskLevels)
+
+        {
+
+            unsigned parallelOpsInLevel = 0;
+
+            unsigned serialOpsInLevel = 0;
+
+            for (unsigned taskId : level)
+
+            {
+
+                const TaskNode &task = TG.tasks[taskId];
+
+                if (task.isCutVertex)
+
+                {
+
+                    serialOpsInLevel += task.vertices.size();
+
+                }
+
+                else
+
+                {
+
+                    parallelOpsInLevel += task.vertices.size();
+
+                }
+
+            }
+
+            totalParallelOps += parallelOpsInLevel;
+
+            totalSerialOps += serialOpsInLevel;
+
+            // Count parallel tasks (non-cut vertices)
+
+            unsigned parallelTasksInLevel = 0;
+
+            for (unsigned taskId : level)
+
+            {
+
+                if (!TG.tasks[taskId].isCutVertex)
+
+                    parallelTasksInLevel++;
+
+            }
+
+            maxParallelTasks = std::max(maxParallelTasks, parallelTasksInLevel);
+
+        }
+
+#if 0
+        errs() << "Detailed Metrics:\n";
+
+        errs() << "-----------------\n";
+
+        errs() << "  Instructions in parallel regions: " << totalParallelOps
+
+               << " (" << (100.0 * totalParallelOps / totalVertices) << "%)\n";
+
+        errs() << "  Instructions in serial regions: " << totalSerialOps
+
+               << " (" << (100.0 * totalSerialOps / totalVertices) << "%)\n";
+
+        errs() << "  Maximum parallel tasks per level: " << maxParallelTasks << "\n";
+
+        errs() << "  Average tasks per level: "
+
+               << (TG.tasks.size() / (float)taskLevels.size()) << "\n\n";
+
+        // Step 7: Identify critical bottlenecks
+
+        if (numCutVertices > 0)
+
+        {
+
+            errs() << "Serial Bottlenecks (in execution order):\n";
+
+            errs() << "----------------------------------------\n";
+
+            for (unsigned i = 0; i < TG.cutVertices.size(); ++i)
+
+            {
+
+                unsigned cv = TG.cutVertices[i];
+
+                errs() << "  " << i << ". Vertex " << cv << " (must execute at specific point)\n";
+
+            }
+
+            errs() << "\n";
+
+        }
+#endif
+
+        // ====================================================================
+
+        // PARALLEL IR RECONSTRUCTION
+
+        // ====================================================================
+
+        reconstructParallelIR(M, pdg, TG, taskLevels);
+
+        // After PDG annotation / parallel IR rewrite, before outlining.  Used by
+        // the Polly-vs-PDG trigger matrix to count my.loop.parallel DOALL|DOACROSS
+        // metadata that the outliner subsequently consumes.
+        if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PDG"))
+            dumpModuleBitcode(M, dumpPath);
+
+        // optional: you can still call your helper which creates its own managers
+        runLoopOutlinerOnModule(M);
+
+        // Build function-level cleanup pipeline
+        FunctionPassManager FPM;
+        FPM.addPass(llvm::SimplifyCFGPass());
+        FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
+        FPM.addPass(llvm::DCEPass());
+
+        ModulePassManager MPM;
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+        // Now this will succeed because MAM has been registered/cross-registered
+        MPM.run(M, MAM);
+    }
+
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_FINAL"))
+        dumpModuleBitcode(M, dumpPath);
+
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager MAM;
+
+        PassBuilder PB;
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+        FunctionPassManager FPM;
+        registerLoopOutlinerPass(FPM);
+
+        ModulePassManager MPM;
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+        MPM.run(M, MAM);
+    }
 }
 
 int main(int argc, char **argv)
@@ -570,11 +943,52 @@ int main(int argc, char **argv)
     }
 
 
+    // Polly profitability probe: when Polly is enabled and the caller has not
+    // forced an order, run Polly's SCoP DETECTION (analysis only, no codegen)
+    // on the clean IRGen module.  If at least one profitable SCoP exists,
+    // Polly/O3 runs first (its transformations feed the outliner); otherwise
+    // the outliner runs first and the O3/Polly pipeline runs at the END of
+    // the optimization sequence, where its loop restructuring can no longer
+    // hide parallel loops from the PDG/outliner.
+    bool pollyFirst = !isTruthyEnv("GRAPH_DISABLE_POLLY") && !isTruthyEnv("GRAPH_OUTLINER_FIRST");
+    if (pollyFirst)
+    {
+        unsigned pollyScopCount = 0;
+
+        LoopAnalysisManager PollyLAM;
+        FunctionAnalysisManager PollyFAM;
+        CGSCCAnalysisManager PollyCGAM;
+        ModuleAnalysisManager PollyMAM;
+        PollyPB->registerModuleAnalyses(PollyMAM);
+        PollyPB->registerCGSCCAnalyses(PollyCGAM);
+        PollyPB->registerFunctionAnalyses(PollyFAM);
+        PollyPB->registerLoopAnalyses(PollyLAM);
+        PollyPB->crossRegisterProxies(PollyLAM, PollyFAM, PollyCGAM, PollyMAM);
+
+        FunctionPassManager ProbeFPM;
+        ProbeFPM.addPass(PollyProbePass(&pollyScopCount));
+        ModulePassManager ProbeMPM;
+        ProbeMPM.addPass(createModuleToFunctionPassAdaptor(std::move(ProbeFPM)));
+        ProbeMPM.run(*M, PollyMAM);
+
+        pollyFirst = pollyScopCount > 0;
+        if (isTruthyEnv("GRAPH_DEBUG_POLLY_PROBE"))
+            errs() << "[polly-probe] profitable SCoPs: " << pollyScopCount << " -> "
+                   << (pollyFirst ? "Polly/O3 first"
+                                  : "outliner first, O3/Polly at end")
+                   << "\n";
+    }
+
+    // Outliner runs BEFORE the Polly/O3 pipeline when Polly is off, when
+    // GRAPH_OUTLINER_FIRST=1, or when the probe found nothing for Polly.
+    if (!pollyFirst)
+        runPdgAndOutliner(*M, usingGpuIR);
+
     // ---------------------------------------------------------------------
     // Polly.
     //
     // This has to run HERE, immediately after IRGen and BEFORE the PDG /
-    // min-cut / reconstructParallelIR / loop-outliner machinery below.  That
+    // SCC / reconstructParallelIR / loop-outliner machinery below.  That
     // machinery rewrites every loop body into a callback invoked through
     // parallel_for_runtime, which leaves no loop nest in the caller and an
     // opaque callee in its place -- measured on a 512x512 matmul, stock `opt`
@@ -582,9 +996,12 @@ int main(int argc, char **argv)
     // after, so running Polly at the end (where the object file is emitted)
     // cannot ever fire.
     //
-    // Consequence worth stating plainly: when Polly is enabled it, not the
-    // outliner, is what parallelizes these loops.  Set GRAPH_DISABLE_POLLY=1 to
-    // hand the loops back to the autotuner untouched.
+    // Consequence worth stating plainly: when Polly runs first, it -- not the
+    // outliner -- parallelizes the loops it transforms.  A profitability probe
+    // above decides the order per program: Polly-first when it finds SCoPs,
+    // outliner-first (with O3/Polly moved to the end of the sequence)
+    // otherwise.  GRAPH_DISABLE_POLLY=1 (or -polly=false) disables Polly, and
+    // GRAPH_OUTLINER_FIRST=1 forces the outliner first.
     // ---------------------------------------------------------------------
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
         dumpModuleBitcode(*M, dumpPath);
@@ -623,320 +1040,10 @@ int main(int argc, char **argv)
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
         dumpModuleBitcode(*M, dumpPath);
 
-    // Run autotuner on user IR before PDG/outlining (which moves calls into
-    // separate task functions) and before linking runtime IR modules.
-    {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager LocalMAM;
-
-        PassBuilder LocalPB;
-        LocalPB.registerModuleAnalyses(LocalMAM);
-        LocalPB.registerCGSCCAnalyses(CGAM);
-        LocalPB.registerFunctionAnalyses(FAM);
-        LocalPB.registerLoopAnalyses(LAM);
-        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
-
-        ModulePassManager TuneMPM;
-        TuneMPM.addPass(AutoTunerModulePass());
-        TuneMPM.run(*M, LocalMAM);
-    }
-
-    // {
-    //     ModuleAnalysisManager MAM;
-    //     dependencyGraph pdg = runPDGOnModule(*M);
-    //     (void)pdg;
-    //     runLoopOutlinerOnModule(*M);
-    //     FunctionPassManager FPM;
-    //     FPM.addPass(llvm::SimplifyCFGPass());
-    //     FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
-    //     FPM.addPass(llvm::DCEPass());
-    //     ModulePassManager MPM;
-    //     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-
-    //     MPM.run(*M, MAM);
-    // }
-    // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
-    // a true serial / Polly-only baseline against DOALL/DOACROSS outlining.
-    if (!isTruthyEnv("GRAPH_DISABLE_PDG"))
-    {
-        // Create all analysis managers and register them with PassBuilder
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
-
-        PassBuilder PB;
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-        // run PDG (you already do this)
-        if (usingGpuIR)
-            canonicalizeLoopsForAnalysis(*M);
-        dependencyGraph pdg = runPDGOnModule(*M);
-        // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
-
-        //        << pdg.edges.size() << " edges\n\n";
-
-        // // Step 2: Perform min-cut partitioning and create task graph
-
-        // errs() << "Performing global min-cut partitioning...\n";
-
-        TaskGraph TG = performMinCutAndCreateTaskGraph(pdg);
-
-        // errs() << "✓ Created task graph with " << TG.tasks.size() << " tasks\n";
-
-        // errs() << "✓ Identified " << TG.cutVertices.size()
-
-        //        << " cut vertices (serial bottlenecks)\n\n";
-
-        // // Step 3: Perform topological sort on task graph
-
-        // errs() << "Computing task schedule...\n";
-
-        SmallVector<SmallVector<unsigned>> taskLevels = topologicalSortTaskGraph(TG);
-
-        // errs() << "✓ Scheduled into " << taskLevels.size() << " levels\n\n";
-
-        // // Step 4: Analyze parallelism potential
-
-        // errs() << "Parallelism Analysis:\n";
-
-        // errs() << "---------------------\n";
-
-        unsigned totalVertices = pdg.nodes.size();
-
-        unsigned numCutVertices = TG.cutVertices.size();
-
-        unsigned numComponents = TG.tasks.size() - numCutVertices;
-
-        // errs() << "  Total IR instructions: " << totalVertices << "\n";
-
-        // errs() << "  Serial bottlenecks (cut vertices): " << numCutVertices
-
-        //        << " (" << (100.0 * numCutVertices / totalVertices) << "%)\n";
-
-        // errs() << "  Parallel components: " << numComponents << "\n";
-
-        // errs() << "  Critical path length: " << taskLevels.size() << " levels\n\n";
-
-        // // Step 5: Print task schedule with details
-
-        // errs() << "Task Schedule (Level-by-Level):\n";
-
-        // errs() << "--------------------------------\n";
-
-#if 0
-        for (unsigned i = 0; i < taskLevels.size(); ++i)
-
-        {
-
-            errs() << "Level " << i << " (" << taskLevels[i].size() << " tasks):\n";
-
-            // Separate cut vertices and components for clarity
-
-            SmallVector<unsigned> cutTasks, componentTasks;
-
-            for (unsigned taskId : taskLevels[i])
-
-            {
-
-                if (TG.tasks[taskId].isCutVertex)
-
-                    cutTasks.push_back(taskId);
-
-                else
-
-                    componentTasks.push_back(taskId);
-            }
-
-            // Print cut vertices first (these must execute serially)
-
-            for (unsigned taskId : cutTasks)
-
-            {
-
-                const TaskNode &task = TG.tasks[taskId];
-
-                errs() << "  [SERIAL] Task " << taskId << ": Cut Vertex (order="
-
-                       << TG.cutVertexOrder.lookup(task.originalVertex)
-
-                       << ", vertex=" << task.originalVertex << ")\n";
-            }
-
-            // Print components (these can potentially run in parallel)
-
-            for (unsigned taskId : componentTasks)
-
-            {
-
-                const TaskNode &task = TG.tasks[taskId];
-
-                errs() << "  [PARALLEL] Task " << taskId << ": Component with "
-
-                       << task.vertices.size() << " instruction(s)\n";
-            }
-
-            errs() << "\n";
-        }
-#endif
-
-        unsigned maxParallelTasks = 0;
-
-        unsigned totalParallelOps = 0;
-
-        unsigned totalSerialOps = 0;
-
-        for (const auto &level : taskLevels)
-
-        {
-
-            unsigned parallelOpsInLevel = 0;
-
-            unsigned serialOpsInLevel = 0;
-
-            for (unsigned taskId : level)
-
-            {
-
-                const TaskNode &task = TG.tasks[taskId];
-
-                if (task.isCutVertex)
-
-                {
-
-                    serialOpsInLevel += task.vertices.size();
-                }
-
-                else
-
-                {
-
-                    parallelOpsInLevel += task.vertices.size();
-                }
-            }
-
-            totalParallelOps += parallelOpsInLevel;
-
-            totalSerialOps += serialOpsInLevel;
-
-            // Count parallel tasks (non-cut vertices)
-
-            unsigned parallelTasksInLevel = 0;
-
-            for (unsigned taskId : level)
-
-            {
-
-                if (!TG.tasks[taskId].isCutVertex)
-
-                    parallelTasksInLevel++;
-            }
-
-            maxParallelTasks = std::max(maxParallelTasks, parallelTasksInLevel);
-        }
-
-#if 0
-        errs() << "Detailed Metrics:\n";
-
-        errs() << "-----------------\n";
-
-        errs() << "  Instructions in parallel regions: " << totalParallelOps
-
-               << " (" << (100.0 * totalParallelOps / totalVertices) << "%)\n";
-
-        errs() << "  Instructions in serial regions: " << totalSerialOps
-
-               << " (" << (100.0 * totalSerialOps / totalVertices) << "%)\n";
-
-        errs() << "  Maximum parallel tasks per level: " << maxParallelTasks << "\n";
-
-        errs() << "  Average tasks per level: "
-
-               << (TG.tasks.size() / (float)taskLevels.size()) << "\n\n";
-
-        // Step 7: Identify critical bottlenecks
-
-        if (numCutVertices > 0)
-
-        {
-
-            errs() << "Serial Bottlenecks (in execution order):\n";
-
-            errs() << "----------------------------------------\n";
-
-            for (unsigned i = 0; i < TG.cutVertices.size(); ++i)
-
-            {
-
-                unsigned cv = TG.cutVertices[i];
-
-                errs() << "  " << i << ". Vertex " << cv << " (must execute at specific point)\n";
-            }
-
-            errs() << "\n";
-        }
-#endif
-
-        // ====================================================================
-
-        // PARALLEL IR RECONSTRUCTION
-
-        // ====================================================================
-
-        reconstructParallelIR(*M, pdg, TG, taskLevels);
-
-        // After PDG annotation / parallel IR rewrite, before outlining.  Used by
-        // the Polly-vs-PDG trigger matrix to count my.loop.parallel DOALL|DOACROSS
-        // metadata that the outliner subsequently consumes.
-        if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PDG"))
-            dumpModuleBitcode(*M, dumpPath);
-
-        // optional: you can still call your helper which creates its own managers
-        runLoopOutlinerOnModule(*M);
-
-        // Build function-level cleanup pipeline
-        FunctionPassManager FPM;
-        FPM.addPass(llvm::SimplifyCFGPass());
-        FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
-        FPM.addPass(llvm::DCEPass());
-
-        ModulePassManager MPM;
-        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-
-        // Now this will succeed because MAM has been registered/cross-registered
-        MPM.run(*M, MAM);
-    }
-
-    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_FINAL"))
-        dumpModuleBitcode(*M, dumpPath);
-
-    if (!isTruthyEnv("GRAPH_DISABLE_PDG"))
-    {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
-
-        PassBuilder PB;
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
-        FunctionPassManager FPM;
-        registerLoopOutlinerPass(FPM);
-
-        ModulePassManager MPM;
-        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-        MPM.run(*M, MAM);
-    }
+    // Outliner runs AFTER Polly only when Polly went first (the probe found
+    // profitable SCoPs); otherwise it already ran before the Polly/O3 block.
+    if (pollyFirst)
+        runPdgAndOutliner(*M, usingGpuIR);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))
         dumpModuleBitcode(*M, dumpPath);

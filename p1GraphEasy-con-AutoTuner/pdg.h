@@ -68,7 +68,7 @@ namespace llvm
         unsigned originalVertex = 0; // If isCutVertex, the original PDG vertex ID
     };
 
-    // Task graph after min-cut partitioning
+    // Task graph after SCC-based partitioning
     struct TaskGraph
     {
         SmallVector<TaskNode> tasks;
@@ -89,8 +89,9 @@ namespace llvm
     // Old function - now deprecated
     SmallVector<SmallVector<unsigned>> topologicalSortByLevels(const dependencyGraph &G);
 
-    // New functions for min-cut and task graph generation
-    TaskGraph performMinCutAndCreateTaskGraph(const dependencyGraph &G);
+    // SCC-based task graph generation (Tarjan strongly connected components
+    // group loop-carried dependencies into serial tasks; the rest parallelize)
+    TaskGraph buildSccTaskGraph(const dependencyGraph &G);
     SmallVector<SmallVector<unsigned>> topologicalSortTaskGraph(const TaskGraph &TG);
 
     // Visualization

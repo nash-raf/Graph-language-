@@ -3028,6 +3028,12 @@ detectSemiringClosureNest(const WhileStmtNode *loop)
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
     std::optional<FirstWinsPattern> firstWins = detectFirstWinsPattern(ifs);
+    /* Effect-algebra mode (GRAPH_FRONTIER_REWRITE): retire the AST motif's
+     * per-edge first-wins CAS so the claim lowers to an ordinary guarded store
+     * and CleanCut parallelizes it under the owner rule (dest-owned claim is
+     * race-free — one partition owns the index). */
+    if (getenv("GRAPH_FRONTIER_REWRITE"))
+        firstWins.reset();
     llvm::Value *condBool = nullptr;
     if (firstWins)
     {
@@ -3990,11 +3996,16 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
             if (emitSemiringClosure(*closure))
                 return;
 
-    if (auto edgeMap = analyzeFrontierEdgeMap(ws))
-    {
-        emitEdgeMap(*edgeMap);
-        return;
-    }
+    /* Effect-algebra mode (GRAPH_FRONTIER_REWRITE): retire the AST motif
+     * edge-map dispatch (first-wins / relax-min / peel-k) so these frontier
+     * loops emit ordinary autograph_neighbor_iter_* IR and are picked up and
+     * parallelized by the CleanCut effect algebra instead. */
+    if (!getenv("GRAPH_FRONTIER_REWRITE"))
+        if (auto edgeMap = analyzeFrontierEdgeMap(ws))
+        {
+            emitEdgeMap(*edgeMap);
+            return;
+        }
 
     auto *condBB = llvm::BasicBlock::Create(Context, "loopcond", parent);
     auto *bodyBB = llvm::BasicBlock::Create(Context, "loopbody", parent);

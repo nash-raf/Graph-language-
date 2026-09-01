@@ -507,27 +507,11 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 
     // Run autotuner on user IR before PDG/outlining (which moves calls into
     // separate task functions) and before linking runtime IR modules.
-    {
-        LoopAnalysisManager LAM;
-        FunctionAnalysisManager FAM;
-        CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager LocalMAM;
-
-        PassBuilder LocalPB;
-        LocalPB.registerModuleAnalyses(LocalMAM);
-        LocalPB.registerCGSCCAnalyses(CGAM);
-        LocalPB.registerFunctionAnalyses(FAM);
-        LocalPB.registerLoopAnalyses(LAM);
-        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
-
-        ModulePassManager TuneMPM;
-        TuneMPM.addPass(AutoTunerModulePass());
-        TuneMPM.run(M, LocalMAM);
-    }
-
     // Graph-loop race-freedom (Graptor CleanCut): any loop that used graph
-    // iterators is lowered to the owner-computes frontier step BEFORE the PDG
-    // sees it, so the racy DOALL path never fires on graph-iterator loops.
+    // iterators is lowered to the owner-computes frontier step BEFORE the
+    // AutoTuner region pass / PDG / outliner see it, so the racy DOALL path
+    // never fires on graph-iterator loops and the region pass never wraps the
+    // rewritten round nest.
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
@@ -546,6 +530,24 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         ModulePassManager FrontMPM;
         FrontMPM.addPass(createModuleToFunctionPassAdaptor(std::move(FrontFPM)));
         FrontMPM.run(M, LocalMAM);
+    }
+
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager LocalMAM;
+
+        PassBuilder LocalPB;
+        LocalPB.registerModuleAnalyses(LocalMAM);
+        LocalPB.registerCGSCCAnalyses(CGAM);
+        LocalPB.registerFunctionAnalyses(FAM);
+        LocalPB.registerLoopAnalyses(LAM);
+        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
+
+        ModulePassManager TuneMPM;
+        TuneMPM.addPass(AutoTunerModulePass());
+        TuneMPM.run(M, LocalMAM);
     }
 
     // {

@@ -1782,6 +1782,90 @@ typedef struct {
   int32_t capacity;
 } AutoFrontierLane;
 
+static int autograph_scratch_ensure(AutoGraphMeta *meta, int32_t lane_count);
+static void autograph_fill_frontier_membership(AutoGraphMeta *meta,
+                                               const int32_t *frontier,
+                                               int32_t frontier_size);
+
+static int autograph_envelope_bufs_ensure(AutoGraphMeta *meta) {
+  if (!meta || meta->csr_n <= 0)
+    return 0;
+  int64_t n = meta->csr_n;
+  if (meta->scratch_n < n && !autograph_scratch_ensure(meta, 1))
+    return 0;
+  if (!meta->scratch_cur_frontier)
+    meta->scratch_cur_frontier = (int32_t *)calloc((size_t)n, sizeof(int32_t));
+  if (!meta->scratch_next_frontier)
+    meta->scratch_next_frontier = (int32_t *)calloc((size_t)n, sizeof(int32_t));
+  if (!meta->scratch_dest_seen)
+    meta->scratch_dest_seen = (int32_t *)calloc((size_t)n, sizeof(int32_t));
+  return meta->scratch_cur_frontier && meta->scratch_next_frontier &&
+         meta->scratch_dest_seen;
+}
+
+int32_t *autograph_scratch_dest_seen(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_envelope_bufs_ensure(meta))
+    return NULL;
+  memset(meta->scratch_dest_seen, 0, (size_t)meta->csr_n * sizeof(int32_t));
+  return meta->scratch_dest_seen;
+}
+
+int32_t *autograph_scratch_next_frontier(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_envelope_bufs_ensure(meta))
+    return NULL;
+  return meta->scratch_next_frontier;
+}
+
+uint8_t *autograph_scratch_membership(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_scratch_ensure(meta, 1))
+    return NULL;
+  return meta->scratch_membership;
+}
+
+int32_t autograph_prepare_frontier_array(void *graph_ptr,
+                                         const int32_t *frontier,
+                                         int32_t frontier_size) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_scratch_ensure(meta, 1))
+    return 0;
+  autograph_fill_frontier_membership(meta, frontier, frontier_size);
+  return frontier_size;
+}
+
+int32_t autograph_prepare_frontier_bitmap(void *graph_ptr, void *frontier_bitmap) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !frontier_bitmap || !autograph_envelope_bufs_ensure(meta))
+    return 0;
+  RoaringBitmap *bm = (RoaringBitmap *)frontier_bitmap;
+  uint64_t card = roaring_bitmap_get_cardinality(bm);
+  if (card > (uint64_t)meta->csr_n)
+    card = (uint64_t)meta->csr_n;
+  for (uint64_t i = 0; i < card; ++i)
+    meta->scratch_cur_frontier[i] =
+        (int32_t)roaring_bitmap_get_at_index(bm, (uint32_t)i);
+  autograph_fill_frontier_membership(meta, meta->scratch_cur_frontier,
+                                     (int32_t)card);
+  return (int32_t)card;
+}
+
+void autograph_commit_frontier_bitmap(void *graph_ptr, void *next_bitmap,
+                                      int32_t new_size) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !next_bitmap || !meta->scratch_next_frontier)
+    return;
+  RoaringBitmap *bm = (RoaringBitmap *)next_bitmap;
+  roaring_bitmap_clear(bm);
+  if (new_size < 0)
+    new_size = 0;
+  if ((int64_t)new_size > meta->csr_n)
+    new_size = (int32_t)meta->csr_n;
+  for (int32_t i = 0; i < new_size; ++i)
+    roaring_bitmap_add(bm, (uint32_t)meta->scratch_next_frontier[i]);
+}
+
 static int autograph_scratch_ensure(AutoGraphMeta *meta, int32_t lane_count) {
   if (!meta || meta->csr_n <= 0 || lane_count < 1)
     return 0;
@@ -2652,9 +2736,12 @@ static void autograph_owner_push_partition_body(int64_t index, void *opaque) {
       continue;
     for (int64_t j = rp[r]; j < rp[r + 1]; ++j) {
       int32_t v = ci[j];
+      int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
       env->work_fn(u, v, v, env->work_env);
-      if (env->dest_seen && !env->dest_seen[v]) {
-        env->dest_seen[v] = 1;
+      /* Append only if work_fn requested it by storing 1 into dest_seen[v]
+       * (elided DSL next.add / next_frontier[next_size++] = v). */
+      if (env->dest_seen && env->next_frontier && !seen_before &&
+          env->dest_seen[v]) {
         int32_t head =
             atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
         env->next_frontier[env->initial_next_size + head] = v;
@@ -2699,6 +2786,153 @@ int32_t autograph_frontier_step_owner_push(void *graph_ptr,
 
   return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
                                                            memory_order_relaxed);
+}
+
+/* Source-owned (push-on-owner) traversal: partition p owns a contiguous
+ * SOURCE range [p*n/P, (p+1)*n/P) and scans each source's own CSR row, so
+ * writes indexed by the SOURCE (e.g. out_degree[u]++, u-counted state) are
+ * race-free without atomics.  Zero-copy (no per-partition copies/buffers);
+ * sources are visited ascending per partition, and partitions are disjoint,
+ * so the work function sees exactly the serial edge order.
+ */
+typedef struct {
+  AutoGraphMeta *meta;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;
+  const uint8_t *membership;
+  int32_t *next_frontier;
+  int32_t initial_next_size;
+  int32_t *dest_seen;
+  _Atomic int32_t appended;
+  int32_t partitions;
+} AutoSourceOwnerEnv;
+
+static void autograph_source_owner_partition_body(int64_t index, void *opaque) {
+  AutoSourceOwnerEnv *env = (AutoSourceOwnerEnv *)opaque;
+  AutoGraphMeta *meta = env->meta;
+  int32_t p = (int32_t)index;
+  int64_t n = meta->csr_n;
+  int64_t lo = p * n / env->partitions;
+  int64_t hi = (p + 1) * n / env->partitions;
+  int64_t *rp = meta->csr_row_ptr;
+  int32_t *ci = meta->csr_col_idx;
+  for (int64_t u = lo; u < hi; ++u) {
+    if (env->membership && !env->membership[u])
+      continue;
+    for (int64_t j = rp[u]; j < rp[u + 1]; ++j) {
+      int32_t v = ci[j];
+      int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
+      env->work_fn((int32_t)u, v, v, env->work_env);
+      if (env->dest_seen && env->next_frontier && !seen_before &&
+          env->dest_seen[v]) {
+        int32_t head =
+            atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
+        env->next_frontier[env->initial_next_size + head] = v;
+      }
+    }
+  }
+}
+
+int32_t autograph_frontier_step_owner_source(void *graph_ptr,
+                                             const int32_t *frontier,
+                                             int32_t frontier_size,
+                                             sgpl_frontier_pair_fn work_fn,
+                                             void *work_env,
+                                             const uint8_t *membership,
+                                             int32_t *next_frontier,
+                                             int32_t initial_next_size,
+                                             int32_t *dest_seen) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || meta->partition_count <= 0)
+    return initial_next_size;
+  if (!next_frontier && dest_seen)
+    return initial_next_size;
+
+  AutoSourceOwnerEnv env = {
+      .meta = meta,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .membership = membership,
+      .next_frontier = next_frontier,
+      .initial_next_size = initial_next_size,
+      .dest_seen = dest_seen,
+      .appended = 0,
+      .partitions = meta->partition_count,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_source_owner_partition_body, &env, 0, 0);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+
+  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
+                                                           memory_order_relaxed);
+}
+
+/* Per-partition partial reduction step (owner-computes, destination-owned):
+ * each partition accumulates its pair work into its own partial at
+ * work_env + p * partial_bytes; once all partitions finish, the combine
+ * function folds every partial into `out` in ascending partition order
+ * (deterministic combine order; each partial is summed in CSR order). */
+typedef void (*sgpl_frontier_combine_fn)(const void *partial, void *out);
+
+typedef struct {
+  AutoGraphMeta *meta;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;            /* partials base */
+  int64_t partial_bytes;
+  const uint8_t *membership;
+} AutoRedEnv;
+
+static void autograph_owner_red_partition_body(int64_t index, void *opaque) {
+  AutoRedEnv *env = (AutoRedEnv *)opaque;
+  AutoGraphMeta *meta = env->meta;
+  int32_t p = (int32_t)index;
+  int64_t rows = meta->push_row_count[p];
+  int64_t *rp = meta->push_rp[p];
+  int32_t *ci = meta->push_ci[p];
+  int32_t *indir = meta->push_indir[p];
+  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
+  for (int64_t r = 0; r < rows; ++r) {
+    int32_t u = indir[r];
+    if (env->membership && !env->membership[u])
+      continue;
+    for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
+      env->work_fn(u, ci[j], ci[j], partial);
+  }
+}
+
+int32_t autograph_frontier_step_owner_red(void *graph_ptr,
+                                          const int32_t *frontier,
+                                          int32_t frontier_size,
+                                          sgpl_frontier_pair_fn work_fn,
+                                          void *work_env,
+                                          int64_t partial_bytes,
+                                          sgpl_frontier_combine_fn combine_fn,
+                                          void *out,
+                                          const uint8_t *membership,
+                                          int32_t *next_frontier,
+                                          int32_t initial_next_size,
+                                          int32_t *dest_seen) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || !combine_fn || meta->partition_count <= 0)
+    return initial_next_size;
+
+  AutoRedEnv env = {
+      .meta = meta,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .partial_bytes = partial_bytes,
+      .membership = membership,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_owner_red_partition_body, &env, 0, 0);
+  for (int32_t p = 0; p < meta->partition_count; ++p)
+    combine_fn((char *)work_env + (int64_t)p * partial_bytes, out);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+  return initial_next_size;
 }
 
 

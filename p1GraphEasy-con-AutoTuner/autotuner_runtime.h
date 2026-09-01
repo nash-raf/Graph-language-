@@ -77,6 +77,9 @@ typedef struct {
   uint8_t *scratch_round_member;
   int64_t *scratch_offsets;
   int32_t scratch_offsets_cap;
+  int32_t *scratch_cur_frontier;  /* dense current-frontier buffer, size csr_n */
+  int32_t *scratch_next_frontier; /* dense next-frontier buffer, size csr_n */
+  int32_t *scratch_dest_seen;     /* per-round append flags, size csr_n */
 
   /* Analytic per-op-class RD tiers (Phase 3): per directed insert
    * (N, h2, h3) for {scan, move, brow, struct}, computed by the compiler
@@ -310,6 +313,53 @@ int32_t autograph_frontier_step_owner_push(void *graph_ptr,
                                            int32_t *next_frontier,
                                            int32_t initial_next_size,
                                            int32_t *dest_seen);
+
+/* Source-owned variant: partition p owns the SOURCE range [p*n/P,(p+1)*n/P),
+ * so work_fn pairs are dispatched with each source's own CSR row.  Used for
+ * loops whose write target is indexed by the source vertex (owner-computes on
+ * the source side).  Same ABI and frontier behaviour as the push variant. */
+int32_t autograph_frontier_step_owner_source(void *graph_ptr,
+                                             const int32_t *frontier,
+                                             int32_t frontier_size,
+                                             sgpl_frontier_pair_fn work_fn,
+                                             void *work_env,
+                                             const uint8_t *membership,
+                                             int32_t *next_frontier,
+                                             int32_t initial_next_size,
+                                             int32_t *dest_seen);
+
+/* Reduction step with per-partition partials (owner-computes, destination-
+ * owned): every partition accumulates its pair work into its own partial at
+ * work_env + p * partial_bytes; once all partitions finish, combine_fn folds
+ * each partial into `out` in ascending partition order.  The zeroing of the
+ * partials and the allocation are the caller's (compiler pass) job. */
+typedef void (*sgpl_frontier_combine_fn)(const void *partial, void *out);
+int32_t autograph_frontier_step_owner_red(void *graph_ptr,
+                                          const int32_t *frontier,
+                                          int32_t frontier_size,
+                                          sgpl_frontier_pair_fn work_fn,
+                                          void *work_env,
+                                          int64_t partial_bytes,
+                                          sgpl_frontier_combine_fn combine_fn,
+                                          void *out,
+                                          const uint8_t *membership,
+                                          int32_t *next_frontier,
+                                          int32_t initial_next_size,
+                                          int32_t *dest_seen);
+
+/* Frontier envelope helpers for CleanCut (array- and set-based BFS/SSSP).
+ * dest_seen is zeroed each prepare; membership is filled from the current
+ * frontier.  work_fn requests an append by storing 1 into dest_seen[v]; the
+ * step then packs those destinations into next_frontier. */
+int32_t *autograph_scratch_dest_seen(void *graph_ptr);
+int32_t *autograph_scratch_next_frontier(void *graph_ptr);
+uint8_t *autograph_scratch_membership(void *graph_ptr);
+int32_t autograph_prepare_frontier_array(void *graph_ptr,
+                                         const int32_t *frontier,
+                                         int32_t frontier_size);
+int32_t autograph_prepare_frontier_bitmap(void *graph_ptr, void *frontier_bitmap);
+void autograph_commit_frontier_bitmap(void *graph_ptr, void *next_bitmap,
+                                      int32_t new_size);
 
 /* BCSR-native edge mutation. Returns 1 on success, 0 on failure/skip. */
 int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to);

@@ -16,7 +16,10 @@
  *     partials + combine)
  *   - read/write overlap on one array (in-place dist[v] = min(dist[v], ..))
  *     -> round separation (buffer swap) when constructible, else sequential
- *   - mixed dst+src writes or unclassifiable -> sequential (never DOALL)
+ *   - mixed dest+src writes that are incompatible (same array, carried
+ *     dependence, or data flow across phases) -> sequential
+ *   - independent W(A,U) ⊗ W(B,V) with membership-only coupling -> DualOwner
+ *     (source step then dest step on the same pre-round F_t)
  *
  * The per-pair body is cloned by hand into the sgpl_frontier_pair_fn ABI
  * (no CodeExtractor: single-block bodies were out of reach and its
@@ -32,6 +35,8 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -78,6 +83,60 @@ enum class RedOp
     Xor,
     FirstWins
 };
+
+/* Region lattice for the *origin* of an index value:
+ *   Bottom  constant / loop-invariant / neutral
+ *   U       flows from the driver induction variable (source axis)
+ *   V       flows from the iterator v-slot (destination / walked neighbor)
+ *   D       flows from a graph data-array element load (nodes[i], perm[v], ...)
+ *   G       scalar / global reduction slot (neither endpoint)
+ *   Top     mixed / unknown → conservatively sequential */
+enum class Region : uint8_t { Bottom = 0, U, V, D, G, Top };
+
+static Region joinRegion(Region A, Region B)
+{
+    if (A == B)
+        return A;
+    if (A == Region::Bottom)
+        return B;
+    if (B == Region::Bottom)
+        return A;
+    return Region::Top; /* two distinct non-bottom origins */
+}
+
+enum class EffectKind : uint8_t
+{
+    R = 0,
+    W,
+    Uf,       /* U_f: write depends on old value; owner-serializable */
+    Uop,      /* U_⊕: recognized algebraic combine; privatizable */
+    Claim,    /* first-wins */
+    Activate  /* frontier append / dest-owned side effect */
+};
+
+enum class Temporal : uint8_t
+{
+    Independent = 0,
+    SameRoundRead,
+    PreviousRoundRead,
+    Carried
+};
+
+struct Effect
+{
+    EffectKind Kind = EffectKind::R;
+    Region Reg = Region::Bottom;
+    const Value *Base = nullptr;
+    RedOp Op = RedOp::None;
+    Temporal Temp = Temporal::Independent;
+    Value *Index = nullptr;
+    Instruction *Origin = nullptr;
+};
+
+static bool effectIsMutating(const Effect &E)
+{
+    return E.Kind != EffectKind::R;
+}
 
 struct NeighborLoopInfo
 {
@@ -128,6 +187,9 @@ struct NeighborLoopInfo
     bool HasFirstWins = false;        /* dest-owned CAS-style claim */
     bool HasRecognizedOp = false;     /* body has a known Update operator */
     SmallVector<StoreInst *, 4> DriverUStores; /* per-source preamble (alive[u]=0) */
+    SmallVector<Effect, 8> Effects;   /* primitive effect set E */
+    ICmpInst *DriverUGuard = nullptr; /* optional if (pred(u)) wrapping U-stores */
+    bool MembershipGated = false;     /* driver is a frontier / F_t iteration */
 };
 
 /* Does this load read one element out of a data array (base = a loaded pointer
@@ -140,32 +202,11 @@ static bool isArrayElementLoad(const LoadInst *LI)
 }
 
 /* ── provenance domain ──────────────────────────────────────────
- * Region lattice for the *origin* of an index value:
- *   Bottom  constant / loop-invariant / neutral
- *   U       flows from the driver induction variable (source axis)
- *   V       flows from the iterator v-slot (destination / walked neighbor)
- *   D       flows from a graph data-array element load (nodes[i], perm[v], ...)
- *   Top     mixed / unknown → conservatively sequential
- *
- * This replaces the old depth-bounded `derivedFrom` back-walk with a sound
- * forward dataflow.  mem2reg has already run before this pass (main.cpp), so
- * index chains are SSA except the escaping v-slot alloca (its address is passed
- * to autograph_neighbor_iter_next), which is handled by an explicit load rule.
- * A `Top` origin in any store subscript forces the loop sequential, so the
- * domain is always at least as conservative as the code it replaces. */
-enum class Region : uint8_t { Bottom = 0, U, V, D, Top };
-
-static Region joinRegion(Region A, Region B)
-{
-    if (A == B)
-        return A;
-    if (A == Region::Bottom)
-        return B;
-    if (B == Region::Bottom)
-        return A;
-    return Region::Top; /* two distinct non-bottom origins */
-}
-
+ * Forward dataflow of Region over SSA.  mem2reg has already run before this
+ * pass (main.cpp), so index chains are SSA except the escaping v-slot alloca
+ * (its address is passed to autograph_neighbor_iter_next), which is handled
+ * by an explicit load rule.  A `Top` origin in any store subscript forces
+ * the loop sequential. */
 class Provenance
 {
     DenseMap<Value *, Region> M;
@@ -469,6 +510,190 @@ static bool detectFirstWinsStore(StoreInst *SI)
     return false;
 }
 
+static Value *primaryIndex(const GetElementPtrInst *GEP)
+{
+    Value *Last = nullptr;
+    for (Value *IX : GEP->indices())
+        if (!isa<Constant>(IX))
+            Last = IX;
+    return Last;
+}
+
+/* True if Stored's SSA uses a load of the same slot as Ptr (generic U_f). */
+static bool storedDependsOnOldValue(Value *Stored, Value *Ptr)
+{
+    SmallPtrSet<Value *, 16> Seen;
+    SmallVector<Value *, 8> Work;
+    Work.push_back(Stored);
+    while (!Work.empty())
+    {
+        Value *V = Work.pop_back_val();
+        if (!V || !Seen.insert(V).second)
+            continue;
+        if (auto *LI = dyn_cast<LoadInst>(V))
+        {
+            if (sameArraySlot(LI->getPointerOperand(), Ptr))
+                return true;
+            continue;
+        }
+        if (auto *I = dyn_cast<Instruction>(V))
+        {
+            if (isa<PHINode>(I))
+                continue;
+            for (Value *Op : I->operands())
+                Work.push_back(Op);
+        }
+    }
+    return false;
+}
+
+static bool valueDependsOnBase(Value *V, const Value *Base)
+{
+    if (!V || !Base)
+        return false;
+    SmallPtrSet<Value *, 16> Seen;
+    SmallVector<Value *, 8> Work;
+    Work.push_back(V);
+    while (!Work.empty())
+    {
+        Value *Cur = Work.pop_back_val();
+        if (!Cur || !Seen.insert(Cur).second)
+            continue;
+        if (auto *LI = dyn_cast<LoadInst>(Cur))
+        {
+            Value *P = LI->getPointerOperand();
+            if (auto *GEP = dyn_cast<GetElementPtrInst>(P))
+            {
+                if (canonicalArrayBase(GEP) == Base)
+                    return true;
+            }
+            else if (getUnderlyingObject(P) == Base)
+                return true;
+            continue;
+        }
+        if (auto *I = dyn_cast<Instruction>(Cur))
+        {
+            if (isa<GetElementPtrInst>(I))
+                continue;
+            for (Value *Op : I->operands())
+                Work.push_back(Op);
+        }
+    }
+    return false;
+}
+
+static const char *effectKindName(EffectKind K)
+{
+    switch (K)
+    {
+    case EffectKind::R:
+        return "R";
+    case EffectKind::W:
+        return "W";
+    case EffectKind::Uf:
+        return "U_f";
+    case EffectKind::Uop:
+        return "U";
+    case EffectKind::Claim:
+        return "Claim";
+    case EffectKind::Activate:
+        return "Activate";
+    }
+    return "?";
+}
+
+static const char *regionName(Region R)
+{
+    switch (R)
+    {
+    case Region::U:
+        return "U";
+    case Region::V:
+        return "V";
+    case Region::D:
+        return "D";
+    case Region::G:
+        return "G";
+    case Region::Top:
+        return "Top";
+    default:
+        return "_";
+    }
+}
+
+static int temporalRank(Temporal T)
+{
+    switch (T)
+    {
+    case Temporal::Carried:
+        return 3;
+    case Temporal::PreviousRoundRead:
+        return 2;
+    case Temporal::SameRoundRead:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static const char *temporalName(Temporal T)
+{
+    switch (T)
+    {
+    case Temporal::SameRoundRead:
+        return "SameRoundRead";
+    case Temporal::PreviousRoundRead:
+        return "PreviousRoundRead";
+    case Temporal::Carried:
+        return "Carried";
+    default:
+        return "Independent";
+    }
+}
+
+static const char *redOpName(RedOp Op)
+{
+    switch (Op)
+    {
+    case RedOp::Add:
+        return "+";
+    case RedOp::Sub:
+        return "-";
+    case RedOp::Mul:
+        return "*";
+    case RedOp::Min:
+        return "min";
+    case RedOp::Max:
+        return "max";
+    case RedOp::And:
+        return "&";
+    case RedOp::Or:
+        return "|";
+    case RedOp::Xor:
+        return "^";
+    case RedOp::FirstWins:
+        return "fw";
+    default:
+        return "";
+    }
+}
+
+static ICmpInst *guardICmpForStore(StoreInst *SI)
+{
+    BasicBlock *BB = SI->getParent();
+    if (!BB)
+        return nullptr;
+    BasicBlock *P = BB->getSinglePredecessor();
+    if (!P)
+        return nullptr;
+    auto *Br = dyn_cast<BranchInst>(P->getTerminator());
+    if (!Br || !Br->isConditional())
+        return nullptr;
+    if (Br->getSuccessor(0) != BB)
+        return nullptr;
+    return dyn_cast<ICmpInst>(Br->getCondition());
+}
+
 /* The driver loop's induction variable (its header phi), when present. */
 static Value *driverIndVar(Loop *DriverLoop)
 {
@@ -678,9 +903,58 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                             if (auto *BL = dyn_cast<LoadInst>(CI->getArgOperand(0)))
                                 Info.FrontierSetPtr = BL->getPointerOperand();
 
+    Info.MembershipGated = Info.FrontierSetPtr || Info.FrontierArrayPtr;
+
+    auto classifyStore = [&](StoreInst *SI, Value *Ptr, Region R,
+                             const Value *Base, Value *Index) -> Effect
+    {
+        Effect E;
+        E.Reg = R;
+        E.Base = Base;
+        E.Index = Index;
+        E.Origin = SI;
+        if (detectFirstWinsStore(SI))
+        {
+            E.Kind = EffectKind::Claim;
+            E.Op = RedOp::FirstWins;
+            Info.HasFirstWins = true;
+            Info.HasRecognizedOp = true;
+            return E;
+        }
+        RedOp AOp = detectScalarRedOp(SI->getValueOperand(), Ptr);
+        if (AOp == RedOp::None)
+            AOp = detectConditionalMinMax(SI, Ptr);
+        if (AOp != RedOp::None)
+        {
+            E.Kind = EffectKind::Uop;
+            E.Op = AOp;
+            Info.HasRecognizedOp = true;
+            return E;
+        }
+        if (storedDependsOnOldValue(SI->getValueOperand(), Ptr))
+        {
+            E.Kind = EffectKind::Uf;
+            return E;
+        }
+        E.Kind = EffectKind::W;
+        return E;
+    };
+
     bool HasV = false, HasU = false;
     std::unordered_set<const Value *> WrittenBases;
     std::unordered_set<const Value *> ReadBases;
+    auto noteWritten = [&](Region R, const Value *Base)
+    {
+        if (Base)
+            WrittenBases.insert(Base);
+        if (R == Region::V)
+            HasV = true;
+        else if (R == Region::U)
+            HasU = true;
+        else if (R == Region::D)
+            Info.HasDataWrite = true;
+    };
+
     for (BasicBlock *BB : L->blocks())
         for (Instruction &I : *BB)
         {
@@ -689,39 +963,23 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                 Value *Ptr = SI->getPointerOperand();
                 if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr))
                 {
-                    /* Canonical base (CSE-robust) so an in-place read+write of
-                     * the same logical array is detected regardless of whether
-                     * the base loads were merged. */
-                    WrittenBases.insert(canonicalArrayBase(GEP));
-                    for (Value *IX : GEP->indices())
-                    {
-                        if (isa<Constant>(IX))
-                            continue;
-                        switch (Prov.regionOf(IX))
-                        {
-                        case Region::V:
-                            HasV = true;
-                            break;
-                        case Region::U:
-                            HasU = true;
-                            break;
-                        case Region::D:
-                            Info.HasDataWrite = true;
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                    RedOp AOp = detectScalarRedOp(SI->getValueOperand(), Ptr);
-                    if (AOp == RedOp::None)
-                        AOp = detectConditionalMinMax(SI, Ptr);
-                    if (AOp != RedOp::None)
-                        Info.HasRecognizedOp = true;
-                    if (detectFirstWinsStore(SI))
-                    {
-                        Info.HasFirstWins = true;
-                        Info.HasRecognizedOp = true;
-                    }
+                    const Value *Base = canonicalArrayBase(GEP);
+                    Value *IX = primaryIndex(GEP);
+                    /* next_frontier[next_size] = v is Activate(V), not a Top
+                     * write through the append counter. */
+                    bool AppendStore = false;
+                    if (Info.AppendArrayPtr && Base == Info.AppendArrayPtr)
+                        AppendStore = true;
+                    if (IX)
+                        if (auto *LI = dyn_cast<LoadInst>(IX))
+                            if (IndexSlots.count(LI->getPointerOperand()) ||
+                                LI->getPointerOperand() == Info.AppendCountPtr)
+                                AppendStore = true;
+                    if (AppendStore)
+                        continue;
+                    Region R = IX ? Prov.regionOf(IX) : Region::Bottom;
+                    noteWritten(R, Base);
+                    Info.Effects.push_back(classifyStore(SI, Ptr, R, Base, IX));
                 }
                 else
                 {
@@ -740,6 +998,21 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                             Info.ReduceOp = detectConditionalMinMax(SI, Ptr);
                         if (Info.ReduceOp != RedOp::None)
                             Info.HasRecognizedOp = true;
+                        Effect E;
+                        E.Reg = Region::G;
+                        E.Base = Ptr;
+                        E.Index = nullptr;
+                        E.Origin = SI;
+                        if (Info.ReduceOp != RedOp::None)
+                        {
+                            E.Kind = EffectKind::Uop;
+                            E.Op = Info.ReduceOp;
+                        }
+                        else if (storedDependsOnOldValue(SI->getValueOperand(), Ptr))
+                            E.Kind = EffectKind::Uf;
+                        else
+                            E.Kind = EffectKind::W;
+                        Info.Effects.push_back(E);
                     }
                     else if (Info.ReduceOp == RedOp::None)
                     {
@@ -749,7 +1022,16 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                         {
                             Info.ReduceOp = detectConditionalMinMax(SI, Ptr);
                             if (Info.ReduceOp != RedOp::None)
+                            {
                                 Info.HasRecognizedOp = true;
+                                for (Effect &E : Info.Effects)
+                                    if (E.Origin == SI ||
+                                        (E.Base == Ptr && E.Reg == Region::G))
+                                    {
+                                        E.Kind = EffectKind::Uop;
+                                        E.Op = Info.ReduceOp;
+                                    }
+                            }
                         }
                     }
                 }
@@ -758,22 +1040,135 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             {
                 if (auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand()))
                 {
-                    for (Value *IX : GEP->indices())
+                    Value *IX = primaryIndex(GEP);
+                    Region R = IX ? Prov.regionOf(IX) : Region::Bottom;
+                    if (R == Region::V || R == Region::U)
                     {
-                        Region R = Prov.regionOf(IX);
-                        if (R == Region::V || R == Region::U)
-                        {
-                            ReadBases.insert(canonicalArrayBase(GEP));
-                            break;
-                        }
+                        const Value *Base = canonicalArrayBase(GEP);
+                        ReadBases.insert(Base);
+                        Effect E;
+                        E.Kind = EffectKind::R;
+                        E.Reg = R;
+                        E.Base = Base;
+                        E.Index = IX;
+                        E.Origin = LI;
+                        Info.Effects.push_back(E);
                     }
                 }
             }
+            if (auto *CI = dyn_cast<CallInst>(&I))
+                if (Function *CF = CI->getCalledFunction())
+                    if (CF->getName() == "roaring_bitmap_add" &&
+                        CI->arg_size() >= 2)
+                    {
+                        Effect E;
+                        E.Kind = EffectKind::Activate;
+                        E.Reg = Region::V;
+                        E.Base = Info.NextSetPtr;
+                        E.Index = CI->getArgOperand(1);
+                        E.Origin = CI;
+                        Info.Effects.push_back(E);
+                    }
         }
+
+    if (Info.HasFrontierAppend && Info.AppendArrayPtr)
+    {
+        bool HaveAct = false;
+        for (const Effect &E : Info.Effects)
+            if (E.Kind == EffectKind::Activate)
+                HaveAct = true;
+        if (!HaveAct)
+        {
+            Effect E;
+            E.Kind = EffectKind::Activate;
+            E.Reg = Region::V;
+            E.Base = Info.AppendArrayPtr;
+            E.Origin = nullptr;
+            Info.Effects.push_back(E);
+        }
+    }
 
     for (const Value *Base : WrittenBases)
         if (ReadBases.count(Base))
             Info.NeedsRoundSep = true;
+
+    /* Per-source preamble in the driver (kcore `alive[u]=0`) is not in the
+     * neighbor body; these are ordinary U-effects in E, not a graft list. */
+    for (BasicBlock *BB : Info.DriverLoop->blocks())
+    {
+        if (L->contains(BB))
+            continue;
+        for (Instruction &I : *BB)
+        {
+            if (auto *SI = dyn_cast<StoreInst>(&I))
+                if (auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
+                {
+                    Value *IX = primaryIndex(GEP);
+                    if (!IX || Prov.regionOf(IX) != Region::U)
+                        continue;
+                    const Value *Base = canonicalArrayBase(GEP);
+                    noteWritten(Region::U, Base);
+                    Info.DriverUStores.push_back(SI);
+                    if (!Info.DriverUGuard)
+                        Info.DriverUGuard = guardICmpForStore(SI);
+                    Info.Effects.push_back(
+                        classifyStore(SI, SI->getPointerOperand(), Region::U,
+                                      Base, IX));
+                }
+            if (auto *LI = dyn_cast<LoadInst>(&I))
+                if (auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand()))
+                {
+                    Value *IX = primaryIndex(GEP);
+                    if (!IX || Prov.regionOf(IX) != Region::U)
+                        continue;
+                    Effect E;
+                    E.Kind = EffectKind::R;
+                    E.Reg = Region::U;
+                    E.Base = canonicalArrayBase(GEP);
+                    E.Index = IX;
+                    E.Origin = LI;
+                    Info.Effects.push_back(E);
+                }
+        }
+    }
+
+    /* Temporal: same-location RW vs cross-endpoint carried dependence. */
+    for (Effect &Rd : Info.Effects)
+    {
+        if (Rd.Kind != EffectKind::R || !Rd.Base)
+            continue;
+        Temporal Worst = Temporal::Independent;
+        for (const Effect &M : Info.Effects)
+        {
+            if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
+                continue;
+            if (M.Base != Rd.Base)
+                continue;
+            if (M.Reg == Rd.Reg)
+            {
+                if (temporalRank(Worst) < temporalRank(Temporal::SameRoundRead))
+                    Worst = Temporal::SameRoundRead;
+            }
+            else if ((Rd.Reg == Region::U && M.Reg == Region::V) ||
+                     (Rd.Reg == Region::V && M.Reg == Region::U))
+            {
+                /* dest-owned write does not make R(A,U)+W(A,V) automatically
+                 * safe.  A frontier F_t means R(A,U) saw a previous round's
+                 * dest write.  W(A,U)+R(A,V) is staged DualOwner control
+                 * (k-core alive) — not concurrent carried. */
+                if (Rd.Reg == Region::U && M.Reg == Region::V)
+                {
+                    Temporal T = Info.MembershipGated ? Temporal::PreviousRoundRead
+                                                      : Temporal::Carried;
+                    if (temporalRank(T) > temporalRank(Worst))
+                        Worst = T;
+                }
+                else if (temporalRank(Worst) < temporalRank(Temporal::SameRoundRead))
+                    Worst = Temporal::SameRoundRead;
+            }
+        }
+        Rd.Temp = Worst;
+    }
 
     if (Info.HasDataWrite)
         Info.WriteKind = NeighborLoopInfo::WriteData; /* data-index → sequential */
@@ -785,23 +1180,6 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         Info.WriteKind = NeighborLoopInfo::WriteU;
     else
         Info.WriteKind = NeighborLoopInfo::WriteUnknown; /* red handled below */
-
-    /* Per-source preamble in the driver (kcore `alive[u]=0`) is not in the
-     * neighbor body; record U-indexed stores so emit can run them per pair. */
-    for (BasicBlock *BB : Info.DriverLoop->blocks())
-    {
-        if (L->contains(BB))
-            continue;
-        for (Instruction &I : *BB)
-            if (auto *SI = dyn_cast<StoreInst>(&I))
-                if (auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
-                    for (Value *IX : GEP->indices())
-                        if (!isa<Constant>(IX) && Prov.regionOf(IX) == Region::U)
-                        {
-                            Info.DriverUStores.push_back(SI);
-                            break;
-                        }
-    }
     return true;
 }
 
@@ -832,6 +1210,7 @@ enum class Klass
     SourceOwner,
     DestOwner,
     Reduction,
+    DualOwner,
     Sequential
 };
 
@@ -844,42 +1223,123 @@ static bool envelopeWired(const NeighborLoopInfo &Info)
     return ArrayEnv || SetEnv;
 }
 
+static bool crossPhaseDataDep(const NeighborLoopInfo &Info,
+                              const SmallPtrSet<const Value *, 4> &BaseU,
+                              const SmallPtrSet<const Value *, 4> &BaseV)
+{
+    for (const Effect &E : Info.Effects)
+    {
+        if (!effectIsMutating(E) || E.Kind == EffectKind::Activate || !E.Origin)
+            continue;
+        auto *SI = dyn_cast<StoreInst>(E.Origin);
+        if (!SI)
+            continue;
+        Value *Stored = SI->getValueOperand();
+        if (E.Reg == Region::V)
+            for (const Value *B : BaseU)
+                if (valueDependsOnBase(Stored, B))
+                    return true;
+        if (E.Reg == Region::U)
+            for (const Value *B : BaseV)
+                if (valueDependsOnBase(Stored, B))
+                    return true;
+    }
+    return false;
+}
+
 static Klass classify(const NeighborLoopInfo &Info)
 {
-    /* Unified Update(operator, region) rule.  Graph-data-index and mixed-
-     * ownership writes are never safe to DOALL.  Otherwise the single write
-     * endpoint selects the owner-computes handler.  An in-place read+write
-     * overlap on the owned region (NeedsRoundSep) with a recognized operator
-     * (incl. first-wins) is race-free under owner-computes -- one partition
-     * owns the index -- so it stays parallel. */
+    /* Semantic Mixed: incompatible ownership, carried same-array flow, or a
+     * cross-phase data dependence.  DualOwner is E=EU∪EV with disjoint bases
+     * and Dependence ⊆ Control/Membership. */
     if (Info.HasDataWrite)
-        return Klass::Sequential; /* WriteData */
-    if (Info.WriteKind == NeighborLoopInfo::WriteMixed)
-        return Klass::Sequential; /* two independently-owned write regions */
+        return Klass::Sequential;
+
+    bool MutU = false, MutV = false, MutG = false, MutD = false, MutTop = false;
+    bool HasUopG = false, HasCarriedOnMut = false;
+    SmallPtrSet<const Value *, 4> BaseU, BaseV;
+    for (const Effect &E : Info.Effects)
+    {
+        if (E.Kind == EffectKind::R)
+        {
+            if (E.Temp != Temporal::Carried || !E.Base)
+                continue;
+            for (const Effect &M : Info.Effects)
+            {
+                if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
+                    continue;
+                if (M.Base == E.Base && M.Reg != E.Reg)
+                    HasCarriedOnMut = true;
+            }
+            continue;
+        }
+        if (E.Kind == EffectKind::Activate)
+        {
+            MutV = true;
+            continue;
+        }
+        switch (E.Reg)
+        {
+        case Region::U:
+            MutU = true;
+            if (E.Base)
+                BaseU.insert(E.Base);
+            break;
+        case Region::V:
+            MutV = true;
+            if (E.Base)
+                BaseV.insert(E.Base);
+            break;
+        case Region::G:
+            MutG = true;
+            if (E.Kind == EffectKind::Uop)
+                HasUopG = true;
+            break;
+        case Region::D:
+            MutD = true;
+            break;
+        case Region::Bottom:
+            break;
+        default:
+            MutTop = true;
+            break;
+        }
+    }
+
+    if (MutD || MutTop)
+        return Klass::Sequential;
+    if (HasCarriedOnMut)
+        return Klass::Sequential;
+
+    if (MutU && MutV && !MutG)
+    {
+        bool Disjoint = true;
+        for (const Value *B : BaseU)
+            if (BaseV.count(B))
+                Disjoint = false;
+        if (Disjoint && !BaseU.empty() && !BaseV.empty() &&
+            !crossPhaseDataDep(Info, BaseU, BaseV))
+        {
+            if (Info.HasFrontierAppend && !envelopeWired(Info))
+                return Klass::Sequential;
+            return Klass::DualOwner;
+        }
+        return Klass::Sequential; /* same-array U+V or data dep */
+    }
+
     if (Info.HasFrontierAppend)
     {
-        /* BFS/SSSP/cc/kcore-style frontier loop: dest-owned updates plus a
-         * chained frontier append.  Parallelizable via the envelope when the
-         * append arrays/sets were recovered. */
-        if (envelopeWired(Info) &&
-            Info.WriteKind == NeighborLoopInfo::WriteV)
+        /* Activate(V) needs the dest envelope. DualOwner already returned. */
+        if (envelopeWired(Info) && MutV && !MutU && !MutG)
             return Klass::DestOwner;
         return Klass::Sequential;
     }
-    if (Info.ReducePtr && Info.ReduceOp != RedOp::None)
-        return Klass::Reduction; /* global-scalar Update(op) -> partials+combine */
-    if (Info.WriteKind == NeighborLoopInfo::WriteV)
-    {
-        if (Info.NeedsRoundSep && !Info.HasRecognizedOp && !Info.HasFirstWins)
-            return Klass::Sequential;
+    if (MutG && HasUopG && !MutU && !MutV)
+        return Klass::Reduction;
+    if (MutV && !MutU && !MutG)
         return Klass::DestOwner;
-    }
-    if (Info.WriteKind == NeighborLoopInfo::WriteU)
-    {
-        if (Info.NeedsRoundSep && !Info.HasRecognizedOp)
-            return Klass::Sequential;
+    if (MutU && !MutV && !MutG)
         return Klass::SourceOwner;
-    }
     return Klass::Sequential;
 }
 
@@ -893,9 +1353,55 @@ static const char *klassName(Klass K)
         return "dest-owner";
     case Klass::Reduction:
         return "reduction";
+    case Klass::DualOwner:
+        return "dual-owner";
     default:
         return "sequential";
     }
+}
+
+static const char *compatName(Klass K)
+{
+    switch (K)
+    {
+    case Klass::DualOwner:
+        return "dual";
+    case Klass::Sequential:
+        return "no";
+    default:
+        return "single";
+    }
+}
+
+static void printEffects(const NeighborLoopInfo &Info, Klass K)
+{
+    bool First = true;
+    Temporal Worst = Temporal::Independent;
+    for (const Effect &E : Info.Effects)
+    {
+        if (E.Kind == EffectKind::R && E.Temp == Temporal::Independent)
+            continue;
+        if (!First)
+            errs() << " ⊗ ";
+        First = false;
+        errs() << effectKindName(E.Kind);
+        if (E.Kind == EffectKind::Uop && E.Op != RedOp::None)
+            errs() << redOpName(E.Op);
+        errs() << "(";
+        if (E.Base && E.Base->hasName())
+            errs() << E.Base->getName();
+        else
+            errs() << "_";
+        errs() << "," << regionName(E.Reg) << ")";
+        if (E.Kind == EffectKind::R && E.Temp != Temporal::Independent)
+            errs() << ":" << temporalName(E.Temp);
+        if (temporalRank(E.Temp) > temporalRank(Worst))
+            Worst = E.Temp;
+    }
+    if (First)
+        errs() << "(empty)";
+    errs() << "  temporal=" << temporalName(Worst)
+           << "  compat=" << compatName(K);
 }
 
 /* ── per-pair wrapper via manual clone ────────────────────────── */
@@ -1025,7 +1531,176 @@ static Value *ptrFromSlot(IRBuilder<> &B, Value *Slot, Type *I8P)
     return B.CreateLoad(I8P, Slot);
 }
 
-static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool SourceOwner)
+enum class PairPhase
+{
+    All,
+    UOnly,
+    VOnly
+};
+
+static bool mutatingOriginIs(const NeighborLoopInfo &Info, Instruction *I, Region R)
+{
+    for (const Effect &E : Info.Effects)
+        if (E.Origin == I && E.Reg == R && effectIsMutating(E) &&
+            E.Kind != EffectKind::Activate)
+            return true;
+    return false;
+}
+
+static bool neighborHasUMutating(const NeighborLoopInfo &Info)
+{
+    Loop *NL = Info.NeighborLoop;
+    if (!NL)
+        return false;
+    for (const Effect &E : Info.Effects)
+        if (effectIsMutating(E) && E.Reg == Region::U && E.Origin &&
+            E.Kind != EffectKind::Activate && NL->contains(E.Origin->getParent()))
+            return true;
+    return false;
+}
+
+struct FrontierEnv
+{
+    Value *GraphArg = nullptr;
+    Value *FrontArg = nullptr;
+    Value *FrontSize = nullptr;
+    Value *Membership = nullptr;
+    Value *NextArg = nullptr;
+    Value *SeenArg = nullptr;
+    Value *WorkEnv = nullptr;
+    bool HasEnvelope = false;
+};
+
+static void fillFrontierEnv(IRBuilder<> &EB, const NeighborLoopInfo &Info,
+                            Module *Mod, Type *I8P, Type *I32, LLVMContext &Ctx,
+                            Value *GraphArg, FrontierEnv &Env, bool WantEnvelope)
+{
+    Env.GraphArg = GraphArg;
+    Env.FrontArg = ConstantPointerNull::get(cast<PointerType>(I8P));
+    Env.FrontSize = ConstantInt::get(I32, 0);
+    Env.WorkEnv = ConstantPointerNull::get(cast<PointerType>(I8P));
+    Env.Membership = ConstantPointerNull::get(cast<PointerType>(I8P));
+    Env.NextArg = ConstantPointerNull::get(cast<PointerType>(I8P));
+    Env.SeenArg = ConstantPointerNull::get(cast<PointerType>(I8P));
+    Env.HasEnvelope = false;
+    const bool FillFt = WantEnvelope || Info.MembershipGated;
+    if (!FillFt)
+        return;
+    FunctionCallee MemFn = Mod->getOrInsertFunction(
+        "autograph_scratch_membership",
+        FunctionType::get(PointerType::get(Type::getInt8Ty(Ctx), 0), {I8P}, false));
+    Env.Membership = EB.CreateBitCast(EB.CreateCall(MemFn, {GraphArg}), I8P);
+    if (WantEnvelope)
+    {
+        FunctionCallee SeenFn = Mod->getOrInsertFunction(
+            "autograph_scratch_dest_seen",
+            FunctionType::get(PointerType::get(I32, 0), {I8P}, false));
+        Env.SeenArg = EB.CreateBitCast(EB.CreateCall(SeenFn, {GraphArg}), I8P);
+        Env.WorkEnv = Env.SeenArg;
+        Env.HasEnvelope = true;
+        if (Info.FrontierSetPtr && Info.NextSetPtr)
+        {
+            FunctionCallee PrepBm = Mod->getOrInsertFunction(
+                "autograph_prepare_frontier_bitmap",
+                FunctionType::get(I32, {I8P, I8P}, false));
+            FunctionCallee NextFn = Mod->getOrInsertFunction(
+                "autograph_scratch_next_frontier",
+                FunctionType::get(PointerType::get(I32, 0), {I8P}, false));
+            Value *FBM = EB.CreateLoad(I8P, Info.FrontierSetPtr);
+            Env.FrontSize = EB.CreateCall(PrepBm, {GraphArg, FBM});
+            Env.NextArg = EB.CreateBitCast(EB.CreateCall(NextFn, {GraphArg}), I8P);
+        }
+        else if (Info.FrontierArrayPtr)
+        {
+            FunctionCallee PrepArr = Mod->getOrInsertFunction(
+                "autograph_prepare_frontier_array",
+                FunctionType::get(I32, {I8P, I8P, I32}, false));
+            Value *FArr = ptrFromSlot(EB, Info.FrontierArrayPtr, I8P);
+            Env.FrontArg = FArr;
+            if (Info.FrontierSizePtr)
+                Env.FrontSize = EB.CreateLoad(I32, Info.FrontierSizePtr);
+            else
+                Env.FrontSize = Info.FrontierSizeVal;
+            Env.FrontSize = EB.CreateCall(PrepArr, {GraphArg, FArr, Env.FrontSize});
+            if (Info.AppendArrayPtr)
+                Env.NextArg = ptrFromSlot(EB, Info.AppendArrayPtr, I8P);
+        }
+    }
+    else if (Info.FrontierSetPtr)
+    {
+        FunctionCallee PrepBm = Mod->getOrInsertFunction(
+            "autograph_prepare_frontier_bitmap",
+            FunctionType::get(I32, {I8P, I8P}, false));
+        Value *FBM = EB.CreateLoad(I8P, Info.FrontierSetPtr);
+        Env.FrontSize = EB.CreateCall(PrepBm, {GraphArg, FBM});
+    }
+    else if (Info.FrontierArrayPtr)
+    {
+        FunctionCallee PrepArr = Mod->getOrInsertFunction(
+            "autograph_prepare_frontier_array",
+            FunctionType::get(I32, {I8P, I8P, I32}, false));
+        Value *FArr = ptrFromSlot(EB, Info.FrontierArrayPtr, I8P);
+        Env.FrontArg = FArr;
+        if (Info.FrontierSizePtr)
+            Env.FrontSize = EB.CreateLoad(I32, Info.FrontierSizePtr);
+        else
+            Env.FrontSize = Info.FrontierSizeVal;
+        Env.FrontSize = EB.CreateCall(PrepArr, {GraphArg, FArr, Env.FrontSize});
+    }
+}
+
+static Value *callOwnerStep(IRBuilder<> &EB, Module *Mod, Type *I8P, Type *I32,
+                            Function *WF, bool SourceOwner, const FrontierEnv &Env,
+                            bool WithEnvelope)
+{
+    const char *StepName = SourceOwner ? "autograph_frontier_step_owner_source"
+                                       : "autograph_frontier_step_owner_push";
+    FunctionCallee Step = Mod->getOrInsertFunction(
+        StepName, FunctionType::get(I32, {I8P, I8P, I32, I8P, I8P, I8P, I8P, I32,
+                                          I8P}, false));
+    Value *Null = ConstantPointerNull::get(cast<PointerType>(I8P));
+    SmallVector<Value *, 9> Args = {
+        Env.GraphArg, Env.FrontArg, Env.FrontSize,
+        EB.CreateBitCast(WF, I8P),
+        WithEnvelope ? Env.WorkEnv : Null,
+        Env.Membership,
+        WithEnvelope ? Env.NextArg : Null,
+        ConstantInt::get(I32, 0),
+        WithEnvelope ? Env.SeenArg : Null};
+    return EB.CreateCall(Step, Args);
+}
+
+static void commitEnvelope(IRBuilder<> &EB, const NeighborLoopInfo &Info,
+                           Module *Mod, Type *I8P, LLVMContext &Ctx,
+                           Value *GraphArg, Value *NewSize)
+{
+    if (Info.FrontierSetPtr && Info.NextSetPtr)
+    {
+        FunctionCallee Commit = Mod->getOrInsertFunction(
+            "autograph_commit_frontier_bitmap",
+            FunctionType::get(Type::getVoidTy(Ctx),
+                              {I8P, I8P, Type::getInt32Ty(Ctx)}, false));
+        Value *NBM = EB.CreateLoad(I8P, Info.NextSetPtr);
+        EB.CreateCall(Commit, {GraphArg, NBM, NewSize});
+    }
+    else if (Info.AppendCountPtr)
+        EB.CreateStore(NewSize, Info.AppendCountPtr);
+    if (Instruction *T = Info.DriverLoop->getHeader()->getTerminator())
+        T->setMetadata(
+            "sgpl.frontier.first_wins.doall",
+            MDNode::get(Ctx, MDString::get(Ctx, "requires-int-append-priv")));
+}
+
+static void deactivateDriver(const NeighborLoopInfo &Info)
+{
+    BasicBlock *Header = Info.DriverLoop->getHeader();
+    if (Header)
+        if (auto *HB = dyn_cast<BranchInst>(Header->getTerminator()))
+            if (HB->isConditional())
+                HB->setSuccessor(0, HB->getSuccessor(1));
+}
+
+static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
 {
     Function *F = Info.NeighborLoop->getHeader()->getParent();
     LLVMContext &Ctx = F->getContext();
@@ -1036,8 +1711,10 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
     for (BasicBlock *BB : Info.NeighborLoop->getBlocks())
         if (BB != Info.NeighborLoop->getHeader())
             BodyBlocks.push_back(BB);
-    if (BodyBlocks.empty())
-        return false;
+    const bool UPreambleOnly =
+        Phase == PairPhase::UOnly && !neighborHasUMutating(Info);
+    if (BodyBlocks.empty() && !UPreambleOnly)
+        return nullptr;
 
     Type *I32 = Type::getInt32Ty(Ctx);
     Type *I64 = Type::getInt64Ty(Ctx);
@@ -1076,10 +1753,11 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
      * every partition held exactly one edge.) */
     Value *RedPartial = nullptr;
     Type *RedElemTy = nullptr;
-    const bool UseEnvelope = envelopeWired(Info) && Info.HasFrontierAppend &&
+    const bool UseEnvelope = Phase != PairPhase::UOnly &&
+                             envelopeWired(Info) && Info.HasFrontierAppend &&
                              !Info.ReducePtr;
     Value *SeenBase = nullptr;
-    if (Info.ReducePtr)
+    if (Phase == PairPhase::All && Info.ReducePtr)
     {
         RedElemTy = Type::getDoubleTy(Ctx);
         for (User *U : Info.ReducePtr->users())
@@ -1091,8 +1769,9 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         SeenBase = WB.CreateBitCast(ArgEnv, PointerType::get(I32, 0));
 
     std::unordered_map<BasicBlock *, BasicBlock *> BBMap;
-    for (BasicBlock *BB : BodyBlocks)
-        BBMap[BB] = BasicBlock::Create(Ctx, BB->getName(), WF);
+    if (!UPreambleOnly)
+        for (BasicBlock *BB : BodyBlocks)
+            BBMap[BB] = BasicBlock::Create(Ctx, BB->getName(), WF);
     BasicBlock *RetStub = BasicBlock::Create(Ctx, "pair_ret", WF);
     IRBuilder<> RB(RetStub);
     RB.CreateRetVoid();
@@ -1106,7 +1785,7 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         Map[Info.UAlloca] = USlot;
     if (Value *IndVar = driverIndVar(Info.DriverLoop))
         Map[IndVar] = U64Src;
-    if (Info.ReducePtr)
+    if (Phase == PairPhase::All && Info.ReducePtr)
         Map[Info.ReducePtr] = RedPartial;
 
     auto CloneValue = [&](Value *V, auto &&CloneValueRef) -> Value *
@@ -1175,6 +1854,73 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         return false;
     };
 
+    auto isPhaseElide = [&](Instruction &I) -> bool
+    {
+        if (Phase == PairPhase::VOnly && mutatingOriginIs(Info, &I, Region::U))
+            return true;
+        if (Phase == PairPhase::UOnly)
+        {
+            if (mutatingOriginIs(Info, &I, Region::V))
+                return true;
+            if (auto *CI = dyn_cast<CallInst>(&I))
+                if (Function *CF = CI->getCalledFunction())
+                    if (CF->getName() == "roaring_bitmap_add")
+                        return true;
+            if (auto *SI = dyn_cast<StoreInst>(&I))
+            {
+                if (SI->getPointerOperand() == Info.AppendCountPtr)
+                    return true;
+                if (auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
+                {
+                    Value *GBase = GEP->getPointerOperand();
+                    Value *BaseSlot = GBase;
+                    if (auto *BL = dyn_cast<LoadInst>(GBase))
+                        BaseSlot = BL->getPointerOperand();
+                    if (BaseSlot == Info.AppendArrayPtr)
+                        return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    if (UPreambleOnly)
+    {
+        BasicBlock *DoU = BasicBlock::Create(Ctx, "u_effects", WF);
+        Value *C = nullptr;
+        if (Info.DriverUGuard)
+            C = CloneValue(Info.DriverUGuard, CloneValue);
+        WB.SetInsertPoint(EntryBB);
+        if (C)
+            WB.CreateCondBr(C, DoU, RetStub);
+        else
+            WB.CreateBr(DoU);
+        IRBuilder<> UB(DoU);
+        for (StoreInst *SI : Info.DriverUStores)
+        {
+            Instruction *Clone = SI->clone();
+            bool Ok = true;
+            for (unsigned oi = 0; oi < Clone->getNumOperands(); ++oi)
+            {
+                Value *M = CloneValue(Clone->getOperand(oi), CloneValue);
+                if (!M)
+                {
+                    Ok = false;
+                    break;
+                }
+                Clone->setOperand(oi, M);
+            }
+            if (!Ok)
+            {
+                Clone->deleteValue();
+                continue;
+            }
+            UB.Insert(Clone);
+        }
+        UB.CreateBr(RetStub);
+        return WF;
+    }
+
     /* Phase 1: clone non-terminator instructions into their cloned blocks so
      * Map is complete before operand remap (avoids hoisting icmps into entry). */
     for (BasicBlock *BB : BodyBlocks)
@@ -1184,7 +1930,7 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         {
             if (I.isTerminator())
                 break;
-            if (isAppendElide(I))
+            if (isAppendElide(I) || isPhaseElide(I))
                 continue;
             Instruction *Clone = I.clone();
             Map[&I] = Clone;
@@ -1207,7 +1953,7 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         for (Instruction &I : *BB)
             if (Map.count(&I))
                 if (!remapInst(cast<Instruction>(Map[&I])))
-                    return false;
+                    return nullptr;
 
     /* Rewrite elided frontier appends into dest_seen[v] = 1 in-place. */
     BasicBlock *FirstClone = nullptr;
@@ -1254,7 +2000,7 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
             {
                 Value *MCond = CloneValue(HB->getCondition(), CloneValue);
                 if (!MCond)
-                    return false;
+                    return nullptr;
                 BasicBlock *T0 = HB->getSuccessor(0);
                 BasicBlock *T1 = HB->getSuccessor(1);
                 BasicBlock *D0 = BBMap.count(T0) ? BBMap[T0] : RetStub;
@@ -1271,31 +2017,49 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         if (!FirstClone)
             FirstClone = CloneBB;
     }
-    for (StoreInst *SI : Info.DriverUStores)
+    /* Driver U-stores belong on the source pair-fn (DualOwner U-phase), not
+     * grafted into a dest-owned body. */
+    if (Phase == PairPhase::UOnly)
     {
-        Instruction *Clone = SI->clone();
-        bool Ok = true;
-        for (unsigned oi = 0; oi < Clone->getNumOperands(); ++oi)
+        for (StoreInst *SI : Info.DriverUStores)
         {
-            Value *M = CloneValue(Clone->getOperand(oi), CloneValue);
-            if (!M)
+            Instruction *Clone = SI->clone();
+            bool Ok = true;
+            for (unsigned oi = 0; oi < Clone->getNumOperands(); ++oi)
             {
-                Ok = false;
-                break;
+                Value *M = CloneValue(Clone->getOperand(oi), CloneValue);
+                if (!M)
+                {
+                    Ok = false;
+                    break;
+                }
+                Clone->setOperand(oi, M);
             }
-            Clone->setOperand(oi, M);
+            if (!Ok)
+            {
+                Clone->deleteValue();
+                continue;
+            }
+            WB.Insert(Clone);
         }
-        if (!Ok)
-        {
-            Clone->deleteValue();
-            continue;
-        }
-        WB.Insert(Clone);
     }
+    WB.SetInsertPoint(EntryBB);
     WB.CreateBr(FirstClone);
+    return WF;
+}
 
-    /* Build+step at the driver preheader end; fresh graph load (the init()
-     * graph load lives in the soon-dead driver body). */
+static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool SourceOwner)
+{
+    Function *WF = emitPairWorkFn(Info, PairPhase::All);
+    if (!WF)
+        return false;
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    LLVMContext &Ctx = F->getContext();
+    Module *Mod = F->getParent();
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+
     BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
     if (!Pre || !Pre->getTerminator())
         return false;
@@ -1309,118 +2073,87 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
         "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
     Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
 
-    FunctionCallee Step;
-    SmallVector<Value *, 12> StepArgs;
+    const bool UseEnvelope = envelopeWired(Info) && Info.HasFrontierAppend &&
+                             !Info.ReducePtr;
     if (Info.ReducePtr)
     {
+        Type *RedElemTy = Type::getDoubleTy(Ctx);
+        for (User *U : Info.ReducePtr->users())
+            if (auto *LI = dyn_cast<LoadInst>(U))
+                RedElemTy = LI->getType();
         AllocaInst *Partials = EB.CreateAlloca(RedElemTy, PartCount, "red_partials");
-        /* Initialize every partial to the operator identity (0 / 1 / all-ones /
-         * +inf / -inf) so the ordered combine reproduces the serial result. */
         emitPartialInit(EB, Pre, Partials, PartCount, RedElemTy, Info.ReduceOp, Ctx);
         Function *Combiner = emitRedCombiner(Ctx, Mod, Info.ReduceOp, RedElemTy);
-        Step = Mod->getOrInsertFunction(
+        FunctionCallee Step = Mod->getOrInsertFunction(
             "autograph_frontier_step_owner_red",
             FunctionType::get(I32,
                               {I8P, I8P, I32, I8P, I8P, I64, I8P, I8P, I8P, I8P, I32,
                                I8P}, false));
-        StepArgs = {GraphArg,
-                    ConstantPointerNull::get(cast<PointerType>(I8P)),
-                    ConstantInt::get(I32, 0),
-                    EB.CreateBitCast(WF, I8P),
-                    EB.CreateBitCast(Partials, I8P),
-                    ConstantInt::get(I64, (RedElemTy->getPrimitiveSizeInBits() + 7) / 8),
-                    EB.CreateBitCast(Combiner, I8P),
-                    EB.CreateBitCast(Info.ReducePtr, I8P),
-                    ConstantPointerNull::get(cast<PointerType>(I8P)),
-                    ConstantPointerNull::get(cast<PointerType>(I8P)),
-                    ConstantInt::get(I32, 0),
-                    ConstantPointerNull::get(cast<PointerType>(I8P))};
+        SmallVector<Value *, 12> StepArgs = {
+            GraphArg,
+            ConstantPointerNull::get(cast<PointerType>(I8P)),
+            ConstantInt::get(I32, 0),
+            EB.CreateBitCast(WF, I8P),
+            EB.CreateBitCast(Partials, I8P),
+            ConstantInt::get(I64, (RedElemTy->getPrimitiveSizeInBits() + 7) / 8),
+            EB.CreateBitCast(Combiner, I8P),
+            EB.CreateBitCast(Info.ReducePtr, I8P),
+            ConstantPointerNull::get(cast<PointerType>(I8P)),
+            ConstantPointerNull::get(cast<PointerType>(I8P)),
+            ConstantInt::get(I32, 0),
+            ConstantPointerNull::get(cast<PointerType>(I8P))};
+        EB.CreateCall(Step, StepArgs);
     }
     else
     {
-        const char *StepName = SourceOwner ? "autograph_frontier_step_owner_source"
-                                           : "autograph_frontier_step_owner_push";
-        Step = Mod->getOrInsertFunction(
-            StepName, FunctionType::get(I32, {I8P, I8P, I32, I8P, I8P, I8P, I8P, I32,
-                                              I8P}, false));
-        Value *FrontArg = ConstantPointerNull::get(cast<PointerType>(I8P));
-        Value *FrontSize = ConstantInt::get(I32, 0);
-        Value *WorkEnv = ConstantPointerNull::get(cast<PointerType>(I8P));
-        Value *Membership = ConstantPointerNull::get(cast<PointerType>(I8P));
-        Value *NextArg = ConstantPointerNull::get(cast<PointerType>(I8P));
-        Value *SeenArg = ConstantPointerNull::get(cast<PointerType>(I8P));
-        Value *NewSize = nullptr;
+        FrontierEnv Env;
+        fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, UseEnvelope);
+        Value *NewSize = callOwnerStep(EB, Mod, I8P, I32, WF, SourceOwner, Env,
+                                       UseEnvelope);
         if (UseEnvelope)
-        {
-            FunctionCallee SeenFn = Mod->getOrInsertFunction(
-                "autograph_scratch_dest_seen",
-                FunctionType::get(PointerType::get(I32, 0), {I8P}, false));
-            FunctionCallee MemFn = Mod->getOrInsertFunction(
-                "autograph_scratch_membership",
-                FunctionType::get(PointerType::get(Type::getInt8Ty(Ctx), 0), {I8P}, false));
-            SeenArg = EB.CreateBitCast(EB.CreateCall(SeenFn, {GraphArg}), I8P);
-            WorkEnv = SeenArg;
-            Membership = EB.CreateBitCast(EB.CreateCall(MemFn, {GraphArg}), I8P);
-            if (Info.FrontierSetPtr && Info.NextSetPtr)
-            {
-                FunctionCallee PrepBm = Mod->getOrInsertFunction(
-                    "autograph_prepare_frontier_bitmap",
-                    FunctionType::get(I32, {I8P, I8P}, false));
-                FunctionCallee NextFn = Mod->getOrInsertFunction(
-                    "autograph_scratch_next_frontier",
-                    FunctionType::get(PointerType::get(I32, 0), {I8P}, false));
-                Value *FBM = EB.CreateLoad(I8P, Info.FrontierSetPtr);
-                FrontSize = EB.CreateCall(PrepBm, {GraphArg, FBM});
-                NextArg = EB.CreateBitCast(EB.CreateCall(NextFn, {GraphArg}), I8P);
-            }
-            else
-            {
-                FunctionCallee PrepArr = Mod->getOrInsertFunction(
-                    "autograph_prepare_frontier_array",
-                    FunctionType::get(I32, {I8P, I8P, I32}, false));
-                Value *FArr = ptrFromSlot(EB, Info.FrontierArrayPtr, I8P);
-                FrontArg = FArr;
-                if (Info.FrontierSizePtr)
-                    FrontSize = EB.CreateLoad(I32, Info.FrontierSizePtr);
-                else
-                    FrontSize = Info.FrontierSizeVal;
-                FrontSize = EB.CreateCall(PrepArr, {GraphArg, FArr, FrontSize});
-                NextArg = ptrFromSlot(EB, Info.AppendArrayPtr, I8P);
-            }
-        }
-        StepArgs = {GraphArg, FrontArg, FrontSize,
-                    EB.CreateBitCast(WF, I8P), WorkEnv, Membership, NextArg,
-                    ConstantInt::get(I32, 0), SeenArg};
-        NewSize = EB.CreateCall(Step, StepArgs);
-        if (UseEnvelope)
-        {
-            if (Info.FrontierSetPtr && Info.NextSetPtr)
-            {
-                FunctionCallee Commit = Mod->getOrInsertFunction(
-                    "autograph_commit_frontier_bitmap",
-                    FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P, I32}, false));
-                Value *NBM = EB.CreateLoad(I8P, Info.NextSetPtr);
-                EB.CreateCall(Commit, {GraphArg, NBM, NewSize});
-            }
-            else if (Info.AppendCountPtr)
-                EB.CreateStore(NewSize, Info.AppendCountPtr);
-            if (Instruction *T = Info.DriverLoop->getHeader()->getTerminator())
-                T->setMetadata(
-                    "sgpl.frontier.first_wins.doall",
-                    MDNode::get(Ctx, MDString::get(Ctx, "requires-int-append-priv")));
-        }
+            commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
     }
-    if (Info.ReducePtr)
-        EB.CreateCall(Step, StepArgs);
+    deactivateDriver(Info);
+    return true;
+}
 
-    /* Deactivate the old driver nest: route the driver header's loop-entry
-     * (true) edge to its exit so the whole original nest becomes dead code
-     * (the CleanCut step below the preheader is the only live path). */
-    BasicBlock *Header = Info.DriverLoop->getHeader();
-    if (Header)
-        if (auto *HB = dyn_cast<BranchInst>(Header->getTerminator()))
-            if (HB->isConditional())
-                HB->setSuccessor(0, HB->getSuccessor(1));
+/* DualOwner: source step then dest step on the same pre-round F_t. */
+static bool emitDualCleanCut(const NeighborLoopInfo &Info)
+{
+    Function *WFu = emitPairWorkFn(Info, PairPhase::UOnly);
+    Function *WFv = emitPairWorkFn(Info, PairPhase::VOnly);
+    if (!WFu || !WFv)
+        return false;
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    LLVMContext &Ctx = F->getContext();
+    Module *Mod = F->getParent();
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+
+    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    if (!Pre || !Pre->getTerminator())
+        return false;
+    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
+    EB.SetInsertPoint(Pre->getTerminator());
+    Value *GraphArg = Info.GraphPtr;
+    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
+        if (GL->getPointerOperand())
+            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
+    FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+    EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+
+    const bool WantEnvelope = envelopeWired(Info) && Info.HasFrontierAppend;
+    FrontierEnv Env;
+    /* Membership(DestPhase)=Membership(SourcePhase)=F_t: prepare once. */
+    fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
+    callOwnerStep(EB, Mod, I8P, I32, WFu, /*SourceOwner=*/true, Env,
+                  /*WithEnvelope=*/false);
+    Value *NewSize = callOwnerStep(EB, Mod, I8P, I32, WFv, /*SourceOwner=*/false,
+                                   Env, WantEnvelope);
+    if (WantEnvelope)
+        commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
+    deactivateDriver(Info);
     return true;
 }
 
@@ -1460,7 +2193,11 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                    << " data=" << (HasData ? 1 : 0)
                    << " fw=" << (Info.HasFirstWins ? 1 : 0)
                    << " env=" << (Info.HasFrontierAppend ? 1 : 0)
-                   << " class=" << klassName(K) << "\n";
+                   << " class=" << klassName(K)
+                   << "  ";
+            if (IsIter)
+                printEffects(Info, K);
+            errs() << "\n";
         }
         if (RewriteMode)
         {
@@ -1475,8 +2212,10 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             bool Rewritable = (K != Klass::Sequential);
             if (Rewritable)
             {
-                bool SourceOwner = (K == Klass::SourceOwner);
-                bool Emitted = emitCleanCutCallbackAndStep(Info, SourceOwner);
+                bool Emitted = (K == Klass::DualOwner)
+                                   ? emitDualCleanCut(Info)
+                                   : emitCleanCutCallbackAndStep(
+                                         Info, K == Klass::SourceOwner);
                 ++detected;
                 if (Emitted)
                 {

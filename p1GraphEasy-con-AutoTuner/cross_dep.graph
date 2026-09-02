@@ -1,0 +1,24 @@
+graph G {
+  edges: file "undirected_small.txt";
+};
+
+int n = numVertices(G);
+int A[n];
+int B[n];
+
+for each vertex v in G {
+  A[v] = 0;
+  B[v] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    A[u] = 1;
+    B[v] = A[u];
+  }
+}
+
+print A[0];
+print B[0];
+print A[1];
+print B[1];

@@ -1,0 +1,28 @@
+graph G {
+  edges: file "undirected_small.txt";
+};
+
+int n = numVertices(G);
+int srcmark[n];
+int dstacc[n];
+
+for each vertex v in G {
+  srcmark[v] = 0;
+  dstacc[v] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    srcmark[u] = 1;
+    dstacc[v] = dstacc[v] + 1;
+  }
+}
+
+print srcmark[0];
+print srcmark[1];
+print srcmark[2];
+print srcmark[3];
+print dstacc[0];
+print dstacc[1];
+print dstacc[2];
+print dstacc[3];

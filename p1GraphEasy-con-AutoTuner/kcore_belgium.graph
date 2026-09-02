@@ -1,0 +1,67 @@
+graph G {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/road-belgium-osm.mtx";
+};
+
+int n = numVertices(G);
+int k = 5;
+int deg[n];
+int alive[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 0;
+int next_size = 0;
+int remaining = 0;
+int init_i = 0;
+
+while (init_i < n) {
+  deg[init_i] = 0;
+  alive[init_i] = 1;
+  init_i = init_i + 1;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    deg[u] = deg[u] + 1;
+  }
+}
+
+int seed = 0;
+while (seed < n) {
+  if (deg[seed] < k) {
+    frontier[frontier_size] = seed;
+    frontier_size = frontier_size + 1;
+  }
+  seed = seed + 1;
+}
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int i = 0;
+  while (i < frontier_size) {
+    int u = frontier[i];
+    if (alive[u] == 1) {
+      alive[u] = 0;
+      for each neighbor v of u in G {
+        if (alive[v] == 1) {
+          deg[v] = deg[v] - 1;
+          if (deg[v] < k) {
+            next_frontier[next_size] = v;
+            next_size = next_size + 1;
+          }
+        }
+      }
+    }
+    i = i + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+int j = 0;
+while (j < n) {
+  if (alive[j] == 1) {
+    remaining = remaining + 1;
+  }
+  j = j + 1;
+}
+print remaining;

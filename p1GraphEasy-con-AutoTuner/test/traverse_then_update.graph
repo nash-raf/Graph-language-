@@ -1,0 +1,75 @@
+// Reference 50k fair traverse-then-update workload.
+// Full parameterized ladder: bench_traverse_update_scaling.py
+// → traverse_update_workloads/traverse_update_n50000.graph
+graph WorkGraph {
+  edges: file "../synth_v_50000_e_500000.txt";
+};
+
+int checksum = 0;
+
+for each vertex u in WorkGraph {
+  for each neighbor v of u in WorkGraph {
+    checksum = checksum + v;
+  }
+}
+
+add 12500->12597 to WorkGraph;
+add 12503->12600 to WorkGraph;
+add 12506->12603 to WorkGraph;
+add 12509->12606 to WorkGraph;
+add 12512->12609 to WorkGraph;
+add 12515->12612 to WorkGraph;
+add 12518->12615 to WorkGraph;
+add 12521->12618 to WorkGraph;
+add 12524->12621 to WorkGraph;
+add 12527->12624 to WorkGraph;
+add 12530->12627 to WorkGraph;
+add 12533->12630 to WorkGraph;
+add 12536->12633 to WorkGraph;
+add 12539->12636 to WorkGraph;
+add 12542->12639 to WorkGraph;
+add 12545->12642 to WorkGraph;
+add 12548->12645 to WorkGraph;
+add 12551->12648 to WorkGraph;
+add 12554->12651 to WorkGraph;
+add 12557->12654 to WorkGraph;
+add 12560->12657 to WorkGraph;
+add 12563->12660 to WorkGraph;
+add 12566->12663 to WorkGraph;
+add 12569->12666 to WorkGraph;
+add 12572->12669 to WorkGraph;
+add 12575->12672 to WorkGraph;
+add 12578->12675 to WorkGraph;
+add 12581->12678 to WorkGraph;
+add 12584->12681 to WorkGraph;
+add 12587->12684 to WorkGraph;
+add 12590->12687 to WorkGraph;
+add 12593->12690 to WorkGraph;
+add 12596->12693 to WorkGraph;
+add 12599->12696 to WorkGraph;
+add 12602->12699 to WorkGraph;
+add 12605->12702 to WorkGraph;
+add 12608->12705 to WorkGraph;
+add 12611->12708 to WorkGraph;
+add 12614->12711 to WorkGraph;
+add 12617->12714 to WorkGraph;
+add 12620->12717 to WorkGraph;
+add 12623->12720 to WorkGraph;
+add 12626->12723 to WorkGraph;
+add 12629->12726 to WorkGraph;
+add 12632->12729 to WorkGraph;
+add 12635->12732 to WorkGraph;
+add 12638->12735 to WorkGraph;
+add 12641->12738 to WorkGraph;
+add 12644->12741 to WorkGraph;
+add 12647->12744 to WorkGraph;
+
+checksum = 0;
+for each vertex u in WorkGraph {
+  for each neighbor v of u in WorkGraph {
+    checksum = checksum + 1;
+  }
+}
+
+print checksum;
+print numEdges(WorkGraph);

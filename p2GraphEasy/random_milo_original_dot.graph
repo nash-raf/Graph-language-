@@ -1,0 +1,10 @@
+graph G {
+    directed: true;
+    edges: file "random_milo_edges.txt";
+};
+
+draw G to "big_ffl_original_source.dot" {
+    layout: "auto";
+    vertices { labels: false; }
+    edges { labels: false; }
+};

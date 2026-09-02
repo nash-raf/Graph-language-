@@ -1,0 +1,23 @@
+graph G {
+    directed: true;
+    weights: true;
+    edges: file "signed_motif_test_edges.txt";
+};
+
+motifs FFL = [G where motif {
+    a->b;
+    b-|c;
+    a->c;
+}];
+
+print numMotifs(FFL);
+
+int checksum = 0;
+for each motif (a, b, c) in FFL {
+    print a;
+    print b;
+    print c;
+    checksum = checksum + a * 100 + b * 10 + c;
+}
+
+print checksum;

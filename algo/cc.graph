@@ -1,0 +1,40 @@
+// Connected components by min-label propagation.
+// The worklist is an ARRAY frontier with swap(), which is the shape the
+// compiler's frontier engine recognises and lowers to autograph_edgemap.
+// Written with a `set` frontier the algorithm is identical but the engine
+// cannot see it: measured 1.56s (set) vs 0.50s (array), same output.
+graph G { edges: file "/home/user/Course/msk1/synth_graphs_unweighted/synth_v_1000000_e_1000000.txt"; };
+int n = numVertices(G);
+int id[n];
+int frontier[n];
+int next_frontier[n];
+int frontier_size = 0;
+int next_size = 0;
+int i = 0;
+while (i < n) { id[i] = i; frontier[i] = i; i = i + 1; }
+frontier_size = n;
+while (frontier_size > 0) {
+  next_size = 0;
+  int k = 0;
+  while (k < frontier_size) {
+    int u = frontier[k];
+    for each neighbor v of u in G {
+      if (id[u] < id[v]) {
+        id[v] = id[u];
+        next_frontier[next_size] = v;
+        next_size = next_size + 1;
+      }
+    }
+    k = k + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+int components = 0;
+int chk = 0;
+int q = 0;
+while (q < n) { if (id[q] == q) { components = components + 1; } chk = (chk + id[q]) % 1000000007; q = q + 1; }
+print "components";
+print components;
+print "label_checksum";
+print chk;

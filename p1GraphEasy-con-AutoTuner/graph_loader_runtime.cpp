@@ -179,21 +179,34 @@ static GraphExtra build_extra_from_csr(const Graph *g) {
         return extra;
 
     std::vector<ParsedEdge> logical_edges;
-    logical_edges.reserve(static_cast<size_t>(g->m > 0 ? g->m / 2 : 0));
+    logical_edges.reserve(static_cast<size_t>(
+        g->m > 0 ? (g->directed ? g->m : g->m / 2) : 0));
 
     std::unordered_set<uint64_t> seen;
     seen.reserve(static_cast<size_t>(g->m > 0 ? g->m / 2 : 0));
 
+    // In an UNDIRECTED graph each edge occupies two CSR slots, so the logical
+    // edge list is the u<->v pairs deduplicated and normalised to (min,max).
+    // In a DIRECTED graph every CSR slot is already one distinct logical edge,
+    // and collapsing (u,v) with (v,u) merges mutual edges and loses direction:
+    // E. coli's 519 directed edges came back as 267, so `Net.edges` and every
+    // edge id derived from this table were wrong.
+    const bool directed = g->directed != 0;
     for (int32_t u = 0; u < g->n; ++u) {
         int64_t start = g->row_ptr[u];
         int64_t end = g->row_ptr[u + 1];
         for (int64_t i = start; i < end; ++i) {
             int32_t v = g->col_idx[i];
+            int32_t weight = g->weights ? g->weights[i] : 1;
+
+            if (directed) {
+                logical_edges.push_back({u, v, weight});
+                continue;
+            }
+
             uint64_t key = pack_undirected_edge(u, v);
             if (!seen.insert(key).second)
                 continue;
-
-            int32_t weight = g->weights ? g->weights[i] : 1;
             logical_edges.push_back({std::min(u, v), std::max(u, v), weight});
         }
     }

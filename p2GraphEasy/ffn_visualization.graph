@@ -1,0 +1,33 @@
+graph G {
+    directed: true;
+    edges: file "ffn_edges.txt";
+};
+
+draw G to "ffn_original.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+    edges {
+        labels: false;
+    }
+};
+
+graph FFN = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+draw FFN to "ffn_result.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+    edges {
+        labels: false;
+    }
+};
+
+print numVertices(FFN);
+print numEdges(FFN);

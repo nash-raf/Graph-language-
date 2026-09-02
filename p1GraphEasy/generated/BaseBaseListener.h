@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -30,12 +30,6 @@ public:
 
   virtual void enterUnweightedGraphDef(BaseParser::UnweightedGraphDefContext * /*ctx*/) override { }
   virtual void exitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext * /*ctx*/) override { }
-
-  virtual void enterGraphProperty(BaseParser::GraphPropertyContext * /*ctx*/) override { }
-  virtual void exitGraphProperty(BaseParser::GraphPropertyContext * /*ctx*/) override { }
-
-  virtual void enterBoolLiteral(BaseParser::BoolLiteralContext * /*ctx*/) override { }
-  virtual void exitBoolLiteral(BaseParser::BoolLiteralContext * /*ctx*/) override { }
 
   virtual void enterNodes(BaseParser::NodesContext * /*ctx*/) override { }
   virtual void exitNodes(BaseParser::NodesContext * /*ctx*/) override { }
@@ -163,12 +157,6 @@ public:
   virtual void enterForEachEdge(BaseParser::ForEachEdgeContext * /*ctx*/) override { }
   virtual void exitForEachEdge(BaseParser::ForEachEdgeContext * /*ctx*/) override { }
 
-  virtual void enterForEachOutAdj(BaseParser::ForEachOutAdjContext * /*ctx*/) override { }
-  virtual void exitForEachOutAdj(BaseParser::ForEachOutAdjContext * /*ctx*/) override { }
-
-  virtual void enterForEachInAdj(BaseParser::ForEachInAdjContext * /*ctx*/) override { }
-  virtual void exitForEachInAdj(BaseParser::ForEachInAdjContext * /*ctx*/) override { }
-
   virtual void enterForEachAdj(BaseParser::ForEachAdjContext * /*ctx*/) override { }
   virtual void exitForEachAdj(BaseParser::ForEachAdjContext * /*ctx*/) override { }
 
@@ -190,11 +178,17 @@ public:
   virtual void enterRemoveOperation(BaseParser::RemoveOperationContext * /*ctx*/) override { }
   virtual void exitRemoveOperation(BaseParser::RemoveOperationContext * /*ctx*/) override { }
 
-  virtual void enterAddTargets(BaseParser::AddTargetsContext * /*ctx*/) override { }
-  virtual void exitAddTargets(BaseParser::AddTargetsContext * /*ctx*/) override { }
+  virtual void enterGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext * /*ctx*/) override { }
+  virtual void exitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext * /*ctx*/) override { }
 
-  virtual void enterRemoveTargets(BaseParser::RemoveTargetsContext * /*ctx*/) override { }
-  virtual void exitRemoveTargets(BaseParser::RemoveTargetsContext * /*ctx*/) override { }
+  virtual void enterUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext * /*ctx*/) override { }
+  virtual void exitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext * /*ctx*/) override { }
+
+  virtual void enterUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext * /*ctx*/) override { }
+  virtual void exitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext * /*ctx*/) override { }
+
+  virtual void enterUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext * /*ctx*/) override { }
+  virtual void exitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext * /*ctx*/) override { }
 
   virtual void enterQueryStatement(BaseParser::QueryStatementContext * /*ctx*/) override { }
   virtual void exitQueryStatement(BaseParser::QueryStatementContext * /*ctx*/) override { }
@@ -219,9 +213,6 @@ public:
 
   virtual void enterFunctionCall(BaseParser::FunctionCallContext * /*ctx*/) override { }
   virtual void exitFunctionCall(BaseParser::FunctionCallContext * /*ctx*/) override { }
-
-  virtual void enterFunctionName(BaseParser::FunctionNameContext * /*ctx*/) override { }
-  virtual void exitFunctionName(BaseParser::FunctionNameContext * /*ctx*/) override { }
 
   virtual void enterArgumentList(BaseParser::ArgumentListContext * /*ctx*/) override { }
   virtual void exitArgumentList(BaseParser::ArgumentListContext * /*ctx*/) override { }

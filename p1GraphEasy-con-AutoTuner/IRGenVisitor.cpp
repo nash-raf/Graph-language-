@@ -1582,6 +1582,14 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
         Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
                             Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
+        // Field 5 is malloc'd garbage unless written.  A derived graph is as
+        // directed as the graph it came from -- getting this wrong makes
+        // numEdges report m instead of m/2 (or the reverse) on the result.
+        llvm::Value *srcDirected = Builder.CreateLoad(
+            Builder.getInt32Ty(),
+            Builder.CreateStructGEP(GraphTy, loadGraphValue(GC->graphName), 5),
+            "src.directed");
+        Builder.CreateStore(srcDirected, Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
         return newGraphPtr;
     };
 
@@ -1790,6 +1798,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     }
 
     Builder.CreateStore(srcGraphPtr, graphStorage);
+    emitAutoGraphInit(srcGraphPtr);
     GraphMap[GC->targetName] = graphStorage;
     NamedValues[GC->targetName] = graphStorage;
 
@@ -3978,6 +3987,10 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
             llvm::MDNode::get(Context,
                               {llvm::MDString::get(Context, pattern.matrixName),
                                llvm::MDString::get(Context, semiringName)}));
+        // Always take the engine path when the matrix shape is valid.  Profit
+        // decisions live inside autograph_closure (serial vs blocked); do not
+        // branch on the return code here — later TDG outlining can drop the
+        // fallback nest and leave D uncomputed if the engine declines.
         Builder.CreateBr(doneBB);
 
         Builder.SetInsertPoint(fallbackBB);
@@ -3991,7 +4004,15 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
         return true;
     };
 
-    if (!ClosureFallbackDepth)
+    // GRAPH_DISABLE_MOTIF=1 skips frontier EdgeMap + dense semiring-closure
+    // rewrites so ablation benches can time the naïve loop lowering.
+    const bool disableMotif = []() {
+        const char *v = std::getenv("GRAPH_DISABLE_MOTIF");
+        return v && v[0] && std::strcmp(v, "0") != 0 &&
+               std::strcmp(v, "false") != 0;
+    }();
+
+    if (!disableMotif && !ClosureFallbackDepth)
         if (auto closure = detectSemiringClosureNest(ws))
             if (emitSemiringClosure(*closure))
                 return;
@@ -4001,6 +4022,7 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
      * loops emit ordinary autograph_neighbor_iter_* IR and are picked up and
      * parallelized by the CleanCut effect algebra instead. */
     if (!getenv("GRAPH_FRONTIER_REWRITE"))
+    if (!disableMotif)
         if (auto edgeMap = analyzeFrontierEdgeMap(ws))
         {
             emitEdgeMap(*edgeMap);
@@ -4225,6 +4247,30 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 //     // Done
 // }
 
+
+// Register a derived graph (comprehension result, set-operation result, or a
+// per-match motif subgraph) with the autotuner runtime.
+//
+// `for each neighbor` lowers to autograph_neighbor_iter_init, which finds the
+// graph by pointer identity via find_meta and, on a miss, silently yields an
+// EMPTY iteration -- no error, no diagnostic.  Graphs built at declaration time
+// call autograph_init already; derived graphs did not, so their vertex and edge
+// counts were right while every neighbour loop over them ran zero times.
+void IRGenVisitor::emitAutoGraphInit(llvm::Value *graphPtr)
+{
+    llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
+    llvm::Type *ptrTy = llvm::PointerType::get(Context, 0);
+    llvm::Value *nVal =
+        Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "derived.n");
+    llvm::Value *mVal =
+        Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "derived.m");
+    llvm::FunctionType *initFT = llvm::FunctionType::get(
+        Builder.getVoidTy(), {ptrTy, I64, I64, ptrTy, ptrTy, ptrTy}, false);
+    llvm::FunctionCallee initFn = Module.getOrInsertFunction("autograph_init", initFT);
+    llvm::Value *nullPtr = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+    Builder.CreateCall(initFn, {graphPtr, nVal, mVal, nullPtr, nullPtr, nullPtr});
+}
+
 void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
 {
     llvm::Function *parent = Builder.GetInsertBlock()->getParent();
@@ -4384,6 +4430,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
             build, {nVal, rowPtr, colPtr, weights, directed, bindingPtr, varCount},
             fs->var1 + ".graph_obj");
         Builder.CreateStore(Builder.CreateBitCast(graphObj, GraphTy->getPointerTo()), graphStorage);
+        emitAutoGraphInit(Builder.CreateBitCast(graphObj, GraphTy->getPointerTo()));
 
         visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
         if (!Builder.GetInsertBlock()->getTerminator())
@@ -4659,7 +4706,19 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         Builder.SetInsertPoint(innerBodyBB);
         llvm::Value *vVal = Builder.CreateLoad(i32Ty, var2Alloca, "v_val");
         llvm::Value *uForCmp = Builder.CreateLoad(i32Ty, var1Alloca, "u_cmp");
-        llvm::Value *skipCond = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        // An undirected graph stores each edge in both rows, so visiting only
+        // u <= v yields each edge once.  A DIRECTED graph stores it once
+        // already, and skipping u >= v there silently drops every backward
+        // edge -- 267 of E. coli's 519.  Gate the dedup on directedness.
+        llvm::Value *dupSkip = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *directedFlag = Builder.CreateLoad(
+            Builder.getInt32Ty(),
+            Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr"),
+            "g_directed");
+        llvm::Value *isUndirected =
+            Builder.CreateICmpEQ(directedFlag, Builder.getInt32(0), "is_undirected");
+        // Both operands are loop-invariant, so LICM hoists this out of the nest.
+        llvm::Value *skipCond = Builder.CreateAnd(dupSkip, isUndirected, "skip_edge");
         auto *userBodyBB = llvm::BasicBlock::Create(Context, "edge.user.body", parent);
         Builder.CreateCondBr(skipCond, innerCondBB, userBodyBB);
 
@@ -4892,9 +4951,18 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Value *graphPtr = loadGraphValue(varArg->name);
             llvm::Value *mPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 1, "g_m_ptr");
             llvm::Value *mVal = Builder.CreateLoad(llvm::Type::getInt64Ty(Context), mPtr, "m_val");
-            llvm::Value *mHalf = Builder.CreateUDiv(mVal,
-                                                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
-            return Builder.CreateTrunc(mHalf, Builder.getInt32Ty(), "numEdges");
+            // m counts CSR entries.  An undirected graph stores each edge in
+            // both rows, so its logical edge count is m/2; a directed graph
+            // stores each edge once, so it is m.  Halving unconditionally --
+            // which was correct while every graph was undirected -- reports
+            // half the edges of a directed graph.
+            llvm::Value *directedPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr");
+            llvm::Value *directedVal = Builder.CreateLoad(Builder.getInt32Ty(), directedPtr, "g_directed");
+            llvm::Value *isDirected = Builder.CreateICmpNE(directedVal, Builder.getInt32(0), "is_directed");
+            llvm::Value *mHalf = Builder.CreateUDiv(
+                mVal, llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), 2), "m_half");
+            llvm::Value *logicalEdges = Builder.CreateSelect(isDirected, mVal, mHalf, "logical_edges");
+            return Builder.CreateTrunc(logicalEdges, Builder.getInt32Ty(), "numEdges");
         }
 
         // Built-in: degree(G, v) -> int
@@ -5672,9 +5740,14 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
             if (fileEstimate)
             {
                 nValInit = llvm::ConstantInt::get(I64, static_cast<uint64_t>(fileEstimate->n));
-                mValInit = llvm::ConstantInt::get(I64, static_cast<uint64_t>(2 * fileEstimate->logical_m));
+                // CSR slots, not logical edges: an undirected graph stores each
+                // edge in both rows, a directed one only once.  Doubling
+                // unconditionally told autograph_init a directed graph had
+                // twice the edges it has (E. coli: 1038 instead of 519).
+                const int64_t csrM = (G->directed ? 1 : 2) * fileEstimate->logical_m;
+                mValInit = llvm::ConstantInt::get(I64, static_cast<uint64_t>(csrM));
                 G->n = static_cast<size_t>(fileEstimate->n);
-                G->m = static_cast<size_t>(2 * fileEstimate->logical_m);
+                G->m = static_cast<size_t>(csrM);
                 // llvm::errs() << "[IRGen] estimated file graph '" << G->edgeFileName
                 //              << "': n=" << fileEstimate->n
                 //              << " logical_m=" << fileEstimate->logical_m
@@ -6176,6 +6249,13 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         llvm::Value *wtPtr = Builder.CreateStructGEP(
             GraphTy, graphPtr, 4, "g_w_ptr");
         Builder.CreateStore(wPtr, wtPtr);
+    }
+
+    // GEP + store into field 5: directed
+    {
+        llvm::Value *dirPtr = Builder.CreateStructGEP(
+            GraphTy, graphPtr, 5, "g_directed_ptr");
+        Builder.CreateStore(Builder.getInt32(G->directed ? 1 : 0), dirPtr);
     }
 
     llvm::Value *graphStorage = nullptr;
@@ -7090,9 +7170,23 @@ llvm::Value *IRGenVisitor::visitSetExpr(ASTNode *expr)
         auto syncFT = llvm::FunctionType::get(voidTy, {opaquePtrTy}, false);
         auto syncFn = Module.getOrInsertFunction("autograph_sync_canonical_if_dirty", syncFT);
         Builder.CreateCall(syncFn, {graphPtr});
+        // Re-emit the accessor here rather than reusing the SSA value cached at
+        // the graph's declaration.  That value lives in whichever function
+        // declared the graph -- normally main -- so handing it back inside a
+        // `fn` produces "Referring to an instruction in another function" and
+        // the module fails to verify.  The call is a pointer load in the
+        // runtime, so re-emitting costs nothing.
+        llvm::FunctionType *bmFT =
+            llvm::FunctionType::get(Builder.getPtrTy(), {Builder.getPtrTy()}, false);
         if (gm->member == GraphMemberKind::Nodes)
-            return GraphNodesMap.at(gm->graphName);
-        return GraphEdgesMap.at(gm->graphName);
+        {
+            llvm::FunctionCallee fn =
+                Module.getOrInsertFunction("graph_get_node_bitmap", bmFT);
+            return Builder.CreateCall(fn, {graphPtr}, gm->graphName + ".nodes_bm");
+        }
+        llvm::FunctionCallee fn =
+            Module.getOrInsertFunction("graph_get_edge_bitmap", bmFT);
+        return Builder.CreateCall(fn, {graphPtr}, gm->graphName + ".edges_bm");
     }
 
     case ASTNodeType::Variable:

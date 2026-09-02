@@ -1,0 +1,32 @@
+Hardware Calibration Constants
+==============================
+File: ~/.config/sgpl/hw_calib.json
+Source: hw_calib_bench.c (from p1GraphEasy-con-AutoTuner)
+Saved: 2026-07-10
+
+Constants used for the 9/10 MATCH result:
+
+{ "L": 64, "t": 6.1288, "T": 0.9588, "LLC": 12582912, "Tm": 2.1687,
+  "P": 4.6399, "R": 10000.0, "h_cache": 40, "h_dram": 60.6588,
+  "c": 4.6065, "ramp_lo": 4718592, "ramp_hi": 18874368 }
+
+Key:
+  L          Cache-line size (bytes)
+  t          Random-access latency (ns)
+  T          Sequential read-only per-line cost (ns)
+  LLC        Last-level cache capacity (bytes)
+  Tm         Cache-resident memmove per-line cost (ns)
+  P          DRAM penalty multiplier vs cache-resident
+  R          Realloc policy cap (ns)
+  h_cache    Hash insert cost when table fits LLC (ns)
+  h_dram     Hash insert cost when table DRAM-resident (ns)
+  c          Bitmap contains check cost (ns)
+  ramp_lo    Working-set size where penalty leaves cache (bytes)
+  ramp_hi    Working-set size where penalty saturates at P (bytes)
+
+Derivation:
+  - P, t, T, Tm, h, c: from user's original quiet-machine calibration.
+  - ramp_lo, ramp_hi: measured on this machine's cold first run
+    (4718592 = 0.375*LLC, 18874368 = 1.5*LLC).
+  - h_cache, h_dram: measured by hw_calib_bench's two-size hash sweep.
+  - These together yield 9/10 MATCH on the full benchmark suite.

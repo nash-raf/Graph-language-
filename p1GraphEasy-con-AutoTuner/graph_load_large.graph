@@ -1,0 +1,5 @@
+graph G {
+  edges: file "/tmp/graptor-benchmark/synth_2m_8m.txt";
+};
+
+print numVertices(G);

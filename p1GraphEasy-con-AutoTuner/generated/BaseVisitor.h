@@ -25,13 +25,11 @@ public:
 
     virtual std::any visitSwapStatement(BaseParser::SwapStatementContext *context) = 0;
 
-    virtual std::any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *context) = 0;
-
-    virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *context) = 0;
+    virtual std::any visitGraphDef(BaseParser::GraphDefContext *context) = 0;
 
     virtual std::any visitGraphProperty(BaseParser::GraphPropertyContext *context) = 0;
 
-    virtual std::any visitBoolLiteral(BaseParser::BoolLiteralContext *context) = 0;
+    virtual std::any visitWeighted(BaseParser::WeightedContext *context) = 0;
 
     virtual std::any visitNodes(BaseParser::NodesContext *context) = 0;
 
@@ -97,21 +95,25 @@ public:
 
     virtual std::any visitGraphExpr(BaseParser::GraphExprContext *context) = 0;
 
+    virtual std::any visitMotifMatchesDecl(BaseParser::MotifMatchesDeclContext *context) = 0;
+
+    virtual std::any visitGraphListDecl(BaseParser::GraphListDeclContext *context) = 0;
+
+    virtual std::any visitMotifEdge(BaseParser::MotifEdgeContext *context) = 0;
+
     virtual std::any visitGraphLogicalAnd(BaseParser::GraphLogicalAndContext *context) = 0;
 
     virtual std::any visitDegreeCondition(BaseParser::DegreeConditionContext *context) = 0;
-
-    virtual std::any visitEdgeHasCondition(BaseParser::EdgeHasConditionContext *context) = 0;
 
     virtual std::any visitCycleCondition(BaseParser::CycleConditionContext *context) = 0;
 
     virtual std::any visitConnectedCondition(BaseParser::ConnectedConditionContext *context) = 0;
 
+    virtual std::any visitMotifCondition(BaseParser::MotifConditionContext *context) = 0;
+
     virtual std::any visitGraphLogicalOr(BaseParser::GraphLogicalOrContext *context) = 0;
 
     virtual std::any visitParenGraphCondition(BaseParser::ParenGraphConditionContext *context) = 0;
-
-    virtual std::any visitVertexInSetCondition(BaseParser::VertexInSetConditionContext *context) = 0;
 
     virtual std::any visitLoopStatement(BaseParser::LoopStatementContext *context) = 0;
 
@@ -121,13 +123,13 @@ public:
 
     virtual std::any visitForEachEdge(BaseParser::ForEachEdgeContext *context) = 0;
 
-    virtual std::any visitForEachOutAdj(BaseParser::ForEachOutAdjContext *context) = 0;
-
-    virtual std::any visitForEachInAdj(BaseParser::ForEachInAdjContext *context) = 0;
-
     virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *context) = 0;
 
     virtual std::any visitForEachElement(BaseParser::ForEachElementContext *context) = 0;
+
+    virtual std::any visitForEachGraph(BaseParser::ForEachGraphContext *context) = 0;
+
+    virtual std::any visitForEachMotif(BaseParser::ForEachMotifContext *context) = 0;
 
     virtual std::any visitForEachPlain(BaseParser::ForEachPlainContext *context) = 0;
 
@@ -139,9 +141,13 @@ public:
 
     virtual std::any visitRemoveOperation(BaseParser::RemoveOperationContext *context) = 0;
 
-    virtual std::any visitAddTargets(BaseParser::AddTargetsContext *context) = 0;
+    virtual std::any visitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *context) = 0;
 
-    virtual std::any visitRemoveTargets(BaseParser::RemoveTargetsContext *context) = 0;
+    virtual std::any visitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *context) = 0;
+
+    virtual std::any visitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *context) = 0;
+
+    virtual std::any visitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *context) = 0;
 
     virtual std::any visitQueryStatement(BaseParser::QueryStatementContext *context) = 0;
 
@@ -156,6 +162,24 @@ public:
     virtual std::any visitParam(BaseParser::ParamContext *context) = 0;
 
     virtual std::any visitType(BaseParser::TypeContext *context) = 0;
+
+    virtual std::any visitDrawgraph(BaseParser::DrawgraphContext *context) = 0;
+
+    virtual std::any visitDrawmotifs(BaseParser::DrawmotifsContext *context) = 0;
+
+    virtual std::any visitDrawMotifOption(BaseParser::DrawMotifOptionContext *context) = 0;
+
+    virtual std::any visitDrawOption(BaseParser::DrawOptionContext *context) = 0;
+
+    virtual std::any visitVertexDrawOption(BaseParser::VertexDrawOptionContext *context) = 0;
+
+    virtual std::any visitEdgeDrawOption(BaseParser::EdgeDrawOptionContext *context) = 0;
+
+    virtual std::any visitColorMapping(BaseParser::ColorMappingContext *context) = 0;
+
+    virtual std::any visitContinuousMapping(BaseParser::ContinuousMappingContext *context) = 0;
+
+    virtual std::any visitDrawBoolLiteral(BaseParser::DrawBoolLiteralContext *context) = 0;
 
     virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *context) = 0;
 

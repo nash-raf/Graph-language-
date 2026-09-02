@@ -25,6 +25,9 @@ statement:
 	| queryStatement
 	| showgraph
 	| drawgraph
+	| drawmotifs
+	| motifMatchesDecl
+	| graphListDecl
 	| nodeEdgeOperation
 	| setOperation
 	| setMethodCall
@@ -40,7 +43,10 @@ graphDef
 ;
 
 //in graphDef
-graphProperty: 'directed' ':' boolLiteral ';';
+graphProperty:
+	'directed' ':' boolLiteral ';'
+	| 'weights' ':' weightMode ';';
+weightMode: boolLiteral | 'positive' | 'zero' | 'negative';
 boolLiteral: TRUE | FALSE | 'true' | 'false';
 nodes: 'nodes:' nodeList ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
@@ -118,6 +124,12 @@ condition:
 graphComprehension:
 	GRAPH? ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
 
+motifMatchesDecl:
+	'motifs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+
+graphListDecl:
+	'graphs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+
 graphExpr:
 	graphID ((AND | OR) graphID)*;
 
@@ -135,8 +147,11 @@ graphCondition:
 	| 'connected' 'with' nodeID	# ConnectedCondition
 	| 'edge' 'has' expr		# EdgeHasCondition
 	| 'vertex' 'in' ID		# VertexInSetCondition
+	| 'motif' '{' motifEdge+ '}'	# MotifCondition
 	| 'cycle'					# CycleCondition
 	| '(' graphCondition ')'	# ParenGraphCondition;
+
+motifEdge: ID ('->' | '-|') ID ';';
 
 //loop
 loopStatement: foreachStatement | whileStatement;
@@ -148,6 +163,8 @@ loopTarget:
 	| 'in' 'neighbor' ID 'of' expr	# forEachInAdj
 	| 'neighbor' ID 'of' expr	# forEachAdj
 	| 'element' ID				# forEachElement
+	| 'graph' ID				# ForEachGraph
+	| 'motif' '(' ID (',' ID)+ ')'	# ForEachMotif
 	| ID						# forEachPlain;
 whileStatement: 'while' '(' condition ')' block;
 
@@ -167,6 +184,15 @@ showgraph: 'show' graphID ';';
 drawgraph:
 	'draw' graphID 'to' STRING ('{' drawOption* '}')? ';';
 
+drawmotifs:
+	'draw' ('motif' | 'motifs') 'of' graphID 'to' STRING '{' drawMotifOption* '}' ';';
+
+drawMotifOption:
+	motifEdge
+	| 'layout' ':' STRING ';'
+	| 'vertices' '{' vertexDrawOption* '}'
+	| 'edges' '{' edgeDrawOption* '}';
+
 drawOption:
 	'layout' ':' STRING ';'
 	| 'vertices' '{' vertexDrawOption* '}'
@@ -175,14 +201,15 @@ drawOption:
 vertexDrawOption:
 	'labels' ':' boolLiteral ';'
 	| 'color' ':' colorMapping ';'
-	| 'size' ':' continuousMapping ';';
+	| 'size' ':' (continuousMapping | ID) ';';
 
 edgeDrawOption:
 	'labels' ':' boolLiteral ';';
 
 colorMapping:
 	'categorical' '(' ID ')'
-	| continuousMapping;
+	| continuousMapping
+	| ID;
 
 continuousMapping:
 	'continuous' '(' ID ')';

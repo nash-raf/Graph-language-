@@ -1,10 +1,13 @@
 #include "IRGenVisitor.h"
+#include "MotifIRBuilder.h"
+#include <cstring>
 #include "SemanticAnalyzer.h" // For TypeKind enum
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
 #include <stdexcept>
 #include <tuple>
+#include <unordered_map>
 
 static uint64_t packEdgeKey(int32_t u, int32_t v)
 {
@@ -171,6 +174,10 @@ llvm::Type *IRGenVisitor::getLLVMTypeFromTypeKind(TypeKind kind)
     case TypeKind::WeightedGraph:
         // Assuming WeightedGraph uses the same struct type for now
         return GraphTy->getPointerTo();
+    case TypeKind::MotifMatches:
+        return MotifMatchesTy->getPointerTo();
+    case TypeKind::GraphList:
+        return MotifMatchesTy->getPointerTo();
     case TypeKind::Set:
         return llvm::PointerType::get(Context, 0); // bitmap pointer (opaque)
     case TypeKind::Void:
@@ -216,6 +223,19 @@ llvm::Value *IRGenVisitor::lookupNamedStorage(const std::string &name)
     if (it == NamedValues.end())
         throw std::runtime_error("Undefined variable: " + name);
     return it->second;
+}
+
+// Base address of a 2D array's element storage. A 2D array declared at top
+// level is kept as a global holding a pointer to the real allocation, so the
+// pointer has to be loaded before indexing; inside a function the storage is
+// the allocation itself.
+llvm::Value *IRGenVisitor::load2DArrayBase(const std::string &name)
+{
+    llvm::Value *storage = lookupNamedStorage(name);
+    if (auto *global = llvm::dyn_cast<llvm::GlobalVariable>(storage))
+        if (global->getValueType()->isPointerTy())
+            return Builder.CreateLoad(Builder.getPtrTy(), global, name + ".ptr");
+    return storage;
 }
 
 llvm::Value *IRGenVisitor::loadGraphValue(const std::string &name)
@@ -336,6 +356,18 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
         case ASTNodeType::ShowGraph:
             visitShowGraph(static_cast<ShowGraphNode *>(node.get()));
             break;
+        case ASTNodeType::DrawGraph:
+            visitDrawGraph(static_cast<DrawGraphNode *>(node.get()));
+            break;
+        case ASTNodeType::DrawMotifs:
+            visitDrawMotifs(static_cast<DrawMotifsNode *>(node.get()));
+            break;
+        case ASTNodeType::MotifMatchesDecl:
+            visitMotifMatchesDecl(static_cast<MotifMatchesDeclNode *>(node.get()));
+            break;
+        case ASTNodeType::GraphListDecl:
+            visitGraphListDecl(static_cast<GraphListDeclNode *>(node.get()));
+            break;
         case ASTNodeType::GraphComprehension:
             visitGraphComprehension(static_cast<GraphComprehensionNode *>(node.get()));
             break;
@@ -413,6 +445,426 @@ void IRGenVisitor::visitShowGraph(ShowGraphNode *S)
     Builder.CreateCall(showDecl, {nVal, rowPtr, colPtr});
 }
 
+void IRGenVisitor::visitDrawGraph(DrawGraphNode *D)
+{
+    llvm::Value *graphPtr = loadGraphValue(D->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "draw.n");
+    llvm::Value *mVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "draw.m");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), "draw.row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), "draw.col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), "draw.weights");
+    llvm::Value *directed = Builder.CreateLoad(
+        i32Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 5), "draw.directed");
+
+    auto loadArray = [&](const std::string &name) -> std::pair<llvm::Value *, llvm::Value *> {
+        if (name.empty())
+            return {llvm::ConstantPointerNull::get(ptrTy),
+                    llvm::ConstantInt::get(i64Ty, 0)};
+
+        auto storageIt = NamedValues.find(name);
+        if (storageIt == NamedValues.end())
+            throw std::runtime_error("draw array has no generated storage: " + name);
+
+        llvm::Value *storage = storageIt->second;
+        llvm::Value *data = nullptr;
+        if (IndirectArrays.count(name) || IndirectRealArrays.count(name))
+        {
+            data = Builder.CreateLoad(ptrTy, storage, name + ".draw.data");
+        }
+        else
+        {
+            llvm::Type *arrayTy = nullptr;
+            if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(storage))
+                arrayTy = alloca->getAllocatedType();
+            else if (auto *global = llvm::dyn_cast<llvm::GlobalVariable>(storage))
+                arrayTy = global->getValueType();
+
+            auto *concreteArrayTy = llvm::dyn_cast_or_null<llvm::ArrayType>(arrayTy);
+            if (!concreteArrayTy)
+                throw std::runtime_error("draw requires a one-dimensional array: " + name);
+            data = Builder.CreateInBoundsGEP(
+                concreteArrayTy, storage,
+                {Builder.getInt32(0), Builder.getInt32(0)},
+                name + ".draw.data");
+        }
+
+        auto sizeIt = ArraySizes.find(name);
+        if (sizeIt == ArraySizes.end())
+            throw std::runtime_error("draw array has no size metadata: " + name);
+        llvm::Value *size = sizeIt->second;
+        if (size->getType() != i64Ty)
+            size = Builder.CreateIntCast(size, i64Ty, false, name + ".draw.size");
+        return {data, size};
+    };
+
+    auto [colorData, colorSize] = loadArray(D->colorArray);
+    auto [sizeData, sizeSize] = loadArray(D->sizeArray);
+
+    int32_t colorKind = 0;
+    if (D->colorMode == DrawColorMode::Categorical)
+        colorKind = 1;
+    else if (D->colorMode == DrawColorMode::Continuous)
+        colorKind = (D->colorArrayType == TypeKind::RealArray) ? 3 : 2;
+
+    int32_t sizeKind = 0;
+    if (!D->sizeArray.empty())
+        sizeKind = (D->sizeArrayType == TypeKind::RealArray) ? 2 : 1;
+
+    llvm::Value *output = Builder.CreateGlobalStringPtr(
+        D->outputPath, D->graphName + ".draw.output");
+
+    llvm::FunctionType *drawFT = llvm::FunctionType::get(
+        Builder.getVoidTy(),
+        {i64Ty, i64Ty, ptrTy, ptrTy, ptrTy, i32Ty, ptrTy,
+         i32Ty, i32Ty, ptrTy, i32Ty, i64Ty, ptrTy, i32Ty, i64Ty, i32Ty},
+        false);
+    llvm::FunctionCallee drawDecl =
+        Module.getOrInsertFunction("draw_graph_runtime", drawFT);
+
+    Builder.CreateCall(
+        drawDecl,
+        {nVal, mVal, rowPtr, colPtr, weights, directed, output,
+         llvm::ConstantInt::get(i32Ty, static_cast<int32_t>(D->layout)),
+         llvm::ConstantInt::get(i32Ty, D->vertexLabels ? 1 : 0),
+         colorData, llvm::ConstantInt::get(i32Ty, colorKind), colorSize,
+         sizeData, llvm::ConstantInt::get(i32Ty, sizeKind), sizeSize,
+         llvm::ConstantInt::get(i32Ty, D->edgeWeightLabels ? 1 : 0)});
+}
+
+void IRGenVisitor::visitDrawMotifs(DrawMotifsNode *D)
+{
+    llvm::Value *graphPtr = loadGraphValue(D->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "draw_motif.n");
+    llvm::Value *mVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "draw_motif.m");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), "draw_motif.row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), "draw_motif.col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), "draw_motif.weights");
+    llvm::Value *directed = Builder.CreateLoad(
+        i32Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 5), "draw_motif.directed");
+
+    std::unordered_map<std::string, int32_t> varIds;
+    std::vector<std::string> varNames;
+    std::vector<int32_t> edgeSrcVars;
+    std::vector<int32_t> edgeDstVars;
+    std::vector<int32_t> edgeSigns;
+
+    auto getVarId = [&](const std::string &name) -> int32_t {
+        auto it = varIds.find(name);
+        if (it != varIds.end())
+            return it->second;
+        int32_t next = static_cast<int32_t>(varIds.size());
+        varIds[name] = next;
+        varNames.push_back(name);
+        return next;
+    };
+
+    for (const auto &edge : D->motifEdges)
+    {
+        edgeSrcVars.push_back(getVarId(edge.source));
+        edgeDstVars.push_back(getVarId(edge.target));
+        edgeSigns.push_back(static_cast<int32_t>(edge.sign));
+    }
+
+    llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, edgeSrcVars.size());
+    llvm::Function *fn = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> tmpB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+    llvm::AllocaInst *srcAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, D->graphName + "_draw_motif_src");
+    llvm::AllocaInst *dstAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, D->graphName + "_draw_motif_dst");
+    llvm::AllocaInst *signAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, D->graphName + "_draw_motif_sign");
+
+    for (size_t i = 0; i < edgeSrcVars.size(); ++i)
+    {
+        llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+        llvm::Value *srcPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), idx});
+        llvm::Value *dstPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), idx});
+        llvm::Value *signPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), idx});
+        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeSrcVars[i]), srcPtr);
+        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeDstVars[i]), dstPtr);
+        Builder.CreateStore(llvm::ConstantInt::getSigned(i32Ty, edgeSigns[i]), signPtr);
+    }
+
+    std::string namesCsv;
+    for (size_t i = 0; i < varNames.size(); ++i)
+    {
+        if (i)
+            namesCsv += ",";
+        namesCsv += varNames[i];
+    }
+
+    llvm::Value *outputPrefix = Builder.CreateGlobalStringPtr(
+        D->outputPrefix, D->graphName + ".draw_motif.output");
+    llvm::Value *nameString = Builder.CreateGlobalStringPtr(
+        namesCsv, D->graphName + ".draw_motif.names");
+
+    llvm::FunctionType *drawMotifsFT = llvm::FunctionType::get(
+        Builder.getVoidTy(),
+        {i64Ty, i64Ty, ptrTy, ptrTy, ptrTy, i32Ty, ptrTy,
+         i32Ty, i32Ty, i32Ty, i32Ty, ptrTy, ptrTy, ptrTy, i32Ty, i32Ty, ptrTy},
+        false);
+    llvm::FunctionCallee drawMotifsDecl =
+        Module.getOrInsertFunction("draw_motif_matches_runtime", drawMotifsFT);
+
+    llvm::Value *srcVarsPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *dstVarsPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *edgeSignsPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+
+    Builder.CreateCall(
+        drawMotifsDecl,
+        {nVal, mVal, rowPtr, colPtr, weights, directed, outputPrefix,
+         llvm::ConstantInt::get(i32Ty, static_cast<int32_t>(D->layout)),
+         llvm::ConstantInt::get(i32Ty, D->vertexLabels ? 1 : 0),
+         llvm::ConstantInt::get(i32Ty, D->edgeLabels ? 1 : 0),
+         llvm::ConstantInt::get(i32Ty, D->combinedImage ? 1 : 0),
+         srcVarsPtr, dstVarsPtr, edgeSignsPtr,
+         llvm::ConstantInt::get(i32Ty, edgeSrcVars.size()),
+         llvm::ConstantInt::get(i32Ty, varIds.size()),
+         nameString});
+}
+
+// The transpose CSR (GraphTy fields 6/7) is built on demand, not at load time.
+// Emit a call to the runtime builder before any read of those fields. It is
+// idempotent and returns immediately for undirected graphs or an already-built
+// transpose, so calling it on every access is cheap and always safe.
+void IRGenVisitor::emitEnsureInCsr(llvm::Value *graphPtr)
+{
+    llvm::FunctionType *fnTy =
+        llvm::FunctionType::get(Builder.getVoidTy(), {Builder.getPtrTy()}, false);
+    llvm::FunctionCallee fn = Module.getOrInsertFunction("graph_ensure_in_csr", fnTy);
+    Builder.CreateCall(fn, {graphPtr});
+}
+
+void IRGenVisitor::readBackendFlags()
+{
+    auto truthy = [](const char *name, bool dflt) {
+        const char *v = std::getenv(name);
+        if (!v || !*v)
+            return dflt;
+        return !(std::strcmp(v, "0") == 0 || std::strcmp(v, "false") == 0 ||
+                 std::strcmp(v, "runtime") == 0);
+    };
+
+    if (const char *backend = std::getenv("GRAPHEASY_MOTIF_BACKEND"))
+    {
+        if (std::strcmp(backend, "ir") == 0)
+            MotifBackendMode = MotifBackend::IR;
+        else if (std::strcmp(backend, "runtime") == 0)
+            MotifBackendMode = MotifBackend::Runtime;
+        else
+            llvm::errs() << "GRAPHEASY_MOTIF_BACKEND: expected 'runtime' or 'ir', got '"
+                         << backend << "'; using runtime\n";
+    }
+    MotifAdjacencyDriven = truthy("GRAPHEASY_MOTIF_ADJDRIVE", false);
+
+    if (MotifBackendMode == MotifBackend::IR)
+        llvm::errs() << "[graph-easy] motif backend: ir"
+                     << (MotifAdjacencyDriven ? " (adjacency-driven)" : " (full scan)")
+                     << "\n";
+}
+
+// Loads the four CSR fields the motif nest walks. Deliberately does NOT read
+// GraphTy fields 6/7 (in_row_ptr/in_col_idx): those are a real transpose only
+// for loader-built graphs, and are aliased to the out-CSR by
+// visitGraphComprehension and graph_from_match_runtime.
+MotifIRBuilder::GraphInputs IRGenVisitor::loadMotifGraphInputs(const std::string &graphName,
+                                                              const std::string &label)
+{
+    llvm::Value *graphPtr = loadGraphValue(graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    MotifIRBuilder::GraphInputs in;
+    in.n = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0),
+                              label + ".n");
+    in.rowPtr = Builder.CreateLoad(ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2),
+                                   label + ".row_ptr");
+    in.colIdx = Builder.CreateLoad(ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3),
+                                   label + ".col_idx");
+    in.weights = Builder.CreateLoad(ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4),
+                                    label + ".weights");
+    return in;
+}
+
+// Emits the specialized nest and wraps the result in a stack MotifMatches so
+// numMotifs / for-each read it exactly as they read the runtime's heap struct.
+llvm::Value *IRGenVisitor::emitMotifMatchesIR(const std::string &graphName,
+                                              const std::string &label,
+                                              const std::vector<MotifEdgeSpec> &edges,
+                                              const std::vector<std::string> &varNames)
+{
+    MotifPattern pattern = MotifPattern::build(edges, varNames);
+    MotifIRBuilder::GraphInputs inputs = loadMotifGraphInputs(graphName, label);
+
+    MotifIRBuilder nest(Context, Module, Builder, pattern, "motif." + label);
+    nest.setAdjacencyDriven(MotifAdjacencyDriven);
+    llvm::Value *count = nest.emitCountOnly(inputs, /*applyCanonical=*/true);
+
+    llvm::Function *function = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(),
+                                   function->getEntryBlock().begin());
+    llvm::AllocaInst *matches =
+        entryBuilder.CreateAlloca(MotifMatchesTy, nullptr, label + ".matches");
+
+    Builder.CreateStore(Builder.CreateTrunc(count, Builder.getInt32Ty(), "count.i32"),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 0));
+    Builder.CreateStore(Builder.getInt32(static_cast<uint32_t>(varNames.size())),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 1));
+    Builder.CreateStore(llvm::ConstantPointerNull::get(Builder.getPtrTy()),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 2));
+    Builder.CreateStore(Builder.getInt32(0),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 3));
+    return matches;
+}
+
+void IRGenVisitor::visitMotifMatchesDecl(MotifMatchesDeclNode *M)
+{
+    if (MotifBackendMode == MotifBackend::IR)
+    {
+        MotifMatchesMap[M->name] =
+            emitMotifMatchesIR(M->graphName, M->name, M->motifEdges, M->variableNames);
+        return;
+    }
+
+    llvm::Value *graphPtr = loadGraphValue(M->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), M->name + ".n");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), M->name + ".row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), M->name + ".col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), M->name + ".weights");
+
+    std::unordered_map<std::string, int32_t> varIds;
+    for (size_t i = 0; i < M->variableNames.size(); ++i)
+        varIds[M->variableNames[i]] = static_cast<int32_t>(i);
+
+    llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, M->motifEdges.size());
+    llvm::Function *function = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());
+    llvm::AllocaInst *srcAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".src");
+    llvm::AllocaInst *dstAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".dst");
+    llvm::AllocaInst *signAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".sign");
+
+    for (size_t i = 0; i < M->motifEdges.size(); ++i)
+    {
+        const MotifEdgeSpec &edge = M->motifEdges[i];
+        llvm::Value *index = Builder.getInt32(static_cast<uint32_t>(i));
+        llvm::Value *src = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), index});
+        llvm::Value *dst = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), index});
+        llvm::Value *sign = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), index});
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.source)), src);
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.target)), dst);
+        Builder.CreateStore(
+            llvm::ConstantInt::getSigned(i32Ty, static_cast<int32_t>(edge.sign)), sign);
+    }
+
+    llvm::Value *srcPtr = Builder.CreateGEP(
+        edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *dstPtr = Builder.CreateGEP(
+        edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *signPtr = Builder.CreateGEP(
+        edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+
+    llvm::FunctionType *findType = llvm::FunctionType::get(
+        ptrTy,
+        {i64Ty, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, i32Ty, i32Ty},
+        false);
+    llvm::FunctionCallee find = Module.getOrInsertFunction(
+        "motif_find_matches_runtime", findType);
+    llvm::Value *matches = Builder.CreateCall(
+        find,
+        {nVal, rowPtr, colPtr, weights, srcPtr, dstPtr, signPtr,
+         Builder.getInt32(static_cast<uint32_t>(M->motifEdges.size())),
+         Builder.getInt32(static_cast<uint32_t>(M->variableNames.size()))},
+        M->name + ".matches");
+    MotifMatchesMap[M->name] = matches;
+}
+
+void IRGenVisitor::visitGraphListDecl(GraphListDeclNode *M)
+{
+    llvm::Value *graphPtr = loadGraphValue(M->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), M->name + ".n");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), M->name + ".row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), M->name + ".col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), M->name + ".weights");
+
+    std::unordered_map<std::string, int32_t> varIds;
+    for (size_t i = 0; i < M->variableNames.size(); ++i)
+        varIds[M->variableNames[i]] = static_cast<int32_t>(i);
+
+    llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, M->motifEdges.size());
+    llvm::Function *function = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());
+    llvm::AllocaInst *srcAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".src");
+    llvm::AllocaInst *dstAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".dst");
+    llvm::AllocaInst *signAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".sign");
+
+    for (size_t i = 0; i < M->motifEdges.size(); ++i)
+    {
+        const MotifEdgeSpec &edge = M->motifEdges[i];
+        llvm::Value *index = Builder.getInt32(static_cast<uint32_t>(i));
+        llvm::Value *src = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), index});
+        llvm::Value *dst = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), index});
+        llvm::Value *sign = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), index});
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.source)), src);
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.target)), dst);
+        Builder.CreateStore(
+            llvm::ConstantInt::getSigned(i32Ty, static_cast<int32_t>(edge.sign)), sign);
+    }
+
+    llvm::Value *srcPtr = Builder.CreateGEP(
+        edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *dstPtr = Builder.CreateGEP(
+        edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *signPtr = Builder.CreateGEP(
+        edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+
+    llvm::FunctionType *findType = llvm::FunctionType::get(
+        ptrTy,
+        {i64Ty, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, i32Ty, i32Ty},
+        false);
+    llvm::FunctionCallee find = Module.getOrInsertFunction(
+        "motif_find_matches_runtime", findType);
+    llvm::Value *matches = Builder.CreateCall(
+        find,
+        {nVal, rowPtr, colPtr, weights, srcPtr, dstPtr, signPtr,
+         Builder.getInt32(static_cast<uint32_t>(M->motifEdges.size())),
+         Builder.getInt32(static_cast<uint32_t>(M->variableNames.size()))},
+        M->name + ".graphs");
+    GraphListMatchesMap[M->name] = matches;
+    GraphListSourceMap[M->name] = M->graphName;
+}
+
 void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
 {
     llvm::Value *srcGraphPtr = loadGraphValue(GC->graphName);
@@ -432,7 +884,8 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::IRBuilder<> tmpB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
 
     auto buildGraphStruct = [&](llvm::Value *newN, llvm::Value *newM,
-                                llvm::Value *newRP, llvm::Value *newCI) -> llvm::Value * {
+                                llvm::Value *newRP, llvm::Value *newCI,
+                                llvm::Value *newWeights = nullptr) -> llvm::Value * {
         llvm::FunctionType *mallocFT = llvm::FunctionType::get(i8PtrTy, {i64Ty}, false);
         llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
         uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
@@ -443,12 +896,21 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         Builder.CreateStore(newM, Builder.CreateStructGEP(GraphTy, newGraphPtr, 1));
         Builder.CreateStore(newRP, Builder.CreateStructGEP(GraphTy, newGraphPtr, 2));
         Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
-        Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
-                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
-        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, 0),
-                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
-        Builder.CreateStore(newRP, Builder.CreateStructGEP(GraphTy, newGraphPtr, 6));
-        Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 7));
+        if (!newWeights)
+            newWeights = llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty));
+        Builder.CreateStore(newWeights, Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
+        llvm::Value *directedVal = Builder.CreateLoad(
+            i32Ty,
+            Builder.CreateStructGEP(GraphTy, srcGraphPtr, 5),
+            GC->targetName + "_directed");
+        Builder.CreateStore(directedVal, Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
+        // Fields 6/7 were previously aliased to the FORWARD CSR (newRP/newCI),
+        // so `for each in neighbor` / inDegree() on a comprehension result
+        // silently returned out-neighbours. Leave them null: that means "not
+        // built", and graph_ensure_in_csr() builds a real transpose on demand.
+        llvm::Value *nullPtr = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+        Builder.CreateStore(nullPtr, Builder.CreateStructGEP(GraphTy, newGraphPtr, 6));
+        Builder.CreateStore(nullPtr, Builder.CreateStructGEP(GraphTy, newGraphPtr, 7));
         return newGraphPtr;
     };
 
@@ -550,6 +1012,95 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
 
         customNodesBitmap = Builder.CreateCall(edgeHasDecl, {nVal, rowPtr, colPtr, vertexVal}, GC->targetName + "_edge_has_nodes");
     }
+    else if (GC->condition && GC->condition->op == GraphConditionOp::Motif)
+    {
+        std::unordered_map<std::string, int32_t> varIds;
+        std::vector<int32_t> edgeSrcVars;
+        std::vector<int32_t> edgeDstVars;
+        std::vector<int32_t> edgeSigns;
+
+        auto getVarId = [&](const std::string &name) -> int32_t {
+            auto it = varIds.find(name);
+            if (it != varIds.end())
+                return it->second;
+            int32_t next = static_cast<int32_t>(varIds.size());
+            varIds[name] = next;
+            return next;
+        };
+
+        for (const auto &edge : GC->condition->motifEdges)
+        {
+            edgeSrcVars.push_back(getVarId(edge.source));
+            edgeDstVars.push_back(getVarId(edge.target));
+            edgeSigns.push_back(static_cast<int32_t>(edge.sign));
+        }
+
+        llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, edgeSrcVars.size());
+        llvm::AllocaInst *srcAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, GC->targetName + "_motif_src");
+        llvm::AllocaInst *dstAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, GC->targetName + "_motif_dst");
+        llvm::AllocaInst *signAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, GC->targetName + "_motif_sign");
+
+        for (size_t i = 0; i < edgeSrcVars.size(); ++i)
+        {
+            llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+            llvm::Value *srcPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), idx});
+            llvm::Value *dstPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), idx});
+            llvm::Value *signPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), idx});
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeSrcVars[i]), srcPtr);
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeDstVars[i]), dstPtr);
+            Builder.CreateStore(llvm::ConstantInt::getSigned(i32Ty, edgeSigns[i]), signPtr);
+        }
+
+        llvm::FunctionType *motifFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             i32Ty,
+             i32Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
+        llvm::FunctionCallee motifDecl =
+            Module.getOrInsertFunction("graph_motif_filter_runtime", motifFT);
+
+        llvm::Value *nVal = nullptr;
+        llvm::Value *rowPtr = nullptr;
+        llvm::Value *colPtr = nullptr;
+        loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
+        llvm::Value *weights = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty),
+            Builder.CreateStructGEP(GraphTy, srcGraphPtr, 4),
+            "motif.weights");
+
+        auto [outN, outM, outRP, outCI] = allocOutGraph(GC->targetName + "_motif_filter");
+        llvm::AllocaInst *outWeights = tmpB.CreateAlloca(
+            llvm::PointerType::getUnqual(i32Ty), nullptr,
+            GC->targetName + "_motif_filter_out_weights");
+        llvm::Value *srcVarsPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        llvm::Value *dstVarsPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        llvm::Value *edgeSignsPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        Builder.CreateCall(motifDecl,
+                           {nVal, rowPtr, colPtr, weights,
+                            srcVarsPtr, dstVarsPtr, edgeSignsPtr,
+                            llvm::ConstantInt::get(i32Ty, edgeSrcVars.size()),
+                            llvm::ConstantInt::get(i32Ty, varIds.size()),
+                            outN, outM, outRP, outCI, outWeights});
+
+        llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
+        llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
+        llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP);
+        llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI);
+        llvm::Value *newWeights = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outWeights);
+        srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI, newWeights);
+    }
     else if (GC->condition)
     {
         std::vector<int32_t> tokenKinds;
@@ -617,6 +1168,9 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
                 case GraphConditionOp::VertexInSet:
                     throw std::runtime_error("vertex-in graph comprehension cannot be combined with other graph conditions yet");
                     break;
+                case GraphConditionOp::Motif:
+                    throw std::runtime_error("motif graph comprehension cannot be combined with other graph conditions yet");
+                    break;
                 case GraphConditionOp::And:
                     tokenKinds.push_back(4);
                     tokenArg1.push_back(llvm::ConstantInt::get(i32Ty, 0));
@@ -679,6 +1233,39 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
                             kindsPtr, arg1Ptr, arg2Ptr,
                             llvm::ConstantInt::get(i32Ty, tokenKinds.size()),
                             outN, outM, outRP, outCI});
+
+        llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
+        llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
+        llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP);
+        llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI);
+        srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
+    }
+
+    if (customNodesBitmap)
+    {
+        llvm::Value *nVal = nullptr;
+        llvm::Value *rowPtr = nullptr;
+        llvm::Value *colPtr = nullptr;
+        loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
+
+        auto [outN, outM, outRP, outCI] = allocOutGraph(GC->targetName + "_vertex_set_filter");
+
+        llvm::FunctionType *filterFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             bitmapPtrTy,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
+        llvm::FunctionCallee filterDecl =
+            Module.getOrInsertFunction("graph_filter_vertex_set_runtime", filterFT);
+
+        Builder.CreateCall(filterDecl, {nVal, rowPtr, colPtr, customNodesBitmap,
+                                        outN, outM, outRP, outCI});
 
         llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
         llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
@@ -896,6 +1483,18 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         break;
     case ASTNodeType::ShowGraph:
         visitShowGraph(static_cast<ShowGraphNode *>(node));
+        break;
+    case ASTNodeType::DrawGraph:
+        visitDrawGraph(static_cast<DrawGraphNode *>(node));
+        break;
+    case ASTNodeType::DrawMotifs:
+        visitDrawMotifs(static_cast<DrawMotifsNode *>(node));
+        break;
+    case ASTNodeType::MotifMatchesDecl:
+        visitMotifMatchesDecl(static_cast<MotifMatchesDeclNode *>(node));
+        break;
+    case ASTNodeType::GraphListDecl:
+        visitGraphListDecl(static_cast<GraphListDeclNode *>(node));
         break;
     case ASTNodeType::GraphComprehension:
         visitGraphComprehension(static_cast<GraphComprehensionNode *>(node));
@@ -1206,9 +1805,16 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         if (colIdx->getType() != Builder.getInt32Ty())
             colIdx = Builder.CreateIntCast(colIdx, Builder.getInt32Ty(), true);
 
-        llvm::Value *cols = metaIt->second.colsVal;
-        llvm::Value *offset = Builder.CreateMul(rowIdx, cols, "row_offset");
-        llvm::Value *flatIdx = Builder.CreateAdd(offset, colIdx, "flat_idx");
+        // Address row-then-column with two GEPs and i64 subscripts. Polly can
+        // delinearize a[i][j] out of that shape, but not out of a single
+        // sext(i*cols + j) flat index, which it rejects as non-affine.
+        // Deliberately not "inbounds": the language emits no bounds checks, so
+        // out-of-range subscripts must not become poison.
+        auto *i64Ty = Builder.getInt64Ty();
+        llvm::Value *cols64 = Builder.CreateIntCast(metaIt->second.colsVal, i64Ty, true, "dim64");
+        llvm::Value *row64 = Builder.CreateIntCast(rowIdx, i64Ty, true, "row64");
+        llvm::Value *col64 = Builder.CreateIntCast(colIdx, i64Ty, true, "col64");
+        llvm::Value *rowOff = Builder.CreateNSWMul(row64, cols64, "row_offset");
 
         auto *i32Ty = Builder.getInt32Ty();
         if (rhsVal->getType() != i32Ty)
@@ -1219,8 +1825,9 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
                 throw std::runtime_error("2D array assignment requires int value");
         }
 
-        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
-        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, baseAlloca, {flatIdx}, baseVar->name + "_2d_ptr");
+        llvm::Value *baseAlloca = load2DArrayBase(baseVar->name);
+        llvm::Value *rowPtr = Builder.CreateGEP(i32Ty, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
+        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, rowPtr, {col64}, baseVar->name + "_2d_ptr");
         Builder.CreateStore(rhsVal, elemPtr);
         return;
     }
@@ -1290,7 +1897,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             storage = global;
         }
         NamedValues[decl->name] = storage;
-        Array2DMap[decl->name] = {colsVal};
+        Array2DMap[decl->name] = {rowsVal, colsVal};
         return storage;
     }
 
@@ -1428,6 +2035,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
         }
 
         NamedValues[decl->name] = storage;
+        ArraySizes[decl->name] = Builder.getInt32(static_cast<int32_t>(N));
         return storage;
     }
 
@@ -1500,10 +2108,1438 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
     NamedValues[decl->name] = scalarAlloca;
     return scalarAlloca;
 }
+
+// ===========================================================================
+// Parametric frontier-motif engine (ported from p1GraphEasy-con-AutoTuner)
+//
+// Recognizes ordinary DSL `while` loops that already implement a frontier
+// algorithm -- BFS (first-wins CAS), connected components (min-copy), k-core
+// peeling, and Bellman-Ford relaxation (min-weighted) -- and rewrites the whole
+// loop into a single call to the parametric autograph_edgemap engine, selected
+// by an EdgeMapCombine id.  There is NO new surface syntax: the programmer
+// writes plain loops.  A loop that fails to match falls through to ordinary
+// lowering, so recognition can never silently change semantics.
+// ===========================================================================
+namespace
+{
+struct FirstWinsPattern
+{
+    ArrayAccessNode *claimAccess = nullptr;
+    int64_t expectedValue = 0;
+    int64_t desiredValue = 0;
+};
+
+static bool firstWinsExprsEquivalent(const ASTNode *lhs, const ASTNode *rhs)
+{
+    if (lhs == rhs)
+        return true;
+    if (!lhs || !rhs || lhs->type != rhs->type)
+        return false;
+
+    switch (lhs->type)
+    {
+    case ASTNodeType::Variable:
+        return static_cast<const VariableNode *>(lhs)->name ==
+               static_cast<const VariableNode *>(rhs)->name;
+    case ASTNodeType::IntLiteral:
+        return static_cast<const IntLiteralNode *>(lhs)->value ==
+               static_cast<const IntLiteralNode *>(rhs)->value;
+    case ASTNodeType::ArrayAccess:
+    {
+        auto *lhsAccess = static_cast<const ArrayAccessNode *>(lhs);
+        auto *rhsAccess = static_cast<const ArrayAccessNode *>(rhs);
+        return firstWinsExprsEquivalent(lhsAccess->arrayExpr.get(), rhsAccess->arrayExpr.get()) &&
+               firstWinsExprsEquivalent(lhsAccess->indexExpr.get(), rhsAccess->indexExpr.get());
+    }
+    default:
+        return false;
+    }
+}
+
+static std::optional<FirstWinsPattern> detectFirstWinsPattern(ConditionalNode *ifs)
+{
+    if (!ifs || ifs->elseBlock || !ifs->condition ||
+        ifs->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+
+    auto *condition = static_cast<BinaryExprNode *>(ifs->condition.get());
+    if (condition->op != "==")
+        return std::nullopt;
+
+    ArrayAccessNode *claimAccess = nullptr;
+    IntLiteralNode *expected = nullptr;
+    if (condition->lhs->type == ASTNodeType::ArrayAccess &&
+        condition->rhs->type == ASTNodeType::IntLiteral)
+    {
+        claimAccess = static_cast<ArrayAccessNode *>(condition->lhs.get());
+        expected = static_cast<IntLiteralNode *>(condition->rhs.get());
+    }
+    else if (condition->rhs->type == ASTNodeType::ArrayAccess &&
+             condition->lhs->type == ASTNodeType::IntLiteral)
+    {
+        claimAccess = static_cast<ArrayAccessNode *>(condition->rhs.get());
+        expected = static_cast<IntLiteralNode *>(condition->lhs.get());
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    auto *thenBlock = dynamic_cast<BlockStmtNode *>(ifs->thenBlock.get());
+    if (!thenBlock || thenBlock->statements.empty() ||
+        thenBlock->statements.front()->type != ASTNodeType::AssignmentStmt)
+        return std::nullopt;
+
+    auto *claimAssignment =
+        static_cast<AssignmentStmtNode *>(thenBlock->statements.front().get());
+    if (!claimAssignment->lhs || claimAssignment->lhs->type != ASTNodeType::ArrayAccess ||
+        !claimAssignment->rhs || claimAssignment->rhs->type != ASTNodeType::IntLiteral)
+        return std::nullopt;
+
+    auto *assignedAccess = static_cast<ArrayAccessNode *>(claimAssignment->lhs.get());
+    if (!firstWinsExprsEquivalent(claimAccess, assignedAccess))
+        return std::nullopt;
+
+    auto *desired = static_cast<IntLiteralNode *>(claimAssignment->rhs.get());
+    if (expected->value == desired->value)
+        return std::nullopt;
+
+    auto *arrayVariable = dynamic_cast<VariableNode *>(claimAccess->arrayExpr.get());
+    if (!arrayVariable || claimAccess->resolvedType != TypeKind::Int)
+        return std::nullopt;
+
+    return FirstWinsPattern{claimAccess, expected->value, desired->value};
+}
+
+static const VariableNode *asVariable(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::Variable
+               ? static_cast<const VariableNode *>(node)
+               : nullptr;
+}
+
+static const ArrayAccessNode *asArrayAccess(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::ArrayAccess
+               ? static_cast<const ArrayAccessNode *>(node)
+               : nullptr;
+}
+
+static bool matchesIncrementByOne(const ASTNode *node, const std::string &name)
+{
+    if (!node || node->type != ASTNodeType::AssignmentStmt)
+        return false;
+    auto *assignment = static_cast<const AssignmentStmtNode *>(node);
+    auto *lhs = asVariable(assignment->lhs.get());
+    if (!lhs || lhs->name != name || !assignment->rhs ||
+        assignment->rhs->type != ASTNodeType::BinaryExpr)
+        return false;
+
+    auto *add = static_cast<const BinaryExprNode *>(assignment->rhs.get());
+    if (add->op != "+")
+        return false;
+    auto isNamedVariable = [&](const ASTNode *operand) {
+        auto *variable = asVariable(operand);
+        return variable && variable->name == name;
+    };
+    auto isOne = [](const ASTNode *operand) {
+        return operand && operand->type == ASTNodeType::IntLiteral &&
+               static_cast<const IntLiteralNode *>(operand)->value == 1;
+    };
+    return (isNamedVariable(add->lhs.get()) && isOne(add->rhs.get())) ||
+           (isOne(add->lhs.get()) && isNamedVariable(add->rhs.get()));
+}
+
+// Exact trip count for while (i < N) / while (i <= N) with i += 1 in the body.
+// Assumes the induction variable starts at 0 (the common SGPL pattern).
+static std::optional<uint64_t> exactWhileTripCount(const WhileStmtNode *ws)
+{
+    if (!ws || !ws->condition || ws->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+
+    auto *condition = static_cast<const BinaryExprNode *>(ws->condition.get());
+    const VariableNode *induction = asVariable(condition->lhs.get());
+    const IntLiteralNode *boundLit = nullptr;
+    bool inclusive = false;
+
+    if (induction && condition->rhs &&
+        condition->rhs->type == ASTNodeType::IntLiteral &&
+        (condition->op == "<" || condition->op == "<="))
+    {
+        boundLit = static_cast<const IntLiteralNode *>(condition->rhs.get());
+        inclusive = condition->op == "<=";
+    }
+    else if (condition->lhs && condition->lhs->type == ASTNodeType::IntLiteral &&
+             (condition->op == ">" || condition->op == ">=") &&
+             (induction = asVariable(condition->rhs.get())))
+    {
+        // N > i  /  N >= i
+        boundLit = static_cast<const IntLiteralNode *>(condition->lhs.get());
+        inclusive = condition->op == ">=";
+    }
+    else
+    {
+        return std::nullopt;
+    }
+
+    if (!boundLit || boundLit->value < 0)
+        return std::nullopt;
+
+    auto *body = dynamic_cast<const BlockStmtNode *>(ws->body.get());
+    if (!body)
+        return std::nullopt;
+
+    bool foundInc = false;
+    for (const auto &stmt : body->statements)
+    {
+        if (matchesIncrementByOne(stmt.get(), induction->name))
+        {
+            foundInc = true;
+            break;
+        }
+    }
+    if (!foundInc)
+        return std::nullopt;
+
+    const uint64_t bound = static_cast<uint64_t>(boundLit->value);
+    return inclusive ? bound + 1 : bound;
+}
+
+struct FrontierStepPattern
+{
+    std::string graphName;
+    std::string frontierName;
+    std::string frontierSizeName;
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    std::string claimName;
+    std::string parentName;
+    int64_t expectedValue;
+    int64_t desiredValue;
+};
+
+static std::optional<FrontierStepPattern>
+detectFirstWinsFrontierLoop(const WhileStmtNode *loop)
+{
+    if (!loop || !loop->condition || loop->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+
+    auto *condition = static_cast<const BinaryExprNode *>(loop->condition.get());
+    if (condition->op != "<")
+        return std::nullopt;
+    auto *induction = asVariable(condition->lhs.get());
+    auto *bound = asVariable(condition->rhs.get());
+    if (!induction || !bound || induction->name == bound->name)
+        return std::nullopt;
+
+    auto *body = dynamic_cast<const BlockStmtNode *>(loop->body.get());
+    if (!body || body->statements.size() != 3)
+        return std::nullopt;
+
+    if (body->statements[0]->type != ASTNodeType::VarDecl ||
+        body->statements[1]->type != ASTNodeType::ForEachStmt ||
+        !matchesIncrementByOne(body->statements[2].get(), induction->name))
+        return std::nullopt;
+
+    auto *vertexDecl = static_cast<const VarDeclNode *>(body->statements[0].get());
+    auto *frontierRead = asArrayAccess(vertexDecl->initializer.get());
+    auto *frontierArray = frontierRead ? asVariable(frontierRead->arrayExpr.get()) : nullptr;
+    if (!frontierRead || !frontierArray ||
+        !firstWinsExprsEquivalent(frontierRead->indexExpr.get(), induction))
+        return std::nullopt;
+
+    auto *neighbors = static_cast<const ForEachStmtNode *>(body->statements[1].get());
+    auto *source = asVariable(neighbors->adjNodeExpr.get());
+    if (neighbors->targetType != ForEachTargetType::Neighbor || !source ||
+        source->name != vertexDecl->name)
+        return std::nullopt;
+
+    auto *neighborBody = dynamic_cast<const BlockStmtNode *>(neighbors->body.get());
+    if (!neighborBody || neighborBody->statements.size() != 1 ||
+        neighborBody->statements[0]->type != ASTNodeType::Conditional)
+        return std::nullopt;
+
+    auto *claimIf = static_cast<ConditionalNode *>(neighborBody->statements[0].get());
+    auto claim = detectFirstWinsPattern(claimIf);
+    if (!claim)
+        return std::nullopt;
+
+    auto *claimArray = asVariable(claim->claimAccess->arrayExpr.get());
+    auto *thenBody = dynamic_cast<const BlockStmtNode *>(claimIf->thenBlock.get());
+    if (!claimArray || !thenBody || thenBody->statements.size() != 4)
+        return std::nullopt;
+
+    auto *parentAssignment =
+        dynamic_cast<const AssignmentStmtNode *>(thenBody->statements[1].get());
+    auto *appendAssignment =
+        dynamic_cast<const AssignmentStmtNode *>(thenBody->statements[2].get());
+    if (!parentAssignment || !appendAssignment)
+        return std::nullopt;
+
+    auto *parentAccess = asArrayAccess(parentAssignment->lhs.get());
+    auto *parentArray = parentAccess ? asVariable(parentAccess->arrayExpr.get()) : nullptr;
+    auto *parentValue = asVariable(parentAssignment->rhs.get());
+    if (!parentAccess || !parentArray || !parentValue ||
+        parentValue->name != vertexDecl->name ||
+        !firstWinsExprsEquivalent(parentAccess->indexExpr.get(),
+                                  claim->claimAccess->indexExpr.get()))
+        return std::nullopt;
+
+    auto *appendAccess = asArrayAccess(appendAssignment->lhs.get());
+    auto *appendArray = appendAccess ? asVariable(appendAccess->arrayExpr.get()) : nullptr;
+    auto *appendSize = appendAccess ? asVariable(appendAccess->indexExpr.get()) : nullptr;
+    if (!appendAccess || !appendArray || !appendSize ||
+        !firstWinsExprsEquivalent(appendAssignment->rhs.get(),
+                                  claim->claimAccess->indexExpr.get()) ||
+        !matchesIncrementByOne(thenBody->statements[3].get(), appendSize->name))
+        return std::nullopt;
+
+    if (claimArray->name == parentArray->name ||
+        claimArray->name == appendArray->name ||
+        parentArray->name == appendArray->name ||
+        frontierArray->name == claimArray->name ||
+        frontierArray->name == parentArray->name ||
+        frontierArray->name == appendArray->name ||
+        appendSize->name == induction->name ||
+        appendSize->name == bound->name)
+        return std::nullopt;
+
+    return FrontierStepPattern{
+        neighbors->graphName,
+        frontierArray->name,
+        bound->name,
+        appendArray->name,
+        appendSize->name,
+        claimArray->name,
+        parentArray->name,
+        claim->expectedValue,
+        claim->desiredValue};
+}
+
+enum class MotifFrontierMode
+{
+    WriteMin = 1,
+    PeelK = 2,
+    RelaxMinWeighted = 3
+};
+
+struct MotifFrontierPattern
+{
+    MotifFrontierMode mode = MotifFrontierMode::WriteMin;
+    std::string graphName;
+    std::string frontierName;
+    std::string frontierSizeName;
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    std::string prop0Name;
+    std::string prop1Name;
+    std::string kName;
+};
+
+/* Compositional EdgeMap effect (maps to autograph_edgemap combine IDs). */
+enum class EdgeMapCombine
+{
+    CasFirst = 0,
+    MinCopy = 1,
+    PeelK = 2,
+    MinWeighted = 3
+};
+
+struct FrontierEdgeMapEffect
+{
+    EdgeMapCombine combine = EdgeMapCombine::MinCopy;
+    std::string graphName;
+    std::string frontierName;
+    std::string frontierSizeName;
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    std::string prop0Name;
+    std::string prop1Name;
+    std::string scalar0Name; /* peel k variable name; empty => use scalar0 literal */
+    int64_t scalar0 = 0;
+    int64_t scalar1 = 0;
+};
+
+static bool matchesDecrementByOneArray(const ASTNode *node,
+                                       const ArrayAccessNode *cell)
+{
+    if (!node || !cell || node->type != ASTNodeType::AssignmentStmt)
+        return false;
+    auto *assignment = static_cast<const AssignmentStmtNode *>(node);
+    auto *lhs = asArrayAccess(assignment->lhs.get());
+    if (!lhs || !firstWinsExprsEquivalent(lhs, cell) || !assignment->rhs ||
+        assignment->rhs->type != ASTNodeType::BinaryExpr)
+        return false;
+    auto *sub = static_cast<const BinaryExprNode *>(assignment->rhs.get());
+    if (sub->op != "-")
+        return false;
+    auto *left = asArrayAccess(sub->lhs.get());
+    auto *one = dynamic_cast<const IntLiteralNode *>(sub->rhs.get());
+    return left && one && one->value == 1 &&
+           firstWinsExprsEquivalent(left, cell);
+}
+
+static bool matchesActivateAppend(const ASTNode *appendStmt,
+                                  const ASTNode *incStmt,
+                                  const std::string &neighborName,
+                                  std::string &nextFrontierName,
+                                  std::string &nextSizeName)
+{
+    if (!appendStmt || !incStmt ||
+        appendStmt->type != ASTNodeType::AssignmentStmt)
+        return false;
+    auto *appendAssignment =
+        static_cast<const AssignmentStmtNode *>(appendStmt);
+    auto *appendAccess = asArrayAccess(appendAssignment->lhs.get());
+    auto *appendArray =
+        appendAccess ? asVariable(appendAccess->arrayExpr.get()) : nullptr;
+    auto *appendSize =
+        appendAccess ? asVariable(appendAccess->indexExpr.get()) : nullptr;
+    auto *appendValue = asVariable(appendAssignment->rhs.get());
+    if (!appendAccess || !appendArray || !appendSize || !appendValue ||
+        appendValue->name != neighborName)
+        return false;
+    if (!matchesIncrementByOne(incStmt, appendSize->name))
+        return false;
+    nextFrontierName = appendArray->name;
+    nextSizeName = appendSize->name;
+    return true;
+}
+
+static bool parseArrayFrontierHeader(
+    const WhileStmtNode *loop, const VariableNode *&induction,
+    const VariableNode *&bound, const VariableNode *&frontierArray,
+    const VarDeclNode *&vertexDecl, const BlockStmtNode *&body)
+{
+    if (!loop || !loop->condition ||
+        loop->condition->type != ASTNodeType::BinaryExpr)
+        return false;
+    auto *condition = static_cast<const BinaryExprNode *>(loop->condition.get());
+    if (condition->op != "<")
+        return false;
+    induction = asVariable(condition->lhs.get());
+    bound = asVariable(condition->rhs.get());
+    if (!induction || !bound || induction->name == bound->name)
+        return false;
+
+    body = dynamic_cast<const BlockStmtNode *>(loop->body.get());
+    if (!body || body->statements.size() != 3)
+        return false;
+    if (body->statements[0]->type != ASTNodeType::VarDecl ||
+        !matchesIncrementByOne(body->statements[2].get(), induction->name))
+        return false;
+
+    vertexDecl = static_cast<const VarDeclNode *>(body->statements[0].get());
+    auto *frontierRead = asArrayAccess(vertexDecl->initializer.get());
+    frontierArray =
+        frontierRead ? asVariable(frontierRead->arrayExpr.get()) : nullptr;
+    return frontierRead && frontierArray &&
+           firstWinsExprsEquivalent(frontierRead->indexExpr.get(), induction);
+}
+
+static bool matchesWeightCall(const ASTNode *node, const std::string &graphName,
+                              const std::string &uName, const std::string &vName)
+{
+    if (!node || node->type != ASTNodeType::FunctionCall)
+        return false;
+    auto *call = static_cast<const FunctionCallNode *>(node);
+    if (call->name != "weight" || call->arguments.size() != 3)
+        return false;
+    auto *g = asVariable(call->arguments[0].get());
+    auto *u = asVariable(call->arguments[1].get());
+    auto *v = asVariable(call->arguments[2].get());
+    return g && u && v && g->name == graphName && u->name == uName &&
+           v->name == vName;
+}
+
+static bool matchesPropPlusWeight(const ASTNode *node,
+                                  const std::string &propName,
+                                  const std::string &uName,
+                                  const std::string &vName,
+                                  const std::string &graphName)
+{
+    if (!node || node->type != ASTNodeType::BinaryExpr)
+        return false;
+    auto *add = static_cast<const BinaryExprNode *>(node);
+    if (add->op != "+")
+        return false;
+    auto *prop = asArrayAccess(add->lhs.get());
+    auto *propArray = prop ? asVariable(prop->arrayExpr.get()) : nullptr;
+    auto *propIndex = prop ? asVariable(prop->indexExpr.get()) : nullptr;
+    if (!propArray || !propIndex || propArray->name != propName ||
+        propIndex->name != uName)
+        return false;
+    return matchesWeightCall(add->rhs.get(), graphName, uName, vName);
+}
+
+static std::optional<MotifFrontierPattern>
+detectRelaxMinFrontierLoop(const WhileStmtNode *loop)
+{
+    const VariableNode *induction = nullptr;
+    const VariableNode *bound = nullptr;
+    const VariableNode *frontierArray = nullptr;
+    const VarDeclNode *vertexDecl = nullptr;
+    const BlockStmtNode *body = nullptr;
+    if (!parseArrayFrontierHeader(loop, induction, bound, frontierArray,
+                                  vertexDecl, body))
+        return std::nullopt;
+    if (body->statements[1]->type != ASTNodeType::ForEachStmt)
+        return std::nullopt;
+
+    auto *neighbors =
+        static_cast<const ForEachStmtNode *>(body->statements[1].get());
+    auto *source = asVariable(neighbors->adjNodeExpr.get());
+    if (neighbors->targetType != ForEachTargetType::Neighbor || !source ||
+        source->name != vertexDecl->name)
+        return std::nullopt;
+
+    auto *neighborBody =
+        dynamic_cast<const BlockStmtNode *>(neighbors->body.get());
+    if (!neighborBody)
+        return std::nullopt;
+
+    const ConditionalNode *minIf = nullptr;
+    const std::string *ndName = nullptr;
+    bool weighted = false;
+
+    if (neighborBody->statements.size() == 1 &&
+        neighborBody->statements[0]->type == ASTNodeType::Conditional)
+    {
+        minIf = static_cast<const ConditionalNode *>(
+            neighborBody->statements[0].get());
+        weighted = false;
+    }
+    else if (neighborBody->statements.size() == 2 &&
+             neighborBody->statements[0]->type == ASTNodeType::VarDecl &&
+             neighborBody->statements[1]->type == ASTNodeType::Conditional)
+    {
+        auto *ndDecl =
+            static_cast<const VarDeclNode *>(neighborBody->statements[0].get());
+        if (!ndDecl->initializer || ndDecl->isArray)
+            return std::nullopt;
+        minIf = static_cast<const ConditionalNode *>(
+            neighborBody->statements[1].get());
+        ndName = &ndDecl->name;
+        weighted = true;
+        /* Initializer checked after we know prop name from the if. */
+    }
+    else
+        return std::nullopt;
+
+    if (!minIf || minIf->elseBlock || !minIf->condition ||
+        minIf->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+    auto *cmp = static_cast<const BinaryExprNode *>(minIf->condition.get());
+    if (cmp->op != "<")
+        return std::nullopt;
+
+    auto *rhs = asArrayAccess(cmp->rhs.get());
+    auto *rhsArray = rhs ? asVariable(rhs->arrayExpr.get()) : nullptr;
+    auto *rhsIndex = rhs ? asVariable(rhs->indexExpr.get()) : nullptr;
+    if (!rhsArray || !rhsIndex || rhsIndex->name != neighbors->var1)
+        return std::nullopt;
+
+    auto *thenBody = dynamic_cast<const BlockStmtNode *>(minIf->thenBlock.get());
+    if (!thenBody || thenBody->statements.size() != 3 ||
+        thenBody->statements[0]->type != ASTNodeType::AssignmentStmt)
+        return std::nullopt;
+
+    auto *labelAssign =
+        static_cast<const AssignmentStmtNode *>(thenBody->statements[0].get());
+    auto *destAccess = asArrayAccess(labelAssign->lhs.get());
+    if (!destAccess || !firstWinsExprsEquivalent(destAccess, rhs))
+        return std::nullopt;
+
+    if (!weighted)
+    {
+        auto *lhs = asArrayAccess(cmp->lhs.get());
+        auto *lhsArray = lhs ? asVariable(lhs->arrayExpr.get()) : nullptr;
+        auto *lhsIndex = lhs ? asVariable(lhs->indexExpr.get()) : nullptr;
+        auto *srcAccess = asArrayAccess(labelAssign->rhs.get());
+        if (!lhsArray || !lhsIndex || !srcAccess ||
+            lhsArray->name != rhsArray->name ||
+            lhsIndex->name != vertexDecl->name ||
+            !firstWinsExprsEquivalent(srcAccess, lhs))
+            return std::nullopt;
+    }
+    else
+    {
+        auto *ndDecl = static_cast<const VarDeclNode *>(
+            neighborBody->statements[0].get());
+        if (!matchesPropPlusWeight(ndDecl->initializer.get(), rhsArray->name,
+                                   vertexDecl->name, neighbors->var1,
+                                   neighbors->graphName))
+            return std::nullopt;
+        auto *cmpLhs = asVariable(cmp->lhs.get());
+        auto *assignRhs = asVariable(labelAssign->rhs.get());
+        if (!cmpLhs || !assignRhs || !ndName || cmpLhs->name != *ndName ||
+            assignRhs->name != *ndName)
+            return std::nullopt;
+    }
+
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    if (!matchesActivateAppend(thenBody->statements[1].get(),
+                               thenBody->statements[2].get(), neighbors->var1,
+                               nextFrontierName, nextSizeName))
+        return std::nullopt;
+
+    if (rhsArray->name == frontierArray->name ||
+        rhsArray->name == nextFrontierName ||
+        frontierArray->name == nextFrontierName ||
+        nextSizeName == induction->name || nextSizeName == bound->name)
+        return std::nullopt;
+
+    MotifFrontierPattern pattern;
+    pattern.mode = weighted ? MotifFrontierMode::RelaxMinWeighted
+                            : MotifFrontierMode::WriteMin;
+    pattern.graphName = neighbors->graphName;
+    pattern.frontierName = frontierArray->name;
+    pattern.frontierSizeName = bound->name;
+    pattern.nextFrontierName = nextFrontierName;
+    pattern.nextSizeName = nextSizeName;
+    pattern.prop0Name = rhsArray->name;
+    return pattern;
+}
+
+static std::optional<MotifFrontierPattern>
+detectWriteMinFrontierLoop(const WhileStmtNode *loop)
+{
+    return detectRelaxMinFrontierLoop(loop);
+}
+
+static std::optional<MotifFrontierPattern>
+detectPeelKFrontierLoop(const WhileStmtNode *loop)
+{
+    const VariableNode *induction = nullptr;
+    const VariableNode *bound = nullptr;
+    const VariableNode *frontierArray = nullptr;
+    const VarDeclNode *vertexDecl = nullptr;
+    const BlockStmtNode *body = nullptr;
+    if (!parseArrayFrontierHeader(loop, induction, bound, frontierArray,
+                                  vertexDecl, body))
+        return std::nullopt;
+    if (body->statements[1]->type != ASTNodeType::Conditional)
+        return std::nullopt;
+
+    auto *claimIf = static_cast<ConditionalNode *>(body->statements[1].get());
+    auto claim = detectFirstWinsPattern(claimIf);
+    if (!claim)
+        return std::nullopt;
+    auto *aliveArray = asVariable(claim->claimAccess->arrayExpr.get());
+    auto *aliveIndex = asVariable(claim->claimAccess->indexExpr.get());
+    if (!aliveArray || !aliveIndex || aliveIndex->name != vertexDecl->name ||
+        claim->expectedValue != 1 || claim->desiredValue != 0)
+        return std::nullopt;
+
+    auto *thenBody =
+        dynamic_cast<const BlockStmtNode *>(claimIf->thenBlock.get());
+    if (!thenBody || thenBody->statements.size() != 2 ||
+        thenBody->statements[1]->type != ASTNodeType::ForEachStmt)
+        return std::nullopt;
+
+    auto *neighbors =
+        static_cast<const ForEachStmtNode *>(thenBody->statements[1].get());
+    auto *source = asVariable(neighbors->adjNodeExpr.get());
+    if (neighbors->targetType != ForEachTargetType::Neighbor || !source ||
+        source->name != vertexDecl->name)
+        return std::nullopt;
+
+    auto *neighborBody =
+        dynamic_cast<const BlockStmtNode *>(neighbors->body.get());
+    if (!neighborBody || neighborBody->statements.size() != 1 ||
+        neighborBody->statements[0]->type != ASTNodeType::Conditional)
+        return std::nullopt;
+
+    auto *aliveNghIf =
+        static_cast<ConditionalNode *>(neighborBody->statements[0].get());
+    if (!aliveNghIf || aliveNghIf->elseBlock || !aliveNghIf->condition ||
+        aliveNghIf->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+    auto *aliveCmp =
+        static_cast<const BinaryExprNode *>(aliveNghIf->condition.get());
+    if (aliveCmp->op != "==")
+        return std::nullopt;
+    ArrayAccessNode *aliveAccess = nullptr;
+    IntLiteralNode *aliveLit = nullptr;
+    if (aliveCmp->lhs->type == ASTNodeType::ArrayAccess &&
+        aliveCmp->rhs->type == ASTNodeType::IntLiteral)
+    {
+        aliveAccess = static_cast<ArrayAccessNode *>(aliveCmp->lhs.get());
+        aliveLit = static_cast<IntLiteralNode *>(aliveCmp->rhs.get());
+    }
+    else if (aliveCmp->rhs->type == ASTNodeType::ArrayAccess &&
+             aliveCmp->lhs->type == ASTNodeType::IntLiteral)
+    {
+        aliveAccess = static_cast<ArrayAccessNode *>(aliveCmp->rhs.get());
+        aliveLit = static_cast<IntLiteralNode *>(aliveCmp->lhs.get());
+    }
+    else
+    {
+        return std::nullopt;
+    }
+    auto *aliveNghArray = asVariable(aliveAccess->arrayExpr.get());
+    auto *aliveNghIndex = asVariable(aliveAccess->indexExpr.get());
+    if (!aliveNghArray || !aliveNghIndex ||
+        aliveNghArray->name != aliveArray->name ||
+        aliveNghIndex->name != neighbors->var1 || aliveLit->value != 1)
+        return std::nullopt;
+
+    auto *aliveThen =
+        dynamic_cast<const BlockStmtNode *>(aliveNghIf->thenBlock.get());
+    if (!aliveThen || aliveThen->statements.size() != 2)
+        return std::nullopt;
+
+    auto *degAssignNode = aliveThen->statements[0].get();
+    if (degAssignNode->type != ASTNodeType::AssignmentStmt)
+        return std::nullopt;
+    auto *degAssign = static_cast<const AssignmentStmtNode *>(degAssignNode);
+    auto *degCell = asArrayAccess(degAssign->lhs.get());
+    auto *degArray = degCell ? asVariable(degCell->arrayExpr.get()) : nullptr;
+    auto *degIndex = degCell ? asVariable(degCell->indexExpr.get()) : nullptr;
+    if (!degArray || !degIndex || degIndex->name != neighbors->var1 ||
+        !matchesDecrementByOneArray(degAssignNode, degCell))
+        return std::nullopt;
+
+    if (aliveThen->statements[1]->type != ASTNodeType::Conditional)
+        return std::nullopt;
+    auto *threshIf =
+        static_cast<const ConditionalNode *>(aliveThen->statements[1].get());
+    if (!threshIf || threshIf->elseBlock || !threshIf->condition ||
+        threshIf->condition->type != ASTNodeType::BinaryExpr)
+        return std::nullopt;
+    auto *threshCmp =
+        static_cast<const BinaryExprNode *>(threshIf->condition.get());
+    if (threshCmp->op != "<")
+        return std::nullopt;
+    auto *threshLhs = asArrayAccess(threshCmp->lhs.get());
+    auto *kVar = asVariable(threshCmp->rhs.get());
+    if (!threshLhs || !kVar || !firstWinsExprsEquivalent(threshLhs, degCell))
+        return std::nullopt;
+
+    auto *threshThen =
+        dynamic_cast<const BlockStmtNode *>(threshIf->thenBlock.get());
+    if (!threshThen || threshThen->statements.size() != 2)
+        return std::nullopt;
+    std::string nextFrontierName;
+    std::string nextSizeName;
+    if (!matchesActivateAppend(threshThen->statements[0].get(),
+                               threshThen->statements[1].get(),
+                               neighbors->var1, nextFrontierName, nextSizeName))
+        return std::nullopt;
+
+    if (aliveArray->name == frontierArray->name ||
+        degArray->name == frontierArray->name ||
+        frontierArray->name == nextFrontierName ||
+        nextSizeName == induction->name || nextSizeName == bound->name)
+        return std::nullopt;
+
+    MotifFrontierPattern pattern;
+    pattern.mode = MotifFrontierMode::PeelK;
+    pattern.graphName = neighbors->graphName;
+    pattern.frontierName = frontierArray->name;
+    pattern.frontierSizeName = bound->name;
+    pattern.nextFrontierName = nextFrontierName;
+    pattern.nextSizeName = nextSizeName;
+    pattern.prop0Name = aliveArray->name;
+    pattern.prop1Name = degArray->name;
+    pattern.kName = kVar->name;
+    return pattern;
+}
+
+static std::optional<FrontierEdgeMapEffect>
+analyzeFrontierEdgeMap(const WhileStmtNode *loop)
+{
+    if (auto fw = detectFirstWinsFrontierLoop(loop))
+    {
+        FrontierEdgeMapEffect effect;
+        effect.combine = EdgeMapCombine::CasFirst;
+        effect.graphName = fw->graphName;
+        effect.frontierName = fw->frontierName;
+        effect.frontierSizeName = fw->frontierSizeName;
+        effect.nextFrontierName = fw->nextFrontierName;
+        effect.nextSizeName = fw->nextSizeName;
+        effect.prop0Name = fw->claimName;
+        effect.prop1Name = fw->parentName;
+        effect.scalar0 = fw->expectedValue;
+        effect.scalar1 = fw->desiredValue;
+        return effect;
+    }
+    if (auto peel = detectPeelKFrontierLoop(loop))
+    {
+        FrontierEdgeMapEffect effect;
+        effect.combine = EdgeMapCombine::PeelK;
+        effect.graphName = peel->graphName;
+        effect.frontierName = peel->frontierName;
+        effect.frontierSizeName = peel->frontierSizeName;
+        effect.nextFrontierName = peel->nextFrontierName;
+        effect.nextSizeName = peel->nextSizeName;
+        effect.prop0Name = peel->prop0Name;
+        effect.prop1Name = peel->prop1Name;
+        effect.scalar0Name = peel->kName;
+        return effect;
+    }
+    if (auto relax = detectRelaxMinFrontierLoop(loop))
+    {
+        FrontierEdgeMapEffect effect;
+        effect.combine = relax->mode == MotifFrontierMode::RelaxMinWeighted
+                             ? EdgeMapCombine::MinWeighted
+                             : EdgeMapCombine::MinCopy;
+        effect.graphName = relax->graphName;
+        effect.frontierName = relax->frontierName;
+        effect.frontierSizeName = relax->frontierSizeName;
+        effect.nextFrontierName = relax->nextFrontierName;
+        effect.nextSizeName = relax->nextSizeName;
+        effect.prop0Name = relax->prop0Name;
+        return effect;
+    }
+    return std::nullopt;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Dense semiring-closure motif.
+ *
+ * The frontier detectors above recognize SPARSE algorithms and route them to
+ * autograph_edgemap.  This one recognizes the DENSE counterpart -- a Kleene
+ * closure over a closed semiring, written as the ordinary triple `while` nest
+ * that a user writes for Floyd-Warshall -- and routes it to autograph_closure,
+ * parameterized by which semiring the body implements.
+ *
+ * Recognized shape (k outermost, all three bounds the same variable):
+ *
+ *     while (k < n) {
+ *       i = 0;
+ *       while (i < n) {
+ *         j = 0;
+ *         while (j < n) {
+ *           <BODY>
+ *           j = j + 1;
+ *         }
+ *         i = i + 1;
+ *       }
+ *       k = k + 1;
+ *     }
+ *
+ * with <BODY> in either of the two forms people actually write:
+ *
+ *   (a)  int c = D[i][k] OP D[k][j];
+ *        if (c REL D[i][j]) { D[i][j] = c; }
+ *
+ *   (b)  if (D[i][k] OP D[k][j] REL D[i][j]) { D[i][j] = D[i][k] OP D[k][j]; }
+ *
+ * OP is the semiring's MULTIPLY (path extension) and REL selects the semiring's
+ * ADD (path choice).  Four combinations are accepted:
+ *
+ *     OP  REL   semiring        classic name
+ *     +   <     (min, +)        all-pairs shortest paths
+ *     +   >     (max, +)        longest / critical path
+ *     *   >     (max, ×)        boolean transitive closure, max-reliability
+ *     *   <     (min, ×)        min-product
+ *
+ * Legality note.  The rewrite is only sound because the semiring's ADD is
+ * IDEMPOTENT -- min(a,a)=a, max(a,a)=a -- which is what lets the closure
+ * relax a cell more than once, and lets the blocked schedule in the runtime
+ * revisit already-final values.  All four accepted (OP, REL) pairs have an
+ * idempotent ADD.  Plus-times is deliberately NOT accepted: `+` as the select
+ * would be a counting semiring, where re-relaxing double-counts.  That is why
+ * the select is matched as a COMPARISON and not as an accumulation.
+ *
+ * A nest that fails any check falls through to ordinary lowering.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Same tag-dispatch spelling as asVariable / asArrayAccess above. */
+static const IntLiteralNode *asIntLiteral(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::IntLiteral
+               ? static_cast<const IntLiteralNode *>(node)
+               : nullptr;
+}
+
+static const BinaryExprNode *asBinary(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::BinaryExpr
+               ? static_cast<const BinaryExprNode *>(node)
+               : nullptr;
+}
+
+static const AssignmentStmtNode *asAssign(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::AssignmentStmt
+               ? static_cast<const AssignmentStmtNode *>(node)
+               : nullptr;
+}
+
+static const VarDeclNode *asVarDecl(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::VarDecl
+               ? static_cast<const VarDeclNode *>(node)
+               : nullptr;
+}
+
+static const BlockStmtNode *asBlock(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::BlockStmt
+               ? static_cast<const BlockStmtNode *>(node)
+               : nullptr;
+}
+
+static const ConditionalNode *asConditional(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::Conditional
+               ? static_cast<const ConditionalNode *>(node)
+               : nullptr;
+}
+
+static const WhileStmtNode *asWhile(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::WhileStmt
+               ? static_cast<const WhileStmtNode *>(node)
+               : nullptr;
+}
+
+static const Array2DAccessNode *asArray2D(const ASTNode *node)
+{
+    return node && node->type == ASTNodeType::Array2DAccess
+               ? static_cast<const Array2DAccessNode *>(node)
+               : nullptr;
+}
+
+enum class SemiringKind
+{
+    MinPlus = 0,  /* shortest paths      */
+    MaxPlus = 1,  /* longest paths       */
+    MaxTimes = 2, /* transitive closure  */
+    MinTimes = 3  /* min-product         */
+};
+
+struct SemiringClosurePattern
+{
+    std::string matrixName;
+    std::string boundName; /* the `n` shared by all three loop bounds */
+    SemiringKind kind = SemiringKind::MinPlus;
+};
+
+/* `name` used as a bare variable. */
+static bool isVar(const ASTNode *node, const std::string &name)
+{
+    const auto *v = asVariable(node);
+    return v && v->name == name;
+}
+
+/* `v = v + 1;` -- the induction step every level of the nest must end with. */
+static bool isIncrementOfVar(const ASTNode *stmt, const std::string &name)
+{
+    const auto *assign = asAssign(stmt);
+    if (!assign || !isVar(assign->lhs.get(), name))
+        return false;
+    const auto *add = asBinary(assign->rhs.get());
+    if (!add || add->op != "+")
+        return false;
+    const auto *one = asIntLiteral(add->rhs.get());
+    return isVar(add->lhs.get(), name) && one && one->value == 1;
+}
+
+/* `v < bound` -- and reports which names were used. */
+static bool isLessThanBound(const ASTNode *cond, std::string &var, std::string &bound)
+{
+    const auto *lt = asBinary(cond);
+    if (!lt || lt->op != "<")
+        return false;
+    const auto *v = asVariable(lt->lhs.get());
+    const auto *b = asVariable(lt->rhs.get());
+    if (!v || !b)
+        return false;
+    var = v->name;
+    bound = b->name;
+    return true;
+}
+
+/* Statements of a while body, with the trailing induction step removed.
+ * Returns false if the body is not a block ending in `var = var + 1`. */
+static bool loopBodyWithoutStep(const WhileStmtNode *loop, const std::string &var,
+                                std::vector<const ASTNode *> &out)
+{
+    const auto *block = asBlock(loop->body.get());
+    if (!block || block->statements.empty())
+        return false;
+    if (!isIncrementOfVar(block->statements.back().get(), var))
+        return false;
+    out.clear();
+    for (size_t s = 0; s + 1 < block->statements.size(); ++s)
+    {
+        /* `int j = 0;` immediately before the inner loop is part of the header,
+         * not the body; the caller filters those by position, so keep them. */
+        out.push_back(block->statements[s].get());
+    }
+    return true;
+}
+
+/* Skip leading `x = 0;` / `int x = 0;` resets, which is how the DSL spells the
+ * inner loop's initializer.  Returns the index of the first real statement. */
+static size_t skipZeroInits(const std::vector<const ASTNode *> &stmts)
+{
+    size_t idx = 0;
+    while (idx < stmts.size())
+    {
+        const ASTNode *s = stmts[idx];
+        const ASTNode *init = nullptr;
+        if (const auto *assign = asAssign(s))
+        {
+            if (!asVariable(assign->lhs.get()))
+                break;
+            init = assign->rhs.get();
+        }
+        else if (const auto *decl = asVarDecl(s))
+        {
+            if (decl->isArray || decl->isArray2D)
+                break;
+            init = decl->initializer.get();
+        }
+        else
+            break;
+        const auto *zero = asIntLiteral(init);
+        if (!zero || zero->value != 0)
+            break;
+        ++idx;
+    }
+    return idx;
+}
+
+/* D[a][b] on matrix `matrix`, with both subscripts the named induction vars. */
+static bool isMatrixCell(const ASTNode *node, const std::string &matrix,
+                         const std::string &rowVar, const std::string &colVar)
+{
+    const auto *acc = asArray2D(node);
+    if (!acc)
+        return false;
+    return isVar(acc->arrayExpr.get(), matrix) && isVar(acc->rowExpr.get(), rowVar) &&
+           isVar(acc->colExpr.get(), colVar);
+}
+
+/* `D[i][k] OP D[k][j]` with OP in {+, *}; reports OP.  Both operand orders of a
+ * commutative OP would be equally valid mathematically, but only this one is
+ * the closure -- D[k][j] OP D[i][k] is the same value, so accept either. */
+static bool isExtension(const ASTNode *node, const std::string &matrix,
+                        const std::string &iv, const std::string &jv,
+                        const std::string &kv, std::string &op)
+{
+    const auto *bin = asBinary(node);
+    if (!bin || (bin->op != "+" && bin->op != "*"))
+        return false;
+    bool forward = isMatrixCell(bin->lhs.get(), matrix, iv, kv) &&
+                   isMatrixCell(bin->rhs.get(), matrix, kv, jv);
+    bool swapped = isMatrixCell(bin->lhs.get(), matrix, kv, jv) &&
+                   isMatrixCell(bin->rhs.get(), matrix, iv, kv);
+    if (!forward && !swapped)
+        return false;
+    op = bin->op;
+    return true;
+}
+
+static bool semiringFromOps(const std::string &op, const std::string &rel,
+                            SemiringKind &kind)
+{
+    if (op == "+" && rel == "<") { kind = SemiringKind::MinPlus;  return true; }
+    if (op == "+" && rel == ">") { kind = SemiringKind::MaxPlus;  return true; }
+    if (op == "*" && rel == ">") { kind = SemiringKind::MaxTimes; return true; }
+    if (op == "*" && rel == "<") { kind = SemiringKind::MinTimes; return true; }
+    return false; /* every other pairing has a non-idempotent ADD */
+}
+
+/* The `if (... REL D[i][j]) { D[i][j] = ...; }` that performs the select.
+ * `candidate` is what the guard compares and the body stores; the two must be
+ * the same expression, or the loop is not a closure. */
+static bool matchSelect(const ASTNode *stmt, const std::string &matrix,
+                        const std::string &iv, const std::string &jv,
+                        const std::string &kv,
+                        const std::function<bool(const ASTNode *, std::string &)> &isCandidate,
+                        std::string &op, std::string &rel)
+{
+    const auto *ifs = asConditional(stmt);
+    if (!ifs || ifs->elseBlock)
+        return false;
+    const auto *cmp = asBinary(ifs->condition.get());
+    if (!cmp || (cmp->op != "<" && cmp->op != ">"))
+        return false;
+
+    /* guard must be `candidate REL D[i][j]`; the mirrored `D[i][j] REL cand`
+     * means the opposite select, so flip the relation when we see it. */
+    std::string candOp;
+    rel = cmp->op;
+    if (!(isCandidate(cmp->lhs.get(), candOp) && isMatrixCell(cmp->rhs.get(), matrix, iv, jv)))
+    {
+        if (!(isMatrixCell(cmp->lhs.get(), matrix, iv, jv) && isCandidate(cmp->rhs.get(), candOp)))
+            return false;
+        rel = cmp->op == "<" ? ">" : "<";
+    }
+
+    const auto *thenBlock = asBlock(ifs->thenBlock.get());
+    if (!thenBlock || thenBlock->statements.size() != 1)
+        return false;
+    const auto *store = asAssign(thenBlock->statements[0].get());
+    if (!store || !isMatrixCell(store->lhs.get(), matrix, iv, jv))
+        return false;
+    std::string storeOp;
+    if (!isCandidate(store->rhs.get(), storeOp))
+        return false;
+    if (!candOp.empty() && !storeOp.empty() && candOp != storeOp)
+        return false;
+    op = candOp.empty() ? storeOp : candOp;
+    (void)kv;
+    return true;
+}
+
+/* Match the innermost body in either spelling and report the semiring. */
+static bool matchClosureBody(const std::vector<const ASTNode *> &stmts, size_t first,
+                             const std::string &matrix, const std::string &iv,
+                             const std::string &jv, const std::string &kv,
+                             SemiringKind &kind)
+{
+    size_t count = stmts.size() - first;
+    std::string op, rel;
+
+    if (count == 1)
+    {
+        /* form (b): the extension is written out twice, in guard and store. */
+        auto isCand = [&](const ASTNode *e, std::string &o) {
+            return isExtension(e, matrix, iv, jv, kv, o);
+        };
+        if (!matchSelect(stmts[first], matrix, iv, jv, kv, isCand, op, rel))
+            return false;
+        return semiringFromOps(op, rel, kind);
+    }
+
+    if (count == 2)
+    {
+        /* form (a): a temporary holds the extension. */
+        const auto *decl = asVarDecl(stmts[first]);
+        if (!decl || decl->isArray || decl->isArray2D || !decl->initializer)
+            return false;
+        std::string declOp;
+        if (!isExtension(decl->initializer.get(), matrix, iv, jv, kv, declOp))
+            return false;
+        const std::string tmp = decl->name;
+        auto isCand = [&](const ASTNode *e, std::string &o) {
+            if (isVar(e, tmp)) { o.clear(); return true; }
+            return isExtension(e, matrix, iv, jv, kv, o);
+        };
+        if (!matchSelect(stmts[first + 1], matrix, iv, jv, kv, isCand, op, rel))
+            return false;
+        if (op.empty())
+            op = declOp;
+        return op == declOp && semiringFromOps(op, rel, kind);
+    }
+
+    return false;
+}
+
+static std::optional<SemiringClosurePattern>
+detectSemiringClosureNest(const WhileStmtNode *loop)
+{
+    std::string kv, bound;
+    if (!isLessThanBound(loop->condition.get(), kv, bound))
+        return std::nullopt;
+
+    std::vector<const ASTNode *> kBody;
+    if (!loopBodyWithoutStep(loop, kv, kBody))
+        return std::nullopt;
+    size_t kFirst = skipZeroInits(kBody);
+    if (kBody.size() - kFirst != 1)
+        return std::nullopt;
+
+    const auto *iLoop = asWhile(kBody[kFirst]);
+    if (!iLoop)
+        return std::nullopt;
+    std::string iv, iBound;
+    if (!isLessThanBound(iLoop->condition.get(), iv, iBound) || iBound != bound)
+        return std::nullopt;
+
+    std::vector<const ASTNode *> iBody;
+    if (!loopBodyWithoutStep(iLoop, iv, iBody))
+        return std::nullopt;
+    size_t iFirst = skipZeroInits(iBody);
+    if (iBody.size() - iFirst != 1)
+        return std::nullopt;
+
+    const auto *jLoop = asWhile(iBody[iFirst]);
+    if (!jLoop)
+        return std::nullopt;
+    std::string jv, jBound;
+    if (!isLessThanBound(jLoop->condition.get(), jv, jBound) || jBound != bound)
+        return std::nullopt;
+
+    /* the three induction variables must be distinct, or the subscript checks
+     * below would accept a degenerate nest such as D[i][i] */
+    if (iv == jv || iv == kv || jv == kv)
+        return std::nullopt;
+
+    std::vector<const ASTNode *> jBody;
+    if (!loopBodyWithoutStep(jLoop, jv, jBody))
+        return std::nullopt;
+    size_t jFirst = skipZeroInits(jBody);
+    if (jFirst != 0 || jBody.empty())
+        return std::nullopt;
+
+    /* find the matrix name from the first 2D access we can see */
+    std::string matrix;
+    {
+        std::function<void(const ASTNode *)> findMatrix = [&](const ASTNode *n) {
+            if (!n || !matrix.empty())
+                return;
+            if (const auto *acc = asArray2D(n))
+                if (const auto *v = asVariable(acc->arrayExpr.get()))
+                {
+                    matrix = v->name;
+                    return;
+                }
+            if (const auto *bin = asBinary(n))
+            {
+                findMatrix(bin->lhs.get());
+                findMatrix(bin->rhs.get());
+            }
+            else if (const auto *decl = asVarDecl(n))
+                findMatrix(decl->initializer.get());
+            else if (const auto *assign = asAssign(n))
+            {
+                findMatrix(assign->lhs.get());
+                findMatrix(assign->rhs.get());
+            }
+            else if (const auto *ifs = asConditional(n))
+                findMatrix(ifs->condition.get());
+        };
+        for (size_t s = 0; s < jBody.size() && matrix.empty(); ++s)
+            findMatrix(jBody[s]);
+    }
+    if (matrix.empty())
+        return std::nullopt;
+
+    SemiringClosurePattern pattern;
+    if (!matchClosureBody(jBody, 0, matrix, iv, jv, kv, pattern.kind))
+        return std::nullopt;
+    pattern.matrixName = matrix;
+    pattern.boundName = bound;
+    return pattern;
+}
+
+} // namespace
+
+
+// Register a graph with the autotuner runtime.
+//
+// autograph_edgemap looks the graph up by pointer identity (find_meta); without
+// this call the lookup misses and every EdgeMap step silently returns its input
+// frontier size unchanged -- the loop terminates on round one and the program
+// prints an unrelaxed answer rather than failing.  autograph_init reads the CSR
+// pointers straight out of the struct at byte offsets 16/24/32, so it must run
+// after the CSR is populated, and re-running it on an already-registered graph
+// is harmless (find_or_create_meta reuses the entry).
+//
+// The bitmap and edge-pair arguments are passed null: they feed the mutation
+// and layout-conversion paths, not the frontier engine, and p2-AT has no
+// cost-model metadata to attach.
+void IRGenVisitor::emitAutoGraphInit(llvm::Value *graphPtr)
+{
+    llvm::Type *I64 = llvm::Type::getInt64Ty(Context);
+    llvm::Type *ptrTy = llvm::PointerType::get(Context, 0);
+    llvm::Value *nVal =
+        Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "g.n_init");
+    llvm::Value *mVal =
+        Builder.CreateLoad(I64, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "g.m_init");
+    llvm::FunctionType *initFT = llvm::FunctionType::get(
+        Builder.getVoidTy(), {ptrTy, I64, I64, ptrTy, ptrTy, ptrTy}, false);
+    llvm::FunctionCallee initFn = Module.getOrInsertFunction("autograph_init", initFT);
+    llvm::Value *nullPtr = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+    Builder.CreateCall(initFn, {graphPtr, nVal, mVal, nullPtr, nullPtr, nullPtr});
+}
+
 void IRGenVisitor::visitWhile(WhileStmtNode *ws)
 {
     llvm::BasicBlock *preheader = Builder.GetInsertBlock();
     llvm::Function *parent = preheader->getParent();
+
+    auto getIntArrayData = [&](const std::string &name) -> llvm::Value * {
+        llvm::Value *storage = lookupNamedStorage(name);
+        if (IndirectArrays.count(name))
+            return Builder.CreateLoad(Builder.getPtrTy(), storage,
+                                      name + ".frontier.ptr");
+        auto *arrayTy =
+            llvm::dyn_cast<llvm::ArrayType>(getStorageValueType(storage));
+        if (!arrayTy || !arrayTy->getElementType()->isIntegerTy(32))
+            throw std::runtime_error(
+                "frontier-step array must contain 32-bit integers: " + name);
+        return Builder.CreateInBoundsGEP(
+            arrayTy, storage, {Builder.getInt32(0), Builder.getInt32(0)},
+            name + ".frontier.data");
+    };
+    auto asI32 = [&](llvm::Value *value) -> llvm::Value * {
+        if (value->getType()->isIntegerTy(32))
+            return value;
+        if (value->getType()->isIntegerTy())
+            return Builder.CreateIntCast(value, Builder.getInt32Ty(), true);
+        throw std::runtime_error("frontier-step scalar must be an integer");
+    };
+    auto emitEdgeMap = [&](const FrontierEdgeMapEffect &effect) {
+        llvm::Value *graph = loadGraphValue(effect.graphName);
+        llvm::Value *frontierData = getIntArrayData(effect.frontierName);
+        llvm::Value *nextData = getIntArrayData(effect.nextFrontierName);
+        llvm::Value *prop0 = getIntArrayData(effect.prop0Name);
+        llvm::Value *prop1 = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+        if (effect.combine == EdgeMapCombine::CasFirst ||
+            effect.combine == EdgeMapCombine::PeelK)
+            prop1 = getIntArrayData(effect.prop1Name);
+
+        llvm::Value *scalar0 = Builder.getInt32((uint32_t)effect.scalar0);
+        llvm::Value *scalar1 = Builder.getInt32((uint32_t)effect.scalar1);
+        if (effect.combine == EdgeMapCombine::PeelK && !effect.scalar0Name.empty())
+        {
+            llvm::Value *kStorage = lookupNamedStorage(effect.scalar0Name);
+            scalar0 = asI32(Builder.CreateLoad(getStorageValueType(kStorage),
+                                               kStorage,
+                                               effect.scalar0Name + ".k"));
+        }
+
+        llvm::Value *frontierSizeStorage =
+            lookupNamedStorage(effect.frontierSizeName);
+        llvm::Value *frontierSize = asI32(Builder.CreateLoad(
+            getStorageValueType(frontierSizeStorage), frontierSizeStorage,
+            effect.frontierSizeName + ".frontier.size"));
+        llvm::Value *nextSizeStorage = lookupNamedStorage(effect.nextSizeName);
+        llvm::Value *initialNextSize = asI32(Builder.CreateLoad(
+            getStorageValueType(nextSizeStorage), nextSizeStorage,
+            effect.nextSizeName + ".frontier.initial"));
+
+        llvm::Type *ptrTy = Builder.getPtrTy();
+        llvm::FunctionType *stepTy = llvm::FunctionType::get(
+            Builder.getInt32Ty(),
+            {ptrTy, Builder.getInt32Ty(), ptrTy, Builder.getInt32Ty(), ptrTy,
+             Builder.getInt32Ty(), ptrTy, ptrTy, Builder.getInt32Ty(),
+             Builder.getInt32Ty()},
+            false);
+        llvm::FunctionCallee stepFn =
+            Module.getOrInsertFunction("autograph_edgemap", stepTy);
+        int32_t combineValue = static_cast<int32_t>(effect.combine);
+        const char *combineName = "min_copy";
+        switch (effect.combine)
+        {
+        case EdgeMapCombine::CasFirst:
+            combineName = "cas_first";
+            break;
+        case EdgeMapCombine::PeelK:
+            combineName = "peel_k";
+            break;
+        case EdgeMapCombine::MinWeighted:
+            combineName = "min_weighted";
+            break;
+        default:
+            break;
+        }
+        llvm::CallInst *result = Builder.CreateCall(
+            stepFn,
+            {graph, Builder.getInt32(combineValue), frontierData, frontierSize,
+             nextData, initialNextSize, prop0, prop1, scalar0, scalar1},
+            "edgemap.next.size");
+        result->setMetadata(
+            "sgpl.edgemap.step",
+            llvm::MDNode::get(
+                Context,
+                {llvm::MDString::get(Context, effect.graphName),
+                 llvm::MDString::get(Context, combineName)}));
+        llvm::Value *storedResult = result;
+        llvm::Type *nextSizeTy = getStorageValueType(nextSizeStorage);
+        if (nextSizeTy != result->getType())
+            storedResult = Builder.CreateIntCast(result, nextSizeTy, true,
+                                                 "edgemap.size.cast");
+        Builder.CreateStore(storedResult, nextSizeStorage);
+    };
+
+    auto emitSemiringClosure = [&](const SemiringClosurePattern &pattern) {
+        auto metaIt = Array2DMap.find(pattern.matrixName);
+        if (metaIt == Array2DMap.end())
+            return false;
+        llvm::Value *rows = metaIt->second.rowsVal;
+        llvm::Value *cols = metaIt->second.colsVal;
+        if (!rows || !cols)
+            return false;
+        llvm::Value *boundStorage = lookupNamedStorage(pattern.boundName);
+        if (!boundStorage)
+            return false;
+
+        // The engine addresses D as a flat n-by-n matrix, so a rectangular
+        // array -- or one whose extent is not the loop bound -- has to fall
+        // through to ordinary lowering rather than be reinterpreted.  Both
+        // extents can be runtime values, so the check is emitted, not decided
+        // here.
+        llvm::Value *bound = asI32(Builder.CreateLoad(
+            getStorageValueType(boundStorage), boundStorage,
+            pattern.boundName + ".closure.n"));
+        llvm::Value *square =
+            Builder.CreateICmpEQ(asI32(rows), asI32(cols), "closure.square");
+        llvm::Value *fits = Builder.CreateICmpEQ(asI32(cols), bound, "closure.fits");
+        llvm::Value *usable = Builder.CreateAnd(square, fits, "closure.usable");
+
+        llvm::Function *closureParent = Builder.GetInsertBlock()->getParent();
+        auto *engineBB = llvm::BasicBlock::Create(Context, "closure.engine", closureParent);
+        auto *fallbackBB = llvm::BasicBlock::Create(Context, "closure.fallback", closureParent);
+        auto *doneBB = llvm::BasicBlock::Create(Context, "closure.done", closureParent);
+        Builder.CreateCondBr(usable, engineBB, fallbackBB);
+
+        Builder.SetInsertPoint(engineBB);
+        llvm::FunctionType *closureTy = llvm::FunctionType::get(
+            Builder.getInt32Ty(),
+            {Builder.getPtrTy(), Builder.getInt32Ty(), Builder.getInt32Ty()}, false);
+        llvm::FunctionCallee closureFn =
+            Module.getOrInsertFunction("autograph_closure", closureTy);
+        llvm::CallInst *call = Builder.CreateCall(
+            closureFn,
+            {load2DArrayBase(pattern.matrixName), bound,
+             Builder.getInt32(static_cast<int32_t>(pattern.kind))},
+            "closure.ok");
+        const char *semiringName = "min_plus";
+        switch (pattern.kind)
+        {
+        case SemiringKind::MaxPlus:
+            semiringName = "max_plus";
+            break;
+        case SemiringKind::MaxTimes:
+            semiringName = "max_times";
+            break;
+        case SemiringKind::MinTimes:
+            semiringName = "min_times";
+            break;
+        default:
+            break;
+        }
+        call->setMetadata(
+            "sgpl.closure",
+            llvm::MDNode::get(Context,
+                              {llvm::MDString::get(Context, pattern.matrixName),
+                               llvm::MDString::get(Context, semiringName)}));
+        Builder.CreateBr(doneBB);
+
+        // Fallback: the original nest, lowered normally.  ClosureFallbackDepth
+        // stops the detector matching this same loop again, which would
+        // otherwise recurse without bound.
+        Builder.SetInsertPoint(fallbackBB);
+        ClosureFallbackDepth++;
+        visitWhile(ws);
+        ClosureFallbackDepth--;
+        if (!Builder.GetInsertBlock()->getTerminator())
+            Builder.CreateBr(doneBB);
+
+        Builder.SetInsertPoint(doneBB);
+        return true;
+    };
+
+    if (!ClosureFallbackDepth)
+        if (auto closure = detectSemiringClosureNest(ws))
+            if (emitSemiringClosure(*closure))
+                return;
+
+    if (auto edgeMap = analyzeFrontierEdgeMap(ws))
+    {
+        emitEdgeMap(*edgeMap);
+        return;
+    }
 
     auto *condBB = llvm::BasicBlock::Create(Context, "loopcond", parent);
     auto *bodyBB = llvm::BasicBlock::Create(Context, "loopbody", parent);
@@ -1522,6 +3558,16 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
     else if (condV->getType()->isDoubleTy())
         condBool = Builder.CreateFCmpONE(condV, llvm::ConstantFP::get(Builder.getDoubleTy(), 0.0), "whilecond");
     Builder.CreateCondBr(condBool, bodyBB, mergeBB);
+
+    // Exact trip count for the AutoTuner (H): while (i < N) with i += 1.
+    if (auto trips = exactWhileTripCount(ws))
+    {
+        llvm::MDNode *tripMD = llvm::MDNode::get(
+            Context,
+            {llvm::ConstantAsMetadata::get(
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(Context), *trips))});
+        condBB->getTerminator()->setMetadata("autotuner.trip_count", tripMD);
+    }
 
     Builder.SetInsertPoint(bodyBB);
     visitBlock(static_cast<BlockStmtNode *>(ws->body.get()));
@@ -1716,6 +3762,183 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
 
+    if (fs->targetType == ForEachTargetType::Motif)
+    {
+        auto matchesIt = MotifMatchesMap.find(fs->graphName);
+        if (matchesIt == MotifMatchesMap.end())
+            throw std::runtime_error("unknown motif collection: " + fs->graphName);
+
+        llvm::Value *matches = matchesIt->second;
+        llvm::Value *count = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(MotifMatchesTy, matches, 0),
+            fs->graphName + ".count");
+        llvm::Value *bindings = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty),
+            Builder.CreateStructGEP(MotifMatchesTy, matches, 2),
+            fs->graphName + ".bindings");
+
+        llvm::IRBuilder<> entryBuilder(
+            &parent->getEntryBlock(), parent->getEntryBlock().begin());
+        llvm::AllocaInst *index = entryBuilder.CreateAlloca(
+            i32Ty, nullptr, fs->graphName + ".motif_index");
+        std::vector<llvm::AllocaInst *> variables;
+        std::vector<std::pair<std::string, llvm::Value *>> oldBindings;
+        variables.reserve(fs->motifVars.size());
+        for (const std::string &name : fs->motifVars)
+        {
+            auto old = NamedValues.find(name);
+            oldBindings.emplace_back(name, old == NamedValues.end() ? nullptr : old->second);
+            llvm::AllocaInst *storage = entryBuilder.CreateAlloca(i32Ty, nullptr, name);
+            NamedValues[name] = storage;
+            variables.push_back(storage);
+        }
+        Builder.CreateStore(Builder.getInt32(0), index);
+
+        auto *condition = llvm::BasicBlock::Create(Context, "foreach_motif.cond", parent);
+        auto *body = llvm::BasicBlock::Create(Context, "foreach_motif.body", parent);
+        auto *increment = llvm::BasicBlock::Create(Context, "foreach_motif.inc", parent);
+        auto *merge = llvm::BasicBlock::Create(Context, "foreach_motif.merge", parent);
+        LoopStack.push_back({increment, merge});
+        Builder.CreateBr(condition);
+
+        Builder.SetInsertPoint(condition);
+        llvm::Value *current = Builder.CreateLoad(i32Ty, index, "motif.index");
+        Builder.CreateCondBr(Builder.CreateICmpSLT(current, count), body, merge);
+
+        Builder.SetInsertPoint(body);
+        const int32_t width = static_cast<int32_t>(fs->motifVars.size());
+        llvm::Value *base = Builder.CreateMul(current, Builder.getInt32(width), "motif.base");
+        for (size_t i = 0; i < variables.size(); ++i)
+        {
+            llvm::Value *offset = Builder.CreateAdd(
+                base, Builder.getInt32(static_cast<uint32_t>(i)), "motif.offset");
+            llvm::Value *valuePtr = Builder.CreateGEP(i32Ty, bindings, offset);
+            llvm::Value *value = Builder.CreateLoad(i32Ty, valuePtr, fs->motifVars[i] + ".binding");
+            Builder.CreateStore(value, variables[i]);
+        }
+        visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        if (!Builder.GetInsertBlock()->getTerminator())
+            Builder.CreateBr(increment);
+
+        Builder.SetInsertPoint(increment);
+        llvm::Value *next = Builder.CreateAdd(
+            Builder.CreateLoad(i32Ty, index), Builder.getInt32(1));
+        Builder.CreateStore(next, index);
+        Builder.CreateBr(condition);
+
+        LoopStack.pop_back();
+        Builder.SetInsertPoint(merge);
+        for (const auto &old : oldBindings)
+        {
+            if (old.second)
+                NamedValues[old.first] = old.second;
+            else
+                NamedValues.erase(old.first);
+        }
+        return;
+    }
+
+    if (fs->targetType == ForEachTargetType::Graph)
+    {
+        auto matchesIt = GraphListMatchesMap.find(fs->graphName);
+        if (matchesIt == GraphListMatchesMap.end())
+            throw std::runtime_error("unknown graph collection: " + fs->graphName);
+        auto sourceIt = GraphListSourceMap.find(fs->graphName);
+        if (sourceIt == GraphListSourceMap.end())
+            throw std::runtime_error("unknown graph collection source: " + fs->graphName);
+
+        llvm::Value *sourceGraph = loadGraphValue(sourceIt->second);
+        llvm::Value *matches = matchesIt->second;
+        llvm::Value *count = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(MotifMatchesTy, matches, 0),
+            fs->graphName + ".count");
+        llvm::Value *varCount = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(MotifMatchesTy, matches, 1),
+            fs->graphName + ".var_count");
+        llvm::Value *bindings = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty),
+            Builder.CreateStructGEP(MotifMatchesTy, matches, 2),
+            fs->graphName + ".bindings");
+
+        llvm::IRBuilder<> entryBuilder(
+            &parent->getEntryBlock(), parent->getEntryBlock().begin());
+        llvm::AllocaInst *index = entryBuilder.CreateAlloca(
+            i32Ty, nullptr, fs->graphName + ".graph_index");
+        llvm::AllocaInst *graphStorage = entryBuilder.CreateAlloca(
+            GraphTy->getPointerTo(), nullptr, fs->var1 + ".graph_iter");
+
+        auto oldGraph = GraphMap.find(fs->var1);
+        auto oldNamed = NamedValues.find(fs->var1);
+        llvm::Value *oldGraphValue = oldGraph == GraphMap.end() ? nullptr : oldGraph->second;
+        llvm::Value *oldNamedValue = oldNamed == NamedValues.end() ? nullptr : oldNamed->second;
+        GraphMap[fs->var1] = graphStorage;
+        NamedValues[fs->var1] = graphStorage;
+
+        Builder.CreateStore(Builder.getInt32(0), index);
+
+        auto *condition = llvm::BasicBlock::Create(Context, "foreach_graph.cond", parent);
+        auto *body = llvm::BasicBlock::Create(Context, "foreach_graph.body", parent);
+        auto *increment = llvm::BasicBlock::Create(Context, "foreach_graph.inc", parent);
+        auto *merge = llvm::BasicBlock::Create(Context, "foreach_graph.merge", parent);
+        LoopStack.push_back({increment, merge});
+        Builder.CreateBr(condition);
+
+        Builder.SetInsertPoint(condition);
+        llvm::Value *current = Builder.CreateLoad(i32Ty, index, "graph.index");
+        Builder.CreateCondBr(Builder.CreateICmpSLT(current, count), body, merge);
+
+        Builder.SetInsertPoint(body);
+        llvm::Value *base = Builder.CreateMul(current, varCount, "graph.match.base");
+        llvm::Value *bindingPtr = Builder.CreateGEP(i32Ty, bindings, base);
+
+        auto *i8PtrTy = Builder.getPtrTy();
+        llvm::FunctionType *buildType = llvm::FunctionType::get(
+            i8PtrTy,
+            {i64Ty, Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(),
+             i32Ty, Builder.getPtrTy(), i32Ty},
+            false);
+        llvm::FunctionCallee build =
+            Module.getOrInsertFunction("graph_from_match_runtime", buildType);
+
+        llvm::Value *nVal = Builder.CreateLoad(
+            i64Ty, Builder.CreateStructGEP(GraphTy, sourceGraph, 0), "graphlist.n");
+        llvm::Value *rowPtr = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(GraphTy, sourceGraph, 2), "graphlist.row_ptr");
+        llvm::Value *colPtr = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(GraphTy, sourceGraph, 3), "graphlist.col_idx");
+        llvm::Value *weights = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(GraphTy, sourceGraph, 4), "graphlist.weights");
+        llvm::Value *directed = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(GraphTy, sourceGraph, 5), "graphlist.directed");
+
+        llvm::Value *graphObj = Builder.CreateCall(
+            build, {nVal, rowPtr, colPtr, weights, directed, bindingPtr, varCount},
+            fs->var1 + ".graph_obj");
+        Builder.CreateStore(Builder.CreateBitCast(graphObj, GraphTy->getPointerTo()), graphStorage);
+
+        visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        if (!Builder.GetInsertBlock()->getTerminator())
+            Builder.CreateBr(increment);
+
+        Builder.SetInsertPoint(increment);
+        llvm::Value *next = Builder.CreateAdd(
+            Builder.CreateLoad(i32Ty, index), Builder.getInt32(1));
+        Builder.CreateStore(next, index);
+        Builder.CreateBr(condition);
+
+        LoopStack.pop_back();
+        Builder.SetInsertPoint(merge);
+        if (oldGraphValue)
+            GraphMap[fs->var1] = oldGraphValue;
+        else
+            GraphMap.erase(fs->var1);
+        if (oldNamedValue)
+            NamedValues[fs->var1] = oldNamedValue;
+        else
+            NamedValues.erase(fs->var1);
+        return;
+    }
+
     // --- Handle for each element v in setVar ---
     if (fs->targetType == ForEachTargetType::Element)
     {
@@ -1806,6 +4029,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *colIdxBase = outColIdxBase;
         if (useInAdj)
         {
+            emitEnsureInCsr(graphPtr);
             llvm::Value *directedPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr");
             llvm::Value *directedVal = Builder.CreateLoad(Builder.getInt32Ty(), directedPtr, "g_directed");
             llvm::Value *isDirected = Builder.CreateICmpNE(directedVal, Builder.getInt32(0), "is_directed");
@@ -1947,9 +4171,23 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *vPtr = Builder.CreateGEP(i32Ty, colIdxBase, {jCur}, "ci_j");
         llvm::Value *vVal = Builder.CreateLoad(i32Ty, vPtr, "v_val");
 
-        // Skip duplicate edges: only process u < v for undirected graphs
+        // An UNDIRECTED graph stores every edge twice in CSR (u->v and v->u), so
+        // yielding each logical edge once requires skipping the u >= v copy.
+        // A DIRECTED graph does not: u->v and v->u are distinct edges and a
+        // self-loop u->u is a real edge. Applying the dedup unconditionally --
+        // as this did -- silently dropped every directed edge whose source id
+        // was >= its target, i.e. roughly half of a randomly numbered digraph,
+        // plus all self-loops. `numEdges` still reported the full count, so the
+        // loss was invisible.
         llvm::Value *uForCmp = Builder.CreateLoad(i32Ty, var1Alloca, "u_cmp");
-        llvm::Value *skipCond = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *dupSkip = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *directedFlag = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr"),
+            "g_directed");
+        llvm::Value *isUndirected =
+            Builder.CreateICmpEQ(directedFlag, Builder.getInt32(0), "is_undirected");
+        // Both operands are loop-invariant, so LICM hoists this out of the nest.
+        llvm::Value *skipCond = Builder.CreateAnd(dupSkip, isUndirected, "skip_edge");
         auto *userBodyBB = llvm::BasicBlock::Create(Context, "edge.user.body", parent);
         Builder.CreateCondBr(skipCond, innerIncBB, userBodyBB);
 
@@ -2151,6 +4389,34 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             return Builder.CreateTrunc(nVal, Builder.getInt32Ty(), "numVertices");
         }
 
+        if (FC->name == "numMotifs")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error("numMotifs argument must be a motif collection name");
+            auto it = MotifMatchesMap.find(varArg->name);
+            if (it == MotifMatchesMap.end())
+                throw std::runtime_error("unknown motif collection: " + varArg->name);
+            return Builder.CreateLoad(
+                Builder.getInt32Ty(),
+                Builder.CreateStructGEP(MotifMatchesTy, it->second, 0),
+                varArg->name + ".count");
+        }
+
+        if (FC->name == "numGraphs")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error("numGraphs argument must be a graph collection name");
+            auto it = GraphListMatchesMap.find(varArg->name);
+            if (it == GraphListMatchesMap.end())
+                throw std::runtime_error("unknown graph collection: " + varArg->name);
+            return Builder.CreateLoad(
+                Builder.getInt32Ty(),
+                Builder.CreateStructGEP(MotifMatchesTy, it->second, 0),
+                varArg->name + ".count");
+        }
+
         // Built-in: numEdges(G) -> int
         if (FC->name == "numEdges")
         {
@@ -2206,6 +4472,10 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Value *outRowBase = loadRowBase(2, "out_rp_base");
             if (FC->name == "outDegree")
                 return Builder.CreateTrunc(buildDegreeFromBase(outRowBase, "out_degree64"), Builder.getInt32Ty(), "outDegree");
+            // inDegree/degree read field 6 unconditionally and then select on
+            // `directed`, so the transpose must exist before the load even
+            // though the select would discard it for undirected graphs.
+            emitEnsureInCsr(graphPtr);
             llvm::Value *directedPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr");
             llvm::Value *directedVal = Builder.CreateLoad(Builder.getInt32Ty(), directedPtr, "g_directed");
             llvm::Value *isDirected = Builder.CreateICmpNE(directedVal, Builder.getInt32(0), "is_directed");
@@ -2522,13 +4792,17 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         if (colIdx->getType() != Builder.getInt32Ty())
             colIdx = Builder.CreateIntCast(colIdx, Builder.getInt32Ty(), true);
 
-        llvm::Value *cols = metaIt->second.colsVal;
-        llvm::Value *offset = Builder.CreateMul(rowIdx, cols, "row_offset");
-        llvm::Value *flatIdx = Builder.CreateAdd(offset, colIdx, "flat_idx");
+        // Same delinearizable addressing as the 2D store path above.
+        auto *i64Ty = Builder.getInt64Ty();
+        llvm::Value *cols64 = Builder.CreateIntCast(metaIt->second.colsVal, i64Ty, true, "dim64");
+        llvm::Value *row64 = Builder.CreateIntCast(rowIdx, i64Ty, true, "row64");
+        llvm::Value *col64 = Builder.CreateIntCast(colIdx, i64Ty, true, "col64");
+        llvm::Value *rowOff = Builder.CreateNSWMul(row64, cols64, "row_offset");
 
-        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
+        llvm::Value *baseAlloca = load2DArrayBase(baseVar->name);
         auto *i32Ty = Builder.getInt32Ty();
-        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, baseAlloca, {flatIdx}, baseVar->name + "_2d_ptr");
+        llvm::Value *rowPtr = Builder.CreateGEP(i32Ty, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
+        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, rowPtr, {col64}, baseVar->name + "_2d_ptr");
         return Builder.CreateLoad(i32Ty, elemPtr, baseVar->name + "_2d_val");
     }
 
@@ -2945,6 +5219,8 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
         auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
         RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
 
+        emitAutoGraphInit(graphPtr);
+
         return graphPtr;
     }
 
@@ -3089,6 +5365,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     llvm::FunctionType *registerFT = llvm::FunctionType::get(Builder.getVoidTy(), {graphPtrTy}, false);
     auto registerFn = Module.getOrInsertFunction("graph_register_csr_metadata", registerFT);
     Builder.CreateCall(registerFn, {graphPtr});
+    emitAutoGraphInit(graphPtr);
 
     llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
     auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);
@@ -3117,11 +5394,14 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
             G->edgeFileName, G->name + "_filename");
 
         llvm::FunctionType *loadFT = llvm::FunctionType::get(
-            graphPtrTy, {i8PtrTy}, false);
+            graphPtrTy, {i8PtrTy, I32}, false);
         auto loadFn = Module.getOrInsertFunction(
-            G->directed ? "load_weighted_graph_from_file_directed" : "load_weighted_graph_from_file",
+            G->directed ? "load_weighted_graph_from_file_mode_directed" : "load_weighted_graph_from_file_mode",
             loadFT);
-        llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "weighted_graph_ptr");
+        llvm::Value *graphPtr = Builder.CreateCall(
+            loadFn,
+            {fnameStr, llvm::ConstantInt::get(I32, static_cast<int32_t>(G->weightMode))},
+            "weighted_graph_ptr");
 
         llvm::Value *graphStorage = nullptr;
         if (EmittingTopLevel)
@@ -3156,6 +5436,8 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         llvm::FunctionType *getCountFT = llvm::FunctionType::get(i64Ty, {graphPtrTy}, false);
         auto getCountFn = Module.getOrInsertFunction("graph_get_num_edge_pairs", getCountFT);
         RuntimeEdgePairsCount = Builder.CreateCall(getCountFn, {graphPtr}, "edge_pairs_count");
+
+        emitAutoGraphInit(graphPtr);
 
         return graphPtr;
     }
@@ -3384,6 +5666,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
     llvm::FunctionType *registerFT = llvm::FunctionType::get(Builder.getVoidTy(), {graphPtrTy}, false);
     auto registerFn = Module.getOrInsertFunction("graph_register_csr_metadata", registerFT);
     Builder.CreateCall(registerFn, {graphPtr});
+    emitAutoGraphInit(graphPtr);
 
     llvm::FunctionType *getBmFT = llvm::FunctionType::get(i8PtrTy, {graphPtrTy}, false);
     auto getNodeBmFn = Module.getOrInsertFunction("graph_get_node_bitmap", getBmFT);

@@ -1,0 +1,52 @@
+// Dense affine FFL count (Polly-visible), NOT CSR `where motif { ... }`.
+// Usage: point edges at a chain with |V|=n (only used for numVertices).
+// Fill A[i][j] synthetically, then count a->b, a->c, b->c via A[a][b]*A[a][c]*A[b][c].
+graph G {
+  edges: file "edgelist_scop_512.txt";
+  TRUE
+};
+
+fn void countFFL() {
+  int n = numVertices(G);
+  int A[n][n];
+  int count = 0;
+
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = 0;
+      if (i != j) {
+        int s = i + j;
+        int r = s - (s / 3) * 3;
+        if (r != 0) {
+          A[i][j] = 1;
+        }
+      }
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+
+  int a = 0;
+  while (a < n) {
+    int b = 0;
+    while (b < n) {
+      int c = 0;
+      while (c < n) {
+        int ab = A[a][b];
+        int ac = A[a][c];
+        int bc = A[b][c];
+        int prod = ab * ac * bc;
+        count = count + prod;
+        c = c + 1;
+      }
+      b = b + 1;
+    }
+    a = a + 1;
+  }
+
+  print count;
+}
+
+countFFL();

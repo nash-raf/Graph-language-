@@ -1,4 +1,5 @@
 #include "SemanticAnalyzer.h"
+#include <functional>
 #include <algorithm>
 #include <stdexcept>
 
@@ -877,6 +878,69 @@ void SemanticAnalyzer::analyzeShowGraph(ShowGraphNode *S)
         error("showgraph on undeclared graph: " + S->graphName);
 }
 
+
+// True when the named graph was declared without `directed;`.
+bool SemanticAnalyzer::graphIsUndirected(const std::string &name) const
+{
+    auto it = graphDecls.find(name);
+    if (it == graphDecls.end())
+        return false; // unknown: leave the pattern as written
+    if (auto *plain = dynamic_cast<GraphDeclNode *>(it->second))
+        return !plain->directed;
+    if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(it->second))
+        return !weighted->directed;
+    return false;
+}
+
+// Read a motif written with `->` as an UNDIRECTED pattern.
+//
+// Matching is induced: a pair with no motif edge between it is required to be
+// ABSENT.  An undirected graph stores every edge in both CSR rows, so the
+// reverse of each pattern edge is always present in the data -- which means a
+// directed pattern can never match anything, and every count would be a silent
+// zero.  Symmetrizing the pattern is what makes the question well posed: on an
+// undirected graph `a -> b` reads as "a and b are connected", so the reverse
+// edge becomes required-present instead of required-absent.
+//
+// The result is the classic undirected motif census: the feed-forward loop
+// becomes the triangle, the three-chain becomes the open triple, bi-fan and
+// bi-parallel both become the 4-cycle.
+//
+// Done here rather than in the backends so all four motif sites (motifs,
+// graphs, draw motifs, and the comprehension condition) share one rule, and so
+// the runtime and IR paths see an already-symmetric edge list -- the required
+// matrix each of them builds then comes out symmetric with no change to either.
+void SemanticAnalyzer::symmetrizeMotifEdges(std::vector<MotifEdgeSpec> &edges,
+                                            const char *what)
+{
+    std::map<std::pair<std::string, std::string>, MotifEdgeSign> seen;
+    for (const auto &edge : edges)
+        seen[{edge.source, edge.target}] = edge.sign;
+
+    std::vector<MotifEdgeSpec> extra;
+    for (const auto &edge : edges)
+    {
+        auto reverse = seen.find({edge.target, edge.source});
+        if (reverse != seen.end())
+        {
+            // Written both ways already: the two must agree, or the pattern
+            // asks for one undirected edge to be positive and negative at once.
+            if (reverse->second != edge.sign)
+                error(std::string(what) + " on an undirected graph gives edge " +
+                      edge.source + "/" + edge.target +
+                      " conflicting signs; it is one edge, so -> and -| cannot both apply");
+            continue;
+        }
+        MotifEdgeSpec mirrored;
+        mirrored.source = edge.target;
+        mirrored.target = edge.source;
+        mirrored.sign = edge.sign;
+        extra.push_back(mirrored);
+        seen[{mirrored.source, mirrored.target}] = mirrored.sign;
+    }
+    edges.insert(edges.end(), extra.begin(), extra.end());
+}
+
 void SemanticAnalyzer::analyzeDrawGraph(DrawGraphNode *D)
 {
     Symbol *gSym = lookupSymbol(D->graphName);
@@ -933,13 +997,8 @@ void SemanticAnalyzer::analyzeDrawMotifs(DrawMotifsNode *D)
     auto graphIt = graphDecls.find(D->graphName);
     if (graphIt != graphDecls.end())
     {
-        bool directed = false;
-        if (auto *plain = dynamic_cast<GraphDeclNode *>(graphIt->second))
-            directed = plain->directed;
-        else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
-            directed = weighted->directed;
-        if (!directed)
-            error("draw motif requires directed: true on graph " + D->graphName);
+        // no directedness requirement: an undirected graph gets the pattern
+        // read symmetrically instead (see symmetrizeMotifEdges).
     }
 
     std::unordered_set<std::string> vars;
@@ -960,6 +1019,9 @@ void SemanticAnalyzer::analyzeDrawMotifs(DrawMotifsNode *D)
         error("draw motif requires at least two distinct variables");
     if (vars.size() > 6)
         error("draw motif currently supports up to 6 variables");
+
+    if (graphIsUndirected(D->graphName))
+        symmetrizeMotifEdges(D->motifEdges, "draw motif");
 }
 
 void SemanticAnalyzer::analyzeMotifMatchesDecl(MotifMatchesDeclNode *M)
@@ -975,13 +1037,8 @@ void SemanticAnalyzer::analyzeMotifMatchesDecl(MotifMatchesDeclNode *M)
     auto graphIt = graphDecls.find(M->graphName);
     if (graphIt != graphDecls.end())
     {
-        bool directed = false;
-        if (auto *plain = dynamic_cast<GraphDeclNode *>(graphIt->second))
-            directed = plain->directed;
-        else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
-            directed = weighted->directed;
-        if (!directed)
-            error("motif collections require directed: true on graph " + M->graphName);
+        // no directedness requirement: an undirected graph gets the pattern
+        // read symmetrically instead (see symmetrizeMotifEdges).
     }
 
     std::unordered_set<std::string> edgeKeys;
@@ -993,6 +1050,9 @@ void SemanticAnalyzer::analyzeMotifMatchesDecl(MotifMatchesDeclNode *M)
         if (!edgeKeys.insert(key).second)
             error("motif collection has duplicate edge: " + key);
     }
+
+    if (graphIsUndirected(M->graphName))
+        symmetrizeMotifEdges(M->motifEdges, "motif collection");
 
     Symbol result;
     result.type = TypeKind::MotifMatches;
@@ -1013,13 +1073,8 @@ void SemanticAnalyzer::analyzeGraphListDecl(GraphListDeclNode *M)
     auto graphIt = graphDecls.find(M->graphName);
     if (graphIt != graphDecls.end())
     {
-        bool directed = false;
-        if (auto *plain = dynamic_cast<GraphDeclNode *>(graphIt->second))
-            directed = plain->directed;
-        else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
-            directed = weighted->directed;
-        if (!directed)
-            error("graph collections require directed: true on graph " + M->graphName);
+        // no directedness requirement: an undirected graph gets the pattern
+        // read symmetrically instead (see symmetrizeMotifEdges).
     }
 
     std::unordered_set<std::string> edgeKeys;
@@ -1031,6 +1086,9 @@ void SemanticAnalyzer::analyzeGraphListDecl(GraphListDeclNode *M)
         if (!edgeKeys.insert(key).second)
             error("graph collection has duplicate edge: " + key);
     }
+
+    if (graphIsUndirected(M->graphName))
+        symmetrizeMotifEdges(M->motifEdges, "graph collection");
 
     Symbol result;
     result.type = TypeKind::GraphList;
@@ -1057,6 +1115,22 @@ void SemanticAnalyzer::analyzeGraphComprehension(GraphComprehensionNode *GC)
         auto *G = dynamic_cast<GraphDeclNode *>(it->second);
         if (G)
             validateGraphCondition(GC->condition.get(), G);
+    }
+
+    // A motif condition inside a comprehension needs the same undirected
+    // reading as the standalone `motifs`/`graphs` forms.
+    if (graphIsUndirected(GC->graphName))
+    {
+        std::function<void(GraphConditionNode *)> symmetrize =
+            [&](GraphConditionNode *node) {
+                if (!node)
+                    return;
+                if (node->op == GraphConditionOp::Motif)
+                    symmetrizeMotifEdges(node->motifEdges, "motif condition");
+                symmetrize(node->left.get());
+                symmetrize(node->right.get());
+            };
+        symmetrize(GC->condition.get());
     }
 
     auto countDegree = [](auto *node, auto &self) -> int {

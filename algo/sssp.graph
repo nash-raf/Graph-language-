@@ -1,0 +1,62 @@
+// Bellman-Ford style SSSP.  Array frontier, and note there is deliberately
+// NO `if (dist[u] != inf)` guard around the neighbour loop: a vertex only
+// enters the frontier when its distance was just improved, so the guard was
+// redundant -- and its presence stopped the relax-min pattern from matching
+// the engine.  With it: 1.11s, engine misses.  Without: 0.17s, engine hits.
+// Bellman-Ford style SSSP -- identical algorithm to sssp.graph, array frontier.
+graph G {
+  edges: file "/home/user/Course/msk1/synth_graphs_weighted/synth_v_1000000_e_1000000_w.txt";
+  TRUE
+};
+
+int n = numVertices(G);
+int inf = 2147483647;
+int dist[n];
+int cap = 4000000;
+int frontier[cap];
+int next_frontier[cap];
+int frontier_size = 0;
+int next_size = 0;
+int src = 1;
+
+for each vertex v in G {
+  dist[v] = inf;
+}
+
+dist[src] = 0;
+frontier[0] = src;
+frontier_size = 1;
+
+while (frontier_size > 0) {
+  next_size = 0;
+  int p = 0;
+  while (p < frontier_size) {
+    int u = frontier[p];
+      for each neighbor v of u in G {
+        int nd = dist[u] + weight(G, u, v);
+        if (nd < dist[v]) {
+          dist[v] = nd;
+          next_frontier[next_size] = v;
+          next_size = next_size + 1;
+        }
+      }
+    p = p + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+int reachable = 0;
+int chk = 0;
+int q = 0;
+while (q < n) {
+  if (dist[q] != inf) {
+    reachable = reachable + 1;
+    chk = (chk + dist[q]) % 1000000007;
+  }
+  q = q + 1;
+}
+print "reachable";
+print reachable;
+print "dist_checksum";
+print chk;

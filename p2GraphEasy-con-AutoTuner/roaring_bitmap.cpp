@@ -352,22 +352,6 @@ RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_capacity)
     return bm;
 }
 
-extern "C" RoaringBitmap *roaring_bitmap_create_like(const RoaringBitmap *prototype)
-{
-    size_t arena_size = 64 * 1024;
-    size_t initial_capacity = 8;
-
-    if (prototype)
-    {
-        if (prototype->arena.default_block_size != 0)
-            arena_size = prototype->arena.default_block_size;
-        if (prototype->max_containers != 0)
-            initial_capacity = prototype->max_containers;
-    }
-
-    return roaring_bitmap_create(arena_size, initial_capacity);
-}
-
 size_t find_insert_position(RoaringBitmap *bm, uint16_t key)
 {
     size_t left = 0;
@@ -523,46 +507,6 @@ void roaring_bitmap_free(RoaringBitmap *bm)
     bm->select_cache_epoch = 0;
     bm->arena.free_all();
     delete bm;
-}
-
-
-void roaring_bitmap_clear(RoaringBitmap *bm) {
-  if (!bm)
-    return;
-
-    size_t arena_size = bm->arena.default_block_size;
-    if (arena_size == 0)
-        arena_size = 64 * 1024;
-
-    size_t initial_capacity = bm->max_containers;
-    if (initial_capacity == 0)
-        initial_capacity = 8;
-
-  bm->arena.free_all();
-
-    ArenaBlock *first_block = new ArenaBlock();
-    first_block->buffer = new uint8_t[arena_size];
-    first_block->capacity = arena_size;
-    first_block->offset = 0;
-    first_block->next = nullptr;
-
-    bm->arena.head = first_block;
-    bm->arena.current = first_block;
-    bm->arena.default_block_size = arena_size;
-    bm->arena.blocks_created = 1;
-    bm->arena.total_allocations = 0;
-    bm->arena.total_bytes_allocated = 0;
-
-    bm->containers = reinterpret_cast<Container *>(bm->arena.alloc(sizeof(Container) * initial_capacity));
-    std::memset(bm->containers, 0, sizeof(Container) * initial_capacity);
-    bm->max_containers = initial_capacity;
-  bm->num_containers = 0;
-
-    bm->mutation_epoch++;
-    if (bm->mutation_epoch == 0)
-        bm->mutation_epoch = 1;
-    bm->select_cache_epoch = 0;
-    bm->select_cache_size = 0;
 }
 
 // -------------------------------
@@ -726,7 +670,7 @@ void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value)
             }
             if (!container->bitmap.bits)
             {
-                fprintf(stderr, "ERROR: Promotion succeeded but bitmap.bits is NULL!\n");
+                // fprintf(stderr, "ERROR: Promotion succeeded but bitmap.bits is NULL!\n");
                 exit(1);
             }
             // fprintf(stderr, "Promotion successful, bitmap.bits = %p\n",
@@ -737,11 +681,11 @@ void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value)
     {
         if (!container->bitmap.bits)
         {
-            fprintf(stderr, "ERROR: About to set bit in NULL bitmap! value=%u, high=%u, low=%u\n",
-                    value, high, low);
-            fprintf(stderr, "Container key=%u, type=%d\n",
-                    container->key, (int)container->type);
-            fprintf(stderr, "This should never happen - bitmap container must have valid bits!\n");
+            // fprintf(stderr, "ERROR: About to set bit in NULL bitmap! value=%u, high=%u, low=%u\n",
+            //         value, high, low);
+            // fprintf(stderr, "Container key=%u, type=%d\n",
+            //         container->key, (int)container->type);
+            // fprintf(stderr, "This should never happen - bitmap container must have valid bits!\n");
             exit(1);
         }
         if (set_bit(container->bitmap, low))
@@ -1225,39 +1169,6 @@ extern "C" RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t c
     return T;
 }
 
-extern "C" void roaring_bitmap_or_inplace(RoaringBitmap *dst, RoaringBitmap *src)
-{
-    if (!dst || !src)
-        return;
-
-    for (size_t i = 0; i < src->num_containers; ++i)
-    {
-        const Container *c = &src->containers[i];
-        uint32_t base = static_cast<uint32_t>(c->key) << 16;
-
-        if (c->type == ARRAY_CONTAINER)
-        {
-            for (size_t j = 0; j < c->array.cardinality; ++j)
-            {
-                roaring_bitmap_add(dst, base + c->array.values[j]);
-            }
-            continue;
-        }
-
-        const uint64_t *words = reinterpret_cast<const uint64_t *>(c->bitmap.bits);
-        for (uint32_t w = 0; w < 1024; ++w)
-        {
-            uint64_t word = words[w];
-            while (word)
-            {
-                int bit = __builtin_ctzll(word);
-                roaring_bitmap_add(dst, base + (w * 64u + static_cast<uint32_t>(bit)));
-                word &= word - 1;
-            }
-        }
-    }
-}
-
 // -------------------------------
 // Serialization / Deserialization
 // -------------------------------
@@ -1322,6 +1233,122 @@ extern "C" void roaring_bitmap_portable_serialize(RoaringBitmap *bm, uint8_t *bu
             ptr += c.array.cardinality * sizeof(uint16_t);
         }
     }
+}
+
+// Inverse of roaring_bitmap_portable_serialize above. Ported from
+// p1GraphEasy-con-AutoTuner; the serialized layout is byte-identical in both
+// trees (num_containers, then per container: key, type, and either a 8192-byte
+// bitmap or a cardinality-prefixed uint16 array). Needed by the .sgplbin graph
+// cache, which stores the node/edge bitmaps in this form.
+// Every length is bounds-checked against `size` and container keys must be
+// strictly increasing, so a truncated or corrupt buffer returns nullptr rather
+// than producing a bitmap that reads out of bounds later.
+extern "C" RoaringBitmap *roaring_bitmap_portable_deserialize(
+    const uint8_t *data, size_t size)
+{
+    if (!data || size < sizeof(size_t))
+        return nullptr;
+
+    const uint8_t *ptr = data;
+    const uint8_t *end = data + size;
+    size_t num_containers = 0;
+    std::memcpy(&num_containers, ptr, sizeof(num_containers));
+    ptr += sizeof(num_containers);
+    if (num_containers > 65536)
+        return nullptr;
+
+    RoaringBitmap *bm =
+        roaring_bitmap_create(32 * 1024, std::max<size_t>(8, num_containers));
+    if (!bm)
+        return nullptr;
+
+    uint16_t previous_key = 0;
+    for (size_t i = 0; i < num_containers; ++i)
+    {
+        if (static_cast<size_t>(end - ptr) <
+            sizeof(uint16_t) + sizeof(uint8_t))
+        {
+            roaring_bitmap_free(bm);
+            return nullptr;
+        }
+
+        Container &c = bm->containers[i];
+        std::memcpy(&c.key, ptr, sizeof(c.key));
+        ptr += sizeof(c.key);
+        uint8_t type = *ptr++;
+        if (i > 0 && c.key <= previous_key)
+        {
+            roaring_bitmap_free(bm);
+            return nullptr;
+        }
+        previous_key = c.key;
+
+        if (type == BITMAP_CONTAINER)
+        {
+            if (static_cast<size_t>(end - ptr) < 8192)
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            c.type = BITMAP_CONTAINER;
+            c.bitmap.bits = bm->arena.alloc(8192);
+            if (!c.bitmap.bits)
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            std::memcpy(c.bitmap.bits, ptr, 8192);
+            c.bitmap.cardinality = compute_bitmap_cardinality(c.bitmap.bits);
+            ptr += 8192;
+        }
+        else if (type == ARRAY_CONTAINER)
+        {
+            if (static_cast<size_t>(end - ptr) < sizeof(size_t))
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            size_t cardinality = 0;
+            std::memcpy(&cardinality, ptr, sizeof(cardinality));
+            ptr += sizeof(cardinality);
+            if (cardinality > 65536 ||
+                cardinality >
+                    static_cast<size_t>(end - ptr) / sizeof(uint16_t))
+            {
+                roaring_bitmap_free(bm);
+                return nullptr;
+            }
+            c.type = ARRAY_CONTAINER;
+            c.array.cardinality = cardinality;
+            c.array.capacity = cardinality;
+            if (cardinality > 0)
+            {
+                c.array.values = reinterpret_cast<uint16_t *>(
+                    bm->arena.alloc(cardinality * sizeof(uint16_t)));
+                if (!c.array.values)
+                {
+                    roaring_bitmap_free(bm);
+                    return nullptr;
+                }
+                std::memcpy(c.array.values, ptr,
+                            cardinality * sizeof(uint16_t));
+            }
+            ptr += cardinality * sizeof(uint16_t);
+        }
+        else
+        {
+            roaring_bitmap_free(bm);
+            return nullptr;
+        }
+        bm->num_containers++;
+    }
+
+    if (ptr != end)
+    {
+        roaring_bitmap_free(bm);
+        return nullptr;
+    }
+    return bm;
 }
 
 // -------------------------------
@@ -1512,46 +1539,6 @@ extern "C" void roaring_print_edges(uint8_t *ptr, const int32_t *pairs, uint64_t
     printf("}\n");
 }
 
-extern "C" RoaringBitmap *roaring_bitmap_intersect_edges_by_pairs(
-    RoaringBitmap *lhs, const int32_t *lhs_pairs, uint64_t lhs_pair_count,
-    RoaringBitmap *rhs, const int32_t *rhs_pairs, uint64_t rhs_pair_count)
-{
-    if (!lhs || !rhs || !lhs_pairs || !rhs_pairs || lhs_pair_count == 0 || rhs_pair_count == 0)
-        return roaring_bitmap_create(64 * 1024, 8);
-
-    RoaringBitmap *out = roaring_bitmap_create(64 * 1024, 8);
-    uint64_t lhs_card = roaring_bitmap_get_cardinality(lhs);
-    uint64_t rhs_card = roaring_bitmap_get_cardinality(rhs);
-
-    for (uint64_t i = 0; i < lhs_card; ++i)
-    {
-        uint32_t lhs_id = roaring_bitmap_get_at_index(lhs, static_cast<uint32_t>(i));
-        if (lhs_id >= lhs_pair_count)
-            continue;
-        int32_t lu = lhs_pairs[lhs_id * 2];
-        int32_t lv = lhs_pairs[lhs_id * 2 + 1];
-
-        bool found = false;
-        for (uint64_t j = 0; j < rhs_card; ++j)
-        {
-            uint32_t rhs_id = roaring_bitmap_get_at_index(rhs, static_cast<uint32_t>(j));
-            if (rhs_id >= rhs_pair_count)
-                continue;
-            int32_t ru = rhs_pairs[rhs_id * 2];
-            int32_t rv = rhs_pairs[rhs_id * 2 + 1];
-            if ((lu == ru && lv == rv) || (lu == rv && lv == ru))
-            {
-                found = true;
-                break;
-            }
-        }
-        if (found)
-            roaring_bitmap_add(out, lhs_id);
-    }
-
-    return out;
-}
-
 extern "C" int roaring_bitmap_contains(RoaringBitmap *bm, uint32_t value)
 {
     if (!bm)
@@ -1735,33 +1722,44 @@ extern "C" uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t inde
     return bm->select_cache[index];
 }
 
-extern "C" RoaringBitmap *roaring_bitmap_copy(RoaringBitmap *bm) {
+// Required by the AutoTuner runtime (rebuild_sets_from_csr): resets a bitmap
+// to empty while retaining its arena, so repeated layout conversions do not
+// churn allocations. Present only in the AutoTuner tree.
+void roaring_bitmap_clear(RoaringBitmap *bm) {
   if (!bm)
-    return nullptr;
+    return;
 
-  RoaringBitmap *copy =
-      roaring_bitmap_create(bm->arena.default_block_size, bm->max_containers);
+    size_t arena_size = bm->arena.default_block_size;
+    if (arena_size == 0)
+        arena_size = 64 * 1024;
 
-  for (size_t i = 0; i < bm->num_containers; ++i) {
-    Container *srcC = &bm->containers[i];
-    Container *destC = create_container(copy, srcC->key, srcC->type);
-    if (!destC)
-      return nullptr;
+    size_t initial_capacity = bm->max_containers;
+    if (initial_capacity == 0)
+        initial_capacity = 8;
 
-    if (srcC->type == ARRAY_CONTAINER) {
-      // Realloc capacity if necessary
-      if (destC->array.capacity < srcC->array.cardinality) {
-        destC->array.values = reinterpret_cast<uint16_t *>(
-            copy->arena.alloc(sizeof(uint16_t) * srcC->array.cardinality));
-        destC->array.capacity = srcC->array.cardinality;
-      }
-      std::memcpy(destC->array.values, srcC->array.values,
-                  sizeof(uint16_t) * srcC->array.cardinality);
-      destC->array.cardinality = srcC->array.cardinality;
-    } else if (srcC->type == BITMAP_CONTAINER) {
-      std::memcpy(destC->bitmap.bits, srcC->bitmap.bits, 8192);
-    }
-  }
+  bm->arena.free_all();
 
-  return copy;
+    ArenaBlock *first_block = new ArenaBlock();
+    first_block->buffer = new uint8_t[arena_size];
+    first_block->capacity = arena_size;
+    first_block->offset = 0;
+    first_block->next = nullptr;
+
+    bm->arena.head = first_block;
+    bm->arena.current = first_block;
+    bm->arena.default_block_size = arena_size;
+    bm->arena.blocks_created = 1;
+    bm->arena.total_allocations = 0;
+    bm->arena.total_bytes_allocated = 0;
+
+    bm->containers = reinterpret_cast<Container *>(bm->arena.alloc(sizeof(Container) * initial_capacity));
+    std::memset(bm->containers, 0, sizeof(Container) * initial_capacity);
+    bm->max_containers = initial_capacity;
+  bm->num_containers = 0;
+
+    bm->mutation_epoch++;
+    if (bm->mutation_epoch == 0)
+        bm->mutation_epoch = 1;
+    bm->select_cache_epoch = 0;
+    bm->select_cache_size = 0;
 }

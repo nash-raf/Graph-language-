@@ -1,0 +1,29 @@
+graph G {
+    directed: true;
+    edges: file "ffn_edges.txt";
+};
+
+set ffnVertices = {};
+int ffnCount = 0;
+
+for each edge u, v in G {
+    for each out neighbor w of v in G {
+        if (hasEdge(G, u, w)) {
+            ffnCount = ffnCount + 1;
+            ffnVertices.add(u);
+            ffnVertices.add(v);
+            ffnVertices.add(w);
+        }
+    }
+}
+
+graph FFN = [G where vertex in ffnVertices];
+
+print ffnCount;
+print setSize(ffnVertices);
+print numVertices(FFN);
+print numEdges(FFN);
+
+for each vertex v in FFN {
+    print v;
+}

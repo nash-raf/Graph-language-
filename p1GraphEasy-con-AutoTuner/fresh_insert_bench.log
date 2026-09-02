@@ -1,0 +1,63 @@
+=== Fresh-insert remasurement ===
+  ER:        /home/kazisahib/sgpl_main/dataset/erdos_renyi
+  BA:        /home/kazisahib/sgpl_main/dataset/barabasi_albert
+  runs:      10 (plus 1 warmup)
+  n_inserts: 50 (guaranteed non-duplicate)
+  SKIP_BUILD=1
+
+>>> [1/4] Erdős–Rényi
+HW calib: L=64  t=6.13ns  T=0.96ns
+
+Single-folder mode — 8 edge files in /home/kazisahib/sgpl_main/dataset/erdos_renyi
+
+
+───────────────────────────────────────────────────────
+  synth_n5000_d0.001: n=5000  m_und=12158  dens=0.000973
+───────────────────────────────────────────────────────
+  insert workload: 50 guaranteed-fresh edges (dup scan offline, not timed)
+     CSR traverse ... OK
+     CSR insert ...   OK
+    PCSR traverse ... OK
+    PCSR insert ...   OK
+    BCSR traverse ... OK
+    BCSR insert ...   OK
+     SET traverse ... OK
+     SET insert ...   OK
+
+───────────────────────────────────────────────────────
+  synth_n5000_d0.01: n=5000  m_und=124330  dens=0.009948
+───────────────────────────────────────────────────────
+  insert workload: 50 guaranteed-fresh edges (dup scan offline, not timed)
+     CSR traverse ... OK
+     CSR insert ...   OK
+    PCSR traverse ... OK
+    PCSR insert ...   FAIL (binary crashed (rc=-11))
+    BCSR traverse ... OK
+    BCSR insert ...   OK
+     SET traverse ... OK
+     SET insert ...   OK
+
+───────────────────────────────────────────────────────
+  synth_n5000_d0.05: n=5000  m_und=624747  dens=0.049990
+───────────────────────────────────────────────────────
+  insert workload: 50 guaranteed-fresh edges (dup scan offline, not timed)
+     CSR traverse ... OK
+     CSR insert ...   OK
+    PCSR traverse ... OK
+    PCSR insert ...   OK
+    BCSR traverse ... OK
+    BCSR insert ...   OK
+     SET traverse ... OK
+     SET insert ...   OK
+
+───────────────────────────────────────────────────────
+  synth_n5000_d0.1: n=5000  m_und=1251837  dens=0.100167
+───────────────────────────────────────────────────────
+  insert workload: 50 guaranteed-fresh edges (dup scan offline, not timed)
+     CSR traverse ... OK
+     CSR insert ...   OK
+    PCSR traverse ... OK
+    PCSR insert ...   OK
+    BCSR traverse ... OK
+    BCSR insert ...   OK
+     SET traverse ... 

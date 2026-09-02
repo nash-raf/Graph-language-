@@ -4020,6 +4020,38 @@ static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_lo
     return detail;
 }
 
+
+// Minimum trip count at which a DOALL loop takes the parallel path before the
+// cost model has calibrated.
+//
+// The model refuses to parallelise until it has a stable per-iteration cost
+// estimate, which it builds from serial samples.  A loop that runs once never
+// gets there, and one that runs a few times may not either: measured on
+// PageRank, 22 invocations produced 22 serial choices, cycling
+// warmup-uninitialized -> warmup -> missing-c-dep-or-c-ind.  So the autotuner
+// was permanently in warmup on exactly the workloads it exists to speed up.
+//
+// Dispatch overhead is a few microseconds; at 1M iterations even a 1 ns body is
+// a millisecond of work, so spreading is safe well below that.  The default is
+// deliberately conservative.  Sampling continues, so the model still calibrates
+// and can override this on later invocations.
+static int64_t sgpl_warmup_parallel_min_trips(void)
+{
+    static int64_t cached = -1;
+    if (cached < 0)
+    {
+        const char *v = getenv("SGPL_WARMUP_PARALLEL_MIN_TRIPS");
+        cached = 65536;
+        if (v && *v)
+        {
+            long long parsed = atoll(v);
+            if (parsed > 0)
+                cached = (int64_t)parsed;
+        }
+    }
+    return cached;
+}
+
 int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
                                       int64_t start,
                                       int64_t end,
@@ -4127,6 +4159,23 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
 
     if (!state->regime_valid || state->c_sampling_state != SGPL_C_SAMPLING_STABLE || state->c_ns_per_iter_ewma <= 0.0)
     {
+        // Uncalibrated, but the loop is big enough that parallelism pays for
+        // itself regardless of the per-iteration cost.
+        if (trip_count >= sgpl_warmup_parallel_min_trips() && effective_threads > 1)
+        {
+            g_tls_pending_loop_id = desc ? desc->loop_id : -1;
+            if (runtime_debug_enabled())
+            {
+                fprintf(stderr,
+                        "[parallel-runtime] cost-doall loop=%s loop_id=%d choose=parallel "
+                        "reason=warmup-large-trip N=%lld P=%d\n",
+                        sgpl_loop_debug_name(desc),
+                        desc ? desc->loop_id : -1,
+                        (long long)trip_count,
+                        effective_threads);
+            }
+            return 1;
+        }
         const char *reason = !state->regime_valid ? "warmup-uninitialized"
                              : state->c_sampling_state == SGPL_C_SAMPLING_RECALIBRATING ? "recalibrating"
                              : state->c_sampling_state == SGPL_C_SAMPLING_WARMING ? "warmup"

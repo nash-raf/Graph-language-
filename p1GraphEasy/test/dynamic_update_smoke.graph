@@ -1,0 +1,10 @@
+graph G {
+  edges: file "shared_edgelist.txt";
+};
+
+int base = 100;
+int dst = 200;
+add base, base + 1 to G;
+add base->dst, (base + 1)->(dst + 1) to G;
+remove base->dst from G;
+print numEdges(G);

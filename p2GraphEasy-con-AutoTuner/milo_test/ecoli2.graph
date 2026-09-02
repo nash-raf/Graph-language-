@@ -1,0 +1,4 @@
+graph G { directed: true; edges: file "../p2GraphEasy/milo2002_reproduction/data/grapheasy/ecoli_table1.txt"; };
+motifs FFL = [G where motif { s->i; s->t; i->t; }];
+motifs BF  = [G where motif { a->x; a->y; b->x; b->y; }];
+print "ffl"; print numMotifs(FFL); print "bifan"; print numMotifs(BF);

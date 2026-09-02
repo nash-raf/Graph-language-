@@ -1,0 +1,66 @@
+graph ia_dbpedia {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/ia-dbpedia.txt";
+};
+
+for each vertex v in ia_dbpedia {
+    for each neighbor u of v in ia_dbpedia {
+    };
+};
+
+add 335243->58369 to ia_dbpedia;
+add 13112->144194 to ia_dbpedia;
+add 128393->117026 to ia_dbpedia;
+add 73158->53736 to ia_dbpedia;
+add 354785->285929 to ia_dbpedia;
+add 45580->309588 to ia_dbpedia;
+add 221208->16663 to ia_dbpedia;
+add 15622->49123 to ia_dbpedia;
+add 114629->121981 to ia_dbpedia;
+add 264951->315631 to ia_dbpedia;
+add 13912->294254 to ia_dbpedia;
+add 104248->340726 to ia_dbpedia;
+add 285706->219949 to ia_dbpedia;
+add 115574->235514 to ia_dbpedia;
+add 308944->145852 to ia_dbpedia;
+add 3407->83707 to ia_dbpedia;
+add 221571->178389 to ia_dbpedia;
+add 145684->81516 to ia_dbpedia;
+add 112886->176472 to ia_dbpedia;
+add 53587->48625 to ia_dbpedia;
+add 199191->50707 to ia_dbpedia;
+add 188208->180331 to ia_dbpedia;
+add 316526->138685 to ia_dbpedia;
+add 22780->240870 to ia_dbpedia;
+add 281137->65444 to ia_dbpedia;
+add 198461->41313 to ia_dbpedia;
+add 289428->153709 to ia_dbpedia;
+add 329588->324282 to ia_dbpedia;
+add 189600->302698 to ia_dbpedia;
+add 100814->36466 to ia_dbpedia;
+add 24025->346692 to ia_dbpedia;
+add 119484->151722 to ia_dbpedia;
+add 41833->122049 to ia_dbpedia;
+add 52953->199295 to ia_dbpedia;
+add 145738->237717 to ia_dbpedia;
+add 333281->191277 to ia_dbpedia;
+add 85277->194081 to ia_dbpedia;
+add 186264->109842 to ia_dbpedia;
+add 351364->139973 to ia_dbpedia;
+add 358375->339757 to ia_dbpedia;
+add 37435->319360 to ia_dbpedia;
+add 332911->89725 to ia_dbpedia;
+add 280043->128351 to ia_dbpedia;
+add 85669->242357 to ia_dbpedia;
+add 198943->141530 to ia_dbpedia;
+add 335544->360795 to ia_dbpedia;
+add 292002->115141 to ia_dbpedia;
+add 358935->170017 to ia_dbpedia;
+add 29327->120087 to ia_dbpedia;
+add 16829->165388 to ia_dbpedia;
+
+for each vertex v in ia_dbpedia {
+    for each neighbor u of v in ia_dbpedia {
+    };
+};
+
+print numEdges(ia_dbpedia);

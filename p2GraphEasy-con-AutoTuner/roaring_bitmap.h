@@ -45,7 +45,7 @@ struct MemoryArena
             // if (n >= 8192)
             // {
             //     // fprintf(stderr, "[Arena] Allocated %zu bytes from current block (block has %zu/%zu used)\n",
-            //             n, current->offset, current->capacity);
+            //     //         n, current->offset, current->capacity);
             // }
 
             return ptr;
@@ -170,15 +170,12 @@ extern "C"
 
     RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_containers);
     void roaring_bitmap_free(RoaringBitmap *bm);
-    RoaringBitmap *roaring_bitmap_copy(RoaringBitmap *bm);
-    void roaring_bitmap_clear(RoaringBitmap *bm);
     void roaring_bitmap_add(RoaringBitmap *bm, uint32_t value);
     size_t roaring_bitmap_portable_size_in_bytes(RoaringBitmap *bm);
     void roaring_bitmap_portable_serialize(RoaringBitmap *bm, uint8_t *buf);
+    void roaring_bitmap_clear(RoaringBitmap *bm);
     RoaringBitmap *roaring_bitmap_portable_deserialize(const uint8_t *data, size_t size);
     RoaringBitmap *roaring_bitmap_union(RoaringBitmap **bitmaps, size_t count);
-    RoaringBitmap *roaring_bitmap_create_like(const RoaringBitmap *prototype);
-    void roaring_bitmap_or_inplace(RoaringBitmap *dst, RoaringBitmap *src);
     RoaringBitmap *roaring_bitmap_intersect(RoaringBitmap *bm1, RoaringBitmap *bm2);
     void roaring_print(uint8_t *ptr);
     void roaring_bitmap_remove(RoaringBitmap *bm, uint32_t value);
@@ -187,9 +184,6 @@ extern "C"
     uint32_t roaring_bitmap_get_at_index(RoaringBitmap *bm, uint32_t index);
     uint64_t roaring_bitmap_get_cardinality(RoaringBitmap *bm);
     void roaring_print_edges(uint8_t *ptr, const int32_t *pairs, uint64_t pair_count);
-    RoaringBitmap *roaring_bitmap_intersect_edges_by_pairs(
-        RoaringBitmap *lhs, const int32_t *lhs_pairs, uint64_t lhs_pair_count,
-        RoaringBitmap *rhs, const int32_t *rhs_pairs, uint64_t rhs_pair_count);
 
 #ifdef __cplusplus
 }

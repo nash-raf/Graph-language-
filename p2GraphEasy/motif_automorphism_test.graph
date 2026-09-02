@@ -1,0 +1,20 @@
+graph G {
+    directed: true;
+    nodes: 0, 1, 2, 3, 4;
+    edges: 0->2, 0->3, 1->2, 1->3;
+};
+
+motifs BiFans = [G where motif {
+    source1->target1;
+    source1->target2;
+    source2->target1;
+    source2->target2;
+}];
+
+print numMotifs(BiFans);
+
+int checksum = 0;
+for each motif (source1, target1, target2, source2) in BiFans {
+    checksum = checksum + source1 + target1 + target2 + source2;
+}
+print checksum;

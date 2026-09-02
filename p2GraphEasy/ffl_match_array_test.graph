@@ -1,0 +1,44 @@
+graph G {
+    directed: true;
+    nodes: 0, 1, 2, 3;
+    edges: 0->1, 1->2, 0->2, 1->3, 0->3;
+};
+
+draw G to "ffl_array_original.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+graph FFLMerged = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+draw FFLMerged to "ffl_array_merged.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw motif of G to "ffl_array_match" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: true; }
+    a->b;
+    a->c;
+    b->c;
+};
+
+draw motifs of G to "ffl_array_all_matches.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: true; }
+    a->b;
+    a->c;
+    b->c;
+};
+
+print numVertices(FFLMerged);
+print numEdges(FFLMerged);

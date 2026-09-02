@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -33,6 +33,9 @@ public:
 
   virtual void enterGraphProperty(BaseParser::GraphPropertyContext * /*ctx*/) override { }
   virtual void exitGraphProperty(BaseParser::GraphPropertyContext * /*ctx*/) override { }
+
+  virtual void enterWeightMode(BaseParser::WeightModeContext * /*ctx*/) override { }
+  virtual void exitWeightMode(BaseParser::WeightModeContext * /*ctx*/) override { }
 
   virtual void enterBoolLiteral(BaseParser::BoolLiteralContext * /*ctx*/) override { }
   virtual void exitBoolLiteral(BaseParser::BoolLiteralContext * /*ctx*/) override { }
@@ -130,6 +133,12 @@ public:
   virtual void enterGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
   virtual void exitGraphComprehension(BaseParser::GraphComprehensionContext * /*ctx*/) override { }
 
+  virtual void enterMotifMatchesDecl(BaseParser::MotifMatchesDeclContext * /*ctx*/) override { }
+  virtual void exitMotifMatchesDecl(BaseParser::MotifMatchesDeclContext * /*ctx*/) override { }
+
+  virtual void enterGraphListDecl(BaseParser::GraphListDeclContext * /*ctx*/) override { }
+  virtual void exitGraphListDecl(BaseParser::GraphListDeclContext * /*ctx*/) override { }
+
   virtual void enterGraphExpr(BaseParser::GraphExprContext * /*ctx*/) override { }
   virtual void exitGraphExpr(BaseParser::GraphExprContext * /*ctx*/) override { }
 
@@ -148,6 +157,9 @@ public:
   virtual void enterConnectedCondition(BaseParser::ConnectedConditionContext * /*ctx*/) override { }
   virtual void exitConnectedCondition(BaseParser::ConnectedConditionContext * /*ctx*/) override { }
 
+  virtual void enterMotifCondition(BaseParser::MotifConditionContext * /*ctx*/) override { }
+  virtual void exitMotifCondition(BaseParser::MotifConditionContext * /*ctx*/) override { }
+
   virtual void enterGraphLogicalOr(BaseParser::GraphLogicalOrContext * /*ctx*/) override { }
   virtual void exitGraphLogicalOr(BaseParser::GraphLogicalOrContext * /*ctx*/) override { }
 
@@ -156,6 +168,9 @@ public:
 
   virtual void enterVertexInSetCondition(BaseParser::VertexInSetConditionContext * /*ctx*/) override { }
   virtual void exitVertexInSetCondition(BaseParser::VertexInSetConditionContext * /*ctx*/) override { }
+
+  virtual void enterMotifEdge(BaseParser::MotifEdgeContext * /*ctx*/) override { }
+  virtual void exitMotifEdge(BaseParser::MotifEdgeContext * /*ctx*/) override { }
 
   virtual void enterLoopStatement(BaseParser::LoopStatementContext * /*ctx*/) override { }
   virtual void exitLoopStatement(BaseParser::LoopStatementContext * /*ctx*/) override { }
@@ -180,6 +195,12 @@ public:
 
   virtual void enterForEachElement(BaseParser::ForEachElementContext * /*ctx*/) override { }
   virtual void exitForEachElement(BaseParser::ForEachElementContext * /*ctx*/) override { }
+
+  virtual void enterForEachGraph(BaseParser::ForEachGraphContext * /*ctx*/) override { }
+  virtual void exitForEachGraph(BaseParser::ForEachGraphContext * /*ctx*/) override { }
+
+  virtual void enterForEachMotif(BaseParser::ForEachMotifContext * /*ctx*/) override { }
+  virtual void exitForEachMotif(BaseParser::ForEachMotifContext * /*ctx*/) override { }
 
   virtual void enterForEachPlain(BaseParser::ForEachPlainContext * /*ctx*/) override { }
   virtual void exitForEachPlain(BaseParser::ForEachPlainContext * /*ctx*/) override { }
@@ -207,6 +228,30 @@ public:
 
   virtual void enterShowgraph(BaseParser::ShowgraphContext * /*ctx*/) override { }
   virtual void exitShowgraph(BaseParser::ShowgraphContext * /*ctx*/) override { }
+
+  virtual void enterDrawgraph(BaseParser::DrawgraphContext * /*ctx*/) override { }
+  virtual void exitDrawgraph(BaseParser::DrawgraphContext * /*ctx*/) override { }
+
+  virtual void enterDrawmotifs(BaseParser::DrawmotifsContext * /*ctx*/) override { }
+  virtual void exitDrawmotifs(BaseParser::DrawmotifsContext * /*ctx*/) override { }
+
+  virtual void enterDrawMotifOption(BaseParser::DrawMotifOptionContext * /*ctx*/) override { }
+  virtual void exitDrawMotifOption(BaseParser::DrawMotifOptionContext * /*ctx*/) override { }
+
+  virtual void enterDrawOption(BaseParser::DrawOptionContext * /*ctx*/) override { }
+  virtual void exitDrawOption(BaseParser::DrawOptionContext * /*ctx*/) override { }
+
+  virtual void enterVertexDrawOption(BaseParser::VertexDrawOptionContext * /*ctx*/) override { }
+  virtual void exitVertexDrawOption(BaseParser::VertexDrawOptionContext * /*ctx*/) override { }
+
+  virtual void enterEdgeDrawOption(BaseParser::EdgeDrawOptionContext * /*ctx*/) override { }
+  virtual void exitEdgeDrawOption(BaseParser::EdgeDrawOptionContext * /*ctx*/) override { }
+
+  virtual void enterColorMapping(BaseParser::ColorMappingContext * /*ctx*/) override { }
+  virtual void exitColorMapping(BaseParser::ColorMappingContext * /*ctx*/) override { }
+
+  virtual void enterContinuousMapping(BaseParser::ContinuousMappingContext * /*ctx*/) override { }
+  virtual void exitContinuousMapping(BaseParser::ContinuousMappingContext * /*ctx*/) override { }
 
   virtual void enterFunction(BaseParser::FunctionContext * /*ctx*/) override { }
   virtual void exitFunction(BaseParser::FunctionContext * /*ctx*/) override { }

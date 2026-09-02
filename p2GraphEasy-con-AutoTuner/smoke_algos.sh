@@ -12,6 +12,12 @@ fi
 
 g++ -c -O2 -std=c++17 -fopenmp graph_loader_runtime.cpp -o graph_loader_runtime.o
 g++ -c -O2 -std=c++17 graph_runtime.cpp -o graph_runtime.o
+LOADER_OBJ=graph_loader_runtime.o
+if [[ -f graph_loader_runtime_mmap.cpp ]]; then
+  g++ -c -O2 -std=c++17 -fopenmp graph_loader_runtime_mmap.cpp -o graph_loader_runtime_mmap.o
+  LOADER_OBJ=graph_loader_runtime_mmap.o
+fi
+gcc -O3 -fopenmp -iquote . -c parallel_runtime_shim.c -o parallel_runtime_shim.o
 
 run_case() {
   local name="$1"
@@ -20,7 +26,7 @@ run_case() {
 
   echo "=== ${name} ==="
   ./GraphProgram "$graph" >/dev/null
-  g++ program.o runtime.o roaring_bitmap.o graph_loader_runtime.o graph_runtime.o -fopenmp -no-pie -o final_program
+  g++ -O3 -fopenmp -no-pie program.o runtime.o roaring_bitmap.o "$LOADER_OBJ" graph_runtime.o parallel_runtime_shim.o -o final_program
   mapfile -t got < <(./final_program | rg '^-?[0-9]+(\.[0-9]+)?$|2147483647' || true)
 
   IFS=' ' read -r -a want <<< "$expected"

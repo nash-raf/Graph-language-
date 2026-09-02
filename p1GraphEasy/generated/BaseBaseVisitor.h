@@ -1,5 +1,5 @@
 
-// Generated from Base.g4 by ANTLR 4.13.1
+// Generated from Base.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -32,14 +32,6 @@ public:
   }
 
   virtual std::any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitGraphProperty(BaseParser::GraphPropertyContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitBoolLiteral(BaseParser::BoolLiteralContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -211,14 +203,6 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitForEachOutAdj(BaseParser::ForEachOutAdjContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitForEachInAdj(BaseParser::ForEachInAdjContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
   virtual std::any visitForEachAdj(BaseParser::ForEachAdjContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -247,11 +231,19 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitAddTargets(BaseParser::AddTargetsContext *ctx) override {
+  virtual std::any visitGraphUpdateTargets(BaseParser::GraphUpdateTargetsContext *ctx) override {
     return visitChildren(ctx);
   }
 
-  virtual std::any visitRemoveTargets(BaseParser::RemoveTargetsContext *ctx) override {
+  virtual std::any visitUpdateNodeTargetList(BaseParser::UpdateNodeTargetListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUpdateEdgeTargetList(BaseParser::UpdateEdgeTargetListContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUpdateEdgeTarget(BaseParser::UpdateEdgeTargetContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -284,10 +276,6 @@ public:
   }
 
   virtual std::any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override {
-    return visitChildren(ctx);
-  }
-
-  virtual std::any visitFunctionName(BaseParser::FunctionNameContext *ctx) override {
     return visitChildren(ctx);
   }
 

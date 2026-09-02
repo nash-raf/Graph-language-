@@ -1,0 +1,21 @@
+// Fair comparison: same insert volume as set_wins_collaboration, but vertices
+// stay within the declared set (0..19) so CSR/PCSR don't hit the out-of-bounds
+// fallback-to-SET path.
+//
+// Cost model predictions (n=20, m=190, 128 visits × 2 edges = 256 inserts):
+//   SET insert:  ~502 ns/op   PCSR insert: ~1353 ns/op   CSR insert: ~958 ns/op
+
+graph team_graph {
+  edges: file "small_dense_20.txt";
+};
+
+int batch = 0;
+while (batch < 128) {
+  int src = batch % 20;
+  int dst = (batch + 1) % 20;
+  add src->dst, dst->src to team_graph;
+  batch = batch + 1;
+}
+
+print "Total edges: ";
+print numEdges(team_graph);

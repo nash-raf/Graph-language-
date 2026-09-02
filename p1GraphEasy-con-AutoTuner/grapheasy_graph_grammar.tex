@@ -1,0 +1,749 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+
+\definecolor{codebg}{RGB}{246,247,249}
+\definecolor{codekw}{RGB}{20,101,95}
+\definecolor{annot}{RGB}{90,90,90}
+
+\lstdefinelanguage{GraphEasy}{
+  keywords={
+    graph, graphs, motifs, directed, nodes, edges, file, weights, TRUE,
+    for, each, vertex, edge, neighbor, of, in, where, motif, add, remove,
+    to, from, draw, show, query, print, set, fn, int, real, bool, string,
+    void, while, if, else, return, swap, sleep, union, intersect, contains,
+    layout, vertices, labels, color, size, categorical, continuous,
+    degree, connected, with, cycle, timer, INF, numVertices, numEdges,
+    numMotifs, numGraphs, hasEdge, weight, out, in
+  },
+  keywordstyle=\color{codekw}\bfseries,
+  sensitive=false,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstset{
+  language=GraphEasy,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0pt,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=8pt,
+  xrightmargin=8pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+}
+
+\newcommand{\ann}[1]{\par\vspace{2pt}{\small\textcolor{annot}{\textit{#1}}}\vspace{4pt}}
+\newcommand{\kw}[1]{\texttt{\textcolor{codekw}{#1}}}
+\newcommand{\sym}[1]{\texttt{#1}}
+
+\hypersetup{colorlinks=true, linkcolor=codekw, urlcolor=codekw}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small GraphEasy graph grammar}
+\lhead{\small Language reference}
+\cfoot{\thepage}
+
+\title{\textbf{GraphEasy Graph Grammar}\\[0.3em]
+\large Declarations, traversal, comprehension, motifs, and drawing}
+\author{Graph-language project \quad (\texttt{Base.g4})}
+\date{2026-08-27}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This note documents the \emph{graph-related} surface syntax of GraphEasy:
+how to declare graphs, load edge lists, traverse vertices and edges,
+filter subgraphs, search motifs, mutate structure, query, print, and draw.
+Each construct is tied to the ANTLR rule in \texttt{Base.g4} and illustrated
+with a short \texttt{.graph} example. Non-graph statements (scalar arithmetic,
+arrays, generic control flow) are omitted except where they interact with
+graphs.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Programs and \texttt{.graph} files}
+%==============================================================================
+
+A GraphEasy program is a sequence of statements and optional function
+definitions, terminated by end-of-file:
+\[
+  \texttt{program} \;:\; (\texttt{statement} \mid \texttt{function})^* \;\texttt{EOF}
+\]
+Programs live in files with extension \texttt{.graph}. A typical file
+declares one or more graphs, runs an algorithm over them, then prints or
+draws results.
+
+%==============================================================================
+\section{Graph declaration (\texttt{graphDef})}
+%==============================================================================
+
+The central construct is \kw{graph}. Grammar rule:
+\[
+  \texttt{graphDef} \;:\;
+  \texttt{graph}\;\mathit{graphID}\;\{\;\mathit{graphProperty}^*\;
+  \mathit{nodes}?\;\mathit{graphProperty}^*\;\mathit{edges}?\;
+  \mathit{graphProperty}^*\;\texttt{TRUE}?\;\mathit{graphProperty}^*\;\}\;\texttt{;}
+\]
+
+\subsection{Minimal inline graph}
+
+\begin{lstlisting}
+graph G {
+  nodes: 0, 1, 2, 3;
+  edges: 0->1, 1->2, 2->3;
+};
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{graph G}} --- declares a graph named \texttt{G}.\\
+  \textbf{\kw{nodes:}} --- optional explicit vertex list (integers).\\
+  \textbf{\kw{edges:}} --- comma-separated \sym{u->v} pairs.\\
+  \textbf{\sym{;}} after \texttt{\}} --- statement terminator (required).
+}
+
+Vertices may be omitted when they appear only in edges; the runtime
+infers node ids from edge endpoints.
+
+\subsection{Loading edges from a file}
+
+\begin{lstlisting}
+graph G {
+  edges: file "edgelist.txt";
+};
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{file "..."}} --- replaces inline \kw{edges:} list.\\
+  Unweighted file: two columns \texttt{u v} per line.\\
+  Weighted file: three columns \texttt{u v w} (see weighted mode below).
+}
+
+\subsection{Directed graphs}
+
+Graphs are \emph{undirected by default}. An input line \texttt{u v} creates
+both \sym{u->v} and \sym{v->u} unless direction is requested.
+
+\begin{lstlisting}
+graph G {
+  directed: true;
+  edges: file "directed_edgelist.txt";
+};
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{directed: true;}} --- graph property (\texttt{graphProperty}).\\
+  Each file line \texttt{u v} becomes a single directed edge \sym{u->v}.\\
+  Motif arrows \sym{->} and neighbor direction (\kw{out neighbor},
+  \kw{in neighbor}) are meaningful only on directed graphs.
+}
+
+\subsection{Weighted graphs}
+
+Two equivalent forms mark a graph as weighted:
+
+\begin{lstlisting}
+graph G {
+  edges: file "weighted.txt";
+  TRUE
+};
+
+graph W {
+  weights: true;
+  directed: true;
+  edges: file "weighted.txt";
+};
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{TRUE}} (legacy) or \textbf{\kw{weights: true;}} --- read third
+  column from edge file.\\
+  \textbf{\kw{weight(G, u, v)}} returns that weight at runtime; unweighted
+  edges behave as weight~1.\\
+  Extended modes: \kw{weights:positive;}, \kw{weights:zero;},
+  \kw{weights:negative;} assign a fixed sign to every loaded edge
+  (used in signed-motif biology-style networks).
+}
+
+\subsection{Grammar mapping}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Surface syntax & Rule in \texttt{Base.g4} \\
+\midrule
+\texttt{graph G \{ \ldots \};} & \texttt{graphDef} \\
+\texttt{directed: true;} & \texttt{graphProperty} \\
+\texttt{nodes: 0, 1, 2;} & \texttt{nodes} $\rightarrow$ \texttt{nodeList} \\
+\texttt{edges: 0->1, 1->2;} & \texttt{edges} $\rightarrow$ \texttt{edgeList} \\
+\texttt{edges: file "g.txt";} & \texttt{edges} $\rightarrow$ \texttt{fileEdgeList} \\
+\texttt{0->1} & \texttt{edge} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%==============================================================================
+\section{Graph traversal loops}
+%==============================================================================
+
+Graph-aware \kw{for each} loops avoid manual CSR indexing. Targets
+(\texttt{loopTarget}):
+
+\begin{center}
+\begin{tabular}{@{}p{5.8cm}p{7.5cm}@{}}
+\toprule
+Syntax & Visits \\
+\midrule
+\texttt{for each vertex v in G} & every vertex id \\
+\texttt{for each edge u, v in G} & every edge (ordered pair) \\
+\texttt{for each neighbor v of u in G} & adjacency of \texttt{u} \\
+\texttt{for each out neighbor v of u in G} & outgoing edges (directed) \\
+\texttt{for each in neighbor v of u in G} & incoming edges (directed) \\
+\texttt{for each graph H in S} & each graph in a \kw{graphs} collection \\
+\texttt{for each motif (a,b,c) in M} & each motif role binding \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Example: BFS over neighbors}
+
+\begin{lstlisting}
+graph G {
+  edges: file "graph.txt";
+};
+
+int n = numVertices(G);
+int parent[n];
+// ... initialize parent[], frontier arrays ...
+
+while (frontier_size > 0) {
+  int v = frontier[i];
+  for each neighbor u of v in G {
+    if (parent[u] == -1) {
+      parent[u] = v;
+      // enqueue u into next frontier
+    }
+  }
+}
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{for each neighbor u of v in G}} --- \texttt{ForEachAdj} in the
+  grammar. On undirected graphs, \kw{neighbor}, \kw{out neighbor}, and
+  \kw{in neighbor} coincide. On directed graphs, \kw{neighbor} follows
+  outgoing edges.
+}
+
+%==============================================================================
+\section{Graph sets and membership}
+%==============================================================================
+
+A graph exposes its vertex and edge sets:
+
+\begin{lstlisting}
+set V = G.nodes;      // same as G.vertices
+set E = G.edges;
+
+V.add(4);
+V.remove(0);
+
+if (2 in G) { print "vertex 2 exists"; }
+if (0->1 in G) { print "edge exists"; }
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{G.nodes}} / \textbf{\kw{G.vertices}} --- vertex set
+  (\texttt{GraphNodesSet}).\\
+  \textbf{\kw{G.edges}} --- edge set (\texttt{GraphEdgesSet}).\\
+  \textbf{\texttt{nodeID in graphID}} / \textbf{\texttt{edge in graphID}} ---
+  membership tests in conditions (\texttt{NodeCheck}, \texttt{EdgeCheck}).
+}
+
+Set algebra: \kw{union}, \kw{intersect}, literals \texttt{\{0,1,2\}}.
+
+%==============================================================================
+\section{Graph comprehension}
+%==============================================================================
+
+Rule \texttt{graphComprehension}:
+\[
+  \mathit{ID} \;=\; \texttt{[}\;\mathit{graphID}\;
+  (\texttt{where}\;\mathit{graphCondition})?\;\texttt{]}\;\texttt{;}
+\]
+When the left-hand type is \kw{graph}, the result is a new graph value.
+
+\subsection{Vertex and edge filters}
+
+\begin{lstlisting}
+set P = {0, 1, 2};
+graph H = [G where vertex in P];
+graph Incident = [G where edge has v];
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{vertex in P}} --- induced subgraph on vertices in set \texttt{P}.\\
+  \textbf{\kw{edge has v}} --- subgraph of edges incident to vertex \texttt{v}
+  (typical neighbor extraction).
+}
+
+\subsection{Structural conditions}
+
+\begin{lstlisting}
+graph High = [G where degree > 2];
+graph Comp = [G where connected with 0];
+graph Cyclic = [G where cycle];
+graph Mixed = [G where degree > 2 && connected with 0];
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{degree}} \sym{op} \texttt{INT} --- filter by vertex degree.\\
+  \textbf{\kw{connected with}} \texttt{nodeID} --- keep vertices in the same
+  connected component as the given vertex.\\
+  \textbf{\kw{cycle}} --- retain cycle-related structure (runtime-defined).\\
+  Conditions combine with \texttt{\&\&} and \texttt{||} (\texttt{GraphLogicalAnd/Or}).
+}
+
+\subsection{Motif condition inside comprehension}
+
+A comprehension may embed a motif pattern; the result is one \emph{merged}
+subgraph containing all edges that participate in \emph{any} match:
+
+\begin{lstlisting}
+graph FeedForward = [G where motif {
+  a->b;
+  a->c;
+  b->c;
+}];
+\end{lstlisting}
+
+\ann{%
+  Same motif syntax as \kw{motifs}/\kw{graphs} (below), but the answer shape
+  is a single \kw{graph} --- the union of motif edges --- not a list of
+  matches.
+}
+
+%==============================================================================
+\section{Motif search: \kw{motifs}, \kw{graphs}, and \kw{graph}}
+%==============================================================================
+
+Motifs are fixed compile-time subgraph patterns. Each edge line uses role
+names (identifiers), not numeric vertex ids.
+
+\subsection{Motif edge syntax}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Motif edge & Meaning \\
+\midrule
+\texttt{a->b;} & positive / ordinary directed edge between roles \texttt{a}, \texttt{b} \\
+\texttt{a-|b;} & negative signed edge (matches negative-weight edges in signed graphs) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Grammar: \texttt{motifEdge} $\rightarrow$ \texttt{ID ('->' | '-|') ID ';'}.
+
+\subsection{Three result shapes}
+
+\begin{center}
+\begin{tabular}{@{}p{3.2cm}p{5.5cm}p{4.5cm}@{}}
+\toprule
+Keyword & Example & Use \\
+\midrule
+\texttt{motifs} &
+\texttt{motifs M = [G where motif \{...\}];} &
+Count or iterate role assignments \\
+\texttt{graphs} &
+\texttt{graphs S = [G where motif \{...\}];} &
+One extracted subgraph \emph{per} match \\
+\texttt{graph} &
+\texttt{graph H = [G where motif \{...\}];} &
+One merged subgraph (comprehension) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Example: feed-forward loop (FFL)}
+
+\begin{lstlisting}
+graph G {
+  directed: true;
+  nodes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13;
+  edges:
+    0->1, 0->2, 1->2,
+    3->4, 4->5,
+    6->8, 6->9, 7->8, 7->9,
+    10->11, 10->12, 11->13, 12->13;
+};
+
+motifs FFLMatches = [G where motif {
+  a->b;
+  a->c;
+  b->c;
+}];
+
+graphs FFLGraphs = [G where motif {
+  a->b;
+  a->c;
+  b->c;
+}];
+
+print numMotifs(FFLMatches);
+print numGraphs(FFLGraphs);
+
+for each motif (a, b, c) in FFLMatches {
+  print a;
+  print b;
+  print c;
+}
+
+for each graph H in FFLGraphs {
+  print numVertices(H);
+  print numEdges(H);
+}
+\end{lstlisting}
+
+\ann{%
+  \textbf{Role names} \texttt{a,b,c} are arbitrary identifiers bound at each
+  match.\\
+  \textbf{\kw{motifs}} returns a collection of tuples; \textbf{\kw{graphs}}
+  returns separate small graphs so shared edges stay duplicated per match.\\
+  \textbf{\kw{numMotifs(M)}} / \textbf{\kw{numGraphs(S)}} --- built-in counters.
+}
+
+\subsection{Signed motif (incoherent FFL)}
+
+\begin{lstlisting}
+graph G {
+  directed: true;
+  weights: true;
+  edges: file "signed_edges.txt";
+};
+
+graph IncoherentFFL = [G where motif {
+  a->b;
+  b-|c;
+  a->c;
+}];
+\end{lstlisting}
+
+\ann{%
+  \sym{->} matches positive-weight edges; \sym{-|} matches negative-weight
+  edges. Useful for regulatory networks where sign matters.
+}
+
+\subsection{Other named patterns (Milo-style)}
+
+\begin{lstlisting}
+graph ThreeChain = [G where motif { a->b; b->c; }];
+
+graph BiFan = [G where motif {
+  a->c; a->d; b->c; b->d;
+}];
+
+graph BiParallel = [G where motif {
+  a->b; a->c; b->d; c->d;
+}];
+\end{lstlisting}
+
+%==============================================================================
+\section{Graph mutation}
+%==============================================================================
+
+Rules \texttt{addOperation} / \texttt{removeOperation}:
+
+\begin{lstlisting}
+add 4 to G;
+add 5, 6, 7 to G;
+add 2->4 to G;
+add 5->6, 6->7 to G;
+
+remove 4 from G;
+remove 2->4 from G;
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{add}} \textit{targets} \textbf{\kw{to}} \textit{graph} --- nodes
+  (expressions) or edges \sym{u->v}.\\
+  \textbf{\kw{remove}} \textit{targets} \textbf{\kw{from}} \textit{graph} ---
+  symmetric removal.
+}
+
+%==============================================================================
+\section{Built-in graph functions and queries}
+%==============================================================================
+
+\subsection{Functions (selected)}
+
+\begin{center}
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+Call & Returns & Meaning \\
+\midrule
+\texttt{numVertices(G)} & \texttt{int} & $|V|$ \\
+\texttt{numEdges(G)} & \texttt{int} & edge count (directed: not halved) \\
+\texttt{degree(G, v)} & \texttt{int} & undirected degree, or in+out on directed \\
+\texttt{outDegree(G, v)} & \texttt{int} & outgoing count \\
+\texttt{inDegree(G, v)} & \texttt{int} & incoming count \\
+\texttt{hasEdge(G, u, v)} & \texttt{bool} & direction-sensitive \\
+\texttt{weight(G, u, v)} & \texttt{int} & edge weight (1 if unweighted) \\
+\texttt{neighbors(G, v)} & \texttt{set} & neighbor set \\
+\texttt{subgraph(G, S)} & \texttt{graph} & induced subgraph \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Query statement}
+
+\begin{lstlisting}
+query bfs_result : "bfs" of G;
+print bfs_result;
+\end{lstlisting}
+
+\ann{%
+  Grammar: \texttt{query ID ':' STRING INT? 'of' graphID ';'}.\\
+  The string names a built-in or runtime query; benchmark code usually
+  implements algorithms explicitly instead of relying on queries.
+}
+
+%==============================================================================
+\section{Printing and showing graphs}
+%==============================================================================
+
+\begin{lstlisting}
+print edges of G;
+print nodes of G;
+print graph of G;
+
+show G;
+\end{lstlisting}
+
+\ann{%
+  \textbf{\kw{print ... of G}} --- \texttt{printgraph} (edge / node / full
+  summary).\\
+  \textbf{\kw{show G}} --- interactive or console display
+  (\texttt{showgraph}), depending on runtime.
+}
+
+%==============================================================================
+\section{Drawing graphs (\texttt{drawgraph})}
+%==============================================================================
+
+Static export to SVG, PNG, PDF, or DOT (format from filename):
+
+\begin{lstlisting}
+draw G to "network.svg";
+\end{lstlisting}
+
+Optional block \texttt{\{ drawOption* \}} controls layout and styling:
+
+\begin{lstlisting}
+draw G to "colored.png" {
+  layout: "force";
+  vertices {
+    labels: true;
+    color: categorical(classes);
+    size: continuous(sizes);
+  }
+  edges {
+    labels: true;
+  }
+};
+\end{lstlisting}
+
+\subsection{Layout names}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\texttt{layout: "..."} & Typical use \\
+\midrule
+\texttt{"auto"} & default \\
+\texttt{"hierarchical"} & trees, DAGs, layered flow \\
+\texttt{"force"} & general networks \\
+\texttt{"radial"} & hub-centric views \\
+\texttt{"circular"} & small / cyclic graphs \\
+\texttt{"clustered"} & grouped structure \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Vertex and edge draw options}
+
+\begin{itemize}[nosep]
+  \item \kw{labels: true|false;} --- show vertex ids or edge weights.
+  \item \kw{color: categorical(array);} --- discrete classes (coloring, components).
+  \item \kw{color: continuous(array);} --- gradient from scores (PageRank, degree).
+  \item \kw{size: continuous(array);} or \kw{size: arrayName;} --- vertex radius.
+\end{itemize}
+
+Algorithm arrays (same length as $|V|$) are passed by name; the drawer maps
+values to visual channels.
+
+\subsection{Full drawing example}
+
+\begin{lstlisting}
+graph G {
+  directed: true;
+  edges: file "draw_weighted_directed.txt";
+  TRUE
+};
+
+int classes[5] = [1, 2, 1, 3, 2];
+real scores[n];
+
+for each vertex v in G {
+  scores[v] = v / 4.0;
+}
+
+draw G to "auto.svg";
+
+draw G to "hierarchical.pdf" {
+  layout: "hierarchical";
+  vertices {
+    labels: true;
+    color: categorical(classes);
+    size: continuous(sizes);
+  }
+  edges { labels: true; }
+};
+\end{lstlisting}
+
+%==============================================================================
+\section{Drawing motif patterns (\texttt{drawmotifs})}
+%==============================================================================
+
+Highlight one motif pattern on a host graph:
+
+\begin{lstlisting}
+draw motifs of G to "ffl.png" {
+  layout: "hierarchical";
+  vertices { labels: true; }
+  edges { labels: true; }
+  a->b;
+  a->c;
+  b->c;
+};
+\end{lstlisting}
+
+\ann{%
+  Grammar: \texttt{draw ('motif' | 'motifs') 'of' graphID 'to' STRING '\{'
+  drawMotifOption* '\}' ';'}.\\
+  Motif edge lines inside the block use the same \sym{->} / \sym{-|} syntax as
+  comprehension. All matches of the pattern are drawn on \texttt{G}.
+}
+
+Signed example:
+
+\begin{lstlisting}
+draw motifs of G to "signed_motif.png" {
+  layout: "hierarchical";
+  a->b;
+  a-|c;
+  b->c;
+};
+\end{lstlisting}
+
+%==============================================================================
+\section{Complete walk-through: declare, filter, draw, count}
+%==============================================================================
+
+The following program ties together declaration, Milo-style motif
+comprehension, drawing, and printing (from \texttt{milo\_motif\_examples.graph}):
+
+\begin{lstlisting}
+graph G {
+  directed: true;
+  nodes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13;
+  edges:
+    0->1, 0->2, 1->2,
+    3->4, 4->5,
+    6->8, 6->9, 7->8, 7->9,
+    10->11, 10->12, 11->13, 12->13;
+};
+
+graph FeedForward = [G where motif {
+  a->b; a->c; b->c;
+}];
+
+draw G to "original.png" {
+  layout: "hierarchical";
+  vertices { labels: true; }
+};
+
+draw FeedForward to "ffl_subgraph.png" {
+  layout: "hierarchical";
+  vertices { labels: true; }
+};
+
+print numVertices(FeedForward);
+print numEdges(FeedForward);
+\end{lstlisting}
+
+\ann{%
+  \textbf{Step 1} --- \kw{graph G} declares the host network.\\
+  \textbf{Step 2} --- \kw{graph FeedForward = [G where motif \{...\}]} extracts
+  the union of all feed-forward loop edges.\\
+  \textbf{Step 3} --- \kw{draw G} and \kw{draw FeedForward} emit PNG files.\\
+  \textbf{Step 4} --- \kw{print numVertices/numEdges} report subgraph size.
+}
+
+%==============================================================================
+\section{Quick reference: grammar rules to syntax}
+%==============================================================================
+
+\begin{longtable}{@{}p{4.2cm}p{9.8cm}@{}}
+\toprule
+\texttt{Base.g4} rule & Graph-related surface forms \\
+\midrule
+\endhead
+\texttt{graphDef} & \texttt{graph ID \{ properties; nodes; edges; \}} \\
+\texttt{graphProperty} & \texttt{directed: true|false;} \\
+\texttt{nodes} / \texttt{edges} & \texttt{nodes: 0,1,...;} \quad \texttt{edges: u->v,...;} or \texttt{file "path";} \\
+\texttt{graphComprehension} & \texttt{graph H = [G where condition];} \\
+\texttt{motifMatchesDecl} & \texttt{motifs M = [G where motif \{...\}];} \\
+\texttt{graphListDecl} & \texttt{graphs S = [G where motif \{...\}];} \\
+\texttt{graphCondition} & \texttt{degree > k}, \texttt{connected with v}, \texttt{cycle}, \texttt{motif \{...\}} \\
+\texttt{foreachStatement} & \texttt{for each vertex|edge|neighbor|graph|motif ... in ...} \\
+\texttt{nodeEdgeOperation} & \texttt{add ... to G;} \quad \texttt{remove ... from G;} \\
+\texttt{queryStatement} & \texttt{query id : "name" of G;} \\
+\texttt{showgraph} & \texttt{show G;} \\
+\texttt{drawgraph} & \texttt{draw G to "file.ext" \{ options \};} \\
+\texttt{drawmotifs} & \texttt{draw motifs of G to "file" \{ motif; options \};} \\
+\texttt{printgraph} & \texttt{print nodes|edges|graph of G;} \\
+\texttt{NodeCheck} / \texttt{EdgeCheck} & \texttt{v in G}, \texttt{u->v in G} \\
+\bottomrule
+\end{longtable}
+
+\vspace{1em}
+\noindent
+\textbf{Source files for examples:}
+\texttt{p2GraphEasy/milo\_motif\_examples.graph},
+\texttt{p2GraphEasy/graph\_list\_motif\_test.graph},
+\texttt{p2GraphEasy/draw\_visualization\_test.graph},
+\texttt{p2GraphEasy/signed\_motif\_test.graph},
+\texttt{p2GraphEasy/incoherent\_ffl\_demo.graph},
+\texttt{p2GraphEasy/large\_validation/bfs\_parent.graph}.
+Formal grammar: \texttt{Base.g4}; prose manual: \texttt{docs/language.md}.
+
+\end{document}

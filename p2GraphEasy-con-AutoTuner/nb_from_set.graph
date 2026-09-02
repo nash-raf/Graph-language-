@@ -1,0 +1,13 @@
+graph G {
+  edges: file "/home/user/Course/msk1/grapheasy_algo/graphs/validation_100n_100e_w.txt";
+  TRUE
+};
+set frontier;
+frontier = {0};
+for each element u in frontier {
+  print u;
+  for each neighbor v of u in G {
+    print v;
+    print weight(G, u, v);
+  }
+}

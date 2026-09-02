@@ -1,0 +1,13 @@
+// Microbenchmark: pure update batch on a medium file-backed graph.
+// Conversion costs are excluded by the pure kernel timer.
+graph BulkInsert {
+  edges: file "../synth_v_50000_e_500000.txt";
+};
+
+int i = 0;
+while (i < 256) {
+  int src = 10000 + i;
+  int dst = 30000 + i;
+  add src->dst to BulkInsert;
+  i = i + 1;
+}

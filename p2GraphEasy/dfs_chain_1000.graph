@@ -1,0 +1,37 @@
+graph G {
+  edges: file "/home/user/Course/msk1/benchmark/bfs_dfs_1000/chain_1000_edges.txt";
+};
+
+int n = numVertices(G);
+int visited[n];
+int parent[n];
+int init_i = 0;
+
+while (init_i < n) {
+  visited[init_i] = 0;
+  parent[init_i] = -1;
+  init_i = init_i + 1;
+}
+
+int stack[n];
+int stack_size = 1;
+stack[0] = 0;
+visited[0] = 1;
+parent[0] = 0;
+
+while (stack_size > 0) {
+  stack_size = stack_size - 1;
+  int v = stack[stack_size];
+  for each neighbor u of v in G {
+    if (visited[u] == 0) {
+      visited[u] = 1;
+      parent[u] = v;
+      stack[stack_size] = u;
+      stack_size = stack_size + 1;
+    }
+  }
+}
+
+for each vertex v in G {
+  print parent[v];
+}

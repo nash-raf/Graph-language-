@@ -1,0 +1,85 @@
+graph G {
+    directed: true;
+    edges: file "ffn_edges.txt";
+};
+
+graph FFL = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+draw G to "ffl_original_auto.png" {
+    layout: "auto";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw FFL to "ffl_result_auto.png" {
+    layout: "auto";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw G to "ffl_original_hierarchical.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw FFL to "ffl_result_hierarchical.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw G to "ffl_original_force.png" {
+    layout: "force";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw FFL to "ffl_result_force.png" {
+    layout: "force";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw G to "ffl_original_radial.png" {
+    layout: "radial";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw FFL to "ffl_result_radial.png" {
+    layout: "radial";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw G to "ffl_original_circular.png" {
+    layout: "circular";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw FFL to "ffl_result_circular.png" {
+    layout: "circular";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw G to "ffl_original_clustered.png" {
+    layout: "clustered";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+draw FFL to "ffl_result_clustered.png" {
+    layout: "clustered";
+    vertices { labels: true; }
+    edges { labels: false; }
+};
+
+print numVertices(FFL);
+print numEdges(FFL);

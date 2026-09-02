@@ -1,0 +1,14 @@
+graph G {
+  edges: file "rtest_edges.txt";
+};
+
+int n = numVertices(G);
+int acc = 0;
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    acc = acc ^ 1;
+  }
+}
+
+print acc;

@@ -14,6 +14,7 @@
 
 #include "pdg.h"
 #include "parallel_loop_outline.h"
+#include "graph_frontier_lowering.h"
 #include "AutoTunerPass.h"
 
 #include <llvm/IR/LLVMContext.h>
@@ -31,6 +32,7 @@
 
 #include <llvm/Transforms/Utils/Mem2Reg.h>
 #include <llvm/Transforms/Utils/LoopSimplify.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/TargetParser/Host.h>
 
@@ -41,6 +43,7 @@
 #include <llvm/IR/LegacyPassManager.h>
 
 #include <polly/RegisterPasses.h>
+#include <polly/ScopDetection.h>
 #include <polly/LinkAllPasses.h>
 #include <llvm/TargetParser/SubtargetFeature.h>
 
@@ -331,7 +334,14 @@ static void dumpModuleBitcode(llvm::Module &M, const char *path)
  *     detection and codegen never do.  This one is decisive.
  *  4. -polly has to be on; it is off by default.
  *
- * Flag defaults match p2GraphEasy, where they were measured:
+ * Polly is ENABLED by default but not force-enabled: it is injected only
+ * when the caller has not expressed an intent, and it can always be turned
+ * off or tuned -- GRAPH_DISABLE_POLLY=1 / -polly=false disable it, and
+ * explicit -polly-parallel / -polly-pattern-matching-based-opts or the
+ * GRAPH_POLLY_* env vars override the defaults.  When Polly is off the
+ * normal pipeline (O3 + PDG + loop outliner + autotuner) runs untouched.
+ *
+ * When Polly is on, flag defaults match p2GraphEasy, where they were measured:
  *   - the matmul pattern matcher is DISABLED (it accounted for ~97% of Polly
  *     compile time -- 30.2 s vs 0.73 s on a matmul-shaped kernel -- and also
  *     blocked parallelization);
@@ -408,6 +418,12 @@ static void parsePollyFlags(int argc, char **argv, const std::string &onlyFuncs)
         return false;
     };
 
+    // Polly is enabled by default but NOT force-enabled: it is injected only
+    // when the caller has not expressed an intent, and every knob can turn it
+    // off or tune it -- GRAPH_DISABLE_POLLY=1 / -polly=false disable it,
+    // explicit -polly-parallel / -polly-pattern-matching-based-opts and the
+    // GRAPH_POLLY_* env vars override the defaults.  When Polly is off the
+    // normal pipeline (O3 + PDG + loop outliner + autotuner) runs untouched.
     if (isTruthyEnv("GRAPH_DISABLE_POLLY"))
     {
         flagArgs.emplace_back("-polly=false");
@@ -474,244 +490,68 @@ static void parsePollyFlags(int argc, char **argv, const std::string &onlyFuncs)
 
 }
 
-int main(int argc, char **argv)
+// Counts Polly-profitable SCoPs by running Polly's ScopAnalysis (detection
+// only, no codegen) on every function.  Detection already applies Polly's
+// profitability heuristic, so a non-zero count means Polly would transform
+// this program.
+struct PollyProbePass : public llvm::PassInfoMixin<PollyProbePass>
 {
-    InitLLVM initLLVM(argc, argv);
+    unsigned *Counter;
 
-    PassBuilder *PollyPB = nullptr;
-    std::unique_ptr<PassBuilder> PollyPBStorage;
-    std::unique_ptr<TargetMachine> PollyTM =
-        setUpPollyPipeline(PollyPB, PollyPBStorage);
-    if (!PollyTM)
-        return 1;
-    bool pollyFlagsParsed = false;
-    bool polly_disabled_no_user_fn = false;
-    bool polly_owns_user_fns = false;
+    PollyProbePass(unsigned *C) : Counter(C) {}
 
-    std::string backendSelectionReason;
-    const std::string activeIRBackend = resolveBackend(backendSelectionReason);
-
-    // errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
-
-    const bool usingGpuIR = activeIRBackend == "gpu";
-    if (usingGpuIR)
+    llvm::PreservedAnalyses run(llvm::Function &F, llvm::FunctionAnalysisManager &FAM)
     {
-        // errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
+        auto &SD = FAM.getResult<polly::ScopAnalysis>(F);
+        *Counter += std::distance(SD.begin(), SD.end());
+        return llvm::PreservedAnalyses::all();
     }
+};
 
-    // InputFilename is positional and the flag-only parse above deliberately
-    // skipped it, so fall back to the first non-flag argument.
-    std::string infile = InputFilename;
-    if (infile.empty())
-        for (int i = 1; i < argc; ++i)
-            if (argv[i][0] != '-')
-            {
-                infile = argv[i];
-                break;
-            }
-    if (infile.empty())
-    {
-        std::cerr << "No input filename provided.\n";
-        return 1;
-    }
+// Runs the autotuner region-annotation pass, the PDG (dependency graph +
+// SCC task graph + parallel-IR reconstruction) and the loop-outliner
+// machinery that rewrites parallelizable loops into
+// parallel_for_runtime / gpu_parallel_for_runtime callbacks.
+//
+// By default the ORDER is decided by a Polly profitability probe (see main):
+// when Polly detects profitable SCoPs it runs FIRST (the outliner follows);
+// otherwise the outliner runs first and the O3/Polly pipeline runs at the
+// end of the optimization sequence.  GRAPH_OUTLINER_FIRST=1 forces the
+// outliner first; GRAPH_DISABLE_POLLY=1 skips Polly entirely.
+static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
+{
+    // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
+    // a true serial / Polly-only baseline against DOALL/DOACROSS outlining.
+    if (isTruthyEnv("GRAPH_DISABLE_PDG"))
+        return;
 
-    std::ifstream in(infile);
-    if (!in.good())
-    {
-        std::cerr << "Failed to open input file: " << infile << "\n";
-        return 1;
-    }
-
-    ANTLRInputStream input(in);
-    BaseLexer lexer(&input);
-    CommonTokenStream tokens(&lexer);
-    BaseParser parser(&tokens);
-    auto tree = parser.program();
-    if (parser.getNumberOfSyntaxErrors() > 0)
-    {
-        errs() << "Syntax error: failed to parse '" << infile << "'\n";
-        return 1;
-    }
-
-    // ASTBuilder throws std::runtime_error for forms the front end does not
-    // accept ("graph must have edges", "inline weighted edges not yet
-    // supported").  Uncaught, those reach std::terminate and the compiler core
-    // dumps instead of reporting -- so catch them the way semantic errors are.
-    ProgramNodePtr prog;
-    try
-    {
-        ASTBuilder astB;
-        prog = std::any_cast<ProgramNodePtr>(astB.visitProgram(tree));
-    }
-    catch (const std::exception &ex)
-    {
-        errs() << "Error: " << ex.what() << "\n";
-        return 1;
-    }
-
-    LLVMContext Ctx;
-    auto M = std::make_unique<Module>("my_module", Ctx);
-    {
-        auto *backendName = llvm::MDString::get(Ctx, activeIRBackend);
-        auto *backendMD = llvm::MDNode::get(Ctx, backendName);
-        M->getOrInsertNamedMetadata("graph.ir.backend")->addOperand(backendMD);
-    }
-
-    // exit(0);
-    try
-    {
-        SemanticAnalyzer sema(prog);
-        sema.analyze();
-    }
-    catch (const std::exception &ex)
-    {
-        errs() << ex.what() << "\n";
-        return 1;
-    }
-
-    IRBuilder<> IRB(Ctx);
-
-    std::filesystem::path inputPath(infile);
-    std::string sourceDir = inputPath.has_parent_path()
-                                ? inputPath.parent_path().string()
-                                : std::string(".");
-    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend, sourceDir);
-    try
-    {
-        irgen.visitProgram(prog);
-    }
-    catch (const std::exception &ex)
-    {
-        errs() << "Error: " << ex.what() << "\n";
-        return 1;
-    }
-
+    // Run autotuner on user IR before PDG/outlining (which moves calls into
+    // separate task functions) and before linking runtime IR modules.
+    // Graph-loop race-freedom (Graptor CleanCut): any loop that used graph
+    // iterators is lowered to the owner-computes frontier step BEFORE the
+    // AutoTuner region pass / PDG / outliner see it, so the racy DOALL path
+    // never fires on graph-iterator loops and the region pass never wraps the
+    // rewritten round nest.
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
         CGSCCAnalysisManager CGAM;
-        ModuleAnalysisManager MAM;
+        ModuleAnalysisManager LocalMAM;
 
-        PassBuilder PB;
-        PB.registerModuleAnalyses(MAM);
-        PB.registerCGSCCAnalyses(CGAM);
-        PB.registerFunctionAnalyses(FAM);
-        PB.registerLoopAnalyses(LAM);
-        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-        // after you construct PB and set up analysis managers
-        registerLoopOutlinerPluginWithPassBuilder(PB);
+        PassBuilder LocalPB;
+        LocalPB.registerModuleAnalyses(LocalMAM);
+        LocalPB.registerCGSCCAnalyses(CGAM);
+        LocalPB.registerFunctionAnalyses(FAM);
+        LocalPB.registerLoopAnalyses(LAM);
+        LocalPB.crossRegisterProxies(LAM, FAM, CGAM, LocalMAM);
 
-        FunctionPassManager FPM;
-        FPM.addPass(PromotePass());      // mem2reg
-        FPM.addPass(LoopSimplifyPass()); // loop-simplify
-        FPM.addPass(SimplifyCFGPass());  // simplifycfg
-
-        ModulePassManager MPM;
-        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-
-        MPM.run(*M, MAM);
+        FunctionPassManager FrontFPM;
+        FrontFPM.addPass(GraphFrontierLoweringPass());
+        ModulePassManager FrontMPM;
+        FrontMPM.addPass(createModuleToFunctionPassAdaptor(std::move(FrontFPM)));
+        FrontMPM.run(M, LocalMAM);
     }
 
-
-    // ---------------------------------------------------------------------
-    // Polly.
-    //
-    // This has to run HERE, immediately after IRGen and BEFORE the PDG /
-    // min-cut / reconstructParallelIR / loop-outliner machinery below.  That
-    // machinery rewrites every loop body into a callback invoked through
-    // parallel_for_runtime, which leaves no loop nest in the caller and an
-    // opaque callee in its place -- measured on a 512x512 matmul, stock `opt`
-    // finds 218 polly.* references in the IR before those passes and exactly 0
-    // after, so running Polly at the end (where the object file is emitted)
-    // cannot ever fire.
-    //
-    // Consequence worth stating plainly: when Polly is enabled it, not the
-    // outliner, is what parallelizes these loops.  Set GRAPH_DISABLE_POLLY=1 to
-    // hand the loops back to the autotuner untouched.
-    // ---------------------------------------------------------------------
-    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
-        dumpModuleBitcode(*M, dumpPath);
-
-    // Confine Polly to the user's `fn` functions, never to main.
-    //
-    // Top-level statements end up in main, and main is exactly what the PDG /
-    // min-cut / reconstructParallelIR machinery below rewrites into task_N
-    // functions.  Letting Polly transform main first is a SILENT MISCOMPILE:
-    // on `while (i < n) { a[i] = <constant>; i = i + 1; }` at top level Polly
-    // rewrites the invariant-store loop, the outliner then moves the rewritten
-    // code into a task function, and the result segfaults inside task_1.  The
-    // same loop inside a `fn` is fine, because the outliner does not touch it.
-    //
-    // Polly's -polly-only-func filter expresses exactly this, which is why the
-    // flags are parsed here rather than at start-up: the value is not known
-    // until the source has been parsed.  With no user functions at all there is
-    // nothing Polly may safely touch, so it stays off.
-    if (!pollyFlagsParsed)
-    {
-        std::string onlyFuncs;
-        for (const auto &node : prog->topLevel)
-            if (node->type == ASTNodeType::FunctionDecl)
-            {
-                auto *fd = static_cast<FunctionDeclNode *>(node.get());
-                if (fd->name == "main")
-                    continue;
-                if (!onlyFuncs.empty())
-                    onlyFuncs += ",";
-                onlyFuncs += "^" + fd->name + "$";
-            }
-        parsePollyFlags(argc, argv, onlyFuncs);
-        pollyFlagsParsed = true;
-        // With no user `fn`, -polly-only-func has nothing to match, so Polly
-        // transforms nothing -- but the O3 pipeline below must still run.  The
-        // two were previously gated on one flag, which silently dropped ALL
-        // optimisation for such programs.
-        if (onlyFuncs.empty())
-            polly_disabled_no_user_fn = true;
-        else
-            polly_owns_user_fns = true;
-    }
-
-    // GRAPH_NO_O3 skips the whole optimisation block, Polly included.  Kept
-    // separate from GRAPH_DISABLE_POLLY so the two can be bisected apart: O3
-    // runs before the PDG/outliner and can restructure loops out of the shapes
-    // the outliner recognises.
-    if (!isTruthyEnv("GRAPH_NO_O3") &&
-        (!isTruthyEnv("GRAPH_DISABLE_POLLY") || polly_disabled_no_user_fn))
-    {
-        M->setTargetTriple(sys::getDefaultTargetTriple());
-        M->setDataLayout(PollyTM->createDataLayout());
-
-        LoopAnalysisManager PollyLAM;
-        FunctionAnalysisManager PollyFAM;
-        CGSCCAnalysisManager PollyCGAM;
-        ModuleAnalysisManager PollyMAM;
-        PollyPB->registerModuleAnalyses(PollyMAM);
-        PollyPB->registerCGSCCAnalyses(PollyCGAM);
-        PollyPB->registerFunctionAnalyses(PollyFAM);
-        PollyPB->registerLoopAnalyses(PollyLAM);
-        PollyPB->crossRegisterProxies(PollyLAM, PollyFAM, PollyCGAM, PollyMAM);
-
-        // Canonicalization SCoP detection depends on: until mem2reg runs, the
-        // loop bounds and array subscripts are still loads and stores and
-        // nothing looks affine.
-        FunctionPassManager CanonFPM;
-        CanonFPM.addPass(PromotePass());
-        CanonFPM.addPass(LoopSimplifyPass());
-        CanonFPM.addPass(SimplifyCFGPass());
-        ModulePassManager CanonMPM;
-        CanonMPM.addPass(createModuleToFunctionPassAdaptor(std::move(CanonFPM)));
-        CanonMPM.run(*M, PollyMAM);
-
-        ModulePassManager OptMPM =
-            PollyPB->buildPerModuleDefaultPipeline(OptimizationLevel::O3);
-        OptMPM.run(*M, PollyMAM);
-    }
-
-    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
-        dumpModuleBitcode(*M, dumpPath);
-
-    // Run autotuner on user IR before PDG/outlining (which moves calls into
-    // separate task functions) and before linking runtime IR modules.
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
@@ -727,14 +567,14 @@ int main(int argc, char **argv)
 
         ModulePassManager TuneMPM;
         TuneMPM.addPass(AutoTunerModulePass());
-        TuneMPM.run(*M, LocalMAM);
+        TuneMPM.run(M, LocalMAM);
     }
 
     // {
     //     ModuleAnalysisManager MAM;
-    //     dependencyGraph pdg = runPDGOnModule(*M);
+    //     dependencyGraph pdg = runPDGOnModule(M);
     //     (void)pdg;
-    //     runLoopOutlinerOnModule(*M);
+    //     runLoopOutlinerOnModule(M);
     //     FunctionPassManager FPM;
     //     FPM.addPass(llvm::SimplifyCFGPass());
     //     FPM.addPass(llvm::ADCEPass()); // aggressive ctrl-flow aware DCE
@@ -742,13 +582,10 @@ int main(int argc, char **argv)
     //     ModulePassManager MPM;
     //     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
-    //     MPM.run(*M, MAM);
+    //     MPM.run(M, MAM);
     // }
-    // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
-    // a true serial / Polly-only baseline against DOALL/DOACROSS outlining.
-    if (!isTruthyEnv("GRAPH_DISABLE_PDG"))
+    // Create all analysis managers and register them with PassBuilder
     {
-        // Create all analysis managers and register them with PassBuilder
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
         CGSCCAnalysisManager CGAM;
@@ -763,17 +600,17 @@ int main(int argc, char **argv)
 
         // run PDG (you already do this)
         if (usingGpuIR)
-            canonicalizeLoopsForAnalysis(*M);
-        dependencyGraph pdg = runPDGOnModule(*M);
+            canonicalizeLoopsForAnalysis(M);
+        dependencyGraph pdg = runPDGOnModule(M);
         // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
 
         //        << pdg.edges.size() << " edges\n\n";
 
-        // // Step 2: Perform min-cut partitioning and create task graph
+        // // Step 2: Perform SCC-based task partitioning and create task graph
 
-        // errs() << "Performing global min-cut partitioning...\n";
+        // errs() << "Performing SCC-based task partitioning...\n";
 
-        TaskGraph TG = performMinCutAndCreateTaskGraph(pdg);
+        TaskGraph TG = buildSccTaskGraph(pdg);
 
         // errs() << "✓ Created task graph with " << TG.tasks.size() << " tasks\n";
 
@@ -839,6 +676,7 @@ int main(int argc, char **argv)
                 else
 
                     componentTasks.push_back(taskId);
+
             }
 
             // Print cut vertices first (these must execute serially)
@@ -854,6 +692,7 @@ int main(int argc, char **argv)
                        << TG.cutVertexOrder.lookup(task.originalVertex)
 
                        << ", vertex=" << task.originalVertex << ")\n";
+
             }
 
             // Print components (these can potentially run in parallel)
@@ -867,9 +706,11 @@ int main(int argc, char **argv)
                 errs() << "  [PARALLEL] Task " << taskId << ": Component with "
 
                        << task.vertices.size() << " instruction(s)\n";
+
             }
 
             errs() << "\n";
+
         }
 #endif
 
@@ -898,6 +739,7 @@ int main(int argc, char **argv)
                 {
 
                     serialOpsInLevel += task.vertices.size();
+
                 }
 
                 else
@@ -905,7 +747,9 @@ int main(int argc, char **argv)
                 {
 
                     parallelOpsInLevel += task.vertices.size();
+
                 }
+
             }
 
             totalParallelOps += parallelOpsInLevel;
@@ -923,9 +767,11 @@ int main(int argc, char **argv)
                 if (!TG.tasks[taskId].isCutVertex)
 
                     parallelTasksInLevel++;
+
             }
 
             maxParallelTasks = std::max(maxParallelTasks, parallelTasksInLevel);
+
         }
 
 #if 0
@@ -964,9 +810,11 @@ int main(int argc, char **argv)
                 unsigned cv = TG.cutVertices[i];
 
                 errs() << "  " << i << ". Vertex " << cv << " (must execute at specific point)\n";
+
             }
 
             errs() << "\n";
+
         }
 #endif
 
@@ -976,29 +824,16 @@ int main(int argc, char **argv)
 
         // ====================================================================
 
-        // GRAPH_NO_PARALLEL_IR / GRAPH_NO_OUTLINER exist to bisect miscompiles:
-        // both passes rewrite main, and a wrong answer that only appears at top
-        // level is almost always one of them.
-        if (!isTruthyEnv("GRAPH_NO_PARALLEL_IR"))
-            reconstructParallelIR(*M, pdg, TG, taskLevels);
+        reconstructParallelIR(M, pdg, TG, taskLevels);
 
         // After PDG annotation / parallel IR rewrite, before outlining.  Used by
         // the Polly-vs-PDG trigger matrix to count my.loop.parallel DOALL|DOACROSS
         // metadata that the outliner subsequently consumes.
         if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PDG"))
-            dumpModuleBitcode(*M, dumpPath);
+            dumpModuleBitcode(M, dumpPath);
 
         // optional: you can still call your helper which creates its own managers
-        // Polly and the outliner must not both transform a program.  Measured on
-        // an affine matmul kernel: Polly alone gives 723964781 in 0.23 s, the
-        // outliner alone gives 723964781 in 0.23 s, and both together segfault
-        // on a worker thread inside outlined_task_*[parallel] -- the outliner
-        // hoists Polly's rewritten body onto the pool.  When Polly is live for
-        // this program, it owns the optimisation.
-        const bool outlinerEnabled =
-            !isTruthyEnv("GRAPH_NO_OUTLINER") && !polly_owns_user_fns;
-        if (outlinerEnabled)
-            runLoopOutlinerOnModule(*M);
+        runLoopOutlinerOnModule(M);
 
         // Build function-level cleanup pipeline
         FunctionPassManager FPM;
@@ -1010,13 +845,12 @@ int main(int argc, char **argv)
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
         // Now this will succeed because MAM has been registered/cross-registered
-        MPM.run(*M, MAM);
+        MPM.run(M, MAM);
     }
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_FINAL"))
-        dumpModuleBitcode(*M, dumpPath);
+        dumpModuleBitcode(M, dumpPath);
 
-    if (!isTruthyEnv("GRAPH_DISABLE_PDG"))
     {
         LoopAnalysisManager LAM;
         FunctionAnalysisManager FAM;
@@ -1036,8 +870,227 @@ int main(int argc, char **argv)
 
         ModulePassManager MPM;
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+        MPM.run(M, MAM);
+    }
+}
+
+int main(int argc, char **argv)
+{
+    InitLLVM initLLVM(argc, argv);
+
+    PassBuilder *PollyPB = nullptr;
+    std::unique_ptr<PassBuilder> PollyPBStorage;
+    std::unique_ptr<TargetMachine> PollyTM =
+        setUpPollyPipeline(argc, argv, PollyPB, PollyPBStorage);
+    if (!PollyTM)
+        return 1;
+
+    std::string backendSelectionReason;
+    const std::string activeIRBackend = resolveBackend(backendSelectionReason);
+
+    // errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
+
+    const bool usingGpuIR = activeIRBackend == "gpu";
+    if (usingGpuIR)
+    {
+        // errs() << "GPU backend IR path requested; placeholder path active -> emitting CPU IR for now\n";
+    }
+
+    // InputFilename is positional and the flag-only parse above deliberately
+    // skipped it, so fall back to the first non-flag argument.
+    std::string infile = InputFilename;
+    if (infile.empty())
+        for (int i = 1; i < argc; ++i)
+            if (argv[i][0] != '-')
+            {
+                infile = argv[i];
+                break;
+            }
+    if (infile.empty())
+    {
+        std::cerr << "No input filename provided.\n";
+        return 1;
+    }
+
+    std::ifstream in(infile);
+    if (!in.good())
+    {
+        std::cerr << "Failed to open input file: " << infile << "\n";
+        return 1;
+    }
+
+    ANTLRInputStream input(in);
+    BaseLexer lexer(&input);
+    CommonTokenStream tokens(&lexer);
+    BaseParser parser(&tokens);
+    auto tree = parser.program();
+    if (parser.getNumberOfSyntaxErrors() > 0)
+    {
+        errs() << "Syntax error: failed to parse '" << infile << "'\n";
+        return 1;
+    }
+
+    ASTBuilder astB;
+    auto progAny = astB.visitProgram(tree);
+    auto prog = std::any_cast<ProgramNodePtr>(progAny);
+
+    LLVMContext Ctx;
+    auto M = std::make_unique<Module>("my_module", Ctx);
+    {
+        auto *backendName = llvm::MDString::get(Ctx, activeIRBackend);
+        auto *backendMD = llvm::MDNode::get(Ctx, backendName);
+        M->getOrInsertNamedMetadata("graph.ir.backend")->addOperand(backendMD);
+    }
+
+    // exit(0);
+    try
+    {
+        SemanticAnalyzer sema(prog);
+        sema.analyze();
+    }
+    catch (const std::exception &ex)
+    {
+        errs() << ex.what() << "\n";
+        return 1;
+    }
+
+    IRBuilder<> IRB(Ctx);
+
+    std::filesystem::path inputPath(infile);
+    std::string sourceDir = inputPath.has_parent_path()
+                                ? inputPath.parent_path().string()
+                                : std::string(".");
+    IRGenVisitor irgen(Ctx, *M, IRB, activeIRBackend, sourceDir);
+    irgen.visitProgram(prog);
+
+    {
+        LoopAnalysisManager LAM;
+        FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM;
+        ModuleAnalysisManager MAM;
+
+        PassBuilder PB;
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+        // after you construct PB and set up analysis managers
+        registerLoopOutlinerPluginWithPassBuilder(PB);
+
+        FunctionPassManager FPM;
+        FPM.addPass(PromotePass());      // mem2reg
+        FPM.addPass(LoopSimplifyPass()); // loop-simplify
+        FPM.addPass(SimplifyCFGPass());  // simplifycfg
+
+        ModulePassManager MPM;
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
         MPM.run(*M, MAM);
     }
+
+
+    // Polly profitability probe: when Polly is enabled and the caller has not
+    // forced an order, run Polly's SCoP DETECTION (analysis only, no codegen)
+    // on the clean IRGen module.  If at least one profitable SCoP exists,
+    // Polly/O3 runs first (its transformations feed the outliner); otherwise
+    // the outliner runs first and the O3/Polly pipeline runs at the END of
+    // the optimization sequence, where its loop restructuring can no longer
+    // hide parallel loops from the PDG/outliner.
+    bool pollyFirst = !isTruthyEnv("GRAPH_DISABLE_POLLY") && !isTruthyEnv("GRAPH_OUTLINER_FIRST");
+    if (pollyFirst)
+    {
+        unsigned pollyScopCount = 0;
+
+        LoopAnalysisManager PollyLAM;
+        FunctionAnalysisManager PollyFAM;
+        CGSCCAnalysisManager PollyCGAM;
+        ModuleAnalysisManager PollyMAM;
+        PollyPB->registerModuleAnalyses(PollyMAM);
+        PollyPB->registerCGSCCAnalyses(PollyCGAM);
+        PollyPB->registerFunctionAnalyses(PollyFAM);
+        PollyPB->registerLoopAnalyses(PollyLAM);
+        PollyPB->crossRegisterProxies(PollyLAM, PollyFAM, PollyCGAM, PollyMAM);
+
+        FunctionPassManager ProbeFPM;
+        ProbeFPM.addPass(PollyProbePass(&pollyScopCount));
+        ModulePassManager ProbeMPM;
+        ProbeMPM.addPass(createModuleToFunctionPassAdaptor(std::move(ProbeFPM)));
+        ProbeMPM.run(*M, PollyMAM);
+
+        pollyFirst = pollyScopCount > 0;
+        if (isTruthyEnv("GRAPH_DEBUG_POLLY_PROBE"))
+            errs() << "[polly-probe] profitable SCoPs: " << pollyScopCount << " -> "
+                   << (pollyFirst ? "Polly/O3 first"
+                                  : "outliner first, O3/Polly at end")
+                   << "\n";
+    }
+
+    // Outliner runs BEFORE the Polly/O3 pipeline when Polly is off, when
+    // GRAPH_OUTLINER_FIRST=1, or when the probe found nothing for Polly.
+    if (!pollyFirst)
+        runPdgAndOutliner(*M, usingGpuIR);
+
+    // ---------------------------------------------------------------------
+    // Polly.
+    //
+    // This has to run HERE, immediately after IRGen and BEFORE the PDG /
+    // SCC / reconstructParallelIR / loop-outliner machinery below.  That
+    // machinery rewrites every loop body into a callback invoked through
+    // parallel_for_runtime, which leaves no loop nest in the caller and an
+    // opaque callee in its place -- measured on a 512x512 matmul, stock `opt`
+    // finds 218 polly.* references in the IR before those passes and exactly 0
+    // after, so running Polly at the end (where the object file is emitted)
+    // cannot ever fire.
+    //
+    // Consequence worth stating plainly: when Polly runs first, it -- not the
+    // outliner -- parallelizes the loops it transforms.  A profitability probe
+    // above decides the order per program: Polly-first when it finds SCoPs,
+    // outliner-first (with O3/Polly moved to the end of the sequence)
+    // otherwise.  GRAPH_DISABLE_POLLY=1 (or -polly=false) disables Polly, and
+    // GRAPH_OUTLINER_FIRST=1 forces the outliner first.
+    // ---------------------------------------------------------------------
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE"))
+        dumpModuleBitcode(*M, dumpPath);
+
+    if (!isTruthyEnv("GRAPH_DISABLE_POLLY"))
+    {
+        M->setTargetTriple(sys::getDefaultTargetTriple());
+        M->setDataLayout(PollyTM->createDataLayout());
+
+        LoopAnalysisManager PollyLAM;
+        FunctionAnalysisManager PollyFAM;
+        CGSCCAnalysisManager PollyCGAM;
+        ModuleAnalysisManager PollyMAM;
+        PollyPB->registerModuleAnalyses(PollyMAM);
+        PollyPB->registerCGSCCAnalyses(PollyCGAM);
+        PollyPB->registerFunctionAnalyses(PollyFAM);
+        PollyPB->registerLoopAnalyses(PollyLAM);
+        PollyPB->crossRegisterProxies(PollyLAM, PollyFAM, PollyCGAM, PollyMAM);
+
+        // Canonicalization SCoP detection depends on: until mem2reg runs, the
+        // loop bounds and array subscripts are still loads and stores and
+        // nothing looks affine.
+        FunctionPassManager CanonFPM;
+        CanonFPM.addPass(PromotePass());
+        CanonFPM.addPass(LoopSimplifyPass());
+        CanonFPM.addPass(SimplifyCFGPass());
+        ModulePassManager CanonMPM;
+        CanonMPM.addPass(createModuleToFunctionPassAdaptor(std::move(CanonFPM)));
+        CanonMPM.run(*M, PollyMAM);
+
+        ModulePassManager OptMPM =
+            PollyPB->buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+        OptMPM.run(*M, PollyMAM);
+    }
+
+    if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_POST"))
+        dumpModuleBitcode(*M, dumpPath);
+
+    // Outliner runs AFTER Polly only when Polly went first (the probe found
+    // profitable SCoPs); otherwise it already ran before the Polly/O3 block.
+    if (pollyFirst)
+        runPdgAndOutliner(*M, usingGpuIR);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))
         dumpModuleBitcode(*M, dumpPath);

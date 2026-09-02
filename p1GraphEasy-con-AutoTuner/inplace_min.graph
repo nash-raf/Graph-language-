@@ -1,0 +1,21 @@
+graph G {
+  edges: file "rtest_edges.txt";
+};
+
+int n = numVertices(G);
+int dist[n];
+
+for each vertex v in G {
+  dist[v] = n;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    if (u < dist[v]) {
+      dist[v] = u;
+    }
+  }
+}
+
+print dist[0];
+print dist[1];

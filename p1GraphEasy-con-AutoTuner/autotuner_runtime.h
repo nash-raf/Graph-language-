@@ -47,6 +47,13 @@ typedef struct {
   int64_t csr_m;
   int32_t csr_owned;      /* 0 = borrowed from graph loader, 1 = autotuner-allocated */
 
+  /* Reverse (in-)adjacency for directed traversal: in_row_ptr/in_col_idx
+   * mirror the Graph struct's transpose cells; built on demand by
+   * autograph_ensure_transpose.  For undirected graphs in_row_ptr == NULL
+   * (the forward CSR is symmetric). */
+  int64_t *in_row_ptr;
+  int32_t *in_col_idx;
+
   /* Transient PCSR arrays (allocated on demand) */
   int64_t *pcsr_row_ptr;
   int32_t *pcsr_col_idx;
@@ -70,6 +77,9 @@ typedef struct {
   uint8_t *scratch_round_member;
   int64_t *scratch_offsets;
   int32_t scratch_offsets_cap;
+  int32_t *scratch_cur_frontier;  /* dense current-frontier buffer, size csr_n */
+  int32_t *scratch_next_frontier; /* dense next-frontier buffer, size csr_n */
+  int32_t *scratch_dest_seen;     /* per-round append flags, size csr_n */
 
   /* Analytic per-op-class RD tiers (Phase 3): per directed insert
    * (N, h2, h3) for {scan, move, brow, struct}, computed by the compiler
@@ -82,6 +92,28 @@ typedef struct {
    * the CSR structure (move/brow/struct; scan unused), mirrors AnalyticCSR. */
   double csr_class_tiers[12];
   uint8_t has_csr_class_tiers;
+
+  /* Graptor CleanCut partitions (owner-computes rule).  When built, every
+   * destination v has a home partition p = homePartition[v]; all edges whose
+   * destination lies in p are stored in p's structures.  Parallel execution
+   * assigns each partition to one worker, which is the guarantee that no two
+   * workers ever write the same destination slot — for push AND pull.
+   *
+   *   partition_start[P+1] : destination range boundaries (contiguous home
+   *                          ranges after the owner-computes assignment).
+   *   push_rp[p]/push_ci[p] : per-partition CSR over the partition's source
+   *                          rows (source ids listed in push_indir[p]).
+   *   push_indir[p][i]      : global source id for row i of partition p.
+   *   push_row_count[p]     : number of source rows in partition p.
+   *
+   * 0 < partition_count => built; 0 => fall back to the shared CSR walker.
+   */
+  int32_t partition_count;
+  int64_t *partition_start;
+  int64_t **push_rp;
+  int32_t **push_ci;
+  int32_t **push_indir;
+  int64_t *push_row_count;
 } AutoGraphMeta;
 
 #ifdef __cplusplus
@@ -116,6 +148,12 @@ int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v);
 void autograph_mark_canonical_dirty(void *graph_ptr);
 void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
                                       int64_t *row_ptr, int32_t *col_idx);
+
+/* Build (once, O(E)) the reverse adjacency (transpose) for directed graphs so
+ * that pull-style owner-computes traversal can scan in-edges.  For directed
+ * layouts the transpose lives in the Graph struct (in_row_ptr/in_col_idx);
+ * this mirrors those cells into the meta.  Returns 1 if usable, 0 otherwise. */
+int autograph_ensure_transpose(void *graph_ptr);
 void autograph_sync_canonical_if_dirty(void *graph_ptr);
 void autograph_profile_region_enter(int32_t region_id, int32_t kind,
                                     int32_t layout, double predicted_ns);
@@ -211,6 +249,117 @@ int32_t autograph_motif_frontier_step(void *graph_ptr,
                                       int32_t *prop0,
                                       int32_t *prop1,
                                       int32_t scalar);
+
+/* ── Generic owner-computes frontier step (Graptor CleanCut model) ──
+ *
+ * Race-free for any per-pair work: destinations are partitioned into
+ * contiguous home ranges (owner-computes rule); each partition is executed
+ * serially on one worker, so exactly one thread ever writes a destination's
+ * property slots.  The per-pair callback does the actual accumulation or
+ * relaxation; it may WRITE destination-indexed slots and READ read-only
+ * (previous-round) arrays.  No atomics required; exact, deterministic.
+ *
+ *   work_fn(source, destination, destination_index, env)
+ *       - destination_index: 0-based position of `destination` in the
+ *         partition's owned range (not needed by most kernels)
+ *   membership: when non-NULL, an in-neighbor `u` is only visited if it is in
+ *       the frontier (sparse-round behavior); NULL visits all in-neighbors.
+ *   source_out: optional output set; if non-NULL, every (source, dest) pair
+ *       visited appends source to the owning lane and appends to next_frontier
+ *       exactly once per destination via env->next (an AutoFrontierSet*).
+ *
+ * Returns the number of destinations appended to next_frontier.
+ */
+typedef void (*sgpl_frontier_pair_fn)(int32_t source, int32_t destination,
+                                      int64_t destination_index, void *env);
+
+int32_t autograph_frontier_step_owner(void *graph_ptr,
+                                      const int32_t *frontier,
+                                      int32_t frontier_size,
+                                      sgpl_frontier_pair_fn work_fn,
+                                      void *work_env,
+                                      const uint8_t *membership,
+                                      int32_t *next_frontier,
+                                      int32_t initial_next_size,
+                                      int32_t *dest_seen);
+
+/* Graptor CleanCut support (owner-computes rule).
+ *
+ * Build (idempotent, O(E)) the per-partition structures used by the race-free
+ * push traversal: each partition owns a contiguous destination range, and all
+ * edges whose destination falls in that range are grouped by source in
+ * push_rp/ci/indir so that a worker scanning its own partition never writes a
+ * foreign destination.  partitions <= 0 picks a default (a small multiple of
+ * the worker count).  Returns the partition count built.
+ */
+int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions);
+
+int32_t autograph_home_partition_of(void *graph_ptr, int32_t destination);
+
+/* Debug: dump the built CleanCut partition structures to stderr. */
+void autograph_debug_dump_clean_cut(void *graph_ptr);
+
+/* Race-free push traversal under CleanCut partitions: each partition is
+ * executed serially by one worker; for each source row, if the source is in
+ * the frontier (membership non-NULL) then work_fn(source, dest, ...) is called
+ * for every dest in the partition.  All dests are home-owned by this worker,
+ * hence no races without atomics. */
+int32_t autograph_frontier_step_owner_push(void *graph_ptr,
+                                           const int32_t *frontier,
+                                           int32_t frontier_size,
+                                           sgpl_frontier_pair_fn work_fn,
+                                           void *work_env,
+                                           const uint8_t *membership,
+                                           int32_t *next_frontier,
+                                           int32_t initial_next_size,
+                                           int32_t *dest_seen);
+
+/* Source-owned variant: partition p owns the SOURCE range [p*n/P,(p+1)*n/P),
+ * so work_fn pairs are dispatched with each source's own CSR row.  Used for
+ * loops whose write target is indexed by the source vertex (owner-computes on
+ * the source side).  Same ABI and frontier behaviour as the push variant. */
+int32_t autograph_frontier_step_owner_source(void *graph_ptr,
+                                             const int32_t *frontier,
+                                             int32_t frontier_size,
+                                             sgpl_frontier_pair_fn work_fn,
+                                             void *work_env,
+                                             const uint8_t *membership,
+                                             int32_t *next_frontier,
+                                             int32_t initial_next_size,
+                                             int32_t *dest_seen);
+
+/* Reduction step with per-partition partials (owner-computes, destination-
+ * owned): every partition accumulates its pair work into its own partial at
+ * work_env + p * partial_bytes; once all partitions finish, combine_fn folds
+ * each partial into `out` in ascending partition order.  The zeroing of the
+ * partials and the allocation are the caller's (compiler pass) job. */
+typedef void (*sgpl_frontier_combine_fn)(const void *partial, void *out);
+int32_t autograph_frontier_step_owner_red(void *graph_ptr,
+                                          const int32_t *frontier,
+                                          int32_t frontier_size,
+                                          sgpl_frontier_pair_fn work_fn,
+                                          void *work_env,
+                                          int64_t partial_bytes,
+                                          sgpl_frontier_combine_fn combine_fn,
+                                          void *out,
+                                          const uint8_t *membership,
+                                          int32_t *next_frontier,
+                                          int32_t initial_next_size,
+                                          int32_t *dest_seen);
+
+/* Frontier envelope helpers for CleanCut (array- and set-based BFS/SSSP).
+ * dest_seen is zeroed each prepare; membership is filled from the current
+ * frontier.  work_fn requests an append by storing 1 into dest_seen[v]; the
+ * step then packs those destinations into next_frontier. */
+int32_t *autograph_scratch_dest_seen(void *graph_ptr);
+int32_t *autograph_scratch_next_frontier(void *graph_ptr);
+uint8_t *autograph_scratch_membership(void *graph_ptr);
+int32_t autograph_prepare_frontier_array(void *graph_ptr,
+                                         const int32_t *frontier,
+                                         int32_t frontier_size);
+int32_t autograph_prepare_frontier_bitmap(void *graph_ptr, void *frontier_bitmap);
+void autograph_commit_frontier_bitmap(void *graph_ptr, void *next_bitmap,
+                                      int32_t new_size);
 
 /* BCSR-native edge mutation. Returns 1 on success, 0 on failure/skip. */
 int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to);

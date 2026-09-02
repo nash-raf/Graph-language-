@@ -2192,13 +2192,13 @@ namespace llvm
         return blocks;
     }
 
-    // COMPLETE REPLACEMENT for performMinCutAndCreateTaskGraph
-    // COMPLETE REPLACEMENT for performMinCutAndCreateTaskGraph
-    TaskGraph performMinCutAndCreateTaskGraph(const dependencyGraph &G)
+    // COMPLETE REPLACEMENT for the deprecated min-cut-named task-graph builder:
+    // partitioning is SCC-based (Tarjan), not minimum-cut.
+    TaskGraph buildSccTaskGraph(const dependencyGraph &G)
     {
         TaskGraph TG;
 
-        llvm::nulls() << "\nPerforming SCC-aware min-cut partitioning...\n";
+        llvm::nulls() << "\nPerforming SCC-aware task partitioning...\n";
 
         // Step 1: Find strongly connected components (these are loop-carried dependencies)
         SmallVector<SmallVector<unsigned>> sccs = findStronglyConnectedComponents(G);
@@ -3252,6 +3252,39 @@ namespace llvm
             {
                 orderLoopTaskBlocks(TG.tasks[taskId], PDG, blockVec);
                 const auto *Region = findLoopRegionInfo(PDG, *TG.tasks[taskId].loopRegionId);
+                /* Graph-frontier round nests are classified SEQUENTIAL by design
+                 * (CleanCut does the parallel work; the residual round/beta/swap
+                 * loops must run inline).  Splitting them into tasks loses the
+                 * values, so leave them inline: the host executes the nest.
+                 * Note: Region->loop is a dangling Loop* (the PDG's LoopInfo is
+                 * gone); the header BLOCK is what remains valid here. */
+                if (getenv("SGPL_TMP_PDG_DIAG"))
+                {
+                    fprintf(stderr, "  [diag] task %u kind=%d region=%d\n",
+                            taskId, (int)TG.tasks[taskId].kind, Region ? 1 : 0);
+                    if (Region && Region->header)
+                        fprintf(stderr,
+                                "  [diag] header=%s seqmark=%d\n",
+                                Region->header->getName().str().c_str(),
+                                Region->header->getTerminator()
+                                    ? (Region->header->getTerminator()
+                                           ->getMetadata(
+                                               "sgpl.frontier.nested.sequential")
+                                           ? 1
+                                           : 0)
+                                    : -1);
+                    else
+                        fprintf(stderr, "  [diag] header=null\n");
+                }
+                if (Region && Region->header &&
+                    Region->header->getTerminator()
+                        ->getMetadata("sgpl.frontier.nested.sequential"))
+                {
+                    llvm::nulls() << "  Task " << taskId
+                                  << ": sequential round nest -> left inline\n";
+                    extractedFunctions[taskId] = nullptr;
+                    continue;
+                }
                 (void)Region;
                 /* Debug logging disabled: extracting loop nest task */
             }

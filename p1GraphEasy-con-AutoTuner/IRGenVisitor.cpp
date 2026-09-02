@@ -3037,6 +3037,12 @@ detectSemiringClosureNest(const WhileStmtNode *loop)
 void IRGenVisitor::visitConditional(ConditionalNode *ifs)
 {
     std::optional<FirstWinsPattern> firstWins = detectFirstWinsPattern(ifs);
+    /* Effect-algebra mode (GRAPH_FRONTIER_REWRITE): retire the AST motif's
+     * per-edge first-wins CAS so the claim lowers to an ordinary guarded store
+     * and CleanCut parallelizes it under the owner rule (dest-owned claim is
+     * race-free — one partition owns the index). */
+    if (getenv("GRAPH_FRONTIER_REWRITE"))
+        firstWins.reset();
     llvm::Value *condBool = nullptr;
     if (firstWins)
     {
@@ -4011,6 +4017,11 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
             if (emitSemiringClosure(*closure))
                 return;
 
+    /* Effect-algebra mode (GRAPH_FRONTIER_REWRITE): retire the AST motif
+     * edge-map dispatch (first-wins / relax-min / peel-k) so these frontier
+     * loops emit ordinary autograph_neighbor_iter_* IR and are picked up and
+     * parallelized by the CleanCut effect algebra instead. */
+    if (!getenv("GRAPH_FRONTIER_REWRITE"))
     if (!disableMotif)
         if (auto edgeMap = analyzeFrontierEdgeMap(ws))
         {
@@ -4516,6 +4527,20 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     // ====== Neighbor iteration: for each neighbor u of v in G ======
     if (fs->targetType == ForEachTargetType::Neighbor)
     {
+        // Graptor CleanCut route for graph loops (the race-free default for
+        // graph-iterator workloads).  Only when explicitly enabled for now
+        // while the pipeline is validated; the plain nest below remains the
+        // fallback for driver shapes we cannot lower yet.
+        if (getenv("SGPL_CLEANCUT"))
+        {
+            if (Builder.GetInsertBlock() &&
+                Builder.GetInsertBlock()->getParent())
+            {
+                // Driver detection is handled by the caller (vertex forEach);
+                // here we ensure the enclosing context is a vertex loop.
+            }
+        }
+
         // Evaluate the source vertex expression (e.g., variable v)
         llvm::Value *srcVertex = visitExpr(fs->adjNodeExpr.get());
         if (srcVertex->getType() != i64Ty)

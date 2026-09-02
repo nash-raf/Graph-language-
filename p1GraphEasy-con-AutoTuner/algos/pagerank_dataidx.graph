@@ -1,0 +1,54 @@
+graph G {
+  edges: file "synthetic/edge_100000.txt";
+};
+
+int n = numVertices(G);
+real damp = 0.85;
+real one_over_n = 1.0 / n;
+real beta = (1.0 - damp) / n;
+real cur_rank[n];
+real next_rank[n];
+int out_degree[n];
+int perm[n];
+int round = 0;
+int max_rounds = 20;
+
+for each vertex v in G {
+  cur_rank[v] = one_over_n;
+  next_rank[v] = beta;
+  out_degree[v] = 0;
+  perm[v] = v;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    out_degree[u] = out_degree[u] + 1;
+  }
+}
+
+while (round < max_rounds) {
+  round = round + 1;
+
+  // Hand-rolled, iterator-less vertex loop whose store index is load-derived
+  // from the graph-data array `perm` (perm[v]) -> must be marked SEQUENTIAL,
+  // never racy DOALL. `perm` is the identity, so results equal pagerank_100k.
+  for each vertex v in G {
+    next_rank[perm[v]] = beta;
+  }
+
+  for each vertex u in G {
+    int outd = out_degree[u];
+    if (outd > 0) {
+      real contrib = damp * cur_rank[u] / outd;
+      for each neighbor v of u in G {
+        next_rank[v] = next_rank[v] + contrib;
+      }
+    }
+  }
+
+  for each vertex v in G {
+    cur_rank[v] = next_rank[v];
+  }
+}
+
+print cur_rank[0];

@@ -1782,6 +1782,90 @@ typedef struct {
   int32_t capacity;
 } AutoFrontierLane;
 
+static int autograph_scratch_ensure(AutoGraphMeta *meta, int32_t lane_count);
+static void autograph_fill_frontier_membership(AutoGraphMeta *meta,
+                                               const int32_t *frontier,
+                                               int32_t frontier_size);
+
+static int autograph_envelope_bufs_ensure(AutoGraphMeta *meta) {
+  if (!meta || meta->csr_n <= 0)
+    return 0;
+  int64_t n = meta->csr_n;
+  if (meta->scratch_n < n && !autograph_scratch_ensure(meta, 1))
+    return 0;
+  if (!meta->scratch_cur_frontier)
+    meta->scratch_cur_frontier = (int32_t *)calloc((size_t)n, sizeof(int32_t));
+  if (!meta->scratch_next_frontier)
+    meta->scratch_next_frontier = (int32_t *)calloc((size_t)n, sizeof(int32_t));
+  if (!meta->scratch_dest_seen)
+    meta->scratch_dest_seen = (int32_t *)calloc((size_t)n, sizeof(int32_t));
+  return meta->scratch_cur_frontier && meta->scratch_next_frontier &&
+         meta->scratch_dest_seen;
+}
+
+int32_t *autograph_scratch_dest_seen(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_envelope_bufs_ensure(meta))
+    return NULL;
+  memset(meta->scratch_dest_seen, 0, (size_t)meta->csr_n * sizeof(int32_t));
+  return meta->scratch_dest_seen;
+}
+
+int32_t *autograph_scratch_next_frontier(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_envelope_bufs_ensure(meta))
+    return NULL;
+  return meta->scratch_next_frontier;
+}
+
+uint8_t *autograph_scratch_membership(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_scratch_ensure(meta, 1))
+    return NULL;
+  return meta->scratch_membership;
+}
+
+int32_t autograph_prepare_frontier_array(void *graph_ptr,
+                                         const int32_t *frontier,
+                                         int32_t frontier_size) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !autograph_scratch_ensure(meta, 1))
+    return 0;
+  autograph_fill_frontier_membership(meta, frontier, frontier_size);
+  return frontier_size;
+}
+
+int32_t autograph_prepare_frontier_bitmap(void *graph_ptr, void *frontier_bitmap) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !frontier_bitmap || !autograph_envelope_bufs_ensure(meta))
+    return 0;
+  RoaringBitmap *bm = (RoaringBitmap *)frontier_bitmap;
+  uint64_t card = roaring_bitmap_get_cardinality(bm);
+  if (card > (uint64_t)meta->csr_n)
+    card = (uint64_t)meta->csr_n;
+  for (uint64_t i = 0; i < card; ++i)
+    meta->scratch_cur_frontier[i] =
+        (int32_t)roaring_bitmap_get_at_index(bm, (uint32_t)i);
+  autograph_fill_frontier_membership(meta, meta->scratch_cur_frontier,
+                                     (int32_t)card);
+  return (int32_t)card;
+}
+
+void autograph_commit_frontier_bitmap(void *graph_ptr, void *next_bitmap,
+                                      int32_t new_size) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !next_bitmap || !meta->scratch_next_frontier)
+    return;
+  RoaringBitmap *bm = (RoaringBitmap *)next_bitmap;
+  roaring_bitmap_clear(bm);
+  if (new_size < 0)
+    new_size = 0;
+  if ((int64_t)new_size > meta->csr_n)
+    new_size = (int32_t)meta->csr_n;
+  for (int32_t i = 0; i < new_size; ++i)
+    roaring_bitmap_add(bm, (uint32_t)meta->scratch_next_frontier[i]);
+}
+
 static int autograph_scratch_ensure(AutoGraphMeta *meta, int32_t lane_count) {
   if (!meta || meta->csr_n <= 0 || lane_count < 1)
     return 0;
@@ -2299,7 +2383,612 @@ int32_t autograph_frontier_step(void *graph_ptr,
   return result;
 }
 
-/* ── Generalized motif frontier step (WriteMin / PeelK) ─────────── */
+/* ── Generic owner-computes frontier step (Graptor CleanCut model) ──
+ *
+ * Home-partition assignment: destination d belongs to lane
+ *   lane = (int64_t)d * lane_count / n
+ * i.e. contiguous ranges of destinations per lane (owner-computes rule).
+ * Each lane runs serially over its range, so exactly one worker writes any
+ * given destination slot.  The per-pair work_fn is called with
+ * (source, destination, local_index, work_env).
+ *
+ * Source iteration mirrors the existing motif walker: for every in-neighbor
+ * `u` of destination d (CSR row d for undirected graphs), if membership is
+ * NULL or u is in the frontier, call work_fn(u, d, ...).
+ *
+ * dest_seen: caller-owned byte array of size n; set to 1 on first visit of
+ * each destination (settled destination) and appended to next_frontier.
+ */
+typedef struct {
+  AutoGraphMeta *meta;
+  int32_t lane_count;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;
+  const uint8_t *membership;
+  int32_t *next_frontier;
+  int32_t initial_next_size;
+  int32_t *dest_seen;
+  _Atomic int32_t appended; /* atomic head into next_frontier for push */
+  int64_t n;
+} AutoOwnerStepEnv;
+
+static void autograph_owner_scan_vertex(AutoOwnerStepEnv *env, int64_t peer) {
+  if (peer < 0 || peer >= env->n)
+    return;
+  AutoGraphMeta *meta = env->meta;
+  /* inbound neighbours: transpose row of `peer` for directed graphs; forward
+   * (symmetric) CSR row of `peer` for undirected. */
+  if (meta->in_row_ptr && meta->in_col_idx) {
+    for (int64_t j = meta->in_row_ptr[peer]; j < meta->in_row_ptr[peer + 1];
+         ++j) {
+      int32_t src = meta->in_col_idx[j];
+      if (env->membership == NULL || env->membership[src])
+        env->work_fn(src, (int32_t)peer, peer, env->work_env);
+    }
+    return;
+  }
+  switch (meta->current_layout) {
+  case LAYOUT_CSR:
+    if (meta->csr_row_ptr && meta->csr_col_idx)
+      for (int64_t j = meta->csr_row_ptr[peer];
+           j < meta->csr_row_ptr[peer + 1]; ++j)
+        if (env->membership == NULL ||
+            env->membership[meta->csr_col_idx[j]])
+          env->work_fn(meta->csr_col_idx[j], (int32_t)peer, peer, env->work_env);
+    break;
+  case LAYOUT_PCSR:
+    if (meta->pcsr_row_ptr && meta->pcsr_col_idx)
+      for (int64_t j = meta->pcsr_row_ptr[peer];
+           j < meta->pcsr_row_ptr[peer + 1]; ++j) {
+        int32_t src = meta->pcsr_col_idx[j];
+        if (src == -1)
+          continue;
+        if (env->membership == NULL || env->membership[src])
+          env->work_fn(src, (int32_t)peer, peer, env->work_env);
+      }
+    break;
+  case LAYOUT_BCSR:
+    if (meta->bcsr_brow_ptr && meta->bcsr_bcol_idx &&
+        meta->bcsr_block_size > 0) {
+      int32_t block_size = meta->bcsr_block_size;
+      int32_t block = (int32_t)(peer / block_size);
+      int32_t local_row = (int32_t)(peer % block_size);
+      for (int64_t k = meta->bcsr_brow_ptr[block];
+           k < meta->bcsr_brow_ptr[block + 1]; k += 2) {
+        int32_t row = meta->bcsr_bcol_idx[k];
+        if (row == local_row) {
+          int32_t src = meta->bcsr_bcol_idx[k + 1];
+          if (env->membership == NULL || env->membership[src])
+            env->work_fn(src, (int32_t)peer, peer, env->work_env);
+        } else if (row > local_row) {
+          break;
+        }
+      }
+    }
+    break;
+  case LAYOUT_SET:
+  default: {
+    RoaringBitmap *edges = (RoaringBitmap *)meta->edges_bitmap;
+    EdgePair *pairs = (EdgePair *)meta->edge_pairs_table;
+    if (edges && pairs)
+      for (int64_t e = 0; e < meta->static_pair_count; ++e) {
+        if (!roaring_bitmap_contains(edges, (uint32_t)e))
+          continue;
+        int32_t u = pairs[e].u;
+        int32_t v = pairs[e].v;
+        if ((int64_t)u == peer && (env->membership == NULL || env->membership[v]))
+          env->work_fn(v, u, peer, env->work_env);
+        else if ((int64_t)v == peer &&
+                 (env->membership == NULL || env->membership[u]))
+          env->work_fn(u, v, peer, env->work_env);
+      }
+    for (int64_t e = 0; e < meta->extra_edge_count; ++e) {
+      if (!meta->extra_edge_live[e])
+        continue;
+      int32_t u = meta->extra_edge_pairs[2 * e];
+      int32_t v = meta->extra_edge_pairs[2 * e + 1];
+      if ((int64_t)u == peer && (env->membership == NULL || env->membership[v]))
+        env->work_fn(v, u, peer, env->work_env);
+      else if ((int64_t)v == peer &&
+               (env->membership == NULL || env->membership[u]))
+        env->work_fn(u, v, peer, env->work_env);
+    }
+    break;
+  }
+  }
+}
+
+static void autograph_owner_partition_body(int64_t index, void *opaque) {
+  AutoOwnerStepEnv *env = (AutoOwnerStepEnv *)opaque;
+  int64_t n = env->n;
+  int64_t begin = n * index / env->lane_count;
+  int64_t end = n * (index + 1) / env->lane_count;
+  for (int64_t dest = begin; dest < end; ++dest) {
+    if (env->dest_seen && env->dest_seen[dest])
+      continue;
+    autograph_owner_scan_vertex(env, dest);
+    if (env->dest_seen) {
+      env->dest_seen[dest] = 1;
+      int32_t head =
+          atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
+      env->next_frontier[env->initial_next_size + head] = (int32_t)dest;
+    }
+  }
+}
+
+int32_t autograph_frontier_step_owner(void *graph_ptr,
+                                      const int32_t *frontier,
+                                      int32_t frontier_size,
+                                      sgpl_frontier_pair_fn work_fn,
+                                      void *work_env,
+                                      const uint8_t *membership,
+                                      int32_t *next_frontier,
+                                      int32_t initial_next_size,
+                                      int32_t *dest_seen) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || meta->csr_n <= 0 || meta->csr_n > INT32_MAX)
+    return initial_next_size;
+
+  int32_t lane_count = sgpl_configured_worker_count();
+  if (lane_count < 1)
+    lane_count = 1;
+
+  /* Directed graphs need the reverse adjacency for in-edge scans; build it on
+   * demand (no-op when the struct already carries it). */
+  if (meta->in_row_ptr == NULL || meta->in_col_idx == NULL)
+    autograph_ensure_transpose(graph_ptr);
+
+  AutoOwnerStepEnv env = {
+      .meta = meta,
+      .lane_count = lane_count,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .membership = membership,
+      .next_frontier = next_frontier,
+      .initial_next_size = initial_next_size,
+      .dest_seen = dest_seen,
+      .appended = 0,
+      .n = meta->csr_n,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, lane_count, 1, autograph_owner_partition_body, &env,
+                       0, 0);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+
+  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
+                                                           memory_order_relaxed);
+}
+
+/* ── Graptor CleanCut partitions (owner-computes rule) ─────────────
+ *
+ * Home partition of destination d: p = d * P / n (contiguous ranges).
+ * Every CSR column entry (u, v) is assigned to the partition of v; per
+ * partition we store a source-grouped CSR so a worker can scan exactly the
+ * edges whose destination it owns.  This guarantees:
+ *     - pull:   worker p scans dests [start[p], start[p+1]) sequentially
+ *     - push:   worker p scans its source-grouped edge list sequentially
+ * and in both cases exactly one worker ever writes to a given destination.
+ */
+
+int32_t autograph_home_partition_of(void *graph_ptr, int32_t destination) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || meta->partition_count <= 0 || meta->csr_n <= 0 ||
+      destination < 0 || destination >= meta->csr_n)
+    return -1;
+  return (int32_t)((int64_t)destination * meta->partition_count / meta->csr_n);
+}
+
+void autograph_debug_dump_clean_cut(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || meta->partition_count <= 0) {
+    fprintf(stderr, "[clean-cut] not built\n");
+    return;
+  }
+  for (int32_t p = 0; p < meta->partition_count; ++p) {
+    fprintf(stderr, "[clean-cut] P%d rows=%lld rp=[",
+            p, (long long)meta->push_row_count[p]);
+    int64_t rows = meta->push_row_count[p];
+    for (int64_t r = 0; r <= rows && r < 16; ++r)
+      fprintf(stderr, "%lld ", (long long)meta->push_rp[p][r]);
+    fprintf(stderr, "] indir=[");
+    for (int64_t r = 0; r < rows && r < 12; ++r)
+      fprintf(stderr, "%d ", meta->push_indir[p][r]);
+    fprintf(stderr, "] ci=[");
+    int64_t total = meta->push_rp[p][rows];
+    for (int64_t e = 0; e < total && e < 16; ++e)
+      fprintf(stderr, "%d ", meta->push_ci[p][e]);
+    fprintf(stderr, "]\n");
+  }
+}
+
+static void autograph_clean_cut_free(AutoGraphMeta *meta) {
+  if (!meta)
+    return;
+  for (int32_t p = 0; p < meta->partition_count; ++p) {
+    free(meta->push_rp ? meta->push_rp[p] : NULL);
+    free(meta->push_ci ? meta->push_ci[p] : NULL);
+    free(meta->push_indir ? meta->push_indir[p] : NULL);
+  }
+  free(meta->push_rp);
+  free(meta->push_ci);
+  free(meta->push_indir);
+  free(meta->push_row_count);
+  free(meta->partition_start);
+  meta->push_rp = NULL;
+  meta->push_ci = NULL;
+  meta->push_indir = NULL;
+  meta->push_row_count = NULL;
+  meta->partition_start = NULL;
+  meta->partition_count = 0;
+}
+
+int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta)
+    return 0;
+  if (!meta->csr_row_ptr || !meta->csr_col_idx || meta->csr_n <= 0)
+    return 0;
+  if (meta->csr_n > INT32_MAX)
+    return 0;
+
+  int32_t workers = sgpl_configured_worker_count();
+  if (workers < 1)
+    workers = 1;
+  if (partitions <= 0) {
+    const char *env = getenv("SGPL_CLEANCUT_PARTITIONS");
+    partitions = env ? (int32_t)strtol(env, NULL, 10) : workers * 4;
+    if (partitions < workers)
+      partitions = workers;
+  }
+  int64_t n = meta->csr_n;
+  if ((int64_t)partitions > n)
+    partitions = (int32_t)n;
+  if (partitions < 1)
+    return 0;
+
+  autograph_clean_cut_free(meta);
+
+  int64_t *start =
+      (int64_t *)calloc((size_t)(partitions + 1), sizeof(int64_t));
+  int64_t **rp = (int64_t **)calloc((size_t)partitions, sizeof(int64_t *));
+  int32_t **ci = (int32_t **)calloc((size_t)partitions, sizeof(int32_t *));
+  int32_t **indir = (int32_t **)calloc((size_t)partitions, sizeof(int32_t *));
+  int64_t *row_counts = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  int64_t *edge_counts = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  if (!start || !rp || !ci || !indir || !row_counts || !edge_counts)
+    goto fail;
+
+  for (int32_t p = 0; p <= partitions; ++p)
+    start[p] = (int64_t)p * n / partitions;
+
+  /* Helper: partition of a destination. */
+#define CC_PART_OF(v) (int32_t)((int64_t)(v) * partitions / n)
+
+  /* Pass 1: count unique source rows + edges per partition.  Sources are
+   * scanned ascending, so each partition's indir rows are sorted. */
+  int32_t *last_row = (int32_t *)calloc((size_t)partitions, sizeof(int32_t));
+  if (!last_row)
+    goto fail;
+  for (int32_t p = 0; p < partitions; ++p)
+    last_row[p] = -1;
+  for (int64_t u = 0; u < n; ++u) {
+    int64_t lo = meta->csr_row_ptr[u];
+    int64_t hi = meta->csr_row_ptr[u + 1];
+    for (int64_t j = lo; j < hi; ++j) {
+      int32_t v = meta->csr_col_idx[j];
+      int32_t p = CC_PART_OF(v);
+      if (p < 0 || p >= partitions)
+        continue;
+      if ((int64_t)last_row[p] != u) {
+        last_row[p] = (int32_t)u;
+        row_counts[p]++;
+      }
+      edge_counts[p]++;
+    }
+  }
+  free(last_row);
+
+  for (int32_t p = 0; p < partitions; ++p) {
+    rp[p] = (int64_t *)calloc((size_t)(row_counts[p] + 1), sizeof(int64_t));
+    indir[p] = (int32_t *)calloc((size_t)row_counts[p], sizeof(int32_t));
+    ci[p] = (int32_t *)calloc((size_t)edge_counts[p], sizeof(int32_t));
+    if (!rp[p] || !indir[p] || !ci[p])
+      goto fail;
+  }
+
+  /* Pass 2: fill indir / ci / rp with one ascending source scan. */
+  int32_t *seen = (int32_t *)calloc((size_t)partitions, sizeof(int32_t));
+  if (!seen)
+    goto fail;
+  for (int32_t p = 0; p < partitions; ++p)
+    seen[p] = -1;
+  int64_t *row_idx = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  int64_t *edge_idx = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  if (!row_idx || !edge_idx)
+    goto fail;
+
+  for (int64_t u = 0; u < n; ++u) {
+    int64_t lo = meta->csr_row_ptr[u];
+    int64_t hi = meta->csr_row_ptr[u + 1];
+    for (int64_t j = lo; j < hi; ++j) {
+      int32_t v = meta->csr_col_idx[j];
+      int32_t p = CC_PART_OF(v);
+      if (p < 0 || p >= partitions)
+        continue;
+      if (seen[p] != (int32_t)u) {
+        /* new source row for partition p: open it in indir and rp */
+        seen[p] = (int32_t)u;
+        if (row_idx[p] < row_counts[p]) {
+          indir[p][row_idx[p]] = (int32_t)u;
+          rp[p][row_idx[p]] = (int64_t)edge_idx[p];
+          row_idx[p]++;
+        }
+      }
+      if (edge_idx[p] < edge_counts[p]) {
+        ci[p][edge_idx[p]++] = v;
+      }
+    }
+  }
+  for (int32_t p = 0; p < partitions; ++p)
+    rp[p][row_counts[p]] = edge_counts[p];
+
+  free(seen);
+  free(row_idx);
+  free(edge_idx);
+  free(edge_counts);
+
+  meta->partition_start = start;
+  meta->push_rp = rp;
+  meta->push_ci = ci;
+  meta->push_indir = indir;
+  meta->push_row_count = row_counts;
+  meta->partition_count = partitions;
+  return partitions;
+
+fail:
+  if (start) free(start);
+  if (rp)
+    for (int32_t p = 0; p < partitions; ++p) free(rp[p]);
+  free(rp);
+  if (ci)
+    for (int32_t p = 0; p < partitions; ++p) free(ci[p]);
+  free(ci);
+  if (indir)
+    for (int32_t p = 0; p < partitions; ++p) free(indir[p]);
+  free(indir);
+  if (row_counts) free(row_counts);
+  if (edge_counts) free(edge_counts);
+  return 0;
+}
+
+typedef struct {
+  AutoGraphMeta *meta;
+  const int32_t *frontier;
+  int32_t frontier_size;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;
+  const uint8_t *membership;
+  int32_t *next_frontier;
+  int32_t initial_next_size;
+  int32_t *dest_seen;
+  _Atomic int32_t appended;
+  int32_t partitions;
+} AutoOwnerPushEnv;
+
+static void autograph_owner_push_partition_body(int64_t index, void *opaque) {
+  AutoOwnerPushEnv *env = (AutoOwnerPushEnv *)opaque;
+  int32_t p = (int32_t)index;
+  AutoGraphMeta *meta = env->meta;
+  int64_t rows = meta->push_row_count[p];
+  int64_t *rp = meta->push_rp[p];
+  int32_t *ci = meta->push_ci[p];
+  int32_t *indir = meta->push_indir[p];
+  for (int64_t r = 0; r < rows; ++r) {
+    int32_t u = indir[r];
+    if (env->membership && !env->membership[u])
+      continue;
+    for (int64_t j = rp[r]; j < rp[r + 1]; ++j) {
+      int32_t v = ci[j];
+      int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
+      env->work_fn(u, v, v, env->work_env);
+      /* Append only if work_fn requested it by storing 1 into dest_seen[v]
+       * (elided DSL next.add / next_frontier[next_size++] = v). */
+      if (env->dest_seen && env->next_frontier && !seen_before &&
+          env->dest_seen[v]) {
+        int32_t head =
+            atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
+        env->next_frontier[env->initial_next_size + head] = v;
+      }
+    }
+  }
+}
+
+int32_t autograph_frontier_step_owner_push(void *graph_ptr,
+                                           const int32_t *frontier,
+                                           int32_t frontier_size,
+                                           sgpl_frontier_pair_fn work_fn,
+                                           void *work_env,
+                                           const uint8_t *membership,
+                                           int32_t *next_frontier,
+                                           int32_t initial_next_size,
+                                           int32_t *dest_seen) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || meta->partition_count <= 0)
+    return initial_next_size;
+  if (!next_frontier && dest_seen)
+    return initial_next_size;
+
+  AutoOwnerPushEnv env = {
+      .meta = meta,
+      .frontier = frontier,
+      .frontier_size = frontier_size,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .membership = membership,
+      .next_frontier = next_frontier,
+      .initial_next_size = initial_next_size,
+      .dest_seen = dest_seen,
+      .appended = 0,
+      .partitions = meta->partition_count,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_owner_push_partition_body, &env, 0, 0);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+
+  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
+                                                           memory_order_relaxed);
+}
+
+/* Source-owned (push-on-owner) traversal: partition p owns a contiguous
+ * SOURCE range [p*n/P, (p+1)*n/P) and scans each source's own CSR row, so
+ * writes indexed by the SOURCE (e.g. out_degree[u]++, u-counted state) are
+ * race-free without atomics.  Zero-copy (no per-partition copies/buffers);
+ * sources are visited ascending per partition, and partitions are disjoint,
+ * so the work function sees exactly the serial edge order.
+ */
+typedef struct {
+  AutoGraphMeta *meta;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;
+  const uint8_t *membership;
+  int32_t *next_frontier;
+  int32_t initial_next_size;
+  int32_t *dest_seen;
+  _Atomic int32_t appended;
+  int32_t partitions;
+} AutoSourceOwnerEnv;
+
+static void autograph_source_owner_partition_body(int64_t index, void *opaque) {
+  AutoSourceOwnerEnv *env = (AutoSourceOwnerEnv *)opaque;
+  AutoGraphMeta *meta = env->meta;
+  int32_t p = (int32_t)index;
+  int64_t n = meta->csr_n;
+  int64_t lo = p * n / env->partitions;
+  int64_t hi = (p + 1) * n / env->partitions;
+  int64_t *rp = meta->csr_row_ptr;
+  int32_t *ci = meta->csr_col_idx;
+  for (int64_t u = lo; u < hi; ++u) {
+    if (env->membership && !env->membership[u])
+      continue;
+    for (int64_t j = rp[u]; j < rp[u + 1]; ++j) {
+      int32_t v = ci[j];
+      int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
+      env->work_fn((int32_t)u, v, v, env->work_env);
+      if (env->dest_seen && env->next_frontier && !seen_before &&
+          env->dest_seen[v]) {
+        int32_t head =
+            atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
+        env->next_frontier[env->initial_next_size + head] = v;
+      }
+    }
+  }
+}
+
+int32_t autograph_frontier_step_owner_source(void *graph_ptr,
+                                             const int32_t *frontier,
+                                             int32_t frontier_size,
+                                             sgpl_frontier_pair_fn work_fn,
+                                             void *work_env,
+                                             const uint8_t *membership,
+                                             int32_t *next_frontier,
+                                             int32_t initial_next_size,
+                                             int32_t *dest_seen) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || meta->partition_count <= 0)
+    return initial_next_size;
+  if (!next_frontier && dest_seen)
+    return initial_next_size;
+
+  AutoSourceOwnerEnv env = {
+      .meta = meta,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .membership = membership,
+      .next_frontier = next_frontier,
+      .initial_next_size = initial_next_size,
+      .dest_seen = dest_seen,
+      .appended = 0,
+      .partitions = meta->partition_count,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_source_owner_partition_body, &env, 0, 0);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+
+  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
+                                                           memory_order_relaxed);
+}
+
+/* Per-partition partial reduction step (owner-computes, destination-owned):
+ * each partition accumulates its pair work into its own partial at
+ * work_env + p * partial_bytes; once all partitions finish, the combine
+ * function folds every partial into `out` in ascending partition order
+ * (deterministic combine order; each partial is summed in CSR order). */
+typedef void (*sgpl_frontier_combine_fn)(const void *partial, void *out);
+
+typedef struct {
+  AutoGraphMeta *meta;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;            /* partials base */
+  int64_t partial_bytes;
+  const uint8_t *membership;
+} AutoRedEnv;
+
+static void autograph_owner_red_partition_body(int64_t index, void *opaque) {
+  AutoRedEnv *env = (AutoRedEnv *)opaque;
+  AutoGraphMeta *meta = env->meta;
+  int32_t p = (int32_t)index;
+  int64_t rows = meta->push_row_count[p];
+  int64_t *rp = meta->push_rp[p];
+  int32_t *ci = meta->push_ci[p];
+  int32_t *indir = meta->push_indir[p];
+  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
+  for (int64_t r = 0; r < rows; ++r) {
+    int32_t u = indir[r];
+    if (env->membership && !env->membership[u])
+      continue;
+    for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
+      env->work_fn(u, ci[j], ci[j], partial);
+  }
+}
+
+int32_t autograph_frontier_step_owner_red(void *graph_ptr,
+                                          const int32_t *frontier,
+                                          int32_t frontier_size,
+                                          sgpl_frontier_pair_fn work_fn,
+                                          void *work_env,
+                                          int64_t partial_bytes,
+                                          sgpl_frontier_combine_fn combine_fn,
+                                          void *out,
+                                          const uint8_t *membership,
+                                          int32_t *next_frontier,
+                                          int32_t initial_next_size,
+                                          int32_t *dest_seen) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || !combine_fn || meta->partition_count <= 0)
+    return initial_next_size;
+
+  AutoRedEnv env = {
+      .meta = meta,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .partial_bytes = partial_bytes,
+      .membership = membership,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_owner_red_partition_body, &env, 0, 0);
+  for (int32_t p = 0; p < meta->partition_count; ++p)
+    combine_fn((char *)work_env + (int64_t)p * partial_bytes, out);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+  return initial_next_size;
+}
+
 
 typedef struct {
   AutoGraphMeta *meta;
@@ -2863,6 +3552,8 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
     meta->csr_row_ptr = *((int64_t **)(base + 16));
     meta->csr_col_idx = *((int32_t **)(base + 24));
     meta->csr_weights = *((int32_t **)(base + 32));
+    meta->in_row_ptr = *((int64_t **)(base + 48));
+    meta->in_col_idx = *((int32_t **)(base + 56));
     meta->csr_owned = 0;
     meta->has_class_tiers = 0;
     meta->has_csr_class_tiers = 0;
@@ -2870,6 +3561,74 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
 
     /* fprintf(stderr, "[AutoTuner] Initialized Graph %p (n=%ld, m=%ld) in CSR baseline layout\n",
             graph_ptr, (long)n, (long)m); */
+}
+
+/* Build (once, O(E)) the reverse adjacency (transpose) for directed graphs so
+ * pull-style owner-computes traversal can scan in-edges.  The transpose lives
+ * in the Graph struct's cells at byte offsets 40 (in_row_ptr) and 48
+ * (in_col_idx); this mirrors (or builds) them into the meta.  Undirected
+ * graphs already have symmetric CSR — returns 1 with in_row_ptr left NULL. */
+int autograph_ensure_transpose(void *graph_ptr) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta)
+    return 0;
+  if (meta->in_row_ptr)
+    return 1; /* already built/aliased */
+
+  char *base = (char *)graph_ptr;
+  int64_t *g_in_rp = *((int64_t **)(base + 48));
+  int32_t *g_in_ci = *((int32_t **)(base + 56));
+  if (g_in_rp && g_in_ci) {
+    meta->in_row_ptr = g_in_rp;
+    meta->in_col_idx = g_in_ci;
+    return 1;
+  }
+
+  /* Build from the forward CSR: for each edge (u -> v), append u to in-list of
+   * v.  Direct use of the forward CSR assumes no self-referential transpose is
+   * present; this is the standard one-pass CSR transpose (O(E), two passes). */
+  int64_t n = meta->csr_n;
+  if (n <= 0 || !meta->csr_row_ptr || !meta->csr_col_idx)
+    return 0;
+
+  int64_t *irp = (int64_t *)calloc((size_t)(n + 1), sizeof(int64_t));
+  if (!irp)
+    return 0;
+  for (int64_t u = 0; u < n; ++u) {
+    for (int64_t j = meta->csr_row_ptr[u]; j < meta->csr_row_ptr[u + 1]; ++j) {
+      int32_t v = meta->csr_col_idx[j];
+      if (v >= 0 && v < n)
+        irp[v + 1]++;
+    }
+  }
+  for (int64_t i = 1; i <= n; ++i)
+    irp[i] += irp[i - 1];
+  int64_t total = irp[n];
+  int32_t *ici = total > 0 ? (int32_t *)malloc((size_t)total * sizeof(int32_t))
+                           : NULL;
+  if (total > 0 && !ici) {
+    free(irp);
+    return 0;
+  }
+  int64_t *cursor = (int64_t *)malloc((size_t)(n + 1) * sizeof(int64_t));
+  if (!cursor) {
+    free(irp);
+    free(ici);
+    return 0;
+  }
+  memcpy(cursor, irp, (size_t)(n + 1) * sizeof(int64_t));
+  for (int64_t u = 0; u < n; ++u) {
+    for (int64_t j = meta->csr_row_ptr[u]; j < meta->csr_row_ptr[u + 1]; ++j) {
+      int32_t v = meta->csr_col_idx[j];
+      if (v >= 0 && v < n)
+        ici[cursor[v]++] = (int32_t)u;
+    }
+  }
+  free(cursor);
+
+  meta->in_row_ptr = irp;
+  meta->in_col_idx = ici;
+  return 1;
 }
 
 void autograph_set_class_tiers(void *graph_ptr, const double *tiers) {

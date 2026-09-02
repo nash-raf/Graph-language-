@@ -124,7 +124,8 @@ int main(int argc, char **argv)
 {
     // NOTE: we postpone cl::ParseCommandLineOptions until after Polly registers its flags,
     // so we do not call it here with the original argv. We'll build a new argv
-    // (original args + our forced polly args) and parse that after registration.
+    // (original args + polly args, added only when Polly is requested) and
+    // parse that after registration.
 
     InitLLVM initLLVM(argc, argv);
 
@@ -230,14 +231,12 @@ int main(int argc, char **argv)
         return false;
     };
 
-    auto pushFlag = [&](const std::string &flag) { storedArgs.emplace_back(flag); };
-
-    // GRAPH_DISABLE_POLLY lets us A/B the same source without rebuilding.
-    if (isTruthyEnvVar("GRAPH_DISABLE_POLLY"))
-    {
-        pushFlag("-polly=false");
-    }
-    else if (!hasArg("-polly"))
+    // Polly is enabled by default but NOT force-enabled: it is injected only
+    // when the caller has not expressed an intent.  GRAPH_DISABLE_POLLY=1 or
+    // an explicit -polly=false turn it off, and passing -polly (or any other
+    // polly flag) leaves the caller's flags untouched.  When Polly is off the
+    // normal pipeline (O3 + PDG + loop outliner + autotuner) runs untouched.
+    if (!hasArg("-polly") && !hasArg("-polly=false") && !isTruthyEnvVar("GRAPH_DISABLE_POLLY"))
     {
         pushFlag("-polly");
         // Polly's matmul pattern matcher accounts for essentially all of its

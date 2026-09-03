@@ -8,26 +8,6 @@
 #include <cstring> // for std::memcpy
 #include "llvm/Support/Allocator.h"
 
-namespace {
-bool parseGraphDirectedProperty(const std::vector<BaseParser::GraphPropertyContext *> &props)
-{
-    bool directed = false;
-    bool seenDirected = false;
-    for (auto *prop : props)
-    {
-        if (!prop)
-            continue;
-        std::string value = prop->boolLiteral()->getText();
-        bool next = (value == "true" || value == "TRUE");
-        if (seenDirected && directed != next)
-            throw std::runtime_error("conflicting directed graph properties");
-        directed = next;
-        seenDirected = true;
-    }
-    return directed;
-}
-}
-
 antlrcpp::Any ASTBuilder::visitProgram(BaseParser::ProgramContext *ctx)
 {
     std::vector<ASTNodePtr> items;
@@ -127,8 +107,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         auto *op = ctx->nodeEdgeOperation();
 
-        std::vector<int> nodes;
-        std::vector<std::pair<int,int>> edges;
+        std::vector<GraphUpdateTarget> targets;
         std::string gname;
         GraphUpdateKind kind;
 
@@ -136,62 +115,58 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         {
             kind = GraphUpdateKind::Add;
             gname = add->graphID()->getText();
-            auto *t = add->addTargets();
-
-            if (t->nodeID())
+            auto *t = add->graphUpdateTargets();
+            if (!t)
+                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
+            if (auto *nodeList = t->updateNodeTargetList())
             {
-                nodes.push_back(std::stoi(t->nodeID()->getText()));
-            }
-            else if (t->edge())
-            {
-                int u = std::stoi(t->edge()->nodeID(0)->getText());
-                int v = std::stoi(t->edge()->nodeID(1)->getText());
-                edges.emplace_back(u, v);
-            }
-            else if (t->nodeList())
-            {
-                for (auto *idT : t->nodeList()->nodeID())
-                    nodes.push_back(std::stoi(idT->getText()));
-            }
-            else if (t->edgeList())
-            {
-                for (auto *eCtx : t->edgeList()->edge())
+                for (auto *exprCtx : nodeList->expr())
                 {
-                    int u = std::stoi(eCtx->nodeID(0)->getText());
-                    int v = std::stoi(eCtx->nodeID(1)->getText());
-                    edges.emplace_back(u, v);
+                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
+                    targets.emplace_back(std::move(value));
                 }
+            }
+            else if (auto *edgeList = t->updateEdgeTargetList())
+            {
+                for (auto *edgeCtx : edgeList->updateEdgeTarget())
+                {
+                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
+                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
+                    targets.emplace_back(std::move(src), std::move(dst));
+                }
+            }
+            else
+            {
+                throw std::runtime_error("graph update parse error: malformed add target list");
             }
         }
         else if (auto *rem = op->removeOperation())
         {
             kind = GraphUpdateKind::Remove;
             gname = rem->graphID()->getText();
-            auto *t = rem->removeTargets();
-
-            if (t->nodeID())
+            auto *t = rem->graphUpdateTargets();
+            if (!t)
+                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
+            if (auto *nodeList = t->updateNodeTargetList())
             {
-                nodes.push_back(std::stoi(t->nodeID()->getText()));
-            }
-            else if (t->edge())
-            {
-                int u = std::stoi(t->edge()->nodeID(0)->getText());
-                int v = std::stoi(t->edge()->nodeID(1)->getText());
-                edges.emplace_back(u, v);
-            }
-            else if (t->nodeList())
-            {
-                for (auto *idT : t->nodeList()->nodeID())
-                    nodes.push_back(std::stoi(idT->getText()));
-            }
-            else if (t->edgeList())
-            {
-                for (auto *eCtx : t->edgeList()->edge())
+                for (auto *exprCtx : nodeList->expr())
                 {
-                    int u = std::stoi(eCtx->nodeID(0)->getText());
-                    int v = std::stoi(eCtx->nodeID(1)->getText());
-                    edges.emplace_back(u, v);
+                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
+                    targets.emplace_back(std::move(value));
                 }
+            }
+            else if (auto *edgeList = t->updateEdgeTargetList())
+            {
+                for (auto *edgeCtx : edgeList->updateEdgeTarget())
+                {
+                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
+                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
+                    targets.emplace_back(std::move(src), std::move(dst));
+                }
+            }
+            else
+            {
+                throw std::runtime_error("graph update parse error: malformed remove target list");
             }
         }
         
@@ -200,7 +175,7 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             throw std::runtime_error("nodeEdgeOperation: unknown alternative");
         }
 
-        auto up = std::make_shared<GraphUpdateNode>(kind, gname, nodes, edges);
+        auto up = std::make_shared<GraphUpdateNode>(kind, gname, std::move(targets));
         return std::static_pointer_cast<ASTNode>(up);
     }
     else if (ctx->graphComprehension())
@@ -781,7 +756,7 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    std::string callee = ctx->functionName()->getText();
+    std::string callee = ctx->ID()->getText();
 
     // collect arguments
     std::vector<ASTNodePtr> args;
@@ -800,7 +775,6 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
 antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    bool directed = parseGraphDirectedProperty(ctx->graphProperty());
     // std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
 
     if (!ctx->edges())
@@ -811,7 +785,7 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s), directed);
+        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s));
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -855,8 +829,7 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     auto gnode = std::make_shared<GraphDeclNode>(
         std::move(nm),
         std::move(nd),
-        std::move(ed),
-        directed);
+        std::move(ed));
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
@@ -864,7 +837,6 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    bool directed = parseGraphDirectedProperty(ctx->graphProperty());
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
@@ -873,7 +845,7 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s), directed);
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s));
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -914,8 +886,7 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     auto gnode = std::make_shared<WeightedGraphDeclNode>(
         std::move(nm),
         std::move(nd),
-        std::move(ed),
-        directed);
+        std::move(ed));
 
     return std::static_pointer_cast<ASTNode>(gnode);
 }
@@ -1077,18 +1048,6 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         tgt = ForEachTargetType::Neighbor;
         var1 = adjCtx->ID()->getText();
         adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(adjCtx->expr()));
-    }
-    else if (auto outAdjCtx = dynamic_cast<BaseParser::ForEachOutAdjContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::OutNeighbor;
-        var1 = outAdjCtx->ID()->getText();
-        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(outAdjCtx->expr()));
-    }
-    else if (auto inAdjCtx = dynamic_cast<BaseParser::ForEachInAdjContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::InNeighbor;
-        var1 = inAdjCtx->ID()->getText();
-        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(inAdjCtx->expr()));
     }
     else if (auto elemCtx = dynamic_cast<BaseParser::ForEachElementContext *>(loopCtx))
     {

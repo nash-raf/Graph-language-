@@ -17,6 +17,8 @@ bool parseGraphDirectedProperty(const std::vector<BaseParser::GraphPropertyConte
     {
         if (!prop)
             continue;
+        if (prop->getStart()->getText() != "directed")
+            continue;
         std::string value = prop->boolLiteral()->getText();
         bool next = (value == "true" || value == "TRUE");
         if (seenDirected && directed != next)
@@ -25,6 +27,45 @@ bool parseGraphDirectedProperty(const std::vector<BaseParser::GraphPropertyConte
         seenDirected = true;
     }
     return directed;
+}
+
+GraphWeightMode parseGraphWeightProperty(
+    const std::vector<BaseParser::GraphPropertyContext *> &props,
+    GraphWeightMode fallback = GraphWeightMode::None)
+{
+    GraphWeightMode mode = fallback;
+    bool seen = false;
+    for (auto *prop : props)
+    {
+        if (!prop || prop->getStart()->getText() != "weights")
+            continue;
+
+        const std::string value = prop->weightMode()->getText();
+        GraphWeightMode next = GraphWeightMode::None;
+        if (value == "true" || value == "TRUE") next = GraphWeightMode::FromFile;
+        else if (value == "false" || value == "FALSE") next = GraphWeightMode::None;
+        else if (value == "positive") next = GraphWeightMode::Positive;
+        else if (value == "zero") next = GraphWeightMode::Zero;
+        else if (value == "negative") next = GraphWeightMode::Negative;
+        else throw std::runtime_error("unsupported weights mode: " + value);
+
+        if (seen && mode != next)
+            throw std::runtime_error("conflicting weights graph properties");
+        mode = next;
+        seen = true;
+    }
+    return mode;
+}
+
+MotifEdgeSpec parseMotifEdge(BaseParser::MotifEdgeContext *edge)
+{
+    MotifEdgeSpec result;
+    result.source = edge->ID(0)->getText();
+    result.target = edge->ID(1)->getText();
+    result.sign = edge->children[1]->getText() == "-|"
+        ? MotifEdgeSign::Negative
+        : MotifEdgeSign::Positive;
+    return result;
 }
 }
 
@@ -233,6 +274,46 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             target, gname, std::move(ops), std::move(operands), cond);
         return std::static_pointer_cast<ASTNode>(node);
     }
+    else if (ctx->motifMatchesDecl())
+    {
+        auto *decl = ctx->motifMatchesDecl();
+        std::vector<MotifEdgeSpec> edges;
+        std::vector<std::string> variables;
+        std::unordered_set<std::string> seen;
+        for (auto *edgeCtx : decl->motifEdge())
+        {
+            MotifEdgeSpec edge = parseMotifEdge(edgeCtx);
+            if (seen.insert(edge.source).second)
+                variables.push_back(edge.source);
+            if (seen.insert(edge.target).second)
+                variables.push_back(edge.target);
+            edges.push_back(std::move(edge));
+        }
+        auto node = std::make_shared<MotifMatchesDeclNode>(
+            decl->ID()->getText(), decl->graphID()->getText(),
+            std::move(edges), std::move(variables));
+        return std::static_pointer_cast<ASTNode>(node);
+    }
+    else if (ctx->graphListDecl())
+    {
+        auto *decl = ctx->graphListDecl();
+        std::vector<MotifEdgeSpec> edges;
+        std::vector<std::string> variables;
+        std::unordered_set<std::string> seen;
+        for (auto *edgeCtx : decl->motifEdge())
+        {
+            MotifEdgeSpec edge = parseMotifEdge(edgeCtx);
+            if (seen.insert(edge.source).second)
+                variables.push_back(edge.source);
+            if (seen.insert(edge.target).second)
+                variables.push_back(edge.target);
+            edges.push_back(std::move(edge));
+        }
+        auto node = std::make_shared<GraphListDeclNode>(
+            decl->ID()->getText(), decl->graphID()->getText(),
+            std::move(edges), std::move(variables));
+        return std::static_pointer_cast<ASTNode>(node);
+    }
     else if (ctx->showgraph())
     {
         std::string gname = ctx->showgraph()->graphID()->getText();
@@ -298,6 +379,14 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
                     seenVertexSize = true;
                     node->sizeArray = mapping->ID()->getText();
                 }
+                else if (vertexOption->getStart()->getText() == "size" &&
+                         vertexOption->ID())
+                {
+                    if (seenVertexSize)
+                        throw std::runtime_error("draw: duplicate vertex size option");
+                    seenVertexSize = true;
+                    node->sizeArray = vertexOption->ID()->getText();
+                }
                 else
                 {
                     if (seenVertexLabel)
@@ -315,6 +404,68 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
                 seenEdgeLabel = true;
                 const std::string value = edgeOption->boolLiteral()->getText();
                 node->edgeWeightLabels = value == "true" || value == "TRUE";
+            }
+        }
+
+        return std::static_pointer_cast<ASTNode>(node);
+    }
+    else if (ctx->drawmotifs())
+    {
+        auto *draw = ctx->drawmotifs();
+        std::string output = draw->STRING()->getText();
+        output = output.substr(1, output.size() - 2);
+
+        auto node = std::make_shared<DrawMotifsNode>(
+            draw->graphID()->getText(), output);
+        node->combinedImage = draw->getText().rfind("drawmotifsof", 0) == 0;
+
+        bool seenLayout = false;
+        bool seenVertexLabel = false;
+        bool seenEdgeLabel = false;
+
+        for (auto *option : draw->drawMotifOption())
+        {
+            if (auto *edge = option->motifEdge())
+            {
+                node->motifEdges.push_back(parseMotifEdge(edge));
+                continue;
+            }
+
+            if (option->STRING())
+            {
+                if (seenLayout)
+                    throw std::runtime_error("draw motif: duplicate layout option");
+                seenLayout = true;
+                std::string value = option->STRING()->getText();
+                value = value.substr(1, value.size() - 2);
+                if (value == "hierarchical") node->layout = DrawLayout::Hierarchical;
+                else if (value == "force") node->layout = DrawLayout::Force;
+                else if (value == "radial") node->layout = DrawLayout::Radial;
+                else if (value == "circular") node->layout = DrawLayout::Circular;
+                else if (value == "clustered") node->layout = DrawLayout::Clustered;
+                else if (value == "auto") node->layout = DrawLayout::Auto;
+                else throw std::runtime_error("draw motif: unsupported layout: " + value);
+                continue;
+            }
+
+            for (auto *vertexOption : option->vertexDrawOption())
+            {
+                if (!vertexOption->boolLiteral())
+                    throw std::runtime_error("draw motif: vertex color/size is not supported for per-match drawings yet");
+                if (seenVertexLabel)
+                    throw std::runtime_error("draw motif: duplicate vertex label option");
+                seenVertexLabel = true;
+                const std::string value = vertexOption->boolLiteral()->getText();
+                node->vertexLabels = value == "true" || value == "TRUE";
+            }
+
+            for (auto *edgeOption : option->edgeDrawOption())
+            {
+                if (seenEdgeLabel)
+                    throw std::runtime_error("draw motif: duplicate edge label option");
+                seenEdgeLabel = true;
+                const std::string value = edgeOption->boolLiteral()->getText();
+                node->edgeLabels = value == "true" || value == "TRUE";
             }
         }
 
@@ -882,6 +1033,7 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
 {
     std::string nm = ctx->graphID()->getText();
     bool directed = parseGraphDirectedProperty(ctx->graphProperty());
+    GraphWeightMode weightMode = parseGraphWeightProperty(ctx->graphProperty());
     // std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
 
     if (!ctx->edges())
@@ -892,6 +1044,12 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
+        if (weightMode != GraphWeightMode::None)
+        {
+            auto gnode = std::make_shared<WeightedGraphDeclNode>(
+                std::move(nm), std::move(s), directed, weightMode);
+            return std::static_pointer_cast<ASTNode>(gnode);
+        }
         auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s), directed);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
@@ -931,6 +1089,19 @@ antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDef
     std::sort(nodeIds.begin(), nodeIds.end());
 
     auto nd = std::make_unique<InlineNodeList>(std::move(nodeIds));
+    if (weightMode != GraphWeightMode::None)
+    {
+        const int weight = weightMode == GraphWeightMode::Negative ? -1
+                         : weightMode == GraphWeightMode::Zero ? 0 : 1;
+        llvm::DenseMap<std::pair<int, int>, int> weightMap;
+        for (const auto &edge : edgesVec)
+            weightMap[edge] = weight;
+        auto ed = std::make_unique<InlineWeightedEdgeList>(edgesVec, std::move(weightMap));
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(
+            std::move(nm), std::move(nd), std::move(ed), directed, weightMode);
+        return std::static_pointer_cast<ASTNode>(gnode);
+    }
+
     auto ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
 
     auto gnode = std::make_shared<GraphDeclNode>(
@@ -946,6 +1117,8 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
 {
     std::string nm = ctx->graphID()->getText();
     bool directed = parseGraphDirectedProperty(ctx->graphProperty());
+    GraphWeightMode weightMode = parseGraphWeightProperty(
+        ctx->graphProperty(), GraphWeightMode::FromFile);
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
@@ -954,7 +1127,8 @@ antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefCont
     {
         std::string s = fe->STRING()->getText();
         s = s.substr(1, s.size() - 2);
-        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s), directed);
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(
+            std::move(nm), std::move(s), directed, weightMode);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
@@ -1176,6 +1350,18 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         tgt = ForEachTargetType::Element;
         var1 = elemCtx->ID()->getText();
     }
+    else if (auto graphCtx = dynamic_cast<BaseParser::ForEachGraphContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::Graph;
+        var1 = graphCtx->ID()->getText();
+    }
+    else if (auto motifCtx = dynamic_cast<BaseParser::ForEachMotifContext *>(loopCtx))
+    {
+        tgt = ForEachTargetType::Motif;
+        const auto ids = motifCtx->ID();
+        if (!ids.empty()) var1 = ids[0]->getText();
+        if (ids.size() > 1) var2 = ids[1]->getText();
+    }
     else if (auto plainCtx = dynamic_cast<BaseParser::ForEachPlainContext *>(loopCtx))
     {
         // "for each v in setOrGraph" — plain variable iteration
@@ -1195,6 +1381,12 @@ antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementCont
         ctx->graphID()->getText(),
         std::move(adjNodeExpr),
         std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
+
+    if (auto motifCtx = dynamic_cast<BaseParser::ForEachMotifContext *>(loopCtx))
+    {
+        for (auto *id : motifCtx->ID())
+            fsNode->motifVars.push_back(id->getText());
+    }
 
     // Return as ASTNodePtr
     return std::static_pointer_cast<ASTNode>(fsNode);
@@ -1230,6 +1422,13 @@ std::shared_ptr<GraphConditionNode> ASTBuilder::buildGraphCondition(BaseParser::
     else if (auto *vertexInCtx = dynamic_cast<BaseParser::VertexInSetConditionContext *>(ctx))
     {
         return std::make_shared<GraphConditionNode>(vertexInCtx->ID()->getText());
+    }
+    else if (auto *motifCtx = dynamic_cast<BaseParser::MotifConditionContext *>(ctx))
+    {
+        std::vector<MotifEdgeSpec> edges;
+        for (auto *edgeCtx : motifCtx->motifEdge())
+            edges.push_back(parseMotifEdge(edgeCtx));
+        return std::make_shared<GraphConditionNode>(std::move(edges));
     }
     else if (auto *degCtx = dynamic_cast<BaseParser::DegreeConditionContext*>(ctx))
     {

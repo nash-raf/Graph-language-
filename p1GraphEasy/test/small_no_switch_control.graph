@@ -1,0 +1,43 @@
+// Small control workload: looks phasey, but stays intentionally tiny.
+graph SmallControl {
+  edges: file "shared_edgelist.txt";
+};
+
+query baseline: "bfs" of SmallControl;
+
+int src = 100;
+while (src < 102) {
+  add src->(src + 1), src->(src + 3) to SmallControl;
+  src = src + 1;
+}
+
+int dead = 100;
+while (dead < 102) {
+  remove dead->(dead + 3) from SmallControl;
+  dead = dead + 1;
+}
+
+query after_small_update: "bfs" of SmallControl;
+
+set visited;
+set frontier = {100};
+int reached = 0;
+
+while (setSize(frontier) > 0) {
+  set next = {};
+  for each element u in frontier {
+    if (!visited.contains(u)) {
+      visited.add(u);
+      reached = reached + 1;
+      for each neighbor v of u in SmallControl {
+        if (!visited.contains(v)) {
+          next.add(v);
+        }
+      }
+    }
+  }
+  frontier = next;
+}
+
+print reached;
+print numEdges(SmallControl);

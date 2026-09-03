@@ -1,0 +1,31 @@
+graph G {
+  edges: file "synth_v_10000_e_100000.txt";
+};
+
+int a[10002];
+a[0] = 1;
+a[1] = 1;
+int iters = 0;
+while (iters < 10) {
+  for each vertex v in G {
+    if (v % 2 == 0) {
+      a[v+2] = a[v] + 1;
+    } else {
+      a[v+2] = a[v] * 2;
+    }
+  }
+  iters = iters + 1;
+}
+
+print "a[0]=";
+print a[0];
+print " a[1]=";
+print a[1];
+print " a[9998]=";
+print a[9998];
+print " a[9999]=";
+print a[9999];
+print " a[10000]=";
+print a[10000];
+print " a[10001]=";
+print a[10001];

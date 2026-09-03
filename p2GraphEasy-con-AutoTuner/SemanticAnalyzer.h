@@ -16,6 +16,7 @@ struct Symbol
 {
     TypeKind type = TypeKind::Unknown;
     bool isFunction = false;
+    int motifVarCount = 0;
     FunctionInfo func;
 };
 
@@ -58,6 +59,10 @@ private:
     void analyzeSleepStmt(SleepStmtNode *SS);
     void analyzeGraphUpdate(GraphUpdateNode *upd);
     void analyzeShowGraph(ShowGraphNode *S);
+    void analyzeDrawGraph(DrawGraphNode *D);
+    void analyzeDrawMotifs(DrawMotifsNode *D);
+    void analyzeMotifMatchesDecl(MotifMatchesDeclNode *M);
+    void analyzeGraphListDecl(GraphListDeclNode *M);
     void analyzeGraphComprehension(GraphComprehensionNode *GC);
     void validateGraphCondition(GraphConditionNode *cond, GraphDeclNode *G);
     void analyzeSetDecl(SetDeclNode *SD);
@@ -68,4 +73,3 @@ private:
 };
 
 #endif // SEMANTIC_ANALYZER_H
-

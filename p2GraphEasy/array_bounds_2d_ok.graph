@@ -1,0 +1,5 @@
+int n = 2;
+int m = 3;
+int dist[n][m];
+dist[1][2] = 7;
+print dist[1][2];

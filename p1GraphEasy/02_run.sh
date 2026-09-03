@@ -53,6 +53,8 @@ fi
 if [[ -z "$IR_OVERRIDE" ]]; then
   echo "=== [2] Compiling GraphProgram ==="
 
+  clang-20 -S -emit-llvm -O2 graph_mutation_runtime.c -o graph_mutation_runtime.ll
+
   RAW_LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"
   LLVM_CXXFLAGS="${RAW_LLVM_CXXFLAGS//-fno-exceptions/}"
   LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"

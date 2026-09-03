@@ -1,10 +1,13 @@
 #include "IRGenVisitor.h"
+#include "MotifIRBuilder.h"
+#include <cstring>
 #include "SemanticAnalyzer.h" // For TypeKind enum
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Verifier.h>
 #include <chrono>
 #include <stdexcept>
 #include <tuple>
+#include <unordered_map>
 
 static uint64_t packEdgeKey(int32_t u, int32_t v)
 {
@@ -171,6 +174,10 @@ llvm::Type *IRGenVisitor::getLLVMTypeFromTypeKind(TypeKind kind)
     case TypeKind::WeightedGraph:
         // Assuming WeightedGraph uses the same struct type for now
         return GraphTy->getPointerTo();
+    case TypeKind::MotifMatches:
+        return MotifMatchesTy->getPointerTo();
+    case TypeKind::GraphList:
+        return MotifMatchesTy->getPointerTo();
     case TypeKind::Set:
         return llvm::PointerType::get(Context, 0); // bitmap pointer (opaque)
     case TypeKind::Void:
@@ -216,6 +223,19 @@ llvm::Value *IRGenVisitor::lookupNamedStorage(const std::string &name)
     if (it == NamedValues.end())
         throw std::runtime_error("Undefined variable: " + name);
     return it->second;
+}
+
+// Base address of a 2D array's element storage. A 2D array declared at top
+// level is kept as a global holding a pointer to the real allocation, so the
+// pointer has to be loaded before indexing; inside a function the storage is
+// the allocation itself.
+llvm::Value *IRGenVisitor::load2DArrayBase(const std::string &name)
+{
+    llvm::Value *storage = lookupNamedStorage(name);
+    if (auto *global = llvm::dyn_cast<llvm::GlobalVariable>(storage))
+        if (global->getValueType()->isPointerTy())
+            return Builder.CreateLoad(Builder.getPtrTy(), global, name + ".ptr");
+    return storage;
 }
 
 llvm::Value *IRGenVisitor::loadGraphValue(const std::string &name)
@@ -338,6 +358,15 @@ void IRGenVisitor::visitProgram(ProgramNodePtr prog)
             break;
         case ASTNodeType::DrawGraph:
             visitDrawGraph(static_cast<DrawGraphNode *>(node.get()));
+            break;
+        case ASTNodeType::DrawMotifs:
+            visitDrawMotifs(static_cast<DrawMotifsNode *>(node.get()));
+            break;
+        case ASTNodeType::MotifMatchesDecl:
+            visitMotifMatchesDecl(static_cast<MotifMatchesDeclNode *>(node.get()));
+            break;
+        case ASTNodeType::GraphListDecl:
+            visitGraphListDecl(static_cast<GraphListDeclNode *>(node.get()));
             break;
         case ASTNodeType::GraphComprehension:
             visitGraphComprehension(static_cast<GraphComprehensionNode *>(node.get()));
@@ -511,6 +540,331 @@ void IRGenVisitor::visitDrawGraph(DrawGraphNode *D)
          llvm::ConstantInt::get(i32Ty, D->edgeWeightLabels ? 1 : 0)});
 }
 
+void IRGenVisitor::visitDrawMotifs(DrawMotifsNode *D)
+{
+    llvm::Value *graphPtr = loadGraphValue(D->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), "draw_motif.n");
+    llvm::Value *mVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 1), "draw_motif.m");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), "draw_motif.row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), "draw_motif.col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), "draw_motif.weights");
+    llvm::Value *directed = Builder.CreateLoad(
+        i32Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 5), "draw_motif.directed");
+
+    std::unordered_map<std::string, int32_t> varIds;
+    std::vector<std::string> varNames;
+    std::vector<int32_t> edgeSrcVars;
+    std::vector<int32_t> edgeDstVars;
+    std::vector<int32_t> edgeSigns;
+
+    auto getVarId = [&](const std::string &name) -> int32_t {
+        auto it = varIds.find(name);
+        if (it != varIds.end())
+            return it->second;
+        int32_t next = static_cast<int32_t>(varIds.size());
+        varIds[name] = next;
+        varNames.push_back(name);
+        return next;
+    };
+
+    for (const auto &edge : D->motifEdges)
+    {
+        edgeSrcVars.push_back(getVarId(edge.source));
+        edgeDstVars.push_back(getVarId(edge.target));
+        edgeSigns.push_back(static_cast<int32_t>(edge.sign));
+    }
+
+    llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, edgeSrcVars.size());
+    llvm::Function *fn = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> tmpB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+    llvm::AllocaInst *srcAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, D->graphName + "_draw_motif_src");
+    llvm::AllocaInst *dstAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, D->graphName + "_draw_motif_dst");
+    llvm::AllocaInst *signAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, D->graphName + "_draw_motif_sign");
+
+    for (size_t i = 0; i < edgeSrcVars.size(); ++i)
+    {
+        llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+        llvm::Value *srcPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), idx});
+        llvm::Value *dstPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), idx});
+        llvm::Value *signPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), idx});
+        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeSrcVars[i]), srcPtr);
+        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeDstVars[i]), dstPtr);
+        Builder.CreateStore(llvm::ConstantInt::getSigned(i32Ty, edgeSigns[i]), signPtr);
+    }
+
+    std::string namesCsv;
+    for (size_t i = 0; i < varNames.size(); ++i)
+    {
+        if (i)
+            namesCsv += ",";
+        namesCsv += varNames[i];
+    }
+
+    llvm::Value *outputPrefix = Builder.CreateGlobalStringPtr(
+        D->outputPrefix, D->graphName + ".draw_motif.output");
+    llvm::Value *nameString = Builder.CreateGlobalStringPtr(
+        namesCsv, D->graphName + ".draw_motif.names");
+
+    llvm::FunctionType *drawMotifsFT = llvm::FunctionType::get(
+        Builder.getVoidTy(),
+        {i64Ty, i64Ty, ptrTy, ptrTy, ptrTy, i32Ty, ptrTy,
+         i32Ty, i32Ty, i32Ty, i32Ty, ptrTy, ptrTy, ptrTy, i32Ty, i32Ty, ptrTy},
+        false);
+    llvm::FunctionCallee drawMotifsDecl =
+        Module.getOrInsertFunction("draw_motif_matches_runtime", drawMotifsFT);
+
+    llvm::Value *srcVarsPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *dstVarsPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *edgeSignsPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+
+    Builder.CreateCall(
+        drawMotifsDecl,
+        {nVal, mVal, rowPtr, colPtr, weights, directed, outputPrefix,
+         llvm::ConstantInt::get(i32Ty, static_cast<int32_t>(D->layout)),
+         llvm::ConstantInt::get(i32Ty, D->vertexLabels ? 1 : 0),
+         llvm::ConstantInt::get(i32Ty, D->edgeLabels ? 1 : 0),
+         llvm::ConstantInt::get(i32Ty, D->combinedImage ? 1 : 0),
+         srcVarsPtr, dstVarsPtr, edgeSignsPtr,
+         llvm::ConstantInt::get(i32Ty, edgeSrcVars.size()),
+         llvm::ConstantInt::get(i32Ty, varIds.size()),
+         nameString});
+}
+
+// The transpose CSR (GraphTy fields 6/7) is built on demand, not at load time.
+// Emit a call to the runtime builder before any read of those fields. It is
+// idempotent and returns immediately for undirected graphs or an already-built
+// transpose, so calling it on every access is cheap and always safe.
+void IRGenVisitor::emitEnsureInCsr(llvm::Value *graphPtr)
+{
+    llvm::FunctionType *fnTy =
+        llvm::FunctionType::get(Builder.getVoidTy(), {Builder.getPtrTy()}, false);
+    llvm::FunctionCallee fn = Module.getOrInsertFunction("graph_ensure_in_csr", fnTy);
+    Builder.CreateCall(fn, {graphPtr});
+}
+
+void IRGenVisitor::readBackendFlags()
+{
+    auto truthy = [](const char *name, bool dflt) {
+        const char *v = std::getenv(name);
+        if (!v || !*v)
+            return dflt;
+        return !(std::strcmp(v, "0") == 0 || std::strcmp(v, "false") == 0 ||
+                 std::strcmp(v, "runtime") == 0);
+    };
+
+    if (const char *backend = std::getenv("GRAPHEASY_MOTIF_BACKEND"))
+    {
+        if (std::strcmp(backend, "ir") == 0)
+            MotifBackendMode = MotifBackend::IR;
+        else if (std::strcmp(backend, "runtime") == 0)
+            MotifBackendMode = MotifBackend::Runtime;
+        else
+            llvm::errs() << "GRAPHEASY_MOTIF_BACKEND: expected 'runtime' or 'ir', got '"
+                         << backend << "'; using runtime\n";
+    }
+    MotifAdjacencyDriven = truthy("GRAPHEASY_MOTIF_ADJDRIVE", false);
+
+    if (MotifBackendMode == MotifBackend::IR)
+        llvm::errs() << "[graph-easy] motif backend: ir"
+                     << (MotifAdjacencyDriven ? " (adjacency-driven)" : " (full scan)")
+                     << "\n";
+}
+
+// Loads the four CSR fields the motif nest walks. Deliberately does NOT read
+// GraphTy fields 6/7 (in_row_ptr/in_col_idx): those are a real transpose only
+// for loader-built graphs, and are aliased to the out-CSR by
+// visitGraphComprehension and graph_from_match_runtime.
+MotifIRBuilder::GraphInputs IRGenVisitor::loadMotifGraphInputs(const std::string &graphName,
+                                                              const std::string &label)
+{
+    llvm::Value *graphPtr = loadGraphValue(graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    MotifIRBuilder::GraphInputs in;
+    in.n = Builder.CreateLoad(i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0),
+                              label + ".n");
+    in.rowPtr = Builder.CreateLoad(ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2),
+                                   label + ".row_ptr");
+    in.colIdx = Builder.CreateLoad(ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3),
+                                   label + ".col_idx");
+    in.weights = Builder.CreateLoad(ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4),
+                                    label + ".weights");
+    return in;
+}
+
+// Emits the specialized nest and wraps the result in a stack MotifMatches so
+// numMotifs / for-each read it exactly as they read the runtime's heap struct.
+llvm::Value *IRGenVisitor::emitMotifMatchesIR(const std::string &graphName,
+                                              const std::string &label,
+                                              const std::vector<MotifEdgeSpec> &edges,
+                                              const std::vector<std::string> &varNames)
+{
+    MotifPattern pattern = MotifPattern::build(edges, varNames);
+    MotifIRBuilder::GraphInputs inputs = loadMotifGraphInputs(graphName, label);
+
+    MotifIRBuilder nest(Context, Module, Builder, pattern, "motif." + label);
+    nest.setAdjacencyDriven(MotifAdjacencyDriven);
+    llvm::Value *count = nest.emitCountOnly(inputs, /*applyCanonical=*/true);
+
+    llvm::Function *function = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(),
+                                   function->getEntryBlock().begin());
+    llvm::AllocaInst *matches =
+        entryBuilder.CreateAlloca(MotifMatchesTy, nullptr, label + ".matches");
+
+    Builder.CreateStore(Builder.CreateTrunc(count, Builder.getInt32Ty(), "count.i32"),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 0));
+    Builder.CreateStore(Builder.getInt32(static_cast<uint32_t>(varNames.size())),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 1));
+    Builder.CreateStore(llvm::ConstantPointerNull::get(Builder.getPtrTy()),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 2));
+    Builder.CreateStore(Builder.getInt32(0),
+                        Builder.CreateStructGEP(MotifMatchesTy, matches, 3));
+    return matches;
+}
+
+void IRGenVisitor::visitMotifMatchesDecl(MotifMatchesDeclNode *M)
+{
+    if (MotifBackendMode == MotifBackend::IR)
+    {
+        MotifMatchesMap[M->name] =
+            emitMotifMatchesIR(M->graphName, M->name, M->motifEdges, M->variableNames);
+        return;
+    }
+
+    llvm::Value *graphPtr = loadGraphValue(M->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), M->name + ".n");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), M->name + ".row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), M->name + ".col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), M->name + ".weights");
+
+    std::unordered_map<std::string, int32_t> varIds;
+    for (size_t i = 0; i < M->variableNames.size(); ++i)
+        varIds[M->variableNames[i]] = static_cast<int32_t>(i);
+
+    llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, M->motifEdges.size());
+    llvm::Function *function = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());
+    llvm::AllocaInst *srcAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".src");
+    llvm::AllocaInst *dstAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".dst");
+    llvm::AllocaInst *signAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".sign");
+
+    for (size_t i = 0; i < M->motifEdges.size(); ++i)
+    {
+        const MotifEdgeSpec &edge = M->motifEdges[i];
+        llvm::Value *index = Builder.getInt32(static_cast<uint32_t>(i));
+        llvm::Value *src = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), index});
+        llvm::Value *dst = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), index});
+        llvm::Value *sign = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), index});
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.source)), src);
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.target)), dst);
+        Builder.CreateStore(
+            llvm::ConstantInt::getSigned(i32Ty, static_cast<int32_t>(edge.sign)), sign);
+    }
+
+    llvm::Value *srcPtr = Builder.CreateGEP(
+        edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *dstPtr = Builder.CreateGEP(
+        edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *signPtr = Builder.CreateGEP(
+        edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+
+    llvm::FunctionType *findType = llvm::FunctionType::get(
+        ptrTy,
+        {i64Ty, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, i32Ty, i32Ty},
+        false);
+    llvm::FunctionCallee find = Module.getOrInsertFunction(
+        "motif_find_matches_runtime", findType);
+    llvm::Value *matches = Builder.CreateCall(
+        find,
+        {nVal, rowPtr, colPtr, weights, srcPtr, dstPtr, signPtr,
+         Builder.getInt32(static_cast<uint32_t>(M->motifEdges.size())),
+         Builder.getInt32(static_cast<uint32_t>(M->variableNames.size()))},
+        M->name + ".matches");
+    MotifMatchesMap[M->name] = matches;
+}
+
+void IRGenVisitor::visitGraphListDecl(GraphListDeclNode *M)
+{
+    llvm::Value *graphPtr = loadGraphValue(M->graphName);
+    auto *i64Ty = Builder.getInt64Ty();
+    auto *i32Ty = Builder.getInt32Ty();
+    auto *ptrTy = Builder.getPtrTy();
+
+    llvm::Value *nVal = Builder.CreateLoad(
+        i64Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 0), M->name + ".n");
+    llvm::Value *rowPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 2), M->name + ".row_ptr");
+    llvm::Value *colPtr = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 3), M->name + ".col_idx");
+    llvm::Value *weights = Builder.CreateLoad(
+        ptrTy, Builder.CreateStructGEP(GraphTy, graphPtr, 4), M->name + ".weights");
+
+    std::unordered_map<std::string, int32_t> varIds;
+    for (size_t i = 0; i < M->variableNames.size(); ++i)
+        varIds[M->variableNames[i]] = static_cast<int32_t>(i);
+
+    llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, M->motifEdges.size());
+    llvm::Function *function = Builder.GetInsertBlock()->getParent();
+    llvm::IRBuilder<> entryBuilder(&function->getEntryBlock(), function->getEntryBlock().begin());
+    llvm::AllocaInst *srcAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".src");
+    llvm::AllocaInst *dstAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".dst");
+    llvm::AllocaInst *signAlloca = entryBuilder.CreateAlloca(edgeArrTy, nullptr, M->name + ".sign");
+
+    for (size_t i = 0; i < M->motifEdges.size(); ++i)
+    {
+        const MotifEdgeSpec &edge = M->motifEdges[i];
+        llvm::Value *index = Builder.getInt32(static_cast<uint32_t>(i));
+        llvm::Value *src = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), index});
+        llvm::Value *dst = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), index});
+        llvm::Value *sign = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), index});
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.source)), src);
+        Builder.CreateStore(Builder.getInt32(varIds.at(edge.target)), dst);
+        Builder.CreateStore(
+            llvm::ConstantInt::getSigned(i32Ty, static_cast<int32_t>(edge.sign)), sign);
+    }
+
+    llvm::Value *srcPtr = Builder.CreateGEP(
+        edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *dstPtr = Builder.CreateGEP(
+        edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+    llvm::Value *signPtr = Builder.CreateGEP(
+        edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+
+    llvm::FunctionType *findType = llvm::FunctionType::get(
+        ptrTy,
+        {i64Ty, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, i32Ty, i32Ty},
+        false);
+    llvm::FunctionCallee find = Module.getOrInsertFunction(
+        "motif_find_matches_runtime", findType);
+    llvm::Value *matches = Builder.CreateCall(
+        find,
+        {nVal, rowPtr, colPtr, weights, srcPtr, dstPtr, signPtr,
+         Builder.getInt32(static_cast<uint32_t>(M->motifEdges.size())),
+         Builder.getInt32(static_cast<uint32_t>(M->variableNames.size()))},
+        M->name + ".graphs");
+    GraphListMatchesMap[M->name] = matches;
+    GraphListSourceMap[M->name] = M->graphName;
+}
+
 void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
 {
     llvm::Value *srcGraphPtr = loadGraphValue(GC->graphName);
@@ -530,7 +884,8 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
     llvm::IRBuilder<> tmpB(&fn->getEntryBlock(), fn->getEntryBlock().begin());
 
     auto buildGraphStruct = [&](llvm::Value *newN, llvm::Value *newM,
-                                llvm::Value *newRP, llvm::Value *newCI) -> llvm::Value * {
+                                llvm::Value *newRP, llvm::Value *newCI,
+                                llvm::Value *newWeights = nullptr) -> llvm::Value * {
         llvm::FunctionType *mallocFT = llvm::FunctionType::get(i8PtrTy, {i64Ty}, false);
         llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
         uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
@@ -541,12 +896,21 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         Builder.CreateStore(newM, Builder.CreateStructGEP(GraphTy, newGraphPtr, 1));
         Builder.CreateStore(newRP, Builder.CreateStructGEP(GraphTy, newGraphPtr, 2));
         Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
-        Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
-                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
-        Builder.CreateStore(llvm::ConstantInt::get(i32Ty, 0),
-                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
-        Builder.CreateStore(newRP, Builder.CreateStructGEP(GraphTy, newGraphPtr, 6));
-        Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 7));
+        if (!newWeights)
+            newWeights = llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty));
+        Builder.CreateStore(newWeights, Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
+        llvm::Value *directedVal = Builder.CreateLoad(
+            i32Ty,
+            Builder.CreateStructGEP(GraphTy, srcGraphPtr, 5),
+            GC->targetName + "_directed");
+        Builder.CreateStore(directedVal, Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
+        // Fields 6/7 were previously aliased to the FORWARD CSR (newRP/newCI),
+        // so `for each in neighbor` / inDegree() on a comprehension result
+        // silently returned out-neighbours. Leave them null: that means "not
+        // built", and graph_ensure_in_csr() builds a real transpose on demand.
+        llvm::Value *nullPtr = llvm::ConstantPointerNull::get(Builder.getPtrTy());
+        Builder.CreateStore(nullPtr, Builder.CreateStructGEP(GraphTy, newGraphPtr, 6));
+        Builder.CreateStore(nullPtr, Builder.CreateStructGEP(GraphTy, newGraphPtr, 7));
         return newGraphPtr;
     };
 
@@ -648,6 +1012,95 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
 
         customNodesBitmap = Builder.CreateCall(edgeHasDecl, {nVal, rowPtr, colPtr, vertexVal}, GC->targetName + "_edge_has_nodes");
     }
+    else if (GC->condition && GC->condition->op == GraphConditionOp::Motif)
+    {
+        std::unordered_map<std::string, int32_t> varIds;
+        std::vector<int32_t> edgeSrcVars;
+        std::vector<int32_t> edgeDstVars;
+        std::vector<int32_t> edgeSigns;
+
+        auto getVarId = [&](const std::string &name) -> int32_t {
+            auto it = varIds.find(name);
+            if (it != varIds.end())
+                return it->second;
+            int32_t next = static_cast<int32_t>(varIds.size());
+            varIds[name] = next;
+            return next;
+        };
+
+        for (const auto &edge : GC->condition->motifEdges)
+        {
+            edgeSrcVars.push_back(getVarId(edge.source));
+            edgeDstVars.push_back(getVarId(edge.target));
+            edgeSigns.push_back(static_cast<int32_t>(edge.sign));
+        }
+
+        llvm::ArrayType *edgeArrTy = llvm::ArrayType::get(i32Ty, edgeSrcVars.size());
+        llvm::AllocaInst *srcAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, GC->targetName + "_motif_src");
+        llvm::AllocaInst *dstAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, GC->targetName + "_motif_dst");
+        llvm::AllocaInst *signAlloca = tmpB.CreateAlloca(edgeArrTy, nullptr, GC->targetName + "_motif_sign");
+
+        for (size_t i = 0; i < edgeSrcVars.size(); ++i)
+        {
+            llvm::Value *idx = llvm::ConstantInt::get(i32Ty, i);
+            llvm::Value *srcPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), idx});
+            llvm::Value *dstPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), idx});
+            llvm::Value *signPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), idx});
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeSrcVars[i]), srcPtr);
+            Builder.CreateStore(llvm::ConstantInt::get(i32Ty, edgeDstVars[i]), dstPtr);
+            Builder.CreateStore(llvm::ConstantInt::getSigned(i32Ty, edgeSigns[i]), signPtr);
+        }
+
+        llvm::FunctionType *motifFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             i32Ty,
+             i32Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
+        llvm::FunctionCallee motifDecl =
+            Module.getOrInsertFunction("graph_motif_filter_runtime", motifFT);
+
+        llvm::Value *nVal = nullptr;
+        llvm::Value *rowPtr = nullptr;
+        llvm::Value *colPtr = nullptr;
+        loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
+        llvm::Value *weights = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty),
+            Builder.CreateStructGEP(GraphTy, srcGraphPtr, 4),
+            "motif.weights");
+
+        auto [outN, outM, outRP, outCI] = allocOutGraph(GC->targetName + "_motif_filter");
+        llvm::AllocaInst *outWeights = tmpB.CreateAlloca(
+            llvm::PointerType::getUnqual(i32Ty), nullptr,
+            GC->targetName + "_motif_filter_out_weights");
+        llvm::Value *srcVarsPtr = Builder.CreateGEP(edgeArrTy, srcAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        llvm::Value *dstVarsPtr = Builder.CreateGEP(edgeArrTy, dstAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        llvm::Value *edgeSignsPtr = Builder.CreateGEP(edgeArrTy, signAlloca, {Builder.getInt32(0), Builder.getInt32(0)});
+        Builder.CreateCall(motifDecl,
+                           {nVal, rowPtr, colPtr, weights,
+                            srcVarsPtr, dstVarsPtr, edgeSignsPtr,
+                            llvm::ConstantInt::get(i32Ty, edgeSrcVars.size()),
+                            llvm::ConstantInt::get(i32Ty, varIds.size()),
+                            outN, outM, outRP, outCI, outWeights});
+
+        llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
+        llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
+        llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP);
+        llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI);
+        llvm::Value *newWeights = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outWeights);
+        srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI, newWeights);
+    }
     else if (GC->condition)
     {
         std::vector<int32_t> tokenKinds;
@@ -715,6 +1168,9 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
                 case GraphConditionOp::VertexInSet:
                     throw std::runtime_error("vertex-in graph comprehension cannot be combined with other graph conditions yet");
                     break;
+                case GraphConditionOp::Motif:
+                    throw std::runtime_error("motif graph comprehension cannot be combined with other graph conditions yet");
+                    break;
                 case GraphConditionOp::And:
                     tokenKinds.push_back(4);
                     tokenArg1.push_back(llvm::ConstantInt::get(i32Ty, 0));
@@ -777,6 +1233,39 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
                             kindsPtr, arg1Ptr, arg2Ptr,
                             llvm::ConstantInt::get(i32Ty, tokenKinds.size()),
                             outN, outM, outRP, outCI});
+
+        llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
+        llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
+        llvm::Value *newRP = Builder.CreateLoad(llvm::PointerType::getUnqual(i64Ty), outRP);
+        llvm::Value *newCI = Builder.CreateLoad(llvm::PointerType::getUnqual(i32Ty), outCI);
+        srcGraphPtr = buildGraphStruct(newN, newM, newRP, newCI);
+    }
+
+    if (customNodesBitmap)
+    {
+        llvm::Value *nVal = nullptr;
+        llvm::Value *rowPtr = nullptr;
+        llvm::Value *colPtr = nullptr;
+        loadCSR(srcGraphPtr, nVal, rowPtr, colPtr);
+
+        auto [outN, outM, outRP, outCI] = allocOutGraph(GC->targetName + "_vertex_set_filter");
+
+        llvm::FunctionType *filterFT = llvm::FunctionType::get(
+            llvm::Type::getVoidTy(Context),
+            {i64Ty,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i32Ty),
+             bitmapPtrTy,
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(i64Ty),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i64Ty)),
+             llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(i32Ty))},
+            false);
+        llvm::FunctionCallee filterDecl =
+            Module.getOrInsertFunction("graph_filter_vertex_set_runtime", filterFT);
+
+        Builder.CreateCall(filterDecl, {nVal, rowPtr, colPtr, customNodesBitmap,
+                                        outN, outM, outRP, outCI});
 
         llvm::Value *newN = Builder.CreateLoad(i64Ty, outN);
         llvm::Value *newM = Builder.CreateLoad(i64Ty, outM);
@@ -997,6 +1486,15 @@ void IRGenVisitor::visitStatement(ASTNode *node)
         break;
     case ASTNodeType::DrawGraph:
         visitDrawGraph(static_cast<DrawGraphNode *>(node));
+        break;
+    case ASTNodeType::DrawMotifs:
+        visitDrawMotifs(static_cast<DrawMotifsNode *>(node));
+        break;
+    case ASTNodeType::MotifMatchesDecl:
+        visitMotifMatchesDecl(static_cast<MotifMatchesDeclNode *>(node));
+        break;
+    case ASTNodeType::GraphListDecl:
+        visitGraphListDecl(static_cast<GraphListDeclNode *>(node));
         break;
     case ASTNodeType::GraphComprehension:
         visitGraphComprehension(static_cast<GraphComprehensionNode *>(node));
@@ -1307,9 +1805,16 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         if (colIdx->getType() != Builder.getInt32Ty())
             colIdx = Builder.CreateIntCast(colIdx, Builder.getInt32Ty(), true);
 
-        llvm::Value *cols = metaIt->second.colsVal;
-        llvm::Value *offset = Builder.CreateMul(rowIdx, cols, "row_offset");
-        llvm::Value *flatIdx = Builder.CreateAdd(offset, colIdx, "flat_idx");
+        // Address row-then-column with two GEPs and i64 subscripts. Polly can
+        // delinearize a[i][j] out of that shape, but not out of a single
+        // sext(i*cols + j) flat index, which it rejects as non-affine.
+        // Deliberately not "inbounds": the language emits no bounds checks, so
+        // out-of-range subscripts must not become poison.
+        auto *i64Ty = Builder.getInt64Ty();
+        llvm::Value *cols64 = Builder.CreateIntCast(metaIt->second.colsVal, i64Ty, true, "dim64");
+        llvm::Value *row64 = Builder.CreateIntCast(rowIdx, i64Ty, true, "row64");
+        llvm::Value *col64 = Builder.CreateIntCast(colIdx, i64Ty, true, "col64");
+        llvm::Value *rowOff = Builder.CreateNSWMul(row64, cols64, "row_offset");
 
         auto *i32Ty = Builder.getInt32Ty();
         if (rhsVal->getType() != i32Ty)
@@ -1320,8 +1825,9 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
                 throw std::runtime_error("2D array assignment requires int value");
         }
 
-        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
-        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, baseAlloca, {flatIdx}, baseVar->name + "_2d_ptr");
+        llvm::Value *baseAlloca = load2DArrayBase(baseVar->name);
+        llvm::Value *rowPtr = Builder.CreateGEP(i32Ty, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
+        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, rowPtr, {col64}, baseVar->name + "_2d_ptr");
         Builder.CreateStore(rhsVal, elemPtr);
         return;
     }
@@ -1391,7 +1897,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             storage = global;
         }
         NamedValues[decl->name] = storage;
-        Array2DMap[decl->name] = {colsVal};
+        Array2DMap[decl->name] = {rowsVal, colsVal};
         return storage;
     }
 
@@ -1818,6 +2324,183 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
     llvm::Type *i64Ty = llvm::Type::getInt64Ty(Context);
     llvm::Type *i32Ty = llvm::Type::getInt32Ty(Context);
 
+    if (fs->targetType == ForEachTargetType::Motif)
+    {
+        auto matchesIt = MotifMatchesMap.find(fs->graphName);
+        if (matchesIt == MotifMatchesMap.end())
+            throw std::runtime_error("unknown motif collection: " + fs->graphName);
+
+        llvm::Value *matches = matchesIt->second;
+        llvm::Value *count = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(MotifMatchesTy, matches, 0),
+            fs->graphName + ".count");
+        llvm::Value *bindings = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty),
+            Builder.CreateStructGEP(MotifMatchesTy, matches, 2),
+            fs->graphName + ".bindings");
+
+        llvm::IRBuilder<> entryBuilder(
+            &parent->getEntryBlock(), parent->getEntryBlock().begin());
+        llvm::AllocaInst *index = entryBuilder.CreateAlloca(
+            i32Ty, nullptr, fs->graphName + ".motif_index");
+        std::vector<llvm::AllocaInst *> variables;
+        std::vector<std::pair<std::string, llvm::Value *>> oldBindings;
+        variables.reserve(fs->motifVars.size());
+        for (const std::string &name : fs->motifVars)
+        {
+            auto old = NamedValues.find(name);
+            oldBindings.emplace_back(name, old == NamedValues.end() ? nullptr : old->second);
+            llvm::AllocaInst *storage = entryBuilder.CreateAlloca(i32Ty, nullptr, name);
+            NamedValues[name] = storage;
+            variables.push_back(storage);
+        }
+        Builder.CreateStore(Builder.getInt32(0), index);
+
+        auto *condition = llvm::BasicBlock::Create(Context, "foreach_motif.cond", parent);
+        auto *body = llvm::BasicBlock::Create(Context, "foreach_motif.body", parent);
+        auto *increment = llvm::BasicBlock::Create(Context, "foreach_motif.inc", parent);
+        auto *merge = llvm::BasicBlock::Create(Context, "foreach_motif.merge", parent);
+        LoopStack.push_back({increment, merge});
+        Builder.CreateBr(condition);
+
+        Builder.SetInsertPoint(condition);
+        llvm::Value *current = Builder.CreateLoad(i32Ty, index, "motif.index");
+        Builder.CreateCondBr(Builder.CreateICmpSLT(current, count), body, merge);
+
+        Builder.SetInsertPoint(body);
+        const int32_t width = static_cast<int32_t>(fs->motifVars.size());
+        llvm::Value *base = Builder.CreateMul(current, Builder.getInt32(width), "motif.base");
+        for (size_t i = 0; i < variables.size(); ++i)
+        {
+            llvm::Value *offset = Builder.CreateAdd(
+                base, Builder.getInt32(static_cast<uint32_t>(i)), "motif.offset");
+            llvm::Value *valuePtr = Builder.CreateGEP(i32Ty, bindings, offset);
+            llvm::Value *value = Builder.CreateLoad(i32Ty, valuePtr, fs->motifVars[i] + ".binding");
+            Builder.CreateStore(value, variables[i]);
+        }
+        visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        if (!Builder.GetInsertBlock()->getTerminator())
+            Builder.CreateBr(increment);
+
+        Builder.SetInsertPoint(increment);
+        llvm::Value *next = Builder.CreateAdd(
+            Builder.CreateLoad(i32Ty, index), Builder.getInt32(1));
+        Builder.CreateStore(next, index);
+        Builder.CreateBr(condition);
+
+        LoopStack.pop_back();
+        Builder.SetInsertPoint(merge);
+        for (const auto &old : oldBindings)
+        {
+            if (old.second)
+                NamedValues[old.first] = old.second;
+            else
+                NamedValues.erase(old.first);
+        }
+        return;
+    }
+
+    if (fs->targetType == ForEachTargetType::Graph)
+    {
+        auto matchesIt = GraphListMatchesMap.find(fs->graphName);
+        if (matchesIt == GraphListMatchesMap.end())
+            throw std::runtime_error("unknown graph collection: " + fs->graphName);
+        auto sourceIt = GraphListSourceMap.find(fs->graphName);
+        if (sourceIt == GraphListSourceMap.end())
+            throw std::runtime_error("unknown graph collection source: " + fs->graphName);
+
+        llvm::Value *sourceGraph = loadGraphValue(sourceIt->second);
+        llvm::Value *matches = matchesIt->second;
+        llvm::Value *count = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(MotifMatchesTy, matches, 0),
+            fs->graphName + ".count");
+        llvm::Value *varCount = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(MotifMatchesTy, matches, 1),
+            fs->graphName + ".var_count");
+        llvm::Value *bindings = Builder.CreateLoad(
+            llvm::PointerType::getUnqual(i32Ty),
+            Builder.CreateStructGEP(MotifMatchesTy, matches, 2),
+            fs->graphName + ".bindings");
+
+        llvm::IRBuilder<> entryBuilder(
+            &parent->getEntryBlock(), parent->getEntryBlock().begin());
+        llvm::AllocaInst *index = entryBuilder.CreateAlloca(
+            i32Ty, nullptr, fs->graphName + ".graph_index");
+        llvm::AllocaInst *graphStorage = entryBuilder.CreateAlloca(
+            GraphTy->getPointerTo(), nullptr, fs->var1 + ".graph_iter");
+
+        auto oldGraph = GraphMap.find(fs->var1);
+        auto oldNamed = NamedValues.find(fs->var1);
+        llvm::Value *oldGraphValue = oldGraph == GraphMap.end() ? nullptr : oldGraph->second;
+        llvm::Value *oldNamedValue = oldNamed == NamedValues.end() ? nullptr : oldNamed->second;
+        GraphMap[fs->var1] = graphStorage;
+        NamedValues[fs->var1] = graphStorage;
+
+        Builder.CreateStore(Builder.getInt32(0), index);
+
+        auto *condition = llvm::BasicBlock::Create(Context, "foreach_graph.cond", parent);
+        auto *body = llvm::BasicBlock::Create(Context, "foreach_graph.body", parent);
+        auto *increment = llvm::BasicBlock::Create(Context, "foreach_graph.inc", parent);
+        auto *merge = llvm::BasicBlock::Create(Context, "foreach_graph.merge", parent);
+        LoopStack.push_back({increment, merge});
+        Builder.CreateBr(condition);
+
+        Builder.SetInsertPoint(condition);
+        llvm::Value *current = Builder.CreateLoad(i32Ty, index, "graph.index");
+        Builder.CreateCondBr(Builder.CreateICmpSLT(current, count), body, merge);
+
+        Builder.SetInsertPoint(body);
+        llvm::Value *base = Builder.CreateMul(current, varCount, "graph.match.base");
+        llvm::Value *bindingPtr = Builder.CreateGEP(i32Ty, bindings, base);
+
+        auto *i8PtrTy = Builder.getPtrTy();
+        llvm::FunctionType *buildType = llvm::FunctionType::get(
+            i8PtrTy,
+            {i64Ty, Builder.getPtrTy(), Builder.getPtrTy(), Builder.getPtrTy(),
+             i32Ty, Builder.getPtrTy(), i32Ty},
+            false);
+        llvm::FunctionCallee build =
+            Module.getOrInsertFunction("graph_from_match_runtime", buildType);
+
+        llvm::Value *nVal = Builder.CreateLoad(
+            i64Ty, Builder.CreateStructGEP(GraphTy, sourceGraph, 0), "graphlist.n");
+        llvm::Value *rowPtr = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(GraphTy, sourceGraph, 2), "graphlist.row_ptr");
+        llvm::Value *colPtr = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(GraphTy, sourceGraph, 3), "graphlist.col_idx");
+        llvm::Value *weights = Builder.CreateLoad(
+            Builder.getPtrTy(), Builder.CreateStructGEP(GraphTy, sourceGraph, 4), "graphlist.weights");
+        llvm::Value *directed = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(GraphTy, sourceGraph, 5), "graphlist.directed");
+
+        llvm::Value *graphObj = Builder.CreateCall(
+            build, {nVal, rowPtr, colPtr, weights, directed, bindingPtr, varCount},
+            fs->var1 + ".graph_obj");
+        Builder.CreateStore(Builder.CreateBitCast(graphObj, GraphTy->getPointerTo()), graphStorage);
+
+        visitBlock(static_cast<BlockStmtNode *>(fs->body.get()));
+        if (!Builder.GetInsertBlock()->getTerminator())
+            Builder.CreateBr(increment);
+
+        Builder.SetInsertPoint(increment);
+        llvm::Value *next = Builder.CreateAdd(
+            Builder.CreateLoad(i32Ty, index), Builder.getInt32(1));
+        Builder.CreateStore(next, index);
+        Builder.CreateBr(condition);
+
+        LoopStack.pop_back();
+        Builder.SetInsertPoint(merge);
+        if (oldGraphValue)
+            GraphMap[fs->var1] = oldGraphValue;
+        else
+            GraphMap.erase(fs->var1);
+        if (oldNamedValue)
+            NamedValues[fs->var1] = oldNamedValue;
+        else
+            NamedValues.erase(fs->var1);
+        return;
+    }
+
     // --- Handle for each element v in setVar ---
     if (fs->targetType == ForEachTargetType::Element)
     {
@@ -1908,6 +2591,7 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *colIdxBase = outColIdxBase;
         if (useInAdj)
         {
+            emitEnsureInCsr(graphPtr);
             llvm::Value *directedPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr");
             llvm::Value *directedVal = Builder.CreateLoad(Builder.getInt32Ty(), directedPtr, "g_directed");
             llvm::Value *isDirected = Builder.CreateICmpNE(directedVal, Builder.getInt32(0), "is_directed");
@@ -2049,9 +2733,23 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *vPtr = Builder.CreateGEP(i32Ty, colIdxBase, {jCur}, "ci_j");
         llvm::Value *vVal = Builder.CreateLoad(i32Ty, vPtr, "v_val");
 
-        // Skip duplicate edges: only process u < v for undirected graphs
+        // An UNDIRECTED graph stores every edge twice in CSR (u->v and v->u), so
+        // yielding each logical edge once requires skipping the u >= v copy.
+        // A DIRECTED graph does not: u->v and v->u are distinct edges and a
+        // self-loop u->u is a real edge. Applying the dedup unconditionally --
+        // as this did -- silently dropped every directed edge whose source id
+        // was >= its target, i.e. roughly half of a randomly numbered digraph,
+        // plus all self-loops. `numEdges` still reported the full count, so the
+        // loss was invisible.
         llvm::Value *uForCmp = Builder.CreateLoad(i32Ty, var1Alloca, "u_cmp");
-        llvm::Value *skipCond = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *dupSkip = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *directedFlag = Builder.CreateLoad(
+            i32Ty, Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr"),
+            "g_directed");
+        llvm::Value *isUndirected =
+            Builder.CreateICmpEQ(directedFlag, Builder.getInt32(0), "is_undirected");
+        // Both operands are loop-invariant, so LICM hoists this out of the nest.
+        llvm::Value *skipCond = Builder.CreateAnd(dupSkip, isUndirected, "skip_edge");
         auto *userBodyBB = llvm::BasicBlock::Create(Context, "edge.user.body", parent);
         Builder.CreateCondBr(skipCond, innerIncBB, userBodyBB);
 
@@ -2253,6 +2951,34 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             return Builder.CreateTrunc(nVal, Builder.getInt32Ty(), "numVertices");
         }
 
+        if (FC->name == "numMotifs")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error("numMotifs argument must be a motif collection name");
+            auto it = MotifMatchesMap.find(varArg->name);
+            if (it == MotifMatchesMap.end())
+                throw std::runtime_error("unknown motif collection: " + varArg->name);
+            return Builder.CreateLoad(
+                Builder.getInt32Ty(),
+                Builder.CreateStructGEP(MotifMatchesTy, it->second, 0),
+                varArg->name + ".count");
+        }
+
+        if (FC->name == "numGraphs")
+        {
+            auto *varArg = dynamic_cast<VariableNode *>(FC->arguments[0].get());
+            if (!varArg)
+                throw std::runtime_error("numGraphs argument must be a graph collection name");
+            auto it = GraphListMatchesMap.find(varArg->name);
+            if (it == GraphListMatchesMap.end())
+                throw std::runtime_error("unknown graph collection: " + varArg->name);
+            return Builder.CreateLoad(
+                Builder.getInt32Ty(),
+                Builder.CreateStructGEP(MotifMatchesTy, it->second, 0),
+                varArg->name + ".count");
+        }
+
         // Built-in: numEdges(G) -> int
         if (FC->name == "numEdges")
         {
@@ -2308,6 +3034,10 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
             llvm::Value *outRowBase = loadRowBase(2, "out_rp_base");
             if (FC->name == "outDegree")
                 return Builder.CreateTrunc(buildDegreeFromBase(outRowBase, "out_degree64"), Builder.getInt32Ty(), "outDegree");
+            // inDegree/degree read field 6 unconditionally and then select on
+            // `directed`, so the transpose must exist before the load even
+            // though the select would discard it for undirected graphs.
+            emitEnsureInCsr(graphPtr);
             llvm::Value *directedPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr");
             llvm::Value *directedVal = Builder.CreateLoad(Builder.getInt32Ty(), directedPtr, "g_directed");
             llvm::Value *isDirected = Builder.CreateICmpNE(directedVal, Builder.getInt32(0), "is_directed");
@@ -2624,13 +3354,17 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         if (colIdx->getType() != Builder.getInt32Ty())
             colIdx = Builder.CreateIntCast(colIdx, Builder.getInt32Ty(), true);
 
-        llvm::Value *cols = metaIt->second.colsVal;
-        llvm::Value *offset = Builder.CreateMul(rowIdx, cols, "row_offset");
-        llvm::Value *flatIdx = Builder.CreateAdd(offset, colIdx, "flat_idx");
+        // Same delinearizable addressing as the 2D store path above.
+        auto *i64Ty = Builder.getInt64Ty();
+        llvm::Value *cols64 = Builder.CreateIntCast(metaIt->second.colsVal, i64Ty, true, "dim64");
+        llvm::Value *row64 = Builder.CreateIntCast(rowIdx, i64Ty, true, "row64");
+        llvm::Value *col64 = Builder.CreateIntCast(colIdx, i64Ty, true, "col64");
+        llvm::Value *rowOff = Builder.CreateNSWMul(row64, cols64, "row_offset");
 
-        llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
+        llvm::Value *baseAlloca = load2DArrayBase(baseVar->name);
         auto *i32Ty = Builder.getInt32Ty();
-        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, baseAlloca, {flatIdx}, baseVar->name + "_2d_ptr");
+        llvm::Value *rowPtr = Builder.CreateGEP(i32Ty, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
+        llvm::Value *elemPtr = Builder.CreateGEP(i32Ty, rowPtr, {col64}, baseVar->name + "_2d_ptr");
         return Builder.CreateLoad(i32Ty, elemPtr, baseVar->name + "_2d_val");
     }
 
@@ -3219,11 +3953,14 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
             G->edgeFileName, G->name + "_filename");
 
         llvm::FunctionType *loadFT = llvm::FunctionType::get(
-            graphPtrTy, {i8PtrTy}, false);
+            graphPtrTy, {i8PtrTy, I32}, false);
         auto loadFn = Module.getOrInsertFunction(
-            G->directed ? "load_weighted_graph_from_file_directed" : "load_weighted_graph_from_file",
+            G->directed ? "load_weighted_graph_from_file_mode_directed" : "load_weighted_graph_from_file_mode",
             loadFT);
-        llvm::Value *graphPtr = Builder.CreateCall(loadFn, {fnameStr}, "weighted_graph_ptr");
+        llvm::Value *graphPtr = Builder.CreateCall(
+            loadFn,
+            {fnameStr, llvm::ConstantInt::get(I32, static_cast<int32_t>(G->weightMode))},
+            "weighted_graph_ptr");
 
         llvm::Value *graphStorage = nullptr;
         if (EmittingTopLevel)

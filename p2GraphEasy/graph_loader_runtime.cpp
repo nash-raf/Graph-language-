@@ -216,7 +216,8 @@ static GraphExtra build_extra_from_csr(const Graph *g) {
     return build_extra_from_edge_list(logical_edges, g->n);
 }
 
-static Graph *load_graph_from_file_impl(const char *filename, bool weighted, bool directed) {
+static Graph *load_graph_from_file_impl(const char *filename, int weight_mode, bool directed) {
+    const bool weighted = weight_mode != 0;
     struct stat st;
     size_t file_bytes = (stat(filename, &st) == 0 && st.st_size > 0)
                         ? static_cast<size_t>(st.st_size)
@@ -245,7 +246,11 @@ static Graph *load_graph_from_file_impl(const char *filename, bool weighted, boo
         if (weighted) {
             int w = 1;
             int nread = sscanf(p, "%d %d %d", &u, &v, &w);
-            if (nread == 3) {
+            const bool valid = weight_mode == 1 ? nread == 3 : nread >= 2;
+            if (valid) {
+                if (weight_mode == 2) w = 1;
+                else if (weight_mode == 3) w = 0;
+                else if (weight_mode == 4) w = -1;
                 edges_w.push_back({static_cast<int32_t>(u), static_cast<int32_t>(v), static_cast<int32_t>(w)});
                 if (u > max_id) max_id = u;
                 if (v > max_id) max_id = v;
@@ -370,19 +375,27 @@ extern "C" void graph_register_csr_metadata(Graph *g) {
 }
 
 extern "C" Graph *load_graph_from_file(const char *filename) {
-    return load_graph_from_file_impl(filename, false, false);
+    return load_graph_from_file_impl(filename, 0, false);
 }
 
 extern "C" Graph *load_weighted_graph_from_file(const char *filename) {
-    return load_graph_from_file_impl(filename, true, false);
+    return load_graph_from_file_impl(filename, 1, false);
 }
 
 extern "C" Graph *load_graph_from_file_directed(const char *filename) {
-    return load_graph_from_file_impl(filename, false, true);
+    return load_graph_from_file_impl(filename, 0, true);
 }
 
 extern "C" Graph *load_weighted_graph_from_file_directed(const char *filename) {
-    return load_graph_from_file_impl(filename, true, true);
+    return load_graph_from_file_impl(filename, 1, true);
+}
+
+extern "C" Graph *load_weighted_graph_from_file_mode(const char *filename, int32_t weight_mode) {
+    return load_graph_from_file_impl(filename, weight_mode, false);
+}
+
+extern "C" Graph *load_weighted_graph_from_file_mode_directed(const char *filename, int32_t weight_mode) {
+    return load_graph_from_file_impl(filename, weight_mode, true);
 }
 
 extern "C" void *graph_get_node_bitmap(Graph *g) {

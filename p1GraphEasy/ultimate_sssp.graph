@@ -1,5 +1,5 @@
 graph G {
-  edges: file "/home/user/Course/msk1/benchmark/graphs/grapheasy/violin_weighted/synth_v_1000000_e_1000000_seed_20_w.txt";
+  edges: file "/home/user/Course/msk1/2nd/graphs/grapheasy/synth_graphs/violin_weighted/synth_v_1000000_e_1000000_seed_20_w.txt";
   TRUE
 };
 

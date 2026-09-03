@@ -39,8 +39,8 @@ draw G to "graph_coloring.svg" {
     layout: "force";
     vertices {
         labels: true;
-        color: categorical(colors);
-        size: continuous(degrees);
+        color: colors;
+        size: degrees;
     }
     edges {
         labels: false;
@@ -51,8 +51,8 @@ draw G to "graph_coloring.png" {
     layout: "force";
     vertices {
         labels: true;
-        color: categorical(colors);
-        size: continuous(degrees);
+        color: colors;
+        size: degrees;
     }
 };
 

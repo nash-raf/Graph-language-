@@ -1,0 +1,34 @@
+graph G {
+  edges: file "/home/user/Course/msk1/grapheasy_algo/graphs/validation_100n_100e_w.txt";
+  TRUE
+};
+int n = numVertices(G);
+int inf = 2147483647;
+int dist[n];
+set frontier;
+set next;
+int src = 0;
+int rounds = 0;
+for each vertex v in G { dist[v] = inf; }
+dist[src] = 0;
+frontier = {0};
+while (setSize(frontier) > 0) {
+  if (rounds == n) { break; }
+  next = {};
+  for each element u in frontier {
+    if (dist[u] != inf) {
+      for each neighbor v of u in G {
+        int nd = dist[u] + weight(G, u, v);
+        if (nd < dist[v]) {
+          dist[v] = nd;
+          next.add(v);
+        }
+      }
+    }
+  }
+  print rounds;
+  print dist[0]; print dist[1]; print dist[2]; print dist[3]; print dist[4]; print dist[5];
+  print setSize(frontier); print setSize(next);
+  frontier = next;
+  rounds = rounds + 1;
+}

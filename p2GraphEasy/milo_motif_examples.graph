@@ -1,0 +1,78 @@
+graph G {
+    directed: true;
+    nodes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13;
+    edges:
+        0->1, 0->2, 1->2,
+        3->4, 4->5,
+        6->8, 6->9, 7->8, 7->9,
+        10->11, 10->12, 11->13, 12->13;
+};
+
+draw G to "milo_original.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+};
+
+graph FeedForward = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+graph ThreeChain = [G where motif {
+    a->b;
+    b->c;
+}];
+
+graph BiFan = [G where motif {
+    a->c;
+    a->d;
+    b->c;
+    b->d;
+}];
+
+graph BiParallel = [G where motif {
+    a->b;
+    a->c;
+    b->d;
+    c->d;
+}];
+
+draw FeedForward to "milo_feedforward.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+};
+
+draw ThreeChain to "milo_three_chain.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+};
+
+draw BiFan to "milo_bifan.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+};
+
+draw BiParallel to "milo_biparallel.png" {
+    layout: "hierarchical";
+    vertices {
+        labels: true;
+    }
+};
+
+print numVertices(FeedForward);
+print numEdges(FeedForward);
+print numVertices(ThreeChain);
+print numEdges(ThreeChain);
+print numVertices(BiFan);
+print numEdges(BiFan);
+print numVertices(BiParallel);
+print numEdges(BiParallel);

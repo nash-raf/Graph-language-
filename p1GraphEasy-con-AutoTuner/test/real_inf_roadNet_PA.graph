@@ -1,0 +1,66 @@
+graph inf_roadNet_PA {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/inf-roadNet-PA.txt";
+};
+
+for each vertex v in inf_roadNet_PA {
+    for each neighbor u of v in inf_roadNet_PA {
+    };
+};
+
+add 233478->52451 to inf_roadNet_PA;
+add 576778->513575 to inf_roadNet_PA;
+add 468106->292632 to inf_roadNet_PA;
+add 214947->182323 to inf_roadNet_PA;
+add 884834->66653 to inf_roadNet_PA;
+add 62489->196493 to inf_roadNet_PA;
+add 458517->487925 to inf_roadNet_PA;
+add 1059806->55649 to inf_roadNet_PA;
+add 416992->879796 to inf_roadNet_PA;
+add 462297->942059 to inf_roadNet_PA;
+add 583408->13628 to inf_roadNet_PA;
+add 334829->886286 to inf_roadNet_PA;
+add 713557->582738 to inf_roadNet_PA;
+add 326064->451545 to inf_roadNet_PA;
+add 705889->214350 to inf_roadNet_PA;
+add 194502->796765 to inf_roadNet_PA;
+add 202828->752834 to inf_roadNet_PA;
+add 721327->554740 to inf_roadNet_PA;
+add 91122->963483 to inf_roadNet_PA;
+add 261779->793844 to inf_roadNet_PA;
+add 165255->614839 to inf_roadNet_PA;
+add 758403->403258 to inf_roadNet_PA;
+add 145867->96100 to inf_roadNet_PA;
+add 477937->606890 to inf_roadNet_PA;
+add 167335->488197 to inf_roadNet_PA;
+add 211815->797182 to inf_roadNet_PA;
+add 582952->950870 to inf_roadNet_PA;
+add 765108->341110 to inf_roadNet_PA;
+add 776325->745056 to inf_roadNet_PA;
+add 439368->559893 to inf_roadNet_PA;
+add 149741->358903 to inf_roadNet_PA;
+add 513405->342679 to inf_roadNet_PA;
+add 969429->795775 to inf_roadNet_PA;
+add 566121->460566 to inf_roadNet_PA;
+add 680070->117310 to inf_roadNet_PA;
+add 480348->67319 to inf_roadNet_PA;
+add 661552->841303 to inf_roadNet_PA;
+add 561493->138807 to inf_roadNet_PA;
+add 442463->659927 to inf_roadNet_PA;
+add 445910->1046963 to inf_roadNet_PA;
+add 829700->962282 to inf_roadNet_PA;
+add 299623->555493 to inf_roadNet_PA;
+add 292826->517215 to inf_roadNet_PA;
+add 551009->898490 to inf_roadNet_PA;
+add 837603->759161 to inf_roadNet_PA;
+add 459948->290102 to inf_roadNet_PA;
+add 1068554->1034977 to inf_roadNet_PA;
+add 190650->98810 to inf_roadNet_PA;
+add 229950->320531 to inf_roadNet_PA;
+add 335506->885333 to inf_roadNet_PA;
+
+for each vertex v in inf_roadNet_PA {
+    for each neighbor u of v in inf_roadNet_PA {
+    };
+};
+
+print numEdges(inf_roadNet_PA);

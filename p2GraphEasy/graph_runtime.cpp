@@ -19,17 +19,14 @@ struct GraphCSR {
     int32_t *in_col_idx;
 };
 
-static void init_incoming_csr(GraphCSR *G)
+// Builds the transpose (incoming) CSR. Only three things in the language read
+// it -- `for each in neighbor`, inDegree() and degree() on a directed graph --
+// so it is built on demand rather than for every directed graph at load time.
+// A null in_row_ptr means "not built yet", which is why nothing may alias it to
+// the forward CSR: that would be indistinguishable from a real transpose and
+// would silently iterate out-neighbours instead of in-neighbours.
+static void build_incoming_csr(GraphCSR *G)
 {
-    if (!G)
-        return;
-    if (!G->directed)
-    {
-        G->in_row_ptr = nullptr;
-        G->in_col_idx = nullptr;
-        return;
-    }
-
     G->in_row_ptr = reinterpret_cast<int64_t *>(calloc(G->n + 1, sizeof(int64_t)));
     G->in_col_idx = G->m > 0
         ? reinterpret_cast<int32_t *>(malloc(sizeof(int32_t) * G->m))
@@ -57,6 +54,27 @@ static void init_incoming_csr(GraphCSR *G)
                 G->in_col_idx[next[v]++] = static_cast<int32_t>(u);
         }
     }
+}
+
+// Defers the transpose. Undirected graphs never need one (in-neighbours ==
+// out-neighbours), so they stay null forever.
+static void init_incoming_csr(GraphCSR *G)
+{
+    if (!G)
+        return;
+    G->in_row_ptr = nullptr;
+    G->in_col_idx = nullptr;
+}
+
+// Called by emitted IR immediately before any read of GraphTy fields 6/7.
+// Idempotent: a graph whose transpose was embedded at compile time, or already
+// built by an earlier call, is left untouched.
+extern "C" void graph_ensure_in_csr(void *graphRaw)
+{
+    auto *G = reinterpret_cast<GraphCSR *>(graphRaw);
+    if (!G || !G->directed || G->in_row_ptr)
+        return;
+    build_incoming_csr(G);
 }
 
 // ---------------------------------------------------------------

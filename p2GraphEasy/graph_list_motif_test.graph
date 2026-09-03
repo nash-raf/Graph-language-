@@ -1,0 +1,31 @@
+graph G {
+    directed: true;
+    nodes: 0, 1, 2, 3;
+    edges: 0->1, 1->2, 0->2, 1->3, 0->3;
+};
+
+motifs FFLMatches = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+graphs FFLGraphs = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+print numMotifs(FFLMatches);
+print numGraphs(FFLGraphs);
+
+int vertex_total = 0;
+int edge_total = 0;
+
+for each graph H in FFLGraphs {
+    vertex_total = vertex_total + numVertices(H);
+    edge_total = edge_total + numEdges(H);
+}
+
+print vertex_total;
+print edge_total;

@@ -1,0 +1,7 @@
+// Microbenchmark: exactly one logical edge insertion.
+// With one pure update region, predicted region cost reduces to uIns.
+graph SingleInsert {
+  edges: file "shared_edgelist.txt";
+};
+
+add 0->5 to SingleInsert;

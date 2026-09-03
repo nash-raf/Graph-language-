@@ -23,6 +23,18 @@ if (cand REL D[i][j]) { D[i][j] = cand; }
 
 or the inlined form without a temporary.
 
+## Runtime engine (`semiring_runtime.c`)
+
+Always rewrites (no per-semiring decline). Wins by algorithm, not by skipping:
+
+1. **MaxTimes on a {0,1} matrix** → bit-parallel Warshall (word OR). This is
+   boolean *transitive closure*, not int32 FW — typically tens to 100× vs a
+   Polly nest on the same `D`.
+2. **Otherwise** → tiled FW (Venkataraman). One persistent OpenMP team for
+   phase-3 row updates when `n ≥ 512` (no per-rectangle fork/join).
+
+Ablation: `CLOSURE_ONLY=1 python3 bench_motif_speedup.py`
+
 ## Files
 
 - Detector / emit: `IRGenVisitor.cpp` (`detectSemiringClosureNest`, `sgpl.closure` MD)

@@ -37,16 +37,20 @@ statement:
 swapStatement: 'swap' '(' ID ',' ID ')' ';';
 
 // Graph Definition
+// One rule, not two labelled alternatives: weightedness is just the optional
+// `TRUE` marker, so `weighted?` says it directly instead of duplicating the
+// whole production.  Sections are in fixed order, which also removes the four
+// interleaved graphProperty* repetitions the previous form needed.
 graphDef
-    : GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* 'TRUE' graphProperty* '}' ';'   # WeightedGraphDef
-    | GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* '}' ';'          # UnweightedGraphDef
-;
+    : GRAPH graphID '{' graphProperty? nodes? edges? weighted? '}' ';' ;
 
-// `directed: true;` is what makes a motif's `->` meaningful: on an undirected
-// graph every edge is stored both ways, so a -> b and b -> a are the same edge
-// and directed motifs collapse.
-graphProperty:
-	'directed' ':' drawBoolLiteral ';';
+// `directed` is a flag that can only be true, so it carries no value -- present
+// means directed, absent means undirected.  It is what makes a motif's `->`
+// meaningful: on an undirected graph every edge is stored both ways, so a -> b
+// and b -> a are the same edge and directed motifs collapse.
+graphProperty : 'directed' ';' ;
+
+weighted      : 'TRUE' ;
 
 //in graphDef
 nodes: 'nodes:' nodeList ';';
@@ -242,7 +246,12 @@ continuousMapping:
 
 drawBoolLiteral: TRUE | FALSE | 'true' | 'false';
 
-functionCall: ID '(' argumentList? ')';
+// 'degree' is an implicit keyword token (it appears in graphCondition), so it
+// cannot match ID.  Without this alternative the degree() builtin -- which
+// IRGen already implements as an O(1) row_ptr[v+1]-row_ptr[v] -- is
+// unreachable from the surface syntax.
+functionCall: functionName '(' argumentList? ')';
+functionName: ID | 'degree';
 argumentList: expr (',' expr)*;
 
 // Sleep statement

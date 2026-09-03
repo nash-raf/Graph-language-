@@ -1,0 +1,19 @@
+\contentsline {section}{\numberline {1}What we are testing}{2}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Pipeline order (p1 Autotuner)}{2}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}The bug and the fix}{2}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Configurations}{2}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}How pass/fail is decided}{2}{subsection.1.4}%
+\contentsline {section}{\numberline {2}Summary results (20/20 passed)}{2}{section.2}%
+\contentsline {section}{\numberline {3}What the suite proves (systems claims)}{3}{section.3}%
+\contentsline {section}{\numberline {4}Per-case detail: code, expectation, proof}{3}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Case 01: \texttt {01\_prefix\_pure}}{3}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Case 02: \texttt {02\_prefix\_plus\_const}}{4}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Case 03: \texttt {03\_prefix\_plus\_x\_i}}{4}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Case 04: \texttt {04\_prefix\_indirect}}{4}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Case 05: \texttt {05\_running\_mul}}{5}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Case 06: \texttt {06\_saxpy\_doall}}{5}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}Case 07: \texttt {07\_independent\_init}}{5}{subsection.4.7}%
+\contentsline {subsection}{\numberline {4.8}Case 08: \texttt {08\_fib\_like}}{6}{subsection.4.8}%
+\contentsline {subsection}{\numberline {4.9}Case 09: \texttt {09\_prefix\_then\_saxpy}}{6}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Case 10: \texttt {10\_triple\_polly\_doall\_doacross}}{6}{subsection.4.10}%
+\contentsline {section}{\numberline {5}Reproduce}{7}{section.5}%

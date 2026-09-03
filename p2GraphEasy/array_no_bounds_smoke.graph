@@ -1,0 +1,4 @@
+int n = 5;
+int dist[n];
+dist[4] = 42;
+print dist[4];

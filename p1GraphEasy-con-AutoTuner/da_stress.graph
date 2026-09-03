@@ -1,0 +1,45 @@
+graph G {
+  edges: file "synth_v_100000_e_1000000.txt";
+};
+
+int a[100002];
+int b[100002];
+int c[100002];
+a[0] = 1;
+a[1] = 1;
+b[0] = 1;
+b[1] = 1;
+c[0] = 1;
+c[1] = 1;
+int iters = 0;
+while (iters < 10) {
+  for each vertex v in G {
+    if (v % 2 == 0) {
+      a[v+2] = (a[v] * 3 + b[v]) % 1000003;
+      b[v+2] = b[v] * 7 + 11;
+      c[v+2] = c[v] * 13 + a[v];
+    } else {
+      a[v+2] = (a[v] * 5 + c[v]) % 999983;
+      b[v+2] = b[v] * 3 + a[v+2] % 17;
+      c[v+2] = c[v] * 11 + b[v+2] / 3;
+    }
+  }
+  iters = iters + 1;
+}
+
+print "a[0]=";
+print a[0];
+print " a[1]=";
+print a[1];
+print " a[99998]=";
+print a[99998];
+print " a[99999]=";
+print a[99999];
+print " a[100000]=";
+print a[100000];
+print " a[100001]=";
+print a[100001];
+print " b[100000]=";
+print b[100000];
+print " c[100000]=";
+print c[100000];

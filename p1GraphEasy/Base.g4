@@ -34,13 +34,11 @@ swapStatement: 'swap' '(' ID ',' ID ')' ';';
 
 // Graph Definition
 graphDef
-    : GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* 'TRUE' graphProperty* '}' ';'   # WeightedGraphDef
-    | GRAPH graphID '{' graphProperty* nodes? graphProperty* edges? graphProperty* '}' ';'          # UnweightedGraphDef
+    : GRAPH graphID '{' nodes? edges? 'TRUE' '}' ';'   # WeightedGraphDef
+    | GRAPH graphID '{' nodes? edges? '}' ';'          # UnweightedGraphDef
 ;
 
 //in graphDef
-graphProperty: 'directed' ':' boolLiteral ';';
-boolLiteral: TRUE | FALSE | 'true' | 'false';
 nodes: 'nodes:' nodeList ';';
 edges: 'edges:' (edgeList | fileEdgeList) ';';
 nodeList: nodeID (',' nodeID)*;
@@ -141,8 +139,6 @@ foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
 loopTarget:
 	'vertex' ID					# forEachVertex
 	| 'edge' ID ',' ID			# forEachEdge
-	| 'out' 'neighbor' ID 'of' expr	# forEachOutAdj
-	| 'in' 'neighbor' ID 'of' expr	# forEachInAdj
 	| 'neighbor' ID 'of' expr	# forEachAdj
 	| 'element' ID				# forEachElement
 	| ID						# forEachPlain;
@@ -150,10 +146,12 @@ whileStatement: 'while' '(' condition ')' block;
 
 nodeEdgeOperation: addOperation | removeOperation;
 
-addOperation: 'add' addTargets 'to' graphID ';';
-removeOperation: 'remove' removeTargets 'from' graphID ';';
-addTargets: nodeID | edge | nodeList | edgeList;
-removeTargets: nodeID | edge | nodeList | edgeList;
+addOperation: 'add' graphUpdateTargets 'to' graphID ';';
+removeOperation: 'remove' graphUpdateTargets 'from' graphID ';';
+graphUpdateTargets: updateNodeTargetList | updateEdgeTargetList;
+updateNodeTargetList: expr (',' expr)*;
+updateEdgeTargetList: updateEdgeTarget (',' updateEdgeTarget)*;
+updateEdgeTarget: expr '->' expr;
 
 
 
@@ -185,8 +183,7 @@ type:
 	| 'bool'
 	| 'set';
 
-functionCall: functionName '(' argumentList? ')';
-functionName: ID | 'degree';
+functionCall: ID '(' argumentList? ')';
 argumentList: expr (',' expr)*;
 
 // Sleep statement

@@ -1,0 +1,5 @@
+graph ia_dbpedia {
+  edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/ia-dbpedia.txt";
+};
+
+print numEdges(ia_dbpedia);

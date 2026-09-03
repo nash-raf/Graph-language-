@@ -1,0 +1,64 @@
+graph G {
+  edges: file "/home/user/Course/msk1/benchmark/graphs/grapheasy/violin/synth_v_1000000_e_1000000_seed_20.txt";
+};
+
+int n = numVertices(G);
+int originalDeg[n];
+int deg[n];
+int alive[n];
+int core[n];
+int largestCore = 0;
+
+for each vertex v in G {
+  originalDeg[v] = 0;
+  core[v] = -1;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    originalDeg[u] = originalDeg[u] + 1;
+  }
+}
+
+int k = 1;
+while (k <= n) {
+  int activeCount = 0;
+
+  for each vertex v in G {
+    deg[v] = originalDeg[v];
+    alive[v] = 1;
+    activeCount = activeCount + 1;
+  }
+
+  int changed = 1;
+  while (changed == 1) {
+    changed = 0;
+
+    for each vertex u in G {
+      if (alive[u] == 1 && deg[u] < k) {
+        alive[u] = 0;
+        if (core[u] < 0) {
+          core[u] = k - 1;
+        }
+        activeCount = activeCount - 1;
+        changed = 1;
+
+        for each neighbor v of u in G {
+          if (alive[v] == 1) {
+            deg[v] = deg[v] - 1;
+          }
+        }
+      }
+    }
+  }
+
+  if (activeCount > 0) {
+    largestCore = k;
+  } else {
+    break;
+  }
+
+  k = k + 1;
+}
+
+print largestCore;

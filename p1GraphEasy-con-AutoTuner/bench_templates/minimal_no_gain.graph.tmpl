@@ -1,0 +1,10 @@
+graph g1 {
+    edges: file "__EDGE_FILE_A__";
+};
+
+query bfs_a: "bfs" of g1;
+
+add 500001->500002 to g1;
+add 500003->500004 to g1;
+
+query bfs_b: "bfs" of g1;

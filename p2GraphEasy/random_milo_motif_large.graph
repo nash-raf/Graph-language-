@@ -1,0 +1,78 @@
+graph G {
+    directed: true;
+    edges: file "random_milo_edges.txt";
+};
+
+draw G to "random_milo_original.png" {
+    layout: "force";
+    vertices {
+        labels: false;
+    }
+    edges {
+        labels: false;
+    }
+};
+
+graph FeedForward = [G where motif {
+    a->b;
+    a->c;
+    b->c;
+}];
+
+graph ThreeChain = [G where motif {
+    a->b;
+    b->c;
+}];
+
+graph BiFan = [G where motif {
+    a->c;
+    a->d;
+    b->c;
+    b->d;
+}];
+
+graph BiParallel = [G where motif {
+    a->b;
+    a->c;
+    b->d;
+    c->d;
+}];
+
+draw FeedForward to "random_milo_feedforward.png" {
+    layout: "force";
+    vertices {
+        labels: true;
+    }
+};
+
+draw ThreeChain to "random_milo_three_chain.png" {
+    layout: "force";
+    vertices {
+        labels: true;
+    }
+};
+
+draw BiFan to "random_milo_bifan.png" {
+    layout: "force";
+    vertices {
+        labels: true;
+    }
+};
+
+draw BiParallel to "random_milo_biparallel.png" {
+    layout: "force";
+    vertices {
+        labels: true;
+    }
+};
+
+print numVertices(G);
+print numEdges(G);
+print numVertices(FeedForward);
+print numEdges(FeedForward);
+print numVertices(ThreeChain);
+print numEdges(ThreeChain);
+print numVertices(BiFan);
+print numEdges(BiFan);
+print numVertices(BiParallel);
+print numEdges(BiParallel);

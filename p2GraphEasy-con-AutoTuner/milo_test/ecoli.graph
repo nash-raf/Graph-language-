@@ -1,0 +1,19 @@
+graph EColi {
+    directed: true;
+    edges: file "../p2GraphEasy/milo2002_reproduction/data/grapheasy/ecoli_table1.txt";
+};
+motifs FeedForwardLoops = [EColi where motif {
+    source->intermediate;
+    source->target;
+    intermediate->target;
+}];
+motifs BiFans = [EColi where motif {
+    source1->target1;
+    source1->target2;
+    source2->target1;
+    source2->target2;
+}];
+print "feed_forward_loop";
+print numMotifs(FeedForwardLoops);
+print "bi_fan";
+print numMotifs(BiFans);

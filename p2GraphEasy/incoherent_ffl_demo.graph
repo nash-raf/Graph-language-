@@ -1,0 +1,20 @@
+graph G {
+    directed: true;
+    weights: true;
+    edges: file "incoherent_ffl_demo_edges.txt";
+};
+
+draw G to "pics/incoherent_ffl_demo_graph.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: true; }
+};
+
+draw motifs of G to "pics/incoherent_ffl_demo_motif.png" {
+    layout: "hierarchical";
+    vertices { labels: true; }
+    edges { labels: true; }
+    a->b;
+    a-|c;
+    b->c;
+};

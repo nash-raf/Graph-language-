@@ -1,0 +1,5 @@
+motif variables: a b c
+motif edges: a->b b-|c a->c
+match 0: a=0 b=1 c=2
+match 1: a=0 b=1 c=3
+total_matches: 2

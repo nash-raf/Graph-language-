@@ -1,0 +1,482 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+
+\definecolor{codebg}{RGB}{246,247,249}
+\definecolor{codekw}{RGB}{20,101,95}
+\definecolor{pass}{RGB}{20,101,95}
+\definecolor{fail}{RGB}{156,69,38}
+
+\lstdefinelanguage{GraphEasy}{
+  keywords={graph, fn, void, int, while, if, print, kernel, numVertices, TRUE},
+  keywordstyle=\color{codekw}\bfseries,
+  sensitive=false,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+}
+
+\lstset{
+  language=GraphEasy,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0pt,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=8pt,
+  xrightmargin=8pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+}
+
+\newcommand{\passmark}{\textcolor{pass}{\textbf{PASS}}}
+\newcommand{\cfg}[1]{\texttt{#1}}
+
+\hypersetup{colorlinks=true, linkcolor=codekw, urlcolor=codekw}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small DOACROSS PHI fix --- p1GraphEasy Autotuner}
+\lhead{\small Test report}
+\cfoot{\thepage}
+
+\title{\textbf{DOACROSS / DOALL / Polly Trigger Suite}\\[0.3em]
+\large Twenty cases, ten kernels, store-forwarded PHI fix}
+\author{p1GraphEasy-con-AutoTuner \quad (\texttt{bench\_doacross\_phi\_fix.py})}
+\date{2026-08-22 \quad N=48 vertices}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+We document the regression suite that validated the PDG fix for
+\emph{store-forwarded scalar recurrence PHIs}: loops such as prefix sums
+\texttt{a[i] = a[i-1] + \ldots} must classify as \textbf{DOACROSS}, not
+\textbf{SEQUENTIAL}. The suite comprises \textbf{10} hand-written GraphEasy
+kernels, each run under \textbf{two} compiler configurations
+(\cfg{polly\_off} and \cfg{polly\_on}), for \textbf{20} compile-time checks.
+All \textbf{20/20} passed. This report lists every kernel source, the
+expected parallel class, measured IR markers, and the systems claim each case
+supports.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{What we are testing}
+%==============================================================================
+
+\subsection{Pipeline order (p1 Autotuner)}
+
+\begin{verbatim}
+IRGen -> canonicalize -> Polly O3 (+ -polly-parallel)
+      -> Autotuner (layout ARS)
+      -> PDG (my.loop.parallel = DOALL | DOACROSS | SEQUENTIAL)
+      -> reconstructParallelIR -> loop outliner -> parallel_for_runtime
+\end{verbatim}
+
+Polly runs \emph{before} PDG. Affine nests may be consumed by Polly OpenMP
+(\texttt{GOMP\_parallel*}); remaining loops are classified and optionally
+outlined by the PDG path.
+
+\subsection{The bug and the fix}
+
+When LLVM mem2reg promotes a loop-carried scalar into a PHI, the PDG
+dependence analysis may see a \emph{store-forwarded} pattern:
+the load of \texttt{a[i-1]} is forwarded from the previous iteration's store.
+Without special handling, such loops were marked \textbf{SEQUENTIAL} even though
+they are classic \textbf{DOACROSS} (wavefront) candidates.
+
+The fix in \texttt{pdg.cpp} recognizes these PHIs and assigns
+\texttt{parallel.type=DOACROSS}. This suite proves the fix does not break
+DOALL-only kernels and still composes with Polly on a combined program.
+
+\subsection{Configurations}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Config & Environment \\
+\midrule
+\cfg{polly\_off} & \texttt{GRAPH\_DISABLE\_POLLY=1} --- PDG/outliner own all loops \\
+\cfg{polly\_on}  & Default Polly + \texttt{-polly-parallel} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{How pass/fail is decided}
+
+IR dumps at \texttt{DUMP\_LLVM\_BC\_PDG} and \texttt{DUMP\_LLVM\_BC\_AFTER\_OUTLINE}:
+\begin{itemize}
+  \item \textbf{DOACROSS expected:} \texttt{parallel.type=DOACROSS} $> 0$ in PDG dump,
+        or \texttt{parallel\_for\_runtime(..., i32 1, i32 1)} after outline.
+  \item \textbf{DOALL expected:} \texttt{parallel.type=DOALL} $> 0$ and
+        \texttt{DOACROSS} $= 0$.
+  \item \textbf{combo\_all3:} With Polly off: both DOALL and DOACROSS metadata.
+        With Polly on: \texttt{GOMP} $> 0$ plus DOALL and DOACROSS still present
+        on \emph{different} nests.
+\end{itemize}
+
+%==============================================================================
+\section{Summary results (20/20 passed)}
+%==============================================================================
+
+\begin{center}
+\small
+\begin{longtable}{lllrrrrrr}
+\toprule
+Case & Config & Expect & OK & DOACROSS & DOALL & GOMP & pfr$_{11}$ & pfr$_{00}$ \\
+\midrule
+\endhead
+01\_prefix\_pure & polly\_off & doacross & \passmark & 1 & 1 & 0 & 1 & 0 \\
+01\_prefix\_pure & polly\_on  & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+02\_prefix\_plus\_const & polly\_off & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+02\_prefix\_plus\_const & polly\_on  & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+03\_prefix\_plus\_x\_i & polly\_off & doacross & \passmark & 1 & 1 & 0 & 1 & 0 \\
+03\_prefix\_plus\_x\_i & polly\_on  & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+04\_prefix\_indirect & polly\_off & doacross & \passmark & 1 & 1 & 0 & 1 & 1 \\
+04\_prefix\_indirect & polly\_on  & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+05\_running\_mul & polly\_off & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+05\_running\_mul & polly\_on  & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+06\_saxpy\_doall & polly\_off & doall & \passmark & 0 & 1 & 0 & 0 & 1 \\
+06\_saxpy\_doall & polly\_on  & doall & \passmark & 0 & 1 & 0 & 0 & 0 \\
+07\_independent\_init & polly\_off & doall & \passmark & 0 & 1 & 0 & 0 & 0 \\
+07\_independent\_init & polly\_on  & doall & \passmark & 0 & 1 & 0 & 0 & 0 \\
+08\_fib\_like & polly\_off & doacross & \passmark & 1 & 1 & 0 & 1 & 0 \\
+08\_fib\_like & polly\_on  & doacross & \passmark & 1 & 0 & 0 & 0 & 0 \\
+09\_prefix\_then\_saxpy & polly\_off & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+09\_prefix\_then\_saxpy & polly\_on  & doacross & \passmark & 1 & 1 & 0 & 0 & 0 \\
+10\_triple & polly\_off & combo & \passmark & 1 & 1 & 0 & 1 & 3 \\
+10\_triple & polly\_on  & combo & \passmark & 1 & 1 & 6 & 0 & 1 \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+\noindent
+\textbf{Legend:} \texttt{pfr$_{11}$} = outlined DOACROSS
+(\texttt{parallel\_for\_runtime(..., 1, 1)}).
+\texttt{pfr$_{00}$} = outlined DOALL (\texttt{..., 0, 0}).
+\texttt{GOMP} = Polly \texttt{GOMP\_parallel*} sites in POST dump.
+
+%==============================================================================
+\section{What the suite proves (systems claims)}
+%==============================================================================
+
+\begin{enumerate}
+  \item \textbf{PHI fix is sound.} Prefix-style recurrences (cases 01--05, 08--09)
+        receive DOACROSS metadata with Polly off \emph{and} on; they are not
+        misclassified as SEQUENTIAL.
+
+  \item \textbf{No false DOACROSS on independent loops.} Saxpy and pure init
+        (cases 06--07) stay DOALL-only (DOACROSS count zero).
+
+  \item \textbf{Polly and PDG compose on different nests.} Case 10 with Polly on:
+        six GOMP sites on the matmul nest, while DOALL and DOACROSS metadata
+        remain on other loops --- not double-parallelization of the same nest.
+
+  \item \textbf{Classification survives Polly transforms.} Even when Polly
+        reshapes IR and outlining counts drop (\texttt{pfr$_{11}$}=0 with Polly on),
+        PDG still attaches \texttt{parallel.type=DOACROSS} where expected.
+
+  \item \textbf{Multi-operator programs.} Case 09 (prefix then saxpy) and case 10
+        (matmul + saxpy + prefix) show mixed DOACROSS/DOALL regions in one
+        \texttt{kernel()}.
+\end{enumerate}
+
+\noindent
+\textbf{Not claimed by this suite:} end-to-end speedup. A separate ablation
+(\texttt{bench\_parallel\_boost.py}) shows bare DOACROSS outlining can be
+\emph{slower} than serial on large prefix loops; Polly wins primarily on dense
+matmul-shaped nests.
+
+%==============================================================================
+\section{Per-case detail: code, expectation, proof}
+%==============================================================================
+
+Each listing is the \texttt{kernel()} body from the harness (graph header omitted:
+\texttt{graph G \{ edges: file "edges.txt"; TRUE \};}).
+
+% --- Case 01 ---
+\subsection{Case 01: \texttt{01\_prefix\_pure}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Minimal inclusive prefix sum
+\texttt{a[i] = a[i] + a[i-1]} is DOACROSS (canonical store-forwarded PHI).
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int i = 0;
+  while (i < n) { a[i] = i + 1; i = i + 1; }
+  i = 1;
+  while (i < n) { a[i] = a[i] + a[i - 1]; i = i + 1; }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 02 ---
+\subsection{Case 02: \texttt{02\_prefix\_plus\_const}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Constant addend recurrence \texttt{a[i] = a[i-1] + 3} still DOACROSS
+(not confused with independent update).
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int i = 0;
+  while (i < n) { a[i] = 1; i = i + 1; }
+  i = 1;
+  while (i < n) { a[i] = a[i - 1] + 3; i = i + 1; }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 03 ---
+\subsection{Case 03: \texttt{03\_prefix\_plus\_x\_i}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Prefix with per-index operand \texttt{x[i]} --- dependence is still
+on \texttt{a[i-1]}, not on cross-iteration \texttt{x}.
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int x[n];
+  int i = 0;
+  while (i < n) { a[i] = 0; x[i] = i + 1; i = i + 1; }
+  i = 1;
+  while (i < n) { a[i] = a[i - 1] + x[i]; i = i + 1; }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 04 ---
+\subsection{Case 04: \texttt{04\_prefix\_indirect}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Indirect read \texttt{x[Q[i]]} in the recurrence body does not
+destroy DOACROSS classification of the \texttt{a[i-1]} chain.
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int x[n];
+  int Q[n];
+  int i = 0;
+  while (i < n) { a[i] = 1; x[i] = i + 1; Q[i] = n - 1 - i; i = i + 1; }
+  i = 1;
+  while (i < n) {
+    int idx = Q[i];
+    a[i] = a[i - 1] + x[idx];
+    i = i + 1;
+  }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 05 ---
+\subsection{Case 05: \texttt{05\_running\_mul}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Multiplicative recurrence \texttt{a[i] = a[i-1] * 2} is DOACROSS
+(same dependence shape as additive prefix, different operator).
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int i = 0;
+  while (i < n) { a[i] = 2; i = i + 1; }
+  i = 1;
+  while (i < n) { a[i] = a[i - 1] * 2; i = i + 1; }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 06 ---
+\subsection{Case 06: \texttt{06\_saxpy\_doall}}
+\textbf{Expect:} DOALL only \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Independent \texttt{y[i] = 3*x[i] + y[i]} is DOALL with
+\textbf{zero} DOACROSS (no false wavefront from the PHI fix).
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int x[n];
+  int y[n];
+  int i = 0;
+  while (i < n) { x[i] = i + 1; y[i] = 1; i = i + 1; }
+  i = 0;
+  while (i < n) { y[i] = 3 * x[i] + y[i]; i = i + 1; }
+  print y[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 07 ---
+\subsection{Case 07: \texttt{07\_independent\_init}}
+\textbf{Expect:} DOALL only \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Trivial parallel init \texttt{a[i] = i*2} --- baseline DOALL
+with no recurrence.
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int i = 0;
+  while (i < n) { a[i] = i * 2; i = i + 1; }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 08 ---
+\subsection{Case 08: \texttt{08\_fib\_like}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Second-order recurrence \texttt{a[i] = a[i-1] + a[i-2]} is
+DOACROSS (two backward dependences, wavefront depth 2).
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int i = 0;
+  while (i < n) { a[i] = 0; i = i + 1; }
+  a[0] = 1;
+  if (n > 1) { a[1] = 1; }
+  i = 2;
+  while (i < n) { a[i] = a[i - 1] + a[i - 2]; i = i + 1; }
+  print a[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 09 ---
+\subsection{Case 09: \texttt{09\_prefix\_then\_saxpy}}
+\textbf{Expect:} DOACROSS \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} Sequential composition: DOACROSS prefix loop followed by DOALL
+saxpy in one function --- PDG assigns correct classes per nest.
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int a[n];
+  int y[n];
+  int i = 0;
+  while (i < n) { a[i] = 1; y[i] = 0; i = i + 1; }
+  i = 1;
+  while (i < n) { a[i] = a[i - 1] + 1; i = i + 1; }
+  i = 0;
+  while (i < n) { y[i] = a[i] + y[i]; i = i + 1; }
+  print y[n - 1];
+}
+kernel();
+\end{lstlisting}
+
+% --- Case 10 ---
+\subsection{Case 10: \texttt{10\_triple\_polly\_doall\_doacross}}
+\textbf{Expect:} combo (Polly + DOALL + DOACROSS) \quad \textbf{polly\_off:} \passmark \quad \textbf{polly\_on:} \passmark
+
+\textbf{Proves:} One program contains (1) dense matmul triple nest --- Polly GOMP
+when on; (2) saxpy DOALL; (3) indirect prefix DOACROSS. Demonstrates that
+Polly and PDG \emph{compose across nests}, not on the same nest.
+
+\begin{lstlisting}
+fn void kernel() {
+  int n = numVertices(G);
+  int A[n][n];
+  int Bmat[n][n];
+  int C[n][n];
+  int x[n];
+  int y[n];
+  int pref[n];
+  int Q[n];
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      A[i][j] = i + 1;
+      Bmat[i][j] = j + 1;
+      C[i][j] = 0;
+      j = j + 1;
+    }
+    x[i] = i + 1;
+    y[i] = 1;
+    pref[i] = 1;
+    Q[i] = n - 1 - i;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < n) {
+      int s = 0;
+      int k = 0;
+      while (k < n) {
+        s = s + A[i][k] * Bmat[k][j];
+        k = k + 1;
+      }
+      C[i][j] = s;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  i = 0;
+  while (i < n) { y[i] = 3 * x[i] + y[i]; i = i + 1; }
+  i = 1;
+  while (i < n) {
+    int idx = Q[i];
+    pref[i] = pref[i - 1] + x[idx];
+    i = i + 1;
+  }
+  print y[n - 1] + pref[n - 1] + C[1][1];
+}
+kernel();
+\end{lstlisting}
+
+\noindent
+\textbf{Case 10 with Polly on:} \texttt{GOMP=6}, \texttt{DOALL=1}, \texttt{DOACROSS=1},
+\texttt{pfr$_{00}$=1} --- matmul parallelized by Polly; PDG metadata still records
+DOALL/DOACROSS on remaining loops.
+
+%==============================================================================
+\section{Reproduce}
+%==============================================================================
+
+\begin{verbatim}
+cd p1GraphEasy-con-AutoTuner
+./build_lowmem.sh
+N=48 python3 bench_doacross_phi_fix.py
+# -> benchmark_logs/doacross_fix_<timestamp>/REPORT.md
+\end{verbatim}
+
+\noindent
+Related: trigger matrix (\texttt{bench\_polly\_vs\_pdg\_triggers.py},
+\texttt{POLLY\_VS\_PDG\_TRIGGERS.md}); performance ablation
+(\texttt{bench\_parallel\_boost.py}, \texttt{parallel\_boost\_REPORT.md}).
+
+\end{document}

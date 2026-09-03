@@ -9,7 +9,7 @@ __pycache__/
 *.sgplbin
 
 # ---- build products / binaries ----
-generated/*
+**/generated/
 *.o
 *.o.*
 *.a
@@ -129,5 +129,7 @@ test/*
 *.bak
 *.prepolly
 *.pre_tti
+# trailing-dot filename is unopenable on Windows; kept only as a gitignore rule
+**/graph_loader_runtime.
 ast_export_user_request
 ast_export_user_request.cpp

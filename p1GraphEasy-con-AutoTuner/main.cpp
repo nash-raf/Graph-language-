@@ -350,7 +350,8 @@ static void dumpModuleBitcode(llvm::Module &M, const char *path)
  * GRAPH_POLLY_EXTRA_FLAGS override, and GRAPH_TARGET_CPU=generic restores the
  * untuned cost model.
  */
-static std::unique_ptr<TargetMachine> setUpPollyPipeline(PassBuilder *&PBOut,
+static std::unique_ptr<TargetMachine> setUpPollyPipeline(int argc, char **argv,
+                                                         PassBuilder *&PBOut,
                                                          std::unique_ptr<PassBuilder> &PBStorage)
 {
     InitializeAllTargetInfos();
@@ -396,18 +397,6 @@ static std::unique_ptr<TargetMachine> setUpPollyPipeline(PassBuilder *&PBOut,
     PBOut = PBStorage.get();
     polly::registerPollyPasses(*PBOut);
 
-    return TM;
-}
-
-
-// Parse the Polly flags.
-//
-// Deliberately called AFTER the source has been parsed, because the value of
-// -polly-only-func depends on which functions the program declares (see the
-// call site).  Polly's cl::opts have to exist before this runs, which
-// registerPollyPasses in setUpPollyPipeline has already ensured.
-static void parsePollyFlags(int argc, char **argv, const std::string &onlyFuncs)
-{
     // Flags-only argv: the positional input filename must not reach the flag
     // parser, so it is recovered separately below.
     std::vector<std::string> flagArgs;
@@ -427,15 +416,6 @@ static void parsePollyFlags(int argc, char **argv, const std::string &onlyFuncs)
     if (isTruthyEnv("GRAPH_DISABLE_POLLY"))
     {
         flagArgs.emplace_back("-polly=false");
-    }
-    else if (!onlyFuncs.empty() && !hasArg("-polly-only-func"))
-    {
-        flagArgs.emplace_back("-polly");
-        flagArgs.emplace_back("-polly-only-func=" + onlyFuncs);
-        if (!isTruthyEnv("GRAPH_POLLY_MATMUL_OPT"))
-            flagArgs.emplace_back("-polly-pattern-matching-based-opts=false");
-        if (!isTruthyEnv("GRAPH_POLLY_NO_PARALLEL") && !hasArg("-polly-parallel"))
-            flagArgs.emplace_back("-polly-parallel");
     }
     else if (!hasArg("-polly"))
     {
@@ -487,7 +467,7 @@ static void parsePollyFlags(int argc, char **argv, const std::string &onlyFuncs)
         parseArgv.push_back(const_cast<char *>(arg.c_str()));
     cl::ParseCommandLineOptions(static_cast<int>(parseArgv.size()), parseArgv.data());
 
-
+    return TM;
 }
 
 // Counts Polly-profitable SCoPs by running Polly's ScopAnalysis (detection
@@ -865,8 +845,7 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
         FunctionPassManager FPM;
-        if (!isTruthyEnv("GRAPH_NO_OUTLINER") && !polly_owns_user_fns)
-            registerLoopOutlinerPass(FPM);
+        registerLoopOutlinerPass(FPM);
 
         ModulePassManager MPM;
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));

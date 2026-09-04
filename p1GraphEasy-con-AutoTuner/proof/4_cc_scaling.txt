@@ -1,0 +1,26 @@
+=== CleanCut scaling: 1M x 1M graph, 20 rounds ===
+--- T=1 ---
+n=1000000 m=2000000 directed=0 rounds=20
+serial: 0.309913s  cc: 0.335075s  cc/serial=0.92x
+rank0=1.5e-07 ref0=1.5e-07 rank999999=1.489389578e-06 ref999999=1.489389578e-06
+MATCH=YES
+--- T=2 ---
+n=1000000 m=2000000 directed=0 rounds=20
+serial: 0.268240s  cc: 0.160446s  cc/serial=1.67x
+rank0=1.5e-07 ref0=1.5e-07 rank999999=1.489389578e-06 ref999999=1.489389578e-06
+MATCH=YES
+--- T=4 ---
+n=1000000 m=2000000 directed=0 rounds=20
+serial: 0.239800s  cc: 0.113489s  cc/serial=2.11x
+rank0=1.5e-07 ref0=1.5e-07 rank999999=1.489389578e-06 ref999999=1.489389578e-06
+MATCH=YES
+--- T=8 ---
+n=1000000 m=2000000 directed=0 rounds=20
+serial: 0.242620s  cc: 0.101904s  cc/serial=2.38x
+rank0=1.5e-07 ref0=1.5e-07 rank999999=1.489389578e-06 ref999999=1.489389578e-06
+MATCH=YES
+--- T=12 ---
+n=1000000 m=2000000 directed=0 rounds=20
+serial: 0.243431s  cc: 0.141364s  cc/serial=1.72x
+rank0=1.5e-07 ref0=1.5e-07 rank999999=1.489389578e-06 ref999999=1.489389578e-06
+MATCH=YES

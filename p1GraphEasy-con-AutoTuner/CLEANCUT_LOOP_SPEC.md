@@ -68,16 +68,27 @@ reads must resolve against the previous round's snapshot.
   partition owns a contiguous **destination** range; all edges landing in it are
   grouped by source in `push_rp/ci/indir` (with per-partition source
   deduplication).
+- **Layout-native**: the partition build enumerates the arcs from whatever
+  layout the AutoTuner picked — CSR rows zero-copy; PCSR rows with GAP
+  sentinel slots skipped; BCSR block-decoded; SET walks the static base
+  pairs (raw order). **No conversion to CSR anywhere in the CleanCut path**
+  (the `convert_*` functions exist only in the runtime's own layout-conversion
+  machinery). CSR/PCSR/BCSR are u-major → bit-identical partitions; SET is
+  deterministic (fixed pair order).
 - One worker per partition, scanning its own rows → every write targets a
   home-owned destination → **no atomics, race-free for arbitrary per-pair
   work**. Source order within partition = serial order → bit-exact.
 - Used for: `next_rank[v] += f(u,v)`-style accumulations.
 
 ### 3.2 Source-owned traversal — `autograph_frontier_step_owner_source`
-- Partition p owns source range `[p·n/P, (p+1)·n/P)`; zero-copy scan of each
-  source's own CSR row (no per-partition copies).
+- Partition p owns source range `[p·n/P, (p+1)·n/P)`; the build stores
+  per-partition **flat pair lists** (`src_pairs[p] = [(u,v),...]`,
+  `src_pair_count[p]`) taken from the same layout-native enumeration as the
+  push (3.1), so the step never touches the transient layout directly —
+  correct under any picked layout.
 - Makes **source-indexed** writes (`out_degree[u]++`, u-owned state)
-  race-free; exact serial order — used by the degree/count loops.
+  race-free; exact serial order (u-major for CSR/PCSR/BCSR, raw for SET) —
+  used by the degree/count loops.
 
 ### 3.3 Per-partition partials + combine — `autograph_frontier_step_owner_red`
 - Each partition accumulates into its own partial slot (`red_partials[P]`),
@@ -117,7 +128,16 @@ reads must resolve against the previous round's snapshot.
   global** at the call site (the init's graph load lives in the soon-dead
   driver body and dead-value replacement turns it into poison).
 - Old driver nest deactivated (header true-edge → exit) → dead, DCE removes it.
-- Env gate: `GRAPH_FRONTIER_REWRITE=1` (default: off — pipeline stays green).
+- **Enabled by default** (no env gate): every graph loop is lowered or marked
+  sequential. `GRAPH_FRONTIER_REWRITE_OFF=1` restores the old pipeline
+  (graph loops then still get the unconditional sequential marking).
+- **AutoTuner dual annotation**: the AutoTuner pass (`AutoTunerPass.cpp`)
+  annotates both IR versions — the (dead) loop regions keep their events, and
+  each CleanCut step call gets a paired Traverse region (same graph, same
+  `totalOps` prediction) with `profile_region_enter` before and
+  `profile_region_exit` immediately after the call, so predicted-vs-measured
+  and layout decisions cover the executed kernel. Layout conversions are safe
+  for CleanCut graphs because the partitions are layout-agnostic (3.1/3.2).
 
 ### 3.7 Envelope (frontier semantics) — deferred
 - This phase passes `frontier=null` (full set), no `next_frontier` chaining.

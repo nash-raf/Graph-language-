@@ -2165,7 +2165,11 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
     if (F.isDeclaration() || F.begin() == F.end())
         return PreservedAnalyses::all();
     unsigned detected = 0;
-    const bool RewriteMode = getenv("GRAPH_FRONTIER_REWRITE") != nullptr;
+    /* CleanCut lowering is ON by default: graph loops are always lowered to
+     * the owner-computes step (or marked sequential).  GRAPH_FRONTIER_REWRITE_OFF=1
+     * restores the old pipeline for benchmarking (graph loops then fall back to
+     * the unconditional sequential marking). */
+    const bool RewriteMode = getenv("GRAPH_FRONTIER_REWRITE_OFF") == nullptr;
     auto &LI = FAM.getResult<LoopAnalysis>(F);
     for (Loop *L : LI.getLoopsInPreorder())
     {
@@ -2198,6 +2202,15 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             if (IsIter)
                 printEffects(Info, K);
             errs() << "\n";
+        }
+        if (!RewriteMode)
+        {
+            /* Safe by default: the CleanCut rewrite is env-gated, but a graph
+             * loop must never be handed blindly to the racy DOALL path — mark
+             * it sequential unconditionally. */
+            markSequential(L);
+            ++detected;
+            continue;
         }
         if (RewriteMode)
         {

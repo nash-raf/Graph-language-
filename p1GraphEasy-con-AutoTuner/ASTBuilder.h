@@ -26,7 +26,8 @@ public:
     antlrcpp::Any visitArray2DAssignStmt(BaseParser::Array2DAssignStmtContext *ctx);
     antlrcpp::Any visitFunction(BaseParser::FunctionContext *ctx) override;
     antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
-    antlrcpp::Any visitGraphDef(BaseParser::GraphDefContext *ctx) override;
+    antlrcpp::Any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override;
+    antlrcpp::Any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override;
 
     antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext *ctx) override;
 

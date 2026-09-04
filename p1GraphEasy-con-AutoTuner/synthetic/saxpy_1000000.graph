@@ -1,0 +1,31 @@
+graph G {
+  edges: file "synthetic/edge_1000000.txt";
+  TRUE
+};
+
+int n = numVertices(G);
+int x[1000000];
+int y[1000000];
+int out_deg[1000000];
+
+for each vertex v in G {
+  x[v] = v + 1;
+  y[v] = 1;
+  out_deg[v] = 1;
+}
+
+for each vertex u in G {
+  int v = 3 * x[u] + y[u];
+  v = v + 5 * x[u];
+  v = v + 7 * y[u];
+  v = v + 11 * x[u];
+  y[u] = v;
+}
+
+for each vertex u in G {
+  int v = y[u] + x[u];
+  v = v * 3 + x[u];
+  y[u] = v + y[u];
+}
+
+print y[n - 1];

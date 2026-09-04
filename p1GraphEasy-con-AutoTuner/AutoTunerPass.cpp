@@ -1488,6 +1488,17 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return std::max(1.0, mult);
   }
 
+  static bool isCleanCutStepCall(const Instruction *I)
+  {
+    if (!I)
+      return false;
+    if (const auto *CB = dyn_cast<CallBase>(I))
+      if (const Function *Callee = CB->getCalledFunction())
+        if (Callee && Callee->getName().starts_with("autograph_frontier_step_owner"))
+          return true;
+    return false;
+  }
+
   Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr);
 
   bool isOutlinedTaskFunction(const Function *F)
@@ -1951,6 +1962,16 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
                     ConstantInt::get(i32Ty, opIndex(R.dominant)),
                     ConstantInt::get(i32Ty, actualLayout),
                     ConstantFP::get(doubleTy, predictedNs)});
+
+      /* Step-anchored region: the exit must bracket the step call itself
+       * (the step executes mid-function, not at a loop exit). */
+      if (isCleanCutStepCall(R.anchor))
+      {
+        auto *StepCI = cast<CallInst>(R.anchor);
+        IRBuilder<> BAfter(StepCI->getNextNode());
+        BAfter.CreateCall(profileExitFn,
+                          {ConstantInt::get(i32Ty, regionId)});
+      }
     }
 
     std::map<Function *, int> lastRegionByFunction;
@@ -2141,6 +2162,65 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     std::vector<Region> regions = mergeSmallRegions(buildRegions(events));
     if (regions.empty())
       continue;
+
+    /* CleanCut dual annotation: graph-iterator loops were lowered by the
+     * graph-frontier pass into owner-computes step calls.  Annotate each
+     * step call as a Traverse region paired with the loop region of the same
+     * graph (same totalOps estimate), so predicted-vs-measured and layout
+     * decisions cover the executed kernel, not just the residual loops. */
+    {
+      /* Slot -> graph map: the generated main stores the loaded graph pointer
+       * into the @G global; step calls re-load it.  Mirrors the collection
+       * logic in collectOpEventsFromFunction. */
+      std::map<Value *, Value *> storageToGraph;
+      for (Function &Fn : M)
+        for (BasicBlock &BB : Fn)
+          for (Instruction &I : BB)
+            if (auto *SI = dyn_cast<StoreInst>(&I))
+              if (metaByGraphPtr.count(SI->getValueOperand()))
+                storageToGraph[SI->getPointerOperand()->stripPointerCasts()] =
+                    SI->getValueOperand();
+      auto graphOfStepArg = [&](Value *V) -> Value * {
+        if (!V)
+          return nullptr;
+        V = V->stripPointerCasts();
+        if (metaByGraphPtr.count(V))
+          return V;
+        if (auto *LI = dyn_cast<LoadInst>(V))
+        {
+          Value *slot = LI->getPointerOperand()->stripPointerCasts();
+          auto it = storageToGraph.find(slot);
+          if (it != storageToGraph.end())
+            return it->second;
+        }
+        return nullptr;
+      };
+      uint64_t loopOps = 0;
+      for (const Region &R : regions)
+        if (R.graphPtr == graphKey)
+          loopOps = std::max<uint64_t>(loopOps, R.totalOps);
+      if (loopOps == 0)
+        loopOps = static_cast<uint64_t>(estM);
+      for (Function &Fn : M)
+        for (BasicBlock &BB : Fn)
+          for (Instruction &I : BB)
+          {
+            auto *CB = dyn_cast<CallBase>(&I);
+            if (!CB || !isCleanCutStepCall(&I) || CB->arg_size() == 0)
+              continue;
+            Value *g = graphOfStepArg(CB->getArgOperand(0));
+            if (!g || g != const_cast<Value *>(graphKey))
+              continue;
+            Region SR;
+            SR.dominant = RegionType::Traverse;
+            SR.anchor = &I;
+            SR.graphPtr = const_cast<Value *>(graphKey);
+            SR.freq = {1.0, 0.0, 0.0, 0.0};
+            SR.totalOps = loopOps;
+            SR.execCount = 1.0;
+            regions.push_back(SR);
+          }
+    }
 
     LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw,
                                gClassTiers, gCsrClassTiers);

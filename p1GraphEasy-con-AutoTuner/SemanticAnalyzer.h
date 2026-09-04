@@ -5,7 +5,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <map>
 
 struct FunctionInfo
 {
@@ -37,8 +36,6 @@ private:
     void enterScope();
     void exitScope();
 
-    bool graphIsUndirected(const std::string &name) const;
-    void symmetrizeMotifEdges(std::vector<MotifEdgeSpec> &edges, const char *what);
     void analyzeDrawGraph(DrawGraphNode *D);
     void analyzeDrawMotifs(DrawMotifsNode *D);
     void analyzeMotifMatchesDecl(MotifMatchesDeclNode *M);

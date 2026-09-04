@@ -1,0 +1,12 @@
+[graph-frontier] candidate: main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 class=source-owner  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead  compat=single
+[graph-frontier] candidate: main driver=foreach.cond64 inner=foreach_nbr.cond87 kind=1 red=0 sep=1 data=0 fw=0 env=0 class=dest-owner  R(next_rank,V):SameRoundRead ⊗ U+(next_rank,V)  temporal=SameRoundRead  compat=single
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

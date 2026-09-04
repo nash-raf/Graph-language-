@@ -114,6 +114,15 @@ typedef struct {
   int32_t **push_ci;
   int32_t **push_indir;
   int64_t *push_row_count;
+
+  /* Source-owned CleanCut slices (layout-native).  Partition p owns the
+   * source range [partition_start[p], partition_start[p+1]); src_pairs[p] is
+   * the partition's flat [(u,v),(u,v),...] arc list (2 int32 per pair) built
+   * by enumerating WHATEVER layout the AutoTuner picked (CSR rows, PCSR rows
+   * with GAP slots skipped, BCSR block decode, or the SET base pairs), so the
+   * source step never touches the transient layout directly. */
+  int32_t **src_pairs;
+  int64_t *src_pair_count;
 } AutoGraphMeta;
 
 #ifdef __cplusplus

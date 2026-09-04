@@ -109,7 +109,14 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     }
     else if (ctx->graphDef())
     {
-        return visitGraphDef(ctx->graphDef());
+        if (auto wg = dynamic_cast<BaseParser::WeightedGraphDefContext *>(ctx->graphDef()))
+            return visitWeightedGraphDef(wg);
+        else if (auto ug = dynamic_cast<BaseParser::UnweightedGraphDefContext *>(ctx->graphDef()))
+            return visitUnweightedGraphDef(ug);
+        else
+            throw std::runtime_error("internal: unknown graphDef alternative");
+        // produce a GraphDeclNode
+        // return visitGraphDef(ctx->graphDef());
     }
     else if (ctx->queryStatement())
     {
@@ -959,8 +966,7 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    // functionName is ID or the 'degree' keyword; getText() covers both.
-    std::string callee = ctx->functionName()->getText();
+    std::string callee = ctx->ID()->getText();
 
     // collect arguments
     std::vector<ASTNodePtr> args;
@@ -977,40 +983,42 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
 }
 
 
-antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
+// `directed: true;` may appear anywhere in the graph body; the grammar allows
+// graphProperty* between each section, so scan all of them.
+template <typename Ctx>
+static bool parseDirectedProperty(Ctx *ctx)
+{
+    bool directed = false;
+    for (auto *prop : ctx->graphProperty())
+    {
+        const std::string value = prop->drawBoolLiteral()->getText();
+        directed = value == "true" || value == "TRUE";
+    }
+    return directed;
+}
+
+antlrcpp::Any ASTBuilder::visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx)
 {
     std::string nm = ctx->graphID()->getText();
-    // `TRUE` before the closing brace is the whole of weightedness.
-    const bool weighted = ctx->weighted() != nullptr;
-    // `directed` is valueless: present means directed.
-    const bool directed = ctx->graphProperty() != nullptr;
+    // std::cerr << "[ASTBuilder] Declaring graph: " << nm << std::endl;
 
     if (!ctx->edges())
         throw std::runtime_error("graph must have edges (inline list or file):");
 
-    // File-based graph: defer loading to runtime for performance.
+    // File-based graph: defer loading to runtime for performance
     if (auto *fe = ctx->edges()->fileEdgeList())
     {
-        std::string path = fe->STRING()->getText();
-        path = path.substr(1, path.size() - 2);
-        if (weighted)
-        {
-            auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(path));
-            gnode->directed = directed;
-            return std::static_pointer_cast<ASTNode>(gnode);
-        }
-        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(path));
-        gnode->directed = directed;
+        std::string s = fe->STRING()->getText();
+        s = s.substr(1, s.size() - 2);
+        auto gnode = std::make_shared<GraphDeclNode>(std::move(nm), std::move(s));
+    gnode->directed = parseDirectedProperty(ctx);
         return std::static_pointer_cast<ASTNode>(gnode);
     }
 
-    // Inline graph: build CSR at compile time (small graphs defined in the DSL).
+    // Inline graph: build CSR at compile time (small graphs defined in DSL)
     std::vector<std::pair<int, int>> edgesVec;
-    llvm::DenseMap<std::pair<int, int>, int> weightMap;
     if (auto *el = ctx->edges()->edgeList())
     {
-        if (weighted)
-            throw std::runtime_error("inline weighted edges not yet supported");
         for (auto *eCtx : el->edge())
         {
             int u = std::stoi(eCtx->nodeID(0)->getText());
@@ -1019,13 +1027,15 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
         }
     }
 
-    // Node id set: the explicit `nodes:` list (if any) plus every endpoint.
     llvm::DenseSet<int> idset;
     if (ctx->nodes())
     {
-        if (auto *nl = ctx->nodes()->nodeList())
+        auto *nl = ctx->nodes()->nodeList();
+        if (nl)
+        {
             for (auto *idT : nl->nodeID())
                 idset.insert(std::stoi(idT->getText()));
+        }
     }
     for (auto &e : edgesVec)
     {
@@ -1040,23 +1050,75 @@ antlrcpp::Any ASTBuilder::visitGraphDef(BaseParser::GraphDefContext *ctx)
     std::sort(nodeIds.begin(), nodeIds.end());
 
     auto nd = std::make_unique<InlineNodeList>(std::move(nodeIds));
-    if (weighted)
-    {
-        auto ed = std::make_unique<InlineWeightedEdgeList>(std::move(edgesVec),
-                                                           std::move(weightMap));
-        auto gnode = std::make_shared<WeightedGraphDeclNode>(
-            std::move(nm), std::move(nd), std::move(ed));
-        gnode->directed = directed;
-        return std::static_pointer_cast<ASTNode>(gnode);
-    }
-
     auto ed = std::make_unique<InlineEdgeList>(std::move(edgesVec));
+
     auto gnode = std::make_shared<GraphDeclNode>(
-        std::move(nm), std::move(nd), std::move(ed));
-    gnode->directed = directed;
+        std::move(nm),
+        std::move(nd),
+        std::move(ed));
+    gnode->directed = parseDirectedProperty(ctx);
+
     return std::static_pointer_cast<ASTNode>(gnode);
 }
 
+antlrcpp::Any ASTBuilder::visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx)
+{
+    std::string nm = ctx->graphID()->getText();
+
+    if (!ctx->edges())
+        throw std::runtime_error("graph must have edges (inline list or file):");
+
+    if (auto *fe = ctx->edges()->fileEdgeList())
+    {
+        std::string s = fe->STRING()->getText();
+        s = s.substr(1, s.size() - 2);
+        auto gnode = std::make_shared<WeightedGraphDeclNode>(std::move(nm), std::move(s));
+    gnode->directed = parseDirectedProperty(ctx);
+        return std::static_pointer_cast<ASTNode>(gnode);
+    }
+
+    std::vector<std::pair<int, int>> edgesVec;
+    llvm::DenseMap<std::pair<int, int>, int> weightMap;
+    if (auto *el = ctx->edges()->edgeList())
+    {
+        throw std::runtime_error("inline weighted edges not yet supported");
+    }
+
+    // Build node id set: explicit nodes (if any) U nodes from edges
+    llvm::DenseSet<int> idset;
+    if (ctx->nodes())
+    {
+        auto *nl = ctx->nodes()->nodeList();
+        if (nl)
+        {
+            for (auto *idT : nl->nodeID())
+                idset.insert(std::stoi(idT->getText()));
+        }
+    }
+    for (auto &e : edgesVec)
+    {
+        idset.insert(e.first);
+        idset.insert(e.second);
+    }
+
+    std::vector<int> nodeIds;
+    nodeIds.reserve(idset.size());
+    for (int x : idset)
+        nodeIds.push_back(x);
+    std::sort(nodeIds.begin(), nodeIds.end());
+
+    // Construct InlineNodeList / InlineEdgeList and pass them to GraphDeclNode
+    auto nd = std::make_unique<InlineNodeList>(std::move(nodeIds));
+    auto ed = std::make_unique<InlineWeightedEdgeList>(std::move(edgesVec), std::move(weightMap));
+
+    auto gnode = std::make_shared<WeightedGraphDeclNode>(
+        std::move(nm),
+        std::move(nd),
+        std::move(ed));
+    gnode->directed = parseDirectedProperty(ctx);
+
+    return std::static_pointer_cast<ASTNode>(gnode);
+}
 
 antlrcpp::Any ASTBuilder::visitQueryStatement(BaseParser::QueryStatementContext *ctx)
 {

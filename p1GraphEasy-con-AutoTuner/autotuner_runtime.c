@@ -2609,28 +2609,221 @@ static void autograph_clean_cut_free(AutoGraphMeta *meta) {
     free(meta->push_rp ? meta->push_rp[p] : NULL);
     free(meta->push_ci ? meta->push_ci[p] : NULL);
     free(meta->push_indir ? meta->push_indir[p] : NULL);
+    free(meta->src_pairs ? meta->src_pairs[p] : NULL);
   }
   free(meta->push_rp);
   free(meta->push_ci);
   free(meta->push_indir);
   free(meta->push_row_count);
+  free(meta->src_pairs);
+  free(meta->src_pair_count);
   free(meta->partition_start);
   meta->push_rp = NULL;
   meta->push_ci = NULL;
   meta->push_indir = NULL;
   meta->push_row_count = NULL;
+  meta->src_pairs = NULL;
+  meta->src_pair_count = NULL;
   meta->partition_start = NULL;
   meta->partition_count = 0;
+}
+
+/* Loader-provided canonical edge pairs (never touched by layout conversions). */
+extern int32_t *graph_get_edge_pairs(void *graph_ptr);
+extern int64_t graph_get_num_edge_pairs(void *graph_ptr);
+
+/* Native layout arc iterator for CleanCut partitioning.  Enumerates the arcs
+ * from WHATEVER layout the AutoTuner picked for the graph — never converts
+ * to CSR:
+ *   - CSR  : zero-copy view of csr_row_ptr/col_idx (u-major).
+ *   - PCSR : walks pcsr rows, skipping GAP(-1) sentinel slots (u-major).
+ *   - BCSR : block-decodes brow/bcol payloads (u-major; local_row per block).
+ *   - SET  : walks the static edge pairs, expanding undirected pairs to both
+ *            arcs (raw order — SET has no row structure).
+ * Returns 1 on success; the flat arc list is owned (freed by cc_arcs_free). */
+typedef struct {
+  int64_t n;
+  int32_t *arc_u; /* owned flat arc list when non-CSR */
+  int32_t *arc_v;
+  int64_t arc_count;
+  const int64_t *csr_rp; /* borrowed CSR view when layout == CSR */
+  const int32_t *csr_ci;
+} CcArcs;
+
+static void cc_arcs_free(CcArcs *A) {
+  if (!A)
+    return;
+  free(A->arc_u);
+  free(A->arc_v);
+  A->arc_u = NULL;
+  A->arc_v = NULL;
+  A->arc_count = 0;
+}
+
+static int cc_arcs_init(AutoGraphMeta *meta, void *graph_ptr, CcArcs *A) {
+  if (!meta || !A)
+    return 0;
+  memset(A, 0, sizeof(*A));
+  A->n = meta->csr_n;
+  int64_t n = meta->csr_n;
+  if (n <= 0 || n > INT32_MAX)
+    return 0;
+
+  if (meta->current_layout == LAYOUT_PCSR && meta->pcsr_row_ptr &&
+      meta->pcsr_col_idx) {
+    /* Count real (non-GAP) arcs. */
+    int64_t count = 0;
+    for (int64_t u = 0; u < n; ++u)
+      for (int64_t j = meta->pcsr_row_ptr[u]; j < meta->pcsr_row_ptr[u + 1]; ++j)
+        if (meta->pcsr_col_idx[j] != -1)
+          count++;
+    if (count == 0)
+      return 0;
+    A->arc_u = (int32_t *)malloc((size_t)count * sizeof(int32_t));
+    A->arc_v = (int32_t *)malloc((size_t)count * sizeof(int32_t));
+    if (!A->arc_u || !A->arc_v) {
+      cc_arcs_free(A);
+      return 0;
+    }
+    int64_t w = 0;
+    for (int64_t u = 0; u < n; ++u) {
+      for (int64_t j = meta->pcsr_row_ptr[u]; j < meta->pcsr_row_ptr[u + 1]; ++j) {
+        int32_t v = meta->pcsr_col_idx[j];
+        if (v == -1)
+          continue;
+        A->arc_u[w] = (int32_t)u;
+        A->arc_v[w] = v;
+        w++;
+      }
+    }
+    A->arc_count = count;
+    return 1;
+  }
+
+  if (meta->current_layout == LAYOUT_BCSR && meta->bcsr_brow_ptr &&
+      meta->bcsr_bcol_idx) {
+    int32_t bs = meta->bcsr_block_size > 0 ? meta->bcsr_block_size : 64;
+    int32_t nb = meta->bcsr_nblocks;
+    /* Count arcs from the (local_row, col) payload. */
+    int64_t count = 0;
+    for (int32_t b = 0; b < nb; ++b)
+      count += (int64_t)(meta->bcsr_brow_ptr[b + 1] - meta->bcsr_brow_ptr[b]) / 2;
+    if (count == 0)
+      return 0;
+    A->arc_u = (int32_t *)malloc((size_t)count * sizeof(int32_t));
+    A->arc_v = (int32_t *)malloc((size_t)count * sizeof(int32_t));
+    if (!A->arc_u || !A->arc_v) {
+      cc_arcs_free(A);
+      return 0;
+    }
+    int64_t w = 0;
+    for (int32_t b = 0; b < nb; ++b) {
+      int64_t base = (int64_t)b * bs;
+      for (int64_t j = meta->bcsr_brow_ptr[b]; j < meta->bcsr_brow_ptr[b + 1]; j += 2) {
+        int32_t local_row = meta->bcsr_bcol_idx[j];
+        int32_t v = meta->bcsr_bcol_idx[j + 1];
+        A->arc_u[w] = (int32_t)(base + local_row);
+        A->arc_v[w] = v;
+        w++;
+      }
+    }
+    A->arc_count = count;
+    return 1;
+  }
+
+  if (meta->csr_row_ptr && meta->csr_col_idx) {
+    A->csr_rp = meta->csr_row_ptr;
+    A->csr_ci = meta->csr_col_idx;
+    return 1;
+  }
+
+  /* SET: static base pairs, raw order, undirected pairs expanded. */
+  {
+    int32_t *pairs = graph_get_edge_pairs(graph_ptr);
+    int64_t num = graph_get_num_edge_pairs(graph_ptr);
+    if (!pairs || num <= 0)
+      return 0;
+    int directed = (meta->csr_m > 0 && meta->csr_m == num) ? 1 : 0;
+    int64_t arcs = directed ? num : 2 * num;
+    A->arc_u = (int32_t *)malloc((size_t)arcs * sizeof(int32_t));
+    A->arc_v = (int32_t *)malloc((size_t)arcs * sizeof(int32_t));
+    if (!A->arc_u || !A->arc_v) {
+      cc_arcs_free(A);
+      return 0;
+    }
+    int64_t w = 0;
+    if (directed) {
+      for (int64_t i = 0; i < num; ++i) {
+        A->arc_u[w] = pairs[2 * i];
+        A->arc_v[w] = pairs[2 * i + 1];
+        w++;
+      }
+    } else {
+      for (int64_t i = 0; i < num; ++i) {
+        A->arc_u[w] = pairs[2 * i];
+        A->arc_v[w] = pairs[2 * i + 1];
+        w++;
+        A->arc_u[w] = pairs[2 * i + 1];
+        A->arc_v[w] = pairs[2 * i];
+        w++;
+      }
+    }
+    A->arc_count = arcs;
+    return 1;
+  }
+}
+
+/* Arc iterator cursor over a CcArcs. */
+typedef struct {
+  const CcArcs *A;
+  int64_t row; /* CSR row cursor */
+  int64_t j;   /* CSR column cursor */
+  int64_t e;   /* flat list cursor */
+  int32_t u;
+  int32_t v;
+} CcArcIter;
+
+static int cc_arc_next(CcArcIter *it) {
+  const CcArcs *A = it->A;
+  if (A->arc_u) {
+    if (it->e >= A->arc_count)
+      return 0;
+    it->u = A->arc_u[it->e];
+    it->v = A->arc_v[it->e];
+    it->e++;
+    return 1;
+  }
+  while (it->row < A->n) {
+    if (it->j < A->csr_rp[it->row + 1]) {
+      it->u = (int32_t)it->row;
+      it->v = A->csr_ci[it->j];
+      it->j++;
+      return 1;
+    }
+    it->row++;
+    it->j = A->csr_rp[it->row];
+  }
+  return 0;
 }
 
 int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta)
     return 0;
-  if (!meta->csr_row_ptr || !meta->csr_col_idx || meta->csr_n <= 0)
+  if (meta->csr_n <= 0)
     return 0;
   if (meta->csr_n > INT32_MAX)
     return 0;
+
+  /* Native layout enumeration: walk the picked layout's own arrays (CSR
+   * rows zero-copy; PCSR rows skipping GAP slots; BCSR block decode; SET base
+   * pairs) — CleanCut never converts to CSR. */
+  CcArcs arcs;
+  if (!cc_arcs_init(meta, graph_ptr, &arcs)) {
+    if (getenv("SGPL_CLEANCUT_DEBUG"))
+      fprintf(stderr, "[clean-cut] cannot enumerate arcs in current layout\n");
+    return 0;
+  }
 
   int32_t workers = sgpl_configured_worker_count();
   if (workers < 1)
@@ -2644,8 +2837,10 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   int64_t n = meta->csr_n;
   if ((int64_t)partitions > n)
     partitions = (int32_t)n;
-  if (partitions < 1)
+  if (partitions < 1) {
+    cc_arcs_free(&arcs);
     return 0;
+  }
 
   autograph_clean_cut_free(meta);
 
@@ -2656,6 +2851,9 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   int32_t **indir = (int32_t **)calloc((size_t)partitions, sizeof(int32_t *));
   int64_t *row_counts = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
   int64_t *edge_counts = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  int32_t **sci = NULL;
+  int64_t *src_row_count = NULL;
+  int64_t *src_arc = NULL;
   if (!start || !rp || !ci || !indir || !row_counts || !edge_counts)
     goto fail;
 
@@ -2672,16 +2870,16 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
     goto fail;
   for (int32_t p = 0; p < partitions; ++p)
     last_row[p] = -1;
-  for (int64_t u = 0; u < n; ++u) {
-    int64_t lo = meta->csr_row_ptr[u];
-    int64_t hi = meta->csr_row_ptr[u + 1];
-    for (int64_t j = lo; j < hi; ++j) {
-      int32_t v = meta->csr_col_idx[j];
+  {
+    CcArcIter it = {&arcs, 0, arcs.csr_rp ? arcs.csr_rp[0] : 0, 0, 0, 0};
+    while (cc_arc_next(&it)) {
+      int32_t u = it.u;
+      int32_t v = it.v;
       int32_t p = CC_PART_OF(v);
       if (p < 0 || p >= partitions)
         continue;
       if ((int64_t)last_row[p] != u) {
-        last_row[p] = (int32_t)u;
+        last_row[p] = u;
         row_counts[p]++;
       }
       edge_counts[p]++;
@@ -2708,19 +2906,19 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   if (!row_idx || !edge_idx)
     goto fail;
 
-  for (int64_t u = 0; u < n; ++u) {
-    int64_t lo = meta->csr_row_ptr[u];
-    int64_t hi = meta->csr_row_ptr[u + 1];
-    for (int64_t j = lo; j < hi; ++j) {
-      int32_t v = meta->csr_col_idx[j];
+  {
+    CcArcIter it = {&arcs, 0, arcs.csr_rp ? arcs.csr_rp[0] : 0, 0, 0, 0};
+    while (cc_arc_next(&it)) {
+      int32_t u = it.u;
+      int32_t v = it.v;
       int32_t p = CC_PART_OF(v);
       if (p < 0 || p >= partitions)
         continue;
-      if (seen[p] != (int32_t)u) {
+      if (seen[p] != u) {
         /* new source row for partition p: open it in indir and rp */
-        seen[p] = (int32_t)u;
+        seen[p] = u;
         if (row_idx[p] < row_counts[p]) {
-          indir[p][row_idx[p]] = (int32_t)u;
+          indir[p][row_idx[p]] = u;
           rp[p][row_idx[p]] = (int64_t)edge_idx[p];
           row_idx[p]++;
         }
@@ -2738,15 +2936,56 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   free(edge_idx);
   free(edge_counts);
 
+  /* Source-owned slices (layout-native, flat): partition p owns the source
+   * range [start[p], start[p+1]); src_pairs[p] is the partition's flat
+   * [(u,v),(u,v),...] arc list, built by enumerating the picked layout. */
+  sci = (int32_t **)calloc((size_t)partitions, sizeof(int32_t *));
+  src_row_count = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  src_arc = (int64_t *)calloc((size_t)partitions, sizeof(int64_t));
+  if (!sci || !src_row_count || !src_arc)
+    goto fail;
+  {
+    CcArcIter it = {&arcs, 0, arcs.csr_rp ? arcs.csr_rp[0] : 0, 0, 0, 0};
+    while (cc_arc_next(&it)) {
+      /* p(u) = the partition whose [start[p], start[p+1]) contains u
+       * (exact inverse of start[p] = floor(p*n/P)). */
+      int32_t p = (int32_t)((((int64_t)it.u + 1) * partitions - 1) / n);
+      if (p < 0 || p >= partitions)
+        continue;
+      src_row_count[p]++;
+    }
+  }
+  for (int32_t p = 0; p < partitions; ++p) {
+    sci[p] = (int32_t *)calloc((size_t)(2 * src_row_count[p]), sizeof(int32_t));
+    if (!sci[p])
+      goto fail;
+  }
+  {
+    CcArcIter it = {&arcs, 0, arcs.csr_rp ? arcs.csr_rp[0] : 0, 0, 0, 0};
+    while (cc_arc_next(&it)) {
+      int32_t p = (int32_t)((((int64_t)it.u + 1) * partitions - 1) / n);
+      if (p < 0 || p >= partitions)
+        continue;
+      sci[p][2 * src_arc[p]] = it.u;
+      sci[p][2 * src_arc[p] + 1] = it.v;
+      src_arc[p]++;
+    }
+  }
+  free(src_arc);
+
   meta->partition_start = start;
   meta->push_rp = rp;
   meta->push_ci = ci;
   meta->push_indir = indir;
   meta->push_row_count = row_counts;
+  meta->src_pairs = sci;
+  meta->src_pair_count = src_row_count;
   meta->partition_count = partitions;
+  cc_arcs_free(&arcs);
   return partitions;
 
 fail:
+  cc_arcs_free(&arcs);
   if (start) free(start);
   if (rp)
     for (int32_t p = 0; p < partitions; ++p) free(rp[p]);
@@ -2759,6 +2998,11 @@ fail:
   free(indir);
   if (row_counts) free(row_counts);
   if (edge_counts) free(edge_counts);
+  if (sci)
+    for (int32_t p = 0; p < partitions; ++p) free(sci[p]);
+  free(sci);
+  if (src_row_count) free(src_row_count);
+  free(src_arc);
   return 0;
 }
 
@@ -2866,23 +3110,22 @@ static void autograph_source_owner_partition_body(int64_t index, void *opaque) {
   AutoGraphMeta *meta = env->meta;
   int32_t p = (int32_t)index;
   int64_t n = meta->csr_n;
-  int64_t lo = p * n / env->partitions;
-  int64_t hi = (p + 1) * n / env->partitions;
-  int64_t *rp = meta->csr_row_ptr;
-  int32_t *ci = meta->csr_col_idx;
-  for (int64_t u = lo; u < hi; ++u) {
+  /* Layout-native: read the prebuilt flat source slices (enumerated from
+   * whatever layout the AutoTuner picked), never the transient layout. */
+  int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+  int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
+  for (int64_t e = 0; e < cnt; ++e) {
+    int32_t u = pairs[2 * e];
+    int32_t v = pairs[2 * e + 1];
     if (env->membership && !env->membership[u])
       continue;
-    for (int64_t j = rp[u]; j < rp[u + 1]; ++j) {
-      int32_t v = ci[j];
-      int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
-      env->work_fn((int32_t)u, v, v, env->work_env);
-      if (env->dest_seen && env->next_frontier && !seen_before &&
-          env->dest_seen[v]) {
-        int32_t head =
-            atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
-        env->next_frontier[env->initial_next_size + head] = v;
-      }
+    int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
+    env->work_fn(u, v, v, env->work_env);
+    if (env->dest_seen && env->next_frontier && !seen_before &&
+        env->dest_seen[v]) {
+      int32_t head =
+          atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
+      env->next_frontier[env->initial_next_size + head] = v;
     }
   }
 }
@@ -3586,17 +3829,27 @@ int autograph_ensure_transpose(void *graph_ptr) {
 
   /* Build from the forward CSR: for each edge (u -> v), append u to in-list of
    * v.  Direct use of the forward CSR assumes no self-referential transpose is
-   * present; this is the standard one-pass CSR transpose (O(E), two passes). */
+   * present; this is the standard one-pass CSR transpose (O(E), two passes).
+   * Under a transient layout (PCSR/BCSR/SET) the canonical CSR may be
+   * released: reconstruct it from the static base pairs first. */
   int64_t n = meta->csr_n;
-  if (n <= 0 || !meta->csr_row_ptr || !meta->csr_col_idx)
+  if (n <= 0)
+    return 0;
+
+  /* Native in-row build from the picked layout (no CSR conversion). */
+  CcArcs arcs;
+  if (!cc_arcs_init(meta, graph_ptr, &arcs))
     return 0;
 
   int64_t *irp = (int64_t *)calloc((size_t)(n + 1), sizeof(int64_t));
-  if (!irp)
+  if (!irp) {
+    cc_arcs_free(&arcs);
     return 0;
-  for (int64_t u = 0; u < n; ++u) {
-    for (int64_t j = meta->csr_row_ptr[u]; j < meta->csr_row_ptr[u + 1]; ++j) {
-      int32_t v = meta->csr_col_idx[j];
+  }
+  {
+    CcArcIter it = {&arcs, 0, arcs.csr_rp ? arcs.csr_rp[0] : 0, 0, 0, 0};
+    while (cc_arc_next(&it)) {
+      int32_t v = it.v;
       if (v >= 0 && v < n)
         irp[v + 1]++;
     }
@@ -3608,23 +3861,27 @@ int autograph_ensure_transpose(void *graph_ptr) {
                            : NULL;
   if (total > 0 && !ici) {
     free(irp);
+    cc_arcs_free(&arcs);
     return 0;
   }
   int64_t *cursor = (int64_t *)malloc((size_t)(n + 1) * sizeof(int64_t));
   if (!cursor) {
     free(irp);
     free(ici);
+    cc_arcs_free(&arcs);
     return 0;
   }
   memcpy(cursor, irp, (size_t)(n + 1) * sizeof(int64_t));
-  for (int64_t u = 0; u < n; ++u) {
-    for (int64_t j = meta->csr_row_ptr[u]; j < meta->csr_row_ptr[u + 1]; ++j) {
-      int32_t v = meta->csr_col_idx[j];
+  {
+    CcArcIter it = {&arcs, 0, arcs.csr_rp ? arcs.csr_rp[0] : 0, 0, 0, 0};
+    while (cc_arc_next(&it)) {
+      int32_t v = it.v;
       if (v >= 0 && v < n)
-        ici[cursor[v]++] = (int32_t)u;
+        ici[cursor[v]++] = it.u;
     }
   }
   free(cursor);
+  cc_arcs_free(&arcs);
 
   meta->in_row_ptr = irp;
   meta->in_col_idx = ici;

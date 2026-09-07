@@ -187,6 +187,7 @@ struct NeighborLoopInfo
     bool HasFirstWins = false;        /* dest-owned CAS-style claim */
     bool HasRecognizedOp = false;     /* body has a known Update operator */
     SmallVector<StoreInst *, 4> DriverUStores; /* per-source preamble (alive[u]=0) */
+    SmallVector<AtomicCmpXchgInst *, 4> DriverUClaims; /* first-wins claims */
     SmallVector<Effect, 8> Effects;   /* primitive effect set E */
     ICmpInst *DriverUGuard = nullptr; /* optional if (pred(u)) wrapping U-stores */
     bool MembershipGated = false;     /* driver is a frontier / F_t iteration */
@@ -791,6 +792,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             USlot = UL->getPointerOperand();
     Info.UAlloca = USlot;
     Provenance Prov(*F, Info.VAlloca, {IndVar, USrc}, USlot);
+    Provenance ProvU(*F, Info.VAlloca, {IndVar, USrc, Info.UVal}, USlot);
 
     /* Pre-pass: find scalar slots used as non-endpoint array-write subscripts
      * (frontier-append counters, `next_frontier[next_size] = v`).  These are
@@ -1093,9 +1095,21 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             Info.NeedsRoundSep = true;
 
     /* Per-source preamble in the driver (kcore `alive[u]=0`) is not in the
-     * neighbor body; these are ordinary U-effects in E, not a graft list. */
+     * neighbor body; these are ordinary U-effects in E, not a graft list.
+     * The preamble index is the driver's own u (the iterator init arg or the
+     * frontier-set element) whose provenance may be Top (a set-iteration
+     * call result), so accept UVal-derived indexes as U. */
     for (BasicBlock *BB : Info.DriverLoop->blocks())
     {
+        if (getenv("GRAPH_FRONTIER_DIAG"))
+        {
+            unsigned SC = 0;
+            for (Instruction &DI : *BB)
+                if (isa<StoreInst>(&DI))
+                    SC++;
+            errs() << "[diag-driver] block=" << BB->getName()
+                   << " stores=" << SC << "\n";
+        }
         if (L->contains(BB))
             continue;
         for (Instruction &I : *BB)
@@ -1104,7 +1118,24 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                 if (auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
                 {
                     Value *IX = primaryIndex(GEP);
-                    if (!IX || Prov.regionOf(IX) != Region::U)
+                    if (getenv("GRAPH_FRONTIER_DIAG"))
+                        errs() << "[diag-driver] store " << (IX ? "IX" : "noIX")
+                               << " base="
+                               << (canonicalArrayBase(GEP) && canonicalArrayBase(GEP)->hasName()
+                                       ? canonicalArrayBase(GEP)->getName()
+                                       : "_")
+                               << " reg="
+                               << (IX ? (int)Prov.regionOf(IX) : -1)
+                               << " uval=" << (Info.UVal ? 1 : 0)
+                               << " uvalDeriv="
+                               << (IX && Info.UVal
+                                           ? ProvU.regionOf(IX) == Region::U
+                                           : 0)
+                               << "\n";
+                    if (!IX)
+                        continue;
+                    if (Prov.regionOf(IX) != Region::U &&
+                        ProvU.regionOf(IX) != Region::U)
                         continue;
                     const Value *Base = canonicalArrayBase(GEP);
                     noteWritten(Region::U, Base);
@@ -1115,11 +1146,48 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                         classifyStore(SI, SI->getPointerOperand(), Region::U,
                                       Base, IX));
                 }
+            if (auto *CAS = dyn_cast<AtomicCmpXchgInst>(&I))
+            {
+                /* First-wins claim in the driver preamble (kcore
+                 * `alive[u]=1 -> alive[u]=0` lowers to a CAS claim): a
+                 * source-owned write on the claimed element. */
+                if (!CAS->getMetadata("sgpl.first_wins.claim"))
+                    continue;
+                if (auto *GEP = dyn_cast<GetElementPtrInst>(CAS->getPointerOperand()))
+                {
+                    Value *IX = primaryIndex(GEP);
+                    if (!IX)
+                        continue;
+                    if (Prov.regionOf(IX) != Region::U &&
+                        ProvU.regionOf(IX) != Region::U)
+                        continue;
+                    const Value *Base = canonicalArrayBase(GEP);
+                    noteWritten(Region::U, Base);
+                    Effect E;
+                    E.Kind = EffectKind::Claim;
+                    E.Reg = Region::U;
+                    E.Base = Base;
+                    E.Index = IX;
+                    E.Origin = &I;
+                    Info.Effects.push_back(E);
+                    Info.HasFirstWins = true;
+                    Info.DriverUClaims.push_back(CAS);
+                    if (getenv("GRAPH_FRONTIER_DIAG"))
+                        errs() << "[diag-driver] CAS claim base="
+                               << (Base && Base->hasName() ? Base->getName()
+                                                           : "_")
+                               << "\n";
+                }
+                continue;
+            }
             if (auto *LI = dyn_cast<LoadInst>(&I))
                 if (auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand()))
                 {
                     Value *IX = primaryIndex(GEP);
-                    if (!IX || Prov.regionOf(IX) != Region::U)
+                    if (!IX)
+                        continue;
+                    if (Prov.regionOf(IX) != Region::U &&
+                        ProvU.regionOf(IX) != Region::U)
                         continue;
                     Effect E;
                     E.Kind = EffectKind::R;
@@ -2017,13 +2085,34 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
         if (!FirstClone)
             FirstClone = CloneBB;
     }
-    /* Driver U-stores belong on the source pair-fn (DualOwner U-phase), not
-     * grafted into a dest-owned body. */
+    /* Driver U-stores and first-wins claims belong on the source pair-fn
+     * (DualOwner U-phase), not grafted into a dest-owned body. */
     if (Phase == PairPhase::UOnly)
     {
         for (StoreInst *SI : Info.DriverUStores)
         {
             Instruction *Clone = SI->clone();
+            bool Ok = true;
+            for (unsigned oi = 0; oi < Clone->getNumOperands(); ++oi)
+            {
+                Value *M = CloneValue(Clone->getOperand(oi), CloneValue);
+                if (!M)
+                {
+                    Ok = false;
+                    break;
+                }
+                Clone->setOperand(oi, M);
+            }
+            if (!Ok)
+            {
+                Clone->deleteValue();
+                continue;
+            }
+            WB.Insert(Clone);
+        }
+        for (AtomicCmpXchgInst *CAS : Info.DriverUClaims)
+        {
+            Instruction *Clone = CAS->clone();
             bool Ok = true;
             for (unsigned oi = 0; oi < Clone->getNumOperands(); ++oi)
             {

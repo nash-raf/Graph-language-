@@ -3032,7 +3032,11 @@ void IRGenVisitor::visitConditional(ConditionalNode *ifs)
      * per-edge first-wins CAS so the claim lowers to an ordinary guarded store
      * and CleanCut parallelizes it under the owner rule (dest-owned claim is
      * race-free — one partition owns the index). */
-    if (getenv("GRAPH_FRONTIER_REWRITE"))
+    /* Effect-algebra mode (default): first-wins claims lower to plain stores —
+     * CleanCut's owner-computes construction serializes each source (and the
+     * dual-owner staging handles the claim semantics), so no CAS is needed.
+     * GRAPH_FRONTIER_REWRITE_OFF=1 (motif path) restores the CAS claim. */
+    if (!getenv("GRAPH_FRONTIER_REWRITE_OFF"))
         firstWins.reset();
     llvm::Value *condBool = nullptr;
     if (firstWins)
@@ -3996,11 +4000,12 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
             if (emitSemiringClosure(*closure))
                 return;
 
-    /* Effect-algebra mode (GRAPH_FRONTIER_REWRITE): retire the AST motif
-     * edge-map dispatch (first-wins / relax-min / peel-k) so these frontier
-     * loops emit ordinary autograph_neighbor_iter_* IR and are picked up and
-     * parallelized by the CleanCut effect algebra instead. */
-    if (!getenv("GRAPH_FRONTIER_REWRITE"))
+    /* Effect-algebra mode (default): retire the AST motif edge-map dispatch
+     * (first-wins / relax-min / peel-k) so these frontier loops emit ordinary
+     * autograph_neighbor_iter_* IR and are picked up and parallelized by the
+     * CleanCut effect algebra instead.  GRAPH_FRONTIER_REWRITE_OFF=1 restores
+     * the motif dispatch for benchmarking. */
+    if (!getenv("GRAPH_FRONTIER_REWRITE_OFF"))
         if (auto edgeMap = analyzeFrontierEdgeMap(ws))
         {
             emitEdgeMap(*edgeMap);

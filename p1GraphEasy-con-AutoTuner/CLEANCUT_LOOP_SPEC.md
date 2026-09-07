@@ -139,10 +139,29 @@ reads must resolve against the previous round's snapshot.
   and layout decisions cover the executed kernel. Layout conversions are safe
   for CleanCut graphs because the partitions are layout-agnostic (3.1/3.2).
 
-### 3.7 Envelope (frontier semantics) — deferred
-- This phase passes `frontier=null` (full set), no `next_frontier` chaining.
-- Frontier chaining/membership from the iterator envelope (BFS-style) =
-  later phase (Q2).
+### 3.7 Envelope (frontier semantics) — active
+Frontier-set loops (the motif shapes) flow through the effect system:
+- `foreach element u in frontier`-style round loops with `setSize`/`next` swaps
+  are recognized structurally (`MembershipGated`, `FrontierSetPtr/NextSetPtr`,
+  `Activate` frontier appends, `envelopeWired`).
+- **sssp/cc (relax-min/min-copy)**: `DestOwner` + `PreviousRoundRead` — the
+  frontier round boundary makes the cross-endpoint read safe (monotone min
+  semantics are additionally self-healing for same-round re-relax races).
+- **k-core/peel**: `DualOwner` — per round: source phase (alive claims /
+  U-preamble incl. first-wins) then dest phase (degree updates), disjoint
+  bases, staged by the round boundary; peel rounds are round-separated by
+  construction (the compiler inserts the explicit peel skeleton when a flat
+  kernel is encountered).
+- **BFS/claims**: `Claim`/first-wins effects; under the effect system claims
+  lower to plain stores (CleanCut ownership serializes each source), no CAS
+  needed.
+- **Compiler motif engine gated off by default**: the front-end edge-map
+  dispatch (`analyzeFrontierEdgeMap`: CAS_FIRST/MIN_COPY/PEEL_K/MIN_WEIGHTED
+  -> `autograph_edgemap`) is disabled (`GRAPH_FRONTIER_REWRITE_OFF=1`
+  restores it) so these loops emit ordinary IR and are lowered by the effect
+  system. Front-end motif syntax (`motifs X = [G where ...]`) is untouched.
+- The four acceptance kernels (`small_sssp/cc/kcore/bfs.graph`) classify
+  parallel and produce bit-identical results vs the motif path (12T = 1T).
 
 ## 4. Coverage matrix
 

@@ -6,27 +6,31 @@
 .target sm_70
 .address_size 64
 
-	// .globl	gpu_kernel_task_2_foreach_cond_parallel
-.visible .global .align 4 .b8 x[4000000];
-.visible .global .align 4 .b8 y[4000000];
-.visible .global .align 4 .b8 out_deg[4000000];
+	// .globl	gpu_kernel_task_1_foreach_cond_parallel
+.visible .global .align 8 .f64 one_over_n;
+.visible .global .align 8 .u64 cur_rank;
+.visible .global .align 8 .f64 beta;
+.visible .global .align 8 .u64 next_rank;
+.visible .global .align 8 .u64 out_degree;
+.visible .global .align 8 .u64 perm;
 
-.visible .entry gpu_kernel_task_2_foreach_cond_parallel(
-	.param .u64 gpu_kernel_task_2_foreach_cond_parallel_param_0,
-	.param .u64 gpu_kernel_task_2_foreach_cond_parallel_param_1,
-	.param .u64 gpu_kernel_task_2_foreach_cond_parallel_param_2,
-	.param .u64 .ptr .align 1 gpu_kernel_task_2_foreach_cond_parallel_param_3
+.visible .entry gpu_kernel_task_1_foreach_cond_parallel(
+	.param .u64 gpu_kernel_task_1_foreach_cond_parallel_param_0,
+	.param .u64 gpu_kernel_task_1_foreach_cond_parallel_param_1,
+	.param .u64 gpu_kernel_task_1_foreach_cond_parallel_param_2,
+	.param .u64 .ptr .align 1 gpu_kernel_task_1_foreach_cond_parallel_param_3
 )
 {
 	.reg .pred 	%p<2>;
-	.reg .b32 	%r<7>;
-	.reg .b64 	%rd<20>;
+	.reg .b32 	%r<5>;
+	.reg .b64 	%rd<23>;
+	.reg .f64 	%fd<3>;
 
-	ld.param.u64 	%rd3, [gpu_kernel_task_2_foreach_cond_parallel_param_0];
-	ld.param.u64 	%rd4, [gpu_kernel_task_2_foreach_cond_parallel_param_3];
+	ld.param.u64 	%rd3, [gpu_kernel_task_1_foreach_cond_parallel_param_0];
+	ld.param.u64 	%rd4, [gpu_kernel_task_1_foreach_cond_parallel_param_3];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [gpu_kernel_task_2_foreach_cond_parallel_param_1];
-	ld.param.u64 	%rd6, [gpu_kernel_task_2_foreach_cond_parallel_param_2];
+	ld.param.u64 	%rd5, [gpu_kernel_task_1_foreach_cond_parallel_param_1];
+	ld.param.u64 	%rd6, [gpu_kernel_task_1_foreach_cond_parallel_param_2];
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %tid.x;
 	mov.u32 	%r3, %ntid.x;
@@ -37,23 +41,27 @@
 	setp.ge.s64 	%p1, %rd2, %rd5;
 	@%p1 bra 	$L__BB0_2;
 	ld.global.u64 	%rd10, [%rd1];
-	cvt.u32.u64 	%r4, %rd2;
-	add.s32 	%r5, %r4, 1;
-	shl.b64 	%rd11, %rd2, 2;
-	mov.u64 	%rd12, x;
-	add.s64 	%rd13, %rd12, %rd11;
-	st.global.u32 	[%rd13], %r5;
-	mov.u64 	%rd14, y;
-	add.s64 	%rd15, %rd14, %rd11;
-	mov.b32 	%r6, 1;
-	st.global.u32 	[%rd15], %r6;
-	mov.u64 	%rd16, out_deg;
-	add.s64 	%rd17, %rd16, %rd11;
-	st.global.u32 	[%rd17], %r6;
-	add.s64 	%rd18, %rd2, 1;
-	shr.u64 	%rd19, %rd18, 32;
-	st.u32 	[%rd10+4], %rd19;
-	st.u32 	[%rd10], %rd18;
+	ld.global.f64 	%fd1, [one_over_n];
+	ld.global.u64 	%rd11, [cur_rank];
+	shl.b64 	%rd12, %rd2, 3;
+	add.s64 	%rd13, %rd11, %rd12;
+	st.f64 	[%rd13], %fd1;
+	ld.global.f64 	%fd2, [beta];
+	ld.global.u64 	%rd14, [next_rank];
+	add.s64 	%rd15, %rd14, %rd12;
+	st.f64 	[%rd15], %fd2;
+	ld.global.u64 	%rd16, [out_degree];
+	shl.b64 	%rd17, %rd2, 2;
+	add.s64 	%rd18, %rd16, %rd17;
+	mov.b32 	%r4, 0;
+	st.u32 	[%rd18], %r4;
+	ld.global.u64 	%rd19, [perm];
+	add.s64 	%rd20, %rd19, %rd17;
+	st.u32 	[%rd20], %rd2;
+	add.s64 	%rd21, %rd2, 1;
+	shr.u64 	%rd22, %rd21, 32;
+	st.u32 	[%rd10+4], %rd22;
+	st.u32 	[%rd10], %rd21;
 $L__BB0_2:
 	ret;
 

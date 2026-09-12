@@ -1,0 +1,21 @@
+graph G {
+  directed: true;
+  edges: file "roundsep_small.txt";
+};
+
+int n = numVertices(G);
+int dist[n];
+
+for each vertex v in G {
+  dist[v] = 1;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    dist[v] = dist[v] + dist[u];
+  }
+}
+
+for each vertex v in G {
+  print dist[v];
+}

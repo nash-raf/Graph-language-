@@ -1825,6 +1825,27 @@ uint8_t *autograph_scratch_membership(void *graph_ptr) {
   return meta->scratch_membership;
 }
 
+/* Round-separation shadow buffer (per-graph, slot-indexed).  Returns a byte
+ * buffer of at least `bytes` (rounded up to 8), lazily (re)allocated and kept
+ * for the process lifetime; the emitted round-separation construction memcpy's
+ * the live in-place array into it each round.  Slots are independent so a
+ * single round can shadow more than one array. */
+void *autograph_scratch_shadow(void *graph_ptr, int64_t bytes, int32_t slot) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || slot < 0 || slot >= 4 || bytes < 0)
+    return NULL;
+  if (bytes < 0 || (int64_t)meta->scratch_shadow_bytes[slot] < bytes) {
+    int64_t want = (bytes + 7) & ~(int64_t)7;
+    uint8_t *buf = (uint8_t *)realloc(meta->scratch_shadow[slot],
+                                      (size_t)want);
+    if (!buf)
+      return NULL;
+    meta->scratch_shadow[slot] = buf;
+    meta->scratch_shadow_bytes[slot] = want;
+  }
+  return meta->scratch_shadow[slot];
+}
+
 int32_t autograph_prepare_frontier_array(void *graph_ptr,
                                          const int32_t *frontier,
                                          int32_t frontier_size) {

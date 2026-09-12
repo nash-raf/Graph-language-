@@ -81,6 +81,14 @@ typedef struct {
   int32_t *scratch_next_frontier; /* dense next-frontier buffer, size csr_n */
   int32_t *scratch_dest_seen;     /* per-round append flags, size csr_n */
 
+  /* Round-separation shadow buffers (in-place relax / round-separated loops).
+   * One byte buffer per slot, lazily sized to the largest request (the round
+   * preheader asks for csr_n * element-bytes); the compiler's emitted shadow
+   * construction memcpy's the live array into these each round so the pair
+   * work function reads a frozen round-start snapshot. */
+  uint8_t *scratch_shadow[4];
+  int64_t scratch_shadow_bytes[4];
+
   /* Analytic per-op-class RD tiers (Phase 3): per directed insert
    * (N, h2, h3) for {scan, move, brow, struct}, computed by the compiler
    * from the edge file (mirrors analytic_rd.py).  Used to keep runtime-side
@@ -363,6 +371,7 @@ int32_t autograph_frontier_step_owner_red(void *graph_ptr,
 int32_t *autograph_scratch_dest_seen(void *graph_ptr);
 int32_t *autograph_scratch_next_frontier(void *graph_ptr);
 uint8_t *autograph_scratch_membership(void *graph_ptr);
+void *autograph_scratch_shadow(void *graph_ptr, int64_t bytes, int32_t slot);
 int32_t autograph_prepare_frontier_array(void *graph_ptr,
                                          const int32_t *frontier,
                                          int32_t frontier_size);

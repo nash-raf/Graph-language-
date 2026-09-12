@@ -1,0 +1,43 @@
+graph G {
+  edges: file "roundsep_sssp_small.txt";
+  TRUE
+};
+
+int n = numVertices(G);
+int inf = 2147483647;
+int dist[n];
+set frontier;
+set next;
+int src = 0;
+int rounds = 0;
+
+for each vertex v in G {
+  dist[v] = inf;
+}
+
+dist[src] = 0;
+frontier = {0};
+
+while (setSize(frontier) > 0) {
+  if (rounds == n) {
+    break;
+  }
+  next = {};
+  for each element u in frontier {
+    if (dist[u] != inf) {
+      for each neighbor v of u in G {
+        int nd = dist[u] + weight(G, u, v);
+        if (nd < dist[v]) {
+          dist[v] = nd;
+          next.add(v);
+        }
+      }
+    }
+  }
+  frontier = next;
+  rounds = rounds + 1;
+}
+
+for each vertex v in G {
+  print dist[v];
+}

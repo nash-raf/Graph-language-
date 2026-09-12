@@ -2248,28 +2248,17 @@ static bool emitDualCleanCut(const NeighborLoopInfo &Info)
 
 /* ── pass ──────────────────────────────────────────────────────── */
 
-/* The CleanCut/owner-step rewrite models the neighbour-loop body as array
- * stores with U/V/D provenance plus first-wins or set-appends.  A call the
- * model does not own -- a graph query such as hasEdge (roaring_bitmap_contains)
- * or anything indirect -- cannot be honoured per pair in the emitted engine
- * work function, and rewriting around it produced malformed IR (compiler crash
- * in a later pass).  Refuse the rewrite; the driver then falls back to the
- * conservative sequential marking below. */
-static bool neighborLoopHasForeignCalls(Loop *L)
+/* Legacy shape blocklist.  Kept only for A/B testing
+ * (SGPL_FRONTIER_BLOCKLIST_GUARD=1); the default decision is the totality
+ * proof below.  History: inline graph queries (hasEdge emits its own scan
+ * subloop) made the rewrite emit malformed IR that crashed a later LLVM pass;
+ * a floating-point header PHI (per-source reduction register) was cloned with
+ * the register substituted by a pointer (`fadd ptr, double`) and the driver
+ * deactivated, silently producing 0. */
+static bool legacyBlocklistRefuses(Loop *L)
 {
-    /* An iterator-shaped neighbour loop must be the innermost loop.  Inline
-     * graph queries (hasEdge emits its own scan loop over col_idx) appear as
-     * subloops inside the body; the engine rewrite cannot honour them per
-     * pair, and rewriting around one produced malformed IR (later-pass crash). */
     if (!L->getSubLoops().empty())
         return true;
-    /* A floating-point header PHI is a per-source reduction register
-     * (`real s = 0; for each neighbor { s += val[v]*0.5; } acc[u] = s`).
-     * The engine calls the work function once per edge with no per-source
-     * accumulator state, so the reduction cannot be honoured: cloning the
-     * body substituted the reduction register with a pointer (emit produced
-     * `fadd ptr, double`) and deactivated the driver, silently printing 0.
-     * Refuse; the driver falls back to the conservative sequential path. */
     for (const BasicBlock *BB : L->blocks())
         for (const Instruction &I : *BB)
             if (const auto *PN = dyn_cast<PHINode>(&I))
@@ -2295,6 +2284,82 @@ static bool neighborLoopHasForeignCalls(Loop *L)
             return true;
         }
     return false;
+}
+
+/* Proof-based refusal for the CleanCut/owner-step rewrite.
+ *
+ * The rewrite models a neighbour-loop body as pair-local array effects with
+ * U/V/D provenance, first-wins claims and set appends.  A body element outside
+ * that model has no defined per-pair meaning, so the rewrite may invent
+ * semantics (both historical miscompiles above were coverage violations).
+ *
+ * This is the totality form of the check: every instruction is either part of
+ * the model or the loop is refused, so a *new* unmodelled shape is refused by
+ * construction instead of being rewritten blind.  The blocklist was the same
+ * test applied only to shapes already seen to fail.
+ *
+ * Refusal reasons are printed under GRAPH_FRONTIER_STATS=1. */
+static bool provesModelable(Loop *L, std::string &reason)
+{
+    /* 1. One loop body only.  Nested control flow has no per-pair lowering. */
+    if (!L->getSubLoops().empty())
+    {
+        reason = "contains subloops";
+        return false;
+    }
+
+    for (const BasicBlock *BB : L->blocks())
+        for (const Instruction &I : *BB)
+        {
+            /* 2. Scalar loop-carried PHIs are reduction registers.  The engine
+             * work function is called once per edge with no per-source state,
+             * so a reduction cannot be honoured.  Refuse non-integer PHIs, and
+             * integer PHIs whose value escapes the loop (a scalar reduction
+             * stored after it, e.g. `int c = 0; for each neighbor { c += 1; }
+             * deg[u] = c;`).  Loop-internal integer bookkeeping stays allowed. */
+            if (const auto *PN = dyn_cast<PHINode>(&I))
+            {
+                if (!PN->getType()->isIntegerTy())
+                {
+                    reason = "loop-carried non-integer PHI (reduction register)";
+                    return false;
+                }
+                for (const User *U : PN->users())
+                {
+                    const auto *UI = dyn_cast<Instruction>(U);
+                    if (UI && !L->contains(UI->getParent()))
+                    {
+                        reason = "loop-carried PHI escapes the loop (scalar reduction)";
+                        return false;
+                    }
+                }
+                continue;
+            }
+
+            /* 3. Calls must be runtime helpers whose effects the rewrite
+             * models.  Anything indirect or unrecognised is opaque: it could
+             * touch any state the engine partitions, so refuse. */
+            const auto *CI = dyn_cast<CallInst>(&I);
+            if (!CI)
+                continue;
+            const Function *CF = CI->getCalledFunction();
+            if (!CF)
+            {
+                reason = "indirect call";
+                return false;
+            }
+            if (CF->isIntrinsic())
+                continue;
+            const StringRef N = CF->getName();
+            if (N == "autograph_neighbor_iter_init" || N == "autograph_neighbor_iter_next" ||
+                N == "roaring_bitmap_add" || N == "roaring_bitmap_remove" ||
+                N == "autograph_profile_region_enter" || N == "autograph_profile_region_exit" ||
+                N == "autograph_profile_record_kernel_ns" || N == "sgpl_now_ns")
+                continue;
+            reason = "unmodelled call: " + N.str();
+            return false;
+        }
+    return true;
 }
 
 PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
@@ -2353,15 +2418,27 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         if (RewriteMode)
         {
             /* Iterator-less graph-data write loop (hand-rolled shape): no
-             * per-pair structure to rewrite — conservatively sequential. */
+             * per-pair structure to rewrite.  Released to the PDG under the
+             * second-chance switch, conservatively sequential otherwise. */
             if (!IsIter)
             {
-                markSequential(L);
+                if (!getenv("SGPL_PDG_SECOND_CHANCE"))
+                    markSequential(L);
                 ++detected;
                 continue;
             }
-            bool Rewritable = (K != Klass::Sequential) &&
-                              !neighborLoopHasForeignCalls(L);
+            /* Priority 1: the effect-algebra totality proof.  Priority 2: a
+             * refused loop is released to the PDG (which must issue its own
+             * fail-closed certificate) instead of being forced sequential,
+             * under SGPL_PDG_SECOND_CHANCE=1. */
+            std::string refuseReason;
+            const bool Modelable = getenv("SGPL_FRONTIER_BLOCKLIST_GUARD")
+                                       ? !legacyBlocklistRefuses(L)
+                                       : provesModelable(L, refuseReason);
+            if (getenv("GRAPH_FRONTIER_STATS"))
+                errs() << "[graph-frontier]   modelable=" << (Modelable ? 1 : 0)
+                       << (Modelable ? "" : (" reason=" + refuseReason)) << "\n";
+            bool Rewritable = (K != Klass::Sequential) && Modelable;
             if (Rewritable)
             {
                 bool Emitted = (K == Klass::DualOwner)
@@ -2396,22 +2473,36 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                             Out2.flush();
                         }
                     }
-                    if (getenv("GRAPH_FRONTIER_VERIFY"))
+                    /* Postcondition: the rewritten function must be valid IR.
+                     * This catches emit-side bugs that the analysis cannot see
+                     * (the historical reduction clone produced `fadd ptr,
+                     * double` and a dead driver).  SGPL_FRONTIER_STRICT=1 makes
+                     * an invalid emission abort so a test run cannot miss it. */
+                    std::string Err;
+                    raw_string_ostream SS(Err);
+                    if (verifyFunction(F, &SS))
                     {
-                        std::string Err;
-                        raw_string_ostream SS(Err);
-                        if (verifyFunction(F, &SS))
-                            errs() << "[graph-frontier] VERIFY FAIL on "
-                                   << F.getName() << ": " << SS.str() << "\n";
-                        else
-                            errs() << "[graph-frontier] verify OK on "
-                                   << F.getName() << "\n";
+                        errs() << "[graph-frontier] POSTCONDITION FAILURE on "
+                               << F.getName() << ": " << SS.str() << "\n";
+                        if (getenv("SGPL_FRONTIER_STRICT"))
+                            std::abort();
+                    }
+                    else if (getenv("GRAPH_FRONTIER_VERIFY"))
+                    {
+                        errs() << "[graph-frontier] verify OK on "
+                               << F.getName() << "\n";
                     }
                     continue;
                 }
             }
-            /* Anything not rewritten is conservatively sequential. */
-            markSequential(L);
+            /* Not rewritten: release to the PDG (its certificates are
+             * fail-closed), or keep the conservative marker as the terminal
+             * refusal.  Default is the safe terminal: traversal state is
+             * invisible to the dependence analysis until call effects are
+             * modelled, so releasing by default would be unsound. */
+            if (!getenv("SGPL_PDG_SECOND_CHANCE"))
+                markSequential(L);
+            errs().flush();
         }
         ++detected;
     }

@@ -1488,14 +1488,28 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return std::max(1.0, mult);
   }
 
+  /* Step-kernel engine calls: CleanCut owner step (frontier_step_owner_*) and
+   * the CAS/combine edgemap kernel (autograph_edgemap).  Both execute a whole
+   * graph pass per call and are profiled as single-anchored Traverse regions. */
   static bool isCleanCutStepCall(const Instruction *I)
   {
     if (!I)
       return false;
     if (const auto *CB = dyn_cast<CallBase>(I))
       if (const Function *Callee = CB->getCalledFunction())
-        if (Callee && Callee->getName().starts_with("autograph_frontier_step_owner"))
+        if (Callee && (Callee->getName().starts_with("autograph_frontier_step_owner") ||
+                       Callee->getName() == "autograph_edgemap"))
           return true;
+    return false;
+  }
+
+  bool moduleHasStepKernels(Module &M)
+  {
+    for (Function &Fn : M)
+      for (BasicBlock &BB : Fn)
+        for (Instruction &I : BB)
+          if (isCleanCutStepCall(&I))
+            return true;
     return false;
   }
 
@@ -2113,7 +2127,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
 
   std::vector<OpEvent> allEvents;
   collectOpEventsInCallOrder(*mainFn, metaByGraphPtr, allEvents);
-  if (allEvents.empty())
+  if (allEvents.empty() && !moduleHasStepKernels(M))
   {
     return PreservedAnalyses::all();
   }
@@ -2142,12 +2156,24 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   }
 
   int totalInjected = 0;
-  for (auto &KV : eventsByGraph)
+  /* Iterate every graph the module uses, not only graphs with classified call
+   * events: a program whose kernel is only an autograph_edgemap call (e.g.
+   * array-frontier connected components) produces zero OpEvents and still
+   * needs the step-region annotation below. */
+  std::vector<const Value *> graphKeys;
+  for (const auto &KV : eventsByGraph)
+    graphKeys.push_back(KV.first);
+  for (const auto &KV : metaByGraphPtr)
   {
-    const Value *graphKey = KV.first;
-    std::vector<OpEvent> &events = KV.second;
-    if (events.empty())
-      continue;
+    Value *canon = KV.second.graphPtr;
+    if (Value *stripped = canon->stripPointerCasts())
+      canon = stripped;
+    if (std::find(graphKeys.begin(), graphKeys.end(), canon) == graphKeys.end())
+      graphKeys.push_back(canon);
+  }
+  for (const Value *graphKey : graphKeys)
+  {
+    std::vector<OpEvent> &events = eventsByGraph[const_cast<Value *>(graphKey)];
 
     const auto metaIt = metaByGraphPtr.find(const_cast<Value *>(graphKey));
     if (metaIt == metaByGraphPtr.end())
@@ -2160,8 +2186,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     const double *gCsrClassTiers =
         metaIt->second.hasCsrClassTiers ? metaIt->second.csrClassTiers.data() : nullptr;
     std::vector<Region> regions = mergeSmallRegions(buildRegions(events));
-    if (regions.empty())
-      continue;
 
     /* CleanCut dual annotation: graph-iterator loops were lowered by the
      * graph-frontier pass into owner-computes step calls.  Annotate each
@@ -2199,8 +2223,12 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       for (const Region &R : regions)
         if (R.graphPtr == graphKey)
           loopOps = std::max<uint64_t>(loopOps, R.totalOps);
+      // No sibling loop regions (edgemap-only programs): the step executes one
+      // graph pass per call, and traversalCost already prices a whole pass, so
+      // the op-count multiplier is 1 -- NOT the edge count, which would
+      // overprice a pass by O(m).
       if (loopOps == 0)
-        loopOps = static_cast<uint64_t>(estM);
+        loopOps = 1;
       for (Function &Fn : M)
         for (BasicBlock &BB : Fn)
           for (Instruction &I : BB)
@@ -2221,6 +2249,9 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
             regions.push_back(SR);
           }
     }
+
+    if (regions.empty())
+      continue;
 
     LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw,
                                gClassTiers, gCsrClassTiers);

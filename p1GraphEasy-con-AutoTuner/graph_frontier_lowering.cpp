@@ -172,6 +172,26 @@ struct NeighborLoopInfo
      * no longer forces sequential (see classify()). */
     bool NeedsRoundSep = false;
 
+    /* Round-separation shadow bases (composition A): an in-place array read on
+     * one endpoint region and written on the other (same base, cross-endpoint
+     * R x W).  Such loops emit a shadow snapshot (per-round memcpy into a
+     * runtime scratch) and redirect every read on the base to the shadow so
+     * the round reads a frozen round-start snapshot — the owner-computes step
+     * itself stays untouched.  WritesV selects DestOwner vs SourceOwner. */
+    struct RoundSepBase
+    {
+        const Value *Base = nullptr; /* canonical base (global slot) */
+        Type *ElemTy = nullptr;      /* i32 or double */
+        bool WritesV = true;         /* writes indexed by V (dest-owned) */
+        /* Loads on the base that read the OPPOSITE endpoint region
+         * (cross-endpoint R x W) — these are redirected to the shadow
+         * snapshot.  Same-region RMW reads stay LIVE: they are the running
+         * accumulator on the owner's own slot, and freezing them would turn
+         * min/max/+=-style relaxes into last-write-wins. */
+        SmallPtrSet<const LoadInst *, 8> CrossReads;
+    };
+    SmallVector<RoundSepBase, 2> RoundSepBases;
+
     /* Frontier append (BFS-style): the body pushes newly-claimed vertices into
      * an array via a scalar counter, `next_frontier[next_size++] = v`.  The
      * counter is not a reduction; the append is chained through the runtime
@@ -1238,6 +1258,115 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         Rd.Temp = Worst;
     }
 
+    /* Round-separation bases (composition A): a base read on one endpoint
+     * region and written on the other.  These need a shadow snapshot so the
+     * pair work fn reads a frozen round-start value instead of a value a
+     * sibling partition is concurrently writing.  Eligibility:
+     *   - same base has both an R effect and a mutating effect;
+     *   - the mutating effects on the base are single-region (all U or all V,
+     *     none G/D) — mixed U+V writes on one base is composition C;
+     *   - the reads include the opposite region (cross-endpoint);
+     *   - the element type is uniform and i32/double. */
+    if (Info.RoundSepBases.empty())
+    {
+        SmallPtrSet<const Value *, 4> MutBases, ReadBases;
+        for (const Effect &E : Info.Effects)
+        {
+            if (!E.Base)
+                continue;
+            if (E.Kind == EffectKind::R)
+                ReadBases.insert(E.Base);
+            else if (E.Kind != EffectKind::Activate)
+                MutBases.insert(E.Base);
+        }
+        for (const Value *Base : MutBases)
+        {
+            if (!ReadBases.count(Base))
+                continue;
+            /* Write region + uniform type on this base. */
+            Region WReg = Region::Bottom;
+            bool MixedWrites = false;
+            Type *ElemTy = nullptr;
+            for (const Effect &M : Info.Effects)
+            {
+                if (M.Base != Base || M.Kind == EffectKind::R ||
+                    M.Kind == EffectKind::Activate)
+                    continue;
+                if (M.Reg != Region::U && M.Reg != Region::V)
+                {
+                    MixedWrites = true;
+                    break;
+                }
+                if (WReg == Region::Bottom)
+                    WReg = M.Reg;
+                else if (WReg != M.Reg)
+                {
+                    MixedWrites = true;
+                    break;
+                }
+                if (auto *SI = dyn_cast<StoreInst>(M.Origin))
+                {
+                    Type *T = SI->getValueOperand()->getType();
+                    if (!ElemTy)
+                        ElemTy = T;
+                    else if (ElemTy != T)
+                        MixedWrites = true;
+                }
+            }
+            if (MixedWrites || WReg == Region::Bottom)
+                continue;
+            /* Reads: need the opposite region, uniform i32/double type. */
+            bool HasCross = false;
+            Type *ReadTy = nullptr;
+            bool BadRead = false;
+            for (const Effect &Rd : Info.Effects)
+            {
+                if (Rd.Kind != EffectKind::R || Rd.Base != Base)
+                    continue;
+                if (Rd.Reg != WReg)
+                    HasCross = true;
+                auto *LI = dyn_cast<LoadInst>(Rd.Origin);
+                Type *T = LI ? LI->getType() : nullptr;
+                if (!T)
+                {
+                    BadRead = true;
+                    break;
+                }
+                if (!ReadTy)
+                    ReadTy = T;
+                else if (ReadTy != T)
+                {
+                    BadRead = true;
+                    break;
+                }
+            }
+            if (BadRead || !HasCross)
+                continue;
+            if (!ReadTy || (!ReadTy->isIntegerTy(32) && !ReadTy->isDoubleTy()))
+                continue;
+            NeighborLoopInfo::RoundSepBase RS;
+            RS.Base = Base;
+            RS.ElemTy = ReadTy;
+            RS.WritesV = (WReg == Region::V);
+            /* Cross-endpoint reads on the base: every load whose index origin
+             * differs from the write region.  Same-region RMW reads (the
+             * accumulator) stay live. */
+            for (BasicBlock *BB : L->blocks())
+                for (Instruction &I : *BB)
+                    if (auto *LI = dyn_cast<LoadInst>(&I))
+                        if (auto *GEP =
+                                dyn_cast<GetElementPtrInst>(LI->getPointerOperand()))
+                            if (canonicalArrayBase(GEP) == Base)
+                            {
+                                Value *IX = primaryIndex(GEP);
+                                Region R = IX ? Prov.regionOf(IX) : Region::Bottom;
+                                if (R != WReg)
+                                    RS.CrossReads.insert(LI);
+                            }
+            Info.RoundSepBases.push_back(RS);
+        }
+    }
+
     if (Info.HasDataWrite)
         Info.WriteKind = NeighborLoopInfo::WriteData; /* data-index → sequential */
     else if (HasV && HasU)
@@ -1332,6 +1461,14 @@ static Klass classify(const NeighborLoopInfo &Info)
         {
             if (E.Temp != Temporal::Carried || !E.Base)
                 continue;
+            /* A carried read on a round-separation base is resolved by the
+             * shadow snapshot (composition A) — not a sequential trigger. */
+            bool OnShadowBase = false;
+            for (const auto &RS : Info.RoundSepBases)
+                if (RS.Base == E.Base)
+                    OnShadowBase = true;
+            if (OnShadowBase)
+                continue;
             for (const Effect &M : Info.Effects)
             {
                 if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
@@ -1378,6 +1515,21 @@ static Klass classify(const NeighborLoopInfo &Info)
         return Klass::Sequential;
     if (HasCarriedOnMut)
         return Klass::Sequential;
+
+    /* Composition A: round-separated in-place (same-base cross-endpoint
+     * R x W).  The loop is a single-ownership owner-computes step whose reads
+     * go through a per-round shadow snapshot; the shadow resolves the carried /
+     * previous-round read, so both the gated and the ungated form parallelize. */
+    if (!Info.RoundSepBases.empty() && !(MutU && MutV))
+    {
+        bool V = Info.RoundSepBases[0].WritesV;
+        bool Agree = true;
+        for (const auto &RS : Info.RoundSepBases)
+            if (RS.WritesV != V)
+                Agree = false;
+        if (Agree && ((V && !MutU) || (!V && !MutV)))
+            return V ? Klass::DestOwner : Klass::SourceOwner;
+    }
 
     if (MutU && MutV && !MutG)
     {
@@ -1768,6 +1920,61 @@ static void deactivateDriver(const NeighborLoopInfo &Info)
                 HB->setSuccessor(0, HB->getSuccessor(1));
 }
 
+/* Deterministic, per-loop unique name of the pass-created global slot that
+ * publishes a round-separation shadow pointer.  Both the pair work fn (reads)
+ * and the round preheader (writes) compute the same name. */
+static std::string shadowGlobalName(const NeighborLoopInfo &Info, unsigned Index)
+{
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    const auto &RS = Info.RoundSepBases[Index];
+    std::string BaseName =
+        RS.Base && RS.Base->hasName() ? RS.Base->getName().str() : "arr";
+    return F->getName().str() + "." + BaseName + ".shadow." + std::to_string(Index);
+}
+
+/* Composition A: emit the round-separation shadow snapshot for every in-place
+ * base.  Runs in the round preheader — once per round for the gated frontier
+ * while, once for the ungated driver.  For each base: grab a per-graph scratch
+ * buffer, publish its pointer through the global the pair fn reads, then
+ * memcpy the live array into it so every read in this round sees the frozen
+ * round-start snapshot. */
+static void emitRoundSepShadow(IRBuilder<> &EB, const NeighborLoopInfo &Info,
+                               Module *Mod, Type *I8P, Type *I64, LLVMContext &Ctx,
+                               Value *GraphArg)
+{
+    if (Info.RoundSepBases.empty() || !GraphArg)
+        return;
+    FunctionCallee Scratch = Mod->getOrInsertFunction(
+        "autograph_scratch_shadow",
+        FunctionType::get(I8P, {I8P, I64, Type::getInt32Ty(Ctx)}, false));
+    for (unsigned si = 0; si < Info.RoundSepBases.size(); ++si)
+    {
+        const auto &RS = Info.RoundSepBases[si];
+        if (!RS.Base)
+            continue;
+        Type *ElemTy = RS.ElemTy;
+        if (!ElemTy || (!ElemTy->isIntegerTy(32) && !ElemTy->isDoubleTy()))
+            continue;
+        unsigned ElemBytes = (unsigned)(ElemTy->getPrimitiveSizeInBits() / 8);
+        GlobalVariable *SlotG = cast<GlobalVariable>(
+            Mod->getOrInsertGlobal(shadowGlobalName(Info, si), I8P));
+        SlotG->setLinkage(GlobalValue::InternalLinkage);
+        SlotG->setInitializer(ConstantPointerNull::get(cast<PointerType>(I8P)));
+        /* n = *(i64*)graph (Graph struct field 0 = vertex count). */
+        Value *N = EB.CreateLoad(I64, GraphArg, "graph_n");
+        Value *NBytes = EB.CreateMul(N, ConstantInt::get(I64, ElemBytes), "shadow_bytes");
+        Value *Shp = EB.CreateCall(
+            Scratch, {GraphArg, NBytes,
+                      ConstantInt::get(Type::getInt32Ty(Ctx), (uint32_t)si)});
+        EB.CreateStore(Shp, SlotG);
+        /* shadow = memcpy(dist, n*elemBytes); the pair fn reads the shadow. */
+        Value *DistDp = EB.CreateLoad(I8P, const_cast<Value *>(RS.Base), "roundsep_dist");
+        Value *ShadDp = EB.CreateLoad(I8P, SlotG, "roundsep_shadow");
+        EB.CreateMemCpy(ShadDp, MaybeAlign(ElemBytes), DistDp, MaybeAlign(ElemBytes),
+                        NBytes);
+    }
+}
+
 static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
 {
     Function *F = Info.NeighborLoop->getHeader()->getParent();
@@ -1836,6 +2043,29 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
     else if (UseEnvelope)
         SeenBase = WB.CreateBitCast(ArgEnv, PointerType::get(I32, 0));
 
+    /* Composition A: round-separation shadow reads.  Load the per-base shadow
+     * snapshot pointer published by the round preheader (via the pass-created
+     * global) and collect every load in the neighbor body whose GEP base is one
+     * of the in-place bases; those loads are redirected to the shadow so the
+     * pair work fn reads the frozen round-start snapshot while stores stay on
+     * the live array. */
+    DenseMap<const Value *, Value *> ShadowPtrForBase;
+    DenseMap<const Value *, Type *> ShadowTyForBase;
+    SmallPtrSet<const LoadInst *, 8> ShadowReadLoads;
+    for (unsigned si = 0; si < Info.RoundSepBases.size(); ++si)
+    {
+        const auto &RS = Info.RoundSepBases[si];
+        GlobalVariable *SlotG = cast<GlobalVariable>(
+            Mod->getOrInsertGlobal(shadowGlobalName(Info, si), I8P));
+        Value *ShadP = WB.CreateLoad(I8P, SlotG, "shadow_ptr");
+        ShadowPtrForBase[RS.Base] = ShadP;
+        ShadowTyForBase[RS.Base] = RS.ElemTy;
+    }
+    if (!ShadowPtrForBase.empty())
+        for (const auto &RS : Info.RoundSepBases)
+            if (ShadowPtrForBase.count(RS.Base))
+                ShadowReadLoads.insert(RS.CrossReads.begin(), RS.CrossReads.end());
+
     std::unordered_map<BasicBlock *, BasicBlock *> BBMap;
     if (!UPreambleOnly)
         for (BasicBlock *BB : BodyBlocks)
@@ -1880,6 +2110,36 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
                 }
                 Clone->setOperand(oi, M);
             }
+            /* Round-separation (composition A): a read on an in-place base
+             * loads through the shadow snapshot, not the live array.  The
+             * original GEP pointer is cloned normally (base = live array) so
+             * sibling stores through the same GEP still write the live array;
+             * only the load is re-pointed at the shadow copy, reusing the
+             * already-cloned index operands. */
+            if (auto *LI = dyn_cast<LoadInst>(I))
+                if (ShadowReadLoads.count(LI))
+                {
+                    Value *Ptr = LI->getPointerOperand();
+                    auto *PGEP = dyn_cast<GetElementPtrInst>(Ptr);
+                    Value *PClone = Map.count(Ptr) ? Map[Ptr] : nullptr;
+                    if (PGEP && PClone)
+                        if (auto *PGClone = dyn_cast<GetElementPtrInst>(PClone))
+                        {
+                            const Value *Base = canonicalArrayBase(PGEP);
+                            Value *Shad = ShadowPtrForBase.lookup(Base);
+                            Type *ET = ShadowTyForBase.lookup(Base);
+                            if (Shad && ET)
+                            {
+                                SmallVector<Value *, 4> Idx;
+                                for (Use &U : PGClone->indices())
+                                    Idx.push_back(U.get());
+                                GetElementPtrInst *ShadowGEP =
+                                    GetElementPtrInst::Create(ET, Shad, Idx,
+                                                              "shadow_elem", Clone);
+                                Clone->setOperand(0, ShadowGEP);
+                            }
+                        }
+                }
             /* Insert in the cloned parent block when possible so loads/icmps
              * keep their original order relative to stores (kcore deg-- then
              * deg<k).  Fall back to the entry block for pre-loop values. */
@@ -2022,6 +2282,40 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
             if (Map.count(&I))
                 if (!remapInst(cast<Instruction>(Map[&I])))
                     return nullptr;
+
+    /* Round-separation (composition A): after every operand is remapped,
+     * re-point the shadow reads at the shadow snapshot.  Runs as a separate
+     * pass so the cloned index operands of the read's GEP are final no
+     * matter which block the GEP lives in.  Stores through the same GEP keep
+     * the live array. */
+    if (!ShadowPtrForBase.empty())
+        for (BasicBlock *BB : BodyBlocks)
+            for (Instruction &I : *BB)
+            {
+                if (!Map.count(&I))
+                    continue;
+                auto *LI = dyn_cast<LoadInst>(&I);
+                if (!LI || !ShadowReadLoads.count(LI))
+                    continue;
+                Value *Ptr = LI->getPointerOperand();
+                auto *PGEP = dyn_cast<GetElementPtrInst>(Ptr);
+                Value *PClone = Map.count(Ptr) ? Map[Ptr] : nullptr;
+                auto *PGClone = dyn_cast_or_null<GetElementPtrInst>(PClone);
+                if (!PGEP || !PGClone)
+                    continue;
+                const Value *Base = canonicalArrayBase(PGEP);
+                Value *Shad = ShadowPtrForBase.lookup(Base);
+                Type *ET = ShadowTyForBase.lookup(Base);
+                if (!Shad || !ET)
+                    continue;
+                Instruction *LoadClone = cast<Instruction>(Map[&I]);
+                SmallVector<Value *, 4> Idx;
+                for (Use &U : PGClone->indices())
+                    Idx.push_back(U.get());
+                GetElementPtrInst *ShadowGEP = GetElementPtrInst::Create(
+                    ET, Shad, Idx, "shadow_elem", LoadClone);
+                LoadClone->setOperand(0, ShadowGEP);
+            }
 
     /* Rewrite elided frontier appends into dest_seen[v] = 1 in-place. */
     BasicBlock *FirstClone = nullptr;
@@ -2197,6 +2491,7 @@ static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool Sourc
     {
         FrontierEnv Env;
         fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, UseEnvelope);
+        emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg);
         Value *NewSize = callOwnerStep(EB, Mod, I8P, I32, WF, SourceOwner, Env,
                                        UseEnvelope);
         if (UseEnvelope)
@@ -2284,9 +2579,10 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                    << " red=" << (Info.ReducePtr ? 1 : 0)
                    << " sep=" << (Info.NeedsRoundSep ? 1 : 0)
                    << " data=" << (HasData ? 1 : 0)
-                   << " fw=" << (Info.HasFirstWins ? 1 : 0)
-                   << " env=" << (Info.HasFrontierAppend ? 1 : 0)
-                   << " class=" << klassName(K)
+<< " fw=" << (Info.HasFirstWins ? 1 : 0)
+                    << " env=" << (Info.HasFrontierAppend ? 1 : 0)
+                    << " shadow=" << Info.RoundSepBases.size()
+                    << " class=" << klassName(K)
                    << "  ";
             if (IsIter)
                 printEffects(Info, K);

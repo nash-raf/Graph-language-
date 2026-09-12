@@ -1,13 +1,14 @@
 graph G {
-  edges: file "rtest_edges.txt";
+  directed: true;
+  edges: file "rtest_small.txt";
 };
 
 int n = numVertices(G);
-int acc = 0;
+int acc = 100;
 
 for each vertex u in G {
   for each neighbor v of u in G {
-    acc = acc ^ 1;
+    acc = acc + v;
   }
 }
 

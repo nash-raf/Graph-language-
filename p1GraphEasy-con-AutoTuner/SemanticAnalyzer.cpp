@@ -386,8 +386,10 @@ TypeKind SemanticAnalyzer::analyzeExpr(ASTNode *expr)
         TypeKind colTy = analyzeExpr(a2d->colExpr.get());
         if (rowTy != TypeKind::Int || colTy != TypeKind::Int)
             error("2D array indices must be int");
-        a2d->resolvedType = TypeKind::Int;
-        return TypeKind::Int;
+        TypeKind elemTy =
+            (sym->type == TypeKind::RealArray) ? TypeKind::Real : TypeKind::Int;
+        a2d->resolvedType = elemTy;
+        return elemTy;
     }
     case ASTNodeType::SetLiteral:
         return TypeKind::Set;
@@ -557,9 +559,12 @@ void SemanticAnalyzer::analyzeVarDecl(VarDeclNode *decl)
     TypeKind declared = typeFromString(decl->typeName);
     if (decl->isArray2D)
     {
-        if (declared != TypeKind::Int)
-            error("only int 2D arrays are supported: " + decl->name);
-        sym.type = TypeKind::IntArray;
+        if (declared == TypeKind::Int)
+            sym.type = TypeKind::IntArray;
+        else if (declared == TypeKind::Real)
+            sym.type = TypeKind::RealArray;
+        else
+            error("only int or real 2D arrays are supported: " + decl->name);
     }
     else if (decl->isArray)
     {
@@ -633,8 +638,18 @@ void SemanticAnalyzer::analyzeAssignment(AssignmentStmtNode *assign)
 
     if (assign->lhs->type == ASTNodeType::Array2DAccess)
     {
-        TypeKind lhsTy = analyzeExpr(assign->lhs.get());
-        if (rhsTy != TypeKind::Int)
+        auto *a2d = static_cast<Array2DAccessNode *>(assign->lhs.get());
+        auto *baseVar = dynamic_cast<VariableNode *>(a2d->arrayExpr.get());
+        if (!baseVar)
+            error("2D array base must be a variable");
+        Symbol *sym = lookupSymbol(baseVar->name);
+        if (!sym)
+            error("assignment to undeclared array: " + baseVar->name);
+        if (sym->type != TypeKind::IntArray && sym->type != TypeKind::RealArray)
+            error("subscripted value is not an array: " + baseVar->name);
+        TypeKind lhsElemTy =
+            (sym->type == TypeKind::RealArray) ? TypeKind::Real : TypeKind::Int;
+        if (rhsTy != lhsElemTy)
             error("type mismatch in 2D array element assignment");
         return;
     }

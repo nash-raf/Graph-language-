@@ -2248,6 +2248,55 @@ static bool emitDualCleanCut(const NeighborLoopInfo &Info)
 
 /* ── pass ──────────────────────────────────────────────────────── */
 
+/* The CleanCut/owner-step rewrite models the neighbour-loop body as array
+ * stores with U/V/D provenance plus first-wins or set-appends.  A call the
+ * model does not own -- a graph query such as hasEdge (roaring_bitmap_contains)
+ * or anything indirect -- cannot be honoured per pair in the emitted engine
+ * work function, and rewriting around it produced malformed IR (compiler crash
+ * in a later pass).  Refuse the rewrite; the driver then falls back to the
+ * conservative sequential marking below. */
+static bool neighborLoopHasForeignCalls(Loop *L)
+{
+    /* An iterator-shaped neighbour loop must be the innermost loop.  Inline
+     * graph queries (hasEdge emits its own scan loop over col_idx) appear as
+     * subloops inside the body; the engine rewrite cannot honour them per
+     * pair, and rewriting around one produced malformed IR (later-pass crash). */
+    if (!L->getSubLoops().empty())
+        return true;
+    /* A floating-point header PHI is a per-source reduction register
+     * (`real s = 0; for each neighbor { s += val[v]*0.5; } acc[u] = s`).
+     * The engine calls the work function once per edge with no per-source
+     * accumulator state, so the reduction cannot be honoured: cloning the
+     * body substituted the reduction register with a pointer (emit produced
+     * `fadd ptr, double`) and deactivated the driver, silently printing 0.
+     * Refuse; the driver falls back to the conservative sequential path. */
+    for (const BasicBlock *BB : L->blocks())
+        for (const Instruction &I : *BB)
+            if (const auto *PN = dyn_cast<PHINode>(&I))
+                if (!PN->getType()->isIntegerTy())
+                    return true;
+    for (BasicBlock *BB : L->blocks())
+        for (Instruction &I : *BB)
+        {
+            auto *CI = dyn_cast<CallInst>(&I);
+            if (!CI)
+                continue;
+            Function *CF = CI->getCalledFunction();
+            if (!CF)
+                return true; // indirect call: not modelable
+            StringRef N = CF->getName();
+            if (N == "autograph_neighbor_iter_init" || N == "autograph_neighbor_iter_next" ||
+                N == "roaring_bitmap_add" || N == "roaring_bitmap_remove" ||
+                N == "autograph_profile_region_enter" || N == "autograph_profile_region_exit" ||
+                N == "autograph_profile_record_kernel_ns" || N == "sgpl_now_ns")
+                continue;
+            if (CF->isIntrinsic())
+                continue;
+            return true;
+        }
+    return false;
+}
+
 PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                                                  FunctionAnalysisManager &FAM)
 {
@@ -2311,7 +2360,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 ++detected;
                 continue;
             }
-            bool Rewritable = (K != Klass::Sequential);
+            bool Rewritable = (K != Klass::Sequential) &&
+                              !neighborLoopHasForeignCalls(L);
             if (Rewritable)
             {
                 bool Emitted = (K == Klass::DualOwner)

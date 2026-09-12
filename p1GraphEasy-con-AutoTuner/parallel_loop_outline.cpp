@@ -127,6 +127,7 @@ namespace
         unsigned NumPrivTargets = 0;
         unsigned NumDoAcrossSyncIds = 0;
         Function *WrapperFn = nullptr;
+        Function *RangeFn = nullptr;
     };
 
     struct OutlineLoopResult
@@ -158,7 +159,9 @@ namespace
         (void)Depth;
         (void)Phase;
         if (getenv("SGPL_OUTLINER_DEBUG"))
-            errs() << "[outliner] " << Phase << " (fn=" << F.getName() << ")\n";
+            errs() << "[outliner] " << Phase << " (fn=" << F.getName()
+                   << " hdr=" << (Header ? Header->getName() : StringRef("?"))
+                   << " depth=" << Depth << ")\n";
     }
 
     static ParallelMode parseParallelMode(Loop *L)
@@ -994,19 +997,48 @@ namespace
         return std::nullopt;
     }
 
+    /* A `for each vertex|neighbor|edge` loop carries autotuner.traverse metadata
+     * on its header terminator.  Its trip count is |V| or |E|: never a compile-
+     * time constant, and on the graphs this language exists for, large.  The
+     * static instruction-count veto below is a stand-in for "not enough work",
+     * but it only measures work *per iteration* -- so it rejected pagerank's
+     *   for each vertex v { next_rank[v] = beta; }        (eff=4)
+     *   for each vertex v { cur_rank[v] = next_rank[v]; } (eff=6)
+     * which at n=1e6 are two full memory passes per round.  For these loops the
+     * runtime cost model (sgpl_should_parallelize_doall, which sees the real
+     * trip count and a measured per-iteration cost) is the right decider, so
+     * only screen out loops with essentially no body and let it choose.
+     * SGPL_NO_GRAPH_TRIVIAL_RELAX=1 restores the flat threshold. */
+    static bool isGraphDomainLoop(const LoopCandidateAnalysis &Candidate)
+    {
+        if (::getenv("SGPL_NO_GRAPH_TRIVIAL_RELAX"))
+            return false;
+        if (!Candidate.Header || !Candidate.Header->getTerminator())
+            return false;
+        return Candidate.Header->getTerminator()->getMetadata("autotuner.traverse") != nullptr;
+    }
+
     static std::optional<std::string> precheckObviousUnprofitableLoop(const LoopCandidateAnalysis &Candidate,
                                                                       ScalarEvolution &SE)
     {
+        bool GraphDomain = isGraphDomainLoop(Candidate);
+
         if (std::optional<uint64_t> TripCount = getConstantTripCount(Candidate, SE))
         {
             if (*TripCount <= 1)
                 return std::string("constant-trip-count-leq-1");
             if (*TripCount < 32)
                 return std::string("constant-trip-count-small");
+            /* A statically-bounded loop is not a graph traversal even if it is
+             * tagged as one; keep the flat threshold. */
+            GraphDomain = false;
         }
 
-        if (countEffectiveLoopBodyInstructions(Candidate) < 8)
-            return std::string("trivial-loop-body");
+        const unsigned Threshold = GraphDomain ? 3u : 8u;
+        unsigned EffCount = countEffectiveLoopBodyInstructions(Candidate);
+        if (EffCount < Threshold)
+            return std::string("trivial-loop-body eff=") + std::to_string(EffCount) +
+                   " threshold=" + std::to_string(Threshold);
 
         return std::nullopt;
     }
@@ -2195,6 +2227,142 @@ namespace
         }
         Result.WrapperFn = WrapperFn;
 
+        /* --- Range entry point -------------------------------------------
+         *
+         * The wrapper above is called once per iteration through a function
+         * pointer held by the runtime.  That boundary is opaque to the
+         * optimiser: the body cannot be inlined into the driving loop and the
+         * driving loop cannot be vectorised, while the serial original left
+         * behind in this function *is* vectorised by O3.  Four scalar threads
+         * against one vector thread loses, which is what measurement showed
+         * (0.72x of serial at 24 flops/iteration, invariant in the number of
+         * dispatches -- so a per-iteration effect, not launch overhead).
+         *
+         * So also emit the loop on this side of the pointer:
+         *
+         *   void range(i64 lo, i64 count, i64 step, ptr env) {
+         *     <load env fields once>
+         *     for (k = 0; k < count; ++k) outlined(lo + k*step, fields...);
+         *   }
+         *
+         * `outlined` is a direct call to an internal function, so O3 inlines
+         * it and vectorises the loop exactly as it does the serial original.
+         * The runtime calls this once per chunk when present and falls back to
+         * the per-index wrapper when it is not, so emitting it is optional and
+         * never changes results.
+         *
+         * Restricted to the plain case on purpose.  A parameter backed by
+         * per-call private scratch would need its alloca inside the loop, and
+         * the append-privatisation and DOACROSS paths both attach per-iteration
+         * runtime state; hoisting the env loads out of the loop is only
+         * equivalent when the body is a pure function of (index, env).
+         * SGPL_NO_RANGE_BODY=1 suppresses it. */
+        Function *RangeFn = nullptr;
+        {
+            bool AnyPrivateScratch = false;
+            for (bool Uses : ParamUsesPrivateScratch)
+                AnyPrivateScratch = AnyPrivateScratch || Uses;
+            bool UsesAppendPriv = AppendFrontierGV && AppendSizeGV &&
+                                  AppendFrontierEnvField >= 0 && AppendSizeEnvField >= 0;
+            bool RangeEligible = !::getenv("SGPL_NO_RANGE_BODY") && !AnyPrivateScratch &&
+                                 !UsesAppendPriv && !IsDoAcross && InductionParamIndex >= 0;
+
+            if (RangeEligible)
+            {
+                FunctionType *RangeFT = FunctionType::get(
+                    VoidTy, {Int64Ty, Int64Ty, Int64Ty, Int8PtrTy}, false);
+                std::string RangeName = "range_" + F.getName().str() + "_" +
+                                        Target.Header->getName().str();
+                RangeFn = M->getFunction(RangeName);
+                if (!RangeFn)
+                    RangeFn = Function::Create(RangeFT, GlobalValue::InternalLinkage, RangeName, M);
+
+                if (RangeFn->empty() && RangeFn->getFunctionType() == RangeFT)
+                {
+                    auto RIt = RangeFn->arg_begin();
+                    Argument *LoArg = &*RIt++;
+                    Argument *CountArg = &*RIt++;
+                    Argument *StepA = &*RIt++;
+                    Argument *EnvA = &*RIt++;
+                    LoArg->setName("lo");
+                    CountArg->setName("count");
+                    StepA->setName("rstep");
+                    EnvA->setName("env");
+
+                    BasicBlock *REntry = BasicBlock::Create(Ctx, "entry", RangeFn);
+                    BasicBlock *RCond = BasicBlock::Create(Ctx, "range.cond", RangeFn);
+                    BasicBlock *RBody = BasicBlock::Create(Ctx, "range.body", RangeFn);
+                    BasicBlock *RExit = BasicBlock::Create(Ctx, "range.exit", RangeFn);
+
+                    IRBuilder<> RB(REntry);
+                    Value *REnvStruct = RB.CreateBitCast(EnvA, NewEnvStructTy->getPointerTo(), "envstruct");
+                    SmallVector<Value *, 8> RFields;
+                    RFields.reserve(NewEnvFieldTys.size());
+                    for (unsigned FieldIndex = 0; FieldIndex < NewEnvFieldTys.size(); ++FieldIndex)
+                    {
+                        Value *FieldGEP = RB.CreateStructGEP(NewEnvStructTy, REnvStruct, FieldIndex, "fgep");
+                        RFields.push_back(RB.CreateLoad(NewEnvFieldTys[FieldIndex], FieldGEP, "fload"));
+                    }
+                    RB.CreateBr(RCond);
+
+                    RB.SetInsertPoint(RCond);
+                    PHINode *K = RB.CreatePHI(Int64Ty, 2, "k");
+                    K->addIncoming(ConstantInt::get(Int64Ty, 0), REntry);
+                    RB.CreateCondBr(RB.CreateICmpSLT(K, CountArg, "range.cmp"), RBody, RExit);
+
+                    RB.SetInsertPoint(RBody);
+                    Value *Idx = RB.CreateAdd(LoArg, RB.CreateMul(K, StepA, "koff"), "range.idx");
+                    SmallVector<Value *, 8> RArgs;
+                    RArgs.reserve(ArgOriginVals.size());
+                    unsigned RCursor = 0;
+                    for (unsigned ParamIndex = 0; ParamIndex < ArgOriginVals.size(); ++ParamIndex)
+                    {
+                        Type *ParamTy = Outlined->getFunctionType()->getParamType(ParamIndex);
+                        if ((int)ParamIndex == InductionParamIndex)
+                        {
+                            RArgs.push_back(RB.CreateIntCast(Idx, ParamTy, true, "idxcast"));
+                            continue;
+                        }
+                        Value *FieldValue = RFields[RCursor++];
+                        if (FieldValue->getType() != ParamTy)
+                        {
+                            if (FieldValue->getType()->isPointerTy() && ParamTy->isPointerTy())
+                                FieldValue = RB.CreateBitCast(FieldValue, ParamTy);
+                            else if (FieldValue->getType()->isIntegerTy() && ParamTy->isIntegerTy())
+                                FieldValue = RB.CreateIntCast(FieldValue, ParamTy, true);
+                            else
+                                FieldValue = Constant::getNullValue(ParamTy);
+                        }
+                        RArgs.push_back(FieldValue);
+                    }
+                    CallInst *RCall = RB.CreateCall(Outlined, RArgs);
+                    /* The whole point of this function is to put the body back
+                     * where the vectoriser can see it.  The body also has a
+                     * second call site (the per-index wrapper), so the cost
+                     * model declines to inline a large one -- which silently
+                     * loses the benefit for exactly the compute-heavy loops
+                     * that gain most.  Force it here only; the wrapper's call
+                     * is left to the normal heuristics. */
+                    RCall->addFnAttr(Attribute::AlwaysInline);
+                    Value *KNext = RB.CreateAdd(K, ConstantInt::get(Int64Ty, 1), "k.next");
+                    K->addIncoming(KNext, RBody);
+                    RB.CreateBr(RCond);
+
+                    RB.SetInsertPoint(RExit);
+                    RB.CreateRetVoid();
+                }
+                else if (!RangeFn->empty())
+                {
+                    /* Already built on an earlier visit; reuse it. */
+                }
+                else
+                {
+                    RangeFn = nullptr;
+                }
+            }
+        }
+        Result.RangeFn = RangeFn;
+
         Value *CastedWrapper = B.CreateBitCast(WrapperFn, LoopBodyFnTy);
         FunctionCallee ParallelForFunc = M->getOrInsertFunction(
             "parallel_for_runtime",
@@ -2573,6 +2741,13 @@ namespace
 
         if (!EmittedGpu && PrivTargets.empty())
         {
+            if (RangeFn)
+            {
+                FunctionCallee SetRange = M->getOrInsertFunction(
+                    "sgpl_set_pending_range_body",
+                    FunctionType::get(VoidTy, {Int8PtrTy}, false));
+                B.CreateCall(SetRange, {B.CreateBitCast(RangeFn, Int8PtrTy)});
+            }
             B.CreateCall(ParallelForFunc,
                          {StartArg, EndArg, StepArg, CastedWrapper, RawPtr, NeedsDoAcrossArg, DoAcrossNumSyncIdsArg});
             Result.Privatized = false;
@@ -2876,15 +3051,42 @@ namespace
                 return PreservedAnalyses::all();
             }
 
-            LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
-            DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-            ScalarEvolution &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
+            /* outlineLoop() handles a single loop: findOutermostParallelizableLoop
+             * returns the first candidate and the transform then stops.  A
+             * function with several independent parallel loops -- pagerank's
+             * round body has three vertex loops -- therefore got exactly one of
+             * them parallelised, and which one was an accident of block order.
+             * Iterate until no candidate remains.  Each successful outline
+             * strips my.loop.parallel from the loop it consumed, so the scan
+             * makes progress; the cap is belt-and-braces against a transform
+             * that reports Changed without consuming a candidate.
+             * SGPL_OUTLINER_SINGLE_LOOP=1 restores the one-per-function behaviour. */
+            const unsigned MaxLoopsPerFunction =
+                ::getenv("SGPL_OUTLINER_SINGLE_LOOP") ? 1u : 64u;
 
-            OutlineLoopResult Outline = outlineLoop(F, LI, DT, SE);
-            if (Outline.Outlined)
-                Outline.Outlined->addFnAttr("outlined-loop");
+            bool AnyChanged = false;
+            for (unsigned Iter = 0; Iter < MaxLoopsPerFunction; ++Iter)
+            {
+                FAM.invalidate(F, PreservedAnalyses::none());
+                LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
+                DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+                ScalarEvolution &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
 
-            if (Outline.Changed)
+                OutlineLoopResult Outline = outlineLoop(F, LI, DT, SE);
+                if (Outline.Outlined)
+                    Outline.Outlined->addFnAttr("outlined-loop");
+
+                if (!Outline.Changed)
+                    break;
+                AnyChanged = true;
+
+                /* Only a transform that actually outlined a loop is known to
+                 * have cleared that loop's tag; anything else could repeat. */
+                if (!Outline.Outlined)
+                    break;
+            }
+
+            if (AnyChanged)
             {
                 /* Debug logging disabled: changed function */
                 return PreservedAnalyses::none();

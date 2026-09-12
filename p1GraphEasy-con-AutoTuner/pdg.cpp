@@ -510,7 +510,8 @@ static void markNestedLoopsSequential(llvm::Loop *L)
 static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
                                           llvm::ScalarEvolution &SE,
-                                          llvm::dependencyGraph &G)
+                                          llvm::dependencyGraph &G,
+                                          llvm::AAResults *AA = nullptr)
 {
     using namespace llvm;
     SmallVector<Instruction *, 32> memInsts;
@@ -583,8 +584,13 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     };
     auto logLoopClassify = [&](StringRef Msg)
     {
-        (void)Msg;
-        /* Debug logging disabled. Restore std::cerr logging here to re-enable loop-classify traces. */
+        // SGPL_LOOP_CLASSIFY_DEBUG=1 traces how each loop is classified.
+        // (Re-enabled for the pagerank-loop investigation; env-gated, no
+        // behaviour change when unset.)
+        if (::getenv("SGPL_LOOP_CLASSIFY_DEBUG"))
+            std::cerr << "[loop-classify] fn=" << L->getHeader()->getParent()->getName().str()
+                      << " hdr=" << L->getHeader()->getName().str()
+                      << " depth=" << L->getLoopDepth() << " " << Msg.str() << "\n";
     };
 
     // --- PHI handling ---
@@ -846,6 +852,51 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
             // {
             //     continue;
             // }
+            /* DependenceInfo answers "confused" when it understands nothing
+             * (unanalyzable, data-dependent subscripts).  That result is a
+             * base-class Dependence whose accessors carry worst-case defaults:
+             * isConfused() == true AND isLoopIndependent() == true.  Reading
+             * isLoopIndependent() first therefore treated "I could not
+             * analyze this pair" as "the pair is loop-independent", silently
+             * turning every unanalyzable address pair (e.g. the scattered
+             * next_rank[col_idx[j]] stores) into a proof of no carried
+             * dependence -- the source of the false proofNoCarried verdicts.
+             *
+             * Fail closed -- but only when the two accesses can actually touch
+             * the same memory.  "Confused" is also the answer for pairs that
+             * merely mix kinds DI cannot relate (a scalar global load next to
+             * an array store); treating those as hazards would make every loop
+             * containing a global scalar sequential.  AliasAnalysis settles
+             * that half: NoAlias means the pair cannot carry a dependence.
+             * SGPL_NO_PDG_CONFUSED_GUARD=1 restores the old (unsound) read. */
+            if (!::getenv("SGPL_NO_PDG_CONFUSED_GUARD") && Dep->isConfused())
+            {
+                bool provablyIndependent = false;
+                if (AA &&
+                    ((isa<LoadInst>(edge.first) || isa<StoreInst>(edge.first)) &&
+                     (isa<LoadInst>(edge.second) || isa<StoreInst>(edge.second))))
+                {
+                    provablyIndependent =
+                        AA->alias(MemoryLocation::get(edge.first),
+                                  MemoryLocation::get(edge.second)) ==
+                        llvm::AliasResult::NoAlias;
+                }
+                if (::getenv("SGPL_PDG_CONFUSED_DEBUG"))
+                {
+                    std::cerr << "[pdg-confused"
+                              << (provablyIndependent ? " skipped-noalias" : " unknown")
+                              << "] ";
+                    printInstToStderr(edge.first);
+                    std::cerr << "   <->   ";
+                    printInstToStderr(edge.second);
+                }
+                if (provablyIndependent)
+                    continue;
+                Summary.hasUnknownAttributedDep = true;
+                Summary.hasProofOfNoCarriedDeps = false;
+                logLoopClassify("confused dependence -> treated as unknown carrier");
+                continue;
+            }
             if (Dep->isLoopIndependent())
             {
                 continue;
@@ -1450,7 +1501,7 @@ void buildGraph(llvm::Function &F,
     for (auto LIIt = LI.begin(), LIE = LI.end(); LIIt != LIE; ++LIIt)
     {
         llvm::Loop *TopL = *LIIt;
-        analyzeAndAnnotateLoop(TopL, F, DI, SE, G);
+        analyzeAndAnnotateLoop(TopL, F, DI, SE, G, &AA);
         // recurse into subloops
         llvm::SmallVector<llvm::Loop *, 8> worklist;
         for (llvm::Loop *SL : TopL->getSubLoops())
@@ -1458,7 +1509,7 @@ void buildGraph(llvm::Function &F,
         while (!worklist.empty())
         {
             llvm::Loop *L = worklist.pop_back_val();
-            analyzeAndAnnotateLoop(L, F, DI, SE, G);
+            analyzeAndAnnotateLoop(L, F, DI, SE, G, &AA);
             for (llvm::Loop *SL : L->getSubLoops())
                 worklist.push_back(SL);
         }

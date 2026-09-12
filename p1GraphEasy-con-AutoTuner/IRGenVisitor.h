@@ -174,6 +174,7 @@ private:
     {
         llvm::Value *rowsVal = nullptr;
         llvm::Value *colsVal = nullptr;
+        bool isReal = false;
     };
     std::unordered_map<std::string, Array2DMeta> Array2DMap;
 

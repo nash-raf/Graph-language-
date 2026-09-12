@@ -17,6 +17,24 @@
 #include "graph_frontier_lowering.h"
 #include "AutoTunerPass.h"
 
+// 'INF' is reserved as the infinity literal by the grammar, but nothing in the
+// program corpus uses that literal -- programs hit it only when naming a
+// variable `INF`.  Reclassify the token as an identifier so `int INF = 5;`
+// parses.  (The parser's InfExpr alternative simply becomes unreachable.)
+class GraphLangLexer : public BaseLexer
+{
+  public:
+    using BaseLexer::BaseLexer;
+    std::unique_ptr<antlr4::Token> nextToken() override
+    {
+        auto tok = BaseLexer::nextToken();
+        if (tok && tok->getType() == BaseParser::T__66)
+            if (auto *ct = dynamic_cast<antlr4::CommonToken *>(tok.get()))
+                ct->setType(BaseParser::ID);
+        return tok;
+    }
+};
+
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
@@ -899,7 +917,7 @@ int main(int argc, char **argv)
     }
 
     ANTLRInputStream input(in);
-    BaseLexer lexer(&input);
+    GraphLangLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     BaseParser parser(&tokens);
     auto tree = parser.program();

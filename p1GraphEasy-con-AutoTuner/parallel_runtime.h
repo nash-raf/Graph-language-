@@ -71,6 +71,10 @@ int32_t sgpl_should_parallelize_doall(
     int64_t end,
     int64_t step);
 
+/* Registers the range entry point for the next parallel_for_runtime() call on
+ * this thread.  Optional: without it the runtime drives the per-index body. */
+void sgpl_set_pending_range_body(void *fn);
+
 void sgpl_record_doall_serial_sample(
     const sgpl_loop_profile_desc *desc,
     int64_t start,

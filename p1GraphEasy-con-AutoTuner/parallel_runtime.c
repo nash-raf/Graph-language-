@@ -471,12 +471,19 @@ typedef struct sgpl_doacross_state
 
 typedef void (*loop_body_fn)(int64_t i, void *env);
 
+/* Range form of the same body: runs `count` iterations starting at `lo`,
+ * stepping by `step`.  The compiler emits this alongside the per-index form
+ * and it is the reason parallel execution can be faster than serial at all --
+ * see the comment on the chunk loop in worker_main(). */
+typedef void (*loop_range_fn)(int64_t lo, int64_t count, int64_t step, void *env);
+
 typedef struct
 {
     int64_t start;
     int64_t end;
     int64_t step;
     loop_body_fn body;
+    loop_range_fn range_body;
     void *env;
     int tid;
     int nthreads;
@@ -486,6 +493,29 @@ typedef struct
     RoaringBitmap **override_replacements;
     int32_t num_override_targets;
 } workers_args_t;
+
+/* Range entry point for the loop currently being dispatched.
+ *
+ * Carried in a thread-local rather than through every launch signature, the
+ * same way g_tls_pending_loop_id already is: the compiler calls
+ * sgpl_set_pending_range_body() immediately before parallel_for_runtime(), and
+ * the launch path consumes and clears it.  It is always safe to ignore -- the
+ * per-index body computes the identical result -- so a mismatched or stale
+ * value can only cost speed, never correctness, and the consumer clears the
+ * slot on every path including the serial fallback. */
+static _Thread_local loop_range_fn g_tls_pending_range_body = NULL;
+
+void sgpl_set_pending_range_body(void *fn)
+{
+    g_tls_pending_range_body = (loop_range_fn)fn;
+}
+
+static loop_range_fn sgpl_take_pending_range_body(void)
+{
+    loop_range_fn fn = g_tls_pending_range_body;
+    g_tls_pending_range_body = NULL;
+    return fn;
+}
 
 typedef struct
 {
@@ -1007,6 +1037,27 @@ void doacross_post(int64_t iter, int32_t id)
     doacross_post_state(g_tls_doacross_state, iter, id);
 }
 
+/* Iterations per block-cyclic chunk.  The floor that matters is one cache line
+ * (8 doubles / 16 int32s); the default is larger so a chunk also amortises the
+ * per-iteration indirect call into the outlined body, while staying small
+ * enough that P chunks still balance a skewed loop. */
+static int64_t sgpl_loop_chunk_iterations(void)
+{
+    static int64_t cached = -1;
+    if (cached < 0)
+    {
+        const char *v = getenv("SGPL_LOOP_CHUNK");
+        cached = 256;
+        if (v && *v)
+        {
+            long long parsed = atoll(v);
+            if (parsed >= 0)
+                cached = (int64_t)parsed;
+        }
+    }
+    return cached;
+}
+
 static void *worker_main(void *_arg)
 {
     workers_args_t *a = (workers_args_t *)_arg;
@@ -1030,22 +1081,112 @@ static void *worker_main(void *_arg)
                                                   a->num_override_targets);
     }
 
-    if (step < 0)
+    /* Iteration distribution.
+     *
+     * The original schedule was pure cyclic: thread t ran i = t, t+P, t+2P, ...
+     * For a DOALL loop over a vertex array that is the worst possible layout.
+     * Eight doubles share a 64-byte line, so with P=4 every line is written by
+     * every thread -- false sharing on *every* line -- and no thread sees a
+     * contiguous run, so hardware prefetch and any residual vectorisation are
+     * both defeated.  Measured on a 1e6-vertex loop with 24 flops/iteration
+     * this ran at 0.72x of serial while burning 2.8 cores, and the ratio did
+     * not move when the loop count went 20 -> 200, confirming a per-iteration
+     * effect rather than dispatch overhead.
+     *
+     * Block-cyclic with a chunk of at least one cache line fixes both: each
+     * thread walks contiguous runs (prefetch works, lines are privately owned)
+     * while still interleaving chunks, so a skewed body -- the common case in
+     * graph work, where per-vertex cost tracks degree -- stays balanced.  A
+     * pure block split would lose that balance.
+     *
+     * DOACROSS is excluded: its wait/post protocol is written against the
+     * cyclic order, and reordering iterations there would change synchronisation
+     * semantics, not just locality.
+     * SGPL_LOOP_CHUNK=0 restores the cyclic schedule; >0 sets the chunk. */
     {
-        for (i = start + (int64_t)tid * step; i > end; i += (int64_t)nthreads * step)
+        int64_t chunk = sgpl_loop_chunk_iterations();
+        int use_chunked = (chunk > 1) && !a->doacross_state;
+
+        if (!use_chunked)
         {
-            if (a->body)
-                a->body(i, a->env);
+            if (step < 0)
+            {
+                for (i = start + (int64_t)tid * step; i > end; i += (int64_t)nthreads * step)
+                {
+                    if (a->body)
+                        a->body(i, a->env);
+                }
+            }
+            else
+            {
+                for (i = start + (int64_t)tid * step; i < end; i += (int64_t)nthreads * step)
+                {
+                    if (runtime_iter_debug_enabled())
+                        printf("Iteration %lld by thread %d\n", (long long)i, tid);
+                    if (a->body)
+                        a->body(i, a->env);
+                }
+            }
         }
-    }
-    else
-    {
-        for (i = start + (int64_t)tid * step; i < end; i += (int64_t)nthreads * step)
+        else
         {
-            if (runtime_iter_debug_enabled())
-                printf("Iteration %lld by thread %d\n", (long long)i, tid);
-            if (a->body)
-                a->body(i, a->env);
+            /* Chunk c of the loop is iterations [c*chunk, (c+1)*chunk) counted
+             * in units of `step`; thread tid takes chunks tid, tid+P, ...
+             *
+             * When the compiler supplied a range entry point, hand it the whole
+             * chunk in one call.  That is what lets the parallel path keep up
+             * with the serial one: the per-index form is reached through a
+             * function pointer, so the body cannot be inlined and the loop
+             * around it cannot be vectorised, while the serial original sits in
+             * main() and O3 vectorises it 4-wide.  Four scalar threads against
+             * one vector thread is a loss, which is exactly what was measured
+             * (0.72x at 24 flops/iteration).  The range entry point puts the
+             * loop back on the compiler's side of the pointer. */
+            int64_t block = chunk * step;              /* signed: follows step */
+            int64_t stride = (int64_t)nthreads * block;
+            int64_t base = start + (int64_t)tid * block;
+            int64_t c = 0;
+
+            if (step < 0)
+            {
+                for (; base > end; base += stride)
+                {
+                    if (a->range_body)
+                    {
+                        int64_t remaining = (base - end + (-step) - 1) / (-step);
+                        int64_t count = remaining < chunk ? remaining : chunk;
+                        if (count > 0)
+                            a->range_body(base, count, step, a->env);
+                        continue;
+                    }
+                    for (c = 0, i = base; c < chunk && i > end; ++c, i += step)
+                    {
+                        if (a->body)
+                            a->body(i, a->env);
+                    }
+                }
+            }
+            else
+            {
+                for (; base < end; base += stride)
+                {
+                    if (a->range_body && !runtime_iter_debug_enabled())
+                    {
+                        int64_t remaining = (end - base + step - 1) / step;
+                        int64_t count = remaining < chunk ? remaining : chunk;
+                        if (count > 0)
+                            a->range_body(base, count, step, a->env);
+                        continue;
+                    }
+                    for (c = 0, i = base; c < chunk && i < end; ++c, i += step)
+                    {
+                        if (runtime_iter_debug_enabled())
+                            printf("Iteration %lld by thread %d\n", (long long)i, tid);
+                        if (a->body)
+                            a->body(i, a->env);
+                    }
+                }
+            }
         }
     }
 
@@ -1384,6 +1525,7 @@ static void sgpl_parallel_launch_plain_ephemeral(int64_t start,
     pthread_t *threads = NULL;
     workers_args_t *args = NULL;
     sgpl_doacross_state *doacross_state = NULL;
+    loop_range_fn range_body = sgpl_take_pending_range_body();
     int i = 0;
 
     if (step == 0 || !body)
@@ -1416,6 +1558,7 @@ static void sgpl_parallel_launch_plain_ephemeral(int64_t start,
         args[i].end = end;
         args[i].step = step;
         args[i].body = body;
+        args[i].range_body = range_body;
         args[i].env = env;
         args[i].tid = i;
         args[i].nthreads = nthreads;
@@ -1446,6 +1589,7 @@ static void sgpl_parallel_launch_plain_raw(int64_t start,
 {
     workers_args_t *args = NULL;
     sgpl_doacross_state *doacross_state = NULL;
+    loop_range_fn range_body = sgpl_take_pending_range_body();
     int i = 0;
     int use_pool = 0;
 
@@ -1466,6 +1610,9 @@ static void sgpl_parallel_launch_plain_raw(int64_t start,
     use_pool = !g_tls_is_pool_worker && !needs_doacross && sgpl_thread_pool_available();
     if (!use_pool)
     {
+        /* Hand the range entry point on to the ephemeral path, which takes the
+         * slot itself. */
+        g_tls_pending_range_body = range_body;
         sgpl_parallel_launch_plain_ephemeral(start,
                                              end,
                                              step,
@@ -1490,6 +1637,7 @@ static void sgpl_parallel_launch_plain_raw(int64_t start,
         args[i].end = end;
         args[i].step = step;
         args[i].body = body;
+        args[i].range_body = range_body;
         args[i].env = env;
         args[i].tid = i;
         args[i].nthreads = nthreads;
@@ -1708,6 +1856,7 @@ static void sgpl_parallel_launch_priv_raw(int64_t start,
         args[tid].end = end;
         args[tid].step = step;
         args[tid].body = body;
+        args[tid].range_body = NULL;
         args[tid].env = env_copy;
         args[tid].tid = tid;
         args[tid].nthreads = nthreads;
@@ -4052,6 +4201,34 @@ static int64_t sgpl_warmup_parallel_min_trips(void)
     return cached;
 }
 
+static double sgpl_min_parallel_c_ns(void)
+{
+    static double cached = -1.0;
+    if (cached < 0.0)
+    {
+        const char *v = getenv("SGPL_MIN_PARALLEL_C_NS");
+        cached = 3.0;
+        if (v && *v)
+        {
+            double parsed = atof(v);
+            if (parsed >= 0.0)
+                cached = parsed;
+        }
+    }
+    return cached;
+}
+
+static int sgpl_warmup_calibration_disabled(void)
+{
+    static int cached = -1;
+    if (cached < 0)
+    {
+        const char *v = getenv("SGPL_NO_WARMUP_CALIBRATION");
+        cached = (v && *v && strcmp(v, "0") != 0) ? 1 : 0;
+    }
+    return cached;
+}
+
 int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
                                       int64_t start,
                                       int64_t end,
@@ -4161,7 +4338,32 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
     {
         // Uncalibrated, but the loop is big enough that parallelism pays for
         // itself regardless of the per-iteration cost.
-        if (trip_count >= sgpl_warmup_parallel_min_trips() && effective_threads > 1)
+        //
+        // ... except that taking this exit *is* what keeps the loop
+        // uncalibrated.  c_ns_per_iter_ewma is fed only by
+        // sgpl_record_doall_serial_sample(), which runs on the serial path, so a
+        // loop that clears the trip threshold on its first invocation goes
+        // parallel forever and the cost model never gets a single sample.  The
+        // shortcut is a floor for loops that genuinely cannot afford a serial
+        // pass, not a permanent answer.
+        //
+        // So spend a bounded number of invocations on calibration: invocation 1
+        // still goes parallel (a loop called exactly once must not be made to
+        // pay for a measurement it will never use), and the next
+        // SGPL_C_INITIAL_BATCH_SAMPLES invocations fall through to serial to
+        // fill the batch.  From then on the model is STABLE and decides on the
+        // real per-iteration cost -- which is the difference between "spread a
+        // memory-bound copy over 4 threads for nothing" and "spread a loop with
+        // real work per element".  If the batch still has not filled (the loop
+        // is genuinely rare), the shortcut resumes.
+        // SGPL_NO_WARMUP_CALIBRATION=1 restores the unconditional shortcut.
+        int calibrating =
+            !sgpl_warmup_calibration_disabled() &&
+            state->c_sampling_state != SGPL_C_SAMPLING_STABLE &&
+            state->invocation_count > 1 &&
+            state->invocation_count <= (uint64_t)(1 + SGPL_C_INITIAL_BATCH_SAMPLES);
+
+        if (!calibrating && trip_count >= sgpl_warmup_parallel_min_trips() && effective_threads > 1)
         {
             g_tls_pending_loop_id = desc ? desc->loop_id : -1;
             if (runtime_debug_enabled())
@@ -4209,6 +4411,48 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
     }
 
     c_ns = state->c_ns_per_iter_ewma;
+
+    /* Memory-bandwidth floor.
+     *
+     * The model below assumes a parallel loop runs (1 - 1/P) faster, i.e. that
+     * adding threads adds throughput.  That holds while the loop is limited by
+     * compute.  It does not hold once the loop is limited by memory bandwidth:
+     * a second thread streaming the same arrays shares one bus and adds
+     * nothing, so the model predicts a win and delivers a small loss.
+     *
+     * The per-iteration cost the model already measures separates the two
+     * cleanly.  Measured on a 4-core box, 1e6-element vertex loops, best of 3,
+     * against the serial path (see the range entry point in worker_main --
+     * these numbers are only meaningful with it):
+     *
+     *   flops/iter   c_ns    speedup
+     *      0          ~1.0    0.88x
+     *      2          ~1.4    0.96x
+     *      8          ~5.6    1.72x
+     *     24         ~31.4    2.80x
+     *
+     * The crossover sits between 1.4 and 5.6 ns/iteration; below it the loop is
+     * moving bytes, not doing arithmetic.  Loops under the floor stay serial.
+     * SGPL_MIN_PARALLEL_C_NS overrides it; 0 disables the floor. */
+    if (c_ns > 0.0 && c_ns < sgpl_min_parallel_c_ns())
+    {
+        sgpl_loop_store_cached_decision(state, desc, effective_threads, 0);
+        if (runtime_debug_enabled())
+        {
+            fprintf(stderr,
+                    "[parallel-runtime] cost-doall loop=%s loop_id=%d choose=serial "
+                    "reason=memory-bound c_ns=%.2f floor=%.2f N=%lld P=%d\n",
+                    sgpl_loop_debug_name(desc),
+                    desc ? desc->loop_id : -1,
+                    c_ns,
+                    sgpl_min_parallel_c_ns(),
+                    (long long)trip_count,
+                    effective_threads);
+        }
+        g_tls_pending_loop_id = -1;
+        return 0;
+    }
+
     {
         sgpl_launch_overhead_detail launch = sgpl_get_launch_overhead_detail(desc, effective_threads);
         l_thread_ns = launch.thread_ns;
@@ -4994,6 +5238,7 @@ void parallel_for_runtime(int64_t start,
                         atomic_load(&g_sgpl_reserved_threads));
             }
             g_tls_pending_loop_id = -1;
+            sgpl_take_pending_range_body();
             sgpl_run_loop_serial(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
             return;
         }
@@ -5103,6 +5348,7 @@ void parallel_for_runtime_ex(int64_t start,
                         atomic_load(&g_sgpl_reserved_threads));
             }
             g_tls_pending_loop_id = -1;
+            sgpl_take_pending_range_body();
             sgpl_run_loop_serial(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
             return;
         }

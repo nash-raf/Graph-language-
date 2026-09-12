@@ -3449,7 +3449,9 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
 
             if (rhsVal->getType() != elemTy)
             {
-                if (rhsVal->getType()->isIntegerTy() && elemTy->isIntegerTy())
+                if (rhsVal->getType()->isIntegerTy() && elemTy->isDoubleTy())
+                    rhsVal = Builder.CreateSIToFP(rhsVal, elemTy);
+                else if (rhsVal->getType()->isIntegerTy() && elemTy->isIntegerTy())
                     rhsVal = Builder.CreateIntCast(rhsVal, llvm::cast<llvm::IntegerType>(elemTy), true);
                 else
                     throw std::runtime_error("IRGenVisitor: type mismatch in array assignment");
@@ -3540,20 +3542,23 @@ void IRGenVisitor::visitAssignment(AssignmentStmtNode *assign)
         llvm::Value *col64 = Builder.CreateIntCast(colIdx, i64TyAddr, true, "col64");
         llvm::Value *rowOff = Builder.CreateNSWMul(row64, cols64, "row_offset");
 
-        auto *i32Ty = Builder.getInt32Ty();
-        if (rhsVal->getType() != i32Ty)
+        llvm::Type *elemTy = metaIt->second.isReal ? Builder.getDoubleTy()
+                                                   : Builder.getInt32Ty();
+        if (rhsVal->getType() != elemTy)
         {
-            if (rhsVal->getType()->isIntegerTy())
-                rhsVal = Builder.CreateIntCast(rhsVal, i32Ty, true);
+            if (metaIt->second.isReal && rhsVal->getType()->isIntegerTy())
+                rhsVal = Builder.CreateSIToFP(rhsVal, elemTy);
+            else if (!metaIt->second.isReal && rhsVal->getType()->isIntegerTy())
+                rhsVal = Builder.CreateIntCast(rhsVal, elemTy, true);
             else
-                throw std::runtime_error("2D array assignment requires int value");
+                throw std::runtime_error("2D array assignment requires int/real value matching the array type");
         }
 
         llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
         llvm::Value *rowPtr =
-            Builder.CreateGEP(i32Ty, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
+            Builder.CreateGEP(elemTy, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
         llvm::Value *elemPtr =
-            Builder.CreateGEP(i32Ty, rowPtr, {col64}, baseVar->name + "_2d_ptr");
+            Builder.CreateGEP(elemTy, rowPtr, {col64}, baseVar->name + "_2d_ptr");
         Builder.CreateStore(rhsVal, elemPtr);
         return;
     }
@@ -3569,10 +3574,13 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
 {
     llvm::Function *currentFunction = Builder.GetInsertBlock()->getParent();
 
-    // --- 2D Array path: int arr[rows][cols] ---
+    // --- 2D Array path: int arr[rows][cols] / real arr[rows][cols] ---
     if (decl->isArray2D)
     {
         auto *i32Ty = Builder.getInt32Ty();
+        const bool isReal2D = (decl->typeName == "real");
+        llvm::Type *elemTy = isReal2D ? Builder.getDoubleTy() : Builder.getInt32Ty();
+        const unsigned elemBytes = isReal2D ? 8u : 4u;
 
         // Get row count
         llvm::Value *rowsVal;
@@ -3594,12 +3602,12 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
 
         // total = rows * cols
         llvm::Value *totalElems = Builder.CreateMul(rowsVal, colsVal, "arr2d_total");
-        llvm::AllocaInst *arrAlloca = Builder.CreateAlloca(i32Ty, totalElems, decl->name);
+        llvm::AllocaInst *arrAlloca = Builder.CreateAlloca(elemTy, totalElems, decl->name);
 
         // Zero-initialize
-        llvm::Value *sizeBytes = Builder.CreateMul(totalElems, Builder.getInt32(4), "arr2d_bytes");
+        llvm::Value *sizeBytes = Builder.CreateMul(totalElems, Builder.getInt32(elemBytes), "arr2d_bytes");
         llvm::Value *sizeBytes64 = Builder.CreateZExt(sizeBytes, Builder.getInt64Ty());
-        Builder.CreateMemSet(arrAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(4));
+        Builder.CreateMemSet(arrAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(elemBytes));
 
         llvm::Value *storage = arrAlloca;
         if (EmittingTopLevel)
@@ -3615,7 +3623,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             storage = global;
         }
         NamedValues[decl->name] = storage;
-        Array2DMap[decl->name] = {rowsVal, colsVal};
+        Array2DMap[decl->name] = {rowsVal, colsVal, isReal2D};
         return storage;
     }
 
@@ -3668,7 +3676,8 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             return storage;
         }
 
-        // --- Static array: int arr[5] or int arr[] = [1,2,3] ---
+        // --- Static array: int arr[5], real arr[5], or int arr[] = [1,2,3] ---
+        // (isRealArray / elemTy come from the array path above.)
         size_t N = decl->arraySize;
 
         // If initializer present and is ArrayLiteral, we can verify/adjust
@@ -3684,8 +3693,8 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             throw std::runtime_error("IRGenVisitor::visitVarDecl: array size is zero for " + decl->name);
         }
 
-        // Build the LLVM array type [N x i32]
-        llvm::ArrayType *arrTy = llvm::ArrayType::get(Builder.getInt32Ty(), N);
+        // Build the LLVM array type [N x i32] / [N x double]
+        llvm::ArrayType *arrTy = llvm::ArrayType::get(elemTy, N);
 
         // Create alloca in the entry block manually with arrTy
         llvm::IRBuilder<> tmpB(&currentFunction->getEntryBlock(),
@@ -3701,9 +3710,12 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             for (size_t i = 0; i < M && i < N; ++i)
             {
                 llvm::Value *val = visitExpr(arrLit->elements[i].get());
-                if (val->getType() != Builder.getInt32Ty() && val->getType()->isIntegerTy())
+                if (val->getType() != elemTy)
                 {
-                    val = Builder.CreateIntCast(val, Builder.getInt32Ty(), /*isSigned=*/true);
+                    if (elemTy->isDoubleTy() && val->getType()->isIntegerTy())
+                        val = Builder.CreateSIToFP(val, elemTy);
+                    else if (elemTy->isIntegerTy() && val->getType()->isIntegerTy())
+                        val = Builder.CreateIntCast(val, elemTy, /*isSigned=*/true);
                 }
                 llvm::Value *gep = Builder.CreateGEP(
                     arrTy, arrAlloca,
@@ -3714,7 +3726,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             // zero-fill remaining elements
             for (size_t i = M; i < N; ++i)
             {
-                llvm::Value *zero = llvm::ConstantInt::get(Builder.getInt32Ty(), 0);
+                llvm::Value *zero = llvm::Constant::getNullValue(elemTy);
                 llvm::Value *gep = Builder.CreateGEP(
                     arrTy, arrAlloca,
                     {Builder.getInt32(0), Builder.getInt32(static_cast<int>(i))},
@@ -3741,8 +3753,13 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
                 for (size_t i = 0; i < M && i < N; ++i)
                 {
                     llvm::Value *val = visitExpr(arrLit->elements[i].get());
-                    if (val->getType() != Builder.getInt32Ty() && val->getType()->isIntegerTy())
-                        val = Builder.CreateIntCast(val, Builder.getInt32Ty(), true);
+                    if (val->getType() != elemTy)
+                    {
+                        if (elemTy->isDoubleTy() && val->getType()->isIntegerTy())
+                            val = Builder.CreateSIToFP(val, elemTy);
+                        else if (elemTy->isIntegerTy() && val->getType()->isIntegerTy())
+                            val = Builder.CreateIntCast(val, elemTy, true);
+                    }
                     llvm::Value *gep = Builder.CreateGEP(
                         arrTy, global,
                         {Builder.getInt32(0), Builder.getInt32(static_cast<int>(i))},
@@ -4660,11 +4677,18 @@ void IRGenVisitor::visitForEach(ForEachStmtNode *fs)
         llvm::Value *innerCond = Builder.CreateICmpNE(hasNext, llvm::ConstantInt::get(i32Ty, 0), "edge_inner_cond");
         Builder.CreateCondBr(innerCond, innerBodyBB, innerMergeBB);
 
-        // Inner body: skip if u >= v (avoid undirected duplicates)
+        // Inner body: an undirected graph stores every edge in both CSR rows,
+        // so skip u >= v to yield each edge once.  A directed graph stores each
+        // arc exactly once (mutual pairs are two arcs) and must yield all of
+        // them -- deduping there silently drops every reverse arc.
         Builder.SetInsertPoint(innerBodyBB);
         llvm::Value *vVal = Builder.CreateLoad(i32Ty, var2Alloca, "v_val");
         llvm::Value *uForCmp = Builder.CreateLoad(i32Ty, var1Alloca, "u_cmp");
-        llvm::Value *skipCond = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *skipGe = Builder.CreateICmpSGE(uForCmp, vVal, "skip_dup");
+        llvm::Value *dirFlagPtr = Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_dir_ptr");
+        llvm::Value *dirFlag = Builder.CreateLoad(i32Ty, dirFlagPtr, "g_dir");
+        llvm::Value *skipCond = Builder.CreateAnd(
+            Builder.CreateICmpEQ(dirFlag, Builder.getInt32(0), "undirected"), skipGe);
         auto *userBodyBB = llvm::BasicBlock::Create(Context, "edge.user.body", parent);
         Builder.CreateCondBr(skipCond, innerCondBB, userBodyBB);
 
@@ -5244,13 +5268,14 @@ llvm::Value *IRGenVisitor::visitExpr(ASTNode *expr)
         llvm::Value *col64 = Builder.CreateIntCast(colIdx, i64TyAddr, true, "col64");
         llvm::Value *rowOff = Builder.CreateNSWMul(row64, cols64, "row_offset");
 
+        llvm::Type *elemTy = metaIt->second.isReal ? Builder.getDoubleTy()
+                                                   : Builder.getInt32Ty();
         llvm::Value *baseAlloca = lookupNamedStorage(baseVar->name);
-        auto *i32Ty = Builder.getInt32Ty();
         llvm::Value *rowPtr =
-            Builder.CreateGEP(i32Ty, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
+            Builder.CreateGEP(elemTy, baseAlloca, {rowOff}, baseVar->name + "_2d_row");
         llvm::Value *elemPtr =
-            Builder.CreateGEP(i32Ty, rowPtr, {col64}, baseVar->name + "_2d_ptr");
-        return Builder.CreateLoad(i32Ty, elemPtr, baseVar->name + "_2d_val");
+            Builder.CreateGEP(elemTy, rowPtr, {col64}, baseVar->name + "_2d_ptr");
+        return Builder.CreateLoad(elemTy, elemPtr, baseVar->name + "_2d_val");
     }
 
     case ASTNodeType::SetLiteral:
@@ -6874,7 +6899,9 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         if (allocatedTy->isDoubleTy())
         {
             llvm::Value *val = Builder.CreateLoad(Builder.getDoubleTy(), storage, var->name);
-            llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%f\n");
+            // %.13g keeps small magnitudes readable (1e-07 instead of 0.000000)
+            // while still printing exact values such as 160136.013072.
+            llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%.13g\n");
             Builder.CreateCall(printfFn, {strPtr, val});
             return;
         }
@@ -6912,11 +6939,11 @@ void IRGenVisitor::visitPrintStmt(PrintStmtNode *PS)
         static llvm::GlobalVariable *fmtReal = nullptr;
         if (!fmtReal)
         {
-            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 4);
+            auto *fmtTy = llvm::ArrayType::get(Builder.getInt8Ty(), 7);
             fmtReal = new llvm::GlobalVariable(
                 Module, fmtTy, /*isConstant=*/true,
                 llvm::GlobalValue::PrivateLinkage,
-                llvm::ConstantDataArray::getString(Context, "%f\n", true),
+                llvm::ConstantDataArray::getString(Context, "%.13g\n", true),
                 ".fmt_real");
         }
         llvm::Value *fmtPtr = Builder.CreateBitCast(fmtReal, llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context)));

@@ -11,8 +11,10 @@ LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"; LLVM_LIBS="$($LLVM_CONFIG --libs all)"
 LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
 # -iquote, not -I., so #include <random> cannot hit the stray ELF named `random`
 CXXFLAGS=(-O2 -mavx2 -march=native -std=c++17 -fexceptions -pthread
-          -I/usr/local/include/antlr4-runtime -Igenerated -iquote . $LLVM_CXXFLAGS)
+          -I/usr/local/include/antlr4-runtime -Igenerated -iquote .
+          -I"$($LLVM_CONFIG --includedir)/polly" $LLVM_CXXFLAGS)
 SOURCES=(main.cpp IRGenVisitor.cpp MotifPattern.cpp MotifIRBuilder.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp
+         graph_frontier_lowering.cpp
          SemanticAnalyzer.cpp roaring_bitmap.cpp AutoTunerPass.cpp
          generated/BaseBaseListener.cpp generated/BaseBaseVisitor.cpp
          generated/BaseLexer.cpp generated/BaseListener.cpp

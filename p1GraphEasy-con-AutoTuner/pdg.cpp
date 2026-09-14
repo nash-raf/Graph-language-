@@ -17,6 +17,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include <algorithm>
@@ -322,6 +323,125 @@ namespace
         Info.kind = CarrierKind::IntraIteration;
         return Info;
     }
+
+    /* P2: an EQ / zero-distance component says "both accesses use the same
+     * address".  That is a proof of loop-independence only when the address is
+     * a function of this loop's induction variable and of loop-invariant
+     * values.  SCEV represents the *same* unknown value in both accesses, so a
+     * subscript read from memory (or produced by a call) inside the loop can
+     * make DependenceInfo report EQ while the address actually changes every
+     * iteration -- a fabricated independence proof.  Fail closed: a
+     * zero-distance verdict for a memory pair whose subscripts are
+     * memory/call-derived at this level becomes an unknown carrier.
+     * SGPL_NO_PDG_EQ_GUARD=1 restores the previous behaviour for A/B. */
+    static bool isLoopMemoryDerived(const llvm::Value *V, const llvm::Loop *L,
+                                    llvm::SmallPtrSetImpl<const llvm::Value *> &Seen)
+    {
+        using namespace llvm;
+        if (!V || !Seen.insert(V).second)
+            return false;
+        const auto *I = dyn_cast<Instruction>(V);
+        if (!I || !L->contains(I->getParent()))
+            return false;
+        if (isa<LoadInst>(I) || isa<CallBase>(I))
+            return true;
+        for (const Use &U : I->operands())
+            if (isLoopMemoryDerived(U.get(), L, Seen))
+                return true;
+        return false;
+    }
+
+    static bool zeroDistanceOnLoopMemorySubscript(const llvm::Dependence &Dep,
+                                                  const llvm::Loop *L)
+    {
+        using namespace llvm;
+        if (L->getLoopDepth() > Dep.getLevels())
+            return false;
+        if (classifyDistanceComponent(Dep, L->getLoopDepth()).kind !=
+            DistanceProofKind::ProvenZero)
+            return false;
+
+        const Instruction *Src = Dep.getSrc();
+        const Instruction *Dst = Dep.getDst();
+        if (!Src || !Dst)
+            return false;
+
+        for (const Instruction *I : {Src, Dst})
+        {
+            const Value *Ptr = nullptr;
+            if (const auto *LI = dyn_cast<LoadInst>(I))
+                Ptr = LI->getPointerOperand();
+            else if (const auto *SI = dyn_cast<StoreInst>(I))
+                Ptr = SI->getPointerOperand();
+            else
+                return false; /* not a memory pair: leave the verdict alone */
+            const auto *G = dyn_cast<GetElementPtrInst>(Ptr->stripPointerCasts());
+            if (!G)
+                continue; /* whole-object access: only the base identity matters */
+            SmallPtrSet<const Value *, 16> Seen;
+            for (const Use &Idx : G->indices())
+                if (isLoopMemoryDerived(Idx.get(), L, Seen))
+                    return true;
+        }
+        return false;
+    }
+
+    /* Same-address value flow across iterations.
+     *
+     * DependenceInfo answers "distance 0 / direction EQ" when the two addresses
+     * are provably equal, and the classifier reads that as intra-iteration.
+     * That reading is only safe when the address *varies* with the iteration:
+     * for a loop-invariant address (a scalar slot, or an A[0]-style location
+     * whose index is constant) a write in iteration i is visible to the reads
+     * of iteration i+1, so the pair is carried no matter what the distance
+     * arithmetic says.  Memory-carried `while` counters, scalar accumulators
+     * and shared flags all take this route -- it is the same "EQ is not
+     * independence" hole as the P2 subscript guard, for the case where there is
+     * no subscript to inspect.
+     *
+     * Requiring a store on at least one side keeps read-read pairs (harmless)
+     * out of the downgrade.  Addresses that do vary (A[phi], A[i+1]) are left
+     * alone, so genuine intra-iteration pairs keep their verdict.
+     * SGPL_NO_PDG_INVARIANT_SLOT_GUARD=1 restores the old trust (A/B only). */
+    static bool zeroDistanceOnLoopInvariantSlot(const llvm::Dependence &Dep,
+                                                const llvm::Loop *L,
+                                                llvm::ScalarEvolution *SE)
+    {
+        using namespace llvm;
+        if (::getenv("SGPL_NO_PDG_INVARIANT_SLOT_GUARD"))
+            return false;
+        if (!SE || L->getLoopDepth() > Dep.getLevels())
+            return false;
+        if (classifyDistanceComponent(Dep, L->getLoopDepth()).kind !=
+            DistanceProofKind::ProvenZero)
+            return false;
+
+        const Instruction *Src = Dep.getSrc();
+        const Instruction *Dst = Dep.getDst();
+        if (!Src || !Dst)
+            return false;
+
+        bool SawStore = false;
+        for (const Instruction *I : {Src, Dst})
+        {
+            const Value *Ptr = nullptr;
+            if (const auto *LI = dyn_cast<LoadInst>(I))
+                Ptr = LI->getPointerOperand();
+            else if (const auto *SI = dyn_cast<StoreInst>(I))
+            {
+                Ptr = SI->getPointerOperand();
+                SawStore = true;
+            }
+            else
+                return false; /* not a memory pair: leave the verdict alone */
+
+            auto *PtrNC = const_cast<Value *>(Ptr);
+            const SCEV *S = SE->getSCEV(PtrNC);
+            if (!SE->isLoopInvariant(S, L))
+                return false; /* address varies: genuine intra-iteration pair */
+        }
+        return SawStore;
+    }
 }
 
 void createEdge(llvm::Instruction *I1, llvm::Instruction *I2, llvm::dependencyGraph &G, std::string type)
@@ -490,23 +610,6 @@ static bool loopHasTerminatorMetadata(const llvm::Loop *L, llvm::StringRef Name)
            L->getHeader()->getTerminator()->getMetadata(Name);
 }
 
-static void markNestedLoopsSequential(llvm::Loop *L)
-{
-    if (!L)
-        return;
-    llvm::LLVMContext &Ctx = L->getHeader()->getContext();
-    for (llvm::Loop *SubLoop : L->getSubLoops())
-    {
-        if (SubLoop && SubLoop->getHeader() && SubLoop->getHeader()->getTerminator())
-        {
-            SubLoop->getHeader()->getTerminator()->setMetadata(
-                "sgpl.frontier.nested.sequential",
-                llvm::MDNode::get(Ctx, llvm::MDString::get(Ctx, "required")));
-        }
-        markNestedLoopsSequential(SubLoop);
-    }
-}
-
 static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
                                           llvm::ScalarEvolution &SE,
@@ -592,6 +695,58 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                       << " hdr=" << L->getHeader()->getName().str()
                       << " depth=" << L->getLoopDepth() << " " << Msg.str() << "\n";
     };
+
+    // --- call effects ---
+    // The pair analysis below only sees loads and stores.  A call is a memory
+    // effect it cannot relate, so a loop containing one can never be certified
+    // DOALL/DOACROSS on the strength of those pairs alone: the call may write
+    // exactly the data the pairs were shown independent of.  Two exemptions:
+    //   - functions that cannot access memory at all (`readnone`),
+    //   - the profiler / clock helpers, whose only writes are the profiler's
+    //     own globals (verified in autotuner_runtime.c: g_profile_*,
+    //     g_kernel_measured_ns; sgpl_now_ns only calls clock_gettime) and the
+    //     llvm.lifetime/assume/dbg intrinsics.
+    // Everything else -- neighbour iterators, bitmap mutations, graph queries,
+    // engine steps -- barriers the loop.  That is what lets the PDG *derive*
+    // the SEQUENTIAL verdict for traversal nests instead of having the
+    // frontier pass assert it with sgpl.frontier.nested.sequential.
+    // Kill switch SGPL_NO_PDG_CALL_BARRIER=1 (A/B only).
+    if (!::getenv("SGPL_NO_PDG_CALL_BARRIER"))
+    {
+        StringRef BarrierCall;
+        for (BasicBlock *BB : L->blocks())
+        {
+            if (!BarrierCall.empty())
+                break;
+            for (Instruction &I : *BB)
+            {
+                auto *CB = dyn_cast<CallBase>(&I);
+                if (!CB || CB->doesNotAccessMemory())
+                    continue;
+                const Function *CF = CB->getCalledFunction();
+                if (!CF)
+                {
+                    BarrierCall = "<indirect call>";
+                    break;
+                }
+                StringRef N = CF->getName();
+                if (N.starts_with("autograph_profile_") || N == "sgpl_now_ns")
+                    continue;
+                if (CF->isIntrinsic() &&
+                    (N.starts_with("llvm.lifetime") || N.starts_with("llvm.assume") ||
+                     N.starts_with("llvm.dbg")))
+                    continue;
+                BarrierCall = N;
+                break;
+            }
+        }
+        if (!BarrierCall.empty())
+        {
+            Summary.hasUnknownAttributedDep = true;
+            Summary.hasProofOfNoCarriedDeps = false;
+            logLoopClassify(("call barrier: stateful call " + BarrierCall).str());
+        }
+    }
 
     // --- PHI handling ---
     // Canonical inductions (SCEV AddRec for this loop) are ignored.
@@ -899,9 +1054,58 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
             }
             if (Dep->isLoopIndependent())
             {
+                /* "Distance 0 / EQ" is not independence when the address does
+                 * not vary with the iteration: a store to a loop-invariant
+                 * slot is visible to later iterations (memory-carried
+                 * counters, scalar accumulator slots, shared flags).  See
+                 * zeroDistanceOnLoopInvariantSlot. */
+                if (zeroDistanceOnLoopInvariantSlot(*Dep, L, &SE))
+                {
+                    if (::getenv("SGPL_PDG_EQ_DEBUG"))
+                    {
+                        std::cerr << "[pdg-invariant-slot-guard] ";
+                        printInstToStderr(edge.first);
+                        std::cerr << "   <->   ";
+                        printInstToStderr(edge.second);
+                    }
+                    Summary.hasUnknownAttributedDep = true;
+                    Summary.hasProofOfNoCarriedDeps = false;
+                    logLoopClassify("loop-independent on a loop-invariant slot -> carried (unknown carrier)");
+                }
                 continue;
             }
             CarrierInfo Info = proveCarrierForDependence(*Dep, L);
+            if (!::getenv("SGPL_NO_PDG_EQ_GUARD") &&
+                Info.kind == CarrierKind::IntraIteration &&
+                zeroDistanceOnLoopMemorySubscript(*Dep, L))
+            {
+                if (::getenv("SGPL_PDG_EQ_DEBUG"))
+                {
+                    std::cerr << "[pdg-eq-guard] ";
+                    printInstToStderr(edge.first);
+                    std::cerr << "   <->   ";
+                    printInstToStderr(edge.second);
+                }
+                Summary.hasUnknownAttributedDep = true;
+                Summary.hasProofOfNoCarriedDeps = false;
+                logLoopClassify("zero-distance memory subscript is loop-memory-derived -> treated as unknown carrier");
+                continue;
+            }
+            if (Info.kind == CarrierKind::IntraIteration &&
+                zeroDistanceOnLoopInvariantSlot(*Dep, L, &SE))
+            {
+                if (::getenv("SGPL_PDG_EQ_DEBUG"))
+                {
+                    std::cerr << "[pdg-invariant-slot-guard] ";
+                    printInstToStderr(edge.first);
+                    std::cerr << "   <->   ";
+                    printInstToStderr(edge.second);
+                }
+                Summary.hasUnknownAttributedDep = true;
+                Summary.hasProofOfNoCarriedDeps = false;
+                logLoopClassify("zero distance on a loop-invariant slot -> carried (unknown carrier)");
+                continue;
+            }
             if (Info.kind == CarrierKind::IntraIteration)
             {
                 logLoopClassify("ignored intra-iteration dependence");
@@ -1055,20 +1259,24 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // }
 
     // final classification
-    const bool IsVerifiedFrontier =
-        loopHasTerminatorMetadata(L, "sgpl.frontier.first_wins.candidate");
+    // The frontier pass asserts "this nest shares traversal state, keep it
+    // serial" with a metadata marker, because the dependence analysis used to
+    // be blind to calls that carry that state.  With the call barrier above the
+    // analysis reaches the same verdict from the real dependence, so the veto
+    // is now a belt-and-braces default rather than the only line of defence:
+    // SGPL_NO_FRONTIER_MARKER=1 drops the assertion and lets the certificates
+    // decide (the marker is still attached and still gates the task extractor
+    // in reconstructParallelIR -- this switch only removes the classification
+    // veto).  Default keeps the veto: until the call-effect table replaces the
+    // name-based rules, failing closed is the safe posture.
     const bool IsNestedFrontierLoop =
+        !::getenv("SGPL_NO_FRONTIER_MARKER") &&
         loopHasTerminatorMetadata(L, "sgpl.frontier.nested.sequential");
 
     std::string classification;
     if (IsNestedFrontierLoop)
     {
         classification = "SEQUENTIAL";
-    }
-    else if (IsVerifiedFrontier)
-    {
-        classification = "DOALL";
-        markNestedLoopsSequential(L);
     }
     else if (phiCarry)
     {
@@ -1100,12 +1308,6 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         if (llvm::Instruction *MM = NN->getTerminator())
         {
             MM->setMetadata("my.loop.parallel", Node);
-            if (IsVerifiedFrontier)
-            {
-                MM->setMetadata(
-                    "sgpl.frontier.first_wins.doall",
-                    MDNode::get(Ctx, MDString::get(Ctx, "requires-int-append-priv")));
-            }
         }
     };
 

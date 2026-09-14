@@ -50,13 +50,14 @@ runt(){ ( cd "$C" && SGPL_NUM_THREADS=$1 OMP_NUM_THREADS=$1 ./final_program 2>/d
 # (compile() always runs the frontier lowering with GRAPH_FRONTIER_STATS=1).
 #   expect_class <case> <class>            every candidate line must report it
 #   expect_class <case> <class> <grep -E>  only lines matching the filter count
+#   expect_class <case> <class> <filter> <log>   read another log (default build.log)
 # The class is printed per candidate loop as `... class=<verdict>`; a case whose
 # loop silently turns sequential fails just as loudly as one that silently gets
 # claimed parallel, which is the point: "no race today" is not the contract,
 # "still classified as intended" is.
 expect_class(){
-  local case="$1" want="$2" filt="${3:-}" lines got n
-  lines=$(grep -E '\[graph-frontier\] candidate:' "$R/bin/build.log" || true)
+  local case="$1" want="$2" filt="${3:-}" log="${4:-$R/bin/build.log}" lines got n
+  lines=$(grep -E '\[graph-frontier\] candidate:' "$log" || true)
   [[ -n "$filt" ]] && lines=$(grep -E "$filt" <<<"$lines" || true)
   if [[ -z "$lines" ]]; then
     no "class/$case" "no [graph-frontier] candidate line${filt:+ matching '$filt'}"
@@ -260,6 +261,10 @@ if ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FILE="$R/cases/parallel/roundsep.gr
   if ! grep -q 'shadow=[1-9]' "$R/bin/roundsep.log"; then
     no "race/roundsep" "shadow snapshot not emitted (round-separation path not taken)"
   else
+    # Composition A is the one parallel in-place shape: the shadowed nest must
+    # stay dest-owner (a regression to sequential would silently give up the
+    # parallel path while still answering correctly).
+    expect_class roundsep dest-owner 'shadow=[1-9]' "$R/bin/roundsep.log"
     exp=$(python3 "$C/compute_roundsep_expected.py" add \
             "$R/cases/parallel/roundsep.graph" "$R/fixtures/g20k.txt" \
           | python3 -c 'import sys;print(sum(int(l) for l in sys.stdin))')
@@ -288,6 +293,10 @@ arcs=$(python3 -c "print(sum(1 for l in open('$R/fixtures/g20k.txt') if l.strip(
 while IFS='|' read -r name exp; do
   [[ -z "${name:-}" ]] && continue
   if compile "$R/cases/parallel/$name.graph"; then
+    # C and D are refusals by design (see OPEN_PROBLEMS_HANDOFF.md §2c): pin the
+    # verdict so a future composition rule that starts claiming them has to
+    # change this line deliberately.
+    expect_class "$name" sequential
     bad=""
     for t in 1 4; do
       got=$(runt $t)
@@ -426,6 +435,31 @@ if compile "$R/cases/parallel/reduce_real_ops.graph"; then
                   || no "race/reduce_real_ops" "exp='$REXP' $bad"
 else
   no "race/reduce_real_ops" "build failed"
+fi
+
+# Composition I / P10 under its switch: the per-source gather's visible result is
+# written per source (`deg[u] = c`), so the plain per-loop reduction path is
+# wrong for it -- that path folds all sources into one total and the epilogue
+# never runs (degsum would come out 0).  With SGPL_COMP_I_SOURCE_REDUCTION=1 the
+# nest must be classified `source-red`, keep the serial answer, and stay
+# invariant to the partition/thread split.  bipartite.txt has 10 sources with no
+# out-arcs, so the "no pairs" finish path is exercised by the expected 40.
+if ( cd "$C" && SGPL_COMP_I_SOURCE_REDUCTION=1 GRAPH_FRONTIER_STATS=1 \
+       GRAPH_FILE="$R/cases/parallel/int_gather.graph" \
+       bash ./03_run.sh >"$R/bin/int_gather_red.log" 2>&1 </dev/null ); then
+  expect_class int_gather source-red 'red=1' "$R/bin/int_gather_red.log"
+  bad=""
+  for cfg in "1:1" "4:4" "4:3" "4:1"; do
+    th="${cfg%%:*}"; pt="${cfg##*:}"
+    got=$( ( cd "$C" && SGPL_CLEANCUT_PARTITIONS=$pt SGPL_NUM_THREADS=$th \
+               OMP_NUM_THREADS=$th ./final_program 2>/dev/null </dev/null \
+             | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ) )
+    [[ "$got" == "degsum 40" ]] || bad="threads=$th partitions=$pt got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "parallel/int_gather_source_red (P10: per-source partials)" \
+                  || no "parallel/int_gather_source_red" "exp='degsum 40' $bad"
+else
+  no "parallel/int_gather_source_red" "build failed"
 fi
 
 # P6: pre-PDG canonicalization must promote single-function DSL globals to SSA.

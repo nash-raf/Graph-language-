@@ -239,7 +239,7 @@ compare against the frozen-read reference, not against the serial build.
 | B — data-aliased (write at a data-valued subscript) | **refused and pinned** — `race/data_index_write`: the `cnt[deg[u]]` nest reports `data=1 class=sequential`; the owner table is vertex-keyed (`CC_PART_OF`) so a data-valued house has no owner |
 | F — claims without envelope | **refused and pinned** — the *driver-preamble* first-wins claim now refuses in `classify()` (it runs once per source in the serial program, once per (u,v) pair in the engine, and its guard is not reproduced).  `race/claim_driver`; before this the verdict was accidental: the classifier said `dual-owner` and the emit failure silently kept the loop sequential |
 | G — exotic combines | **audited, fidelity fixed, refusals pinned** — min/max flavours separated (smin / umin / minnum / minimum) with matching identities; unsigned predicates no longer combined with `smin`; float `select(fcmp)` min/max stays refused (not reorder-invariant with NaN / ±0).  `race/reduce_int_ops` (7 loops), `race/reduce_real_ops` (1 parallel + 2 pinned refusals) |
-| I — array-frontier / per-source gathers | **refusal pinned** — `race/int_gather`, `race/mutual_deg` now assert `class=sequential` explicitly; parallelizing them is P10 (per-source reduction engine) and that assertion is the line that must change when P10 lands |
+| I — array-frontier / per-source gathers | **P10 implemented behind `SGPL_COMP_I_SOURCE_REDUCTION=1`** — source-owned step with per-partition partials + a per-source finish hook; `parallel/int_gather_source_red` asserts `class=source-red`, `degsum 40` (serial value, matching the pinned default-mode refusal) across 1/4 threads and 1/3/4 partitions.  Default stays refused and pinned (`race/int_gather`, `race/mutual_deg`; `mutual_deg` additionally carries an inline `hasEdge` scan, so the totality prover refuses it in both modes) |
 | extra — two scalar accumulators in one body | **refused (new)** — only `ReducePtr` gets per-partition storage, so a second slot was silently written by every partition.  Now recorded as an unrecognized global effect and refused; `race/two_reduce_slots` |
 
 Useful debug env vars (compile-time unless stated):
@@ -263,6 +263,7 @@ Useful debug env vars (compile-time unless stated):
 | `SGPL_PDG_SECOND_CHANCE=1` | on algebra refusal, release the loop to the PDG instead of forcing the sequential marker (see P8) |
 | `SGPL_NO_PDG_CALL_BARRIER=1` | **A/B only** — stop treating a stateful call in a loop as a barrier (unsound: the pair analysis cannot see call effects), see §2b |
 | `SGPL_COMP_F_ALLOW_DRIVER_CLAIM=1` | **A/B only** — stop refusing a driver-preamble first-wins claim (the emitted work functions run it once per pair and drop its guard), see §2c |
+| `SGPL_COMP_I_SOURCE_REDUCTION=1` | enable the per-source reduction (gather) class and its finish hook; off by default, see §2c/P10 |
 | `SGPL_NO_FRONTIER_MARKER=1` | drop the `sgpl.frontier.nested.sequential` classification veto and let the certificates decide (the marker still gates `reconstructParallelIR`), see §2b |
 | `SGPL_NO_PDG_INVARIANT_SLOT_GUARD=1` | **A/B only** — restore trust in a zero-distance verdict on a loop-invariant slot (a store there is visible to later iterations), see §2b |
 | `SGPL_NO_PDG_GLOBAL_PROMOTE=1` | disable the single-function-global → alloca promotion that makes pre-PDG canonicalization effective (§2b/P6) |
@@ -566,6 +567,39 @@ the serial left-to-right fold.  It stays sequential and is pinned by
   loops P10 (per-source reduction engine) has to turn parallel — the assertion is
   the contract that must change with it.
 
+### I / P10 — per-source reductions (gathers) implemented behind a switch
+Serial shape:
+```
+for each vertex u { c = 0; for each neighbor v { c = c + f(v) } deg[u] = c; }
+```
+The accumulator is *per source*: the driver preamble resets it, the neighbour
+body reduces into it, and the epilogue consumes it once per source.  The plain
+reduction class is wrong for this (it maps one `ReducePtr` to a per-partition
+partial, folds everything into one total and the deactivated driver never runs
+the epilogue — `degsum` would come out 0).
+
+`SGPL_COMP_I_SOURCE_REDUCTION=1` (default **off**) classifies it `source-red` and
+emits:
+- the pair work function onto this partition's partial (the existing reduction
+  mapping) via the new runtime step
+  `autograph_frontier_step_owner_source_red`,
+- `sgpl_source_finish(u, partial)`: the driver's epilogue cloned with the
+  accumulator load replaced by the partial (the source value replaced by the
+  argument) and the partial reset to the operator identity,
+- the runtime calls it once per source, on a source change inside the
+  partition's pair slice (CSR source-major order keeps a source's pairs
+  contiguous), and — for sources with **no pairs** — from a range pass over the
+  partition's source range, so `deg[u] = 0` for arc-less sources still matches
+  the serial build.  Source ranges are disjoint, so the epilogue writes are
+  race-free.
+
+Fail-closed guards in `classify()`: a second driver U store, a claim, a frontier
+append, destination-region work, or an unrecognized update all keep the loop
+sequential.  Evidence: `parallel/int_gather_source_red` (`class=source-red`,
+`degsum 40` at 1/4 threads × 1/3/4 partitions; bipartite.txt deliberately has 10
+sources with no out-arcs, so the range pass is exercised).  Default-mode refusal
+is still pinned by `race/int_gather`.
+
 ### Harness hardening (the suite was not testing the tree it lives in)
 1. **The suite drove a stale compiler.**  `03_run.sh` compiles the `.graph` but
    never the compiler (`GP_BIN=./GraphProgram`), so a source edit plus a suite run
@@ -590,7 +624,8 @@ the serial left-to-right fold.  It stays sequential and is pinned by
 | `algo/pagerank` | source-owner + dest-owner | |
 | `lang/foreach_edge`, `lang/foreach_neighbor`, `lang/weight_fn` | reduction | scalar-global reductions |
 | `parallel/roundsep` | dest-owner | composition A shadow |
-| `parallel/nested_gather`, `parallel/nested_while2` | source-owner | |
+| `parallel/nested_gather` | source-owner, **not modelable** (`loop-carried non-integer PHI (reduction register)`) | effectively sequential; the totality prover refuses before the emit |
+| `parallel/nested_while2` | source-owner, **emit fails** (`emit failed for class=source-owner -> stays sequential`) | effectively sequential; the classification still claims parallel, which is the remaining "verdict by accident" case — answers are correct and race-clean, but a future emit fix would have to re-derive the verdict |
 | `parallel/dual_shadow` | sequential (+ source-owner init) | A-dual refusal |
 | `parallel/int_gather`, `parallel/mutual_deg`, `parallel/reduce_plus_write`, `parallel/mixed_regions` | sequential | I / D / C refusals |
 
@@ -949,7 +984,11 @@ piece of this; the rest is open.
 
 ---
 
-### P10 (S2, feature) — per-source reduction (gather) loops cannot use the engine
+### P10 (S2, feature) — per-source reduction (gather) loops: IMPLEMENTED 2026-09-14 behind `SGPL_COMP_I_SOURCE_REDUCTION=1`
+(Default is still the refusal, which stays pinned by `race/int_gather` /
+`race/mutual_deg`; see §2c for the implementation, the fail-closed guards and the
+verified evidence.  `mutual_deg` stays refused in both modes because its body
+contains an inline `hasEdge` scan, which the totality prover rejects.)
 
 **What it is.** `for each vertex u { real s = 0; for each neighbor v { s += f(v) }
 acc[u] = s }` (nested_gather) must run sequentially: the owner-source engine calls

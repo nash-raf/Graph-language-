@@ -45,6 +45,6 @@ for f in "${FILES[@]}"; do
     grep -iE 'error|abort' <<<"$out" | head -3 | sed 's/^/    /'
     continue
   fi
-  grep -E '\[graph-frontier\] candidate|\[graph-frontier\]   modelable|\[loop-classify\]' <<<"$out" \
+  grep -E '\[graph-frontier\] candidate|\[graph-frontier\]   modelable|\[graph-frontier\]   emit failed|\[loop-classify\]' <<<"$out" \
     | sed 's/^/    /'
 done

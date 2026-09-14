@@ -1,0 +1,38 @@
+// Composition B: a write whose subscript is a *data* value, not an endpoint.
+// `cnt[deg[u]]` is indexed by a loaded data array element, so the destination
+// house is not a vertex id: the CleanCut owner table (keyed by destination
+// vertex, `autotuner_runtime.c` CC_PART_OF) cannot express an owner for it.
+// The nest must stay SEQUENTIAL, and the answer must match the serial build.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt";
+};
+
+int n = numVertices(G);
+int deg[n];
+int cnt[n];
+
+for each vertex u in G {
+  deg[u] = 0;
+  cnt[u] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    deg[u] = deg[u] + 1;
+  }
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    cnt[deg[u]] = cnt[deg[u]] + 1;
+  }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) {
+  s = s + cnt[i];
+  i = i + 1;
+}
+print "cntsum";
+print s;

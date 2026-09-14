@@ -14,6 +14,18 @@ ulimit -s unlimited 2>/dev/null
 export SGPL_FRONTIER_STRICT=1
 ONLY="${1:-all}"; PASS=0; FAIL=0; SKIP=0; declare -a BROKEN
 mkdir -p "$R/bin"
+
+# The suite drives the compiler *binary* in $C (03_run.sh compiles the .graph but
+# never the compiler).  If a source or header is newer than GraphProgram, a green
+# run would be reporting on yesterday's compiler.  Rebuild first (build_lowmem.sh
+# skips up-to-date objects, so this is usually a no-op link).
+if [[ -n "$(find "$C" -maxdepth 1 \( -name '*.cpp' -o -name '*.h' \) -newer "$C/GraphProgram" -print -quit)" ]]; then
+  echo "compiler sources newer than GraphProgram -- rebuilding first"
+  if ! ( cd "$C" && bash ./build_lowmem.sh ) >"$R/bin/compiler_build.log" 2>&1; then
+    echo "COMPILER BUILD FAILED -- see $R/bin/compiler_build.log"
+    exit 2
+  fi
+fi
 ok(){ printf "  \033[32mPASS\033[0m  %s\n" "$1"; PASS=$((PASS+1)); }
 no(){ printf "  \033[31mFAIL\033[0m  %-24s %s\n" "$1" "$2"; FAIL=$((FAIL+1)); BROKEN+=("$1: $2"); }
 skip(){ printf "  \033[33mSKIP\033[0m  %s\n" "$1"; SKIP=$((SKIP+1)); }
@@ -26,13 +38,38 @@ g(){ python3 -c "import json;print(json.load(open('$R/expected/golden.json'))['$
 compile(){
   local before after
   before=$(stat -c %Y "$C/final_program" 2>/dev/null || echo 0)
-  ( cd "$C" && GRAPH_FILE="$1" ./03_run.sh >"$R/bin/build.log" 2>&1 </dev/null )
+  ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FILE="$1" ./03_run.sh >"$R/bin/build.log" 2>&1 </dev/null )
   after=$(stat -c %Y "$C/final_program" 2>/dev/null || echo 0)
   [[ "$before" == "$after" ]] && return 2
   return 0
 }
 runp(){ ( cd "$C" && ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
 runt(){ ( cd "$C" && SGPL_NUM_THREADS=$1 OMP_NUM_THREADS=$1 ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
+
+# Assert the effect-algebra verdicts recorded in the *last* compile's log
+# (compile() always runs the frontier lowering with GRAPH_FRONTIER_STATS=1).
+#   expect_class <case> <class>            every candidate line must report it
+#   expect_class <case> <class> <grep -E>  only lines matching the filter count
+# The class is printed per candidate loop as `... class=<verdict>`; a case whose
+# loop silently turns sequential fails just as loudly as one that silently gets
+# claimed parallel, which is the point: "no race today" is not the contract,
+# "still classified as intended" is.
+expect_class(){
+  local case="$1" want="$2" filt="${3:-}" lines got n
+  lines=$(grep -E '\[graph-frontier\] candidate:' "$R/bin/build.log" || true)
+  [[ -n "$filt" ]] && lines=$(grep -E "$filt" <<<"$lines" || true)
+  if [[ -z "$lines" ]]; then
+    no "class/$case" "no [graph-frontier] candidate line${filt:+ matching '$filt'}"
+    return
+  fi
+  got=$(grep -o 'class=[a-z-]*' <<<"$lines" | sed 's/class=//' | sort -u | tr '\n' ',' | sed 's/,$//')
+  n=$(grep -c . <<<"$lines")
+  if [[ "$got" == "$want" ]]; then
+    ok "class/$case ($want${filt:+ for /$filt/}, $n loop(s))"
+  else
+    no "class/$case" "want class=$want${filt:+ for /$filt/}, got: $got [$n loop(s)]"
+  fi
+}
 
 # ---------------------------------------------------------------- 1. LANGUAGE
 if [[ "$ONLY" == all || "$ONLY" == lang ]]; then
@@ -175,6 +212,11 @@ fi
 while IFS='|' read -r name exp; do
   [[ -z "${name:-}" ]] && continue
   if compile "$R/cases/parallel/$name.graph"; then
+    # Composition I: the per-source gather has no engine support yet, so the
+    # verdict itself is part of the contract -- it must be a *derived* refusal,
+    # not an accident.  When the per-source reduction engine lands, this line is
+    # the one that has to change.
+    expect_class "$name" sequential 'red=1'
     bad=""
     for t in 1 4 4; do
       got=$( runt $t )
@@ -284,6 +326,106 @@ if ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FRONTIER_STRICT=1 \
   fi
 else
   no "race/dual_shadow" "build failed"
+fi
+
+# Composition F: a first-wins claim in the *driver* preamble.  The claim runs
+# once per source vertex in the serial program and the branch it feeds decides
+# whether that source's neighbour body runs at all; every engine work function
+# is called once per (u,v) pair, so neither the claim nor its guard can be
+# reproduced there (the dual-owner path grafted the claim without the guard, the
+# single-phase paths did not graft it at all).  Must be refused, and the answer
+# must equal the serial semantics: only u in {0,1} claim, so only their arcs
+# count (5 of the 10 arcs of tiny.txt).
+if compile "$R/cases/parallel/claim_driver.graph"; then
+  expect_class claim_driver sequential
+  bad=""
+  for t in 1 4 4; do
+    got=$(runt $t)
+    [[ "$got" == "outsum 5 claim_left 0" ]] || bad="threads=$t got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "race/claim_driver (driver claim refused, guard semantics kept)" \
+                  || no "race/claim_driver" "exp='outsum 5 claim_left 0' $bad"
+else
+  no "race/claim_driver" "build failed"
+fi
+
+# Two scalar accumulators in one neighbour body: the reduction engine gives
+# per-partition storage to ReducePtr only, so the second slot would be written
+# concurrently by every partition.  `b` discriminates (20 serial, ~20/partitions
+# if the second slot were emitted into the work function).
+if compile "$R/cases/parallel/two_reduce_slots.graph"; then
+  expect_class two_reduce_slots sequential
+  bad=""
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "a 10 b 20" ]] || bad="threads=$t got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "race/two_reduce_slots (second accumulator refused)" \
+                  || no "race/two_reduce_slots" "exp='a 10 b 20' $bad"
+else
+  no "race/two_reduce_slots" "build failed"
+fi
+
+# Composition B: a write whose subscript is a *data* value (`cnt[deg[u]]`).
+# The CleanCut owner table is keyed by destination vertex id, so a data-valued
+# house cannot be partitioned; the nest must stay sequential.
+if compile "$R/cases/parallel/data_index_write.graph"; then
+  expect_class data_index_write sequential 'data=1'
+  bad=""
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "cntsum 10" ]] || bad="threads=$t got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "race/data_index_write (data-valued subscript refused)" \
+                  || no "race/data_index_write" "exp='cntsum 10' $bad"
+else
+  no "race/data_index_write" "build failed"
+fi
+
+# Composition G: scalar-global reductions must actually parallelize (the class
+# assertion) and must agree with an independent Python computation over the
+# fixture -- the operators differ in how the combine has to treat them (Sub
+# partials are pre-negated, min/max signedness has to match the body's).
+read -r NARC NEG SSUM MINV MAXV <<<"$(python3 -c "
+E=[tuple(map(int,l.split())) for l in open('$R/fixtures/g20k.txt') if l.strip()]
+A=[(u,v) for (a,b) in E for (u,v) in ((a,b),(b,a))]
+print(len(A), -len(A), sum(v for (u,v) in A if v<100), min(v for (u,v) in A), max(v for (u,v) in A))")"
+if compile "$R/cases/parallel/reduce_int_ops.graph"; then
+  expect_class reduce_int_ops reduction 'red=1'
+  GEXP="cnt $NARC subc $NEG ssum $SSUM mn $MINV mn2 $MINV mx $MAXV mx2 $MAXV"
+  bad=""
+  for t in 1 4 4; do
+    got=$(runt $t)
+    [[ "$got" == "$GEXP" ]] || bad="threads=$t got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "race/reduce_int_ops (7 int reductions vs python)" \
+                  || no "race/reduce_int_ops" "exp='$GEXP' $bad"
+else
+  no "race/reduce_int_ops" "build failed"
+fi
+if compile "$R/cases/parallel/reduce_real_ops.graph"; then
+  # The float sum parallelizes; the raw `select(fcmp)` min/max do not, by
+  # design: a select-min is not reorder-invariant once a NaN or a signed zero is
+  # in the stream, so folding partition partials with it cannot reproduce the
+  # serial left-to-right fold.  (llvm.minnum/maxnum would be recognized; the
+  # DSL's min()/max() builtins emit the select form.)  Both refusals are pinned
+  # here so a future reordering-unsafe recognition turns this red.
+  expect_class reduce_real_ops reduction 'rsum'
+  expect_class reduce_real_ops sequential 'rmn'
+  expect_class reduce_real_ops sequential 'rmx'
+  # Reals print in %g form, so these exact integers come out without a decimal
+  # part.  The sum is exact in double (320000 additions of 1.0), so string
+  # equality is the right check here rather than a tolerance.
+  REXP="rsum $NARC rmn $MINV rmx $MAXV"
+  bad=""
+  for t in 1 4 4; do
+    got=$(runt $t)
+    [[ "$got" == "$REXP" ]] || bad="threads=$t got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "race/reduce_real_ops (3 real reductions vs python)" \
+                  || no "race/reduce_real_ops" "exp='$REXP' $bad"
+else
+  no "race/reduce_real_ops" "build failed"
 fi
 
 # P6: pre-PDG canonicalization must promote single-function DSL globals to SSA.

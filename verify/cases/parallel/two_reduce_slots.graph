@@ -1,0 +1,25 @@
+// Two scalar accumulators in one neighbour body.  The reduction engine maps a
+// *single* ReducePtr to a per-partition partial; the second slot has no
+// partition storage, so under the rewrite every partition would write the same
+// global (lost updates).  The nest must be refused (sequential) and the answer
+// must match the serial build -- `b` is the discriminating value (20 serial,
+// ~20/partitions if the second slot were emitted).
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt";
+};
+
+int n = numVertices(G);
+int a = 0;
+int b = 0;
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    a = a + 1;
+    b = b + 2;
+  }
+}
+
+print "a";
+print a;
+print "b";
+print b;

@@ -1,0 +1,49 @@
+// Composition F: a first-wins claim in the *driver* preamble.
+//
+// `claim[u]` is check-then-set (`if (claim[u] == 1) { claim[u] = 0; ... }`), the
+// shape the front end lowers to a CAS tagged `sgpl.first_wins.claim` and the
+// lowering records as `DriverUClaims` / `fw=1`.  The guard matters: only
+// sources whose claim succeeds may run the neighbour body, and the serial
+// program visits each source exactly once.  Every emitted engine work function
+// is called once per (u,v) pair and the guard is not reproduced, so the nest
+// must be refused (sequential) unless the model learns to prove a
+// once-per-source visit.  The answer is checked against the serial semantics:
+// only u in {0,1} claim, so only their arcs count.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt";
+};
+
+int n = numVertices(G);
+int claim[n];
+int outdeg[n];
+
+for each vertex u in G {
+  if (u < 2) {
+    claim[u] = 1;
+  } else {
+    claim[u] = 0;
+  }
+  outdeg[u] = 0;
+}
+
+for each vertex u in G {
+  if (claim[u] == 1) {
+    claim[u] = 0;
+    for each neighbor v of u in G {
+      outdeg[v] = outdeg[v] + 1;
+    }
+  }
+}
+
+int s = 0;
+int c = 0;
+int i = 0;
+while (i < n) {
+  s = s + outdeg[i];
+  c = c + claim[i];
+  i = i + 1;
+}
+print "outsum";
+print s;
+print "claim_left";
+print c;

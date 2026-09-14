@@ -236,10 +236,11 @@ compare against the frozen-read reference, not against the serial build.
 | D — reduction + vertex write | **refused** — `race/reduce_plus_write`: `class=sequential`, `acc 160000 w0 1` |
 | H — reduction emitted-unvalidated | **validated** — `validate_reduction.sh`, 24-config red matrix |
 | E — cross-phase dependence | covered by `bfs_level`'s effect string (`R(visited,V):SameRoundRead ⊗ Claim(visited,V) ⊗ R(lvl,U):PreviousRoundRead`), dest-owner, race-clean |
-| B — data-aliased | **not re-verified in this pass** |
-| F — claims without envelope | **not re-verified** (P7 deleted the dead `.candidate` route; the live `fw=`/`env=` flags are printed per candidate) |
-| G — exotic combines | **not re-verified**; unknown shapes are refused by the totality prover (P8) |
-| I — array-frontier unrecognised | **open** — see P10 (per-source reductions) |
+| B — data-aliased (write at a data-valued subscript) | **refused and pinned** — `race/data_index_write`: the `cnt[deg[u]]` nest reports `data=1 class=sequential`; the owner table is vertex-keyed (`CC_PART_OF`) so a data-valued house has no owner |
+| F — claims without envelope | **refused and pinned** — the *driver-preamble* first-wins claim now refuses in `classify()` (it runs once per source in the serial program, once per (u,v) pair in the engine, and its guard is not reproduced).  `race/claim_driver`; before this the verdict was accidental: the classifier said `dual-owner` and the emit failure silently kept the loop sequential |
+| G — exotic combines | **audited, fidelity fixed, refusals pinned** — min/max flavours separated (smin / umin / minnum / minimum) with matching identities; unsigned predicates no longer combined with `smin`; float `select(fcmp)` min/max stays refused (not reorder-invariant with NaN / ±0).  `race/reduce_int_ops` (7 loops), `race/reduce_real_ops` (1 parallel + 2 pinned refusals) |
+| I — array-frontier / per-source gathers | **refusal pinned** — `race/int_gather`, `race/mutual_deg` now assert `class=sequential` explicitly; parallelizing them is P10 (per-source reduction engine) and that assertion is the line that must change when P10 lands |
+| extra — two scalar accumulators in one body | **refused (new)** — only `ReducePtr` gets per-partition storage, so a second slot was silently written by every partition.  Now recorded as an unrecognized global effect and refused; `race/two_reduce_slots` |
 
 Useful debug env vars (compile-time unless stated):
 
@@ -261,6 +262,7 @@ Useful debug env vars (compile-time unless stated):
 | `SGPL_FRONTIER_BLOCKLIST_GUARD=1` | use the old shape blocklist instead of the totality prover (A/B only, see P8) |
 | `SGPL_PDG_SECOND_CHANCE=1` | on algebra refusal, release the loop to the PDG instead of forcing the sequential marker (see P8) |
 | `SGPL_NO_PDG_CALL_BARRIER=1` | **A/B only** — stop treating a stateful call in a loop as a barrier (unsound: the pair analysis cannot see call effects), see §2b |
+| `SGPL_COMP_F_ALLOW_DRIVER_CLAIM=1` | **A/B only** — stop refusing a driver-preamble first-wins claim (the emitted work functions run it once per pair and drop its guard), see §2c |
 | `SGPL_NO_FRONTIER_MARKER=1` | drop the `sgpl.frontier.nested.sequential` classification veto and let the certificates decide (the marker still gates `reconstructParallelIR`), see §2b |
 | `SGPL_NO_PDG_INVARIANT_SLOT_GUARD=1` | **A/B only** — restore trust in a zero-distance verdict on a loop-invariant slot (a store there is visible to later iterations), see §2b |
 | `SGPL_NO_PDG_GLOBAL_PROMOTE=1` | disable the single-function-global → alloca promotion that makes pre-PDG canonicalization effective (§2b/P6) |
@@ -497,6 +499,100 @@ the hang. `03_run.sh` now skips its final `./final_program` when
   plus their fixtures in `verify/cases/parallel/`.
 - Full suite after all of the above: **62 pass / 0 fail**
   (`scaling/doall_scaling` asserted at 2.38x).
+
+---
+
+## 2c. Session 2026-09-14 — compositions B/F/G/I, the multi-accumulator hole, harness hardening
+
+Work lands on branch `compositions-round2` (off `merge-ars1-roundsep` @
+`9115210`, plus the three commits that first put the pending soundness work and
+the verification harness into git).  Baseline before any change:
+`verify/run.sh` **62 pass / 0 fail / 0 skip**.
+
+### F — a driver-preamble claim must refuse, and refuse *by classification*
+Shape: `if (claim[u] == 1) { claim[u] = 0; <neighbour loop> }` — the guard decides
+whether a source's neighbour body runs, and the serial program visits each source
+once.  Every emitted work function is called once per (u,v) pair (the
+`autograph_*_owner_*` bodies in `autotuner_runtime.c`), so the claim would run per
+pair and the body would run for sources whose claim failed.  The dual-owner path
+grafted the claim without its guard (`emitPairWorkFn`, `PairPhase::UOnly`); the
+single-phase paths grafted neither stores nor claims.
+
+Measured before the fix on the new case: `class=dual-owner fw=1 Claim(claim,U)`
+and the answer *accidentally* right — `emitDualCleanCut()` returns false and the
+fall-through `markSequential()` keeps the loop serial.  That is exactly the
+"verdict by accident" this project is removing, so the fix is in the classifier:
+- `NeighborLoopInfo::HasDriverClaim` (store-form claim in the driver preamble,
+  sibling of the CAS-form `DriverUClaims`);
+- `classify()` refuses any loop carrying a driver claim, kill switch
+  `SGPL_COMP_F_ALLOW_DRIVER_CLAIM=1`;
+- the emit-failure path now prints `emit failed for class=... -> stays
+  sequential` under `GRAPH_FRONTIER_STATS=1`, so a silent fallback can no longer
+  masquerade as a classification;
+- case `race/claim_driver`: only u∈{0,1} claim, so exactly 5 of tiny.txt's 10
+  arcs may be processed; asserts `class=sequential`, the serial answer, and
+  1thr == 4thr.
+
+### The multi-accumulator hole (found while designing G's tests)
+`Info.ReducePtr` is set by the *first* scalar store in the body and only that
+pointer is mapped to a per-partition partial.  A second scalar slot
+(`a = a + 1; b = b + 2;`) was previously **not recorded at all**: the loop still
+classified `reduction` and every partition wrote `b` (lost updates).  A second,
+different recognized operator on the *same* slot was equally invisible while the
+combine folds with a single operator.  Both are now recorded as an unrecognized
+global effect (`U_f`), and the reduction class requires every global effect to be
+a recognized update.  Case `race/two_reduce_slots` (a 10, b 20 serial; a broken
+emit gives b ≈ 20/partitions).
+
+### G — min/max fidelity, and one deliberate refusal
+`RedOp` collapsed `smin/umin/minnum/minimum` into one `Min`, so an unsigned
+minimum was combined with a *signed* one (`smin`, identity INT_MAX instead of
+UINT_MAX) and a NaN-propagating `minimum` with `minnum`.  Each form now has its
+own flavour and the combine reproduces the body's operation exactly; the
+`select(icmp …)` and guarded-store recognizers take signedness from the predicate
+(`ICmpInst::isUnsigned`), as does `detectConditionalMinMax`.
+The float `select(fcmp olt/ogt …)` that the DSL's `min()`/`max()` builtins emit is
+deliberately **not** recognized: that select is not reorder-invariant once a NaN
+or a signed zero is in the stream, so folding partition partials cannot reproduce
+the serial left-to-right fold.  It stays sequential and is pinned by
+`race/reduce_real_ops` (float sum parallelizes, both float min/max do not).
+
+### B and I — refusals, now pinned
+- B: `race/data_index_write` (`cnt[deg[u]] = …`) asserts `data=1
+  class=sequential`; the CleanCut table is keyed by destination vertex
+  (`CC_PART_OF`), so a data-valued house has no owner to steal work from.
+- I: `race/int_gather` and `race/mutual_deg` now assert their refusal
+  (`class=sequential`, `red=1`) inside the existing gather loop.  These are the
+  loops P10 (per-source reduction engine) has to turn parallel — the assertion is
+  the contract that must change with it.
+
+### Harness hardening (the suite was not testing the tree it lives in)
+1. **The suite drove a stale compiler.**  `03_run.sh` compiles the `.graph` but
+   never the compiler (`GP_BIN=./GraphProgram`), so a source edit plus a suite run
+   silently reported on the previous binary.  `run.sh` now rebuilds
+   (`build_lowmem.sh`, incremental) when any top-level `*.cpp`/`*.h` is newer than
+   `GraphProgram`, and exits 2 on a build error.  The first "verification" of the
+   F fix here ran against yesterday's binary — that is how the gap was found.
+2. **`expect_class`** (`run.sh`): case compiles now run with
+   `GRAPH_FRONTIER_STATS=1`, and the helper asserts the verdict recorded in the
+   build log (`class=…`, optionally filtered, e.g. `red=1`, `data=1`).  "No race
+   today" is no longer the only contract: a loop silently turning sequential (or
+   silently claimed parallel) fails the suite.
+3. **`verify/class_census.sh`** (new): compiles every case with the lowering and
+   PDG diagnostics on and prints one line per candidate loop (`driver=`, `red=`,
+   `fw=`, `env=`, `shadow=`, `class=`, effects, plus the `[loop-classify]` PDG
+   verdict).  Baseline census on this tree:
+
+| case | class | notes |
+|---|---|---|
+| `algo/bfs_level` | dest-owner | body claim (`fw=1`) + round-sep shadow |
+| `algo/kcore` | source-owner | the degree loop; the peel nest is driven by a DSL `while`, so it is not a candidate (the front end's `autograph_edgemap` handles the frontier form) |
+| `algo/pagerank` | source-owner + dest-owner | |
+| `lang/foreach_edge`, `lang/foreach_neighbor`, `lang/weight_fn` | reduction | scalar-global reductions |
+| `parallel/roundsep` | dest-owner | composition A shadow |
+| `parallel/nested_gather`, `parallel/nested_while2` | source-owner | |
+| `parallel/dual_shadow` | sequential (+ source-owner init) | A-dual refusal |
+| `parallel/int_gather`, `parallel/mutual_deg`, `parallel/reduce_plus_write`, `parallel/mixed_regions` | sequential | I / D / C refusals |
 
 ---
 

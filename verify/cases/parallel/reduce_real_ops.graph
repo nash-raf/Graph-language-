@@ -1,0 +1,42 @@
+// Composition G, floating point: `rsum` is an FAdd reduction; `rmn`/`rmx` use
+// the `min`/`max` builtins on reals (select + fcmp, which the optimizer may
+// canonicalize to llvm.minnum/maxnum).  Whatever form survives, the combine
+// must reproduce the *same* operation as the body -- a min/max that mixes
+// minnum with a select flips on NaN and signed zeros.
+//
+// Assertions: the nest is classified `reduction`, the answer matches an
+// independent Python computation, and 1-thread == 4-thread bit-for-bit (the
+// partition count is fixed by the tuner, so an ordered combine is exact).
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+
+real rsum = 0.0;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    rsum = rsum + 1.0;
+  }
+}
+
+real rmn = 100000000.0;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    rmn = min(rmn, v);
+  }
+}
+
+real rmx = -1.0;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    rmx = max(rmx, v);
+  }
+}
+
+print "rsum";
+print rsum;
+print "rmn";
+print rmn;
+print "rmx";
+print rmx;

@@ -1,0 +1,87 @@
+// Composition G: scalar-global reductions, one recognized operator per driver
+// loop.  Every loop here must be classified `reduction` (per-partition partials
+// + ordered combine) and must agree with the serial build and with an
+// independent Python computation over the fixture (see run.sh).
+//
+// Operators covered: Add (count), Sub (0 - count, partials are pre-negated),
+// Add under a guard (bounded magnitude), Min in both recognized forms
+// (`min(a,b)` builtin -> select+icmp, and the guarded store `if (v < mn) mn = v`),
+// Max likewise.
+//
+// The graph convention is the undirected one the reference model uses: every
+// edge contributes both (u,v) and (v,u).
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+
+int cnt = 0;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    cnt = cnt + 1;
+  }
+}
+
+int subc = 0;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    subc = subc - 1;
+  }
+}
+
+int ssum = 0;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    if (v < 100) {
+      ssum = ssum + v;
+    }
+  }
+}
+
+int mn = 1000000;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    mn = min(mn, v);
+  }
+}
+
+int mn2 = 1000000;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    if (v < mn2) {
+      mn2 = v;
+    }
+  }
+}
+
+int mx = -1;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    mx = max(mx, v);
+  }
+}
+
+int mx2 = -1;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    if (v > mx2) {
+      mx2 = v;
+    }
+  }
+}
+
+print "cnt";
+print cnt;
+print "subc";
+print subc;
+print "ssum";
+print ssum;
+print "mn";
+print mn;
+print "mn2";
+print mn2;
+print "mx";
+print mx;
+print "mx2";
+print mx2;

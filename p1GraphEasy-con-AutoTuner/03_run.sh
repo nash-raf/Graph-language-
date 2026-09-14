@@ -155,5 +155,9 @@ if [[ "$USE_LOCAL_NLOPT" -eq 1 ]]; then
 fi
 
 # Timing wrapper disabled to keep normal runs quiet.
-./final_program
+if [[ "${SKIP_PROGRAM_RUN:-0}" == "1" ]]; then
+  echo "(program run skipped: SKIP_PROGRAM_RUN=1)"
+else
+  ./final_program
+fi
 

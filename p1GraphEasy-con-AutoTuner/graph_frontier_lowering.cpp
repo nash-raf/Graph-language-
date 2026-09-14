@@ -783,6 +783,20 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
     if (!Info.DriverLoop)
         return false; /* no driver: outside the canonical shape */
 
+    /* The parent must be the graph-iteration loop itself (the DSL
+     * `for each vertex` / `for each edge` nest), not an arbitrary loop between
+     * it and the neighbour loop.  In `for each vertex u { ... while (k < C) {
+     * for each neighbor v ... } }` the parent is the while: treating it as the
+     * frontier driver deletes the while's trip count from the emitted nest and
+     * runs one whole-graph engine step per outer iteration -- wrong result and
+     * (20k vertices x 320k edges) an effective hang.  Graph-iteration loops are
+     * emitted as canonical counted loops with an SSA induction phi; DSL `while`
+     * loops keep their counter in memory, so a missing phi is the signal that
+     * this parent is not a graph-iteration loop.  Canonicalisation runs after
+     * this pass, so the distinction is still visible here. */
+    if (!driverIndVar(Info.DriverLoop))
+        return false;
+
     /* Find the init call that feeds this iterator (same iterator pointer). */
     Function *F = L->getHeader()->getParent();
     for (BasicBlock &BB : *F)
@@ -1537,8 +1551,19 @@ static Klass classify(const NeighborLoopInfo &Info)
         for (const Value *B : BaseU)
             if (BaseV.count(B))
                 Disjoint = false;
+        /* Fail closed when the loop would need a round-separation shadow:
+         * the shadow freezes round-start values, but these dual-owner loops are
+         * claim/activate state machines whose bodies must observe removals made
+         * earlier in the same round.  Demonstrated wrong on upstream's own
+         * small_kcore shape, scaled to the g20k fixture: the rewrite peeled
+         * 18898 survivors where the serial build leaves 18959, because a vertex
+         * already killed in the round still read alive[v] == 1 from the snapshot
+         * and decremented its live neighbours.  Sequential is the only sound
+         * verdict until the model can tell round-separated reads from
+         * within-round state reads. */
         if (Disjoint && !BaseU.empty() && !BaseV.empty() &&
-            !crossPhaseDataDep(Info, BaseU, BaseV))
+            !crossPhaseDataDep(Info, BaseU, BaseV) &&
+            Info.RoundSepBases.empty())
         {
             if (Info.HasFrontierAppend && !envelopeWired(Info))
                 return Klass::Sequential;
@@ -2512,6 +2537,7 @@ static bool emitDualCleanCut(const NeighborLoopInfo &Info)
     LLVMContext &Ctx = F->getContext();
     Module *Mod = F->getParent();
     Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
     Type *I8P = PointerType::get(Ctx, 0);
 
     BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
@@ -2531,6 +2557,14 @@ static bool emitDualCleanCut(const NeighborLoopInfo &Info)
     FrontierEnv Env;
     /* Membership(DestPhase)=Membership(SourcePhase)=F_t: prepare once. */
     fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
+    /* Round-separation bases are snapshotted once per round, before *both*
+     * phases: emitPairWorkFn redirects cross-endpoint loads to the shadow
+     * global, and without this the U/V work fns would reference a global that
+     * nothing initialises (the dual-owner + shadow shape failed to link:
+     * undefined reference to `main.<base>.shadow.<n>`).  Both work fns in this
+     * class read the same pre-round snapshot, which is exactly the
+     * "source step then dest step on the same F_t" semantics above. */
+    emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg);
     callOwnerStep(EB, Mod, I8P, I32, WFu, /*SourceOwner=*/true, Env,
                   /*WithEnvelope=*/false);
     Value *NewSize = callOwnerStep(EB, Mod, I8P, I32, WFv, /*SourceOwner=*/false,

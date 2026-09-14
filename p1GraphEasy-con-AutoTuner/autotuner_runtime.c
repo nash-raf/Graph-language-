@@ -71,6 +71,28 @@ static atomic_uint_fast64_t g_kernel_measured_ns[3];
 static uint64_t g_conversion_ns = 0;
 static int g_conversions_injected = 0;
 
+/* CleanCut reuse cache.  autograph_build_clean_cut() re-enumerates the whole
+ * graph and re-partitions it; the emitted driver calls it once per rewritten
+ * frontier step, so round-loop programs rebuild once per round (measured:
+ * 85 ms per call on 100k vertices / 800k edges, against ~9 ms of parallel
+ * step work per round -- the rebuild, not the step, is what does not scale).
+ * The partition structures are a pure function of (graph topology, current
+ * layout, partition count), so reuse them until one of those actually
+ * changes: layout_epoch is bumped by autograph_set_layout, the edge counters
+ * by the canonical mutation API, and the layout-specific mutation entry
+ * points invalidate explicitly.  SGPL_NO_CLEANCUT_CACHE=1 restores the old
+ * rebuild-every-call behaviour. */
+static void *g_cc_cache_meta = NULL;
+static int32_t g_cc_cache_partitions = 0;
+static uint64_t g_cc_cache_epoch = 0;
+static int64_t g_cc_cache_live_edges = -1;
+static int64_t g_cc_cache_extra_edges = -1;
+
+static void autograph_clean_cut_cache_invalidate(void) {
+  g_cc_cache_meta = NULL;
+  g_cc_cache_partitions = 0;
+}
+
 static uint64_t now_monotonic_ns(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -1289,6 +1311,7 @@ int autograph_canonical_add_node(void *graph_ptr, int32_t node_label) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !meta->nodes_bitmap)
     return 0;
+  autograph_clean_cut_cache_invalidate();
   roaring_bitmap_add((RoaringBitmap *)meta->nodes_bitmap, (uint32_t)node_label);
   if (meta->current_layout == LAYOUT_SET)
     refresh_graph_counts_from_canonical(meta);
@@ -1300,6 +1323,7 @@ int autograph_canonical_remove_node(void *graph_ptr, int32_t node_label) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !meta->nodes_bitmap || !meta->edges_bitmap)
     return 0;
+  autograph_clean_cut_cache_invalidate();
   roaring_bitmap_remove((RoaringBitmap *)meta->nodes_bitmap, (uint32_t)node_label);
 
   EdgePair *pairs = (EdgePair *)meta->edge_pairs_table;
@@ -1335,6 +1359,7 @@ int autograph_canonical_add_edge(void *graph_ptr, int32_t u, int32_t v) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !meta->nodes_bitmap || !meta->edges_bitmap)
     return 0;
+  autograph_clean_cut_cache_invalidate();
   roaring_bitmap_add((RoaringBitmap *)meta->nodes_bitmap, (uint32_t)u);
   roaring_bitmap_add((RoaringBitmap *)meta->nodes_bitmap, (uint32_t)v);
 
@@ -1381,6 +1406,7 @@ int autograph_canonical_remove_edge(void *graph_ptr, int32_t u, int32_t v) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || !meta->edges_bitmap)
     return 0;
+  autograph_clean_cut_cache_invalidate();
   int sidx = canonical_pair_find_static(meta, u, v);
   if (sidx >= 0) {
     RoaringBitmap *eb = (RoaringBitmap *)meta->edges_bitmap;
@@ -1456,6 +1482,7 @@ int autograph_bcsr_add_edge(void *graph_ptr, int32_t from, int32_t to) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || meta->current_layout != LAYOUT_BCSR)
     return 0;
+  autograph_clean_cut_cache_invalidate();
   if (!meta->bcsr_brow_ptr || !meta->bcsr_bcol_idx || meta->bcsr_block_size <= 0)
     return 0;
   if (from < 0 || to < 0)
@@ -1538,6 +1565,7 @@ int autograph_bcsr_remove_edge(void *graph_ptr, int32_t from, int32_t to) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta || meta->current_layout != LAYOUT_BCSR)
     return 0;
+  autograph_clean_cut_cache_invalidate();
   if (!meta->bcsr_brow_ptr || !meta->bcsr_bcol_idx || meta->bcsr_block_size <= 0)
     return 0;
   if (from < 0 || to < 0)
@@ -2827,7 +2855,7 @@ static int cc_arc_next(CcArcIter *it) {
   return 0;
 }
 
-int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
+static int32_t autograph_build_clean_cut_inner(void *graph_ptr, int32_t partitions) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta)
     return 0;
@@ -3025,6 +3053,39 @@ fail:
   if (src_row_count) free(src_row_count);
   free(src_arc);
   return 0;
+}
+
+/* Public entry point: the emitted driver calls this once per rewritten frontier
+ * step, which for round-loop programs means once per round.  Rebuild only when
+ * the graph, its layout, its topology or the partition count actually changed
+ * (see the cache comment at the top of the file); SGPL_CLEANCUT_TIMING=1
+ * reports per-call build/reuse times, SGPL_NO_CLEANCUT_CACHE=1 disables reuse. */
+int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  int64_t t0 = now_monotonic_ns();
+  const int cache_off = getenv("SGPL_NO_CLEANCUT_CACHE") != NULL;
+  if (!cache_off && meta && g_cc_cache_meta == (void *)meta &&
+      g_cc_cache_partitions > 0 && meta->layout_epoch == g_cc_cache_epoch &&
+      meta->live_edge_count == g_cc_cache_live_edges &&
+      meta->extra_edge_count == g_cc_cache_extra_edges &&
+      (partitions <= 0 || partitions == g_cc_cache_partitions)) {
+    if (getenv("SGPL_CLEANCUT_TIMING"))
+      fprintf(stderr, "[clean-cut] reuse parts=%d ns=%lld\n",
+              g_cc_cache_partitions, (long long)(now_monotonic_ns() - t0));
+    return g_cc_cache_partitions;
+  }
+  int32_t built = autograph_build_clean_cut_inner(graph_ptr, partitions);
+  if (!cache_off && meta && built > 0) {
+    g_cc_cache_meta = meta;
+    g_cc_cache_partitions = built;
+    g_cc_cache_epoch = meta->layout_epoch;
+    g_cc_cache_live_edges = meta->live_edge_count;
+    g_cc_cache_extra_edges = meta->extra_edge_count;
+  }
+  if (getenv("SGPL_CLEANCUT_TIMING"))
+    fprintf(stderr, "[clean-cut] build parts=%d ns=%lld\n", built,
+            (long long)(now_monotonic_ns() - t0));
+  return built;
 }
 
 typedef struct {

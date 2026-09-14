@@ -49,6 +49,7 @@ class GraphLangLexer : public BaseLexer
 #include <llvm/Passes/PassBuilder.h>
 
 #include <llvm/Transforms/Utils/Mem2Reg.h>
+#include <llvm/Transforms/IPO/GlobalOpt.h>
 #include <llvm/Transforms/Utils/LoopSimplify.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
@@ -219,9 +220,146 @@ static void writeBitcodeToFile(Module &M, const std::string &path)
 // so such loops are classified SEQUENTIAL even when every iteration writes a
 // distinct array element. Before the PDG runs, canonicalize the IR: promote
 // the indvars to SSA phis and index GEPs with the induction phi directly.
+// GlobalOpt refuses to localize a global that is read and written inside a
+// loop (verified: it keeps `@i` even when every use is a load/store in one
+// function).  DSL top-level scalars -- loop counters, accumulators, array
+// bases -- are exactly that shape, so the PDG keeps seeing
+//     %i = load i32, ptr @i      ; index is a load, not an AddRec
+// and DependenceInfo must answer unknown for every pair indexed by it.
+// Do the localization here: a global whose every use is a non-volatile,
+// non-atomic load/store in a single function becomes an entry-block alloca
+// (initializer stored once) and PromotePass (mem2reg) lifts it to SSA.
+static bool pdgGlobalPromoteEnabled()
+{
+    if (::getenv("SGPL_NO_PDG_GLOBAL_PROMOTE"))
+        return false;
+    return true;
+}
+
+static bool promoteSingleFunctionGlobals(Module &M)
+{
+    SmallVector<GlobalVariable *, 16> Victims;
+    for (GlobalVariable &G : M.globals())
+    {
+        if (!G.hasLocalLinkage() || G.isConstant() || !G.hasInitializer())
+            continue;
+        Type *T = G.getValueType();
+        if (!(T->isIntegerTy() || T->isFloatingPointTy() || T->isPointerTy()))
+            continue;
+        if (!isa<Constant>(G.getInitializer()))
+            continue;
+
+        Function *Owner = nullptr;
+        bool Ok = true;
+        for (User *U : G.users())
+        {
+            auto *I = dyn_cast<Instruction>(U);
+            if (!I)
+            {
+                Ok = false;
+                break;
+            }
+            if (auto *LI = dyn_cast<LoadInst>(I))
+            {
+                if (LI->isVolatile() || LI->isAtomic())
+                {
+                    Ok = false;
+                    break;
+                }
+            }
+            else if (auto *SI = dyn_cast<StoreInst>(I))
+            {
+                if (SI->isVolatile() || SI->isAtomic() ||
+                    SI->getValueOperand() == &G ||
+                    SI->getPointerOperand()->stripPointerCasts() != &G)
+                {
+                    Ok = false;
+                    break;
+                }
+            }
+            else
+            {
+                Ok = false;
+                break;
+            }
+            if (!Owner)
+                Owner = I->getFunction();
+            else if (Owner != I->getFunction())
+            {
+                Ok = false;
+                break;
+            }
+        }
+        if (!Ok || !Owner || Owner->isDeclaration())
+            continue;
+        Victims.push_back(&G);
+    }
+
+    bool Changed = false;
+    for (GlobalVariable *G : Victims)
+    {
+        Function *Owner = nullptr;
+        for (User *U : G->users())
+            if (auto *I = dyn_cast<Instruction>(U))
+            {
+                Owner = I->getFunction();
+                break;
+            }
+        if (!Owner || Owner->isDeclaration())
+            continue;
+
+        BasicBlock &Entry = Owner->getEntryBlock();
+        IRBuilder<> B(&Entry, Entry.getFirstInsertionPt());
+        auto *Slot = B.CreateAlloca(G->getValueType(), nullptr,
+                                    G->getName() + ".ssa");
+        if (auto A = G->getAlign())
+            Slot->setAlignment(*A);
+        B.CreateStore(cast<Constant>(G->getInitializer()), Slot);
+
+        SmallVector<Instruction *, 8> Uses;
+        for (User *U : G->users())
+            if (auto *I = dyn_cast<Instruction>(U))
+                Uses.push_back(I);
+        for (Instruction *I : Uses)
+            I->replaceUsesOfWith(G, Slot);
+
+        if (::getenv("SGPL_PDG_CANON_DEBUG"))
+            errs() << "[pdg-canon] localized @" << G->getName() << " in @"
+                   << Owner->getName() << "\n";
+        if (G->use_empty())
+            G->eraseFromParent();
+        Changed = true;
+    }
+    return Changed;
+}
+
 static void canonicalizeLoopsForAnalysis(Module &M)
 {
     {
+        // DSL top-level variables are emitted as `internal global`, so mem2reg
+        // alone cannot touch them -- it only promotes allocas.  GlobalOpt first
+        // localises internal globals that never escape into allocas; mem2reg
+        // then lifts those to SSA.  Without this the PDG sees
+        //     %id.ptr = load ptr, ptr @id      ; base reloaded every iteration
+        //     store i32 %v, ptr %id_elemptr    ; may alias @i / @n / @id
+        // and DependenceInfo must report an unknown direction.
+        {
+            LoopAnalysisManager LAM;
+            FunctionAnalysisManager FAM;
+            CGSCCAnalysisManager CGAM;
+            ModuleAnalysisManager MAM;
+            PassBuilder PB;
+            PB.registerModuleAnalyses(MAM);
+            PB.registerCGSCCAnalyses(CGAM);
+            PB.registerFunctionAnalyses(FAM);
+            PB.registerLoopAnalyses(LAM);
+            PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+            ModulePassManager MPM;
+            MPM.addPass(llvm::GlobalOptPass());
+            MPM.run(M, MAM);
+        }
+        if (pdgGlobalPromoteEnabled())
+            promoteSingleFunctionGlobals(M);
         FunctionAnalysisManager FAM;
         PassBuilder PB;
         PB.registerFunctionAnalyses(FAM);
@@ -596,8 +734,16 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         PB.registerLoopAnalyses(LAM);
         PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-        // run PDG (you already do this)
-        if (usingGpuIR)
+        // Canonicalise before the PDG on EVERY path, not just GPU.  Without it
+        // the PDG sees raw IR in which every DSL variable is a global reloaded
+        // in-loop (`%id.ptr = load ptr, ptr @id`), so a store through that base
+        // may alias the loop counter itself.  DependenceInfo then reports an
+        // unknown direction and every graph/vertex loop is classified
+        // SEQUENTIAL even though each iteration writes a distinct element.
+        // SGPL_NO_PDG_CANON=1 restores the old behaviour for A/B testing.
+        if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE_PDG"))
+            dumpModuleBitcode(M, dumpPath);
+        if (!::getenv("SGPL_NO_PDG_CANON"))
             canonicalizeLoopsForAnalysis(M);
         dependencyGraph pdg = runPDGOnModule(M);
         // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "

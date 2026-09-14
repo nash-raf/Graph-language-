@@ -3248,6 +3248,106 @@ int32_t autograph_frontier_step_owner_source(void *graph_ptr,
                                                            memory_order_relaxed);
 }
 
+/* Per-source reduction (gather): the pair work accumulates into this
+ * partition's private partial; once a source's pairs are exhausted the finish
+ * hook consumes the partial (writes that source's result) and resets it to the
+ * identity.  Each source is visited by exactly one partition, so the hook and
+ * the result write are race-free without atomics. */
+typedef struct {
+  AutoGraphMeta *meta;
+  sgpl_frontier_pair_fn work_fn;
+  sgpl_frontier_finish_fn finish_fn;
+  void *work_env;             /* partials base */
+  int64_t partial_bytes;
+  const uint8_t *membership;
+  int32_t *next_frontier;
+  int32_t initial_next_size;
+  int32_t *dest_seen;
+  _Atomic int32_t appended;
+} AutoSourceRedEnv;
+
+static void autograph_source_red_partition_body(int64_t index, void *opaque) {
+  AutoSourceRedEnv *env = (AutoSourceRedEnv *)opaque;
+  AutoGraphMeta *meta = env->meta;
+  int32_t p = (int32_t)index;
+  int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+  int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
+  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
+  int32_t pending = -1; /* source whose partial is still accumulating */
+  for (int64_t e = 0; e < cnt; ++e) {
+    int32_t u = pairs[2 * e];
+    int32_t v = pairs[2 * e + 1];
+    if (env->membership && !env->membership[u])
+      continue;
+    if (pending != u) {
+      if (pending >= 0)
+        env->finish_fn(pending, partial);
+      pending = u;
+    }
+    int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
+    env->work_fn(u, v, v, partial);
+    if (env->dest_seen && env->next_frontier && !seen_before &&
+        env->dest_seen[v]) {
+      int32_t head =
+          atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
+      env->next_frontier[env->initial_next_size + head] = v;
+    }
+  }
+  if (pending >= 0)
+    env->finish_fn(pending, partial);
+
+  /* Sources with no pairs at all still run the driver preamble in the serial
+   * program (accumulator reset + epilogue), so they must get their
+   * identity-accumulated result too.  The pair slice is source-sorted, so a
+   * merge walk skips exactly the sources the loop above already finished. */
+  int64_t e = 0;
+  int32_t lo = (int32_t)meta->partition_start[p];
+  int32_t hi = (int32_t)meta->partition_start[p + 1];
+  for (int32_t u = lo; u < hi; ++u) {
+    if (env->membership && !env->membership[u])
+      continue;
+    while (e < cnt && pairs[2 * e] < u)
+      ++e;
+    if (e < cnt && pairs[2 * e] == u)
+      continue;
+    env->finish_fn(u, partial);
+  }
+}
+
+int32_t autograph_frontier_step_owner_source_red(
+    void *graph_ptr, const int32_t *frontier, int32_t frontier_size,
+    sgpl_frontier_pair_fn work_fn, sgpl_frontier_finish_fn finish_fn,
+    void *work_env, int64_t partial_bytes, const uint8_t *membership,
+    int32_t *next_frontier, int32_t initial_next_size, int32_t *dest_seen) {
+  (void)frontier;
+  (void)frontier_size;
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !work_fn || !finish_fn || !work_env || partial_bytes <= 0 ||
+      meta->partition_count <= 0)
+    return initial_next_size;
+
+  AutoSourceRedEnv env = {
+      .meta = meta,
+      .work_fn = work_fn,
+      .finish_fn = finish_fn,
+      .work_env = work_env,
+      .partial_bytes = partial_bytes,
+      .membership = membership,
+      .next_frontier = next_frontier,
+      .initial_next_size = initial_next_size,
+      .dest_seen = dest_seen,
+      .appended = 0,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_source_red_partition_body, &env, 0, 0);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+
+  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
+                                                           memory_order_relaxed);
+}
+
 /* Per-partition partial reduction step (owner-computes, destination-owned):
  * each partition accumulates its pair work into its own partial at
  * work_env + p * partial_bytes; once all partitions finish, the combine

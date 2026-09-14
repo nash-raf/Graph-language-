@@ -345,6 +345,22 @@ int32_t autograph_frontier_step_owner_source(void *graph_ptr,
                                              int32_t initial_next_size,
                                              int32_t *dest_seen);
 
+/* Per-source reduction (gather) step: the work function accumulates into this
+ * partition's private partial (work_env + p * partial_bytes), and finish_fn(u,
+ * partial) is called exactly once per source, after the last of its pairs, to
+ * turn the partial into that source's result and reset it to the identity.
+ * Sources are contiguous inside a partition's pair slice (CSR source-major
+ * order), so the hook is a source-change test.  All partitions start with the
+ * identity, so a source whose pairs are all filtered out by membership still
+ * gets a finish call only if it had at least one pair. */
+typedef void (*sgpl_frontier_finish_fn)(int32_t source, void *partial);
+
+int32_t autograph_frontier_step_owner_source_red(
+    void *graph_ptr, const int32_t *frontier, int32_t frontier_size,
+    sgpl_frontier_pair_fn work_fn, sgpl_frontier_finish_fn finish_fn,
+    void *work_env, int64_t partial_bytes, const uint8_t *membership,
+    int32_t *next_frontier, int32_t initial_next_size, int32_t *dest_seen);
+
 /* Reduction step with per-partition partials (owner-computes, destination-
  * owned): every partition accumulates its pair work into its own partial at
  * work_env + p * partial_bytes; once all partitions finish, combine_fn folds

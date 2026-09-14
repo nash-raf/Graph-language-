@@ -176,6 +176,11 @@ struct NeighborLoopInfo
      * element whose index is neither u nor v) and the update operator. */
     Value *ReducePtr = nullptr;
     RedOp ReduceOp = RedOp::None;
+    /* Composition I (per-source gather): the driver preamble consumes the
+     * scalar accumulator once per source (`arr[u] = acc`) after resetting it,
+     * so the reduction is per source, not per loop. */
+    StoreInst *AccConsumeStore = nullptr; /* the `arr[u] = acc` store */
+    bool AccResetSeen = false;            /* `acc = <invariant>` in the preamble */
 
     /* In-place: an array both read and written on an endpoint region — a
      * round-separation (in-place) overlap.  Informational; for single-endpoint
@@ -1232,6 +1237,35 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             continue;
         for (Instruction &I : *BB)
         {
+            /* Composition I / P10: the driver preamble's per-source epilogue
+             * consumes the scalar accumulator (`arr[u] = acc`) and resets it
+             * (`acc = 0`) before the neighbour loop.  Recorded here, but the
+             * consume store keeps its ordinary U effect: that is what makes the
+             * loop refuse the plain reduction class (a per-loop partial would
+             * fold every source together and never run the epilogue). */
+            if (auto *SI = dyn_cast<StoreInst>(&I))
+            {
+                if (Info.ReducePtr &&
+                    storedDependsOnOldValue(SI->getValueOperand(), Info.ReducePtr) &&
+                    dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
+                {
+                    if (auto *CGEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
+                    {
+                        Value *CIX = primaryIndex(CGEP);
+                        if (CIX && (Prov.regionOf(CIX) == Region::U ||
+                                    ProvU.regionOf(CIX) == Region::U))
+                            Info.AccConsumeStore = SI;
+                    }
+                }
+                else if (Info.ReducePtr &&
+                         SI->getPointerOperand()->stripPointerCasts() ==
+                             Info.ReducePtr &&
+                         !storedDependsOnOldValue(SI->getValueOperand(),
+                                                  Info.ReducePtr))
+                {
+                    Info.AccResetSeen = true;
+                }
+            }
             if (auto *SI = dyn_cast<StoreInst>(&I))
                 if (auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
                 {
@@ -1508,7 +1542,13 @@ enum class Klass
     DestOwner,
     Reduction,
     DualOwner,
-    Sequential
+    Sequential,
+    /* Per-source reduction (gather): the body reduces into a scalar that the
+     * driver preamble consumes once per source (`acc = 0; for each neighbor v {
+     * acc = acc + f(v) } arr[u] = acc`).  Runs on the source-owned step with a
+     * per-partition partial and a finish hook per source; gated by
+     * SGPL_COMP_I_SOURCE_REDUCTION while it proves itself. */
+    SourceReduction
 };
 
 static bool envelopeWired(const NeighborLoopInfo &Info)
@@ -1680,6 +1720,24 @@ static Klass classify(const NeighborLoopInfo &Info)
         return Klass::Sequential; /* same-array U+V or data dep */
     }
 
+    /* Composition I / P10: per-source reduction ("gather").  The scalar
+     * accumulator is reset and consumed once per source in the driver preamble
+     * (`c = 0; for each neighbor v { c = c + f(v) } deg[u] = c`), so the
+     * reduction is over each source's own pairs and the result is written per
+     * source.  The source-owned step can reproduce that with a per-partition
+     * partial plus a finish hook (emitSourceReductionStep).  Enabled only under
+     * SGPL_COMP_I_SOURCE_REDUCTION while it proves itself; fails closed on
+     * everything the hook does not reproduce -- a second driver U store, a claim,
+     * a frontier append, destination-region work, or an unrecognized update. */
+    if (getenv("SGPL_COMP_I_SOURCE_REDUCTION") && Info.ReducePtr &&
+        Info.AccConsumeStore && Info.AccResetSeen && Info.ReduceOp != RedOp::None &&
+        !Info.HasDataWrite && !MutV && !MutTop && !MutD && !HasCarriedOnMut &&
+        !HasUnrecognizedG && !Info.HasFrontierAppend &&
+        Info.DriverUClaims.empty() && !Info.HasDriverClaim &&
+        Info.DriverUStores.size() == 1 &&
+        Info.DriverUStores[0] == Info.AccConsumeStore)
+        return Klass::SourceReduction;
+
     if (Info.HasFrontierAppend)
     {
         /* Activate(V) needs the dest envelope. DualOwner already returned. */
@@ -1706,6 +1764,8 @@ static const char *klassName(Klass K)
         return "dest-owner";
     case Klass::Reduction:
         return "reduction";
+    case Klass::SourceReduction:
+        return "source-red";
     case Klass::DualOwner:
         return "dual-owner";
     default:
@@ -2711,6 +2771,172 @@ static bool emitDualCleanCut(const NeighborLoopInfo &Info)
     return true;
 }
 
+/* Clone the driver's per-source epilogue (`arr[u] = acc`) into the finish hook:
+ * the accumulator load becomes `AccRepl` (the partition's partial, or the
+ * operator identity for a source with no pairs) and the driver's source value
+ * becomes `SrcArg`.  Value-shaping instructions only (loads, GEPs, casts,
+ * binary ops, compares, selects); anything that could observe engine or
+ * traversal state fails closed, and the caller then declines to rewrite. */
+static Value *clonePreambleValue(Value *V, IRBuilder<> &B,
+                                 const NeighborLoopInfo &Info, Value *SrcArg,
+                                 Value *AccRepl,
+                                 SmallDenseMap<Value *, Value *> &Map, bool &Ok,
+                                 unsigned Depth)
+{
+    using namespace llvm;
+    if (!V || Depth > 24)
+    {
+        Ok = false;
+        return nullptr;
+    }
+    if (Map.count(V))
+        return Map[V];
+    if (isa<Constant>(V) || isa<Argument>(V))
+        return V;
+    if (Loop *DL = Info.DriverLoop)
+        if (V == driverIndVar(DL))
+        {
+            Value *S = SrcArg;
+            if (V->getType() != S->getType())
+            {
+                if (V->getType()->isIntegerTy(64) && S->getType()->isIntegerTy(32))
+                    S = B.CreateZExt(S, V->getType());
+                else
+                {
+                    Ok = false;
+                    return nullptr;
+                }
+            }
+            Map[V] = S;
+            return S;
+        }
+    auto *I = dyn_cast<Instruction>(V);
+    if (!I)
+    {
+        Ok = false;
+        return nullptr;
+    }
+    if (auto *LI = dyn_cast<LoadInst>(I))
+        if (LI->getPointerOperand()->stripPointerCasts() == Info.ReducePtr)
+        {
+            Map[V] = AccRepl;
+            return AccRepl;
+        }
+    if (!isa<LoadInst>(I) && !isa<BinaryOperator>(I) && !isa<GetElementPtrInst>(I) &&
+        !isa<CastInst>(I) && !isa<ICmpInst>(I) && !isa<SelectInst>(I))
+    {
+        Ok = false;
+        return nullptr;
+    }
+    Instruction *Cl = I->clone();
+    Map[V] = Cl;
+    for (unsigned oi = 0; oi < Cl->getNumOperands(); ++oi)
+    {
+        Value *M = clonePreambleValue(Cl->getOperand(oi), B, Info, SrcArg, AccRepl,
+                                      Map, Ok, Depth + 1);
+        if (!Ok)
+        {
+            Cl->deleteValue();
+            Map.erase(V);
+            return nullptr;
+        }
+        Cl->setOperand(oi, M);
+    }
+    B.Insert(Cl);
+    return Cl;
+}
+
+/* Composition I / P10: per-source reduction (gather).  The pair work runs with
+ * this partition's partial as its accumulator target (the same mapping the
+ * reduction class uses), and `sgpl_source_finish(u, partial)` reproduces the
+ * driver's per-source epilogue -- consume the partial, reset it to the identity.
+ * Sources are owned by disjoint partitions (source ranges), so the epilogue
+ * writes are race-free.  Enabled by SGPL_COMP_I_SOURCE_REDUCTION=1. */
+static bool emitSourceReductionStep(const NeighborLoopInfo &Info)
+{
+    if (!Info.ReducePtr || !Info.AccConsumeStore)
+        return false;
+    Function *WF = emitPairWorkFn(Info, PairPhase::All);
+    if (!WF)
+        return false;
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    LLVMContext &Ctx = F->getContext();
+    Module *Mod = F->getParent();
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+
+    Type *ElemTy = nullptr;
+    for (User *U : Info.ReducePtr->users())
+        if (auto *LI = dyn_cast<LoadInst>(U))
+            ElemTy = LI->getType();
+    if (!ElemTy || !(ElemTy->isIntegerTy() || ElemTy->isFloatingPointTy()))
+        return false;
+
+    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    if (!Pre || !Pre->getTerminator())
+        return false;
+    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
+    EB.SetInsertPoint(Pre->getTerminator());
+    Value *GraphArg = Info.GraphPtr;
+    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
+        if (GL->getPointerOperand())
+            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
+    FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+    AllocaInst *Partials = EB.CreateAlloca(ElemTy, PartCount, "red_partials");
+    emitPartialInit(EB, Pre, Partials, PartCount, ElemTy, Info.ReduceOp, Ctx);
+
+    /* void sgpl_source_finish(i32 src, i8* partial) */
+    FunctionType *FFT = FunctionType::get(Type::getVoidTy(Ctx), {I32, I8P}, false);
+    Function *Finish = Function::Create(FFT, GlobalValue::InternalLinkage,
+                                        "sgpl_source_finish", Mod);
+    BasicBlock *FB = BasicBlock::Create(Ctx, "entry", Finish);
+    IRBuilder<> FBi(FB);
+    Value *PartArg = Finish->getArg(1);
+    Value *AccLoad = FBi.CreateLoad(ElemTy,
+                                    FBi.CreateBitCast(PartArg, PointerType::get(ElemTy, 0)),
+                                    "acc");
+    SmallDenseMap<Value *, Value *> FMap;
+    bool Ok = true;
+    StoreInst *SI = Info.AccConsumeStore;
+    Value *V = clonePreambleValue(SI->getValueOperand(), FBi, Info, Finish->getArg(0),
+                                  AccLoad, FMap, Ok, 0);
+    Value *P = Ok ? clonePreambleValue(SI->getPointerOperand(), FBi, Info,
+                                       Finish->getArg(0), AccLoad, FMap, Ok, 0)
+                  : nullptr;
+    if (!Ok || !V || !P || V->getType() != SI->getValueOperand()->getType())
+    {
+        Finish->eraseFromParent();
+        return false;
+    }
+    FBi.CreateStore(V, P, SI->isVolatile());
+    /* Reset for the next source in this partition. */
+    FBi.CreateStore(identityFor(Info.ReduceOp, ElemTy), PartArg, false);
+    FBi.CreateRetVoid();
+
+    FunctionCallee Step = Mod->getOrInsertFunction(
+        "autograph_frontier_step_owner_source_red",
+        FunctionType::get(I32, {I8P, I8P, I32, I8P, I8P, I8P, I64, I8P, I8P, I32,
+                                I8P}, false));
+    SmallVector<Value *, 11> StepArgs = {
+        GraphArg,
+        ConstantPointerNull::get(cast<PointerType>(I8P)),
+        ConstantInt::get(I32, 0),
+        EB.CreateBitCast(WF, I8P),
+        EB.CreateBitCast(Finish, I8P),
+        EB.CreateBitCast(Partials, I8P),
+        ConstantInt::get(I64, (ElemTy->getPrimitiveSizeInBits() + 7) / 8),
+        ConstantPointerNull::get(cast<PointerType>(I8P)),
+        ConstantPointerNull::get(cast<PointerType>(I8P)),
+        ConstantInt::get(I32, 0),
+        ConstantPointerNull::get(cast<PointerType>(I8P))};
+    EB.CreateCall(Step, StepArgs);
+    deactivateDriver(Info);
+    return true;
+}
+
 /* ── pass ──────────────────────────────────────────────────────── */
 
 /* Legacy shape blocklist.  Kept only for A/B testing
@@ -2907,10 +3133,13 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             bool Rewritable = (K != Klass::Sequential) && Modelable;
             if (Rewritable)
             {
-                bool Emitted = (K == Klass::DualOwner)
-                                   ? emitDualCleanCut(Info)
-                                   : emitCleanCutCallbackAndStep(
-                                         Info, K == Klass::SourceOwner);
+                bool Emitted = false;
+                if (K == Klass::DualOwner)
+                    Emitted = emitDualCleanCut(Info);
+                else if (K == Klass::SourceReduction)
+                    Emitted = emitSourceReductionStep(Info);
+                else
+                    Emitted = emitCleanCutCallbackAndStep(Info, K == Klass::SourceOwner);
                 /* A refused emit falls through to the terminal sequential
                  * marker below; say so, because otherwise the loop looks like it
                  * was classified sequential when the classifier actually

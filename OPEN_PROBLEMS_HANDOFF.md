@@ -242,6 +242,10 @@ compare against the frozen-read reference, not against the serial build.
 | I — array-frontier / per-source gathers | **P10 implemented behind `SGPL_COMP_I_SOURCE_REDUCTION=1`** — source-owned step with per-partition partials + a per-source finish hook; `parallel/int_gather_source_red` asserts `class=source-red`, `degsum 40` (serial value, matching the pinned default-mode refusal) across 1/4 threads and 1/3/4 partitions.  Default stays refused and pinned (`race/int_gather`, `race/mutual_deg`; `mutual_deg` additionally carries an inline `hasEdge` scan, so the totality prover refuses it in both modes) |
 | extra — two scalar accumulators in one body | **refused (new)** — only `ReducePtr` gets per-partition storage, so a second slot was silently written by every partition.  Now recorded as an unrecognized global effect and refused; `race/two_reduce_slots` |
 
+Which of these are *solved* versus *refused* versus still *unsolved*, what each
+one is derived from, and what a general mechanism would need: see
+[`COMPOSITION_STATUS.md`](./COMPOSITION_STATUS.md).
+
 Useful debug env vars (compile-time unless stated):
 
 | Var | Effect |

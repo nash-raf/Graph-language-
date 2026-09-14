@@ -68,16 +68,27 @@ static bool isIteratorNext(const CallInst *CI)
 /* ── canonical-shape analysis ──────────────────────────────────── */
 
 /* Recognized associative-commutative update operators for the reduction
- * (owner_red partials+combine) path.  Float vs int is chosen from the element
- * type at combine time, so one op covers both (e.g. Add == add/fadd). */
+ * (owner_red partials+combine) path.
+ *
+ * The combine must reproduce the *body's* operation exactly, so the flavours
+ * are kept apart instead of being collapsed into "min"/"max": an unsigned
+ * minimum combined with a signed one, or a NaN-propagating minimum combined
+ * with minnum, is a wrong answer that only shows on the edge values, and the
+ * identity element differs too (UINT_MAX vs INT_MAX). */
 enum class RedOp
 {
     None = 0,
     Add,
     Sub,
     Mul,
-    Min,
-    Max,
+    Min,      /* signed integer min: llvm.smin, select(icmp slt/sle) */
+    Max,      /* signed integer max: llvm.smax, select(icmp sgt/sge) */
+    MinU,     /* unsigned integer min: llvm.umin, select(icmp ult/ule) */
+    MaxU,     /* unsigned integer max: llvm.umax, select(icmp ugt/uge) */
+    FMinNum,  /* float minnum (ignores NaN) */
+    FMaxNum,  /* float maxnum */
+    FMinProp, /* float minimum (propagates NaN) */
+    FMaxProp, /* float maximum */
     And,
     Or,
     Xor,
@@ -205,6 +216,8 @@ struct NeighborLoopInfo
     Value *FrontierSetPtr = nullptr;  /* alloca of roaring frontier set */
     Value *NextSetPtr = nullptr;      /* alloca of roaring next set */
     bool HasFirstWins = false;        /* dest-owned CAS-style claim */
+    bool HasDriverClaim = false;      /* first-wins claim in the driver preamble
+                                       * (store form of `alive[u]=1 -> 0`) */
     bool HasRecognizedOp = false;     /* body has a known Update operator */
     SmallVector<StoreInst *, 4> DriverUStores; /* per-source preamble (alive[u]=0) */
     SmallVector<AtomicCmpXchgInst *, 4> DriverUClaims; /* first-wins claims */
@@ -391,21 +404,37 @@ static RedOp detectScalarRedOp(Value *Stored, Value *RedPtr)
         switch (II->getIntrinsicID())
         {
         case Intrinsic::smin:
-        case Intrinsic::umin:
-        case Intrinsic::minnum:
-        case Intrinsic::minimum:
             return RedOp::Min;
+        case Intrinsic::umin:
+            return RedOp::MinU;
+        case Intrinsic::minnum:
+            return RedOp::FMinNum;
+        case Intrinsic::minimum:
+            return RedOp::FMinProp;
         case Intrinsic::smax:
-        case Intrinsic::umax:
-        case Intrinsic::maxnum:
-        case Intrinsic::maximum:
             return RedOp::Max;
+        case Intrinsic::umax:
+            return RedOp::MaxU;
+        case Intrinsic::maxnum:
+            return RedOp::FMaxNum;
+        case Intrinsic::maximum:
+            return RedOp::FMaxProp;
         default:
             return RedOp::None;
         }
     }
 
-    /* min/max as `select(icmp pred a, b, a, b)`. */
+    /* min/max as `select(icmp pred a, b, a, b)`.  The predicate decides the
+     * flavour: slt/sle is a signed minimum, ult/ule an unsigned one, and the
+     * combine has to use the matching intrinsic (the identity differs too).
+     *
+     * The float form `select(fcmp olt a, b, a, b)` is deliberately NOT
+     * recognized.  Its value is not reorder-invariant once a NaN or a signed
+     * zero is in the stream (the select returns its false operand when the
+     * comparison is unordered), so folding partition partials with it cannot
+     * reproduce the serial left-to-right fold.  llvm.minnum/maxnum (what
+     * InstCombine usually produces for this shape) *are* order-invariant and
+     * are recognized above; the raw select shape stays sequential. */
     if (auto *Sel = dyn_cast<SelectInst>(Stored))
     {
         auto *Cmp = dyn_cast<ICmpInst>(Sel->getCondition());
@@ -424,9 +453,11 @@ static RedOp detectScalarRedOp(Value *Stored, Value *RedPtr)
         bool isGT = ICmpInst::isGT(P) || ICmpInst::isGE(P);
         if (!isLT && !isGT)
             return RedOp::None;
-        if (tIsA)
-            return isLT ? RedOp::Min : RedOp::Max;
-        return isLT ? RedOp::Max : RedOp::Min;
+        bool IsMin = tIsA ? isLT : isGT;
+        bool Unsigned = ICmpInst::isUnsigned(P);
+        if (IsMin)
+            return Unsigned ? RedOp::MinU : RedOp::Min;
+        return Unsigned ? RedOp::MaxU : RedOp::Max;
     }
 
     return RedOp::None;
@@ -495,11 +526,14 @@ static RedOp detectConditionalMinMax(StoreInst *SI, Value *RedPtr)
         P = ICmpInst::getSwappedPredicate(P);
     if (!takenTrue)
         P = ICmpInst::getInversePredicate(P);
-    if (ICmpInst::isLT(P) || ICmpInst::isLE(P))
-        return RedOp::Min; /* store X when X < current */
-    if (ICmpInst::isGT(P) || ICmpInst::isGE(P))
-        return RedOp::Max; /* store X when X > current */
-    return RedOp::None;
+    bool IsMin = ICmpInst::isLT(P) || ICmpInst::isLE(P);
+    bool IsMax = ICmpInst::isGT(P) || ICmpInst::isGE(P);
+    if (!IsMin && !IsMax)
+        return RedOp::None;
+    bool Unsigned = ICmpInst::isUnsigned(P);
+    if (IsMin)
+        return Unsigned ? RedOp::MinU : RedOp::Min;
+    return Unsigned ? RedOp::MaxU : RedOp::Max;
 }
 
 /* First-wins claim: `if (A[i] == expected) A[i] = desired;` with expected !=
@@ -686,6 +720,18 @@ static const char *redOpName(RedOp Op)
         return "min";
     case RedOp::Max:
         return "max";
+    case RedOp::MinU:
+        return "minu";
+    case RedOp::MaxU:
+        return "maxu";
+    case RedOp::FMinNum:
+        return "fminnum";
+    case RedOp::FMaxNum:
+        return "fmaxnum";
+    case RedOp::FMinProp:
+        return "fminprop";
+    case RedOp::FMaxProp:
+        return "fmaxprop";
     case RedOp::And:
         return "&";
     case RedOp::Or:
@@ -1070,6 +1116,44 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                             }
                         }
                     }
+                    else if (Info.ReducePtr == Ptr)
+                    {
+                        /* Same slot, already recognized: a *second*, different
+                         * operator on it (`s = s + x; s = s * y;`) would be
+                         * folded by the combine with one operator only, so the
+                         * partition partials would be combined with the wrong
+                         * op.  Record the slot as an unrecognized global effect
+                         * and let classify() refuse the reduction class. */
+                        RedOp Op2 = detectScalarRedOp(SI->getValueOperand(), Ptr);
+                        if (Op2 == RedOp::None)
+                            Op2 = detectConditionalMinMax(SI, Ptr);
+                        if (Op2 != RedOp::None && Op2 != Info.ReduceOp)
+                        {
+                            Effect E2;
+                            E2.Kind = EffectKind::Uf;
+                            E2.Reg = Region::G;
+                            E2.Base = Ptr;
+                            E2.Index = nullptr;
+                            E2.Origin = SI;
+                            Info.Effects.push_back(E2);
+                        }
+                    }
+                    else
+                    {
+                        /* A second, distinct scalar slot in the same body: the
+                         * engine maps only ReducePtr to a per-partition partial,
+                         * so this slot has no partition storage and every
+                         * partition would write the same global (lost updates).
+                         * Record it as an unrecognized global effect so the
+                         * reduction class is refused. */
+                        Effect E2;
+                        E2.Kind = EffectKind::Uf;
+                        E2.Reg = Region::G;
+                        E2.Base = Ptr;
+                        E2.Index = nullptr;
+                        E2.Origin = SI;
+                        Info.Effects.push_back(E2);
+                    }
                 }
             }
             if (auto *LI = dyn_cast<LoadInst>(&I))
@@ -1176,9 +1260,11 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                     Info.DriverUStores.push_back(SI);
                     if (!Info.DriverUGuard)
                         Info.DriverUGuard = guardICmpForStore(SI);
-                    Info.Effects.push_back(
-                        classifyStore(SI, SI->getPointerOperand(), Region::U,
-                                      Base, IX));
+                    Effect DE = classifyStore(SI, SI->getPointerOperand(),
+                                              Region::U, Base, IX);
+                    if (DE.Kind == EffectKind::Claim)
+                        Info.HasDriverClaim = true;
+                    Info.Effects.push_back(DE);
                 }
             if (auto *CAS = dyn_cast<AtomicCmpXchgInst>(&I))
             {
@@ -1466,8 +1552,28 @@ static Klass classify(const NeighborLoopInfo &Info)
     if (Info.HasDataWrite)
         return Klass::Sequential;
 
+    /* Composition F: a first-wins claim in the *driver* preamble
+     * (`sgpl.first_wins.claim`, collected into DriverUClaims) runs once per
+     * source vertex in the serial program, and the branch it feeds decides
+     * whether that source's neighbour body runs at all.  Every emitted work
+     * function is called once per (u,v) pair, so the claim would run per pair
+     * and the body would run for sources whose claim failed: the dual-owner
+     * emit grafts the claim without its guard, the single-phase paths do not
+     * graft it at all.  Refuse until the model can prove a once-per-source
+     * visit.  The body-level claim is unaffected (it is cloned with the body
+     * and keeps its own guard).
+     * SGPL_COMP_F_ALLOW_DRIVER_CLAIM=1 restores the old behaviour for A/B. */
+    if ((!Info.DriverUClaims.empty() || Info.HasDriverClaim) &&
+        !::getenv("SGPL_COMP_F_ALLOW_DRIVER_CLAIM"))
+        return Klass::Sequential;
+
     bool MutU = false, MutV = false, MutG = false, MutD = false, MutTop = false;
     bool HasUopG = false, HasCarriedOnMut = false;
+    /* A global slot the reduction engine does not own: a second scalar
+     * accumulator, a second operator on the same accumulator, or a plain store
+     * to a scalar.  Only one slot (ReducePtr) gets per-partition storage, so any
+     * of these would be written concurrently by every partition. */
+    bool HasUnrecognizedG = false;
     SmallPtrSet<const Value *, 4> BaseU, BaseV;
     for (const Effect &E : Info.Effects)
     {
@@ -1513,6 +1619,8 @@ static Klass classify(const NeighborLoopInfo &Info)
             MutG = true;
             if (E.Kind == EffectKind::Uop)
                 HasUopG = true;
+            else
+                HasUnrecognizedG = true;
             break;
         case Region::D:
             MutD = true;
@@ -1579,7 +1687,7 @@ static Klass classify(const NeighborLoopInfo &Info)
             return Klass::DestOwner;
         return Klass::Sequential;
     }
-    if (MutG && HasUopG && !MutU && !MutV)
+    if (MutG && HasUopG && !HasUnrecognizedG && !MutU && !MutV)
         return Klass::Reduction;
     if (MutV && !MutU && !MutG)
         return Klass::DestOwner;
@@ -1689,6 +1797,24 @@ static Function *emitRedCombiner(LLVMContext &Ctx, Module *Mod, RedOp Op,
     case RedOp::Max:
         R = B.CreateBinaryIntrinsic(isFP ? Intrinsic::maxnum : Intrinsic::smax, O, P);
         break;
+    case RedOp::MinU:
+        R = B.CreateBinaryIntrinsic(Intrinsic::umin, O, P);
+        break;
+    case RedOp::MaxU:
+        R = B.CreateBinaryIntrinsic(Intrinsic::umax, O, P);
+        break;
+    case RedOp::FMinNum:
+        R = B.CreateBinaryIntrinsic(Intrinsic::minnum, O, P);
+        break;
+    case RedOp::FMaxNum:
+        R = B.CreateBinaryIntrinsic(Intrinsic::maxnum, O, P);
+        break;
+    case RedOp::FMinProp:
+        R = B.CreateBinaryIntrinsic(Intrinsic::minimum, O, P);
+        break;
+    case RedOp::FMaxProp:
+        R = B.CreateBinaryIntrinsic(Intrinsic::maximum, O, P);
+        break;
     case RedOp::And:
         R = B.CreateAnd(O, P);
         break;
@@ -1729,6 +1855,16 @@ static Constant *identityFor(RedOp Op, Type *ElemTy)
                     : ConstantInt::get(ElemTy,
                                        APInt::getSignedMinValue(
                                            ElemTy->getIntegerBitWidth()));
+    case RedOp::MinU:
+        return ConstantInt::getAllOnesValue(ElemTy);
+    case RedOp::MaxU:
+        return ConstantInt::get(ElemTy, 0);
+    case RedOp::FMinNum:
+    case RedOp::FMinProp:
+        return ConstantFP::getInfinity(ElemTy, /*Negative=*/false);
+    case RedOp::FMaxNum:
+    case RedOp::FMaxProp:
+        return ConstantFP::getInfinity(ElemTy, /*Negative=*/true);
     default: /* Add, Sub, Or, Xor */
         return Constant::getNullValue(ElemTy);
     }
@@ -2775,6 +2911,13 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                                    ? emitDualCleanCut(Info)
                                    : emitCleanCutCallbackAndStep(
                                          Info, K == Klass::SourceOwner);
+                /* A refused emit falls through to the terminal sequential
+                 * marker below; say so, because otherwise the loop looks like it
+                 * was classified sequential when the classifier actually
+                 * claimed it parallel. */
+                if (!Emitted && getenv("GRAPH_FRONTIER_STATS"))
+                    errs() << "[graph-frontier]   emit failed for class="
+                           << klassName(K) << " -> stays sequential\n";
                 ++detected;
                 if (Emitted)
                 {

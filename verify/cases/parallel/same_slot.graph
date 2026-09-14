@@ -1,0 +1,18 @@
+// P2 regression: a scalar-indexed same-address accumulator.
+//
+// `k` is read from a DSL scalar slot that never changes inside the loop, so
+// every iteration reads and writes A[0] -- a genuinely loop-carried dependence
+// with a loop-invariant *expression*.  One wrong "EQ / zero distance => this
+// loop has no carried dependence" verdict (the P2 hole) marks the loop DOALL
+// and 4 threads lose updates.  The loop must stay sequential: expected A0 is
+// the iteration count (numVertices = 20000 for the g20k fixture).
+graph G {
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+real A[n];
+int k = 0;
+int i = 0;
+while (i < n) { A[k] = A[k] + 1.0; i = i + 1; }
+print "A0";
+print A[0];

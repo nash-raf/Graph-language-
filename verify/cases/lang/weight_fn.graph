@@ -1,0 +1,4 @@
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny_w.txt"; TRUE };
+int s = 0;
+for each edge u, v in G { s = s + weight(G, u, v); }
+print s;

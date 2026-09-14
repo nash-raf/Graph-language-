@@ -1,0 +1,11 @@
+int n = 200000;
+real pref[n];
+pref[0] = 0.0;
+int i = 1;
+while (i < n)
+{
+    pref[i] = pref[i - 1] + 1.0;
+    i = i + 1;
+}
+print "last";
+print pref[n - 1];

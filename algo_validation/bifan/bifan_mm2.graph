@@ -1,0 +1,42 @@
+// Polly-friendly form: materialise the full M = A*A^T as a genuine 3-deep
+// matmul (reuse in both i and j), instead of one scalar dot product at a time.
+graph G { directed; edges: file "/tmp/bifan_layer.txt"; };
+
+fn void bifan() {
+  int S = 512;
+  int T = numVertices(G) - S;
+  int A[512][784];
+  int M[512][512];
+
+  int i = 0;
+  while (i < S) { int j = 0; while (j < T) { A[i][j] = 0; j = j + 1; } i = i + 1; }
+  i = 0;
+  while (i < S) { int j = 0; while (j < S) { M[i][j] = 0; j = j + 1; } i = i + 1; }
+
+  for each edge u, v in G { A[u][v - S] = 1; }
+
+  i = 0;
+  while (i < S) {
+    int t = 0;
+    while (t < T) {
+      int j = 0;
+      while (j < S) {
+        M[i][j] = M[i][j] + A[i][t] * A[j][t];
+        j = j + 1;
+      }
+      t = t + 1;
+    }
+    i = i + 1;
+  }
+
+  real total = 0.0;
+  i = 0;
+  while (i < S) {
+    int j = i + 1;
+    while (j < S) { int c = M[i][j]; total = total + (c * (c - 1)) / 2; j = j + 1; }
+    i = i + 1;
+  }
+  print "BIFAN";
+  print total;
+}
+bifan();

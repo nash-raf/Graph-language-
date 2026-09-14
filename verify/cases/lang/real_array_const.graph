@@ -1,0 +1,2 @@
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt"; };
+real r[4]; r[0] = 1.5; print r[0];

@@ -1,0 +1,17 @@
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/bipartite.txt";
+};
+int n = numVertices(G);
+int deg[n];
+for each vertex u in G {
+    int c = 0;
+    for each neighbor v of u in G {
+        c = c + 1;
+    }
+    deg[u] = c;
+}
+int s = 0; int i = 0;
+while (i < n) { s = s + deg[i]; i = i + 1; }
+print "degsum";
+print s;

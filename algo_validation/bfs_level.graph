@@ -1,0 +1,53 @@
+// Validation variant of bfs_parent.graph: identical traversal, but records the
+// BFS *level* instead of the parent.  Levels are unique for a given source, so
+// this checksum is deterministic and can be compared against scipy directly.
+graph G {
+  edges: file "/home/user/Course/msk1/synth_graphs_unweighted/synth_v_2000000_e_16000000.txt";
+};
+
+int n = numVertices(G);
+int inf = 2147483647;
+int cap = 8000000;
+int dist[n];
+int frontier[cap];
+int next_frontier[cap];
+int frontier_size = 1;
+int next_size = 0;
+int init_i = 0;
+
+while (init_i < n) { dist[init_i] = inf; init_i = init_i + 1; }
+
+frontier[0] = 0;
+dist[0] = 0;
+int level = 0;
+
+while (frontier_size > 0) {
+  next_size = 0;
+  level = level + 1;
+  int i = 0;
+  while (i < frontier_size) {
+    int v = frontier[i];
+    for each neighbor u of v in G {
+      if (dist[u] == inf) {
+        dist[u] = level;
+        next_frontier[next_size] = u;
+        next_size = next_size + 1;
+      }
+    }
+    i = i + 1;
+  }
+  swap(frontier, next_frontier);
+  frontier_size = next_size;
+}
+
+int reached = 0;
+int chk = 0;
+int q = 0;
+while (q < n) {
+  if (dist[q] != inf) { reached = reached + 1; chk = (chk + dist[q]) % 1000000007; }
+  q = q + 1;
+}
+print "reached";
+print reached;
+print "level_checksum";
+print chk;

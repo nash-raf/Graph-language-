@@ -1,0 +1,19 @@
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/mutual5.txt";
+};
+int n = numVertices(G);
+int mdeg[n];
+for each vertex u in G {
+    int c = 0;
+    for each neighbor v of u in G {
+        if (hasEdge(G, v, u)) {
+            c = c + 1;
+        }
+    }
+    mdeg[u] = c;
+}
+int s = 0; int i = 0;
+while (i < n) { s = s + mdeg[i]; i = i + 1; }
+print "mutdegsum";
+print s;

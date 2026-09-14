@@ -1,0 +1,7 @@
+graph G {
+  directed;
+  edges: file "/home/user/Course/msk1/2nd/Graph-language-/algo_validation/bifan/real_layer.txt";
+};
+motifs BF = [G where motif { a->x; a->y; b->x; b->y; }];
+print "grapheasy_bifan";
+print numMotifs(BF);

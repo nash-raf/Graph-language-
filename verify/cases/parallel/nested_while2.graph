@@ -1,0 +1,23 @@
+graph G { edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt"; };
+int n = numVertices(G);
+int acc[n];
+for each vertex u in G
+{
+    acc[u] = 0;
+    int a = 0;
+    while (a < 2)
+    {
+        int b = 0;
+        while (b < 2)
+        {
+            for each neighbor v of u in G
+            {
+                acc[u] = acc[u] + 1;
+            }
+            b = b + 1;
+        }
+        a = a + 1;
+    }
+}
+print "acc0";
+print acc[0];

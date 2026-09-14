@@ -1,0 +1,4 @@
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt"; };
+int n = 5; int arr[n]; int i = 0;
+while (i < n) { arr[i] = i * i; i = i + 1; }
+print arr[0]; print arr[4];

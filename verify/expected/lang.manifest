@@ -1,0 +1,18 @@
+int_arith|10 4 21 2 1
+real_arith|9.5 15
+int_array|0 16
+int_array_const|42
+real_array_var|1.5
+real_array_const|1.5
+array2d_int|9
+array2d_real|1.5
+control_flow|15
+fn_call|5
+graph_counts|4 5
+foreach_vertex|4
+foreach_neighbor|10
+foreach_edge|5
+weight_fn|26
+keyword_INF|5
+nested_fn_array|8
+real_precision|1e-07

@@ -1,0 +1,19 @@
+// Textbook DOALL at top level: no graph indirection, no carried dependence.
+// If the outliner cannot parallelise THIS, the problem is the outliner, not
+// the graph algorithms' loop shapes.
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/algo_validation/ba/ba_25000_49996.txt"; };
+int N = 40000000;
+int a[N];
+int b[N];
+
+int i = 0;
+while (i < N) { a[i] = i % 97; i = i + 1; }
+
+int j = 0;
+while (j < N) { b[j] = a[j] * 3 + 7; j = j + 1; }
+
+int s = 0;
+int q = 0;
+while (q < N) { s = (s + b[q]) % 1000000007; q = q + 1; }
+print "doall_checksum";
+print s;

@@ -1,0 +1,65 @@
+// Dual-owner + round-separation shadow regression (found by upstream's own
+// small_kcore.graph): a frontier-set-driven k-core peeling whose body claims
+// `alive[u]` in the source region while reading `alive[v]` and updating
+// `deg[v]` in the destination region.
+//
+// The merged lowering classifies this as dual-owner with a round-separation
+// shadow (GRAPH_FRONTIER_STATS=1 prints `shadow=1 class=dual-owner`).  Until the
+// dual-owner emission path was given the shadow call, the two work functions
+// referenced a shadow global that nothing defined and the object failed to
+// link ("undefined reference to `main.alive.shadow.0`").  This case pins both
+// the link and the semantics: the rewrite must equal the serial build, and the
+// 1- and 4-thread runs must agree.  Expected alive_sum = 10-core size of the g20k
+// fixture (see the derived value in verify/run.sh).
+graph G {
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int k = 10;
+int deg[n];
+int alive[n];
+set frontier;
+set next;
+
+for each vertex v in G {
+    deg[v] = 0;
+    alive[v] = 1;
+}
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        deg[u] = deg[u] + 1;
+    }
+}
+
+frontier = {};
+for each vertex v in G {
+    if (deg[v] < k) {
+        frontier.add(v);
+    }
+}
+
+while (setSize(frontier) > 0) {
+    next = {};
+    for each element u in frontier {
+        if (alive[u] == 1) {
+            alive[u] = 0;
+            for each neighbor v of u in G {
+                if (alive[v] == 1) {
+                    deg[v] = deg[v] - 1;
+                    if (deg[v] < k) {
+                        next.add(v);
+                    }
+                }
+            }
+        }
+    }
+    frontier = next;
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + alive[i]; i = i + 1; }
+print "alive_sum";
+print s;

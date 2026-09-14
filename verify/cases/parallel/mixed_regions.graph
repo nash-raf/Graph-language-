@@ -1,0 +1,32 @@
+// Composition C regression: the SAME array written through the source region
+// (arr[u]) and the destination region (arr[v]) in one neighbour loop.
+//
+// No owner-step rewrite is sound for this shape -- the two write regions are
+// claimed by different partitions -- and the round-separation shadow must not
+// apply either (the eligibility rule excludes mixed U+V writes on one base).
+// The loop must stay sequential and be bit-identical for every thread count.
+// Expected value with the g20k fixture read as directed (n=20000, m=160000
+// arcs): arr starts at 1 everywhere (sum n) and each arc increments both
+// endpoints (2*m), so tot = n + 2m = 340000.
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+int arr[n];
+
+int i = 0;
+while (i < n) { arr[i] = 1; i = i + 1; }
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        arr[u] = arr[u] + 1;
+        arr[v] = arr[v] + 1;
+    }
+}
+
+int tot = 0;
+i = 0;
+while (i < n) { tot = tot + arr[i]; i = i + 1; }
+print "tot";
+print tot;

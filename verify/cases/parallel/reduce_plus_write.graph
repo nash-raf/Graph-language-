@@ -1,0 +1,31 @@
+// Composition D regression: a scalar reduction (acc) plus a per-vertex array
+// write (w[u]) in the same nest.
+//
+// The reduction class may only own the loop when the body's other effects are
+// compatible; a per-vertex write next to the accumulator must not be silently
+// merged into the reduction step.  The safe verdict is sequential, and the
+// answers must be identical at every thread count.  Expected values with the
+// g20k fixture read as directed (m=160000 arcs): acc counts the traversed arcs
+// exactly once, and w[0] is incremented by the outer loop alone.
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+int w[n];
+
+int i = 0;
+while (i < n) { w[i] = 0; i = i + 1; }
+
+int acc = 0;
+for each vertex u in G {
+    w[u] = w[u] + 1;
+    for each neighbor v of u in G {
+        acc = acc + 1;
+    }
+}
+
+print "acc";
+print acc;
+print "w0";
+print w[0];

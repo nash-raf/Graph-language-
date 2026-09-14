@@ -1,0 +1,4 @@
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt"; };
+int c = 0;
+for each vertex u in G { for each neighbor v of u in G { c = c + 1; } }
+print c;

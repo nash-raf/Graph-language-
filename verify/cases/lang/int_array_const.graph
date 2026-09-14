@@ -1,0 +1,2 @@
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt"; };
+int arr[5]; arr[0] = 42; print arr[0];

@@ -1,0 +1,3 @@
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt"; };
+int a = 7; int b = 3;
+print a + b; print a - b; print a * b; print a / b; print a % b;

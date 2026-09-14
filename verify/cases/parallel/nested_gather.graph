@@ -1,0 +1,20 @@
+graph G { edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt"; };
+int n = numVertices(G);
+real val[n];
+real acc[n];
+int round = 0;
+for each vertex v in G { val[v] = 1.0; acc[v] = 0.0; }
+while (round < 20) {
+  round = round + 1;
+  for each vertex u in G {
+    real s = 0.0;
+    for each neighbor v of u in G {
+      s = s + val[v] * 0.5;
+    }
+    acc[u] = s;
+  }
+  for each vertex v in G { val[v] = 1.0 + acc[v] * 0.0001; }
+}
+real tot = 0.0; int q = 0;
+while (q < n) { tot = tot + acc[q]; q = q + 1; }
+print "checksum"; print tot;

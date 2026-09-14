@@ -1,0 +1,3 @@
+graph G { directed: true; edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/bipartite.txt"; };
+motifs BF = [G where motif { a->x; a->y; b->x; b->y; }];
+print numMotifs(BF);

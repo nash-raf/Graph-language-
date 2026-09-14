@@ -1,0 +1,32 @@
+// Composition A regression: an in-place array read on one endpoint region and
+// written on the other (cross-endpoint R x W) in the same neighbour loop.
+//
+// `dist` is both read (dist[u], source region) and written (dist[v],
+// destination region), so without the round-separation shadow snapshot a
+// sibling partition can read a value another partition is concurrently
+// writing.  The merged lowering is expected to freeze the round-start values
+// into a per-round shadow (GRAPH_FRONTIER_STATS=1 prints `shadow=1`) and run the
+// owner-computes step; the result must equal the frozen-read reference
+// (compute_roundsep_expected.py, mode=add) and be identical for every partition
+// count and thread count.  With the g20k fixture (n=20000, m=320000) the
+// reference sum is n + m = 340000.
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+int dist[n];
+
+for each vertex v in G { dist[v] = 1; }
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        dist[v] = dist[v] + dist[u];
+    }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + dist[i]; i = i + 1; }
+print "sum";
+print s;

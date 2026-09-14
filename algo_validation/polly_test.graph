@@ -1,0 +1,22 @@
+// Affine, DOALL-shaped kernel placed inside a `fn` so -polly-only-func can see it.
+graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/algo_validation/ba/ba_25000_49996.txt"; };
+int N = 4000000;
+int a[N];
+int b[N];
+
+fn void kernel() {
+  int i = 0;
+  while (i < N) {
+    b[i] = a[i] * 3 + 7;      // affine, no loop-carried dependence
+    i = i + 1;
+  }
+}
+
+int j = 0;
+while (j < N) { a[j] = j; j = j + 1; }
+kernel();
+int s = 0;
+int q = 0;
+while (q < N) { s = (s + b[q]) % 1000000007; q = q + 1; }
+print "checksum";
+print s;

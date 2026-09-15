@@ -1,0 +1,39 @@
+// Composition D at scale: a scalar reduction (acc) next to a per-source array
+// write (w[u] = w[u] + 1) in the same nest.
+//
+// The write lives in the driver preamble, so it runs once per source in the
+// serial program.  A per-pair step would run it once per arc (w[0] would end at
+// its out-degree, and sum(w) at the arc count); the privatized step therefore
+// takes a per-source preamble phase, executed once per source in the
+// partition's own source range -- including sources with no arcs.
+//
+// Expected on the g20k fixture read as directed: sum(w) = n = 20000 (one
+// increment per source, and sources without arcs still get theirs), and
+// acc = number of traversed arcs = 160000.
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int w[n];
+
+int i = 0;
+while (i < n) { w[i] = 0; i = i + 1; }
+
+int acc = 0;
+for each vertex u in G {
+    w[u] = w[u] + 1;
+    for each neighbor v of u in G {
+        acc = acc + 1;
+    }
+}
+
+int s = 0;
+i = 0;
+while (i < n) { s = s + w[i]; i = i + 1; }
+
+print "acc";
+print acc;
+print "wsum";
+print s;

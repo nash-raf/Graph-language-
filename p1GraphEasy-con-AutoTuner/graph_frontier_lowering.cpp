@@ -1804,7 +1804,7 @@ static bool opIsOrderIndependent(RedOp Op, Type *ElemTy)
  * such store must be reached.  Anything else — an index, a call argument, a
  * branch condition — reads the real array, which a private copy would not
  * reproduce. */
-static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *L)
+static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *Nest)
 {
     if (LI->use_empty())
         return false;
@@ -1819,7 +1819,7 @@ static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *L)
         for (const User *U : I->users())
         {
             const auto *UI = dyn_cast<Instruction>(U);
-            if (!UI || !L->contains(UI))
+            if (!UI || !Nest->contains(UI))
                 return false;
             if (const auto *SI = dyn_cast<StoreInst>(UI))
             {
@@ -1839,11 +1839,13 @@ static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *L)
     return ReachedStore;
 }
 
-/* All stores to `Base` inside the loop are recognized U_⊕ updates with `Op`,
- * and every load is part of such an update. */
-static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *L)
+/* All stores to `Base` inside the nest (the neighbour loop *and* the driver
+ * body around it -- a per-source preamble write such as `w[u] += 1` is one of
+ * them) are recognized U_⊕ updates with `Op`, and every load is part of such an
+ * update. */
+static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *Nest)
 {
-    for (BasicBlock *BB : L->blocks())
+    for (BasicBlock *BB : Nest->blocks())
         for (Instruction &I : *BB)
         {
             if (auto *SI = dyn_cast<StoreInst>(&I))
@@ -1862,7 +1864,7 @@ static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *L)
                 const auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
                 if (!GEP || canonicalArrayBase(GEP) != Base)
                     continue;
-                if (!loadFeedsOnlyUpdates(LI, Base, L))
+                if (!loadFeedsOnlyUpdates(LI, Base, Nest))
                     return false;
             }
         }
@@ -1883,10 +1885,13 @@ static bool privLayout(NeighborLoopInfo &Info)
         PrivReason = "no loop";
         return false;
     }
+    /* The proof covers the whole nest: a driver-preamble update runs once per
+     * source and is carried by the step's preamble phase (see the R3+D step). */
+    Loop *Nest = Info.DriverLoop ? Info.DriverLoop : L;
     if (Info.HasFrontierAppend || Info.HasFirstWins || Info.HasDriverClaim ||
-        !Info.DriverUClaims.empty() || !Info.DriverUStores.empty())
+        !Info.DriverUClaims.empty())
     {
-        PrivReason = "claim/append/driver-preamble store";
+        PrivReason = "claim/append in the loop nest";
         return false;
     }
 
@@ -1977,7 +1982,7 @@ static bool privLayout(NeighborLoopInfo &Info)
             PrivReason = "operator re-associates for the element type";
             return false;
         }
-        if (!baseIsPrivatizable(B, Op, L))
+        if (!baseIsPrivatizable(B, Op, Nest))
         {
             PrivReason = "a load from the base is not an update's own old value";
             return false;
@@ -3502,6 +3507,8 @@ static Function *emitPrivCombiner(LLVMContext &Ctx, Module *Mod,
     Value *Tgts = FN->getArg(1);
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
+    if (getenv("GRAPH_FRONTIER_DIAG"))
+        errs() << "[diag-priv] combine NS=" << NS << " NA=" << NA << "\n";
 
     for (unsigned i = 0; i < NS; ++i)
     {
@@ -3529,14 +3536,16 @@ static Function *emitPrivCombiner(LLVMContext &Ctx, Module *Mod,
             return nullptr;
         }
         Function *Cmb = emitRedCombiner(Ctx, Mod, A.Op, A.ElemTy);
+        /* Byte offsets: the element type must be i8, or the index is scaled by
+         * the pointee size (a pointer-type element multiplies by 8). */
         Value *Priv = B.CreateLoad(
-            I8P, B.CreateGEP(I8P, Rec, ConstantInt::get(I64, 8 * (int64_t)(NS + j))),
+            I8P, B.CreateGEP(I8, Rec, ConstantInt::get(I64, 8 * (int64_t)(NS + j))),
             "priv_copy");
         Value *Arr = B.CreateLoad(
-            I8P, B.CreateGEP(I8P, Tgts, ConstantInt::get(I64, (int64_t)(NS + j))),
+            I8P, B.CreateGEP(I8, Tgts, ConstantInt::get(I64, 8 * (int64_t)(NS + j))),
             "arr_base");
         Value *Cnt = B.CreateLoad(
-            I64, B.CreateGEP(I64, Tgts, ConstantInt::get(I64, (int64_t)(NS + NA + j))),
+            I64, B.CreateGEP(I8, Tgts, ConstantInt::get(I64, 8 * (int64_t)(NS + NA + j))),
             "arr_elems");
         const uint64_t ESz =
             std::max<uint64_t>(1, (A.ElemTy->getPrimitiveSizeInBits() + 7) / 8);
@@ -3604,6 +3613,9 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
     const uint64_t RecSize = 8 * (uint64_t)(NS + NA);
+    if (getenv("GRAPH_FRONTIER_DIAG"))
+        errs() << "[diag-priv] step NS=" << NS << " NA=" << NA
+               << " RecSize=" << RecSize << "\n";
 
     Value *RecBytes =
         EB.CreateMul(EB.CreateZExt(PartCount, I64), ConstantInt::get(I64, (int64_t)RecSize));
@@ -3613,6 +3625,18 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
      * (the runtime initializes the array copies inside autograph_priv_bind). */
     if (NS > 0)
         emitPrivScalarInit(EB, Pre, Rec, PartCount, RecSize, Info, Ctx);
+
+    /* A driver-preamble update (`w[u] = w[u] + 1`) runs once per source, so the
+     * step gets a second work function for it: the pair work function would run
+     * it once per arc.  It writes only into the partition's private copies, so
+     * it needs no ownership of its own. */
+    Function *PreambleFn = nullptr;
+    if (!Info.DriverUStores.empty())
+    {
+        PreambleFn = emitPairWorkFn(Info, PairPhase::UOnly);
+        if (!PreambleFn)
+            return false;
+    }
 
     FunctionCallee Bind = Mod->getOrInsertFunction(
         "autograph_priv_bind",
@@ -3665,26 +3689,46 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
     if (!Combiner)
         return false;
 
-    FunctionCallee Step = Mod->getOrInsertFunction(
-        "autograph_frontier_step_owner_red",
-        FunctionType::get(I32,
-                          {I8P, I8P, I32, I8P, I8P, I64, I8P, I8P, I8P, I8P, I32,
-                           I8P},
-                          false));
-    SmallVector<Value *, 12> StepArgs = {
-        GraphArg,
-        ConstantPointerNull::get(cast<PointerType>(I8P)),
-        ConstantInt::get(I32, 0),
-        EB.CreateBitCast(WF, I8P),
-        EB.CreateBitCast(Rec, I8P),
-        ConstantInt::get(I64, (int64_t)RecSize),
-        EB.CreateBitCast(Combiner, I8P),
-        EB.CreateBitCast(Tgts, I8P),
-        ConstantPointerNull::get(cast<PointerType>(I8P)),
-        ConstantPointerNull::get(cast<PointerType>(I8P)),
-        ConstantInt::get(I32, 0),
-        ConstantPointerNull::get(cast<PointerType>(I8P))};
-    EB.CreateCall(Step, StepArgs);
+    if (PreambleFn)
+    {
+        FunctionCallee Step = Mod->getOrInsertFunction(
+            "autograph_frontier_step_owner_red_pre",
+            FunctionType::get(I32, {I8P, I8P, I8P, I8P, I64, I8P, I8P, I8P},
+                              false));
+        SmallVector<Value *, 8> StepArgs = {
+            GraphArg,
+            EB.CreateBitCast(PreambleFn, I8P),
+            EB.CreateBitCast(WF, I8P),
+            EB.CreateBitCast(Rec, I8P),
+            ConstantInt::get(I64, (int64_t)RecSize),
+            EB.CreateBitCast(Combiner, I8P),
+            EB.CreateBitCast(Tgts, I8P),
+            ConstantPointerNull::get(cast<PointerType>(I8P))};
+        EB.CreateCall(Step, StepArgs);
+    }
+    else
+    {
+        FunctionCallee Step = Mod->getOrInsertFunction(
+            "autograph_frontier_step_owner_red",
+            FunctionType::get(I32,
+                              {I8P, I8P, I32, I8P, I8P, I64, I8P, I8P, I8P, I8P, I32,
+                               I8P},
+                              false));
+        SmallVector<Value *, 12> StepArgs = {
+            GraphArg,
+            ConstantPointerNull::get(cast<PointerType>(I8P)),
+            ConstantInt::get(I32, 0),
+            EB.CreateBitCast(WF, I8P),
+            EB.CreateBitCast(Rec, I8P),
+            ConstantInt::get(I64, (int64_t)RecSize),
+            EB.CreateBitCast(Combiner, I8P),
+            EB.CreateBitCast(Tgts, I8P),
+            ConstantPointerNull::get(cast<PointerType>(I8P)),
+            ConstantPointerNull::get(cast<PointerType>(I8P)),
+            ConstantInt::get(I32, 0),
+            ConstantPointerNull::get(cast<PointerType>(I8P))};
+        EB.CreateCall(Step, StepArgs);
+    }
     deactivateDriver(Info);
     return true;
 }

@@ -55,6 +55,13 @@ compile_serial(){
 }
 runp(){ ( cd "$C" && ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
 runt(){ ( cd "$C" && SGPL_NUM_THREADS=$1 OMP_NUM_THREADS=$1 ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
+# Threads and CleanCut partitions are independent knobs: the privatized cases
+# are swept over both (4 threads on 3 partitions is the interesting one -- the
+# partition count is what the private copies are sized by).
+runc(){ ( cd "$C" && SGPL_CLEANCUT_PARTITIONS=$2 SGPL_NUM_THREADS=$1 \
+            OMP_NUM_THREADS=$1 ./final_program 2>/dev/null </dev/null \
+          | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
+PRIV_CFGS="1:1 4:4 4:3"
 
 # Assert the effect-algebra verdicts recorded in the *last* compile's log
 # (compile() always runs the frontier lowering with GRAPH_FRONTIER_STATS=1).
@@ -306,9 +313,10 @@ if ser=$(compile_serial "$R/cases/parallel/mixed_regions.graph") && \
   expect_class mixed_regions privatized
   exp="tot $((20000 + 2 * arcs))"
   bad=""
-  for t in 1 4; do
-    got=$(runt $t)
-    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got' exp='$exp'"
+  for cfg in $PRIV_CFGS; do
+    th="${cfg%%:*}"; pt="${cfg##*:}"
+    got=$(runc "$th" "$pt")
+    [[ "$got" == "$exp" ]] || bad="threads=$th partitions=$pt got='$got' exp='$exp'"
     [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
   done
   [[ -z "$bad" ]] && ok "priv/mixed_regions ($exp, == serial)" \
@@ -317,21 +325,46 @@ else
   no "priv/mixed_regions" "build failed"
 fi
 
-# Composition D: a scalar reduction next to a per-vertex array write.  The
-# driver preamble's per-source write is not reproduced by a per-pair step, so
-# this stays a derived refusal until the source phase carries it.
-if compile "$R/cases/parallel/reduce_plus_write.graph"; then
-  expect_class reduce_plus_write sequential
+# Composition D: a scalar reduction next to a per-source array write.  The
+# preamble write runs once per source, so the privatized step carries it in a
+# separate per-source phase; the pair phase accumulates the reduction into the
+# partition's partial.  w0 pinpoints the phase (1 with the preamble phase,
+# the source's out-degree without it).
+if ser=$(compile_serial "$R/cases/parallel/reduce_plus_write.graph") && \
+   compile "$R/cases/parallel/reduce_plus_write.graph"; then
+  expect_class reduce_plus_write privatized
   exp="acc $arcs w0 1"
   bad=""
-  for t in 1 4; do
-    got=$(runt $t)
-    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got'"
+  for cfg in $PRIV_CFGS; do
+    th="${cfg%%:*}"; pt="${cfg##*:}"
+    got=$(runc "$th" "$pt")
+    [[ "$got" == "$exp" ]] || bad="threads=$th partitions=$pt got='$got' exp='$exp'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
   done
-  [[ -z "$bad" ]] && ok "race/reduce_plus_write ($exp)" \
-                  || no "race/reduce_plus_write" "exp='$exp' $bad"
+  [[ -z "$bad" ]] && ok "priv/reduce_plus_write ($exp, == serial)" \
+                  || no "priv/reduce_plus_write" "$bad"
 else
-  no "race/reduce_plus_write" "build failed"
+  no "priv/reduce_plus_write" "build failed"
+fi
+
+# Composition D at scale: sum(w) must be exactly n -- one preamble per source,
+# with the sources that have no arcs included.  A lost or duplicated preamble
+# phase (or one folded into the pair loop) cannot produce both numbers.
+if ser=$(compile_serial "$R/cases/parallel/priv_reduce_write_big.graph") && \
+   compile "$R/cases/parallel/priv_reduce_write_big.graph"; then
+  expect_class priv_reduce_write_big privatized 'red=1'
+  exp="acc $arcs wsum 20000"
+  bad=""
+  for cfg in $PRIV_CFGS; do
+    th="${cfg%%:*}"; pt="${cfg##*:}"
+    got=$(runc "$th" "$pt")
+    [[ "$got" == "$exp" ]] || bad="threads=$th partitions=$pt got='$got' exp='$exp'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
+  done
+  [[ -z "$bad" ]] && ok "priv/reduce_write_big ($exp, == serial)" \
+                  || no "priv/reduce_write_big" "$bad"
+else
+  no "priv/reduce_write_big" "build failed"
 fi
 
 # Dual-owner + shadow refusal (upstream's small_kcore shape): the shadow freezes
@@ -427,9 +460,10 @@ if ser=$(compile_serial "$R/cases/parallel/priv_two_slots_big.graph") && \
   expect_class priv_two_slots_big privatized 'red=1'
   exp="a $arcs b 2068247825"
   bad=""
-  for t in 1 4; do
-    got=$(runt $t)
-    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got' exp='$exp'"
+  for cfg in $PRIV_CFGS; do
+    th="${cfg%%:*}"; pt="${cfg##*:}"
+    got=$(runc "$th" "$pt")
+    [[ "$got" == "$exp" ]] || bad="threads=$th partitions=$pt got='$got' exp='$exp'"
     [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
   done
   [[ -z "$bad" ]] && ok "priv/two_slots_big ($exp, == serial)" \
@@ -443,9 +477,10 @@ if ser=$(compile_serial "$R/cases/parallel/priv_data_index_big.graph") && \
   expect_class priv_data_index_big privatized 'driver=foreach\..*data=1'
   exp="cntsum $arcs cnt1 1335"
   bad=""
-  for t in 1 4; do
-    got=$(runt $t)
-    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got' exp='$exp'"
+  for cfg in $PRIV_CFGS; do
+    th="${cfg%%:*}"; pt="${cfg##*:}"
+    got=$(runc "$th" "$pt")
+    [[ "$got" == "$exp" ]] || bad="threads=$th partitions=$pt got='$got' exp='$exp'"
     [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
   done
   [[ -z "$bad" ]] && ok "priv/data_index_big ($exp, == serial)" \

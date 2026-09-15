@@ -3430,6 +3430,92 @@ static void autograph_owner_red_partition_body(int64_t index, void *opaque) {
   }
 }
 
+/* Composition R3 + D: privatized step with a per-source preamble.
+ *
+ * Some bodies mix a driver-preamble write that runs once per source
+ * (`w[u] = w[u] + 1`) with a per-pair accumulation (`acc = acc + 1`).  A
+ * per-pair step cannot carry the preamble (it would run it once per arc), so
+ * the preamble gets its own work function, invoked exactly once per source in
+ * the partition's own source range — the same slices the per-source reduction
+ * step walks, including the sources that have no arcs at all (their preamble
+ * still runs in the serial program).  Both the preamble and the pair work
+ * write only into this partition's private state, so no ownership is needed
+ * anywhere. */
+typedef struct {
+  AutoGraphMeta *meta;
+  sgpl_frontier_pair_fn preamble_fn;
+  sgpl_frontier_pair_fn work_fn;
+  void *work_env;
+  int64_t partial_bytes;
+  const uint8_t *membership;
+} AutoRedPreEnv;
+
+static void autograph_owner_red_pre_partition_body(int64_t index, void *opaque) {
+  AutoRedPreEnv *env = (AutoRedPreEnv *)opaque;
+  AutoGraphMeta *meta = env->meta;
+  int32_t p = (int32_t)index;
+  int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+  int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
+  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
+  int32_t pending = -1;
+  for (int64_t e = 0; e < cnt; ++e) {
+    int32_t u = pairs[2 * e];
+    int32_t v = pairs[2 * e + 1];
+    if (env->membership && !env->membership[u])
+      continue;
+    if (pending != u) {
+      env->preamble_fn(u, -1, -1, partial);
+      pending = u;
+    }
+    env->work_fn(u, v, v, partial);
+  }
+  /* Sources with no arcs still run their preamble: the pair slice is
+   * source-sorted, so a merge walk skips exactly the sources above. */
+  int64_t e = 0;
+  int32_t lo = (int32_t)meta->partition_start[p];
+  int32_t hi = (int32_t)meta->partition_start[p + 1];
+  for (int32_t u = lo; u < hi; ++u) {
+    if (env->membership && !env->membership[u])
+      continue;
+    while (e < cnt && pairs[2 * e] < u)
+      ++e;
+    if (e < cnt && pairs[2 * e] == u)
+      continue;
+    env->preamble_fn(u, -1, -1, partial);
+  }
+}
+
+int32_t autograph_frontier_step_owner_red_pre(
+    void *graph_ptr, sgpl_frontier_pair_fn preamble_fn,
+    sgpl_frontier_pair_fn work_fn, void *work_env, int64_t partial_bytes,
+    sgpl_frontier_combine_fn combine_fn, void *out,
+    const uint8_t *membership) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !preamble_fn || !work_fn || !combine_fn || !work_env ||
+      partial_bytes <= 0 || meta->partition_count <= 0)
+    return 0;
+
+  AutoRedPreEnv env = {
+      .meta = meta,
+      .preamble_fn = preamble_fn,
+      .work_fn = work_fn,
+      .work_env = work_env,
+      .partial_bytes = partial_bytes,
+      .membership = membership,
+  };
+
+  int64_t start_ns = now_monotonic_ns();
+  parallel_for_runtime(0, meta->partition_count, 1,
+                       autograph_owner_red_pre_partition_body, &env, 0, 0);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+
+  /* Same deterministic fold as the plain privatized step: ascending partition
+   * order, each partition's private state merged into the live targets. */
+  for (int32_t p = 0; p < meta->partition_count; ++p)
+    combine_fn((char *)work_env + (int64_t)p * partial_bytes, out);
+  return 0;
+}
+
 int32_t autograph_frontier_step_owner_red(void *graph_ptr,
                                           const int32_t *frontier,
                                           int32_t frontier_size,

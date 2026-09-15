@@ -3507,8 +3507,6 @@ static Function *emitPrivCombiner(LLVMContext &Ctx, Module *Mod,
     Value *Tgts = FN->getArg(1);
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
-    if (getenv("GRAPH_FRONTIER_DIAG"))
-        errs() << "[diag-priv] combine NS=" << NS << " NA=" << NA << "\n";
 
     for (unsigned i = 0; i < NS; ++i)
     {
@@ -3613,9 +3611,6 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
     const uint64_t RecSize = 8 * (uint64_t)(NS + NA);
-    if (getenv("GRAPH_FRONTIER_DIAG"))
-        errs() << "[diag-priv] step NS=" << NS << " NA=" << NA
-               << " RecSize=" << RecSize << "\n";
 
     Value *RecBytes =
         EB.CreateMul(EB.CreateZExt(PartCount, I64), ConstantInt::get(I64, (int64_t)RecSize));

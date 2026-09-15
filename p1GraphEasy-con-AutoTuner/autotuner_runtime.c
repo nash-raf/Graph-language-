@@ -1874,6 +1874,55 @@ void *autograph_scratch_shadow(void *graph_ptr, int64_t bytes, int32_t slot) {
   return meta->scratch_shadow[slot];
 }
 
+/* Composition R3: per-partition private copies for a privatized base.
+ *
+ * Allocates (or reuses) `partition_count` buffers of `elems * elem_bytes`
+ * each, re-initializes every element to the operator identity, and publishes
+ * partition p's pointer into its reduction record at `rec_off`, so the
+ * emitted pair work function reaches its own copy through the same record it
+ * already uses for scalar partials.  `identity_bits` carries the identity as
+ * the little-endian byte pattern of the element type; `elem_bytes` is 4 or 8.
+ * Returns the partition count, or 0 when the descriptor is not usable. */
+int32_t autograph_priv_bind(void *graph_ptr, void *rec_base, int64_t rec_stride,
+                            int64_t rec_off, int64_t elems, int64_t elem_bytes,
+                            int64_t identity_bits, int32_t slot) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || !rec_base || slot < 0 || slot >= 4 || elems <= 0 ||
+      elem_bytes <= 0 || elem_bytes > 8 || rec_stride <= 0 || rec_off < 0 ||
+      meta->partition_count <= 0)
+    return 0;
+
+  int64_t stride = elems * elem_bytes;
+  int64_t need = stride * (int64_t)meta->partition_count;
+  if (meta->priv_bytes[slot] < need) {
+    uint8_t *buf = (uint8_t *)realloc(meta->priv_buf[slot], (size_t)need);
+    if (!buf)
+      return 0;
+    meta->priv_buf[slot] = buf;
+    meta->priv_bytes[slot] = need;
+  }
+  meta->priv_stride[slot] = stride;
+
+  for (int32_t p = 0; p < meta->partition_count; ++p) {
+    uint8_t *mine = meta->priv_buf[slot] + (int64_t)p * stride;
+    if (elem_bytes == 4) {
+      uint32_t v = (uint32_t)(uint64_t)identity_bits;
+      uint32_t *e = (uint32_t *)mine;
+      for (int64_t i = 0; i < elems; ++i)
+        e[i] = v;
+    } else if (elem_bytes == 8) {
+      uint64_t *e = (uint64_t *)mine;
+      for (int64_t i = 0; i < elems; ++i)
+        e[i] = (uint64_t)identity_bits;
+    } else {
+      memset(mine, (int)((uint64_t)identity_bits & 0xFFu), (size_t)stride);
+    }
+    *(uint8_t **)((uint8_t *)rec_base + (int64_t)p * rec_stride + rec_off) =
+        mine;
+  }
+  return (int32_t)meta->partition_count;
+}
+
 int32_t autograph_prepare_frontier_array(void *graph_ptr,
                                          const int32_t *frontier,
                                          int32_t frontier_size) {

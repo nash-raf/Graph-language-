@@ -36,12 +36,22 @@ g(){ python3 -c "import json;print(json.load(open('$R/expected/golden.json'))['$
 # stale final_program, so a silent stale binary would otherwise be reported as
 # a wrong answer rather than a build failure.
 compile(){
-  local before after
-  before=$(stat -c %Y "$C/final_program" 2>/dev/null || echo 0)
+  rm -f "$C/final_program"
   ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FILE="$1" ./03_run.sh >"$R/bin/build.log" 2>&1 </dev/null )
-  after=$(stat -c %Y "$C/final_program" 2>/dev/null || echo 0)
-  [[ "$before" == "$after" ]] && return 2
+  [[ -f "$C/final_program" ]] || return 2
   return 0
+}
+
+# Serial reference for a case: build with the frontier rewrite switched off and
+# return the program's output.  Comparing the rewritten build against it is a
+# stronger statement than matching a hand-derived value -- it pins *identity*
+# with the unrewritten program, which is what "no race, no changed answer"
+# means for a composition rule.
+compile_serial(){
+  rm -f "$C/final_program"
+  ( cd "$C" && GRAPH_FRONTIER_REWRITE_OFF=1 GRAPH_FILE="$1" ./03_run.sh >"$R/bin/build_serial.log" 2>&1 </dev/null )
+  [[ -f "$C/final_program" ]] || return 2
+  ( cd "$C" && ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' )
 }
 runp(){ ( cd "$C" && ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
 runt(){ ( cd "$C" && SGPL_NUM_THREADS=$1 OMP_NUM_THREADS=$1 ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ); }
@@ -283,33 +293,46 @@ else
   no "race/roundsep" "build failed"
 fi
 
-# Compositions C and D: shapes the effect algebra must keep sequential.
-#   C -- one array written through both endpoint regions (mixed U+V).
-#   D -- a scalar reduction next to a per-vertex array write.
-# Neither may be rewritten (no owner step, no reduction ownership); both are
-# checked against values derived from the fixture (n, arcs) and for equality
-# across 1 vs 4 threads, so a future unsound composition rule turns them red.
+# Composition C: one array written through both endpoint regions (mixed U+V).
+# It is a pure accumulation (`arr[i] = arr[i] + 1` on both endpoints), so
+# composition R3 privatizes the base: every partition accumulates into its own
+# copy and the emitted combine folds them.  The verdict, the fixture-derived
+# value, the 1-vs-4-thread equality and bit-identity with the unrewritten build
+# are all pinned, so a future rule that claims this shape without the proof
+# turns the check red.
 arcs=$(python3 -c "print(sum(1 for l in open('$R/fixtures/g20k.txt') if l.strip()))")
-while IFS='|' read -r name exp; do
-  [[ -z "${name:-}" ]] && continue
-  if compile "$R/cases/parallel/$name.graph"; then
-    # C and D are refusals by design (see OPEN_PROBLEMS_HANDOFF.md §2c): pin the
-    # verdict so a future composition rule that starts claiming them has to
-    # change this line deliberately.
-    expect_class "$name" sequential
-    bad=""
-    for t in 1 4; do
-      got=$(runt $t)
-      [[ "$got" == "$exp" ]] || bad="threads=$t got='$got'"
-    done
-    [[ -z "$bad" ]] && ok "race/$name ($exp)" || no "race/$name" "exp='$exp' $bad"
-  else
-    no "race/$name" "build failed"
-  fi
-done <<GATHERS
-mixed_regions|tot $((20000 + 2 * arcs))
-reduce_plus_write|acc $arcs w0 1
-GATHERS
+if ser=$(compile_serial "$R/cases/parallel/mixed_regions.graph") && \
+   compile "$R/cases/parallel/mixed_regions.graph"; then
+  expect_class mixed_regions privatized
+  exp="tot $((20000 + 2 * arcs))"
+  bad=""
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got' exp='$exp'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
+  done
+  [[ -z "$bad" ]] && ok "priv/mixed_regions ($exp, == serial)" \
+                  || no "priv/mixed_regions" "$bad"
+else
+  no "priv/mixed_regions" "build failed"
+fi
+
+# Composition D: a scalar reduction next to a per-vertex array write.  The
+# driver preamble's per-source write is not reproduced by a per-pair step, so
+# this stays a derived refusal until the source phase carries it.
+if compile "$R/cases/parallel/reduce_plus_write.graph"; then
+  expect_class reduce_plus_write sequential
+  exp="acc $arcs w0 1"
+  bad=""
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got'"
+  done
+  [[ -z "$bad" ]] && ok "race/reduce_plus_write ($exp)" \
+                  || no "race/reduce_plus_write" "exp='$exp' $bad"
+else
+  no "race/reduce_plus_write" "build failed"
+fi
 
 # Dual-owner + shadow refusal (upstream's small_kcore shape): the shadow freezes
 # round-start `alive[]`, but this peeling loop must observe removals made earlier
@@ -362,33 +385,73 @@ fi
 # per-partition storage to ReducePtr only, so the second slot would be written
 # concurrently by every partition.  `b` discriminates (20 serial, ~20/partitions
 # if the second slot were emitted into the work function).
-if compile "$R/cases/parallel/two_reduce_slots.graph"; then
-  expect_class two_reduce_slots sequential
+if ser=$(compile_serial "$R/cases/parallel/two_reduce_slots.graph") && \
+   compile "$R/cases/parallel/two_reduce_slots.graph"; then
+  expect_class two_reduce_slots privatized
   bad=""
   for t in 1 4; do
     got=$(runt $t)
     [[ "$got" == "a 10 b 20" ]] || bad="threads=$t got='$got'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
   done
-  [[ -z "$bad" ]] && ok "race/two_reduce_slots (second accumulator refused)" \
-                  || no "race/two_reduce_slots" "exp='a 10 b 20' $bad"
+  [[ -z "$bad" ]] && ok "priv/two_reduce_slots (two partials, == serial)" \
+                  || no "priv/two_reduce_slots" "exp='a 10 b 20' $bad"
 else
-  no "race/two_reduce_slots" "build failed"
+  no "priv/two_reduce_slots" "build failed"
 fi
 
 # Composition B: a write whose subscript is a *data* value (`cnt[deg[u]]`).
 # The CleanCut owner table is keyed by destination vertex id, so a data-valued
 # house cannot be partitioned; the nest must stay sequential.
-if compile "$R/cases/parallel/data_index_write.graph"; then
-  expect_class data_index_write sequential 'data=1'
+if ser=$(compile_serial "$R/cases/parallel/data_index_write.graph") && \
+   compile "$R/cases/parallel/data_index_write.graph"; then
+  expect_class data_index_write privatized 'driver=foreach\..*data=1'
   bad=""
   for t in 1 4; do
     got=$(runt $t)
     [[ "$got" == "cntsum 10" ]] || bad="threads=$t got='$got'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
   done
-  [[ -z "$bad" ]] && ok "race/data_index_write (data-valued subscript refused)" \
-                  || no "race/data_index_write" "exp='cntsum 10' $bad"
+  [[ -z "$bad" ]] && ok "priv/data_index_write (data-valued subscript privatized)" \
+                  || no "priv/data_index_write" "exp='cntsum 10' $bad"
 else
-  no "race/data_index_write" "build failed"
+  no "priv/data_index_write" "build failed"
+fi
+
+# Composition R3 at scale: the two tiny cases above are re-run on the g20k
+# fixture, where the step really is split across partitions, against values
+# derived independently from the fixture (arcs = 160000, sum of v over all
+# arcs, number of vertices with out-degree 1) and against the serial build.
+if ser=$(compile_serial "$R/cases/parallel/priv_two_slots_big.graph") && \
+   compile "$R/cases/parallel/priv_two_slots_big.graph"; then
+  expect_class priv_two_slots_big privatized 'red=1'
+  exp="a $arcs b 2068247825"
+  bad=""
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got' exp='$exp'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
+  done
+  [[ -z "$bad" ]] && ok "priv/two_slots_big ($exp, == serial)" \
+                  || no "priv/two_slots_big" "$bad"
+else
+  no "priv/two_slots_big" "build failed"
+fi
+
+if ser=$(compile_serial "$R/cases/parallel/priv_data_index_big.graph") && \
+   compile "$R/cases/parallel/priv_data_index_big.graph"; then
+  expect_class priv_data_index_big privatized 'driver=foreach\..*data=1'
+  exp="cntsum $arcs cnt1 1335"
+  bad=""
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "$exp" ]] || bad="threads=$t got='$got' exp='$exp'"
+    [[ "$got" == "$ser" ]] || bad="$bad serial='$ser' parallel='$got'"
+  done
+  [[ -z "$bad" ]] && ok "priv/data_index_big ($exp, == serial)" \
+                  || no "priv/data_index_big" "$bad"
+else
+  no "priv/data_index_big" "build failed"
 fi
 
 # Composition G: scalar-global reductions must actually parallelize (the class

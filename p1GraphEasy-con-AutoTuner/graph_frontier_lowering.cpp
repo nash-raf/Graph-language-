@@ -176,6 +176,27 @@ struct NeighborLoopInfo
      * element whose index is neither u nor v) and the update operator. */
     Value *ReducePtr = nullptr;
     RedOp ReduceOp = RedOp::None;
+    /* Composition R3 (privatization): a scalar slot beyond the first, and the
+     * arrays whose in-loop stores are all recognized U_⊕ updates on a base
+     * that has no single owner region.  Filled by privLayout(). */
+    struct SlotInfo
+    {
+        const Value *Ptr = nullptr;
+        RedOp Op = RedOp::None;
+        Type *ElemTy = nullptr;
+    };
+    struct ArrayInfo
+    {
+        const Value *Base = nullptr; /* canonical base: the GEP redirection key */
+        Value *Ptr = nullptr;         /* the array itself (alloca / global) */
+        RedOp Op = RedOp::None;
+        Type *ElemTy = nullptr;
+        Value *Count = nullptr; /* element count (constant or SSA) */
+    };
+    SmallVector<SlotInfo, 2> Slots;
+    SmallVector<ArrayInfo, 2> PrivArrays;
+    bool UsePrivLayout = false; /* verdict came from privLayout(): emit must
+                                 * use the per-partition copies */
     /* Composition I (per-source gather): the driver preamble consumes the
      * scalar accumulator once per source (`arr[u] = acc`) after resetting it,
      * so the reduction is per source, not per loop. */
@@ -330,15 +351,54 @@ static const Value *canonicalArrayBase(const GetElementPtrInst *GEP)
     return getUnderlyingObject(Base);
 }
 
+/* True when A and B are the same address computation.
+ *
+ * The front end does not CSE, so one source-level slot routinely appears as
+ * several distinct SSA values: `load @cnt; gep; load elem` is emitted again for
+ * the store that follows, and again for the index it uses.  Identity, or one
+ * level of `load ... same pointer`, therefore misses genuine read-modify-writes
+ * (`cnt[deg[u]] = cnt[deg[u]] + 1` lowers to two GEPs whose indices are two
+ * loads of the same element).  The relation is the standard structural one,
+ * applied recursively: same value; two loads from the same address; two GEPs
+ * with the same base and equal indices; two casts of the same kind over equal
+ * operands.  Anything else is not the same location. */
+static bool sameAddressValue(Value *A, Value *B, unsigned Depth)
+{
+    if (A == B)
+        return true;
+    if (!A || !B || Depth > 6 || A->getType() != B->getType())
+        return false;
+    if (auto *LA = dyn_cast<LoadInst>(A))
+        if (auto *LB = dyn_cast<LoadInst>(B))
+            return sameAddressValue(LA->getPointerOperand(), LB->getPointerOperand(),
+                                    Depth + 1);
+    if (auto *GA = dyn_cast<GetElementPtrInst>(A))
+        if (auto *GB = dyn_cast<GetElementPtrInst>(B))
+        {
+            if (GA->getNumIndices() != GB->getNumIndices())
+                return false;
+            if (!sameAddressValue(GA->getPointerOperand(), GB->getPointerOperand(),
+                                  Depth + 1))
+                return false;
+            auto Ia = GA->idx_begin(), Ib = GB->idx_begin();
+            for (; Ia != GA->idx_end(); ++Ia, ++Ib)
+                if (!sameAddressValue(*Ia, *Ib, Depth + 1))
+                    return false;
+            return true;
+        }
+    if (auto *CA = dyn_cast<CastInst>(A))
+        if (auto *CB = dyn_cast<CastInst>(B))
+            if (CA->getOpcode() == CB->getOpcode())
+                return sameAddressValue(CA->getOperand(0), CB->getOperand(0),
+                                        Depth + 1);
+    return false;
+}
+
 /* True if A and B address the same array element, even when they are distinct
  * GEP instructions (the common non-CSE'd `load slot; gep; load/store` shape). */
 static bool sameIndexVal(Value *A, Value *B)
 {
-    if (A == B)
-        return true;
-    auto *LA = dyn_cast<LoadInst>(A);
-    auto *LB = dyn_cast<LoadInst>(B);
-    return LA && LB && LA->getPointerOperand() == LB->getPointerOperand();
+    return sameAddressValue(A, B, 0);
 }
 
 static bool sameArraySlot(Value *A, Value *B)
@@ -1011,6 +1071,17 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         RedOp AOp = detectScalarRedOp(SI->getValueOperand(), Ptr);
         if (AOp == RedOp::None)
             AOp = detectConditionalMinMax(SI, Ptr);
+        if (getenv("GRAPH_FRONTIER_DIAG") && AOp == RedOp::None && R != Region::G)
+        {
+            errs() << "[diag-store] reg=" << (int)R << " value: "
+                   << *SI->getValueOperand() << "  ptr: " << *Ptr << "\n";
+            if (auto *BO = dyn_cast<BinaryOperator>(SI->getValueOperand()))
+                for (Value *Op : BO->operands())
+                    if (auto *LI = dyn_cast<LoadInst>(Op))
+                        errs() << "[diag-load] " << *LI << "\n"
+                               << "[diag-load-ptr] "
+                               << *LI->getPointerOperand() << "\n";
+        }
         if (AOp != RedOp::None)
         {
             E.Kind = EffectKind::Uop;
@@ -1145,18 +1216,29 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                     }
                     else
                     {
-                        /* A second, distinct scalar slot in the same body: the
-                         * engine maps only ReducePtr to a per-partition partial,
-                         * so this slot has no partition storage and every
-                         * partition would write the same global (lost updates).
-                         * Record it as an unrecognized global effect so the
-                         * reduction class is refused. */
+                        /* A second, distinct scalar slot in the same body.
+                         * Composition R3 gives *every* recognized accumulator
+                         * its own per-partition partial, so a recognized
+                         * operator here is no longer a refusal; only an
+                         * unrecognized update stays one (nothing would combine
+                         * it, and every partition would write the same slot). */
+                        RedOp Op2 = detectScalarRedOp(SI->getValueOperand(), Ptr);
+                        if (Op2 == RedOp::None)
+                            Op2 = detectConditionalMinMax(SI, Ptr);
                         Effect E2;
-                        E2.Kind = EffectKind::Uf;
                         E2.Reg = Region::G;
                         E2.Base = Ptr;
                         E2.Index = nullptr;
                         E2.Origin = SI;
+                        if (Op2 != RedOp::None)
+                        {
+                            E2.Kind = EffectKind::Uop;
+                            E2.Op = Op2;
+                        }
+                        else
+                        {
+                            E2.Kind = EffectKind::Uf;
+                        }
                         Info.Effects.push_back(E2);
                     }
                 }
@@ -1543,6 +1625,14 @@ enum class Klass
     Reduction,
     DualOwner,
     Sequential,
+    /* Composition R3 (privatization): every mutating effect in the loop is a
+     * recognized U_⊕ update, but at least one written base has no single owner
+     * region — its subscript is a data value (`cnt[deg[u]] += 1`), or one base
+     * is written through both endpoint regions (`arr[u] += 1; arr[v] += 1`), or
+     * the body carries more than one scalar accumulator.  Each partition
+     * accumulates into its own copy of every written base and the emitted
+     * combine folds the copies with the operator's own combine. */
+    Privatized,
     /* Per-source reduction (gather): the body reduces into a scalar that the
      * driver preamble consumes once per source (`acc = 0; for each neighbor v {
      * acc = acc + f(v) } arr[u] = acc`).  Runs on the source-owned step with a
@@ -1584,12 +1674,351 @@ static bool crossPhaseDataDep(const NeighborLoopInfo &Info,
     return false;
 }
 
-static Klass classify(const NeighborLoopInfo &Info)
+/* ── composition R3: privatization ───────────────────────────────
+ *
+ * A loop whose every mutating effect is a recognized U_⊕ update is a pure
+ * accumulation: the final value of each written location is the operator
+ * applied over the updates, independent of the order in which the partitions
+ * apply them (that is what makes the operator family an *algebraic* combine in
+ * the first place).  Such a loop needs no owner: give every partition a private
+ * copy of each written base, let it accumulate there, and fold the copies with
+ * the operator's own combine.  That is the only mechanism that covers bases an
+ * owner table cannot key:
+ *
+ *   - a data-valued subscript (`cnt[deg[u]] += 1`): the destination house is a
+ *     data value, not a vertex id, so `CC_PART_OF` has nothing to key on;
+ *   - one base written through both endpoint regions (`arr[u] += 1;
+ *     arr[v] += 1`): no single region owns it, so no owner rewrite is sound;
+ *   - several scalar accumulators: the legacy engine maps exactly one slot.
+ *
+ * The proof obligations below are what keep this derived rather than a shape
+ * whitelist.  The loop is privatizable only when:
+ *   1. every mutating effect is Update with a recognized operator (an
+ *      unrecognized update has no combine to fold with);
+ *   2. no claim (first-wins), no frontier append/activate, no driver-preamble
+ *      store — those have per-source semantics a per-pair step cannot carry;
+ *   3. one operator per base (two operators on one base would fold with the
+ *      wrong one);
+ *   4. every load from a privatized base is a link in the *old-value* chain of
+ *      an update to that same base, and reaches at least one such update: a
+ *      load used as an index, a call argument, or a branch condition would
+ *      observe the real array, not this partition's copy, and the copy would
+ *      answer a different question;
+ *   5. the operator is order-independent for the element type — integer
+ *      arithmetic is exact modulo the type width, min/max are idempotent and
+ *      commutative, but float + and * re-associate, so they stay sequential
+ *      (the fold would not reproduce the serial rounding). */
+
+/* Element type of a scalar slot: the type its own loads use. */
+static Type *slotElemType(const Value *Ptr)
+{
+    Type *Ty = nullptr;
+    for (const User *U : Ptr->users())
+        if (const auto *LI = dyn_cast<LoadInst>(U))
+            Ty = LI->getType();
+    return Ty;
+}
+
+/* Element type, element count and the array value itself for a base.
+ *
+ * The front end lowers a declared array to an alloca whose *address* is kept
+ * in a ptr-typed global slot (`store ptr %cnt.data, ptr @cnt`) and re-loaded at
+ * every use, so the canonical base can be that slot rather than the array.
+ * Resolve it through the single pointer stored into it; two different stored
+ * arrays mean the base is not one array and the caller must refuse. */
+static bool arrayBaseInfo(const Value *Base, Type *&ElemTy, Value *&Count,
+                          Value *&ArrPtr, unsigned Depth = 0)
+{
+    LLVMContext &Ctx = Base->getContext();
+    if (Depth > 3)
+        return false;
+    if (const auto *AI = dyn_cast<AllocaInst>(Base))
+    {
+        ArrPtr = const_cast<AllocaInst *>(AI);
+        Type *T = AI->getAllocatedType();
+        if (auto *AT = dyn_cast<ArrayType>(T))
+        {
+            ElemTy = AT->getElementType();
+            Count = ConstantInt::get(Type::getInt64Ty(Ctx), AT->getNumElements());
+        }
+        else
+        {
+            ElemTy = T;
+            Count = const_cast<Value *>(AI->getArraySize());
+        }
+        return ElemTy->isIntegerTy() || ElemTy->isFloatingPointTy();
+    }
+    if (const auto *GV = dyn_cast<GlobalVariable>(Base))
+    {
+        if (auto *AT = dyn_cast<ArrayType>(GV->getValueType()))
+        {
+            ElemTy = AT->getElementType();
+            Count = ConstantInt::get(Type::getInt64Ty(Ctx), AT->getNumElements());
+            ArrPtr = const_cast<GlobalVariable *>(GV);
+            return ElemTy->isIntegerTy() || ElemTy->isFloatingPointTy();
+        }
+        if (GV->getValueType()->isPointerTy())
+        {
+            const Value *Stored = nullptr;
+            for (const User *U : GV->users())
+                if (const auto *SI = dyn_cast<StoreInst>(U))
+                {
+                    if (SI->getPointerOperand()->stripPointerCasts() != GV)
+                        continue;
+                    const Value *V = SI->getValueOperand();
+                    if (Stored && Stored != V)
+                        return false; /* two different arrays in one slot */
+                    Stored = V;
+                }
+            if (Stored && Stored != Base)
+                return arrayBaseInfo(Stored, ElemTy, Count, ArrPtr, Depth + 1);
+        }
+    }
+    return false;
+}
+
+static bool opIsOrderIndependent(RedOp Op, Type *ElemTy)
+{
+    if (!ElemTy)
+        return false;
+    if (ElemTy->isIntegerTy())
+        return true; /* exact modulo the width for every recognized op */
+    if (!ElemTy->isFloatingPointTy())
+        return false;
+    switch (Op)
+    {
+    case RedOp::FMinNum:
+    case RedOp::FMaxNum:
+    case RedOp::FMinProp:
+    case RedOp::FMaxProp:
+    case RedOp::Min:
+    case RedOp::Max:
+        return true; /* idempotent and commutative: fold == serial */
+    default:
+        return false; /* float +/* : re-associates, so refuse */
+    }
+}
+
+/* Every use of a load from `Base` must be a link in the update chain that ends
+ * in a store to `Base` (the old-value operand of an update), and at least one
+ * such store must be reached.  Anything else — an index, a call argument, a
+ * branch condition — reads the real array, which a private copy would not
+ * reproduce. */
+static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *L)
+{
+    if (LI->use_empty())
+        return false;
+    SmallPtrSet<const Value *, 8> Seen;
+    SmallVector<Instruction *, 8> Work;
+    Work.push_back(LI);
+    Seen.insert(LI);
+    bool ReachedStore = false;
+    while (!Work.empty())
+    {
+        Instruction *I = Work.pop_back_val();
+        for (const User *U : I->users())
+        {
+            const auto *UI = dyn_cast<Instruction>(U);
+            if (!UI || !L->contains(UI))
+                return false;
+            if (const auto *SI = dyn_cast<StoreInst>(UI))
+            {
+                const auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+                if (!GEP || canonicalArrayBase(GEP) != Base)
+                    return false;
+                ReachedStore = true;
+                continue;
+            }
+            if (isa<CallInst>(UI) || isa<LoadInst>(UI) || isa<GetElementPtrInst>(UI) ||
+                UI->isTerminator())
+                return false;
+            if (Seen.insert(UI).second)
+                Work.push_back(const_cast<Instruction *>(UI));
+        }
+    }
+    return ReachedStore;
+}
+
+/* All stores to `Base` inside the loop are recognized U_⊕ updates with `Op`,
+ * and every load is part of such an update. */
+static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *L)
+{
+    for (BasicBlock *BB : L->blocks())
+        for (Instruction &I : *BB)
+        {
+            if (auto *SI = dyn_cast<StoreInst>(&I))
+            {
+                const auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+                if (!GEP || canonicalArrayBase(GEP) != Base)
+                    continue;
+                RedOp AOp = detectScalarRedOp(SI->getValueOperand(), SI->getPointerOperand());
+                if (AOp == RedOp::None)
+                    AOp = detectConditionalMinMax(SI, SI->getPointerOperand());
+                if (AOp != Op)
+                    return false;
+            }
+            else if (auto *LI = dyn_cast<LoadInst>(&I))
+            {
+                const auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+                if (!GEP || canonicalArrayBase(GEP) != Base)
+                    continue;
+                if (!loadFeedsOnlyUpdates(LI, Base, L))
+                    return false;
+            }
+        }
+    return true;
+}
+
+/* Fill Info.Slots / Info.PrivArrays when the whole effect set is privatizable.
+ * Returns true when the proof holds (the caller decides whether the layout is
+ * *needed*: a single scalar slot with no array is the legacy Reduction path). */
+static const char *PrivReason = "";
+
+static bool privLayout(NeighborLoopInfo &Info)
+{
+    Loop *L = Info.NeighborLoop;
+    PrivReason = "";
+    if (!L)
+    {
+        PrivReason = "no loop";
+        return false;
+    }
+    if (Info.HasFrontierAppend || Info.HasFirstWins || Info.HasDriverClaim ||
+        !Info.DriverUClaims.empty() || !Info.DriverUStores.empty())
+    {
+        PrivReason = "claim/append/driver-preamble store";
+        return false;
+    }
+
+    Info.Slots.clear();
+    Info.PrivArrays.clear();
+
+    /* 1/2. Effect set: updates only. */
+    for (const Effect &E : Info.Effects)
+    {
+        if (E.Kind == EffectKind::R)
+            continue;
+        if (E.Kind != EffectKind::Uop || E.Op == RedOp::None || !E.Base)
+        {
+            PrivReason = "mutating effect is not a recognized update";
+            return false;
+        }
+        if (E.Reg != Region::G && E.Reg != Region::U && E.Reg != Region::V &&
+            E.Reg != Region::D)
+        {
+            PrivReason = "unknown index provenance";
+            return false;
+        }
+    }
+
+    /* 3. One operator per location; scalars become slots. */
+    for (const Effect &E : Info.Effects)
+    {
+        if (E.Kind != EffectKind::Uop || E.Reg != Region::G || !E.Base)
+            continue;
+        bool Found = false;
+        for (auto &S : Info.Slots)
+            if (S.Ptr == E.Base)
+            {
+                if (S.Op != E.Op)
+                    return false;
+                Found = true;
+            }
+        if (!Found)
+        {
+            Type *Ty = slotElemType(E.Base);
+            if (!opIsOrderIndependent(E.Op, Ty))
+            {
+                PrivReason = "operator re-associates for the element type";
+                return false;
+            }
+            NeighborLoopInfo::SlotInfo S;
+            S.Ptr = E.Base;
+            S.Op = E.Op;
+            S.ElemTy = Ty;
+            Info.Slots.push_back(S);
+        }
+    }
+
+    /* 4/5. Arrays: one operator per base, update-only uses, order-independent
+     * operator for the element type. */
+    SmallVector<const Value *, 4> Bases;
+    for (const Effect &E : Info.Effects)
+        if (E.Kind == EffectKind::Uop && E.Reg != Region::G && E.Base)
+        {
+            bool Have = false;
+            for (const Value *B : Bases)
+                if (B == E.Base)
+                    Have = true;
+            if (!Have)
+                Bases.push_back(E.Base);
+        }
+    for (const Value *B : Bases)
+    {
+        RedOp Op = RedOp::None;
+        for (const Effect &E : Info.Effects)
+            if (E.Kind == EffectKind::Uop && E.Base == B && E.Reg != Region::G)
+            {
+                if (Op == RedOp::None)
+                    Op = E.Op;
+                else if (Op != E.Op)
+                    return false;
+            }
+        Type *ElemTy = nullptr;
+        Value *Count = nullptr;
+        Value *ArrPtr = nullptr;
+        if (!arrayBaseInfo(B, ElemTy, Count, ArrPtr))
+        {
+            PrivReason = "array base is not a sized alloca/global";
+            return false;
+        }
+        if (!opIsOrderIndependent(Op, ElemTy))
+        {
+            PrivReason = "operator re-associates for the element type";
+            return false;
+        }
+        if (!baseIsPrivatizable(B, Op, L))
+        {
+            PrivReason = "a load from the base is not an update's own old value";
+            return false;
+        }
+        NeighborLoopInfo::ArrayInfo A;
+        A.Base = B;
+        A.Ptr = ArrPtr;
+        A.Op = Op;
+        A.ElemTy = ElemTy;
+        A.Count = Count;
+        Info.PrivArrays.push_back(A);
+    }
+    return true;
+}
+
+/* The layout is *needed* when the legacy owner/reduction paths cannot express
+ * the loop: more than one scalar accumulator, or any array base. */
+static bool privLayoutNeeded(const NeighborLoopInfo &Info)
+{
+    return !Info.PrivArrays.empty() || Info.Slots.size() > 1;
+}
+
+static Klass classify(NeighborLoopInfo &Info)
 {
     /* Semantic Mixed: incompatible ownership, carried same-array flow, or a
      * cross-phase data dependence.  DualOwner is E=EU∪EV with disjoint bases
      * and Dependence ⊆ Control/Membership. */
-    if (Info.HasDataWrite)
+    /* Composition R3: a loop whose every mutating effect is a recognized U_⊕
+     * update is a pure accumulation — no owner is needed, each partition can
+     * accumulate into its own copy (see privLayout).  Computed before the
+     * ownership decisions so a data-valued subscript (which has no owner at
+     * all) is not refused for lacking one. */
+    const bool PrivProvable = privLayout(Info);
+    const bool Priv = PrivProvable && privLayoutNeeded(Info);
+    if (getenv("GRAPH_FRONTIER_STATS") && PrivProvable && !Priv)
+        errs() << "[graph-frontier]   priv: layout provable but not needed "
+                  "(single scalar slot, no array) -> legacy paths\n";
+    if (getenv("GRAPH_FRONTIER_STATS") && !PrivProvable)
+        errs() << "[graph-frontier]   priv: refused -- " << PrivReason << "\n";
+
+    if (Info.HasDataWrite && !Priv)
         return Klass::Sequential;
 
     /* Composition F: a first-wins claim in the *driver* preamble
@@ -1673,9 +2102,16 @@ static Klass classify(const NeighborLoopInfo &Info)
         }
     }
 
-    if (MutD || MutTop)
+    if (MutTop)
         return Klass::Sequential;
-    if (HasCarriedOnMut)
+    if (MutD && !Priv)
+        return Klass::Sequential;
+    /* A carried read on the same base as a mutating effect is normally a
+     * sequential trigger.  When the whole effect set is privatizable the read
+     * is resolved differently: privLayout() only admits loads that are the
+     * old-value chain of an update to that same base, so the read is the
+     * partition's own accumulator, not a cross-partition observation. */
+    if (HasCarriedOnMut && !Priv)
         return Klass::Sequential;
 
     /* Composition A: round-separated in-place (same-base cross-endpoint
@@ -1717,7 +2153,15 @@ static Klass classify(const NeighborLoopInfo &Info)
                 return Klass::Sequential;
             return Klass::DualOwner;
         }
-        return Klass::Sequential; /* same-array U+V or data dep */
+        /* Same-array U+V or data dep.  Composition R3: when every write on the
+         * shared base is a recognized update, the loop is a pure accumulation
+         * and privatizing the base is sound without any region ownership. */
+        if (Priv)
+        {
+            Info.UsePrivLayout = true;
+            return Klass::Privatized;
+        }
+        return Klass::Sequential;
     }
 
     /* Composition I / P10: per-source reduction ("gather").  The scalar
@@ -1745,12 +2189,25 @@ static Klass classify(const NeighborLoopInfo &Info)
             return Klass::DestOwner;
         return Klass::Sequential;
     }
-    if (MutG && HasUopG && !HasUnrecognizedG && !MutU && !MutV)
+    /* The legacy reduction engine maps exactly one slot; a body with several
+     * accumulators or a written array belongs to the privatization path below,
+     * which gives every one of them its own per-partition storage. */
+    if (MutG && HasUopG && !HasUnrecognizedG && !MutU && !MutV &&
+        !privLayoutNeeded(Info))
         return Klass::Reduction;
     if (MutV && !MutU && !MutG)
         return Klass::DestOwner;
     if (MutU && !MutV && !MutG)
         return Klass::SourceOwner;
+    /* Composition R3: everything left is a pure accumulation the owner paths
+     * cannot express (several scalar accumulators, or a written base with no
+     * single owner region).  A non-privatizable effect set was refused above,
+     * so this only claims what privLayout proved. */
+    if (Priv)
+    {
+        Info.UsePrivLayout = true;
+        return Klass::Privatized;
+    }
     return Klass::Sequential;
 }
 
@@ -1764,6 +2221,8 @@ static const char *klassName(Klass K)
         return "dest-owner";
     case Klass::Reduction:
         return "reduction";
+    case Klass::Privatized:
+        return "privatized";
     case Klass::SourceReduction:
         return "source-red";
     case Klass::DualOwner:
@@ -2307,6 +2766,36 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
     if (Phase == PairPhase::All && Info.ReducePtr)
         Map[Info.ReducePtr] = RedPartial;
 
+    /* Composition R3: the reduction record IS this partition's private state.
+     * Scalar slots sit at fixed 8-byte offsets (the runtime pre-initializes
+     * them to the operator identity); an array slot holds a pointer to this
+     * partition's private copy of that base, published by the preheader's
+     * `autograph_priv_bind` call.  Redirecting every GEP on a privatized base
+     * to the private pointer is what makes the body's own load/op/store read
+     * and write the copy instead of the shared array. */
+    DenseMap<const Value *, Value *> PrivPtrForBase;
+    if (Phase == PairPhase::All && Info.UsePrivLayout)
+    {
+        auto RecFieldPtr = [&](uint64_t Off) -> Value *
+        { return WB.CreateGEP(Type::getInt8Ty(Ctx), ArgEnv,
+                              ConstantInt::get(I64, (int64_t)Off), "priv_field"); };
+        uint64_t Off = 0;
+        for (const auto &S : Info.Slots)
+        {
+            if (S.Ptr && S.ElemTy)
+                Map[S.Ptr] =
+                    WB.CreateBitCast(RecFieldPtr(Off), PointerType::get(S.ElemTy, 0));
+            Off += 8;
+        }
+        for (const auto &A : Info.PrivArrays)
+        {
+            Value *P = WB.CreateLoad(I8P, RecFieldPtr(Off), "priv_ptr");
+            if (A.Base)
+                PrivPtrForBase[A.Base] = P;
+            Off += 8;
+        }
+    }
+
     auto CloneValue = [&](Value *V, auto &&CloneValueRef) -> Value *
     {
         if (Map.count(V))
@@ -2331,6 +2820,16 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
                 }
                 Clone->setOperand(oi, M);
             }
+            /* Composition R3: a GEP on a privatized base is re-pointed at this
+             * partition's private copy, so the body's own load/op/store chain
+             * accumulates there instead of in the shared array. */
+            if (!PrivPtrForBase.empty())
+                if (auto *SGEP = dyn_cast<GetElementPtrInst>(I))
+                {
+                    Value *PP = PrivPtrForBase.lookup(canonicalArrayBase(SGEP));
+                    if (PP)
+                        Clone->setOperand(0, PP);
+                }
             /* Round-separation (composition A): a read on an in-place base
              * loads through the shadow snapshot, not the live array.  The
              * original GEP pointer is cloned normally (base = live array) so
@@ -2937,6 +3436,259 @@ static bool emitSourceReductionStep(const NeighborLoopInfo &Info)
     return true;
 }
 
+/* Composition R3: fill every partition's scalar partials in the record with
+ * their operator identity.  The array copies are initialized by
+ * `autograph_priv_bind`; the scalar fields are the compiler's own (the record
+ * layout is private to the emitted code), so they are filled here in one pass
+ * over the partitions. */
+static void emitPrivScalarInit(IRBuilder<> &EB, BasicBlock *Pre, Value *Rec,
+                               Value *PartCount, uint64_t RecSize,
+                               const NeighborLoopInfo &Info, LLVMContext &Ctx)
+{
+    Type *I8 = Type::getInt8Ty(Ctx);
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Instruction *Term = &*EB.GetInsertPoint();
+    BasicBlock *Cont = Pre->splitBasicBlock(Term, "priv_fill_cont");
+    Function *Fn = Pre->getParent();
+    BasicBlock *Cond = BasicBlock::Create(Ctx, "priv_fill_cond", Fn, Cont);
+    BasicBlock *Body = BasicBlock::Create(Ctx, "priv_fill_body", Fn, Cont);
+    Pre->getTerminator()->eraseFromParent();
+    IRBuilder<>(Pre).CreateBr(Cond);
+    IRBuilder<> CB(Cond);
+    PHINode *IV = CB.CreatePHI(I32, 2, "pi");
+    IV->addIncoming(ConstantInt::get(I32, 0), Pre);
+    CB.CreateCondBr(CB.CreateICmpSLT(IV, PartCount), Body, Cont);
+    IRBuilder<> BB(Body);
+    Value *Base = BB.CreateGEP(
+        I8, Rec,
+        BB.CreateMul(BB.CreateZExt(IV, I64), ConstantInt::get(I64, (int64_t)RecSize)));
+    for (unsigned i = 0; i < Info.Slots.size(); ++i)
+    {
+        const auto &S = Info.Slots[i];
+        Value *F = BB.CreateBitCast(
+            BB.CreateGEP(I8, Base, ConstantInt::get(I64, 8 * (int64_t)i)),
+            PointerType::get(S.ElemTy, 0));
+        BB.CreateStore(identityFor(S.Op, S.ElemTy), F);
+    }
+    Value *Nxt = BB.CreateAdd(IV, ConstantInt::get(I32, 1));
+    BB.CreateBr(Cond);
+    IV->addIncoming(Nxt, Body);
+    EB.SetInsertPoint(Cont->getTerminator());
+}
+
+/* Composition R3: fold one partition's private state into the real targets.
+ *
+ * `targets` is the compiler-built descriptor — one pointer per scalar slot,
+ * one pointer per privatized array, then one element count per array.  The
+ * runtime calls this once per partition in ascending partition order, so the
+ * fold order is deterministic.  Each merge reuses the same per-operator
+ * combiner the scalar reduction path uses (`*out = *out op *partial`), which is
+ * exactly the element-wise fold an array copy needs; the private copies start
+ * at the operator identity, so the running total starts from the array's own
+ * pre-round value. */
+static Function *emitPrivCombiner(LLVMContext &Ctx, Module *Mod,
+                                  const NeighborLoopInfo &Info)
+{
+    Type *I8 = Type::getInt8Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+    FunctionType *FT = FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P}, false);
+    Function *FN = Function::Create(FT, GlobalValue::InternalLinkage,
+                                    "sgpl_priv_combine", Mod);
+    BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", FN);
+    IRBuilder<> B(Entry);
+    Value *Rec = FN->getArg(0);
+    Value *Tgts = FN->getArg(1);
+    const unsigned NS = (unsigned)Info.Slots.size();
+    const unsigned NA = (unsigned)Info.PrivArrays.size();
+
+    for (unsigned i = 0; i < NS; ++i)
+    {
+        const auto &S = Info.Slots[i];
+        if (!S.ElemTy)
+        {
+            FN->eraseFromParent();
+            return nullptr;
+        }
+        Function *Cmb = emitRedCombiner(Ctx, Mod, S.Op, S.ElemTy);
+        Value *Part = B.CreateBitCast(
+            B.CreateGEP(I8, Rec, ConstantInt::get(I64, 8 * (int64_t)i)), I8P);
+        Value *Out = B.CreateLoad(I8P,
+                                  B.CreateGEP(I8P, Tgts, ConstantInt::get(I64, i)),
+                                  "slot_out");
+        B.CreateCall(Cmb, {Part, Out});
+    }
+
+    for (unsigned j = 0; j < NA; ++j)
+    {
+        const auto &A = Info.PrivArrays[j];
+        if (!A.ElemTy)
+        {
+            FN->eraseFromParent();
+            return nullptr;
+        }
+        Function *Cmb = emitRedCombiner(Ctx, Mod, A.Op, A.ElemTy);
+        Value *Priv = B.CreateLoad(
+            I8P, B.CreateGEP(I8P, Rec, ConstantInt::get(I64, 8 * (int64_t)(NS + j))),
+            "priv_copy");
+        Value *Arr = B.CreateLoad(
+            I8P, B.CreateGEP(I8P, Tgts, ConstantInt::get(I64, (int64_t)(NS + j))),
+            "arr_base");
+        Value *Cnt = B.CreateLoad(
+            I64, B.CreateGEP(I64, Tgts, ConstantInt::get(I64, (int64_t)(NS + NA + j))),
+            "arr_elems");
+        const uint64_t ESz =
+            std::max<uint64_t>(1, (A.ElemTy->getPrimitiveSizeInBits() + 7) / 8);
+
+        BasicBlock *Cond = BasicBlock::Create(Ctx, "fold_cond", FN);
+        BasicBlock *Body = BasicBlock::Create(Ctx, "fold_body", FN);
+        BasicBlock *Cont = BasicBlock::Create(Ctx, "fold_cont", FN);
+        B.CreateBr(Cond);
+
+        IRBuilder<> CB(Cond);
+        PHINode *K = CB.CreatePHI(I64, 2, "k");
+        K->addIncoming(ConstantInt::get(I64, 0), Entry);
+        CB.CreateCondBr(CB.CreateICmpSLT(K, Cnt), Body, Cont);
+
+        IRBuilder<> BB(Body);
+        Value *Off = BB.CreateMul(K, ConstantInt::get(I64, (int64_t)ESz));
+        Value *PE = BB.CreateGEP(I8, Priv, Off);
+        Value *AE = BB.CreateGEP(I8, Arr, Off);
+        BB.CreateCall(Cmb, {PE, AE});
+        Value *KN = BB.CreateAdd(K, ConstantInt::get(I64, 1));
+        BB.CreateBr(Cond);
+        K->addIncoming(KN, Body);
+
+        B.SetInsertPoint(Cont);
+    }
+
+    B.CreateRetVoid();
+    return FN;
+}
+
+/* Composition R3: emit the privatized step.  The record holds, per partition,
+ * one partial per scalar slot and one pointer per privatized array; the
+ * preheader binds the array copies (runtime-allocated, identity-initialized)
+ * into it and initializes the scalar partials to their operator identity.  The
+ * pair work function then runs the body against the record, and the combine
+ * folds every partition's copy into the live targets in partition order. */
+static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
+{
+    if (!Info.UsePrivLayout || (Info.Slots.empty() && Info.PrivArrays.empty()))
+        return false;
+    Function *WF = emitPairWorkFn(Info, PairPhase::All);
+    if (!WF)
+        return false;
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    LLVMContext &Ctx = F->getContext();
+    Module *Mod = F->getParent();
+    Type *I8 = Type::getInt8Ty(Ctx);
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+
+    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    if (!Pre || !Pre->getTerminator())
+        return false;
+    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
+    EB.SetInsertPoint(Pre->getTerminator());
+    Value *GraphArg = Info.GraphPtr;
+    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
+        if (GL->getPointerOperand())
+            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
+    FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+
+    const unsigned NS = (unsigned)Info.Slots.size();
+    const unsigned NA = (unsigned)Info.PrivArrays.size();
+    const uint64_t RecSize = 8 * (uint64_t)(NS + NA);
+
+    Value *RecBytes =
+        EB.CreateMul(EB.CreateZExt(PartCount, I64), ConstantInt::get(I64, (int64_t)RecSize));
+    AllocaInst *Rec = EB.CreateAlloca(I8, RecBytes, "priv_rec");
+
+    /* Scalar partials: every partition's slots start at the operator identity
+     * (the runtime initializes the array copies inside autograph_priv_bind). */
+    if (NS > 0)
+        emitPrivScalarInit(EB, Pre, Rec, PartCount, RecSize, Info, Ctx);
+
+    FunctionCallee Bind = Mod->getOrInsertFunction(
+        "autograph_priv_bind",
+        FunctionType::get(I32, {I8P, I8P, I64, I64, I64, I64, I64, I32}, false));
+    for (unsigned j = 0; j < NA; ++j)
+    {
+        const auto &A = Info.PrivArrays[j];
+        Value *Elems = EB.CreateZExtOrTrunc(A.Count, I64);
+        const uint64_t ESz =
+            std::max<uint64_t>(1, (A.ElemTy->getPrimitiveSizeInBits() + 7) / 8);
+        Constant *Ident = identityFor(A.Op, A.ElemTy);
+        uint64_t IdentBits = 0;
+        if (auto *CI = dyn_cast<ConstantInt>(Ident))
+            IdentBits = (uint64_t)CI->getZExtValue();
+        else if (auto *CF = dyn_cast<ConstantFP>(Ident))
+            IdentBits = (uint64_t)CF->getValueAPF().bitcastToAPInt().getZExtValue();
+        else if (Ident->isNullValue())
+            IdentBits = 0;
+        else
+            return false;
+        EB.CreateCall(Bind, {GraphArg, EB.CreateBitCast(Rec, I8P),
+                             ConstantInt::get(I64, (int64_t)RecSize),
+                             ConstantInt::get(I64, 8 * (int64_t)(NS + j)), Elems,
+                             ConstantInt::get(I64, (int64_t)ESz),
+                             ConstantInt::get(I64, (int64_t)IdentBits),
+                             ConstantInt::get(I32, (int32_t)j)});
+    }
+
+    /* Targets descriptor: [slot ptrs][array ptrs][array element counts]. */
+    const uint64_t TgtSize = 8 * (uint64_t)(NS + 2 * NA);
+    AllocaInst *Tgts = EB.CreateAlloca(I8, ConstantInt::get(I64, (int64_t)TgtSize),
+                                       "priv_targets");
+    auto TgtField = [&](unsigned Index) -> Value *
+    {
+        return EB.CreateGEP(I8, Tgts, ConstantInt::get(I64, 8 * (int64_t)Index));
+    };
+    for (unsigned i = 0; i < NS; ++i)
+    {
+        const auto &S = Info.Slots[i];
+        EB.CreateStore(EB.CreateBitCast(const_cast<Value *>(S.Ptr), I8P), TgtField(i));
+    }
+    for (unsigned j = 0; j < NA; ++j)
+    {
+        const auto &A = Info.PrivArrays[j];
+        EB.CreateStore(EB.CreateBitCast(A.Ptr, I8P), TgtField(NS + j));
+        EB.CreateStore(EB.CreateZExtOrTrunc(A.Count, I64), TgtField(NS + NA + j));
+    }
+
+    Function *Combiner = emitPrivCombiner(Ctx, Mod, Info);
+    if (!Combiner)
+        return false;
+
+    FunctionCallee Step = Mod->getOrInsertFunction(
+        "autograph_frontier_step_owner_red",
+        FunctionType::get(I32,
+                          {I8P, I8P, I32, I8P, I8P, I64, I8P, I8P, I8P, I8P, I32,
+                           I8P},
+                          false));
+    SmallVector<Value *, 12> StepArgs = {
+        GraphArg,
+        ConstantPointerNull::get(cast<PointerType>(I8P)),
+        ConstantInt::get(I32, 0),
+        EB.CreateBitCast(WF, I8P),
+        EB.CreateBitCast(Rec, I8P),
+        ConstantInt::get(I64, (int64_t)RecSize),
+        EB.CreateBitCast(Combiner, I8P),
+        EB.CreateBitCast(Tgts, I8P),
+        ConstantPointerNull::get(cast<PointerType>(I8P)),
+        ConstantPointerNull::get(cast<PointerType>(I8P)),
+        ConstantInt::get(I32, 0),
+        ConstantPointerNull::get(cast<PointerType>(I8P))};
+    EB.CreateCall(Step, StepArgs);
+    deactivateDriver(Info);
+    return true;
+}
+
 /* ── pass ──────────────────────────────────────────────────────── */
 
 /* Legacy shape blocklist.  Kept only for A/B testing
@@ -3138,6 +3890,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                     Emitted = emitDualCleanCut(Info);
                 else if (K == Klass::SourceReduction)
                     Emitted = emitSourceReductionStep(Info);
+                else if (K == Klass::Privatized)
+                    Emitted = emitPrivatizedStep(Info);
                 else
                     Emitted = emitCleanCutCallbackAndStep(Info, K == Klass::SourceOwner);
                 /* A refused emit falls through to the terminal sequential

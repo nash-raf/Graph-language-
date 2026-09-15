@@ -1,0 +1,47 @@
+// Composition R3 (privatization) at scale: a write whose subscript is a DATA
+// value (`cnt[deg[u]] += 1`).  The destination house is not a vertex id, so no
+// owner table can key it; the update is a recognized U_⊕ (`+`), so each
+// partition accumulates into its own copy of cnt and the combine folds the
+// copies.  `cnt1` is the discriminating probe: it must equal the number of
+// vertices with out-degree 1 (1335 on the g20k fixture read as directed), which
+// a per-partition copy that leaked or double-counted could not produce.
+// Expected: cntsum = number of arcs = 160000, cnt1 = 1335.
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int deg[n];
+int cnt[n];
+
+int i = 0;
+while (i < n) {
+    deg[i] = 0;
+    cnt[i] = 0;
+    i = i + 1;
+}
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        deg[u] = deg[u] + 1;
+    }
+}
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        cnt[deg[u]] = cnt[deg[u]] + 1;
+    }
+}
+
+int s = 0;
+i = 0;
+while (i < n) {
+    s = s + cnt[i];
+    i = i + 1;
+}
+
+print "cntsum";
+print s;
+print "cnt1";
+print cnt[1];

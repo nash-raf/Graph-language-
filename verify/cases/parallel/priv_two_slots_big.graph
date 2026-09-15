@@ -1,0 +1,27 @@
+// Composition R3 (privatization) at scale: two scalar accumulators in one
+// neighbour body.  The legacy reduction engine maps a single slot to a
+// per-partition partial; the second slot used to be a refusal.  Both slots now
+// get their own partial, and the emitted combine folds them per operator.
+// `b` is the discriminating value: it accumulates the neighbour id, so a lost
+// update shows as a short sum (and thread-count dependent), while `a` counts
+// arcs.  Expected on the g20k fixture read as directed (m=160000 arcs):
+//   a = 160000, b = sum of v over all arcs = 2068247825.
+graph G {
+    directed: true;
+    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+
+int a = 0;
+int b = 0;
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        a = a + 1;
+        b = b + v;
+    }
+}
+
+print "a";
+print a;
+print "b";
+print b;

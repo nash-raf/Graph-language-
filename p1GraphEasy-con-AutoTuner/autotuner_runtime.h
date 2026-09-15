@@ -89,6 +89,21 @@ typedef struct {
   uint8_t *scratch_shadow[4];
   int64_t scratch_shadow_bytes[4];
 
+  /* Composition R3: per-partition private copies for *privatized* in-loop
+   * updates.  When a base cannot be given a single owner region -- a
+   * data-valued subscript (`cnt[deg[u]] += 1`) or one base written through
+   * both endpoint regions (`arr[u] += 1; arr[v] += 1`) -- but every store to
+   * it is a recognized U_⊕ update, each partition accumulates into its own
+   * copy and the emitted combine folds the copies with the operator's own
+   * combine.  partition p's copy starts at
+   * priv_buf[s] + p * priv_stride[s], `priv_stride[s]` being
+   * elems * elem_bytes.  Slot-indexed (a step may privatize several bases);
+   * lazily sized and re-initialized to the operator identity on every bind,
+   * so a round in a driver loop does not pay an allocation. */
+  uint8_t *priv_buf[4];
+  int64_t priv_bytes[4];
+  int64_t priv_stride[4];
+
   /* Analytic per-op-class RD tiers (Phase 3): per directed insert
    * (N, h2, h3) for {scan, move, brow, struct}, computed by the compiler
    * from the edge file (mirrors analytic_rd.py).  Used to keep runtime-side

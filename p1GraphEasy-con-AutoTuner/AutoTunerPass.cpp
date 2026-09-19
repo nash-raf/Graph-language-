@@ -7,6 +7,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/ModRef.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -1904,6 +1905,15 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         M.getOrInsertFunction("autograph_profile_region_enter", profileEnterTy);
     FunctionCallee profileExitFn =
         M.getOrInsertFunction("autograph_profile_region_exit", profileExitTy);
+
+    // The profiler's state (g_profile_*, g_kernel_measured_ns) lives inside the
+    // runtime object, unreachable from this module, and is only touched with
+    // atomics.  Declaring that effect is what lets the loop classifier treat
+    // these calls as benign *by their declared memory effects* rather than by
+    // their name (pdg.cpp call barrier).
+    for (FunctionCallee FC : {profileEnterFn, profileExitFn})
+        if (Function *PF = dyn_cast<Function>(FC.getCallee()))
+            PF->setMemoryEffects(MemoryEffects::inaccessibleMemOnly());
 
     int injected = 0;
     const int forcedLayout = forcedLayoutFromEnv();

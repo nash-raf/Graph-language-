@@ -7,10 +7,14 @@
 #include <fstream> // for DOT output
 #include <iostream>
 #include "llvm/Analysis/DependenceAnalysis.h"
+#include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -610,11 +614,98 @@ static bool loopHasTerminatorMetadata(const llvm::Loop *L, llvm::StringRef Name)
            L->getHeader()->getTerminator()->getMetadata(Name);
 }
 
+// Positive certificate for a DOALL verdict -- LLVM's own loop memory-dependence
+// gate, the analysis behind vectorization.  The call barrier below proves
+// "not parallel" from the callee's declared memory effects; this proves
+// "parallel" by the same standard LLVM itself uses: every access is
+// analyzable, there is no dependence cycle, no convergent operation in the
+// loop, and no pointer check left to perform.  Fail closed -- when the
+// analysis *refuses*, the loop stays sequential.
+//
+// LAA bounds every access through LLVM's object model.  DSL arrays are heap
+// pointers held in globals, so the base object of an access is a loaded
+// pointer with no identifiable extent: LAA bails out structurally
+// ("cannot identify array bounds"), and its report then lists no dependences
+// and no checks at all.  That is blindness, not evidence, so the analysis is
+// asked only about loops whose bases are statically bounded storage
+// (alloca/global/argument); elsewhere it returns NoOpinion and the PDG proof
+// stands -- the sequential side stays fail-closed through the call barrier
+// and the unknown-carrier guards.
+//   SGPL_PDG_NO_LAA_CERT=1  -- disable the certificate (A/B only)
+//   SGPL_PDG_LAA_DEBUG=1    -- log the verdict for every DOALL candidate
+enum class LaaVerdict
+{
+    Certified,
+    Refused,
+    NoOpinion,
+};
+
+static LaaVerdict laaCertifiesDoall(llvm::Loop *L, llvm::Function &F,
+                                    llvm::ScalarEvolution &SE, llvm::AAResults *AA,
+                                    llvm::DominatorTree *DT, llvm::LoopInfo *LI,
+                                    std::string &Why)
+{
+    using namespace llvm;
+    Why.clear();
+    if (!AA || !DT || !LI)
+    {
+        Why = "no AA/DominatorTree/LoopInfo context";
+        return LaaVerdict::NoOpinion;
+    }
+    if (!L->isLoopSimplifyForm())
+    {
+        Why = "loop not in loop-simplify form";
+        return LaaVerdict::NoOpinion;
+    }
+    for (BasicBlock *BB : L->blocks())
+        for (Instruction &I : *BB)
+        {
+            Value *Ptr = getLoadStorePointerOperand(&I);
+            if (!Ptr)
+                continue;
+            Value *Base = getUnderlyingObject(Ptr);
+            if (isa<LoadInst>(Base) || isa<CallBase>(Base))
+            {
+                Why = "opaque base pointer (LAA cannot bound it)";
+                return LaaVerdict::NoOpinion;
+            }
+        }
+    TargetTransformInfo TTI(F.getParent()->getDataLayout());
+    TargetLibraryInfoImpl TLII(Triple(F.getParent()->getTargetTriple()));
+    TargetLibraryInfo TLI(TLII);
+    LoopAccessInfo LAI(L, &SE, &TTI, &TLI, AA, DT, LI);
+    auto refuse = [&](StringRef R)
+    {
+        Why = R.str();
+        if (::getenv("SGPL_PDG_LAA_DEBUG"))
+        {
+            std::cerr << "[pdg-laa]   exiting_blk=" << (L->getExitingBlock() ? 1 : 0)
+                      << " unique_exit=" << (L->getUniqueExitBlock() ? 1 : 0)
+                      << " back_edges=" << L->getNumBackEdges()
+                      << " loads=" << LAI.getNumLoads()
+                      << " stores=" << LAI.getNumStores() << "\n";
+            llvm::raw_os_ostream LAAOS(std::cerr);
+            LAI.print(LAAOS);
+            LAAOS.flush();
+        }
+        return LaaVerdict::Refused;
+    };
+    if (LAI.hasConvergentOp())
+        return refuse("convergent operation in the loop");
+    if (!LAI.canVectorizeMemory())
+        return refuse("LoopAccessAnalysis: memory dependences not certifiable");
+    if (LAI.getNumRuntimePointerChecks() != 0)
+        return refuse("certificate would need runtime pointer checks");
+    return LaaVerdict::Certified;
+}
+
 static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                                           llvm::DependenceInfo &DI,
                                           llvm::ScalarEvolution &SE,
                                           llvm::dependencyGraph &G,
-                                          llvm::AAResults *AA = nullptr)
+                                          llvm::AAResults *AA = nullptr,
+                                          llvm::DominatorTree *DT = nullptr,
+                                          llvm::LoopInfo *LI = nullptr)
 {
     using namespace llvm;
     SmallVector<Instruction *, 32> memInsts;
@@ -700,45 +791,63 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // The pair analysis below only sees loads and stores.  A call is a memory
     // effect it cannot relate, so a loop containing one can never be certified
     // DOALL/DOACROSS on the strength of those pairs alone: the call may write
-    // exactly the data the pairs were shown independent of.  Two exemptions:
-    //   - functions that cannot access memory at all (`readnone`),
-    //   - the profiler / clock helpers, whose only writes are the profiler's
-    //     own globals (verified in autotuner_runtime.c: g_profile_*,
-    //     g_kernel_measured_ns; sgpl_now_ns only calls clock_gettime) and the
-    //     llvm.lifetime/assume/dbg intrinsics.
-    // Everything else -- neighbour iterators, bitmap mutations, graph queries,
-    // engine steps -- barriers the loop.  That is what lets the PDG *derive*
-    // the SEQUENTIAL verdict for traversal nests instead of having the
-    // frontier pass assert it with sgpl.frontier.nested.sequential.
+    // exactly the data the pairs were shown independent of.  A call is benign
+    // only when its *declared memory effects* say it cannot touch loop data:
+    //   - `memory(none)` / `memory(inaccessiblemem: readwrite)` -- touches no
+    //     program memory at all (the clock, and the profiler's counters, which
+    //     the runtime touches with atomics only, verified in
+    //     autotuner_runtime.c),
+    //   - the llvm.lifetime/assume/dbg intrinsics (compiler scaffolding).
+    // The attributes are attached where those functions are declared
+    // (AutoTunerPass.cpp, parallel_loop_outline.cpp), so the rule is driven by
+    // what the callee promises, not by its name: a new runtime helper gets the
+    // same treatment by stating its effects.  Everything else -- neighbour
+    // iterators, bitmap mutations, graph queries, engine steps, indirect calls
+    // -- barriers the loop.  That is what lets the PDG *derive* the SEQUENTIAL
+    // verdict for traversal nests instead of having the frontier pass assert it
+    // with sgpl.frontier.nested.sequential.
     // Kill switch SGPL_NO_PDG_CALL_BARRIER=1 (A/B only).
     if (!::getenv("SGPL_NO_PDG_CALL_BARRIER"))
     {
         StringRef BarrierCall;
+        SmallVector<std::string, 8> BenignCalls;
         for (BasicBlock *BB : L->blocks())
-        {
-            if (!BarrierCall.empty())
-                break;
             for (Instruction &I : *BB)
             {
                 auto *CB = dyn_cast<CallBase>(&I);
-                if (!CB || CB->doesNotAccessMemory())
+                if (!CB)
                     continue;
                 const Function *CF = CB->getCalledFunction();
+                if (CB->doesNotAccessMemory() || CB->onlyAccessesInaccessibleMemory())
+                {
+                    if (::getenv("SGPL_PDG_CALL_EFFECTS_DEBUG"))
+                        BenignCalls.push_back(CF ? CF->getName().str() : "<indirect>");
+                    continue;
+                }
                 if (!CF)
                 {
-                    BarrierCall = "<indirect call>";
-                    break;
+                    if (BarrierCall.empty())
+                        BarrierCall = "<indirect call>";
+                    continue;
                 }
                 StringRef N = CF->getName();
-                if (N.starts_with("autograph_profile_") || N == "sgpl_now_ns")
-                    continue;
                 if (CF->isIntrinsic() &&
                     (N.starts_with("llvm.lifetime") || N.starts_with("llvm.assume") ||
                      N.starts_with("llvm.dbg")))
                     continue;
-                BarrierCall = N;
-                break;
+                if (BarrierCall.empty())
+                    BarrierCall = N;
             }
+        if (::getenv("SGPL_PDG_CALL_EFFECTS_DEBUG"))
+        {
+            std::cerr << "[pdg-calls] hdr=" << L->getHeader()->getName().str()
+                      << " depth=" << L->getLoopDepth() << " benign=[";
+            for (size_t i = 0; i < BenignCalls.size(); ++i)
+                std::cerr << (i ? "," : "") << BenignCalls[i];
+            std::cerr << "]";
+            if (!BarrierCall.empty())
+                std::cerr << " barrier=" << BarrierCall.str();
+            std::cerr << "\n";
         }
         if (!BarrierCall.empty())
         {
@@ -1259,19 +1368,22 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // }
 
     // final classification
-    // The frontier pass asserts "this nest shares traversal state, keep it
+    // The frontier pass marks "this nest shares traversal state, keep it
     // serial" with a metadata marker, because the dependence analysis used to
-    // be blind to calls that carry that state.  With the call barrier above the
-    // analysis reaches the same verdict from the real dependence, so the veto
-    // is now a belt-and-braces default rather than the only line of defence:
-    // SGPL_NO_FRONTIER_MARKER=1 drops the assertion and lets the certificates
-    // decide (the marker is still attached and still gates the task extractor
-    // in reconstructParallelIR -- this switch only removes the classification
-    // veto).  Default keeps the veto: until the call-effect table replaces the
-    // name-based rules, failing closed is the safe posture.
+    // be blind to calls that carry that state.  The call barrier above now
+    // derives that same verdict from the callee's declared memory effects, so
+    // the marker is no longer the defence -- the certificates are.  Derived
+    // verdicts are the default; SGPL_FORCE_FRONTIER_MARKER=1 restores the veto
+    // for A/B comparisons, SGPL_NO_FRONTIER_MARKER=1 stays an explicit
+    // "no veto" (the marker is still attached and still gates the task
+    // extractor in reconstructParallelIR -- these switches only affect the
+    // classification veto).
     const bool IsNestedFrontierLoop =
         !::getenv("SGPL_NO_FRONTIER_MARKER") &&
+        ::getenv("SGPL_FORCE_FRONTIER_MARKER") &&
         loopHasTerminatorMetadata(L, "sgpl.frontier.nested.sequential");
+    if (IsNestedFrontierLoop)
+        logLoopClassify("frontier marker veto (SGPL_FORCE_FRONTIER_MARKER)");
 
     std::string classification;
     if (IsNestedFrontierLoop)
@@ -1294,6 +1406,40 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     {
         // Includes memory-carried DOACROSS and store-forwarded scalar PHIs.
         classification = "DOACROSS";
+    }
+
+    // A DOALL verdict is a claim that every iteration is independent.  The
+    // dependence walk above is one prover; LLVM's own loop memory-dependence
+    // gate is the second, and a DOALL nobody can certify is not a DOALL.  The
+    // certificate is fail-closed, so new address shapes stay sequential until
+    // they earn the verdict.
+    if (classification == "DOALL" && !::getenv("SGPL_PDG_NO_LAA_CERT"))
+    {
+        std::string Why;
+        const LaaVerdict Verdict = laaCertifiesDoall(L, F, SE, AA, DT, LI, Why);
+        if (::getenv("SGPL_PDG_LAA_DEBUG"))
+        {
+            std::cerr << "[pdg-laa] hdr=" << L->getHeader()->getName().str()
+                      << " depth=" << L->getLoopDepth();
+            switch (Verdict)
+            {
+            case LaaVerdict::Certified:
+                std::cerr << " certified";
+                break;
+            case LaaVerdict::Refused:
+                std::cerr << " refused: " << Why;
+                break;
+            case LaaVerdict::NoOpinion:
+                std::cerr << " no opinion: " << Why;
+                break;
+            }
+            std::cerr << "\n";
+        }
+        if (Verdict == LaaVerdict::Refused)
+        {
+            classification = "SEQUENTIAL";
+            logLoopClassify(("LAA refused the DOALL certificate: " + Why));
+        }
     }
     // llvm::nulls()() << "\n\n\nLoop header ";
     // llvm::nulls()() << " classified as " << classification << "\n";
@@ -1703,7 +1849,7 @@ void buildGraph(llvm::Function &F,
     for (auto LIIt = LI.begin(), LIE = LI.end(); LIIt != LIE; ++LIIt)
     {
         llvm::Loop *TopL = *LIIt;
-        analyzeAndAnnotateLoop(TopL, F, DI, SE, G, &AA);
+        analyzeAndAnnotateLoop(TopL, F, DI, SE, G, &AA, &DT, &LI);
         // recurse into subloops
         llvm::SmallVector<llvm::Loop *, 8> worklist;
         for (llvm::Loop *SL : TopL->getSubLoops())
@@ -1711,7 +1857,7 @@ void buildGraph(llvm::Function &F,
         while (!worklist.empty())
         {
             llvm::Loop *L = worklist.pop_back_val();
-            analyzeAndAnnotateLoop(L, F, DI, SE, G, &AA);
+            analyzeAndAnnotateLoop(L, F, DI, SE, G, &AA, &DT, &LI);
             for (llvm::Loop *SL : L->getSubLoops())
                 worklist.push_back(SL);
         }

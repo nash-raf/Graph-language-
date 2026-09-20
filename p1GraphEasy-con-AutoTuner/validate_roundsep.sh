@@ -57,8 +57,8 @@ while IFS=: read -r MODE GRAPH EDGES; do
     FAILURES=$((FAILURES + 1))
     continue
   fi
-  if ! grep -q 'class=dest-owner' "$TMP/$MODE.log"; then
-    echo "FAIL $MODE: not classified dest-owner (expected owner step + shadow)"
+  if ! grep -q 'shadow=[1-9]' "$TMP/$MODE.log" || grep -q 'refused' "$TMP/$MODE.log"; then
+    echo "FAIL $MODE: shadowed round-separation not lowered"
     grep 'graph-frontier' "$TMP/$MODE.log" | head -5
     FAILURES=$((FAILURES + 1))
     continue

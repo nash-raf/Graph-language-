@@ -282,38 +282,8 @@ int32_t autograph_motif_frontier_step(void *graph_ptr,
                                       int32_t *prop1,
                                       int32_t scalar);
 
-/* ── Generic owner-computes frontier step (Graptor CleanCut model) ──
- *
- * Race-free for any per-pair work: destinations are partitioned into
- * contiguous home ranges (owner-computes rule); each partition is executed
- * serially on one worker, so exactly one thread ever writes a destination's
- * property slots.  The per-pair callback does the actual accumulation or
- * relaxation; it may WRITE destination-indexed slots and READ read-only
- * (previous-round) arrays.  No atomics required; exact, deterministic.
- *
- *   work_fn(source, destination, destination_index, env)
- *       - destination_index: 0-based position of `destination` in the
- *         partition's owned range (not needed by most kernels)
- *   membership: when non-NULL, an in-neighbor `u` is only visited if it is in
- *       the frontier (sparse-round behavior); NULL visits all in-neighbors.
- *   source_out: optional output set; if non-NULL, every (source, dest) pair
- *       visited appends source to the owning lane and appends to next_frontier
- *       exactly once per destination via env->next (an AutoFrontierSet*).
- *
- * Returns the number of destinations appended to next_frontier.
- */
 typedef void (*sgpl_frontier_pair_fn)(int32_t source, int32_t destination,
                                       int64_t destination_index, void *env);
-
-int32_t autograph_frontier_step_owner(void *graph_ptr,
-                                      const int32_t *frontier,
-                                      int32_t frontier_size,
-                                      sgpl_frontier_pair_fn work_fn,
-                                      void *work_env,
-                                      const uint8_t *membership,
-                                      int32_t *next_frontier,
-                                      int32_t initial_next_size,
-                                      int32_t *dest_seen);
 
 /* Graptor CleanCut support (owner-computes rule).
  *
@@ -331,74 +301,16 @@ int32_t autograph_home_partition_of(void *graph_ptr, int32_t destination);
 /* Debug: dump the built CleanCut partition structures to stderr. */
 void autograph_debug_dump_clean_cut(void *graph_ptr);
 
-/* Race-free push traversal under CleanCut partitions: each partition is
- * executed serially by one worker; for each source row, if the source is in
- * the frontier (membership non-NULL) then work_fn(source, dest, ...) is called
- * for every dest in the partition.  All dests are home-owned by this worker,
- * hence no races without atomics. */
-int32_t autograph_frontier_step_owner_push(void *graph_ptr,
-                                           const int32_t *frontier,
-                                           int32_t frontier_size,
-                                           sgpl_frontier_pair_fn work_fn,
-                                           void *work_env,
-                                           const uint8_t *membership,
-                                           int32_t *next_frontier,
-                                           int32_t initial_next_size,
-                                           int32_t *dest_seen);
 
-/* Source-owned variant: partition p owns the SOURCE range [p*n/P,(p+1)*n/P),
- * so work_fn pairs are dispatched with each source's own CSR row.  Used for
- * loops whose write target is indexed by the source vertex (owner-computes on
- * the source side).  Same ABI and frontier behaviour as the push variant. */
-int32_t autograph_frontier_step_owner_source(void *graph_ptr,
-                                             const int32_t *frontier,
-                                             int32_t frontier_size,
-                                             sgpl_frontier_pair_fn work_fn,
-                                             void *work_env,
-                                             const uint8_t *membership,
-                                             int32_t *next_frontier,
-                                             int32_t initial_next_size,
-                                             int32_t *dest_seen);
 
-/* Per-source reduction (gather) step: the work function accumulates into this
- * partition's private partial (work_env + p * partial_bytes), and finish_fn(u,
- * partial) is called exactly once per source, after the last of its pairs, to
- * turn the partial into that source's result and reset it to the identity.
- * Sources are contiguous inside a partition's pair slice (CSR source-major
- * order), so the hook is a source-change test.  All partitions start with the
- * identity, so a source whose pairs are all filtered out by membership still
- * gets a finish call only if it had at least one pair. */
-typedef void (*sgpl_frontier_finish_fn)(int32_t source, void *partial);
 
-int32_t autograph_frontier_step_owner_source_red(
-    void *graph_ptr, const int32_t *frontier, int32_t frontier_size,
-    sgpl_frontier_pair_fn work_fn, sgpl_frontier_finish_fn finish_fn,
-    void *work_env, int64_t partial_bytes, const uint8_t *membership,
-    int32_t *next_frontier, int32_t initial_next_size, int32_t *dest_seen);
-
-/* Reduction step with per-partition partials (owner-computes, destination-
- * owned): every partition accumulates its pair work into its own partial at
- * work_env + p * partial_bytes; once all partitions finish, combine_fn folds
- * each partial into `out` in ascending partition order.  The zeroing of the
- * partials and the allocation are the caller's (compiler pass) job. */
+/* Pair-wise folder used by reduction-style callbacks (partial, out). */
 typedef void (*sgpl_frontier_combine_fn)(const void *partial, void *out);
-int32_t autograph_frontier_step_owner_red(void *graph_ptr,
-                                          const int32_t *frontier,
-                                          int32_t frontier_size,
-                                          sgpl_frontier_pair_fn work_fn,
-                                          void *work_env,
-                                          int64_t partial_bytes,
-                                          sgpl_frontier_combine_fn combine_fn,
-                                          void *out,
-                                          const uint8_t *membership,
-                                          int32_t *next_frontier,
-                                          int32_t initial_next_size,
-                                          int32_t *dest_seen);
 
 /* Frontier envelope helpers for CleanCut (array- and set-based BFS/SSSP).
  * dest_seen is zeroed each prepare; membership is filled from the current
- * frontier.  work_fn requests an append by storing 1 into dest_seen[v]; the
- * step then packs those destinations into next_frontier. */
+ * frontier.  The activation primitive claims dest_seen and packs the
+ * transitioned destinations into next_frontier. */
 int32_t *autograph_scratch_dest_seen(void *graph_ptr);
 int32_t *autograph_scratch_next_frontier(void *graph_ptr);
 uint8_t *autograph_scratch_membership(void *graph_ptr);
@@ -439,15 +351,193 @@ void convert_bcsr_to_csr(int64_t n, int32_t nblocks, int32_t block_size,
                          const int32_t *bcsr_brow, const int32_t *bcsr_bcol,
                          int64_t **out_rp, int32_t **out_ci, int64_t *out_m);
 
-#ifdef __cplusplus
-}
-#endif
+/* -- Composable runtime execution (R1) ------------------------------------
+ *
+ * The compiler-side effect expression is interpreted into a flat execution
+ * context plus an array of executable operation descriptors.  The runtime
+ * contains no expression tree: the executor traverses the selected domain and
+ * dispatches lifecycle events to the operations that declare the matching
+ * capability.  Activation, reduction, source finalization, snapshots and
+ * claims are operations, never engine behavior. */
 
-#endif /* AUTOTUNER_RUNTIME_H */
+/* Traversal mechanisms (execution mechanisms, not strategy classes). */
+enum {
+  SGPL_TRAVERSE_OWNER_U = 0, /* source-owned flat slices (src_pairs) */
+  SGPL_TRAVERSE_OWNER_V = 1  /* destination-owned rows (push_rp/ci/indir) */
+};
+
+/* Domain kinds (metadata; the Frontier gate itself is `membership`). */
+enum {
+  SGPL_DOMAIN_ALL_VERTICES = 0,
+  SGPL_DOMAIN_FRONTIER = 1,
+  SGPL_DOMAIN_NEIGHBORS = 2
+};
+
+/* Operation capabilities: which lifecycle callbacks the operation implements. */
+enum {
+  SGPL_OP_PAIR = 1u << 0,
+  SGPL_OP_SOURCE_BEGIN = 1u << 1,
+  SGPL_OP_SOURCE_END = 1u << 2,
+  SGPL_OP_PARTITION_BEGIN = 1u << 3,
+  SGPL_OP_PARTITION_END = 1u << 4,
+  SGPL_OP_ROUND_BEGIN = 1u << 5,
+  SGPL_OP_ROUND_END = 1u << 6,
+  SGPL_OP_COMBINE = 1u << 7,
+  SGPL_OP_SNAPSHOT = 1u << 8 /* RoundBegin -> Snapshot(A) -> CrossRead(A) */
+};
+
+/* Resource classes. */
+enum {
+  SGPL_RES_MEMBERSHIP = 1u << 0,
+  SGPL_RES_DEST_SEEN = 1u << 1,
+  SGPL_RES_NEXT_FRONTIER = 1u << 2,
+  SGPL_RES_SNAPSHOT = 1u << 3,
+  SGPL_RES_PARTIAL = 1u << 4,
+  SGPL_RES_PRIVATE = 1u << 5,
+  SGPL_RES_CLAIM = 1u << 6
+};
+
+/* Resource access modes. */
+enum {
+  SGPL_ACCESS_READ = 0,
+  SGPL_ACCESS_WRITE = 1,
+  SGPL_ACCESS_ATOMIC_WRITE = 2,
+  SGPL_ACCESS_PRIVATE = 3
+};
+
+typedef struct sgpl_res_access {
+  uint32_t resource; /* SGPL_RES_* */
+  uint8_t mode;      /* SGPL_ACCESS_* */
+} sgpl_res_access;
+
+struct sgpl_exec_ctx;
+
+/* One executable operation.  This is an execution ABI object, not an
+ * expression: no child pointers, no SEQ/PAR structure.
+ *
+ * Hot callbacks (`pair`, `combine`) receive the operation's `state` directly;
+ * the worker-local environment is derived inside the callback (for compiler-
+ * emitted code the callback IS the cloned work function, so this keeps the
+ * per-pair call depth at one indirect call).  Lifecycle callbacks receive the
+ * descriptor so they can reach both state and capabilities. */
+typedef struct sgpl_runtime_op {
+  uint64_t capabilities;            /* SGPL_OP_* */
+  uint32_t resource_count;
+  const sgpl_res_access *resources; /* borrowed from the compiler */
+  void *state;
+
+  void (*round_begin)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *);
+  /* Snapshot(A): published once per round, after the round-begin ops and before
+   * any traversal.  The callback produces the snapshot resource (e.g. via
+   * autograph_snapshot_publish) into the operation's state. */
+  void (*snapshot)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *);
+  void (*round_end)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *);
+  void (*partition_begin)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *,
+                          int32_t partition_id);
+  void (*source_begin)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *,
+                       int32_t u);
+  void (*pair)(void *state, struct sgpl_exec_ctx *, int32_t u, int32_t v);
+  void (*source_end)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *,
+                     int32_t u);
+  void (*partition_end)(struct sgpl_runtime_op *, struct sgpl_exec_ctx *,
+                        int32_t partition_id);
+  void (*combine)(void *state, struct sgpl_exec_ctx *);
+} sgpl_runtime_op;
+
+/* Flat execution context for one stage.  Round resources (membership,
+ * dest_seen, next_frontier, append head, round state) are shared by all stages
+ * of one round; the compiler owns their lifetime. */
+typedef struct sgpl_exec_ctx {
+  void *graph;
+  uint64_t round_id;
+  int32_t domain_kind;    /* SGPL_DOMAIN_* */
+  int32_t traversal_kind; /* SGPL_TRAVERSE_* */
+  const uint8_t *membership;
+  int32_t *dest_seen;
+  int32_t *next_frontier;
+  int32_t initial_next_size;
+  int32_t *append_head; /* atomic counter written by activation ops */
+  void *round_state;    /* snapshot/envelope state owned by the round */
+  struct sgpl_runtime_op *ops;
+  uint32_t op_count;
+  void *partition_base; /* per-partition partial array base (combine) */
+  int64_t partition_stride;
+  void *partition_state; /* current partition slot, set by the executor */
+  /* Source-scoped claim channel (R7): the executor zeroes this at every source
+   * change before dispatching source_begin; a SourceBegin op (claim) stores its
+   * per-source result here and pair callbacks observe it. */
+  void *source_state;
+  void *env;
+  int32_t next_size;       /* out: initial_next_size + appended */
+  int32_t run_round_begin; /* owned by the first stage of a round */
+  int32_t run_round_end;   /* owned by the last stage of a round */
+} sgpl_exec_ctx;
+
+/* Execute one stage: traverse the selected domain and dispatch the declared
+ * lifecycle events to the operations.  Returns the next frontier size. */
+int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx);
+
+/* Activation primitive: claim `dest_seen[v]` (0 -> 1, atomic) and, on the
+ * transition, append v to next_frontier under the atomic head.  Returns 1 when
+ * v was appended.  This is what an A+ operation's pair callback calls; the
+ * executor itself never activates and never appends. */
+int32_t autograph_frontier_activate(sgpl_exec_ctx *ctx, int32_t v);
+
+/* Fork/join for incompatible parallel children.  `owner` is the enclosing
+ * (owning) round context carrying the round lifecycle ops and flags; `a` and
+ * `b` are non-owning child contexts executed concurrently on two host threads
+ * with a join barrier.  Children must not carry run_round_begin/run_round_end
+ * (abort otherwise).  Recursion: a nested Par subtree is realized by calling
+ * fork/join again (from a helper the compiler emits); the nested call passes an
+ * owner copy whose run_round_begin/run_round_end are false but which shares the
+ * top owner's round resources (membership/dest_seen/next_frontier/append_head),
+ * so round lifecycle runs exactly once per round.  Children whose traversal is
+ * denied budget still make progress serially on their own thread (the budget
+ * allocator never blocks), at any depth. */
+int32_t autograph_frontier_fork_join(void *graph_ptr, sgpl_exec_ctx *owner,
+                                     sgpl_exec_ctx *a, sgpl_exec_ctx *b);
+
+/* -- layout-free construction ABI for compiler-emitted expressions --------
+ * The compiler builds operation descriptors and execution contexts through
+ * these helpers without knowing the C struct layouts.  Ownership:
+ * autograph_exec_op_create allocates one descriptor; autograph_exec_ctx_create
+ * consumes the descriptors (copies them into a contiguous array and frees the
+ * originals) and allocates the context; autograph_exec_ctx_destroy frees both.
+ * autograph_exec_op_state / autograph_exec_partition_state are the callback-
+ * side accessors (avoiding layout knowledge in emitted code). */
+void *autograph_exec_op_state(sgpl_runtime_op *op);
+void *autograph_exec_partition_state(sgpl_exec_ctx *ctx);
+void *autograph_exec_ctx_graph(sgpl_exec_ctx *ctx);
+void autograph_exec_ctx_own_round(sgpl_exec_ctx *ctx, int32_t begin, int32_t end);
+
+sgpl_runtime_op *autograph_exec_op_create(
+    uint64_t capabilities, void *state,
+    void (*pair_fn)(void *state, sgpl_exec_ctx *, int32_t, int32_t),
+    void (*combine_fn)(void *state, sgpl_exec_ctx *),
+    void (*source_begin_fn)(sgpl_runtime_op *, sgpl_exec_ctx *, int32_t),
+    void (*source_end_fn)(sgpl_runtime_op *, sgpl_exec_ctx *, int32_t),
+    void (*snapshot_fn)(sgpl_runtime_op *, sgpl_exec_ctx *),
+    const sgpl_res_access *resources, uint32_t resource_count);
+
+sgpl_exec_ctx *autograph_exec_ctx_create(
+    void *graph, int32_t traversal_kind, int32_t domain_kind,
+    const uint8_t *membership, int32_t *dest_seen, int32_t *next_frontier,
+    int32_t initial_next_size, int32_t *append_head, void *partition_base,
+    int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count);
+
+void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx);
+
+/* Snapshot primitive (R7): copy `live_base` (n * elem_bytes, n from the graph)
+ * into the per-graph scratch snapshot slot and return the frozen buffer.  A
+ * Snapshot op calls this in its round-phase callback and publishes the pointer
+ * (its operation state) for the round's cross-reads.  The buffer lifecycle is
+ * owned by the runtime. */
+void *autograph_snapshot_publish(void *graph_ptr, const void *live_base,
+                                 int64_t elem_bytes, int32_t slot);
 
 /* Register a new graph with the Set-Base Architecture */
-void autograph_init(void *graph_ptr, int64_t n, int64_t m, 
-                    void *nodes_bmp, void *edges_bmp, 
+void autograph_init(void *graph_ptr, int64_t n, int64_t m,
+                    void *nodes_bmp, void *edges_bmp,
                     void *edge_pairs_table);
 
 /* Phase 3: attach analytic per-op-class RD tiers computed at compile time
@@ -458,3 +548,9 @@ void autograph_set_class_tiers(void *graph_ptr, const double *tiers);
 /* Phase 3 extension: attach the CSR analytic per-op-class RD tiers
  * (mirrors analytic_rd.py AnalyticCSR; scan unused). */
 void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* AUTOTUNER_RUNTIME_H */

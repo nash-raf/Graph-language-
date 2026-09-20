@@ -52,23 +52,24 @@ Primitive effects   {R, W, Uf, Uop, Claim, Activate}(Base, Reg, Op, Temp, Scope)
    │  segmented into E_t = preamble ; pair ; epilogue  (buildEffectExpr)
    ▼
 Effect expression   τ derived from segments + round structure (relateReadWrite)
-   │  folded into EffectSummary, interpreted by ⟦·⟧_par = interpretPar
+   │  folded into EffectSummary; privLayout + supportedByAlgebra gate
    ▼
-classify(E)         Klass: SourceOwner / DestOwner / Reduction / DualOwner /
-                    Sequential / Privatized / SourceReduction
+Admissibility       semantic refusals only (no strategy names)
    │  provesModelable totality check
    ▼
-Emission            pair work fn clone + build/step calls in driver preheader
+Interpretation      E -> sgpl_exec_ctx + flat sgpl_runtime_op[] (recursive)
    │  driver deactivated, round nest marked sequential
    ▼
-Runtime             autograph_build_clean_cut + autograph_frontier_step_owner_*
-                    (parallel_for_runtime, one worker per partition)
+Runtime             autograph_build_clean_cut + autograph_frontier_execute
+                    (parallel_for_runtime, one worker per partition;
+                     explicit activate / fork-join primitives)
 ```
 
-Classification is algebraic since the Phase-3 cutover: `classify()` (`:2431-2449`) is
-`privLayout` + `summarizeEffects` + `interpretPar`, and the former procedural ladder and
-pairwise temporal oracle were removed after the differential harness reported zero
-disagreements (64 fixtures; see `proof/EFFECT_ALGEBRA_DESIGN.md` §9).
+Since the R7 cutover there is no classification: `privLayout` + `summarizeEffects` +
+`supportedByAlgebra` is the semantic gate, and the recursive interpreter
+(`emitExprInterp`) is the sole emitter.  Strategy names survive only in this document
+as derived descriptions; nothing named after a strategy determines control flow.
+`validate_totality.sh` locks the census (69 fixtures, 0 interpreter refusals).
 
 Environment gates used by the pass (`graph_frontier_lowering.cpp`):
 
@@ -83,8 +84,6 @@ Environment gates used by the pass (`graph_frontier_lowering.cpp`):
 | `SGPL_FRONTIER_STRICT` | Abort on a verifier failure after emission | `:4252` |
 | `SGPL_FRONTIER_BLOCKLIST_GUARD` | Use the legacy shape blocklist instead of the totality proof | `:4188` |
 | `SGPL_PDG_SECOND_CHANCE` | Release refused loops to the PDG instead of forcing sequential | `:4178`, `:4268` |
-| `SGPL_COMP_I_SOURCE_REDUCTION` | Enable the per-source reduction (gather) class | `:2401` |
-| `SGPL_COMP_F_ALLOW_DRIVER_CLAIM` | Restore old behaviour for driver-preamble first-wins claims | `:2351` |
 | `SGPL_NO_CLEANCUT_CACHE` | Disable CleanCut partition reuse cache (runtime) | `autotuner_runtime.c:3115` |
 | `SGPL_CLEANCUT_PARTITIONS` | Override partition count (runtime) | `autotuner_runtime.c:2930` |
 | `SGPL_CLEANCUT_TIMING` / `SGPL_CLEANCUT_DEBUG` | Runtime build/reuse timing and debug (runtime) | `autotuner_runtime.c:3121`, `:2921` |
@@ -648,44 +647,42 @@ are stated over: `MutU/MutV/MutG/MutD/MutTop`, `HasUopG`, `HasUnrecognizedG`,
 recursive homomorphism Φ over the tree (`forEachExprEffect`, `:2459-2467`, walks the
 binder paths), with a defensive fallback to the raw set; `HasCarriedOnMut` is a projection
 of the order-sensitive τ layer with the shadow exemption read from σ=Snapshot.
-`interpretPar` (`:2554-2632`) is the interpretation function `⟦·⟧_par`; decision order,
-exactly as written (note: `EffectExpr::Total` is gone — modelability is the separate
-`provesModelable` judgment, §5.4):
+Since the R7 cutover there is **no classification**: strategy names are not part
+of the compiler.  `privLayout` + `supportedByAlgebra` (`:4688`) is the semantic
+admissibility gate, and `emitExprInterp` (`:4694`) derives the realization
+structurally from the effect expression (`deriveExprFacts`, `:4720`).
 
-1. **Data write** (`:2561-2562`): `HasDataWrite && !Priv` → `Sequential`.
-2. **Occurrence preservation** (composition F, `:2563-2566`): a per-source claim cannot
-   be replayed per pair → `Sequential` unless `SGPL_COMP_F_ALLOW_DRIVER_CLAIM=1`.
-3. **Top provenance** (`:2567-2568`): `MutTop` → `Sequential`.
-4. **Carried read on a mutated base** (`:2569-2570`): → `Sequential` unless the read is
-   the partition's own accumulator (`Priv`) or σ=Snapshot resolves it.
-5. **Round-separation single ownership** (composition A, `:2572-2582`): with
-   `RoundSepBases` non-empty and not both `MutU` and `MutV`, and all shadow bases
-   agreeing on `WritesV` → `DestOwner` (writes V, reads U through shadow) or
-   `SourceOwner` (writes U, reads V through shadow).
-6. **Dual ownership** (`:2584-2604`): `MutU && MutV && !MutG`:
-   - disjoint `BaseU ∩ BaseV = ∅`, no cross-phase data dependence
-     (`crossPhaseDataDep`, `:1869-1891`: a V-effect store whose stored value reads a U
-     base, or a U-effect store reading a V base), and no round-separation bases →
-     `DualOwner`; if the body has a frontier append the envelope must be wired
-     (`envelopeWired`, `:1858-1865`: append array + counter + frontier array + size, or
-     frontier set + next set), else Sequential;
-   - same-array U+V or a data dependence: `Priv` → `Privatized` (with
-     `Info.UsePrivLayout = true`); else Sequential.
-7. **Source reduction** (composition I / P10, `:2610-2614`): only under
-   `SGPL_COMP_I_SOURCE_REDUCTION`, and only with `ReducePtr` + `AccConsumeStore` +
-   `AccResetSeen` + recognized op, no data write, no `MutV/MutTop`, no carried read
-   on mutation, no unrecognized G, no frontier append, no per-source claim, and no
-   remaining preamble mutation (`preambleMutationCount`, `:1991-2004`, binder-path
-   query). → `SourceReduction`. Fails closed on everything the finish hook does not
-   reproduce.
-8. **Frontier append** (`:2616-2621`): `HasFrontierAppend` → `DestOwner` if
-   `envelopeWired && MutV && !MutU && !MutG`, else Sequential.
-9. **Legacy reduction** (`:2624-2627`): `MutG && HasUopG && !HasUnrecognizedG &&
-   !MutU && !MutV && !privLayoutNeeded` → `Reduction`.
-10. **Single ownership** (`:2628-2631`): `MutV && !MutU && !MutG` → `DestOwner`;
-    `MutU && !MutV && !MutG` → `SourceOwner`.
-11. **Privatization fallback** (`:2632-2636`): `Priv` → `Privatized`; otherwise →
-    `Sequential` (`:2637`).
+`supportedByAlgebra` refuses only on proven correctness conditions, exactly as
+the frozen algebra states them:
+
+1. **Data write**: `HasDataWrite && !Priv` → refuse ("data-derived write
+   without a privatization proof").
+2. **Occurrence preservation** (composition F): a per-source claim is refused
+   unless it is a single store-form claim with constant guard/transition and a
+   module-reachable base (then it is staged as a SOURCE_BEGIN operation).
+3. **Top provenance**: `MutTop` → refuse.
+4. **Carried read on a mutated base**: refuse unless privatized or resolved by
+   σ=Snapshot.
+5. **Round separation** (composition A): no shadow base may be written in the
+   pair phase at its *read* endpoint (writes at its own write endpoint are the
+   normal single-ownership pattern; a base only read in the pair phase with a
+   per-source claim at U is fine).
+6. **Dual ownership**: pair-phase U and V writes require disjoint bases, no
+   cross-phase data dependence and no shadow bases — else privatized or
+   refused.
+7. **Frontier append**: requires the wired envelope (`envelopeWired`).
+8. **Reduction / source reduction**: must satisfy their own laws (recognized
+   fold operator, no data write, no `MutV`/`MutTop`, no carried read on
+   mutation, no unrecognized G, no frontier append, no per-source claim, no
+   remaining preamble mutation for the per-source gather).
+
+Everything admitted is realized: `emitSingleStage` builds the pair fn /
+privatized record / partials / finish hook, the per-source claim and preamble
+ops, the round's Snapshot ops and the fused pair op, the context, the round
+ownership and the envelope commit; independent `U-domain ∥ V-domain`
+subexpressions are realized by generic `fork_join`, dependent ones by staged
+`Seq`.  `validate_totality.sh` locks the census (69 fixtures: 30 lowered,
+2 algebra refusals, 1 unmodelable, 0 interpreter refusals).
 
 ### 5.4 The soundness envelope: `provesModelable`
 
@@ -735,30 +732,42 @@ the PDG.
    (`:4435-4442`).
 6. Modelable check (`:4445-4454`): `SGPL_FRONTIER_BLOCKLIST_GUARD ? legacyBlocklistRefuses
    : provesModelable`.
-7. `Rewritable = (K != Sequential) && Modelable` (`:4456`), then dispatch
-   (`:4460-4469`):
+7. `Rewritable = Supported && Modelable`, where `Supported` is
+   `privLayout` + `supportedByAlgebra` (the semantic admissibility gate; there
+   is no classification), then the sole emitter runs:
 
    ```cpp
-   if      (K == Klass::DualOwner)       Emitted = emitDualCleanCut(Info);
-   else if (K == Klass::SourceReduction) Emitted = emitSourceReductionStep(Info);
-   else if (K == Klass::Privatized)      Emitted = emitPrivatizedStep(Info);
-   else                                  Emitted = emitCleanCutCallbackAndStep(
-                                                Info, K == Klass::SourceOwner);
+   bool Emitted = emitExprInterp(Info);   /* recursive structural interpreter */
+   if (!Emitted)  /* expression refused -> terminal sequential marker */
    ```
+
+   `emitExprInterp` (`:4694`) derives the realization structurally
+   (`deriveExprFacts`): `emitSingleStage` builds the pair fn / privatized record /
+   partials / finish hook, the per-source claim and preamble ops, the round's
+   Snapshot ops and the fused pair op, the context and the envelope commit;
+   independent U-domain ∥ V-domain subexpressions go through
+   `emitDualForkJoin` (generic `autograph_frontier_fork_join` with a
+   round-owning owner context), dependent ones through `emitRuntimeDualStep`
+   (staged Seq).  Domains are emitted explicitly.
 
 8. On success: `markSequential(L)` — keep every part of the round nest serial (the step
    is already parallel via CleanCut; the residual beta-init/swap loops must not be
-   DOALL/GPU-ified) (`:4478-4484`).
-9. **Postcondition** (`:4503-4522`): `verifyFunction(F)` after emission; on failure print
-   and, under `SGPL_FRONTIER_STRICT`, abort.
+   DOALL/GPU-ified) (`:4955-4961`).
+9. **Postcondition** (`:4978-4997`): `verifyModule` after emission (the emitted
+   helper functions live outside `F`; an invalid shadow GEP once crashed a later
+   LLVM pass while `verifyFunction(F)` still said OK); on failure print and,
+   under `SGPL_FRONTIER_STRICT`, abort.
 10. Emit failure or non-rewritable → `markSequential` (default), or PDG release under
-    `SGPL_PDG_SECOND_CHANCE` (`:4525-4532`).
+    `SGPL_PDG_SECOND_CHANCE`.
 
 ### 6.2 The pair work function — `emitPairWorkFn`
 
-`emitPairWorkFn(Info, Phase)` (`:3191-3685`) manually clones the per-pair body into the
-runtime ABI (no CodeExtractor — single-block bodies were out of reach and its
-leave-behind loop reshaping broke later passes):
+`emitPairWorkFn(Info, Phase, RuntimeActivate=false)` (`:3173-3670`) manually clones the
+per-pair body into the runtime ABI (no CodeExtractor — single-block bodies were out of
+reach and its leave-behind loop reshaping broke later passes).  The direct expression
+emitter calls it for every class (phase elision selects the U/V slice for staged
+expressions); with `RuntimeActivate` the elided frontier append is rewritten into an
+`autograph_frontier_activate` call instead of the legacy `dest_seen[v] = 1` mark.
 
 ```cpp
 void sgpl_frontier_pair_fn(int32_t source, int32_t destination,
@@ -842,7 +851,13 @@ terminators → `pair_ret`. `FirstClone` becomes the entry's branch target (`:34
 are cloned into the U-phase wrapper's entry (they belong on the source pair fn, not
 grafted into a dest-owned body).
 
-### 6.3 Single-phase emission — `emitCleanCutCallbackAndStep`
+### 6.3 Legacy per-class emission (historical, pre-R5)
+
+> **Deleted in R5.**  These sections describe the strategy emitters that the direct
+> expression path replaced.  They are kept as the reference for the semantics each
+> class must preserve; the current emitter is §6.1 step 7 / §7.3.
+
+#### 6.3.1 Single-phase — `emitCleanCutCallbackAndStep`
 
 `emitCleanCutCallbackAndStep(Info, SourceOwner)` (`:3687-3755`), emitting into the
 driver's **loop preheader**:
@@ -948,9 +963,22 @@ race-free.
 
 ## 7. Runtime parallelization
 
-All runtime code is in `autotuner_runtime.c` (CleanCut partition build and the step
-functions) and `parallel_runtime.c` (the thread pool). The runtime is unchanged by the
-algebraic cutover: `⟦E⟧_par` selects compositions of these primitives.
+All runtime code is in `autotuner_runtime.c` (CleanCut partition build and the composable
+executor) and `parallel_runtime.c` (the thread pool). `⟦E⟧_par` selects compositions of
+these primitives.
+
+> **Composable execution is the sole path since R5.**  The runtime exposes one execution
+> ABI: `sgpl_exec_ctx` + flat `sgpl_runtime_op[]` + generic `autograph_frontier_execute`,
+> with explicit `A⁺` activation (`autograph_frontier_activate`), source-lifecycle coverage
+> (including OWNER_V), reduction/combine operations, round-ownership flags and a host-thread
+> `autograph_frontier_fork_join` for incompatible `Par` children.  The compiler interprets
+> the effect expression into ops/contexts for every classified shape (SourceOwner,
+> DestOwner, Reduction, SourceReduction, Privatized, DualOwner, activation/envelope and
+> pair-body first-wins claims); a refused expression fails closed to sequential.  The
+> pre-R5 strategy step entry points (`autograph_frontier_step_owner_*`) and their emitters
+> were deleted after a corpus-wide fallback census reported zero refusals; the descriptions
+> in §7.3 are kept as design history.  See `proof/EFFECT_ALGEBRA_DESIGN.md` §11; gates are
+> `test/run_exec_engine_tests.sh`, `test/run_exec_r2_tests.sh` and `validate_rt_expr.sh`.
 
 ### 7.1 Partition build — `autograph_build_clean_cut`
 
@@ -998,10 +1026,16 @@ is identical — the partition body is just the serial work sliced), and otherwi
 via `sgpl_parallel_launch_plain_raw`. Worker count: `sgpl_configured_worker_count()`
 (`parallel_runtime.c:808`).
 
-### 7.2 The steps
+### 7.2 The steps (historical, pre-R5)
 
-All steps are `parallel_for_runtime(0, partition_count, 1, body, env, 0, 0)` — one task
-per partition.
+> **These entry points were deleted in R5.**  The section is kept because the composable
+> executor reproduces each of their semantics through op capabilities and context fields
+> (traversal kind, partition partials, source hooks, `dest_seen`/`next_frontier` +
+> activation).  The current runtime entry points are `autograph_frontier_execute`,
+> `autograph_frontier_activate` and `autograph_frontier_fork_join` (§7.4).
+
+All legacy steps were `parallel_for_runtime(0, partition_count, 1, body, env, 0, 0)` — one
+task per partition.
 
 **`autograph_frontier_step_owner_push`** (`:3182-3218`, body `:3154-3180`) — dest-owned
 push. Partition p scans its source-grouped CSR: for each source row `u` (membership gate
@@ -1058,16 +1092,79 @@ work function reaches its own copy through the same record it uses for scalar pa
 - `autograph_prepare_frontier_array/bitmap` → materialize the frontier and fill the
   membership mask; `autograph_commit_frontier_bitmap` → clear the next bitmap and append
   the recorded next frontier (`:1952-1959+`).
+### 7.3 The composable executor (current)
 
-### 7.3 Why the runtime is race-free by construction
+The compiler interprets the effect expression into one execution context per stage
+(`sgpl_exec_ctx`) plus a flat operation array (`sgpl_runtime_op[]`, one descriptor per
+operation in the expression, no tree).  `autograph_frontier_execute` traverses the
+declared mechanism — `SGPL_TRAVERSE_OWNER_U` (source-owned pair slices, per-source
+begin/end at source changes plus a zero-pair source-range merge walk; OWNER_V during
+reduction) or `SGPL_TRAVERSE_OWNER_V` (destination-owned rows, membership-gated sources)
+— and dispatches only lifecycle events (round/partition/source/pair/combine) to the ops
+that declare the capability.  The engine contributes no semantic work: activation,
+folding, source finalization and private-state combine all live in ops.
+
+Construction helpers (layout-free): `autograph_exec_op_create` (capabilities, state,
+pair/combine/source callbacks), `autograph_exec_ctx_create` (graph, traversal, membership,
+dest_seen/next_frontier/append-head, partition partials, ops) and
+`autograph_exec_ctx_destroy`; callbacks reach the partition's partial through
+`autograph_exec_partition_state`.  The hot `pair`/`combine` callbacks take the
+operation `state` as their first argument, so the compiler emits the cloned work
+function itself as the pair callback (one indirect call per pair, no emitted adapter);
+lifecycle callbacks are descriptor-first.  The executor's partition body hoists the
+single pair op's callback/state and takes a one-op fast path (R6), which measured
+7–13% faster than the pre-R5 strategy steps on the pagerank workloads.
+
+- **Activation** is the explicit `A⁺` primitive `autograph_frontier_activate(ctx, v)`
+  (CAS `dest_seen[v]` 0→1, then atomic append to `next_frontier`); the executor never
+  appends.  Frontier order is an implementation detail — `F_{t+1} = {v | dest_seen[v]=1}`.
+- **Snapshot** is an explicit operation (`SGPL_OP_SNAPSHOT`): its callback calls
+  `autograph_snapshot_publish(ctx->graph, live_base, elem_bytes, slot)`, which owns the
+  frozen buffer, and publishes the pointer the pair work functions read.  Snapshot ops
+  dispatch after the round-begin ops, before any traversal, under the unique round owner.
+- **Per-source claims** are staged as SOURCE_BEGIN operations: the claim performs the
+  guarded transition once per source (Owner-V coverage pre-pass or the inline source
+  change under Owner-U) and publishes the outcome in a per-source result array; the pair
+  body is gated on it.  The `source_state` context field is the source-scoped channel
+  (zeroed by the executor at every source change).
+- **Round ownership**: only the enclosing stage sets `run_round_begin/run_round_end`
+  (via `autograph_exec_ctx_own_round`); `autograph_frontier_fork_join` runs two
+  non-owning child contexts on host threads and joins them (children abort if they carry
+  round flags).  Recursive (nested) fork/join is supported: a nested owner shares the
+  top owner's round resources with flags false, and children denied budget still make
+  progress serially on their own host thread.
+- **Domains** are emitted explicitly (`SGPL_DOMAIN_FRONTIER` for frontier-gated
+  expressions, `SGPL_DOMAIN_ALL_VERTICES` otherwise); traversal stays a mechanism
+  (`SGPL_TRAVERSE_OWNER_U/V`).
+- **Resource contracts**: every emitted operation carries a module-constant
+  `sgpl_res_access[]` table (membership Read, dest_seen/next_frontier
+  AtomicWrite, snapshot Read/Write, partial/private Private, claim
+  AtomicWrite); `sgpl_exec_validate` enforces the mode rules and the fork/join
+  lowering checks child compatibility from the tables (`resourcesConflict`) —
+  a physical conflict never serializes `Par`.
+- **Per-source claims** stage into a per-source state array `S[u][j]` via
+  SOURCE_BEGIN operations; claims whose guard dominates the loop gate the pair
+  body, and under dual ownership the claim ops live in the fork/join owner
+  whose source-domain coverage runs before either child.
+- **Atom census**: `SGPL_EXEC_DUMP=1` prints canonical atom keys per effect and
+  per op group; `validate_totality.sh` enforces exact multiset equality with
+  `flatten(E)` and proves no CAS-form claims are generated in the target
+  frontend configuration.
+- **Placement**: the interpreter calls
+  `emitPairWorkFn`/`buildPrivSetup`/`buildSourceFinishHook` to clone body work
+  functions, then writes the context construction into the driver preheader (claim
+  result, snapshots, envelope preparation); the driver is deactivated and the round nest
+  marked sequential exactly as before.
+
+### 7.4 Why the runtime is race-free by construction
 
 - **Dest-owned push**: partition p exclusively writes destinations in its contiguous
   range; no atomics on the array cells; source order within a partition = serial order
-  → bit-exact (`:2661-2670`, `:3182-3218`).
+  → bit-exact.
 - **Source-owned**: each source belongs to exactly one partition; ascending source order
-  → serial edge order (`:3220-3226`).
+  → serial edge order.
 - **Reduction**: per-partition partials (no shared accumulator), deterministic ascending
-  combine (`:3400-3405`).
+  combine.
 - **Source reduction**: one partition per source; finish hook and result write
   race-free (`:3300-3304`).
 - **Privatization**: every written location is partition-private; the fold is a
@@ -1144,21 +1241,21 @@ call i32 @autograph_frontier_step_owner_source(ptr %0, ptr null, i32 0, ptr @sgp
 | Round separation | `RoundSepBase` construction | `graph_frontier_lowering.cpp:1638-1759` |
 | Privatization proof | `exprHasClaimOrActivate`, `privLayout` | `graph_frontier_lowering.cpp:2302-2430` |
 | Summary fold Φ | `EffectSummary`, `summarizeEffects` | `graph_frontier_lowering.cpp:2450-2546` |
-| Interpretation ⟦·⟧_par | `interpretPar` | `graph_frontier_lowering.cpp:2554-2637` |
+| Semantic gate | `supportedByAlgebra`, `pairPhaseWriteRegions` | `graph_frontier_lowering.cpp:4688-4780` |
+| Structural facts | `deriveExprFacts`, `ExprFacts` | `graph_frontier_lowering.cpp:4790-4830` |
 | Classifier entry | `classify` | `graph_frontier_lowering.cpp:2639-2657` |
 | Modelability | `provesModelable` | `graph_frontier_lowering.cpp:4312-4373` |
 | Witness dump | `printWitness` (`SGPL_WITNESS_DUMP`) | `graph_frontier_lowering.cpp:2767-2814` |
-| Pair fn clone | `emitPairWorkFn` | `graph_frontier_lowering.cpp:3191-3685` |
-| Single-phase emit | `emitCleanCutCallbackAndStep` | `graph_frontier_lowering.cpp:3687-3755` |
-| Dual emit | `emitDualCleanCut` | `graph_frontier_lowering.cpp:3758-3804` |
-| Source-red emit | `emitSourceReductionStep` | `graph_frontier_lowering.cpp:3887-3970` |
-| Privatized emit | `emitPrivatizedStep` | `graph_frontier_lowering.cpp:4111-4257` |
+| Pair fn clone | `emitPairWorkFn` (phase elision, activation rewrite) | `graph_frontier_lowering.cpp:3173-3670` |
+| Expression interpreter (sole) | `emitExprInterp`, `emitSingleStage`, `emitDualForkJoin`, `emitRuntimeDualStep` | `graph_frontier_lowering.cpp:4064-5000` |
+| Privatized setup | `buildPrivSetup`, `emitPrivScalarInit`, `emitPrivCombiner` | `graph_frontier_lowering.cpp:3800-4060` |
+| Source finish hook | `buildSourceFinishHook` | `graph_frontier_lowering.cpp:3763-3800` |
+| Envelope/shadow helpers | `fillFrontierEnv`, `commitEnvelope`, `emitRoundSepShadow` | `graph_frontier_lowering.cpp:3010-3170` |
 | Partition build | `autograph_build_clean_cut(_inner)` | `autotuner_runtime.c:2907-3138` |
-| Push step | `autograph_frontier_step_owner_push` | `autotuner_runtime.c:3182-3218` |
-| Source step | `autograph_frontier_step_owner_source` | `autotuner_runtime.c:3264-3298` |
-| Red step | `autograph_frontier_step_owner_red` | `autotuner_runtime.c:3519-3550` |
-| Source-red step | `autograph_frontier_step_owner_source_red` | `autotuner_runtime.c:3366-3398` |
-| Preamble+priv step | `autograph_frontier_step_owner_red_pre` | `autotuner_runtime.c:3488-3517` |
+| Executor | `autograph_frontier_execute` | `autotuner_runtime.c:3192-3260` |
+| Activation `A⁺` | `autograph_frontier_activate` | `autotuner_runtime.c:3263-3280` |
+| Fork/join | `autograph_frontier_fork_join` | `autotuner_runtime.c:3296-3340` |
+| Exec construction ABI | `autograph_exec_op_create`, `autograph_exec_ctx_create`, `autograph_exec_ctx_destroy` | `autotuner_runtime.c:3350-3400` |
 | Private copy bind | `autograph_priv_bind` | `autotuner_runtime.c:1886-1924` |
 | Thread pool launch | `parallel_for_runtime` | `parallel_runtime.c:5162-5258` |
 | Golden harness | `validate_algebra.sh`, `validate_refactor.sh` | repo root |

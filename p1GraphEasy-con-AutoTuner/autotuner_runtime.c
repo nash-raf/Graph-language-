@@ -2497,167 +2497,6 @@ int32_t autograph_frontier_step(void *graph_ptr,
  * dest_seen: caller-owned byte array of size n; set to 1 on first visit of
  * each destination (settled destination) and appended to next_frontier.
  */
-typedef struct {
-  AutoGraphMeta *meta;
-  int32_t lane_count;
-  sgpl_frontier_pair_fn work_fn;
-  void *work_env;
-  const uint8_t *membership;
-  int32_t *next_frontier;
-  int32_t initial_next_size;
-  int32_t *dest_seen;
-  _Atomic int32_t appended; /* atomic head into next_frontier for push */
-  int64_t n;
-} AutoOwnerStepEnv;
-
-static void autograph_owner_scan_vertex(AutoOwnerStepEnv *env, int64_t peer) {
-  if (peer < 0 || peer >= env->n)
-    return;
-  AutoGraphMeta *meta = env->meta;
-  /* inbound neighbours: transpose row of `peer` for directed graphs; forward
-   * (symmetric) CSR row of `peer` for undirected. */
-  if (meta->in_row_ptr && meta->in_col_idx) {
-    for (int64_t j = meta->in_row_ptr[peer]; j < meta->in_row_ptr[peer + 1];
-         ++j) {
-      int32_t src = meta->in_col_idx[j];
-      if (env->membership == NULL || env->membership[src])
-        env->work_fn(src, (int32_t)peer, peer, env->work_env);
-    }
-    return;
-  }
-  switch (meta->current_layout) {
-  case LAYOUT_CSR:
-    if (meta->csr_row_ptr && meta->csr_col_idx)
-      for (int64_t j = meta->csr_row_ptr[peer];
-           j < meta->csr_row_ptr[peer + 1]; ++j)
-        if (env->membership == NULL ||
-            env->membership[meta->csr_col_idx[j]])
-          env->work_fn(meta->csr_col_idx[j], (int32_t)peer, peer, env->work_env);
-    break;
-  case LAYOUT_PCSR:
-    if (meta->pcsr_row_ptr && meta->pcsr_col_idx)
-      for (int64_t j = meta->pcsr_row_ptr[peer];
-           j < meta->pcsr_row_ptr[peer + 1]; ++j) {
-        int32_t src = meta->pcsr_col_idx[j];
-        if (src == -1)
-          continue;
-        if (env->membership == NULL || env->membership[src])
-          env->work_fn(src, (int32_t)peer, peer, env->work_env);
-      }
-    break;
-  case LAYOUT_BCSR:
-    if (meta->bcsr_brow_ptr && meta->bcsr_bcol_idx &&
-        meta->bcsr_block_size > 0) {
-      int32_t block_size = meta->bcsr_block_size;
-      int32_t block = (int32_t)(peer / block_size);
-      int32_t local_row = (int32_t)(peer % block_size);
-      for (int64_t k = meta->bcsr_brow_ptr[block];
-           k < meta->bcsr_brow_ptr[block + 1]; k += 2) {
-        int32_t row = meta->bcsr_bcol_idx[k];
-        if (row == local_row) {
-          int32_t src = meta->bcsr_bcol_idx[k + 1];
-          if (env->membership == NULL || env->membership[src])
-            env->work_fn(src, (int32_t)peer, peer, env->work_env);
-        } else if (row > local_row) {
-          break;
-        }
-      }
-    }
-    break;
-  case LAYOUT_SET:
-  default: {
-    RoaringBitmap *edges = (RoaringBitmap *)meta->edges_bitmap;
-    EdgePair *pairs = (EdgePair *)meta->edge_pairs_table;
-    if (edges && pairs)
-      for (int64_t e = 0; e < meta->static_pair_count; ++e) {
-        if (!roaring_bitmap_contains(edges, (uint32_t)e))
-          continue;
-        int32_t u = pairs[e].u;
-        int32_t v = pairs[e].v;
-        if ((int64_t)u == peer && (env->membership == NULL || env->membership[v]))
-          env->work_fn(v, u, peer, env->work_env);
-        else if ((int64_t)v == peer &&
-                 (env->membership == NULL || env->membership[u]))
-          env->work_fn(u, v, peer, env->work_env);
-      }
-    for (int64_t e = 0; e < meta->extra_edge_count; ++e) {
-      if (!meta->extra_edge_live[e])
-        continue;
-      int32_t u = meta->extra_edge_pairs[2 * e];
-      int32_t v = meta->extra_edge_pairs[2 * e + 1];
-      if ((int64_t)u == peer && (env->membership == NULL || env->membership[v]))
-        env->work_fn(v, u, peer, env->work_env);
-      else if ((int64_t)v == peer &&
-               (env->membership == NULL || env->membership[u]))
-        env->work_fn(u, v, peer, env->work_env);
-    }
-    break;
-  }
-  }
-}
-
-static void autograph_owner_partition_body(int64_t index, void *opaque) {
-  AutoOwnerStepEnv *env = (AutoOwnerStepEnv *)opaque;
-  int64_t n = env->n;
-  int64_t begin = n * index / env->lane_count;
-  int64_t end = n * (index + 1) / env->lane_count;
-  for (int64_t dest = begin; dest < end; ++dest) {
-    if (env->dest_seen && env->dest_seen[dest])
-      continue;
-    autograph_owner_scan_vertex(env, dest);
-    if (env->dest_seen) {
-      env->dest_seen[dest] = 1;
-      int32_t head =
-          atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
-      env->next_frontier[env->initial_next_size + head] = (int32_t)dest;
-    }
-  }
-}
-
-int32_t autograph_frontier_step_owner(void *graph_ptr,
-                                      const int32_t *frontier,
-                                      int32_t frontier_size,
-                                      sgpl_frontier_pair_fn work_fn,
-                                      void *work_env,
-                                      const uint8_t *membership,
-                                      int32_t *next_frontier,
-                                      int32_t initial_next_size,
-                                      int32_t *dest_seen) {
-  AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (!meta || !work_fn || meta->csr_n <= 0 || meta->csr_n > INT32_MAX)
-    return initial_next_size;
-
-  int32_t lane_count = sgpl_configured_worker_count();
-  if (lane_count < 1)
-    lane_count = 1;
-
-  /* Directed graphs need the reverse adjacency for in-edge scans; build it on
-   * demand (no-op when the struct already carries it). */
-  if (meta->in_row_ptr == NULL || meta->in_col_idx == NULL)
-    autograph_ensure_transpose(graph_ptr);
-
-  AutoOwnerStepEnv env = {
-      .meta = meta,
-      .lane_count = lane_count,
-      .work_fn = work_fn,
-      .work_env = work_env,
-      .membership = membership,
-      .next_frontier = next_frontier,
-      .initial_next_size = initial_next_size,
-      .dest_seen = dest_seen,
-      .appended = 0,
-      .n = meta->csr_n,
-  };
-
-  int64_t start_ns = now_monotonic_ns();
-  parallel_for_runtime(0, lane_count, 1, autograph_owner_partition_body, &env,
-                       0, 0);
-  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
-
-  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
-                                                           memory_order_relaxed);
-}
-
 /* ── Graptor CleanCut partitions (owner-computes rule) ─────────────
  *
  * Home partition of destination d: p = d * P / n (contiguous ranges).
@@ -3137,416 +2976,536 @@ int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions) {
   return built;
 }
 
-typedef struct {
-  AutoGraphMeta *meta;
-  const int32_t *frontier;
-  int32_t frontier_size;
-  sgpl_frontier_pair_fn work_fn;
-  void *work_env;
-  const uint8_t *membership;
-  int32_t *next_frontier;
-  int32_t initial_next_size;
-  int32_t *dest_seen;
-  _Atomic int32_t appended;
-  int32_t partitions;
-} AutoOwnerPushEnv;
-
-static void autograph_owner_push_partition_body(int64_t index, void *opaque) {
-  AutoOwnerPushEnv *env = (AutoOwnerPushEnv *)opaque;
-  int32_t p = (int32_t)index;
-  AutoGraphMeta *meta = env->meta;
-  int64_t rows = meta->push_row_count[p];
-  int64_t *rp = meta->push_rp[p];
-  int32_t *ci = meta->push_ci[p];
-  int32_t *indir = meta->push_indir[p];
-  for (int64_t r = 0; r < rows; ++r) {
-    int32_t u = indir[r];
-    if (env->membership && !env->membership[u])
-      continue;
-    for (int64_t j = rp[r]; j < rp[r + 1]; ++j) {
-      int32_t v = ci[j];
-      int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
-      env->work_fn(u, v, v, env->work_env);
-      /* Append only if work_fn requested it by storing 1 into dest_seen[v]
-       * (elided DSL next.add / next_frontier[next_size++] = v). */
-      if (env->dest_seen && env->next_frontier && !seen_before &&
-          env->dest_seen[v]) {
-        int32_t head =
-            atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
-        env->next_frontier[env->initial_next_size + head] = v;
-      }
-    }
-  }
-}
-
-int32_t autograph_frontier_step_owner_push(void *graph_ptr,
-                                           const int32_t *frontier,
-                                           int32_t frontier_size,
-                                           sgpl_frontier_pair_fn work_fn,
-                                           void *work_env,
-                                           const uint8_t *membership,
-                                           int32_t *next_frontier,
-                                           int32_t initial_next_size,
-                                           int32_t *dest_seen) {
-  AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (!meta || !work_fn || meta->partition_count <= 0)
-    return initial_next_size;
-  if (!next_frontier && dest_seen)
-    return initial_next_size;
-
-  AutoOwnerPushEnv env = {
-      .meta = meta,
-      .frontier = frontier,
-      .frontier_size = frontier_size,
-      .work_fn = work_fn,
-      .work_env = work_env,
-      .membership = membership,
-      .next_frontier = next_frontier,
-      .initial_next_size = initial_next_size,
-      .dest_seen = dest_seen,
-      .appended = 0,
-      .partitions = meta->partition_count,
-  };
-
-  int64_t start_ns = now_monotonic_ns();
-  parallel_for_runtime(0, meta->partition_count, 1,
-                       autograph_owner_push_partition_body, &env, 0, 0);
-  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
-
-  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
-                                                           memory_order_relaxed);
-}
-
-/* Source-owned (push-on-owner) traversal: partition p owns a contiguous
- * SOURCE range [p*n/P, (p+1)*n/P) and scans each source's own CSR row, so
- * writes indexed by the SOURCE (e.g. out_degree[u]++, u-counted state) are
- * race-free without atomics.  Zero-copy (no per-partition copies/buffers);
- * sources are visited ascending per partition, and partitions are disjoint,
- * so the work function sees exactly the serial edge order.
- */
-typedef struct {
-  AutoGraphMeta *meta;
-  sgpl_frontier_pair_fn work_fn;
-  void *work_env;
-  const uint8_t *membership;
-  int32_t *next_frontier;
-  int32_t initial_next_size;
-  int32_t *dest_seen;
-  _Atomic int32_t appended;
-  int32_t partitions;
-} AutoSourceOwnerEnv;
-
-static void autograph_source_owner_partition_body(int64_t index, void *opaque) {
-  AutoSourceOwnerEnv *env = (AutoSourceOwnerEnv *)opaque;
-  AutoGraphMeta *meta = env->meta;
-  int32_t p = (int32_t)index;
-  int64_t n = meta->csr_n;
-  /* Layout-native: read the prebuilt flat source slices (enumerated from
-   * whatever layout the AutoTuner picked), never the transient layout. */
-  int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
-  int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
-  for (int64_t e = 0; e < cnt; ++e) {
-    int32_t u = pairs[2 * e];
-    int32_t v = pairs[2 * e + 1];
-    if (env->membership && !env->membership[u])
-      continue;
-    int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
-    env->work_fn(u, v, v, env->work_env);
-    if (env->dest_seen && env->next_frontier && !seen_before &&
-        env->dest_seen[v]) {
-      int32_t head =
-          atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
-      env->next_frontier[env->initial_next_size + head] = v;
-    }
-  }
-}
-
-int32_t autograph_frontier_step_owner_source(void *graph_ptr,
-                                             const int32_t *frontier,
-                                             int32_t frontier_size,
-                                             sgpl_frontier_pair_fn work_fn,
-                                             void *work_env,
-                                             const uint8_t *membership,
-                                             int32_t *next_frontier,
-                                             int32_t initial_next_size,
-                                             int32_t *dest_seen) {
-  AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (!meta || !work_fn || meta->partition_count <= 0)
-    return initial_next_size;
-  if (!next_frontier && dest_seen)
-    return initial_next_size;
-
-  AutoSourceOwnerEnv env = {
-      .meta = meta,
-      .work_fn = work_fn,
-      .work_env = work_env,
-      .membership = membership,
-      .next_frontier = next_frontier,
-      .initial_next_size = initial_next_size,
-      .dest_seen = dest_seen,
-      .appended = 0,
-      .partitions = meta->partition_count,
-  };
-
-  int64_t start_ns = now_monotonic_ns();
-  parallel_for_runtime(0, meta->partition_count, 1,
-                       autograph_source_owner_partition_body, &env, 0, 0);
-  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
-
-  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
-                                                           memory_order_relaxed);
-}
-
-/* Per-source reduction (gather): the pair work accumulates into this
- * partition's private partial; once a source's pairs are exhausted the finish
- * hook consumes the partial (writes that source's result) and resets it to the
- * identity.  Each source is visited by exactly one partition, so the hook and
- * the result write are race-free without atomics. */
-typedef struct {
-  AutoGraphMeta *meta;
-  sgpl_frontier_pair_fn work_fn;
-  sgpl_frontier_finish_fn finish_fn;
-  void *work_env;             /* partials base */
-  int64_t partial_bytes;
-  const uint8_t *membership;
-  int32_t *next_frontier;
-  int32_t initial_next_size;
-  int32_t *dest_seen;
-  _Atomic int32_t appended;
-} AutoSourceRedEnv;
-
-static void autograph_source_red_partition_body(int64_t index, void *opaque) {
-  AutoSourceRedEnv *env = (AutoSourceRedEnv *)opaque;
-  AutoGraphMeta *meta = env->meta;
-  int32_t p = (int32_t)index;
-  int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
-  int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
-  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
-  int32_t pending = -1; /* source whose partial is still accumulating */
-  for (int64_t e = 0; e < cnt; ++e) {
-    int32_t u = pairs[2 * e];
-    int32_t v = pairs[2 * e + 1];
-    if (env->membership && !env->membership[u])
-      continue;
-    if (pending != u) {
-      if (pending >= 0)
-        env->finish_fn(pending, partial);
-      pending = u;
-    }
-    int32_t seen_before = env->dest_seen ? env->dest_seen[v] : 1;
-    env->work_fn(u, v, v, partial);
-    if (env->dest_seen && env->next_frontier && !seen_before &&
-        env->dest_seen[v]) {
-      int32_t head =
-          atomic_fetch_add_explicit(&env->appended, 1, memory_order_relaxed);
-      env->next_frontier[env->initial_next_size + head] = v;
-    }
-  }
-  if (pending >= 0)
-    env->finish_fn(pending, partial);
-
-  /* Sources with no pairs at all still run the driver preamble in the serial
-   * program (accumulator reset + epilogue), so they must get their
-   * identity-accumulated result too.  The pair slice is source-sorted, so a
-   * merge walk skips exactly the sources the loop above already finished. */
-  int64_t e = 0;
-  int32_t lo = (int32_t)meta->partition_start[p];
-  int32_t hi = (int32_t)meta->partition_start[p + 1];
-  for (int32_t u = lo; u < hi; ++u) {
-    if (env->membership && !env->membership[u])
-      continue;
-    while (e < cnt && pairs[2 * e] < u)
-      ++e;
-    if (e < cnt && pairs[2 * e] == u)
-      continue;
-    env->finish_fn(u, partial);
-  }
-}
-
-int32_t autograph_frontier_step_owner_source_red(
-    void *graph_ptr, const int32_t *frontier, int32_t frontier_size,
-    sgpl_frontier_pair_fn work_fn, sgpl_frontier_finish_fn finish_fn,
-    void *work_env, int64_t partial_bytes, const uint8_t *membership,
-    int32_t *next_frontier, int32_t initial_next_size, int32_t *dest_seen) {
-  (void)frontier;
-  (void)frontier_size;
-  AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (!meta || !work_fn || !finish_fn || !work_env || partial_bytes <= 0 ||
-      meta->partition_count <= 0)
-    return initial_next_size;
-
-  AutoSourceRedEnv env = {
-      .meta = meta,
-      .work_fn = work_fn,
-      .finish_fn = finish_fn,
-      .work_env = work_env,
-      .partial_bytes = partial_bytes,
-      .membership = membership,
-      .next_frontier = next_frontier,
-      .initial_next_size = initial_next_size,
-      .dest_seen = dest_seen,
-      .appended = 0,
-  };
-
-  int64_t start_ns = now_monotonic_ns();
-  parallel_for_runtime(0, meta->partition_count, 1,
-                       autograph_source_red_partition_body, &env, 0, 0);
-  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
-
-  return initial_next_size + (int32_t)atomic_load_explicit(&env.appended,
-                                                           memory_order_relaxed);
-}
-
-/* Per-partition partial reduction step (owner-computes, destination-owned):
- * each partition accumulates its pair work into its own partial at
- * work_env + p * partial_bytes; once all partitions finish, the combine
- * function folds every partial into `out` in ascending partition order
- * (deterministic combine order; each partial is summed in CSR order). */
-typedef void (*sgpl_frontier_combine_fn)(const void *partial, void *out);
-
-typedef struct {
-  AutoGraphMeta *meta;
-  sgpl_frontier_pair_fn work_fn;
-  void *work_env;            /* partials base */
-  int64_t partial_bytes;
-  const uint8_t *membership;
-} AutoRedEnv;
-
-static void autograph_owner_red_partition_body(int64_t index, void *opaque) {
-  AutoRedEnv *env = (AutoRedEnv *)opaque;
-  AutoGraphMeta *meta = env->meta;
-  int32_t p = (int32_t)index;
-  int64_t rows = meta->push_row_count[p];
-  int64_t *rp = meta->push_rp[p];
-  int32_t *ci = meta->push_ci[p];
-  int32_t *indir = meta->push_indir[p];
-  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
-  for (int64_t r = 0; r < rows; ++r) {
-    int32_t u = indir[r];
-    if (env->membership && !env->membership[u])
-      continue;
-    for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
-      env->work_fn(u, ci[j], ci[j], partial);
-  }
-}
-
-/* Composition R3 + D: privatized step with a per-source preamble.
+/* ── composable runtime execution (R1) ────────────────────────────
  *
- * Some bodies mix a driver-preamble write that runs once per source
- * (`w[u] = w[u] + 1`) with a per-pair accumulation (`acc = acc + 1`).  A
- * per-pair step cannot carry the preamble (it would run it once per arc), so
- * the preamble gets its own work function, invoked exactly once per source in
- * the partition's own source range — the same slices the per-source reduction
- * step walks, including the sources that have no arcs at all (their preamble
- * still runs in the serial program).  Both the preamble and the pair work
- * write only into this partition's private state, so no ownership is needed
- * anywhere. */
-typedef struct {
-  AutoGraphMeta *meta;
-  sgpl_frontier_pair_fn preamble_fn;
-  sgpl_frontier_pair_fn work_fn;
-  void *work_env;
-  int64_t partial_bytes;
-  const uint8_t *membership;
-} AutoRedPreEnv;
+ * One generic executor over a flat operation set.  The engine performs only
+ * traversal, domain iteration and lifecycle dispatch; every semantic action
+ * (activation, reduction, source finalization, snapshots, claims) belongs to
+ * an operation in ctx->ops (see autotuner_runtime.h). */
 
-static void autograph_owner_red_pre_partition_body(int64_t index, void *opaque) {
-  AutoRedPreEnv *env = (AutoRedPreEnv *)opaque;
-  AutoGraphMeta *meta = env->meta;
-  int32_t p = (int32_t)index;
-  int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
-  int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
-  char *partial = (char *)env->work_env + (int64_t)p * env->partial_bytes;
-  int32_t pending = -1;
-  for (int64_t e = 0; e < cnt; ++e) {
-    int32_t u = pairs[2 * e];
-    int32_t v = pairs[2 * e + 1];
-    if (env->membership && !env->membership[u])
-      continue;
-    if (pending != u) {
-      env->preamble_fn(u, -1, -1, partial);
-      pending = u;
-    }
-    env->work_fn(u, v, v, partial);
-  }
-  /* Sources with no arcs still run their preamble: the pair slice is
-   * source-sorted, so a merge walk skips exactly the sources above. */
-  int64_t e = 0;
-  int32_t lo = (int32_t)meta->partition_start[p];
-  int32_t hi = (int32_t)meta->partition_start[p + 1];
-  for (int32_t u = lo; u < hi; ++u) {
-    if (env->membership && !env->membership[u])
-      continue;
-    while (e < cnt && pairs[2 * e] < u)
-      ++e;
-    if (e < cnt && pairs[2 * e] == u)
-      continue;
-    env->preamble_fn(u, -1, -1, partial);
-  }
-}
-
-int32_t autograph_frontier_step_owner_red_pre(
-    void *graph_ptr, sgpl_frontier_pair_fn preamble_fn,
-    sgpl_frontier_pair_fn work_fn, void *work_env, int64_t partial_bytes,
-    sgpl_frontier_combine_fn combine_fn, void *out,
-    const uint8_t *membership) {
-  AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (!meta || !preamble_fn || !work_fn || !combine_fn || !work_env ||
-      partial_bytes <= 0 || meta->partition_count <= 0)
-    return 0;
-
-  AutoRedPreEnv env = {
-      .meta = meta,
-      .preamble_fn = preamble_fn,
-      .work_fn = work_fn,
-      .work_env = work_env,
-      .partial_bytes = partial_bytes,
-      .membership = membership,
-  };
-
-  int64_t start_ns = now_monotonic_ns();
-  parallel_for_runtime(0, meta->partition_count, 1,
-                       autograph_owner_red_pre_partition_body, &env, 0, 0);
-  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
-
-  /* Same deterministic fold as the plain privatized step: ascending partition
-   * order, each partition's private state merged into the live targets. */
-  for (int32_t p = 0; p < meta->partition_count; ++p)
-    combine_fn((char *)work_env + (int64_t)p * partial_bytes, out);
+static int sgpl_exec_has_cap(const sgpl_exec_ctx *ctx, uint64_t caps) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i)
+    if (ctx->ops[i].capabilities & caps)
+      return 1;
   return 0;
 }
 
-int32_t autograph_frontier_step_owner_red(void *graph_ptr,
-                                          const int32_t *frontier,
-                                          int32_t frontier_size,
-                                          sgpl_frontier_pair_fn work_fn,
-                                          void *work_env,
-                                          int64_t partial_bytes,
-                                          sgpl_frontier_combine_fn combine_fn,
-                                          void *out,
-                                          const uint8_t *membership,
-                                          int32_t *next_frontier,
-                                          int32_t initial_next_size,
-                                          int32_t *dest_seen) {
+static void sgpl_exec_validate(const sgpl_exec_ctx *ctx) {
+#ifndef NDEBUG
+  uint32_t i, j;
+  for (i = 0; i < ctx->op_count; ++i) {
+    const sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_PAIR) && !op->pair) abort();
+    if ((op->capabilities & SGPL_OP_SOURCE_BEGIN) && !op->source_begin) abort();
+    if ((op->capabilities & SGPL_OP_SOURCE_END) && !op->source_end) abort();
+    if ((op->capabilities & SGPL_OP_PARTITION_BEGIN) && !op->partition_begin) abort();
+    if ((op->capabilities & SGPL_OP_PARTITION_END) && !op->partition_end) abort();
+    if ((op->capabilities & SGPL_OP_ROUND_BEGIN) && !op->round_begin) abort();
+    if ((op->capabilities & SGPL_OP_ROUND_END) && !op->round_end) abort();
+    if ((op->capabilities & SGPL_OP_COMBINE) && !op->combine) abort();
+    if ((op->capabilities & SGPL_OP_SNAPSHOT) && !op->snapshot) abort();
+    for (j = 0; j < op->resource_count; ++j) {
+      const sgpl_res_access *a = &op->resources[j];
+      /* Access-mode contract: observational classes are read-only, shared
+       * mutation classes are atomic-write.  Identity-level conflicts are the
+       * compiler's decision (class masks, compiler authoritative).  A snapshot
+       * resource may be produced (Write) by the Snapshot op and read by the
+       * round's cross-reads. */
+      if (a->resource == SGPL_RES_MEMBERSHIP && a->mode != SGPL_ACCESS_READ) abort();
+      if (a->resource == SGPL_RES_SNAPSHOT && a->mode != SGPL_ACCESS_READ &&
+          a->mode != SGPL_ACCESS_WRITE)
+        abort();
+      if (a->resource == SGPL_RES_DEST_SEEN && a->mode != SGPL_ACCESS_ATOMIC_WRITE &&
+          a->mode != SGPL_ACCESS_READ) abort();
+      if (a->resource == SGPL_RES_NEXT_FRONTIER &&
+          a->mode != SGPL_ACCESS_ATOMIC_WRITE && a->mode != SGPL_ACCESS_READ) abort();
+      if (a->resource == SGPL_RES_PARTIAL && a->mode != SGPL_ACCESS_PRIVATE &&
+          a->mode != SGPL_ACCESS_READ) abort();
+      if (a->resource == SGPL_RES_PRIVATE && a->mode != SGPL_ACCESS_PRIVATE)
+        abort();
+      if (a->resource == SGPL_RES_CLAIM &&
+          a->mode != SGPL_ACCESS_ATOMIC_WRITE && a->mode != SGPL_ACCESS_WRITE &&
+          a->mode != SGPL_ACCESS_READ) abort();
+    }
+  }
+#else
+  (void)ctx;
+#endif
+}
+
+static void sgpl_exec_round_begin_ops(sgpl_exec_ctx *ctx) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_ROUND_BEGIN) && op->round_begin)
+      op->round_begin(op, ctx);
+  }
+}
+
+/* Snapshot ops run once per round, after the round-begin ops and before any
+ * traversal, so every cross-read in the round observes the frozen snapshot. */
+static void sgpl_exec_snapshot_ops(sgpl_exec_ctx *ctx) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_SNAPSHOT) && op->snapshot)
+      op->snapshot(op, ctx);
+  }
+}
+
+static void sgpl_exec_round_end_ops(sgpl_exec_ctx *ctx) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_ROUND_END) && op->round_end)
+      op->round_end(op, ctx);
+  }
+}
+
+static void sgpl_exec_partition_begin_ops(sgpl_exec_ctx *ctx, int32_t p) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_PARTITION_BEGIN) && op->partition_begin)
+      op->partition_begin(op, ctx, p);
+  }
+}
+
+static void sgpl_exec_partition_end_ops(sgpl_exec_ctx *ctx, int32_t p) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_PARTITION_END) && op->partition_end)
+      op->partition_end(op, ctx, p);
+  }
+}
+
+static void sgpl_exec_source_begin_ops(sgpl_exec_ctx *ctx, int32_t u) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_SOURCE_BEGIN) && op->source_begin)
+      op->source_begin(op, ctx, u);
+  }
+}
+
+static void sgpl_exec_source_end_ops(sgpl_exec_ctx *ctx, int32_t u) {
+  uint32_t i;
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_SOURCE_END) && op->source_end)
+      op->source_end(op, ctx, u);
+  }
+}
+
+static void sgpl_exec_pair_ops(sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
+  uint32_t i;
+  /* Fast path: emitted contexts carry exactly one pair operation. */
+  if (ctx->op_count == 1) {
+    sgpl_runtime_op *op = &ctx->ops[0];
+    if ((op->capabilities & SGPL_OP_PAIR) && op->pair)
+      op->pair(op->state, ctx, u, v);
+    return;
+  }
+  for (i = 0; i < ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    if ((op->capabilities & SGPL_OP_PAIR) && op->pair)
+      op->pair(op->state, ctx, u, v);
+  }
+}
+
+/* One partition of the selected traversal.  OWNER_U iterates the partition's
+ * source-sorted pair slice with per-source begin/end at source changes and a
+ * source-range merge walk for zero-pair sources (the source gather semantics).
+ * OWNER_V iterates the partition's source-grouped destination rows and only
+ * dispatches pairs: source lifecycle under OWNER_V is driven by the complete
+ * source-domain coverage passes (see sgpl_exec_source_coverage), because a
+ * source's arcs are split across destination partitions. */
+static void sgpl_exec_partition_body(int64_t index, void *opaque) {
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
+  sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  int32_t p = (int32_t)index;
+  /* Hoist the single pair operation's callback and state: compiler-emitted
+   * contexts carry exactly one pair op, and holding them in locals keeps the
+   * per-pair path at one indirect call with no descriptor reloads. */
+  void (*PairFn)(void *, sgpl_exec_ctx *, int32_t, int32_t) = NULL;
+  void *PairState = NULL;
+
+  local.partition_state =
+      (local.partition_base && local.partition_stride > 0)
+          ? (char *)local.partition_base + (int64_t)p * local.partition_stride
+          : local.partition_base;
+
+  sgpl_exec_partition_begin_ops(&local, p);
+
+  if (local.op_count == 1 && (local.ops[0].capabilities & SGPL_OP_PAIR)) {
+    PairFn = local.ops[0].pair;
+    PairState = local.ops[0].state;
+  }
+#define SGPL_EXEC_EMIT_PAIR(U, V)                                             \
+  do {                                                                        \
+    if (PairFn)                                                               \
+      PairFn(PairState, &local, (U), (V));                                    \
+    else                                                                      \
+      sgpl_exec_pair_ops(&local, (U), (V));                                   \
+  } while (0)
+
+  if (local.traversal_kind == SGPL_TRAVERSE_OWNER_V) {
+    int64_t rows = meta->push_row_count ? meta->push_row_count[p] : 0;
+    int64_t *rp = meta->push_rp ? meta->push_rp[p] : NULL;
+    int32_t *ci = meta->push_ci ? meta->push_ci[p] : NULL;
+    int32_t *indir = meta->push_indir ? meta->push_indir[p] : NULL;
+    for (int64_t r = 0; r < rows; ++r) {
+      int32_t u = indir[r];
+      if (local.membership && !local.membership[u])
+        continue;
+      for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
+        SGPL_EXEC_EMIT_PAIR(u, ci[j]);
+    }
+  } else {
+    int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+    int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
+    int32_t pending = -1;
+    int64_t e = 0;
+    for (; e < cnt; ++e) {
+      int32_t u = pairs[2 * e];
+      int32_t v = pairs[2 * e + 1];
+      if (local.membership && !local.membership[u])
+        continue;
+      if (pending != u) {
+        if (pending >= 0)
+          sgpl_exec_source_end_ops(&local, pending);
+        local.source_state = NULL; /* source-scoped claim channel (R7) */
+        sgpl_exec_source_begin_ops(&local, u);
+        pending = u;
+      }
+      SGPL_EXEC_EMIT_PAIR(u, v);
+    }
+    if (pending >= 0)
+      sgpl_exec_source_end_ops(&local, pending);
+
+    /* Complete source-domain coverage: a source in this partition's range
+     * with no pairs in the slice still gets begin/end, so a zero-pair source
+     * observes source_begin(u); source_end(u). */
+    if (meta->partition_start && pairs &&
+        sgpl_exec_has_cap(&local, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END)) {
+      int64_t e2 = 0;
+      int32_t lo = (int32_t)meta->partition_start[p];
+      int32_t hi = (int32_t)meta->partition_start[p + 1];
+      for (int32_t u = lo; u < hi; ++u) {
+        if (local.membership && !local.membership[u])
+          continue;
+        while (e2 < cnt && pairs[2 * e2] < u)
+          ++e2;
+        if (e2 < cnt && pairs[2 * e2] == u)
+          continue;
+        local.source_state = NULL; /* source-scoped claim channel (R7) */
+        sgpl_exec_source_begin_ops(&local, u);
+        sgpl_exec_source_end_ops(&local, u);
+      }
+    }
+  }
+
+  sgpl_exec_partition_end_ops(&local, p);
+#undef SGPL_EXEC_EMIT_PAIR
+}
+
+/* Complete source-domain coverage for OWNER_V source lifecycle: a source's
+ * arcs are split across destination partitions, so source_begin/source_end
+ * cannot be driven by row iteration.  The passes walk the full source domain
+ * ascending with the Frontier membership gate, before and after the parallel
+ * pair traversal; every source therefore observes exactly one
+ * source_begin(u) and one source_end(u), including zero-pair sources.  The
+ * passes are sequential, so the finish order is deterministic.  Source-local
+ * state shared by pairs across partitions is the operation's concern (its
+ * declared AtomicWrite resources); the engine contributes no semantic
+ * work. */
+static void sgpl_exec_source_coverage(sgpl_exec_ctx *ctx, int begin) {
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  int64_t n;
+  int64_t u;
+  if (!meta)
+    return;
+  n = meta->csr_n;
+  for (u = 0; u < n; ++u) {
+    if (ctx->membership && !ctx->membership[u])
+      continue;
+    if (begin) {
+      ctx->source_state = NULL; /* source-scoped claim channel (R7) */
+      sgpl_exec_source_begin_ops(ctx, (int32_t)u);
+    } else
+      sgpl_exec_source_end_ops(ctx, (int32_t)u);
+  }
+}
+
+int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
-  if (!meta || !work_fn || !combine_fn || meta->partition_count <= 0)
-    return initial_next_size;
+  int64_t start_ns;
+  int32_t p;
+  uint32_t i;
+  int owner_v_coverage;
 
-  AutoRedEnv env = {
-      .meta = meta,
-      .work_fn = work_fn,
-      .work_env = work_env,
-      .partial_bytes = partial_bytes,
-      .membership = membership,
-  };
+  if (!ctx)
+    return 0;
+  ctx->graph = graph_ptr;
+  if (!meta || meta->partition_count <= 0 || !ctx->ops)
+    return ctx->initial_next_size;
+  if (ctx->traversal_kind != SGPL_TRAVERSE_OWNER_U &&
+      ctx->traversal_kind != SGPL_TRAVERSE_OWNER_V)
+    abort(); /* invalid traversal mechanism: compiler error */
+  sgpl_exec_validate(ctx);
 
-  int64_t start_ns = now_monotonic_ns();
-  parallel_for_runtime(0, meta->partition_count, 1,
-                       autograph_owner_red_partition_body, &env, 0, 0);
-  for (int32_t p = 0; p < meta->partition_count; ++p)
-    combine_fn((char *)work_env + (int64_t)p * partial_bytes, out);
+  /* OWNER_V source lifecycle needs the complete source-domain coverage passes;
+   * OWNER_U carries lifecycle inside the partition bodies (each source belongs
+   * to exactly one partition range). */
+  owner_v_coverage =
+      ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
+      sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END);
+
+  start_ns = now_monotonic_ns();
+
+  if (ctx->run_round_begin) {
+    sgpl_exec_round_begin_ops(ctx);
+    sgpl_exec_snapshot_ops(ctx);
+  }
+
+  if (owner_v_coverage)
+    sgpl_exec_source_coverage(ctx, /*begin=*/1);
+
+  parallel_for_runtime(0, meta->partition_count, 1, sgpl_exec_partition_body,
+                       ctx, 0, 0);
+
+  if (owner_v_coverage)
+    sgpl_exec_source_coverage(ctx, /*begin=*/0);
+
+  /* Deterministic combine: partition partials fold in ascending partition
+   * order (associativity is the law; permutation invariance is never assumed).
+   * ctx->partition_state is set to the current partition's slot. */
+  if (sgpl_exec_has_cap(ctx, SGPL_OP_COMBINE)) {
+    for (p = 0; p < meta->partition_count; ++p) {
+      ctx->partition_state =
+          (ctx->partition_base && ctx->partition_stride > 0)
+              ? (char *)ctx->partition_base + (int64_t)p * ctx->partition_stride
+              : ctx->partition_base;
+      for (i = 0; i < ctx->op_count; ++i) {
+        sgpl_runtime_op *op = &ctx->ops[i];
+        if ((op->capabilities & SGPL_OP_COMBINE) && op->combine)
+          op->combine(op->state, ctx);
+      }
+    }
+  }
+
+  ctx->next_size = ctx->initial_next_size +
+                   (ctx->append_head
+                        ? (int32_t)__atomic_load_n(ctx->append_head, __ATOMIC_RELAXED)
+                        : 0);
+
+  if (ctx->run_round_end)
+    sgpl_exec_round_end_ops(ctx);
+
   autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
-  return initial_next_size;
+  return ctx->next_size;
+}
+
+/* Activation: the A+ operation's pair callback.  Claim dest_seen[v] (0 -> 1,
+ * atomic) and, on the transition, append v to next_frontier under the atomic
+ * head.  The physical append order is an implementation detail: the frontier
+ * is an unordered set (F_{t+1} = {v | dest_seen[v] = 1}). */
+int32_t autograph_frontier_activate(sgpl_exec_ctx *ctx, int32_t v) {
+  int32_t expected = 0;
+  int32_t head;
+  if (!ctx || !ctx->dest_seen || v < 0)
+    return 0;
+  if (!__atomic_compare_exchange_n(&ctx->dest_seen[v], &expected, 1, 0,
+                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+    return 0;
+  if (ctx->next_frontier && ctx->append_head) {
+    head = __atomic_fetch_add(ctx->append_head, 1, __ATOMIC_RELAXED);
+    ctx->next_frontier[ctx->initial_next_size + head] = v;
+  }
+  return 1;
+}
+
+/* Fork/join for incompatible parallel children.  The owner context carries the
+ * round lifecycle ops/flags; the two children are non-owning and share the
+ * owner's round resources.  One child runs on the calling thread, the other on
+ * a host thread; the join waits only on that host thread, so a child whose
+ * traversal is denied budget still makes progress by running serially on its
+ * own thread (the budget allocator never blocks). */
+typedef struct {
+  void *graph;
+  sgpl_exec_ctx *ctx;
+  int32_t rc;
+} SgplForkJob;
+
+static void *sgpl_fork_join_child(void *arg) {
+  SgplForkJob *job = (SgplForkJob *)arg;
+  job->rc = autograph_frontier_execute(job->graph, job->ctx);
+  return NULL;
+}
+
+int32_t autograph_frontier_fork_join(void *graph_ptr, sgpl_exec_ctx *owner,
+                                     sgpl_exec_ctx *a, sgpl_exec_ctx *b) {
+  pthread_t th;
+  SgplForkJob job;
+  int have_thread = 0;
+  int32_t appended;
+  if (!owner || !a || !b)
+    return 0;
+  if (a->run_round_begin || a->run_round_end || b->run_round_begin ||
+      b->run_round_end)
+    abort(); /* forked contexts are non-owning round contexts */
+  a->graph = graph_ptr;
+  b->graph = graph_ptr;
+
+  if (owner->run_round_begin) {
+    sgpl_exec_round_begin_ops(owner);
+    sgpl_exec_snapshot_ops(owner);
+  }
+
+  /* Owner source lifecycle: per-source operations staged in the owner (e.g.
+   * first-wins claims) run over the complete source domain before either
+   * child traverses, so claim(u) happens-before every pair of u in both
+   * children.  The passes are membership-gated and sequential. */
+  if (sgpl_exec_has_cap(owner, SGPL_OP_SOURCE_BEGIN))
+    sgpl_exec_source_coverage(owner, /*begin=*/1);
+
+  job.graph = graph_ptr;
+  job.ctx = b;
+  job.rc = 0;
+  if (pthread_create(&th, NULL, sgpl_fork_join_child, &job) == 0)
+    have_thread = 1;
+
+  (void)autograph_frontier_execute(graph_ptr, a);
+  if (have_thread)
+    pthread_join(th, NULL);
+  else
+    (void)autograph_frontier_execute(graph_ptr, b); /* thread creation failed */
+
+  if (sgpl_exec_has_cap(owner, SGPL_OP_SOURCE_END))
+    sgpl_exec_source_coverage(owner, /*begin=*/0);
+
+  appended = owner->append_head
+                 ? (int32_t)__atomic_load_n(owner->append_head, __ATOMIC_RELAXED)
+                 : 0;
+  owner->next_size = owner->initial_next_size + appended;
+
+  if (owner->run_round_end)
+    sgpl_exec_round_end_ops(owner);
+  return owner->next_size;
+}
+
+/* -- layout-free construction ABI for compiler-emitted expressions ---------
+ * These helpers let the compiler build execution contexts and operation
+ * descriptors without knowing the C struct layouts.  autograph_exec_op_create
+ * allocates one descriptor; autograph_exec_ctx_create consumes the descriptors
+ * (copies them into a contiguous array, frees the originals) and allocates the
+ * context; autograph_exec_ctx_destroy frees both. */
+void *autograph_exec_op_state(sgpl_runtime_op *op) {
+  return op ? op->state : NULL;
+}
+
+void *autograph_exec_partition_state(sgpl_exec_ctx *ctx) {
+  return ctx ? ctx->partition_state : NULL;
+}
+
+void *autograph_exec_ctx_graph(sgpl_exec_ctx *ctx) {
+  return ctx ? ctx->graph : NULL;
+}
+
+void autograph_exec_ctx_own_round(sgpl_exec_ctx *ctx, int32_t begin,
+                                  int32_t end) {
+  if (!ctx)
+    return;
+  ctx->run_round_begin = begin;
+  ctx->run_round_end = end;
+}
+
+sgpl_runtime_op *autograph_exec_op_create(
+    uint64_t capabilities, void *state,
+    void (*pair_fn)(void *, sgpl_exec_ctx *, int32_t, int32_t),
+    void (*combine_fn)(void *, sgpl_exec_ctx *),
+    void (*source_begin_fn)(sgpl_runtime_op *, sgpl_exec_ctx *, int32_t),
+    void (*source_end_fn)(sgpl_runtime_op *, sgpl_exec_ctx *, int32_t),
+    void (*snapshot_fn)(sgpl_runtime_op *, sgpl_exec_ctx *),
+    const sgpl_res_access *resources, uint32_t resource_count) {
+  sgpl_runtime_op *op = (sgpl_runtime_op *)calloc(1, sizeof(*op));
+  if (!op)
+    return NULL;
+  op->capabilities = capabilities;
+  op->state = state;
+  op->pair = pair_fn;
+  op->combine = combine_fn;
+  op->source_begin = source_begin_fn;
+  op->source_end = source_end_fn;
+  op->snapshot = snapshot_fn;
+  op->resources = resources; /* borrowed from the compiler (module constants) */
+  op->resource_count = resource_count;
+  return op;
+}
+
+/* Snapshot primitive (R7): freeze `live_base` into the per-graph scratch
+ * snapshot slot and return the buffer; the Snapshot op publishes the pointer
+ * through its operation state for the round's cross-reads. */
+void *autograph_snapshot_publish(void *graph_ptr, const void *live_base,
+                                 int64_t elem_bytes, int32_t slot) {
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  int64_t bytes;
+  void *buf;
+  if (!meta || !live_base || meta->csr_n <= 0 || elem_bytes <= 0 || slot < 0 ||
+      slot >= 4)
+    return NULL;
+  bytes = meta->csr_n * elem_bytes;
+  buf = autograph_scratch_shadow(graph_ptr, bytes, slot);
+  if (!buf)
+    return NULL;
+  memcpy(buf, live_base, (size_t)bytes);
+  return buf;
+}
+
+sgpl_exec_ctx *autograph_exec_ctx_create(
+    void *graph, int32_t traversal_kind, int32_t domain_kind,
+    const uint8_t *membership, int32_t *dest_seen, int32_t *next_frontier,
+    int32_t initial_next_size, int32_t *append_head, void *partition_base,
+    int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count) {
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)calloc(1, sizeof(*ctx));
+  uint32_t i;
+  if (!ctx)
+    return NULL;
+  ctx->graph = graph;
+  ctx->traversal_kind = traversal_kind;
+  ctx->domain_kind = domain_kind;
+  ctx->membership = membership;
+  ctx->dest_seen = dest_seen;
+  ctx->next_frontier = next_frontier;
+  ctx->initial_next_size = initial_next_size;
+  ctx->append_head = append_head;
+  ctx->partition_base = partition_base;
+  ctx->partition_stride = partition_stride;
+  if (op_count) {
+    ctx->ops = (sgpl_runtime_op *)calloc(op_count, sizeof(*ctx->ops));
+    if (!ctx->ops) {
+      free(ctx);
+      return NULL;
+    }
+    for (i = 0; i < op_count; ++i) {
+      if (!ops || !ops[i])
+        continue;
+      ctx->ops[i] = *ops[i];
+      free(ops[i]);
+    }
+    ctx->op_count = op_count;
+  }
+  return ctx;
+}
+
+void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
+  if (!ctx)
+    return;
+  free(ctx->ops);
+  free(ctx);
 }
 
 

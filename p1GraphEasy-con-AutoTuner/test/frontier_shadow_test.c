@@ -78,6 +78,13 @@ static void shadow_min_work(int32_t source, int32_t destination,
     E->live[destination] = nd;
 }
 
+/* Post-R5: the sweep is staged through the exec ABI (destination-owned rows). */
+static void shadow_pair(void *state, sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
+  ShadowEnv *E = (ShadowEnv *)state;
+  (void)ctx;
+  shadow_min_work(u, v, (int64_t)v, E);
+}
+
 /* Serial round-separated reference: reads the frozen snapshot only. */
 static void serial_min_sweep(const ShadowTestGraph *g, int32_t *out,
                              const int32_t *snapshot) {
@@ -116,8 +123,18 @@ static int run_sweep(const ShadowTestGraph *g, int32_t partitions) {
     return 0;
 
   ShadowEnv env = {.live = live, .shadow = shadow};
-  autograph_frontier_step_owner_push((void *)g, NULL, 0, shadow_min_work,
-                                     &env, NULL, NULL, 0, NULL);
+  sgpl_runtime_op *op = autograph_exec_op_create(
+      SGPL_OP_PAIR, &env, shadow_pair, NULL, NULL, NULL, NULL, NULL, 0);
+  if (!op)
+    return 0;
+  sgpl_runtime_op *ops[1] = {op};
+  sgpl_exec_ctx *ctx = autograph_exec_ctx_create(
+      (void *)g, SGPL_TRAVERSE_OWNER_V, 0, NULL, NULL, NULL, 0, NULL, NULL, 0,
+      ops, 1);
+  if (!ctx)
+    return 0;
+  autograph_frontier_execute((void *)g, ctx);
+  autograph_exec_ctx_destroy(ctx);
 
   int32_t expected[8];
   memcpy(expected, snapshot, sizeof(expected));

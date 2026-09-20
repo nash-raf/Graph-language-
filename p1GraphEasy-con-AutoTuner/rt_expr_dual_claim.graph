@@ -1,0 +1,46 @@
+graph G {
+  edges: file "undirected_small.txt";
+};
+
+int n = numVertices(G);
+int alive[n];
+int srcmark[n];
+int dstacc[n];
+set frontier = {0};
+set next;
+
+for each vertex v in G {
+  alive[v] = 1;
+  srcmark[v] = 0;
+  dstacc[v] = 0;
+}
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    if (alive[u] == 1) {
+      alive[u] = 0;
+      for each neighbor v of u in G {
+        srcmark[u] = 1;
+        dstacc[v] = dstacc[v] + 1;
+        if (v > u) {
+          next.add(v);
+        }
+      }
+    }
+  }
+  frontier = next;
+}
+
+print srcmark[0];
+print srcmark[1];
+print srcmark[2];
+print srcmark[3];
+print dstacc[0];
+print dstacc[1];
+print dstacc[2];
+print dstacc[3];
+print alive[0];
+print alive[1];
+print alive[2];
+print alive[3];

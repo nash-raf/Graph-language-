@@ -1,0 +1,26 @@
+graph G {
+  edges: file "undirected_small.txt";
+};
+
+int n = numVertices(G);
+int a = 0;
+int b = 0;
+set frontier = {0};
+set next;
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    for each neighbor v of u in G {
+      a = a + v;
+      b = b + 1;
+      if (v > u) {
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+}
+
+print a;
+print b;

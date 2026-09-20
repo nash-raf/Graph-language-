@@ -63,6 +63,10 @@ void sgpl_pop_thread_budget(void);
 int32_t sgpl_configured_worker_count(void);
 int32_t sgpl_current_worker_index(void);
 
+/* Debug introspection: current global budget reservations.  Used by the
+ * fork/join resources-and-budget tests to verify the ledger is balanced. */
+int32_t sgpl_debug_reserved_threads(void);
+
 uint64_t sgpl_now_ns(void);
 
 int32_t sgpl_should_parallelize_doall(

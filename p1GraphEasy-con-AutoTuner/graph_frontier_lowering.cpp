@@ -31,6 +31,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -47,6 +48,9 @@
 #include <unordered_set>
 #include <vector>
 #include <cassert>
+#include <cstring>
+
+#include "autotuner_runtime.h"
 
 #include "graph_frontier_lowering.h"
 
@@ -1985,6 +1989,49 @@ static bool hasPerSourceClaim(const NeighborLoopInfo &Info)
     return false;
 }
 
+/* All per-source first-wins claim effects (store form) when every one has a
+ * constant guard/transition and a module-reachable base (pointer slot or a
+ * statically sized array global).  Empty when any claim needs unsupported
+ * staging, so callers fail closed. */
+static SmallVector<const Effect *, 2>
+perSourceClaims(const NeighborLoopInfo &Info)
+{
+    SmallVector<const Effect *, 2> Found;
+    for (const Effect &E : Info.Effects)
+        if (E.Kind == EffectKind::Claim && E.Scope != OccurrenceScope::PerPair)
+        {
+            if (!E.Base || !isa<Constant>(E.ClaimGuard) ||
+                !isa<Constant>(E.ClaimTransition) || isa<AllocaInst>(E.Base) ||
+                !E.ClaimGuard->getType()->isIntegerTy())
+            {
+                Found.clear();
+                return Found;
+            }
+            Found.push_back(&E);
+        }
+    return Found;
+}
+
+/* Does the claim's guard dominate the neighbour loop?  Only then does the
+ * claim gate the pair work; a preamble claim that does not wrap the loop still
+ * performs its transition once per source but must not gate the pairs. */
+static bool claimGatesLoop(const NeighborLoopInfo &Info, const Effect *Claim)
+{
+    if (!Claim || !Claim->Origin)
+        return false;
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    DominatorTree DT(*F);
+    return DT.dominates(Claim->Origin->getParent(),
+                        Info.NeighborLoop->getHeader());
+}
+
+/* Module-global name publishing the per-source claim state array S[u][j]. */
+static std::string claimGlobalName(const NeighborLoopInfo &Info)
+{
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    return F->getName().str() + ".claim";
+}
+
 /* Count mutating primitives in the Preamble segment (binder-path query); the
  * per-source consume store lives in the Epilogue, so this is the occurrence
  * check the source-reduction gate needs. */
@@ -2017,33 +2064,6 @@ static bool loopHasGraphDataWrite(Loop *L)
                             return true;
     return false;
 }
-
-/* ── classifier: effect set → execution class ──────────────────────
- * Derives the same decisions the pass has always made, expressed as one
- * function over the loop's effect summary.  Sequential covers WriteData,
- * round-separation overlap, mixed ownership, and unclassifiable loops. */
-enum class Klass
-{
-    SourceOwner,
-    DestOwner,
-    Reduction,
-    DualOwner,
-    Sequential,
-    /* Composition R3 (privatization): every mutating effect in the loop is a
-     * recognized U_⊕ update, but at least one written base has no single owner
-     * region — its subscript is a data value (`cnt[deg[u]] += 1`), or one base
-     * is written through both endpoint regions (`arr[u] += 1; arr[v] += 1`), or
-     * the body carries more than one scalar accumulator.  Each partition
-     * accumulates into its own copy of every written base and the emitted
-     * combine folds the copies with the operator's own combine. */
-    Privatized,
-    /* Per-source reduction (gather): the body reduces into a scalar that the
-     * driver preamble consumes once per source (`acc = 0; for each neighbor v {
-     * acc = acc + f(v) } arr[u] = acc`).  Runs on the source-owned step with a
-     * per-partition partial and a finish hook per source; gated by
-     * SGPL_COMP_I_SOURCE_REDUCTION while it proves itself. */
-    SourceReduction
-};
 
 static bool envelopeWired(const NeighborLoopInfo &Info)
 {
@@ -2294,18 +2314,10 @@ static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *Nest)
  *   (4) the fold law holds for ω on the element type (foldSound). */
 static const char *PrivReason = "";
 
-/* Premise 0 at the expression level: a claim or an activation anywhere in the
- * segmented effect expression makes the pure-accumulation theorem inapplicable
- * (claims have per-source/ordered semantics, activations are dest-owned side
- * effects).  This mirrors the legacy field checks and is checked before the
- * layout is filled. */
-static bool exprHasClaimOrActivate(const NeighborLoopInfo &Info)
-{
-    for (const Effect &E : Info.Effects)
-        if (E.Kind == EffectKind::Claim || E.Kind == EffectKind::Activate)
-            return true;
-    return false;
-}
+/* Premise 0 at the expression level: a claim anywhere in the segmented effect
+ * expression makes the pure-accumulation theorem inapplicable (claims have
+ * per-source/ordered semantics on the live array).  Activation is orthogonal:
+ * it touches the dest envelope, never the privatized bases. */
 
 static bool privLayout(NeighborLoopInfo &Info)
 {
@@ -2317,22 +2329,24 @@ static bool privLayout(NeighborLoopInfo &Info)
         return false;
     }
     /* The proof covers the whole nest: a driver-preamble update runs once per
-     * source and is carried by the step's preamble phase (see the R3+D step). */
+     * source and is carried by the step's preamble phase (see the R3+D step).
+     * Activation is orthogonal to the accumulation theorem: it touches the
+     * dest envelope (dest_seen/next_frontier), never the privatized bases, so
+     * it composes with privatization (the A+ primitive reads the context). */
     Loop *Nest = Info.DriverLoop ? Info.DriverLoop : L;
-    if (Info.HasFrontierAppend || Info.HasFirstWins || hasPerSourceClaim(Info) ||
-        exprHasClaimOrActivate(Info))
+    if (Info.HasFirstWins || hasPerSourceClaim(Info))
     {
-        PrivReason = "claim/append in the loop nest";
+        PrivReason = "claim in the loop nest";
         return false;
     }
 
     Info.Slots.clear();
     Info.PrivArrays.clear();
 
-    /* 1/2. Effect set: updates only. */
+    /* 1/2. Effect set: updates only (reads and activation are orthogonal). */
     for (const Effect &E : Info.Effects)
     {
-        if (E.Kind == EffectKind::R)
+        if (E.Kind == EffectKind::R || E.Kind == EffectKind::Activate)
             continue;
         if (E.Kind != EffectKind::Uop || E.Op == RedOp::None || !E.Base)
         {
@@ -2540,157 +2554,7 @@ static void summarizeEffects(const NeighborLoopInfo &Info, EffectSummary &S)
     forEachExprEffect(Info, Scan);
 }
 
-/* The interpretation ⟦E⟧_par: algebraic properties of the expression →
- * execution class.  Every rule is stated over the summary/expression, and the
- * negative rules are explicit:
- *   - a D-indexed write has no owner: Sequential unless the pure-accumulation
- *     theorem (Priv) applies;
- *   - a Top provenance refuses unconditionally;
- *   - a carried read on a mutated base refuses unless a shadow snapshot
- *     resolves it or the read is the partition's own accumulator (Priv);
- *   - a PerSource claim cannot be replayed per pair (occurrence preservation).
- * Shadow eligibility requires the write region to be a single endpoint (the
- * round-separation base construction already enforces this). */
-static Klass interpretPar(NeighborLoopInfo &Info, const EffectSummary &S,
-                          bool Priv)
-{
-    if (Info.HasDataWrite && !Priv)
-        return Klass::Sequential;
-    if (hasPerSourceClaim(Info) && !::getenv("SGPL_COMP_F_ALLOW_DRIVER_CLAIM"))
-        return Klass::Sequential;
-    if (S.MutTop)
-        return Klass::Sequential;
-    if (S.HasCarriedOnMut && !Priv)
-        return Klass::Sequential;
-
-    /* Composition A: round-separated in-place (single-ownership step whose
-     * cross-endpoint reads go through the per-round shadow snapshot). */
-    if (!Info.RoundSepBases.empty() && !(S.MutU && S.MutV))
-    {
-        bool V = Info.RoundSepBases[0].WritesV;
-        bool Agree = true;
-        for (const auto &RS : Info.RoundSepBases)
-            if (RS.WritesV != V)
-                Agree = false;
-        if (Agree && ((V && !S.MutU) || (!V && !S.MutV)))
-            return V ? Klass::DestOwner : Klass::SourceOwner;
-    }
-
-    /* Dual ownership: disjoint single-endpoint write sets with no cross-phase
-     * data dependence.  A shadow would freeze round-start state these
-     * claim/activate state machines must observe within the round, so its
-     * presence refuses the class. */
-    if (S.MutU && S.MutV && !S.MutG)
-    {
-        bool Disjoint = true;
-        for (const Value *B : S.BaseU)
-            if (S.BaseV.count(B))
-                Disjoint = false;
-        if (Disjoint && !S.BaseU.empty() && !S.BaseV.empty() &&
-            !crossPhaseDataDep(Info, S.BaseU, S.BaseV) &&
-            Info.RoundSepBases.empty())
-        {
-            if (Info.HasFrontierAppend && !envelopeWired(Info))
-                return Klass::Sequential;
-            return Klass::DualOwner;
-        }
-        /* Same-base U+V or a data dependence: only the pure-accumulation
-         * theorem can parallelize it. */
-        if (Priv)
-        {
-            Info.UsePrivLayout = true;
-            return Klass::Privatized;
-        }
-        return Klass::Sequential;
-    }
-
-    /* Composition I / P10: per-source gather (pair accumulation sequenced
-     * with a per-source finish). */
-    if (getenv("SGPL_COMP_I_SOURCE_REDUCTION") && Info.ReducePtr &&
-        Info.AccConsumeStore && Info.AccResetSeen && Info.ReduceOp != RedOp::None &&
-        !Info.HasDataWrite && !S.MutV && !S.MutTop && !S.HasCarriedOnMut &&
-        !S.HasUnrecognizedG && !Info.HasFrontierAppend &&
-        !hasPerSourceClaim(Info) && preambleMutationCount(Info) == 0)
-        return Klass::SourceReduction;
-
-    /* Activation needs the dest envelope; DualOwner already returned. */
-    if (Info.HasFrontierAppend)
-    {
-        if (envelopeWired(Info) && S.MutV && !S.MutU && !S.MutG)
-            return Klass::DestOwner;
-        return Klass::Sequential;
-    }
-    /* Legacy reduction: exactly one scalar accumulator, recognized fold law. */
-    if (S.MutG && S.HasUopG && !S.HasUnrecognizedG && !S.MutU && !S.MutV &&
-        !privLayoutNeeded(Info))
-        return Klass::Reduction;
-    if (S.MutV && !S.MutU && !S.MutG)
-        return Klass::DestOwner;
-    if (S.MutU && !S.MutV && !S.MutG)
-        return Klass::SourceOwner;
-    if (Priv)
-    {
-        Info.UsePrivLayout = true;
-        return Klass::Privatized;
-    }
-    return Klass::Sequential;
-}
-
-static Klass classify(NeighborLoopInfo &Info)
-{
-    /* Composition R3: a loop whose every mutating effect is a recognized U_⊕
-     * update is a pure accumulation — no owner is needed, each partition can
-     * accumulate into its own copy (see privLayout).  Computed before the
-     * ownership decisions so a data-valued subscript (which has no owner at
-     * all) is not refused for lacking one. */
-    const bool PrivProvable = privLayout(Info);
-    const bool Priv = PrivProvable && privLayoutNeeded(Info);
-    if (getenv("GRAPH_FRONTIER_STATS") && PrivProvable && !Priv)
-        errs() << "[graph-frontier]   priv: layout provable but not needed "
-                  "(single scalar slot, no array) -> legacy paths\n";
-    if (getenv("GRAPH_FRONTIER_STATS") && !PrivProvable)
-        errs() << "[graph-frontier]   priv: refused -- " << PrivReason << "\n";
-
-    EffectSummary S;
-    summarizeEffects(Info, S);
-    return interpretPar(Info, S, Priv);
-}
-
-static const char *klassName(Klass K)
-{
-    switch (K)
-    {
-    case Klass::SourceOwner:
-        return "source-owner";
-    case Klass::DestOwner:
-        return "dest-owner";
-    case Klass::Reduction:
-        return "reduction";
-    case Klass::Privatized:
-        return "privatized";
-    case Klass::SourceReduction:
-        return "source-red";
-    case Klass::DualOwner:
-        return "dual-owner";
-    default:
-        return "sequential";
-    }
-}
-
-static const char *compatName(Klass K)
-{
-    switch (K)
-    {
-    case Klass::DualOwner:
-        return "dual";
-    case Klass::Sequential:
-        return "no";
-    default:
-        return "single";
-    }
-}
-
-static void printEffects(const NeighborLoopInfo &Info, Klass K)
+static void printEffects(const NeighborLoopInfo &Info)
 {
     bool First = true;
     Temporal Worst = Temporal::Independent;
@@ -2717,8 +2581,90 @@ static void printEffects(const NeighborLoopInfo &Info, Klass K)
     }
     if (First)
         errs() << "(empty)";
-    errs() << "  temporal=" << temporalName(Worst)
-           << "  compat=" << compatName(K);
+    errs() << "  temporal=" << temporalName(Worst);
+}
+
+/* Canonical atom key for the executable-atom census: identity (kind, op,
+ * base, region, occurrence scope, phase segment) with occurrences preserved by
+ * the multiset comparison. */
+static std::string atomKey(const Effect &E, PhaseSegment Seg)
+{
+    std::string K = effectKindName(E.Kind);
+    if (E.Kind == EffectKind::Uop && E.Op != RedOp::None)
+        K += std::string("[") + redOpName(E.Op) + "]";
+    K += "(";
+    K += (E.Base && E.Base->hasName()) ? E.Base->getName().str() : "_";
+    K += ",";
+    K += regionName(E.Reg);
+    K += "):seg=" + std::to_string((int)Seg) +
+         ":scope=" + std::to_string((int)E.Scope);
+    return K;
+}
+
+/* Executable-atom census (SGPL_EXEC_DUMP=1): the flattened expression's atoms
+ * and the atom set each executable operation implements.  Fusion keeps the
+ * multiset invariant atoms(ExecOps) == flatten(E) modulo Par permutation:
+ * the claim ops realize the per-source claims, the preamble op the remaining
+ * preamble mutations, the pair op the pair segment, the finish op the
+ * epilogue, and snapshot/combine are mechanisms that realize no atom. */
+static void dumpExecAtoms(const NeighborLoopInfo &Info)
+{
+    for (const Effect &E : Info.Effects)
+    {
+        PhaseSegment Seg = PhaseSegment::None;
+        for (const auto &P : Info.Expr.Preamble)
+            if (P == &E)
+                Seg = PhaseSegment::Preamble;
+        for (const auto &P : Info.Expr.Pair)
+            if (P == &E)
+                Seg = PhaseSegment::Pair;
+        for (const auto &P : Info.Expr.Epilogue)
+            if (P == &E)
+                Seg = PhaseSegment::Epilogue;
+        errs() << "[atom] " << atomKey(E, Seg) << "\n";
+    }
+    auto Emit = [&](const char *Op, const SmallVectorImpl<const Effect *> &Seg,
+                    bool Claims)
+    {
+        errs() << "[exec] op=" << Op << " atoms=";
+        bool First = true;
+        for (const Effect *E : Seg)
+        {
+            bool IsClaim = E->Kind == EffectKind::Claim;
+            if (IsClaim != Claims)
+                continue;
+            if (!First)
+                errs() << "|";
+            First = false;
+            errs() << atomKey(*E, PhaseSegment::Preamble);
+        }
+        errs() << "\n";
+    };
+    Emit("claim", Info.Expr.Preamble, true);
+    Emit("preamble", Info.Expr.Preamble, false);
+    errs() << "[exec] op=pair atoms=";
+    {
+        bool First = true;
+        for (const Effect *E : Info.Expr.Pair)
+        {
+            if (!First)
+                errs() << "|";
+            First = false;
+            errs() << atomKey(*E, PhaseSegment::Pair);
+        }
+    }
+    errs() << "\n[exec] op=finish atoms=";
+    {
+        bool First = true;
+        for (const Effect *E : Info.Expr.Epilogue)
+        {
+            if (!First)
+                errs() << "|";
+            First = false;
+            errs() << atomKey(*E, PhaseSegment::Epilogue);
+        }
+    }
+    errs() << "\n[exec] op=snapshot atoms=\n[exec] op=combine atoms=\n";
 }
 
 /* Segmented form of the same set: `preamble ; pair ; epilogue` with each
@@ -2764,13 +2710,13 @@ static void printEffectExpr(const NeighborLoopInfo &Info)
  * temporal).  This is the compatibility oracle for the algebra refactor:
  * SGPL_WITNESS_DUMP=1 prints it; proof/refactor_golden_* captures it.
  * Format is deliberately line-per-fact and sorted so it is diff-stable. */
-static void printWitness(const NeighborLoopInfo &Info, Klass K, bool IsIter)
+static void printWitness(const NeighborLoopInfo &Info, bool IsIter)
 {
     errs() << "[witness] iter=" << (IsIter ? 1 : 0)
            << " driver="
            << (Info.DriverLoop ? Info.DriverLoop->getHeader()->getName() : "<none>")
            << " inner=" << Info.NeighborLoop->getHeader()->getName()
-           << " class=" << klassName(K) << "\n";
+           << "\n";
     errs() << "[witness] writekind=" << (int)Info.WriteKind
            << " hasdata=" << (Info.HasDataWrite ? 1 : 0)
            << " redptr=" << (Info.ReducePtr && Info.ReducePtr->hasName()
@@ -2961,6 +2907,11 @@ static Value *ptrFromSlot(IRBuilder<> &B, Value *Slot, Type *I8P)
     if (auto *AI = dyn_cast<AllocaInst>(Slot))
         if (!AI->getAllocatedType()->isPointerTy())
             return B.CreateBitCast(Slot, I8P);
+    /* A statically sized array global (`int dist[8]` -> @dist = [8 x i32]) is
+     * the storage itself, not a pointer slot: take its address. */
+    if (auto *GV = dyn_cast<GlobalVariable>(Slot))
+        if (GV->getValueType()->isArrayTy())
+            return B.CreateBitCast(GV, I8P);
     return B.CreateLoad(I8P, Slot);
 }
 
@@ -3082,27 +3033,6 @@ static void fillFrontierEnv(IRBuilder<> &EB, const NeighborLoopInfo &Info,
     }
 }
 
-static Value *callOwnerStep(IRBuilder<> &EB, Module *Mod, Type *I8P, Type *I32,
-                            Function *WF, bool SourceOwner, const FrontierEnv &Env,
-                            bool WithEnvelope)
-{
-    const char *StepName = SourceOwner ? "autograph_frontier_step_owner_source"
-                                       : "autograph_frontier_step_owner_push";
-    FunctionCallee Step = Mod->getOrInsertFunction(
-        StepName, FunctionType::get(I32, {I8P, I8P, I32, I8P, I8P, I8P, I8P, I32,
-                                          I8P}, false));
-    Value *Null = ConstantPointerNull::get(cast<PointerType>(I8P));
-    SmallVector<Value *, 9> Args = {
-        Env.GraphArg, Env.FrontArg, Env.FrontSize,
-        EB.CreateBitCast(WF, I8P),
-        WithEnvelope ? Env.WorkEnv : Null,
-        Env.Membership,
-        WithEnvelope ? Env.NextArg : Null,
-        ConstantInt::get(I32, 0),
-        WithEnvelope ? Env.SeenArg : Null};
-    return EB.CreateCall(Step, Args);
-}
-
 static void commitEnvelope(IRBuilder<> &EB, const NeighborLoopInfo &Info,
                            Module *Mod, Type *I8P, LLVMContext &Ctx,
                            Value *GraphArg, Value *NewSize)
@@ -3150,16 +3080,24 @@ static std::string shadowGlobalName(const NeighborLoopInfo &Info, unsigned Index
  * while, once for the ungated driver.  For each base: grab a per-graph scratch
  * buffer, publish its pointer through the global the pair fn reads, then
  * memcpy the live array into it so every read in this round sees the frozen
- * round-start snapshot. */
-static void emitRoundSepShadow(IRBuilder<> &EB, const NeighborLoopInfo &Info,
-                               Module *Mod, Type *I8P, Type *I64, LLVMContext &Ctx,
-                               Value *GraphArg)
+ * round-start snapshot.  R7: the copy is produced by a Snapshot operation
+ * (SGPL_OP_SNAPSHOT) whose callback calls the runtime primitive
+ * autograph_snapshot_publish; the preheader only publishes the live base
+ * pointer and the operation runs under the round owner. */
+static void emitRoundSepShadow(
+    IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod, Type *I8P,
+    Type *I64, LLVMContext &Ctx, Value *GraphArg,
+    SmallVectorImpl<std::pair<Function *, GlobalVariable *>> &SnapOps)
 {
     if (Info.RoundSepBases.empty() || !GraphArg)
         return;
-    FunctionCallee Scratch = Mod->getOrInsertFunction(
-        "autograph_scratch_shadow",
-        FunctionType::get(I8P, {I8P, I64, Type::getInt32Ty(Ctx)}, false));
+    (void)GraphArg; /* the operation's callback reads ctx->graph */
+    Type *I32 = Type::getInt32Ty(Ctx);
+    FunctionCallee GraphFn = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_graph", FunctionType::get(I8P, {I8P}, false));
+    FunctionCallee Publish = Mod->getOrInsertFunction(
+        "autograph_snapshot_publish",
+        FunctionType::get(I8P, {I8P, I8P, I64, I32}, false));
     for (unsigned si = 0; si < Info.RoundSepBases.size(); ++si)
     {
         const auto &RS = Info.RoundSepBases[si];
@@ -3173,22 +3111,113 @@ static void emitRoundSepShadow(IRBuilder<> &EB, const NeighborLoopInfo &Info,
             Mod->getOrInsertGlobal(shadowGlobalName(Info, si), I8P));
         SlotG->setLinkage(GlobalValue::InternalLinkage);
         SlotG->setInitializer(ConstantPointerNull::get(cast<PointerType>(I8P)));
-        /* n = *(i64*)graph (Graph struct field 0 = vertex count). */
-        Value *N = EB.CreateLoad(I64, GraphArg, "graph_n");
-        Value *NBytes = EB.CreateMul(N, ConstantInt::get(I64, ElemBytes), "shadow_bytes");
-        Value *Shp = EB.CreateCall(
-            Scratch, {GraphArg, NBytes,
-                      ConstantInt::get(Type::getInt32Ty(Ctx), (uint32_t)si)});
-        EB.CreateStore(Shp, SlotG);
-        /* shadow = memcpy(dist, n*elemBytes); the pair fn reads the shadow. */
-        Value *DistDp = EB.CreateLoad(I8P, const_cast<Value *>(RS.Base), "roundsep_dist");
-        Value *ShadDp = EB.CreateLoad(I8P, SlotG, "roundsep_shadow");
-        EB.CreateMemCpy(ShadDp, MaybeAlign(ElemBytes), DistDp, MaybeAlign(ElemBytes),
-                        NBytes);
+        GlobalVariable *BaseG = cast<GlobalVariable>(Mod->getOrInsertGlobal(
+            shadowGlobalName(Info, si) + ".base", I8P));
+        BaseG->setLinkage(GlobalValue::InternalLinkage);
+        BaseG->setInitializer(ConstantPointerNull::get(cast<PointerType>(I8P)));
+        /* Publish the live base for the operation's callback (works for both
+         * pointer slots and statically sized array globals/allocas). */
+        Value *DistDp = ptrFromSlot(EB, const_cast<Value *>(RS.Base), I8P);
+        EB.CreateStore(DistDp, BaseG);
+
+        /* Snapshot(A) callback: void(i8* op, i8* ctx).  The runtime owns the
+         * buffer lifecycle; the callback publishes it through the shadow
+         * global the pair work functions read. */
+        FunctionType *SnapTy = FunctionType::get(Type::getVoidTy(Ctx),
+                                                 {I8P, I8P}, false);
+        Function *CB = Function::Create(SnapTy, GlobalValue::InternalLinkage,
+                                        "sgpl_snapshot", Mod);
+        IRBuilder<> SB(BasicBlock::Create(Ctx, "entry", CB));
+        Value *Graph = SB.CreateCall(GraphFn, {CB->getArg(1)});
+        Value *Base = SB.CreateLoad(I8P, BaseG);
+        Value *Pub = SB.CreateCall(Publish,
+                                   {Graph, Base, ConstantInt::get(I64, ElemBytes),
+                                    ConstantInt::get(I32, (int32_t)si)});
+        SB.CreateStore(Pub, SlotG);
+        SB.CreateRetVoid();
+        SnapOps.push_back({CB, SlotG});
     }
 }
 
-static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
+/* Per-source claim staging (R7): allocate the per-source state array
+ * S[u][j] (K claims), zero it, publish its base through the module global the
+ * pair callbacks read, and emit one SOURCE_BEGIN callback per claim.  Each
+ * callback performs its guarded transition on the live base and records the
+ * outcome in S[u][j].  Exactly-once per source is discharged by the executor's
+ * source lifecycle (OWNER_V coverage pre-pass / OWNER_U inline source change),
+ * so the callbacks need no synchronization. */
+static SmallVector<Function *, 2>
+buildClaimState(IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod,
+                LLVMContext &Ctx, Type *I8P, Type *I32, Type *I64,
+                Value *GraphArg)
+{
+    SmallVector<Function *, 2> CBs;
+    SmallVector<const Effect *, 2> Claims = perSourceClaims(Info);
+    if (Claims.empty())
+        return CBs;
+    Value *N = EB.CreateLoad(I64, GraphArg, "graph_n");
+    const unsigned K = (unsigned)Claims.size();
+    Value *NElems = EB.CreateMul(N, ConstantInt::get(I64, (int64_t)K));
+    AllocaInst *ClaimRes = EB.CreateAlloca(I32, NElems, "claim_result");
+    EB.CreateMemSet(ClaimRes, ConstantInt::get(Type::getInt8Ty(Ctx), 0),
+                    EB.CreateMul(NElems, ConstantInt::get(I64, 4)),
+                    MaybeAlign(4));
+    GlobalVariable *ClaimG = cast<GlobalVariable>(
+        Mod->getOrInsertGlobal(claimGlobalName(Info), I8P));
+    ClaimG->setLinkage(GlobalValue::InternalLinkage);
+    ClaimG->setInitializer(ConstantPointerNull::get(cast<PointerType>(I8P)));
+    EB.CreateStore(EB.CreateBitCast(ClaimRes, I8P), ClaimG);
+
+    FunctionType *CTy = FunctionType::get(Type::getVoidTy(Ctx),
+                                          {I8P, I8P, I32}, false);
+    for (unsigned j = 0; j < K; ++j)
+    {
+        const Effect *Claim = Claims[j];
+        Type *ClaimET = Claim->ClaimGuard->getType();
+        Function *CB = Function::Create(CTy, GlobalValue::InternalLinkage,
+                                        "sgpl_claim", Mod);
+        BasicBlock *Ent = BasicBlock::Create(Ctx, "entry", CB);
+        IRBuilder<> CBI(Ent);
+        Value *U = CB->getArg(2);
+        Value *Arr = CBI.CreateLoad(I8P, ClaimG, "claim_arr");
+        Value *ArrI32 = CBI.CreateBitCast(Arr, PointerType::get(I32, 0));
+        Value *BasePtr = ptrFromSlot(CBI, const_cast<Value *>(Claim->Base), I8P);
+        Value *BaseT = CBI.CreateBitCast(BasePtr, PointerType::get(ClaimET, 0));
+        Value *EP = CBI.CreateGEP(ClaimET, BaseT, U);
+        Value *Old = CBI.CreateLoad(ClaimET, EP);
+        Value *Won = CBI.CreateICmpEQ(Old,
+                                      const_cast<Value *>(Claim->ClaimGuard));
+        BasicBlock *Then = BasicBlock::Create(Ctx, "claim_then", CB);
+        BasicBlock *Cont = BasicBlock::Create(Ctx, "claim_cont", CB);
+        CBI.CreateCondBr(Won, Then, Cont);
+        IRBuilder<> TBI(Then);
+        TBI.CreateStore(const_cast<Value *>(Claim->ClaimTransition), EP);
+        TBI.CreateBr(Cont);
+        IRBuilder<> KBI(Cont);
+        Value *Idx = KBI.CreateAdd(
+            KBI.CreateMul(U, ConstantInt::get(I32, (int32_t)K)),
+            ConstantInt::get(I32, (int32_t)j), "claim_slot");
+        KBI.CreateStore(KBI.CreateZExt(Won, I32),
+                        KBI.CreateGEP(I32, ArrI32, Idx));
+        KBI.CreateRetVoid();
+        CBs.push_back(CB);
+    }
+    return CBs;
+}
+
+/* Where the cloned pair body's environment comes from.  The runtime pair
+ * callback ABI is (state, ctx, u, v); deriving the environment inside the work
+ * function removes an emitted adapter and its per-pair accessor call. */
+enum class PairEnvKind
+{
+    State,     /* op state (simple loops: null) */
+    Partition, /* this partition's partial / privatized record */
+    Ctx        /* the runtime context (activation: the A* primitive) */
+};
+
+static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
+                                bool RuntimeActivate = false,
+                                PairEnvKind EnvKind = PairEnvKind::State)
 {
     Function *F = Info.NeighborLoop->getHeader()->getParent();
     LLVMContext &Ctx = F->getContext();
@@ -3208,16 +3237,27 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
     Type *I64 = Type::getInt64Ty(Ctx);
     Type *I8P = PointerType::get(Ctx, 0);
 
-    /* Pair wrapper. */
+    /* Runtime pair callback: void(i8* state, i8* ctx, i32 u, i32 v). */
     FunctionType *FT = FunctionType::get(Type::getVoidTy(Ctx),
-                                         {I32, I32, I64, I8P}, false);
+                                         {I8P, I8P, I32, I32}, false);
     Function *WF = Function::Create(FT, GlobalValue::InternalLinkage,
                                     "sgpl_pair_work", Mod);
     BasicBlock *EntryBB = BasicBlock::Create(Ctx, "entry", WF);
     IRBuilder<> WB(EntryBB);
-    Argument *ArgU = WF->getArg(0);
-    Argument *ArgV = WF->getArg(1);
-    Argument *ArgEnv = WF->getArg(3);
+    Argument *ArgU = WF->getArg(2);
+    Argument *ArgV = WF->getArg(3);
+    Value *ArgEnv = nullptr;
+    if (EnvKind == PairEnvKind::State)
+        ArgEnv = WF->getArg(0);
+    else if (EnvKind == PairEnvKind::Ctx)
+        ArgEnv = WF->getArg(1);
+    else
+    {
+        FunctionCallee PartStateFn = Mod->getOrInsertFunction(
+            "autograph_exec_partition_state",
+            FunctionType::get(I8P, {I8P}, false));
+        ArgEnv = WB.CreateCall(PartStateFn, {WF->getArg(1)});
+    }
 
     AllocaInst *USlot = WB.CreateAlloca(I32, nullptr, "uslot");
     WB.CreateStore(ArgU, USlot);
@@ -3241,9 +3281,11 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
      * every partition held exactly one edge.) */
     Value *RedPartial = nullptr;
     Type *RedElemTy = nullptr;
+    /* Activation is orthogonal to the body environment: A+ always reads the
+     * runtime context, so a reduction/privatization body keeps its partition
+     * environment and the append still elides into the activation primitive. */
     const bool UseEnvelope = Phase != PairPhase::UOnly &&
-                             envelopeWired(Info) && Info.HasFrontierAppend &&
-                             !Info.ReducePtr;
+                             envelopeWired(Info) && Info.HasFrontierAppend;
     Value *SeenBase = nullptr;
     if (Phase == PairPhase::All && Info.ReducePtr)
     {
@@ -3329,6 +3371,32 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
         }
     }
 
+    /* Shadow read GEP: the shadow buffer is a flat array of ET, so the source
+     * array's pointer-deref index (a leading constant zero on the canonical
+     * 1-D form `[n x ET], ptr @base, i32 0, i32 %idx`) must be dropped.
+     * Keeping it emits `getelementptr ET, ptr %shadow, i32 0, i32 %idx`, which
+     * is verifier-invalid for the non-indexable ET and crashes later LLVM
+     * passes (EarlyCSE simplifyInstruction). */
+    auto MakeShadowGEP = [&](Type *ET, Value *Shad, GetElementPtrInst *PGClone,
+                             Instruction *InsertPt) -> GetElementPtrInst *
+    {
+        SmallVector<Value *, 4> Idx;
+        bool First = true;
+        for (Use &U : PGClone->indices())
+        {
+            if (First)
+            {
+                First = false;
+                if (PGClone->getNumIndices() > 1)
+                    if (auto *CI = dyn_cast<ConstantInt>(U.get()))
+                        if (CI->isZero())
+                            continue; /* pointer-deref index */
+            }
+            Idx.push_back(U.get());
+        }
+        return GetElementPtrInst::Create(ET, Shad, Idx, "shadow_elem", InsertPt);
+    };
+
     auto CloneValue = [&](Value *V, auto &&CloneValueRef) -> Value *
     {
         if (Map.count(V))
@@ -3383,12 +3451,8 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
                             Type *ET = ShadowTyForBase.lookup(Base);
                             if (Shad && ET)
                             {
-                                SmallVector<Value *, 4> Idx;
-                                for (Use &U : PGClone->indices())
-                                    Idx.push_back(U.get());
                                 GetElementPtrInst *ShadowGEP =
-                                    GetElementPtrInst::Create(ET, Shad, Idx,
-                                                              "shadow_elem", Clone);
+                                    MakeShadowGEP(ET, Shad, PGClone, Clone);
                                 Clone->setOperand(0, ShadowGEP);
                             }
                         }
@@ -3562,22 +3626,23 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
                 if (!Shad || !ET)
                     continue;
                 Instruction *LoadClone = cast<Instruction>(Map[&I]);
-                SmallVector<Value *, 4> Idx;
-                for (Use &U : PGClone->indices())
-                    Idx.push_back(U.get());
-                GetElementPtrInst *ShadowGEP = GetElementPtrInst::Create(
-                    ET, Shad, Idx, "shadow_elem", LoadClone);
+                GetElementPtrInst *ShadowGEP =
+                    MakeShadowGEP(ET, Shad, PGClone, LoadClone);
                 LoadClone->setOperand(0, ShadowGEP);
             }
 
-    /* Rewrite elided frontier appends into dest_seen[v] = 1 in-place. */
+    /* Rewrite elided frontier appends in-place: the legacy path marks
+     * dest_seen[v] and leaves the append to the step; the direct expression
+     * path calls the explicit activation primitive, which claims dest_seen and
+     * appends on the 0->1 transition.  In that mode the pair wrapper passes the
+     * runtime context as the work environment. */
     BasicBlock *FirstClone = nullptr;
     for (BasicBlock *BB : BodyBlocks)
     {
         BasicBlock *CloneBB = BBMap[BB];
         if (!FirstClone)
             FirstClone = CloneBB;
-        if (UseEnvelope && SeenBase)
+        if (UseEnvelope && (SeenBase || RuntimeActivate))
             for (Instruction &I : *BB)
             {
                 if (I.isTerminator())
@@ -3598,8 +3663,22 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
                 if (Vtx->getType() != I32)
                     Vtx = IRBuilder<>(CloneBB).CreateIntCast(Vtx, I32, true);
                 IRBuilder<> B3(CloneBB);
-                Value *Slot = B3.CreateGEP(I32, SeenBase, Vtx);
-                B3.CreateStore(ConstantInt::get(I32, 1), Slot);
+                if (RuntimeActivate)
+                {
+                    /* Activation is an operation independent of the body's
+                     * environment: it always uses the runtime context, so a
+                     * fused Reduce/PrivateAccumulate pair callback (whose body
+                     * env is the partition state) can carry A+ as well. */
+                    FunctionCallee Activate = Mod->getOrInsertFunction(
+                        "autograph_frontier_activate",
+                        FunctionType::get(I32, {I8P, I32}, false));
+                    B3.CreateCall(Activate, {WF->getArg(1), Vtx});
+                }
+                else
+                {
+                    Value *Slot = B3.CreateGEP(I32, SeenBase, Vtx);
+                    B3.CreateStore(ConstantInt::get(I32, 1), Slot);
+                }
             }
         Instruction *HostTerm = BB->getTerminator();
         if (auto *HB = dyn_cast<BranchInst>(HostTerm))
@@ -3680,127 +3759,43 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase)
         }
     }
     WB.SetInsertPoint(EntryBB);
-    WB.CreateBr(FirstClone);
+    /* Per-source first-wins claims: each claim runs once per source in a
+     * SOURCE_BEGIN operation and publishes its outcome in the per-source
+     * state array S[u][j].  Only claims whose guard dominates the loop gate
+     * the pair body (a preamble claim that does not wrap the loop performs
+     * its transition without gating the pairs). */
+    {
+        SmallVector<const Effect *, 2> Claims = perSourceClaims(Info);
+        bool AnyGate = false;
+        for (const Effect *C : Claims)
+            if (claimGatesLoop(Info, C))
+                AnyGate = true;
+        if (AnyGate)
+        {
+            GlobalVariable *ClaimG = cast<GlobalVariable>(
+                Mod->getOrInsertGlobal(claimGlobalName(Info), I8P));
+            Value *Arr = WB.CreateLoad(I8P, ClaimG, "claim_res");
+            Value *ArrI32 = WB.CreateBitCast(Arr, PointerType::get(I32, 0));
+            const unsigned K = (unsigned)Claims.size();
+            Value *Won = nullptr;
+            for (unsigned j = 0; j < K; ++j)
+            {
+                if (!claimGatesLoop(Info, Claims[j]))
+                    continue;
+                Value *Idx = WB.CreateAdd(
+                    WB.CreateMul(ArgU, ConstantInt::get(I32, (int32_t)K)),
+                    ConstantInt::get(I32, (int32_t)j), "claim_slot");
+                Value *Res = WB.CreateLoad(I32, WB.CreateGEP(I32, ArrI32, Idx),
+                                           "claim_won");
+                Value *One = WB.CreateICmpNE(Res, ConstantInt::get(I32, 0));
+                Won = Won ? WB.CreateAnd(Won, One) : One;
+            }
+            WB.CreateCondBr(Won, FirstClone, RetStub);
+        }
+        else
+            WB.CreateBr(FirstClone);
+    }
     return WF;
-}
-
-static bool emitCleanCutCallbackAndStep(const NeighborLoopInfo &Info, bool SourceOwner)
-{
-    Function *WF = emitPairWorkFn(Info, PairPhase::All);
-    if (!WF)
-        return false;
-    Function *F = Info.NeighborLoop->getHeader()->getParent();
-    LLVMContext &Ctx = F->getContext();
-    Module *Mod = F->getParent();
-    Type *I32 = Type::getInt32Ty(Ctx);
-    Type *I64 = Type::getInt64Ty(Ctx);
-    Type *I8P = PointerType::get(Ctx, 0);
-
-    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
-    if (!Pre || !Pre->getTerminator())
-        return false;
-    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
-    EB.SetInsertPoint(Pre->getTerminator());
-    Value *GraphArg = Info.GraphPtr;
-    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
-        if (GL->getPointerOperand())
-            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
-    FunctionCallee BuildCC = Mod->getOrInsertFunction(
-        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
-
-    const bool UseEnvelope = envelopeWired(Info) && Info.HasFrontierAppend &&
-                             !Info.ReducePtr;
-    if (Info.ReducePtr)
-    {
-        Type *RedElemTy = Type::getDoubleTy(Ctx);
-        for (User *U : Info.ReducePtr->users())
-            if (auto *LI = dyn_cast<LoadInst>(U))
-                RedElemTy = LI->getType();
-        AllocaInst *Partials = EB.CreateAlloca(RedElemTy, PartCount, "red_partials");
-        emitPartialInit(EB, Pre, Partials, PartCount, RedElemTy, Info.ReduceOp, Ctx);
-        Function *Combiner = emitRedCombiner(Ctx, Mod, Info.ReduceOp, RedElemTy);
-        FunctionCallee Step = Mod->getOrInsertFunction(
-            "autograph_frontier_step_owner_red",
-            FunctionType::get(I32,
-                              {I8P, I8P, I32, I8P, I8P, I64, I8P, I8P, I8P, I8P, I32,
-                               I8P}, false));
-        SmallVector<Value *, 12> StepArgs = {
-            GraphArg,
-            ConstantPointerNull::get(cast<PointerType>(I8P)),
-            ConstantInt::get(I32, 0),
-            EB.CreateBitCast(WF, I8P),
-            EB.CreateBitCast(Partials, I8P),
-            ConstantInt::get(I64, (RedElemTy->getPrimitiveSizeInBits() + 7) / 8),
-            EB.CreateBitCast(Combiner, I8P),
-            EB.CreateBitCast(Info.ReducePtr, I8P),
-            ConstantPointerNull::get(cast<PointerType>(I8P)),
-            ConstantPointerNull::get(cast<PointerType>(I8P)),
-            ConstantInt::get(I32, 0),
-            ConstantPointerNull::get(cast<PointerType>(I8P))};
-        EB.CreateCall(Step, StepArgs);
-    }
-    else
-    {
-        FrontierEnv Env;
-        fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, UseEnvelope);
-        emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg);
-        Value *NewSize = callOwnerStep(EB, Mod, I8P, I32, WF, SourceOwner, Env,
-                                       UseEnvelope);
-        if (UseEnvelope)
-            commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
-    }
-    deactivateDriver(Info);
-    return true;
-}
-
-/* DualOwner: source step then dest step on the same pre-round F_t. */
-static bool emitDualCleanCut(const NeighborLoopInfo &Info)
-{
-    Function *WFu = emitPairWorkFn(Info, PairPhase::UOnly);
-    Function *WFv = emitPairWorkFn(Info, PairPhase::VOnly);
-    if (!WFu || !WFv)
-        return false;
-    Function *F = Info.NeighborLoop->getHeader()->getParent();
-    LLVMContext &Ctx = F->getContext();
-    Module *Mod = F->getParent();
-    Type *I32 = Type::getInt32Ty(Ctx);
-    Type *I64 = Type::getInt64Ty(Ctx);
-    Type *I8P = PointerType::get(Ctx, 0);
-
-    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
-    if (!Pre || !Pre->getTerminator())
-        return false;
-    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
-    EB.SetInsertPoint(Pre->getTerminator());
-    Value *GraphArg = Info.GraphPtr;
-    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
-        if (GL->getPointerOperand())
-            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
-    FunctionCallee BuildCC = Mod->getOrInsertFunction(
-        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
-
-    const bool WantEnvelope = envelopeWired(Info) && Info.HasFrontierAppend;
-    FrontierEnv Env;
-    /* Membership(DestPhase)=Membership(SourcePhase)=F_t: prepare once. */
-    fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
-    /* Round-separation bases are snapshotted once per round, before *both*
-     * phases: emitPairWorkFn redirects cross-endpoint loads to the shadow
-     * global, and without this the U/V work fns would reference a global that
-     * nothing initialises (the dual-owner + shadow shape failed to link:
-     * undefined reference to `main.<base>.shadow.<n>`).  Both work fns in this
-     * class read the same pre-round snapshot, which is exactly the
-     * "source step then dest step on the same F_t" semantics above. */
-    emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg);
-    callOwnerStep(EB, Mod, I8P, I32, WFu, /*SourceOwner=*/true, Env,
-                  /*WithEnvelope=*/false);
-    Value *NewSize = callOwnerStep(EB, Mod, I8P, I32, WFv, /*SourceOwner=*/false,
-                                   Env, WantEnvelope);
-    if (WantEnvelope)
-        commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
-    deactivateDriver(Info);
-    return true;
 }
 
 /* Clone the driver's per-source epilogue (`arr[u] = acc`) into the finish hook:
@@ -3878,49 +3873,17 @@ static Value *clonePreambleValue(Value *V, IRBuilder<> &B,
     return Cl;
 }
 
-/* Composition I / P10: per-source reduction (gather).  The pair work runs with
- * this partition's partial as its accumulator target (the same mapping the
- * reduction class uses), and `sgpl_source_finish(u, partial)` reproduces the
- * driver's per-source epilogue -- consume the partial, reset it to the identity.
- * Sources are owned by disjoint partitions (source ranges), so the epilogue
- * writes are race-free.  Enabled by SGPL_COMP_I_SOURCE_REDUCTION=1. */
-static bool emitSourceReductionStep(const NeighborLoopInfo &Info)
+/* Build the per-source finish hook `void sgpl_source_finish(i32 src, i8* partial)`:
+ * consume the accumulated partial (write that source's result) and reset it to
+ * the operator identity for the next source in the partition.  Shared by the
+ * legacy source-red step and the direct expression path. */
+static Function *buildSourceFinishHook(const NeighborLoopInfo &Info, Module *Mod,
+                                       LLVMContext &Ctx, Type *ElemTy)
 {
-    if (!Info.ReducePtr || !Info.AccConsumeStore)
-        return false;
-    Function *WF = emitPairWorkFn(Info, PairPhase::All);
-    if (!WF)
-        return false;
-    Function *F = Info.NeighborLoop->getHeader()->getParent();
-    LLVMContext &Ctx = F->getContext();
-    Module *Mod = F->getParent();
+    if (!Info.AccConsumeStore)
+        return nullptr;
     Type *I32 = Type::getInt32Ty(Ctx);
-    Type *I64 = Type::getInt64Ty(Ctx);
     Type *I8P = PointerType::get(Ctx, 0);
-
-    Type *ElemTy = nullptr;
-    for (User *U : Info.ReducePtr->users())
-        if (auto *LI = dyn_cast<LoadInst>(U))
-            ElemTy = LI->getType();
-    if (!ElemTy || !(ElemTy->isIntegerTy() || ElemTy->isFloatingPointTy()))
-        return false;
-
-    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
-    if (!Pre || !Pre->getTerminator())
-        return false;
-    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
-    EB.SetInsertPoint(Pre->getTerminator());
-    Value *GraphArg = Info.GraphPtr;
-    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
-        if (GL->getPointerOperand())
-            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
-    FunctionCallee BuildCC = Mod->getOrInsertFunction(
-        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
-    AllocaInst *Partials = EB.CreateAlloca(ElemTy, PartCount, "red_partials");
-    emitPartialInit(EB, Pre, Partials, PartCount, ElemTy, Info.ReduceOp, Ctx);
-
-    /* void sgpl_source_finish(i32 src, i8* partial) */
     FunctionType *FFT = FunctionType::get(Type::getVoidTy(Ctx), {I32, I8P}, false);
     Function *Finish = Function::Create(FFT, GlobalValue::InternalLinkage,
                                         "sgpl_source_finish", Mod);
@@ -3941,34 +3904,21 @@ static bool emitSourceReductionStep(const NeighborLoopInfo &Info)
     if (!Ok || !V || !P || V->getType() != SI->getValueOperand()->getType())
     {
         Finish->eraseFromParent();
-        return false;
+        return nullptr;
     }
     FBi.CreateStore(V, P, SI->isVolatile());
     /* Reset for the next source in this partition. */
     FBi.CreateStore(identityFor(Info.ReduceOp, ElemTy), PartArg, false);
     FBi.CreateRetVoid();
-
-    FunctionCallee Step = Mod->getOrInsertFunction(
-        "autograph_frontier_step_owner_source_red",
-        FunctionType::get(I32, {I8P, I8P, I32, I8P, I8P, I8P, I64, I8P, I8P, I32,
-                                I8P}, false));
-    SmallVector<Value *, 11> StepArgs = {
-        GraphArg,
-        ConstantPointerNull::get(cast<PointerType>(I8P)),
-        ConstantInt::get(I32, 0),
-        EB.CreateBitCast(WF, I8P),
-        EB.CreateBitCast(Finish, I8P),
-        EB.CreateBitCast(Partials, I8P),
-        ConstantInt::get(I64, (ElemTy->getPrimitiveSizeInBits() + 7) / 8),
-        ConstantPointerNull::get(cast<PointerType>(I8P)),
-        ConstantPointerNull::get(cast<PointerType>(I8P)),
-        ConstantInt::get(I32, 0),
-        ConstantPointerNull::get(cast<PointerType>(I8P))};
-    EB.CreateCall(Step, StepArgs);
-    deactivateDriver(Info);
-    return true;
+    return Finish;
 }
 
+/* Composition R3 setup shared by the legacy privatized step and the direct
+ * expression path: build the pair work function, the per-partition record
+ * (scalar partials initialized to the operator identity; array copies bound
+ * and identity-initialized by the runtime), the targets descriptor and the
+ * per-operator folder.  `PreambleFn` is non-null when the driver preamble
+ * carries per-source updates (`w[u] += 1`). */
 /* Composition R3: fill every partition's scalar partials in the record with
  * their operator identity.  The array copies are initialized by
  * `autograph_priv_bind`; the scalar fields are the compiler's own (the record
@@ -4102,19 +4052,20 @@ static Function *emitPrivCombiner(LLVMContext &Ctx, Module *Mod,
     return FN;
 }
 
-/* Composition R3: emit the privatized step.  The record holds, per partition,
- * one partial per scalar slot and one pointer per privatized array; the
- * preheader binds the array copies (runtime-allocated, identity-initialized)
- * into it and initializes the scalar partials to their operator identity.  The
- * pair work function then runs the body against the record, and the combine
- * folds every partition's copy into the live targets in partition order. */
-static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
+struct PrivSetup
 {
-    if (!Info.UsePrivLayout || (Info.Slots.empty() && Info.PrivArrays.empty()))
-        return false;
-    Function *WF = emitPairWorkFn(Info, PairPhase::All);
-    if (!WF)
-        return false;
+    Function *WF = nullptr;
+    Function *PreambleFn = nullptr;
+    Function *Combiner = nullptr;
+    AllocaInst *Rec = nullptr;
+    AllocaInst *Tgts = nullptr;
+    Value *GraphArg = nullptr;
+    Value *PartCount = nullptr;
+};
+
+static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
+                           bool RuntimeActivate = false)
+{
     Function *F = Info.NeighborLoop->getHeader()->getParent();
     LLVMContext &Ctx = F->getContext();
     Module *Mod = F->getParent();
@@ -4123,41 +4074,42 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
     Type *I64 = Type::getInt64Ty(Ctx);
     Type *I8P = PointerType::get(Ctx, 0);
 
+    S.WF = emitPairWorkFn(Info, PairPhase::All, RuntimeActivate,
+                          PairEnvKind::Partition);
+    if (!S.WF)
+        return false;
+
     BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
     if (!Pre || !Pre->getTerminator())
         return false;
     IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
     EB.SetInsertPoint(Pre->getTerminator());
-    Value *GraphArg = Info.GraphPtr;
+    S.GraphArg = Info.GraphPtr;
     if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
         if (GL->getPointerOperand())
-            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
+            S.GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
         "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+    S.PartCount = EB.CreateCall(BuildCC, {S.GraphArg, ConstantInt::get(I32, 0)});
 
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
     const uint64_t RecSize = 8 * (uint64_t)(NS + NA);
 
     Value *RecBytes =
-        EB.CreateMul(EB.CreateZExt(PartCount, I64), ConstantInt::get(I64, (int64_t)RecSize));
-    AllocaInst *Rec = EB.CreateAlloca(I8, RecBytes, "priv_rec");
+        EB.CreateMul(EB.CreateZExt(S.PartCount, I64), ConstantInt::get(I64, (int64_t)RecSize));
+    S.Rec = EB.CreateAlloca(I8, RecBytes, "priv_rec");
 
     /* Scalar partials: every partition's slots start at the operator identity
      * (the runtime initializes the array copies inside autograph_priv_bind). */
     if (NS > 0)
-        emitPrivScalarInit(EB, Pre, Rec, PartCount, RecSize, Info, Ctx);
+        emitPrivScalarInit(EB, Pre, S.Rec, S.PartCount, RecSize, Info, Ctx);
 
-    /* A driver-preamble update (`w[u] = w[u] + 1`) runs once per source, so the
-     * step gets a second work function for it: the pair work function would run
-     * it once per arc.  It writes only into the partition's private copies, so
-     * it needs no ownership of its own. */
-    Function *PreambleFn = nullptr;
     if (!Info.DriverUStores.empty())
     {
-        PreambleFn = emitPairWorkFn(Info, PairPhase::UOnly);
-        if (!PreambleFn)
+        S.PreambleFn =
+            emitPairWorkFn(Info, PairPhase::UOnly, false, PairEnvKind::Partition);
+        if (!S.PreambleFn)
             return false;
     }
 
@@ -4180,7 +4132,7 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
             IdentBits = 0;
         else
             return false;
-        EB.CreateCall(Bind, {GraphArg, EB.CreateBitCast(Rec, I8P),
+        EB.CreateCall(Bind, {S.GraphArg, EB.CreateBitCast(S.Rec, I8P),
                              ConstantInt::get(I64, (int64_t)RecSize),
                              ConstantInt::get(I64, 8 * (int64_t)(NS + j)), Elems,
                              ConstantInt::get(I64, (int64_t)ESz),
@@ -4190,16 +4142,15 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
 
     /* Targets descriptor: [slot ptrs][array ptrs][array element counts]. */
     const uint64_t TgtSize = 8 * (uint64_t)(NS + 2 * NA);
-    AllocaInst *Tgts = EB.CreateAlloca(I8, ConstantInt::get(I64, (int64_t)TgtSize),
-                                       "priv_targets");
+    S.Tgts = EB.CreateAlloca(I8, ConstantInt::get(I64, (int64_t)TgtSize),
+                             "priv_targets");
     auto TgtField = [&](unsigned Index) -> Value *
-    {
-        return EB.CreateGEP(I8, Tgts, ConstantInt::get(I64, 8 * (int64_t)Index));
-    };
+    { return EB.CreateGEP(I8, S.Tgts, ConstantInt::get(I64, 8 * (int64_t)Index)); };
     for (unsigned i = 0; i < NS; ++i)
     {
-        const auto &S = Info.Slots[i];
-        EB.CreateStore(EB.CreateBitCast(const_cast<Value *>(S.Ptr), I8P), TgtField(i));
+        const auto &Slot = Info.Slots[i];
+        EB.CreateStore(EB.CreateBitCast(const_cast<Value *>(Slot.Ptr), I8P),
+                       TgtField(i));
     }
     for (unsigned j = 0; j < NA; ++j)
     {
@@ -4208,52 +4159,737 @@ static bool emitPrivatizedStep(const NeighborLoopInfo &Info)
         EB.CreateStore(EB.CreateZExtOrTrunc(A.Count, I64), TgtField(NS + NA + j));
     }
 
-    Function *Combiner = emitPrivCombiner(Ctx, Mod, Info);
-    if (!Combiner)
+    S.Combiner = emitPrivCombiner(Ctx, Mod, Info);
+    if (!S.Combiner)
+        return false;
+    return true;
+}
+
+/* Pair-phase write regions (Activate excluded: it is an operation, not a base
+ * write).  Per-source preamble mutations — including first-wins claims — are
+ * not pair-phase and are realized as source-begin operations. */
+static void pairPhaseWriteRegions(const NeighborLoopInfo &Info, bool &U, bool &V)
+{
+    U = V = false;
+    forEachExprEffect(Info, [&](const Effect &E, PhaseSegment Seg)
+    {
+        if (Seg != PhaseSegment::Pair || !effectIsMutating(E) ||
+            E.Kind == EffectKind::Activate)
+            return;
+        if (E.Reg == Region::U)
+            U = true;
+        if (E.Reg == Region::V)
+            V = true;
+    });
+}
+
+/* Semantic admissibility of a modelable expression (R7).  This is the only
+ * gate besides modelability: it states the correctness conditions the frozen
+ * algebra proves (no owner for data-derived writes unless the pure
+ * accumulation theorem applies; Top provenance refuses; carried reads on
+ * mutated bases refuse unless privatized or snapshot-resolved; per-source
+ * claims are occurrence-preserving and stay refused until claim staging;
+ * round-separation bases must agree on their write endpoint; dual ownership
+ * requires disjoint bases and no cross-phase dependence; frontier appends
+ * require the wired envelope; reduction/source-reduction must satisfy their
+ * own laws).  Strategy names are not involved. */
+static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
+                               bool Priv, std::string &reason)
+{
+    bool PairU = false, PairV = false;
+    pairPhaseWriteRegions(Info, PairU, PairV);
+    if (Info.HasDataWrite && !Priv)
+    {
+        reason = "data-derived write without a privatization proof";
+        return false;
+    }
+    if (hasPerSourceClaim(Info) && perSourceClaims(Info).empty())
+    {
+        reason = "per-source claim (occurrence preservation)";
+        return false;
+    }
+    if (S.MutTop)
+    {
+        reason = "unknown index provenance (Top)";
+        return false;
+    }
+    if (S.HasCarriedOnMut && !Priv)
+    {
+        reason = "carried read on a mutated base";
+        return false;
+    }
+    if (!Info.RoundSepBases.empty())
+    {
+        /* Every shadow base must not be written in the pair phase at its
+         * read endpoint (the frozen side); writes at its own write endpoint
+         * are the normal single-ownership pattern, and bases only read in the
+         * pair phase (a claim at U, cross-read at V) are fine. */
+        bool RoundSepOK = true;
+        for (const auto &RS : Info.RoundSepBases)
+        {
+            if (!RS.Base)
+                continue;
+            const Region Opp = RS.WritesV ? Region::U : Region::V;
+            forEachExprEffect(Info, [&](const Effect &E, PhaseSegment Seg)
+            {
+                if (Seg != PhaseSegment::Pair || !effectIsMutating(E))
+                    return;
+                if (E.Base == RS.Base && E.Reg == Opp)
+                    RoundSepOK = false;
+            });
+        }
+        if (!RoundSepOK)
+        {
+            reason = "pair-phase write at the shadow read endpoint";
+            return false;
+        }
+    }
+    if (PairU && PairV && !S.MutG)
+    {
+        bool Disjoint = true;
+        for (const Value *B : S.BaseU)
+            if (S.BaseV.count(B))
+                Disjoint = false;
+        if (!(Disjoint && !S.BaseU.empty() && !S.BaseV.empty() &&
+              !crossPhaseDataDep(Info, S.BaseU, S.BaseV) &&
+              Info.RoundSepBases.empty()))
+        {
+            if (Priv)
+                return true;
+            reason = "same-base or cross-phase U+V without privatization";
+            return false;
+        }
+    }
+    if (Info.HasFrontierAppend && !envelopeWired(Info))
+    {
+        reason = "frontier append without a wired envelope";
+        return false;
+    }
+    if (Info.ReducePtr && !Priv)
+    {
+        if (Info.AccConsumeStore)
+        {
+            if (!(Info.AccResetSeen && Info.ReduceOp != RedOp::None &&
+                  !Info.HasDataWrite && !S.MutV && !S.MutTop &&
+                  !S.HasCarriedOnMut && !S.HasUnrecognizedG &&
+                  !Info.HasFrontierAppend && !hasPerSourceClaim(Info) &&
+                  preambleMutationCount(Info) == 0))
+            {
+                reason = "source-reduction conditions not met";
+                return false;
+            }
+        }
+        else if (!(S.MutG && S.HasUopG && !S.HasUnrecognizedG && !PairU &&
+                   !PairV && !privLayoutNeeded(Info)))
+        {
+            if (Priv)
+                return true;
+            reason = "reduction conditions not met";
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Structural facts derived from the effect expression and the analysis
+ * predicates — no strategy names.  These drive the recursive interpreter. */
+struct ExprFacts
+{
+    bool MutU = false, MutV = false, MutG = false;
+    bool IsDual = false, IsPriv = false, IsRed = false, IsSourceRed = false;
+    bool CrossPhase = false;
+    bool IsV = false; /* single stage writes V (destination-owned rows) */
+};
+
+static void deriveExprFacts(NeighborLoopInfo &Info, ExprFacts &F)
+{
+    EffectSummary S;
+    summarizeEffects(Info, S);
+    F.MutU = S.MutU;
+    F.MutV = S.MutV;
+    F.MutG = S.MutG;
+    /* Pair-phase write regions decide the stage structure; per-source preamble
+     * updates (including first-wins claims) are realized as source-begin
+     * operations, not as a U pair stage. */
+    bool PairU = false, PairV = false;
+    pairPhaseWriteRegions(Info, PairU, PairV);
+    F.IsPriv = Info.UsePrivLayout;
+    F.IsRed = Info.ReducePtr && !Info.AccConsumeStore && !F.IsPriv;
+    F.IsSourceRed = Info.ReducePtr && Info.AccConsumeStore && !F.IsPriv;
+    F.IsDual = PairU && PairV && !F.IsPriv && !Info.ReducePtr;
+    F.CrossPhase = crossPhaseDataDep(Info, S.BaseU, S.BaseV);
+    F.IsV = PairV && !PairU;
+}
+
+/* Emit a module-constant resource/access table (sgpl_res_access[]) and return
+ * its i8* plus the entry count for autograph_exec_op_create.  The layout is the
+ * C struct { uint32_t resource; uint8_t mode; } (size 8, align 4). */
+static std::pair<Value *, uint32_t>
+emitResourceTable(IRBuilder<> &EB, Module *Mod, LLVMContext &Ctx,
+                  ArrayRef<std::pair<uint32_t, uint8_t>> Entries)
+{
+    if (Entries.empty())
+        return {nullptr, 0u};
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I8 = Type::getInt8Ty(Ctx);
+    StructType *ST = StructType::get(Ctx, {I32, I8});
+    ArrayType *AT = ArrayType::get(ST, Entries.size());
+    SmallVector<Constant *, 8> Fields;
+    for (const auto &E : Entries)
+        Fields.push_back(ConstantStruct::get(
+            ST, {ConstantInt::get(I32, (int64_t)E.first),
+                 ConstantInt::get(I8, (int64_t)E.second)}));
+    Constant *Init = ConstantArray::get(AT, Fields);
+    GlobalVariable *GV = new GlobalVariable(
+        *Mod, AT, true, GlobalValue::InternalLinkage, Init,
+        "sgpl_res", nullptr, GlobalValue::NotThreadLocal, 0);
+    return {EB.CreateBitCast(GV, PointerType::get(Ctx, 0)),
+            (uint32_t)Entries.size()};
+}
+
+/* Physical-access compatibility (compiler-authoritative): Read/Read,
+ * Private/Private and AtomicWrite/AtomicWrite coexist; anything else on the
+ * same resource conflicts.  Semantic ordering (Seq/Par structure, claim
+ * priority) is handled by G_E and the expression, never by this predicate. */
+static bool resourcesConflict(const std::pair<uint32_t, uint8_t> &A,
+                              const std::pair<uint32_t, uint8_t> &B)
+{
+    if (A.first != B.first)
+        return false;
+    if (A.second == SGPL_ACCESS_READ && B.second == SGPL_ACCESS_READ)
+        return false;
+    if (A.second == SGPL_ACCESS_PRIVATE && B.second == SGPL_ACCESS_PRIVATE)
+        return false;
+    if (A.second == SGPL_ACCESS_ATOMIC_WRITE &&
+        B.second == SGPL_ACCESS_ATOMIC_WRITE)
+        return false;
+    return true;
+}
+
+/* Does the expression contain a pair-phase first-wins claim? */
+static bool hasPairPhaseClaim(const NeighborLoopInfo &Info)
+{
+    for (const Effect &E : Info.Effects)
+        if (E.Kind == EffectKind::Claim && E.Scope == OccurrenceScope::PerPair)
+            return true;
+    return false;
+}
+
+/* Single-stage realization: one execution context plus an ordered op array
+ * (preamble ops, Snapshot ops, the fused pair op).  `IsV` selects the
+ * destination-owned traversal; reductions use it too. */
+static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
+                            bool IsSourceRed, bool IsPriv, bool IsV)
+{
+    /* Activation requires the wired dest envelope; a frontier append without it
+     * is a semantic refusal (the algebra cannot express the activation). */
+    const bool WantEnvelope = Info.HasFrontierAppend && envelopeWired(Info);
+    if (Info.HasFrontierAppend && !WantEnvelope)
+        return false;
+    /* Reduction / privatization compose with activation and membership: the
+     * fused pair callback carries the partition/private body environment and
+     * the A+ primitive reads the runtime context (see emitPairWorkFn). */
+
+    const bool IsSimple = !IsRed && !IsSourceRed && !IsPriv;
+    if (IsSourceRed && (!Info.ReducePtr || !Info.AccConsumeStore))
+        return false;
+    if (IsPriv && !Info.UsePrivLayout)
+        return false;
+    if (IsRed && Info.UsePrivLayout)
+        return false; /* the privatized path owns that shape */
+    if (Info.UsePrivLayout && !IsPriv)
         return false;
 
-    if (PreambleFn)
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    LLVMContext &Ctx = F->getContext();
+    Module *Mod = F->getParent();
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+    Value *Null = ConstantPointerNull::get(cast<PointerType>(I8P));
+
+    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    if (!Pre || !Pre->getTerminator())
+        return false;
+    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
+    EB.SetInsertPoint(Pre->getTerminator());
+
+    Value *GraphArg = Info.GraphPtr;
+    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
+        if (GL->getPointerOperand())
+            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
+    FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+
+    /* Round-separation (composition A): snapshot the in-place bases for this
+     * round; the pair work fn reads the frozen snapshot through the published
+     * global.  Emitted in the same preheader as the context construction; the
+     * copy itself is a Snapshot operation (R7). */
+    SmallVector<std::pair<Function *, GlobalVariable *>, 4> SnapOps;
+    emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg, SnapOps);
+
+    FunctionCallee PartStateFn = Mod->getOrInsertFunction(
+        "autograph_exec_partition_state", FunctionType::get(I8P, {I8P}, false));
+
+    /* Frontier membership and dest envelope: the executor applies the
+     * membership gate to its traversal (sources for OWNER_U/OWNER_V rows) and
+     * the activation primitive claims dest_seen / appends to next_frontier. */
+    const bool WantFt = Info.MembershipGated || WantEnvelope;
+    FrontierEnv Env;
+    if (WantFt)
+        fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
+    Value *HeadSlot = Null;
+    if (WantEnvelope)
     {
-        FunctionCallee Step = Mod->getOrInsertFunction(
-            "autograph_frontier_step_owner_red_pre",
-            FunctionType::get(I32, {I8P, I8P, I8P, I8P, I64, I8P, I8P, I8P},
-                              false));
-        SmallVector<Value *, 8> StepArgs = {
-            GraphArg,
-            EB.CreateBitCast(PreambleFn, I8P),
-            EB.CreateBitCast(WF, I8P),
-            EB.CreateBitCast(Rec, I8P),
-            ConstantInt::get(I64, (int64_t)RecSize),
-            EB.CreateBitCast(Combiner, I8P),
-            EB.CreateBitCast(Tgts, I8P),
-            ConstantPointerNull::get(cast<PointerType>(I8P))};
-        EB.CreateCall(Step, StepArgs);
+        AllocaInst *HS = EB.CreateAlloca(I32, nullptr, "rt_append_head");
+        EB.CreateStore(ConstantInt::get(I32, 0), HS);
+        HeadSlot = HS;
+    }
+
+    /* Per-source first-wins claims: staged as SOURCE_BEGIN operations with a
+     * per-source state array S[u][j] published for the pair guards. */
+    SmallVector<Function *, 2> ClaimCBs =
+        buildClaimState(EB, Info, Mod, Ctx, I8P, I32, I64, GraphArg);
+
+    const bool UsePartEnv = IsRed || IsSourceRed || IsPriv;
+    const PairEnvKind EnvKind =
+        UsePartEnv ? PairEnvKind::Partition : PairEnvKind::State;
+    /* Class setup: work function, per-partition partials, finish hook and
+     * folder.  The executor sets the partition state (this partition's partial
+     * or privatized record) before invoking pair/combine/source hooks; the
+     * pair work function itself is the runtime pair callback. */
+    Function *WF = nullptr;
+    Function *FinishHook = nullptr;
+    Function *Combiner = nullptr;
+    Function *PreambleFn = nullptr;
+    Value *OpState = Null;
+    Value *PartBase = Null;
+    Value *PartStride = ConstantInt::get(I64, 0);
+    if (IsPriv)
+    {
+        PrivSetup PS;
+        if (!buildPrivSetup(Info, PS, WantEnvelope))
+            return false;
+        WF = PS.WF;
+        PreambleFn = PS.PreambleFn;
+        Combiner = PS.Combiner;
+        PartBase = EB.CreateBitCast(PS.Rec, I8P);
+        PartStride = ConstantInt::get(
+            I64, (int64_t)(8 * (Info.Slots.size() + Info.PrivArrays.size())));
+        OpState = EB.CreateBitCast(PS.Tgts, I8P);
     }
     else
     {
-        FunctionCallee Step = Mod->getOrInsertFunction(
-            "autograph_frontier_step_owner_red",
-            FunctionType::get(I32,
-                              {I8P, I8P, I32, I8P, I8P, I64, I8P, I8P, I8P, I8P, I32,
-                               I8P},
-                              false));
-        SmallVector<Value *, 12> StepArgs = {
-            GraphArg,
-            ConstantPointerNull::get(cast<PointerType>(I8P)),
-            ConstantInt::get(I32, 0),
-            EB.CreateBitCast(WF, I8P),
-            EB.CreateBitCast(Rec, I8P),
-            ConstantInt::get(I64, (int64_t)RecSize),
-            EB.CreateBitCast(Combiner, I8P),
-            EB.CreateBitCast(Tgts, I8P),
-            ConstantPointerNull::get(cast<PointerType>(I8P)),
-            ConstantPointerNull::get(cast<PointerType>(I8P)),
-            ConstantInt::get(I32, 0),
-            ConstantPointerNull::get(cast<PointerType>(I8P))};
-        EB.CreateCall(Step, StepArgs);
+        WF = emitPairWorkFn(Info, PairPhase::All, WantEnvelope, EnvKind);
+        if (!WF)
+            return false;
+        if (IsRed || IsSourceRed)
+        {
+            Type *ElemTy = Type::getDoubleTy(Ctx);
+            for (User *U : Info.ReducePtr->users())
+                if (auto *LI = dyn_cast<LoadInst>(U))
+                    ElemTy = LI->getType();
+            AllocaInst *Partials = EB.CreateAlloca(ElemTy, PartCount, "red_partials");
+            emitPartialInit(EB, Pre, Partials, PartCount, ElemTy, Info.ReduceOp, Ctx);
+            PartBase = EB.CreateBitCast(Partials, I8P);
+            PartStride = ConstantInt::get(
+                I64, (int64_t)((ElemTy->getPrimitiveSizeInBits() + 7) / 8));
+            OpState = EB.CreateBitCast(Info.ReducePtr, I8P);
+            if (IsRed)
+                Combiner = emitRedCombiner(Ctx, Mod, Info.ReduceOp, ElemTy);
+            else
+                FinishHook = buildSourceFinishHook(Info, Mod, Ctx, ElemTy);
+            if ((IsRed && !Combiner) || (IsSourceRed && !FinishHook))
+                return false;
+        }
     }
+
+    /* Combine callback: fold this partition's partial into the op state (the
+     * fold target arrives as the callback's state argument). */
+    Function *CombCB = nullptr;
+    if (Combiner)
+    {
+        FunctionType *CombCBTy =
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P}, false);
+        CombCB = Function::Create(CombCBTy, GlobalValue::InternalLinkage,
+                                  "sgpl_rt_op_combine", Mod);
+        IRBuilder<> B(BasicBlock::Create(Ctx, "entry", CombCB));
+        Value *Part = B.CreateCall(PartStateFn, {CombCB->getArg(1)});
+        B.CreateCall(Combiner, {Part, CombCB->getArg(0)});
+        B.CreateRetVoid();
+    }
+
+    /* Per-source preamble callback (privatized `w[u] += 1`): writes only into
+     * this partition's private copies. */
+    Function *SrcBeginCB = nullptr;
+    if (PreambleFn)
+    {
+        FunctionType *SBTy =
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P, I32}, false);
+        SrcBeginCB = Function::Create(SBTy, GlobalValue::InternalLinkage,
+                                      "sgpl_rt_source_begin", Mod);
+        IRBuilder<> B(BasicBlock::Create(Ctx, "entry", SrcBeginCB));
+        B.CreateCall(PreambleFn, {Null, SrcBeginCB->getArg(1),
+                                  SrcBeginCB->getArg(2), ConstantInt::get(I32, -1)});
+        B.CreateRetVoid();
+    }
+
+    /* Per-source finish callback (source reduction): consume this partition's
+     * partial for source u and reset it to the operator identity. */
+    Function *SrcEndCB = nullptr;
+    if (FinishHook)
+    {
+        FunctionType *SETy =
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P, I32}, false);
+        SrcEndCB = Function::Create(SETy, GlobalValue::InternalLinkage,
+                                    "sgpl_rt_source_end", Mod);
+        IRBuilder<> B(BasicBlock::Create(Ctx, "entry", SrcEndCB));
+        Value *Part = B.CreateCall(PartStateFn, {SrcEndCB->getArg(1)});
+        B.CreateCall(FinishHook, {SrcEndCB->getArg(2), Part});
+        B.CreateRetVoid();
+    }
+
+    FunctionCallee OpCreate = Mod->getOrInsertFunction(
+        "autograph_exec_op_create",
+        FunctionType::get(I8P, {I64, I8P, I8P, I8P, I8P, I8P, I8P, I8P, I32},
+                          false));
+    auto MakeOp = [&](uint64_t Caps, Value *St, Function *P, Function *C,
+                      Function *SB, Function *SE, Function *Sn,
+                      ArrayRef<std::pair<uint32_t, uint8_t>> Res) -> Value *
+    {
+        auto RT = emitResourceTable(EB, Mod, Ctx, Res);
+        return EB.CreateCall(OpCreate,
+                             {ConstantInt::get(I64, (int64_t)Caps), St,
+                              P ? EB.CreateBitCast(P, I8P) : Null,
+                              C ? EB.CreateBitCast(C, I8P) : Null,
+                              SB ? EB.CreateBitCast(SB, I8P) : Null,
+                              SE ? EB.CreateBitCast(SE, I8P) : Null,
+                              Sn ? EB.CreateBitCast(Sn, I8P) : Null,
+                              RT.first ? RT.first : Null,
+                              ConstantInt::get(I32, (int64_t)RT.second)});
+    };
+
+    /* Ordered operation groups: per-source claim/preamble ops, the round's
+     * Snapshot ops, then the fused pair op. */
+    const std::pair<uint32_t, uint8_t> ResClaim{SGPL_RES_CLAIM,
+                                                SGPL_ACCESS_ATOMIC_WRITE};
+    const std::pair<uint32_t, uint8_t> ResPrivate{SGPL_RES_PRIVATE,
+                                                  SGPL_ACCESS_PRIVATE};
+    const std::pair<uint32_t, uint8_t> ResPartial{SGPL_RES_PARTIAL,
+                                                  SGPL_ACCESS_PRIVATE};
+    Value *PreambleOp = nullptr;
+    if (SrcBeginCB)
+        PreambleOp = MakeOp(SGPL_OP_SOURCE_BEGIN, Null, nullptr, nullptr,
+                            SrcBeginCB, nullptr, nullptr,
+                            {ResPrivate});
+    SmallVector<Value *, 2> ClaimOps;
+    for (Function *CB : ClaimCBs)
+        ClaimOps.push_back(MakeOp(SGPL_OP_SOURCE_BEGIN, Null, nullptr, nullptr,
+                                  CB, nullptr, nullptr, {ResClaim}));
+    uint64_t PairCaps = SGPL_OP_PAIR;
+    if (CombCB)
+        PairCaps |= SGPL_OP_COMBINE;
+    if (SrcEndCB)
+        PairCaps |= SGPL_OP_SOURCE_END;
+    SmallVector<std::pair<uint32_t, uint8_t>, 6> PairRes;
+    if (WantFt)
+        PairRes.push_back({SGPL_RES_MEMBERSHIP, SGPL_ACCESS_READ});
+    if (WantEnvelope)
+    {
+        PairRes.push_back({SGPL_RES_DEST_SEEN, SGPL_ACCESS_ATOMIC_WRITE});
+        PairRes.push_back({SGPL_RES_NEXT_FRONTIER, SGPL_ACCESS_ATOMIC_WRITE});
+    }
+    if (!Info.RoundSepBases.empty())
+        PairRes.push_back({SGPL_RES_SNAPSHOT, SGPL_ACCESS_READ});
+    if (IsRed || IsSourceRed)
+        PairRes.push_back(ResPartial);
+    if (IsPriv)
+        PairRes.push_back(ResPrivate);
+    if (hasPairPhaseClaim(Info))
+        PairRes.push_back(ResClaim);
+    Value *PairOp = MakeOp(PairCaps, OpState, WF, CombCB, nullptr, SrcEndCB,
+                           nullptr, PairRes);
+
+    const unsigned NOps = (PreambleOp ? 1u : 0u) +
+                          (unsigned)ClaimOps.size() +
+                          (unsigned)SnapOps.size() + 1u;
+    AllocaInst *OpsSlot =
+        EB.CreateAlloca(I8P, ConstantInt::get(I32, NOps), "rt_ops");
+    unsigned Oi = 0;
+    for (Value *CO : ClaimOps)
+        EB.CreateStore(CO, EB.CreateGEP(I8P, OpsSlot,
+                                        ConstantInt::get(I32, Oi++)));
+    if (PreambleOp)
+        EB.CreateStore(PreambleOp, EB.CreateGEP(I8P, OpsSlot,
+                                                ConstantInt::get(I32, Oi++)));
+    for (auto &S : SnapOps)
+        EB.CreateStore(
+            MakeOp(SGPL_OP_SNAPSHOT, S.second, nullptr, nullptr, nullptr,
+                   nullptr, S.first,
+                   {{SGPL_RES_SNAPSHOT, SGPL_ACCESS_WRITE}}),
+            EB.CreateGEP(I8P, OpsSlot, ConstantInt::get(I32, Oi++)));
+    EB.CreateStore(PairOp, EB.CreateGEP(I8P, OpsSlot,
+                                        ConstantInt::get(I32, Oi++)));
+
+    /* Traversal mechanism: source-owned slices for source-owned, source
+     * reduction and privatized loops, destination-owned rows otherwise. */
+    const int32_t Traversal = IsRed || IsV ? 1 : 0;
+    FunctionCallee CtxCreate = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_create",
+        FunctionType::get(I8P,
+                          {I8P, I32, I32, I8P, I8P, I8P, I32, I8P, I8P, I64,
+                           I8P, I32},
+                          false));
+    SmallVector<Value *, 12> CtxArgs = {
+        GraphArg, ConstantInt::get(I32, Traversal),
+        ConstantInt::get(I32, Info.MembershipGated ? SGPL_DOMAIN_FRONTIER
+                                                   : SGPL_DOMAIN_ALL_VERTICES),
+        WantFt ? Env.Membership : Null /* membership */,
+        WantEnvelope ? Env.SeenArg : Null /* dest_seen */,
+        WantEnvelope ? Env.NextArg : Null /* next_frontier */,
+        ConstantInt::get(I32, 0) /* initial_next_size: appends start at 0 */,
+        HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
+        ConstantInt::get(I32, NOps)};
+    Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
+    if (!SnapOps.empty())
+    {
+        /* The round owner publishes the snapshots once, before traversal. */
+        FunctionCallee Own = Mod->getOrInsertFunction(
+            "autograph_exec_ctx_own_round",
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));
+        EB.CreateCall(Own, {ExecCtx, ConstantInt::get(I32, 1),
+                            ConstantInt::get(I32, 0)});
+    }
+
+    FunctionCallee Exec = Mod->getOrInsertFunction(
+        "autograph_frontier_execute", FunctionType::get(I32, {I8P, I8P}, false));
+    Value *NewSize = EB.CreateCall(Exec, {GraphArg, ExecCtx});
+    if (WantEnvelope)
+        commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
+    FunctionCallee Destroy = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_destroy",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P}, false));
+    EB.CreateCall(Destroy, {ExecCtx});
+
     deactivateDriver(Info);
     return true;
+}
+
+/* Independent U-domain ∥ V-domain (crossPhaseDataDep false): the two
+ * subexpressions are semantically concurrent, so they are realized by the
+ * generic fork/join mechanism instead of being silently serialized.  The
+ * enclosing owner context carries the round lifecycle (snapshots and the
+ * frontier envelope commit); the children are non-owning and share the round
+ * resources. */
+static bool emitDualForkJoin(NeighborLoopInfo &Info)
+{
+    /* Per-source claims compose with dual ownership: the claim operations are
+     * staged in the owner's source-begin phase (before either child runs) and
+     * both children gate on the shared S[u][j] array.  Pair-body claims ride
+     * their phase clones.  Only unsupported claim staging refuses. */
+    if (hasPerSourceClaim(Info) && perSourceClaims(Info).empty())
+        return false;
+    if (Info.ReducePtr || Info.UsePrivLayout)
+        return false;
+    const bool WantEnvelope = Info.HasFrontierAppend && envelopeWired(Info);
+    if (Info.HasFrontierAppend && !WantEnvelope)
+        return false;
+
+    Function *WFu = emitPairWorkFn(Info, PairPhase::UOnly, false,
+                                   PairEnvKind::State);
+    Function *WFv = emitPairWorkFn(Info, PairPhase::VOnly, WantEnvelope,
+                                   WantEnvelope ? PairEnvKind::Ctx
+                                                : PairEnvKind::State);
+    if (!WFu || !WFv)
+        return false;
+
+    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    LLVMContext &Ctx = F->getContext();
+    Module *Mod = F->getParent();
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::get(Ctx, 0);
+    Value *Null = ConstantPointerNull::get(cast<PointerType>(I8P));
+
+    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    if (!Pre || !Pre->getTerminator())
+        return false;
+    IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
+    EB.SetInsertPoint(Pre->getTerminator());
+
+    Value *GraphArg = Info.GraphPtr;
+    if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
+        if (GL->getPointerOperand())
+            GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
+    FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+    EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+
+    SmallVector<std::pair<Function *, GlobalVariable *>, 4> SnapOps;
+    emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg, SnapOps);
+
+    FrontierEnv Env;
+    if (WantEnvelope || Info.MembershipGated)
+        fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
+    Value *HeadSlot = Null;
+    if (WantEnvelope)
+    {
+        AllocaInst *HS = EB.CreateAlloca(I32, nullptr, "rt_append_head");
+        EB.CreateStore(ConstantInt::get(I32, 0), HS);
+        HeadSlot = HS;
+    }
+
+    FunctionCallee OpCreate = Mod->getOrInsertFunction(
+        "autograph_exec_op_create",
+        FunctionType::get(I8P, {I64, I8P, I8P, I8P, I8P, I8P, I8P, I8P, I32},
+                          false));
+    SmallVector<std::pair<uint32_t, uint8_t>, 4> URes, VRes;
+    if (Info.MembershipGated)
+    {
+        URes.push_back({SGPL_RES_MEMBERSHIP, SGPL_ACCESS_READ});
+        VRes.push_back({SGPL_RES_MEMBERSHIP, SGPL_ACCESS_READ});
+    }
+    if (!Info.RoundSepBases.empty())
+    {
+        URes.push_back({SGPL_RES_SNAPSHOT, SGPL_ACCESS_READ});
+        VRes.push_back({SGPL_RES_SNAPSHOT, SGPL_ACCESS_READ});
+    }
+    if (WantEnvelope)
+    {
+        VRes.push_back({SGPL_RES_DEST_SEEN, SGPL_ACCESS_ATOMIC_WRITE});
+        VRes.push_back({SGPL_RES_NEXT_FRONTIER, SGPL_ACCESS_ATOMIC_WRITE});
+    }
+    if (hasPairPhaseClaim(Info))
+    {
+        URes.push_back({SGPL_RES_CLAIM, SGPL_ACCESS_ATOMIC_WRITE});
+        VRes.push_back({SGPL_RES_CLAIM, SGPL_ACCESS_ATOMIC_WRITE});
+    }
+    for (const auto &A : URes)
+        for (const auto &B : VRes)
+            if (resourcesConflict(A, B))
+            {
+                if (getenv("GRAPH_FRONTIER_STATS"))
+                    errs() << "[graph-frontier]   Par children conflict on"
+                              " resource " << A.first << "\n";
+                return false; /* never silently serialize Par */
+            }
+    auto UResT = emitResourceTable(EB, Mod, Ctx, URes);
+    auto VResT = emitResourceTable(EB, Mod, Ctx, VRes);
+    Value *OpU = EB.CreateCall(
+        OpCreate, {ConstantInt::get(I64, (int64_t)SGPL_OP_PAIR), Null,
+                   EB.CreateBitCast(WFu, I8P), Null, Null, Null, Null,
+                   UResT.first ? UResT.first : Null,
+                   ConstantInt::get(I32, (int64_t)UResT.second)});
+    Value *OpV = EB.CreateCall(
+        OpCreate, {ConstantInt::get(I64, (int64_t)SGPL_OP_PAIR), Null,
+                   EB.CreateBitCast(WFv, I8P), Null, Null, Null, Null,
+                   VResT.first ? VResT.first : Null,
+                   ConstantInt::get(I32, (int64_t)VResT.second)});
+
+    SmallVector<Function *, 2> DualClaimCBs =
+        buildClaimState(EB, Info, Mod, Ctx, I8P, I32, I64, GraphArg);
+    auto ClaimRes = emitResourceTable(
+        EB, Mod, Ctx, {{SGPL_RES_CLAIM, SGPL_ACCESS_ATOMIC_WRITE}});
+    auto SnapRes = emitResourceTable(
+        EB, Mod, Ctx, {{SGPL_RES_SNAPSHOT, SGPL_ACCESS_WRITE}});
+    AllocaInst *OpsOwner = EB.CreateAlloca(
+        I8P, ConstantInt::get(I32, (unsigned)SnapOps.size() +
+                                       (unsigned)DualClaimCBs.size() + 1u),
+        "rt_ops_owner");
+    unsigned Oi = 0;
+    for (Function *CB : DualClaimCBs)
+        EB.CreateStore(
+            EB.CreateCall(OpCreate,
+                          {ConstantInt::get(I64, (int64_t)SGPL_OP_SOURCE_BEGIN),
+                           Null, Null, Null,
+                           EB.CreateBitCast(CB, I8P), Null, Null,
+                           ClaimRes.first ? ClaimRes.first : Null,
+                           ConstantInt::get(I32, (int64_t)ClaimRes.second)}),
+            EB.CreateGEP(I8P, OpsOwner, ConstantInt::get(I32, Oi++)));
+    for (auto &S : SnapOps)
+        EB.CreateStore(
+            EB.CreateCall(OpCreate,
+                          {ConstantInt::get(I64, (int64_t)SGPL_OP_SNAPSHOT),
+                           S.second, Null, Null, Null, Null,
+                           EB.CreateBitCast(S.first, I8P), Null,
+                           SnapRes.first ? SnapRes.first : Null,
+                           ConstantInt::get(I32, (int64_t)SnapRes.second)}),
+            EB.CreateGEP(I8P, OpsOwner, ConstantInt::get(I32, Oi++)));
+    AllocaInst *OpsU = EB.CreateAlloca(I8P, ConstantInt::get(I32, 1), "rt_ops_u");
+    EB.CreateStore(OpU, OpsU);
+    AllocaInst *OpsV = EB.CreateAlloca(I8P, ConstantInt::get(I32, 1), "rt_ops_v");
+    EB.CreateStore(OpV, OpsV);
+
+    const int32_t Domain =
+        Info.MembershipGated ? SGPL_DOMAIN_FRONTIER : SGPL_DOMAIN_ALL_VERTICES;
+    FunctionCallee CtxCreate = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_create",
+        FunctionType::get(I8P,
+                          {I8P, I32, I32, I8P, I8P, I8P, I32, I8P, I8P, I64,
+                           I8P, I32},
+                          false));
+    Value *Membership =
+        Info.MembershipGated || WantEnvelope ? Env.Membership : Null;
+    /* The owner carries the round lifecycle (snapshots); the U and V stages
+     * are its non-owning children. */
+    Value *CtxOwner = EB.CreateCall(
+        CtxCreate,
+        {GraphArg, ConstantInt::get(I32, SGPL_TRAVERSE_OWNER_U),
+         ConstantInt::get(I32, Domain), Membership,
+         WantEnvelope ? Env.SeenArg : Null,
+         WantEnvelope ? Env.NextArg : Null, ConstantInt::get(I32, 0), HeadSlot,
+         Null, ConstantInt::get(I64, 0), OpsOwner,
+         ConstantInt::get(I32, (int32_t)Oi)});
+    Value *CtxU = EB.CreateCall(
+        CtxCreate,
+        {GraphArg, ConstantInt::get(I32, SGPL_TRAVERSE_OWNER_U),
+         ConstantInt::get(I32, Domain), Membership,
+         WantEnvelope ? Env.SeenArg : Null,
+         WantEnvelope ? Env.NextArg : Null, ConstantInt::get(I32, 0), HeadSlot,
+         Null, ConstantInt::get(I64, 0), OpsU, ConstantInt::get(I32, 1)});
+    Value *CtxV = EB.CreateCall(
+        CtxCreate,
+        {GraphArg, ConstantInt::get(I32, SGPL_TRAVERSE_OWNER_V),
+         ConstantInt::get(I32, Domain), Membership,
+         WantEnvelope ? Env.SeenArg : Null,
+         WantEnvelope ? Env.NextArg : Null, ConstantInt::get(I32, 0), HeadSlot,
+         Null, ConstantInt::get(I64, 0), OpsV, ConstantInt::get(I32, 1)});
+    FunctionCallee Own = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_own_round",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));
+    EB.CreateCall(Own, {CtxOwner, ConstantInt::get(I32, 1),
+                        ConstantInt::get(I32, 1)});
+
+    FunctionCallee Fork = Mod->getOrInsertFunction(
+        "autograph_frontier_fork_join",
+        FunctionType::get(I32, {I8P, I8P, I8P, I8P}, false));
+    Value *NewSize = EB.CreateCall(Fork, {GraphArg, CtxOwner, CtxU, CtxV});
+    if (WantEnvelope)
+        commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
+    FunctionCallee Destroy = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_destroy",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P}, false));
+    EB.CreateCall(Destroy, {CtxOwner});
+    EB.CreateCall(Destroy, {CtxU});
+    EB.CreateCall(Destroy, {CtxV});
+
+    deactivateDriver(Info);
+    return true;
+}
+
+/* Recursive interpreter entry (R7): derive the realization from the effect
+ * expression's structural facts, never from a strategy name. */
+static bool emitExprInterp(NeighborLoopInfo &Info)
+{
+    if ((Info.HasDriverClaim || !Info.DriverUClaims.empty()) &&
+        perSourceClaims(Info).empty())
+        return false; /* unsupported claim staging */
+    ExprFacts F;
+    deriveExprFacts(Info, F);
+    if (F.IsDual)
+        return emitDualForkJoin(Info);
+    return emitSingleStage(Info, F.IsRed, F.IsSourceRed, F.IsPriv, F.IsV);
 }
 
 /* ── pass ──────────────────────────────────────────────────────── */
@@ -4287,7 +4923,8 @@ static bool legacyBlocklistRefuses(Loop *L)
             if (N == "autograph_neighbor_iter_init" || N == "autograph_neighbor_iter_next" ||
                 N == "roaring_bitmap_add" || N == "roaring_bitmap_remove" ||
                 N == "autograph_profile_region_enter" || N == "autograph_profile_region_exit" ||
-                N == "autograph_profile_record_kernel_ns" || N == "sgpl_now_ns")
+                N == "autograph_profile_record_kernel_ns" || N == "sgpl_now_ns" ||
+                N == "graph_get_edge_weight")
                 continue;
             if (CF->isIntrinsic())
                 continue;
@@ -4364,7 +5001,8 @@ static bool provesModelable(Loop *L, std::string &reason)
             if (N == "autograph_neighbor_iter_init" || N == "autograph_neighbor_iter_next" ||
                 N == "roaring_bitmap_add" || N == "roaring_bitmap_remove" ||
                 N == "autograph_profile_region_enter" || N == "autograph_profile_region_exit" ||
-                N == "autograph_profile_record_kernel_ns" || N == "sgpl_now_ns")
+                N == "autograph_profile_record_kernel_ns" || N == "sgpl_now_ns" ||
+                N == "graph_get_edge_weight")
                 continue;
             reason = "unmodelled call: " + N.str();
             return false;
@@ -4395,7 +5033,19 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             continue;
         /* Derive the execution class from the loop's effect set. Iterator-less
          * hand-rolled loops have no per-pair structure to rewrite → sequential. */
-        Klass K = IsIter ? classify(Info) : Klass::Sequential;
+        /* R7: no classification.  privLayout + supportedByAlgebra is the
+         * semantic admissibility gate; the recursive interpreter derives the
+         * realization structurally from the effect expression. */
+        const bool PrivProvable = IsIter && privLayout(Info);
+        const bool Priv = PrivProvable && privLayoutNeeded(Info);
+        if (Priv)
+            Info.UsePrivLayout = true;
+        EffectSummary S;
+        if (IsIter)
+            summarizeEffects(Info, S);
+        std::string SemReason;
+        const bool Supported =
+            IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
         if (getenv("GRAPH_FRONTIER_STATS"))
         {
             errs() << "[graph-frontier] candidate: " << F.getName();
@@ -4408,24 +5058,25 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                    << " red=" << (Info.ReducePtr ? 1 : 0)
                    << " sep=" << (Info.NeedsRoundSep ? 1 : 0)
                    << " data=" << (HasData ? 1 : 0)
-<< " fw=" << (Info.HasFirstWins ? 1 : 0)
-                    << " env=" << (Info.HasFrontierAppend ? 1 : 0)
-                    << " shadow=" << Info.RoundSepBases.size()
-                    << " class=" << klassName(K)
+                   << " fw=" << (Info.HasFirstWins ? 1 : 0)
+                   << " env=" << (Info.HasFrontierAppend ? 1 : 0)
+                   << " shadow=" << Info.RoundSepBases.size()
                    << "  ";
             if (IsIter)
             {
-                printEffects(Info, K);
+                printEffects(Info);
                 if (getenv("GRAPH_FRONTIER_VERBOSE"))
                     printEffectExpr(Info);
             }
+            if (IsIter && !Supported)
+                errs() << " [refused: " << SemReason << "]";
             errs() << "\n";
         }
         if (IsIter && getenv("SGPL_WITNESS_DUMP"))
-            printWitness(Info, K, /*IsIter=*/true);
+            printWitness(Info, /*IsIter=*/true);
         else if (!IsIter && getenv("SGPL_WITNESS_DUMP"))
-            errs() << "[witness] iter=0 class=" << klassName(K)
-                   << " inner=" << L->getHeader()->getName() << "\n";
+            errs() << "[witness] iter=0 inner=" << L->getHeader()->getName()
+                   << "\n";
         if (!RewriteMode)
         {
             /* Safe by default: the CleanCut rewrite is env-gated, but a graph
@@ -4458,25 +5109,22 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             if (getenv("GRAPH_FRONTIER_STATS"))
                 errs() << "[graph-frontier]   modelable=" << (Modelable ? 1 : 0)
                        << (Modelable ? "" : (" reason=" + refuseReason)) << "\n";
-            bool Rewritable = (K != Klass::Sequential) && Modelable;
+            bool Rewritable = Supported && Modelable;
             if (Rewritable)
             {
-                bool Emitted = false;
-                if (K == Klass::DualOwner)
-                    Emitted = emitDualCleanCut(Info);
-                else if (K == Klass::SourceReduction)
-                    Emitted = emitSourceReductionStep(Info);
-                else if (K == Klass::Privatized)
-                    Emitted = emitPrivatizedStep(Info);
-                else
-                    Emitted = emitCleanCutCallbackAndStep(Info, K == Klass::SourceOwner);
+                /* The recursive structural interpreter is the sole
+                 * emitter.  A refused expression fails closed to the
+                 * sequential marker. */
+                bool Emitted = emitExprInterp(Info);
+                if (!Emitted && getenv("GRAPH_FRONTIER_STATS"))
+                    errs() << "[graph-frontier]   expression path refused"
+                              " -> stays sequential\n";
                 /* A refused emit falls through to the terminal sequential
                  * marker below; say so, because otherwise the loop looks like it
                  * was classified sequential when the classifier actually
                  * claimed it parallel. */
                 if (!Emitted && getenv("GRAPH_FRONTIER_STATS"))
-                    errs() << "[graph-frontier]   emit failed for class="
-                           << klassName(K) << " -> stays sequential\n";
+                    errs() << "[graph-frontier]   emit failed -> stays sequential\n";
                 ++detected;
                 if (Emitted)
                 {
@@ -4495,6 +5143,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                             Out.flush();
                         }
                     }
+                    if (getenv("SGPL_EXEC_DUMP"))
+                        dumpExecAtoms(Info);
                     if (getenv("GRAPH_FRONTIER_DUMP"))
                     {
                         std::error_code EC2;
@@ -4505,14 +5155,17 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                             Out2.flush();
                         }
                     }
-                    /* Postcondition: the rewritten function must be valid IR.
-                     * This catches emit-side bugs that the analysis cannot see
-                     * (the historical reduction clone produced `fadd ptr,
-                     * double` and a dead driver).  SGPL_FRONTIER_STRICT=1 makes
-                     * an invalid emission abort so a test run cannot miss it. */
+                    /* Postcondition: the rewritten function AND the emitted
+                     * helper functions must be valid IR.  The emitted pair
+                     * work functions live outside F, so a module-level check
+                     * is required to catch malformed helper IR (an invalid
+                     * shadow GEP once crashed EarlyCSE in the codegen
+                     * pipeline while `verifyFunction(F)` still said OK).
+                     * SGPL_FRONTIER_STRICT=1 makes an invalid emission abort so
+                     * a test run cannot miss it. */
                     std::string Err;
                     raw_string_ostream SS(Err);
-                    if (verifyFunction(F, &SS))
+                    if (verifyModule(*F.getParent(), &SS))
                     {
                         errs() << "[graph-frontier] POSTCONDITION FAILURE on "
                                << F.getName() << ": " << SS.str() << "\n";

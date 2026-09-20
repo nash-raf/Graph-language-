@@ -4,18 +4,27 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "autotuner_runtime.h"
+
 extern "C" {
 typedef struct Graph Graph;
-typedef void (*sgpl_frontier_pair_fn)(int32_t, int32_t, int64_t, void *);
 extern Graph *load_graph_from_file(const char *filename);
-extern void autograph_init(void *graph_ptr, int64_t n, int64_t m,
-                           void *nodes_bmp, void *edges_bmp,
-                           void *edge_pairs_table);
-extern int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions);
-extern int32_t autograph_frontier_step_owner_push(
-    void *graph_ptr, const int32_t *frontier, int32_t frontier_size,
-    sgpl_frontier_pair_fn work_fn, void *work_env, const uint8_t *membership,
-    int32_t *next_frontier, int32_t initial_next_size, int32_t *dest_seen);
+}
+
+typedef void (*bench_pair_fn)(void *, sgpl_exec_ctx *, int32_t, int32_t);
+
+/* One pass over the clean-cut partition metadata through the exec ABI (the
+ * legacy owner step entry points were deleted in R5).  The work function is
+ * installed as the pair callback directly: same per-pair call depth as the
+ * legacy engine (one indirect call). */
+static void bench_step(Graph *g, bench_pair_fn work, int32_t traversal) {
+    sgpl_runtime_op *desc = autograph_exec_op_create(
+        SGPL_OP_PAIR, NULL, work, NULL, NULL, NULL, NULL, NULL, 0);
+    sgpl_runtime_op *ops[1] = {desc};
+    sgpl_exec_ctx *ctx = autograph_exec_ctx_create(
+        g, traversal, 0, NULL, NULL, NULL, 0, NULL, NULL, 0, ops, 1);
+    autograph_frontier_execute(g, ctx);
+    autograph_exec_ctx_destroy(ctx);
 }
 
 struct Graph {
@@ -31,7 +40,8 @@ static double *s_cur, *s_next;
 static int32_t *s_deg;
 static double s_damp;
 
-void pair_fn(int32_t src, int32_t dst, int64_t idx, void *env) {
+void pair_fn(void *state, sgpl_exec_ctx *ctx, int32_t src, int32_t dst) {
+    (void)state; (void)ctx;
     double contrib = s_damp * s_cur[src] / (double)s_deg[src];
     s_next[dst] += contrib;
 }
@@ -88,8 +98,7 @@ int main(int argc, char **argv) {
     double t1 = now_s();
     for (int r = 0; r < rounds; ++r) {
         for (int64_t v = 0; v < n; ++v) next[v] = beta;
-        autograph_frontier_step_owner_push(g, NULL, 0, pair_fn, NULL, NULL,
-                                           NULL, 0, NULL);
+        bench_step(g, pair_fn, SGPL_TRAVERSE_OWNER_V);
         double *t = cur; cur = next; next = t;
         s_cur = cur; s_next = next;
     }

@@ -57,8 +57,8 @@ for G in "${GRAPHS[@]}"; do
 
   # --- Parallel (CleanCut red step) build ---
   GRAPH_FRONTIER_STATS=1 ./GraphProgram "$G.graph" > "$TMP/$G.compile.out" 2> "$TMP/$G.compile.log"
-  if ! grep -q 'class=reduction' "$TMP/$G.compile.log"; then
-    echo "FAIL $G: pass did not classify as reduction"
+  if ! grep -q 'class=reduction\|red=1' "$TMP/$G.compile.log"; then
+    echo "FAIL $G: pass did not lower the reduction (red=1 missing)"
     cat "$TMP/$G.compile.log"
     FAILURES=$((FAILURES + 1))
     continue

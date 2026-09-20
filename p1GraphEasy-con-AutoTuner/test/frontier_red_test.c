@@ -155,6 +155,23 @@ static int32_t identity_for(enum Op op) {
     code;                                                                      \
   }
 
+/* Exec-ABI state: the per-op work/combine pair plus the fold target. */
+typedef struct {
+  sgpl_frontier_pair_fn work;
+  sgpl_frontier_combine_fn combine;
+  void *out;
+} RedOpEnv;
+
+static void red_pair(void *state, sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
+  RedOpEnv *e = (RedOpEnv *)state;
+  e->work(u, v, (int64_t)v, autograph_exec_partition_state(ctx));
+}
+
+static void red_combine(void *state, sgpl_exec_ctx *ctx) {
+  RedOpEnv *e = (RedOpEnv *)state;
+  e->combine(autograph_exec_partition_state(ctx), e->out);
+}
+
 #define DEF_COMBINE(opname, code)                                              \
   static void combine_##opname(const void *partial, void *out) {               \
     const int32_t *p = (const int32_t *)partial;                               \
@@ -232,13 +249,30 @@ static int run_one(const RedTestGraph *g, enum Op op, int32_t partitions,
   for (int32_t p = 0; p < built; ++p)
     partials[p] = identity_for(op);
 
-  int32_t next = autograph_frontier_step_owner_red(
-      (void *)g, NULL, 0, work, partials, sizeof(int32_t), combine, &out,
-      NULL, NULL, 0, NULL);
+  /* Post-R5: the reduction is staged through the exec ABI.  The pair callback
+   * accumulates into this partition's partial (partition_state); the executor
+   * folds every partition's partial into the op state in ascending order. */
+  RedOpEnv env = {.work = work, .combine = combine, .out = &out};
+  sgpl_runtime_op *desc = autograph_exec_op_create(
+      SGPL_OP_PAIR | SGPL_OP_COMBINE, &env, red_pair, red_combine, NULL, NULL,
+      NULL, NULL, 0);
+  if (!desc) {
+    free(partials);
+    return 0;
+  }
+  sgpl_runtime_op *ops[1] = {desc};
+  sgpl_exec_ctx *ctx = autograph_exec_ctx_create(
+      (void *)g, SGPL_TRAVERSE_OWNER_V, 0, NULL, NULL, NULL, 0, NULL,
+      partials, sizeof(int32_t), ops, 1);
+  if (!ctx) {
+    free(partials);
+    return 0;
+  }
+  autograph_frontier_execute((void *)g, ctx);
+  autograph_exec_ctx_destroy(ctx);
 
   int32_t expected = serial_fold(g, op, init);
   free(partials);
-  (void)next;
 
   if (out != expected) {
     fprintf(stderr,

@@ -1489,16 +1489,19 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return std::max(1.0, mult);
   }
 
-  /* Step-kernel engine calls: CleanCut owner step (frontier_step_owner_*) and
-   * the CAS/combine edgemap kernel (autograph_edgemap).  Both execute a whole
-   * graph pass per call and are profiled as single-anchored Traverse regions. */
+  /* Step-kernel engine calls: the CleanCut executor (frontier_execute and its
+   * fork/join variant) and the CAS/combine edgemap kernel (autograph_edgemap).
+   * Both execute a whole graph pass per call and are profiled as single-anchored
+   * Traverse regions.  (The pre-R5 `frontier_step_owner_*` strategy entry
+   * points were deleted with the legacy emitters.) */
   static bool isCleanCutStepCall(const Instruction *I)
   {
     if (!I)
       return false;
     if (const auto *CB = dyn_cast<CallBase>(I))
       if (const Function *Callee = CB->getCalledFunction())
-        if (Callee && (Callee->getName().starts_with("autograph_frontier_step_owner") ||
+        if (Callee && (Callee->getName() == "autograph_frontier_execute" ||
+                       Callee->getName() == "autograph_frontier_fork_join" ||
                        Callee->getName() == "autograph_edgemap"))
           return true;
     return false;

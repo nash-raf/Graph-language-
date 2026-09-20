@@ -49,6 +49,12 @@ static double sgpl_tdg_unit_cost_ns = SGPL_TDG_UNIT_COST_NS;
 static int sgpl_tdg_is_initialized = 0;
 static atomic_int g_sgpl_reserved_threads = 0;
 
+/* Debug introspection: current global budget reservations.  Used by the
+ * fork/join resources-and-budget tests to verify the ledger is balanced. */
+int32_t sgpl_debug_reserved_threads(void) {
+    return (int32_t)atomic_load(&g_sgpl_reserved_threads);
+}
+
 static int runtime_debug_enabled(void);
 static int runtime_iter_debug_enabled(void);
 static int sgpl_runtime_thread_count(void);

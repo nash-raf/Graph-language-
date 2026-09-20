@@ -1,0 +1,42 @@
+### ultimate_pagerank.graph
+main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead  compat=single
+main driver=foreach.cond64 inner=foreach_nbr.cond87 kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(next_rank,V):SameRoundRead ⊗ U+(next_rank,V)  temporal=SameRoundRead  compat=single
+### ultimate_kcore.graph
+main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=3 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  R(alive,V):SameRoundRead ⊗ R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  compat=no
+### ultimate_sssp.graph
+main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+### ultimate_cc.graph
+main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(id,U):PreviousRoundRead ⊗ R(id,V):SameRoundRead ⊗ R(id,U):PreviousRoundRead ⊗ W(id,V) ⊗ Activate(next,V)  temporal=PreviousRoundRead  compat=single
+### ultimate_bfs_parent.graph
+### roundsep_sssp.graph
+main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+### roundsep_min.graph
+main driver=foreach.cond10 inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=1 class=dest-owner  R(dist,U):Carried ⊗ R(dist,V):SameRoundRead ⊗ R(dist,U):Carried ⊗ W(dist,V)  temporal=Carried  compat=single
+### roundsep_add.graph
+main driver=foreach.cond9 inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=1 class=dest-owner  R(dist,V):SameRoundRead ⊗ R(dist,U):Carried ⊗ U+(dist,V)  temporal=Carried  compat=single
+### reduce_sum.graph
+main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  U+(acc,G)  temporal=Independent  compat=single
+### reduce_sub.graph
+main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  U-(acc,G)  temporal=Independent  compat=single
+### reduce_mul.graph
+main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  U*(acc,G)  temporal=Independent  compat=single
+### reduce_min.graph
+main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  Umin(acc,G)  temporal=Independent  compat=single
+### reduce_max.graph
+main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  Umax(acc,G)  temporal=Independent  compat=single
+### small_bfs.graph
+### small_sssp.graph
+main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+### small_cc.graph
+main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(id,U):PreviousRoundRead ⊗ R(id,V):SameRoundRead ⊗ R(id,U):PreviousRoundRead ⊗ W(id,V) ⊗ Activate(next,V)  temporal=PreviousRoundRead  compat=single
+### small_kcore.graph
+main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=3 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  R(alive,V):SameRoundRead ⊗ R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  compat=no
+### dual_uv.graph
+main driver=foreach.cond12 inner=foreach_nbr.cond kind=3 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dual-owner  W(srcmark,U) ⊗ R(dstacc,V):SameRoundRead ⊗ U+(dstacc,V)  temporal=SameRoundRead  compat=dual
+### mixed_same_array.graph
+main driver=foreach.cond9 inner=foreach_nbr.cond kind=3 red=0 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  W(A,U) ⊗ W(A,V)  temporal=Independent  compat=no
+### cross_dep.graph
+main driver=foreach.cond12 inner=foreach_nbr.cond kind=3 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=sequential  W(A,U) ⊗ R(A,U):SameRoundRead ⊗ W(B,V)  temporal=SameRoundRead  compat=no
+### test_2phase.graph

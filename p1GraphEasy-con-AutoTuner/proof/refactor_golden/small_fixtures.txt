@@ -1,0 +1,393 @@
+### bench_generated_mutation_heavy.graph
+### bench_generated_mutation_heavy_inbounds.graph
+### bench_generated_mutation_loop_heavy.graph
+### bench_generated_mutation_pcsr_set.graph
+### bench_generated_pcsr_heavy.graph
+### bfs_parent_graptor_compare.graph
+### bfs_parent_graptor_compare_2m.graph
+### bfs_parent_graptor_large.graph
+### bfs_parent_scaling_tmp.graph
+### cc.graph
+### cross_dep.graph
+[graph-frontier]   priv: refused -- mutating effect is not a recognized update
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=3 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=sequential  W(A,U) ⊗ R(A,U):SameRoundRead ⊗ W(B,V)  temporal=SameRoundRead  compat=no
+[witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond class=sequential
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=W op= base=A reg=U scope=2 temp=Independent
+[witness] eff kind=R op= base=A reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=W op= base=B reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### da_div.graph
+### da_stress.graph
+### dual_uv.graph
+[graph-frontier]   priv: refused -- mutating effect is not a recognized update
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=3 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dual-owner  W(srcmark,U) ⊗ R(dstacc,V):SameRoundRead ⊗ U+(dstacc,V)  temporal=SameRoundRead  compat=dual
+[witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond class=dual-owner
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=W op= base=srcmark reg=U scope=2 temp=Independent
+[witness] eff kind=R op= base=dstacc reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=dstacc reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### graph_comprehension_test.graph
+### graph_comprehension_valid.graph
+### graph_load_large.graph
+### inplace_min.graph
+[graph-frontier]   priv: refused -- a load from the base is not an update's own old value
+[graph-frontier] candidate: main driver=foreach.cond10 inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(dist,V):SameRoundRead ⊗ Umin(dist,V)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond10 inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=min base=dist reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### kcore.graph
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=3 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  R(alive,V):SameRoundRead ⊗ R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  compat=no
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond64 class=sequential
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=1 driverclaim=1 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=1 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=alive writesv=0 crossreads=1
+[witness] eff kind=R op= base=alive reg=V scope=2 temp=SameRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=- base=deg reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=alive reg=U scope=1 temp=SameRoundRead vsrc=live
+[witness] eff kind=Claim op=fw base=alive reg=U scope=1 temp=Independent
+[graph-frontier]   modelable=1
+### kcore_belgium.graph
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### manual_weighted_sssp.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V)  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=min base=dist reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=0 reason=unmodelled call: graph_get_edge_weight
+### mixed_same_array.graph
+[graph-frontier]   priv: refused -- mutating effect is not a recognized update
+[graph-frontier] candidate: main driver=foreach.cond9 inner=foreach_nbr.cond kind=3 red=0 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  W(A,U) ⊗ W(A,V)  temporal=Independent  compat=no
+[witness] iter=1 driver=foreach.cond9 inner=foreach_nbr.cond class=sequential
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=W op= base=A reg=U scope=2 temp=Independent
+[witness] eff kind=W op= base=A reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### reduce_max.graph
+[graph-frontier]   priv: layout provable but not needed (single scalar slot, no array) -> legacy paths
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  Umax(acc,G)  temporal=Independent  compat=single
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond class=reduction
+[witness] writekind=0 hasdata=0 redptr=acc redop=max firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=1 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=U op=max base=acc reg=G scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### reduce_min.graph
+[graph-frontier]   priv: layout provable but not needed (single scalar slot, no array) -> legacy paths
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  Umin(acc,G)  temporal=Independent  compat=single
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond class=reduction
+[witness] writekind=0 hasdata=0 redptr=acc redop=min firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=1 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=U op=min base=acc reg=G scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### reduce_mul.graph
+[graph-frontier]   priv: layout provable but not needed (single scalar slot, no array) -> legacy paths
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  U*(acc,G)  temporal=Independent  compat=single
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond class=reduction
+[witness] writekind=0 hasdata=0 redptr=acc redop=* firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=1 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=U op=* base=acc reg=G scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### reduce_sub.graph
+[graph-frontier]   priv: layout provable but not needed (single scalar slot, no array) -> legacy paths
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  U-(acc,G)  temporal=Independent  compat=single
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond class=reduction
+[witness] writekind=0 hasdata=0 redptr=acc redop=- firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=1 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=U op=- base=acc reg=G scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### reduce_sum.graph
+[graph-frontier]   priv: layout provable but not needed (single scalar slot, no array) -> legacy paths
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=reduction  U+(acc,G)  temporal=Independent  compat=single
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond class=reduction
+[witness] writekind=0 hasdata=0 redptr=acc redop=+ firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=1 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=U op=+ base=acc reg=G scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### roundsep_add.graph
+[graph-frontier] candidate: main driver=foreach.cond9 inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=1 class=dest-owner  R(dist,V):SameRoundRead ⊗ R(dist,U):Carried ⊗ U+(dist,V)  temporal=Carried  compat=single
+[witness] iter=1 driver=foreach.cond9 inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=Carried vsrc=snapshot
+[witness] eff kind=U op=+ base=dist reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### roundsep_min.graph
+[graph-frontier]   priv: refused -- mutating effect is not a recognized update
+[graph-frontier] candidate: main driver=foreach.cond10 inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=1 class=dest-owner  R(dist,U):Carried ⊗ R(dist,V):SameRoundRead ⊗ R(dist,U):Carried ⊗ W(dist,V)  temporal=Carried  compat=single
+[witness] iter=1 driver=foreach.cond10 inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=2
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=Carried vsrc=snapshot
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=Carried vsrc=snapshot
+[witness] eff kind=W op= base=dist reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### roundsep_sssp.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=min base=dist reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=dist reg=U scope=1 temp=PreviousRoundRead vsrc=live
+[graph-frontier]   modelable=0 reason=unmodelled call: graph_get_edge_weight
+### semiring_apsp_demo.graph
+### semiring_closure_demo.graph
+### small_bfs.graph
+### small_cc.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(id,U):PreviousRoundRead ⊗ R(id,V):SameRoundRead ⊗ R(id,U):PreviousRoundRead ⊗ W(id,V) ⊗ Activate(next,V)  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=id writesv=1 crossreads=2
+[witness] eff kind=R op= base=id reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=id reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=R op= base=id reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=W op= base=id reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### small_kcore.graph
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=3 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  R(alive,V):SameRoundRead ⊗ R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  compat=no
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond64 class=sequential
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=1 driverclaim=1 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=1 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=alive writesv=0 crossreads=1
+[witness] eff kind=R op= base=alive reg=V scope=2 temp=SameRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=- base=deg reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=alive reg=U scope=1 temp=SameRoundRead vsrc=live
+[witness] eff kind=Claim op=fw base=alive reg=U scope=1 temp=Independent
+[graph-frontier]   modelable=1
+### small_sssp.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=min base=dist reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=dist reg=U scope=1 temp=PreviousRoundRead vsrc=live
+[graph-frontier]   modelable=0 reason=unmodelled call: graph_get_edge_weight
+### sssp.graph
+### test.graph
+### test_2phase.graph
+### test_autotuner_smoke.graph
+### test_bfs.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=2 red=0 sep=0 data=0 fw=0 env=1 shadow=0 class=sequential  Activate(_,V) ⊗ W(dist,U)  temporal=Independent  compat=no
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=sequential
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=0 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=1 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=Activate op= base=_ reg=V scope=2 temp=Independent
+[witness] eff kind=W op= base=dist reg=U scope=1 temp=Independent
+[graph-frontier]   modelable=0 reason=unmodelled call: roaring_bitmap_contains
+### test_copy.graph
+### test_dfs.graph
+### test_foreach_traverse.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=dest-owner  R(visited,V):SameRoundRead ⊗ Claim(visited,V) ⊗ R(dist,U):PreviousRoundRead ⊗ W(dist,V) ⊗ Activate(next_frontier,V)  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=1 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=visited reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=Claim op=fw base=visited reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=W op= base=dist reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next_frontier reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### test_insert_switch.graph
+### test_loop_add.graph
+### test_small.graph
+### test_switch_traverse.graph
+### test_switch_update.graph
+### test_traverse_switch.graph
+### triple_trigger_demo.graph
+### ultimate_bfs_parent.graph
+### ultimate_cc.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(id,U):PreviousRoundRead ⊗ R(id,V):SameRoundRead ⊗ R(id,U):PreviousRoundRead ⊗ W(id,V) ⊗ Activate(next,V)  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=id writesv=1 crossreads=2
+[witness] eff kind=R op= base=id reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=id reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=R op= base=id reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=W op= base=id reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### ultimate_kcore.graph
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=3 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  R(alive,V):SameRoundRead ⊗ R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  compat=no
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond64 class=sequential
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=1 driverclaim=1 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=1 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=alive writesv=0 crossreads=1
+[witness] eff kind=R op= base=alive reg=V scope=2 temp=SameRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=- base=deg reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=alive reg=U scope=1 temp=SameRoundRead vsrc=live
+[witness] eff kind=Claim op=fw base=alive reg=U scope=1 temp=Independent
+[graph-frontier]   modelable=1
+### ultimate_pagerank.graph
+[graph-frontier] candidate: main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond21 inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=out_degree reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=out_degree reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier]   priv: refused -- operator re-associates for the element type
+[graph-frontier] candidate: main driver=foreach.cond64 inner=foreach_nbr.cond87 kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(next_rank,V):SameRoundRead ⊗ U+(next_rank,V)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond64 inner=foreach_nbr.cond87 class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=next_rank reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=next_rank reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=out_degree reg=U scope=1 temp=Independent vsrc=live
+[witness] eff kind=R op= base=cur_rank reg=U scope=1 temp=Independent vsrc=live
+[graph-frontier]   modelable=1
+### ultimate_sssp.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=min base=dist reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=dist reg=U scope=1 temp=PreviousRoundRead vsrc=live
+[graph-frontier]   modelable=0 reason=unmodelled call: graph_get_edge_weight
+### user_request_example.graph
+### validate_bfs_parent.graph
+### validate_cc.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(id,U):PreviousRoundRead ⊗ R(id,V):SameRoundRead ⊗ R(id,U):PreviousRoundRead ⊗ W(id,V) ⊗ Activate(next,V)  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=id writesv=1 crossreads=2
+[witness] eff kind=R op= base=id reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=id reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=R op= base=id reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=W op= base=id reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+### validate_kcore.graph
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=3 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  R(alive,V):SameRoundRead ⊗ R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  compat=no
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond64 class=sequential
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=1 driverclaim=1 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=1 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=alive writesv=0 crossreads=1
+[witness] eff kind=R op= base=alive reg=V scope=2 temp=SameRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=- base=deg reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=deg reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=alive reg=U scope=1 temp=SameRoundRead vsrc=live
+[witness] eff kind=Claim op=fw base=alive reg=U scope=1 temp=Independent
+[graph-frontier]   modelable=1
+### validate_pagerank.graph
+[graph-frontier] candidate: main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond21 inner=foreach_nbr.cond class=source-owner
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=out_degree reg=U scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=out_degree reg=U scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier]   priv: refused -- operator re-associates for the element type
+[graph-frontier] candidate: main driver=foreach.cond64 inner=foreach_nbr.cond87 kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(next_rank,V):SameRoundRead ⊗ U+(next_rank,V)  temporal=SameRoundRead  compat=single
+[witness] iter=1 driver=foreach.cond64 inner=foreach_nbr.cond87 class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=next_rank reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=next_rank reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=out_degree reg=U scope=1 temp=Independent vsrc=live
+[witness] eff kind=R op= base=cur_rank reg=U scope=1 temp=Independent vsrc=live
+[graph-frontier]   modelable=1
+### validate_sssp.graph
+[graph-frontier]   priv: refused -- claim/append in the loop nest
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=1 shadow=1 class=dest-owner  R(dist,U):PreviousRoundRead ⊗ R(dist,V):SameRoundRead ⊗ Umin(dist,V) ⊗ Activate(next,V) ⊗ R(dist,U):PreviousRoundRead  temporal=PreviousRoundRead  compat=single
+[witness] iter=1 driver=foreach_set.cond inner=foreach_nbr.cond class=dest-owner
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=1 gated=1 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=0 roundsep=1 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] rs base=dist writesv=1 crossreads=1
+[witness] eff kind=R op= base=dist reg=U scope=2 temp=PreviousRoundRead vsrc=snapshot
+[witness] eff kind=R op= base=dist reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=min base=dist reg=V scope=2 temp=Independent
+[witness] eff kind=Activate op= base=next reg=V scope=2 temp=Independent
+[witness] eff kind=R op= base=dist reg=U scope=1 temp=PreviousRoundRead vsrc=live
+[graph-frontier]   modelable=0 reason=unmodelled call: graph_get_edge_weight
+### weighted_builtins_test.graph
+### weighted_edge_set_test.graph

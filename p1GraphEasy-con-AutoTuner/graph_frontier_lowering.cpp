@@ -46,6 +46,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <cassert>
 
 #include "graph_frontier_lowering.h"
 
@@ -95,6 +96,64 @@ enum class RedOp
     FirstWins
 };
 
+/* Self-describing reduction operator ω = ⟨f_body, N_ω, f_fold, 1_ω, L_ω⟩.
+ *   f_body (BodyOp)     the update operation recognized in the loop body;
+ *   N_ω    (Norm)       normalizes each body contribution before folding:
+ *                       Identity for most operators, Negated for subtraction
+ *                       (acc := acc - x contributes -x, so the fold is an
+ *                       addition over the negated partial sums);
+ *   f_fold (FoldOp)     combines partition partials;
+ *   L_ω    (Assoc/Comm/Idempotent) laws of f_fold in exact semantics.
+ * The minimal law for ordered partition folding is associativity; commutativity
+ * is recorded but only needed when contributions may be permuted.  The
+ * fold-homomorphism theorem
+ *     fold_ω(concat(S_1..S_P)) == fold_ω(fold_ω(S_1)..fold_ω(S_P))
+ * is gated by FoldSound(ω,T) below (element-type- and machine-dependent, e.g.
+ * float +/* fail it under bit-exact semantics).
+ * The table MUST stay in RedOp declaration order. */
+enum class RedNorm : uint8_t
+{
+    Identity = 0,
+    Negated
+};
+
+struct RedOpInfo
+{
+    RedOp BodyOp = RedOp::None;
+    RedNorm Norm = RedNorm::Identity;
+    RedOp FoldOp = RedOp::None;
+    bool Assoc = false;
+    bool Comm = false;
+    bool Idempotent = false;
+};
+
+static const RedOpInfo &redOpInfo(RedOp Op)
+{
+    static const RedOpInfo Table[] = {
+        /* BodyOp           Norm                 FoldOp           Assoc  Comm   Idem */
+        {RedOp::None,       RedNorm::Identity,   RedOp::None,     false, false, false},
+        {RedOp::Add,        RedNorm::Identity,   RedOp::Add,      true,  true,  false},
+        {RedOp::Sub,        RedNorm::Negated,    RedOp::Add,      true,  true,  false},
+        {RedOp::Mul,        RedNorm::Identity,   RedOp::Mul,      true,  true,  false},
+        {RedOp::Min,        RedNorm::Identity,   RedOp::Min,      true,  true,  true},
+        {RedOp::Max,        RedNorm::Identity,   RedOp::Max,      true,  true,  true},
+        {RedOp::MinU,       RedNorm::Identity,   RedOp::MinU,     true,  true,  true},
+        {RedOp::MaxU,       RedNorm::Identity,   RedOp::MaxU,     true,  true,  true},
+        {RedOp::FMinNum,    RedNorm::Identity,   RedOp::FMinNum,  true,  true,  true},
+        {RedOp::FMaxNum,    RedNorm::Identity,   RedOp::FMaxNum,  true,  true,  true},
+        {RedOp::FMinProp,   RedNorm::Identity,   RedOp::FMinProp, true,  true,  true},
+        {RedOp::FMaxProp,   RedNorm::Identity,   RedOp::FMaxProp, true,  true,  true},
+        {RedOp::And,        RedNorm::Identity,   RedOp::And,      true,  true,  true},
+        {RedOp::Or,         RedNorm::Identity,   RedOp::Or,       true,  true,  true},
+        {RedOp::Xor,        RedNorm::Identity,   RedOp::Xor,      true,  true,  false},
+        {RedOp::FirstWins,  RedNorm::Identity,   RedOp::FirstWins,false, false, true},
+    };
+    unsigned I = (unsigned)Op;
+    if (I >= sizeof(Table) / sizeof(Table[0]))
+        return Table[0];
+    return Table[I];
+}
+
 /* Region lattice for the *origin* of an index value:
  *   Bottom  constant / loop-invariant / neutral
  *   U       flows from the driver induction variable (source axis)
@@ -133,6 +192,41 @@ enum class Temporal : uint8_t
     Carried
 };
 
+/* Occurrence scope κ: the iteration domain over which an effect is
+ * instantiated.  A rewrite must preserve the scope (a per-source claim may not
+ * become a per-pair claim), which is the algebraic form of the driver-preamble
+ * refusals.  κ is a diagnostic projection; its semantic source is the binder
+ * path of the effect in the expression.  `PerRound` is retired: round-snapshot
+ * lifetime is a value-source property (σ), not an occurrence scope. */
+enum class OccurrenceScope : uint8_t
+{
+    Once = 0,
+    PerSource,
+    PerPair
+};
+
+/* Value source σ: where a read observes its value.  Applies to read effects
+ * only (`Kind != R ⇒ σ = None`).  `Snapshot` marks a read resolved by a
+ * round-separation shadow snapshot (the implementation witness is membership
+ * in a RoundSepBase::CrossReads set); `Live` is every other read.  σ is
+ * assigned after round separation has been established and is never an input
+ * to the temporal relation τ. */
+enum class ValueSource : uint8_t
+{
+    None = 0, /* non-read effects */
+    Live,
+    Snapshot
+};
+
+/* Region-boundary invariant: provenance's codomain is {Bottom,U,V,D,Top} —
+ * provenance never produces G.  G is introduced only while constructing
+ * effects for scalar/global accumulator locations (no vertex index).  This
+ * helper makes the boundary explicit at provenance use sites. */
+static bool isProvRegion(Region R)
+{
+    return R != Region::G;
+}
+
 struct Effect
 {
     EffectKind Kind = EffectKind::R;
@@ -140,6 +234,15 @@ struct Effect
     const Value *Base = nullptr;
     RedOp Op = RedOp::None;
     Temporal Temp = Temporal::Independent;
+    OccurrenceScope Scope = OccurrenceScope::PerPair;
+    ValueSource VSource = ValueSource::None;
+    /* Ordered claim primitive C(A,r,γ,δ,≺): γ (guard) is the expected value the
+     * branch compares against the location; δ (transition) is the stored
+     * desired value.  ≺ is the serial priority relation (the CSR scan order
+     * the owner-computes runtime discharges); it is an obligation, not a
+     * global algebraic law. */
+    Value *ClaimGuard = nullptr;
+    Value *ClaimTransition = nullptr;
     Value *Index = nullptr;
     Instruction *Origin = nullptr;
 };
@@ -148,6 +251,74 @@ static bool effectIsMutating(const Effect &E)
 {
     return E.Kind != EffectKind::R;
 }
+
+/* ── effect expressions ─────────────────────────────────────────
+ * The effect expression is a structural tree (arena of EffNode) whose shape is
+ * the original computation of one round:
+ *
+ *     E_t = SeqDomain_{u∈F_t}( P(u) ; SeqDomain_{v∈N(u)} B(u,v) ; Q(u) )
+ *
+ * with P the per-source preamble, B the per-pair neighbour body and Q the
+ * per-source finish.  `Par` is structural concurrent composition (the two
+ * children are concurrent and their syntactic order carries no temporal
+ * meaning); primitives within a phase are composed with Par, and the phase
+ * sequence P ; B ; Q is the only source of intra-round order.  Domain binders
+ * carry their semantic domain: AllVertices, Frontier(t) or Neighbors(u).
+ *
+ * `ParDomain` and `Star` are grammar-complete constructors that the compiler
+ * never generates (parallelization is selected by the interpretation, and
+ * rounds are explicit sequences); paths that meet them assert in debug builds.
+ *
+ * The flat EffectExpr segments below are a derived projection of the tree
+ * (flatten modulo Par permutation) kept for diagnostics and for the emission
+ * consumers that read whole segments; the tree is the semantic source. */
+enum class EffNodeKind : uint8_t
+{
+    Empty = 0, /* ε */
+    Prim,      /* one primitive effect */
+    Seq,       /* structural sequential composition (binary) */
+    Par,       /* structural concurrent composition (binary) */
+    SeqDomain, /* sequential iteration domain */
+    ParDomain, /* concurrent iteration domain (grammar-only) */
+    Star       /* finite iteration (grammar-only) */
+};
+
+enum class DomainKind : uint8_t
+{
+    AllVertices = 0, /* u ∈ V */
+    Frontier,        /* u ∈ F_t */
+    Neighbors        /* v ∈ N(u) */
+};
+
+enum class PhaseSegment : uint8_t
+{
+    None = 0,
+    Preamble,
+    Pair,
+    Epilogue
+};
+
+struct EffNode
+{
+    EffNodeKind Kind = EffNodeKind::Empty;
+    DomainKind Domain = DomainKind::AllVertices; /* Domain nodes */
+    const Effect *Prim = nullptr;                /* Prim nodes */
+    PhaseSegment Seg = PhaseSegment::None;       /* Prim nodes */
+    unsigned L = 0, R = 0;                       /* children (arena indices) */
+};
+
+struct EffectExpr
+{
+    /* Structural tree (arena; node 0 is ε).  Root is the round expression. */
+    SmallVector<EffNode, 32> Arena;
+    unsigned Root = 0;
+    DomainKind RoundDomain = DomainKind::AllVertices; /* outer binder kind */
+    bool MembershipGated = false; /* derived: RoundDomain == Frontier */
+    /* Flat derived projection (segment multisets). */
+    SmallVector<const Effect *, 8> Preamble;
+    SmallVector<const Effect *, 16> Pair;
+    SmallVector<const Effect *, 4> Epilogue;
+};
 
 struct NeighborLoopInfo
 {
@@ -248,9 +419,13 @@ struct NeighborLoopInfo
     SmallVector<StoreInst *, 4> DriverUStores; /* per-source preamble (alive[u]=0) */
     SmallVector<AtomicCmpXchgInst *, 4> DriverUClaims; /* first-wins claims */
     SmallVector<Effect, 8> Effects;   /* primitive effect set E */
+    EffectExpr Expr;                  /* E_t as a segmented expression */
     ICmpInst *DriverUGuard = nullptr; /* optional if (pred(u)) wrapping U-stores */
     bool MembershipGated = false;     /* driver is a frontier / F_t iteration */
 };
+
+static void buildEffectExpr(NeighborLoopInfo &Info);
+static void deriveAllTemporal(NeighborLoopInfo &Info);
 
 /* Does this load read one element out of a data array (base = a loaded pointer
  * or a global array), as opposed to a scalar slot?  A graph data array element
@@ -325,6 +500,9 @@ public:
                 for (Instruction &I : BB)
                 {
                     Region R = transfer(&I);
+                    assert(isProvRegion(R) &&
+                           "provenance codomain is {Bottom,U,V,D,Top}; G is "
+                           "effect-level only");
                     Region &Slot = M[&I];
                     if (R != Slot)
                     {
@@ -603,11 +781,15 @@ static RedOp detectConditionalMinMax(StoreInst *SI, Value *RedPtr)
 
 /* First-wins claim: `if (A[i] == expected) A[i] = desired;` with expected !=
  * desired.  Dest-owned, so the claim is race-free under owner-computes (CSR
- * source order decides the winner). */
-static bool detectFirstWinsStore(StoreInst *SI)
+ * source order decides the winner).  This is the ordered conditional primitive
+ * of the claim algebra: `Expected`/`Desired` are its guard operands, and the
+ * priority is the serial scan order the runtime discharges. */
+static bool detectFirstWinsClaim(StoreInst *SI, Value *&Expected, Value *&Desired)
 {
+    Expected = nullptr;
+    Desired = nullptr;
     Value *Ptr = SI->getPointerOperand();
-    Value *Desired = SI->getValueOperand();
+    Value *DesiredV = SI->getValueOperand();
     BasicBlock *BT = SI->getParent();
     BasicBlock *BP = BT->getSinglePredecessor();
     if (!BP)
@@ -623,11 +805,18 @@ static bool detectFirstWinsStore(StoreInst *SI)
         auto *L = dyn_cast<LoadInst>(V);
         return L && sameArraySlot(L->getPointerOperand(), Ptr);
     };
+    Value *Other = nullptr;
     if (isLoadOfPtr(Cmp->getOperand(0)))
-        return Cmp->getOperand(1) != Desired;
-    if (isLoadOfPtr(Cmp->getOperand(1)))
-        return Cmp->getOperand(0) != Desired;
-    return false;
+        Other = Cmp->getOperand(1);
+    else if (isLoadOfPtr(Cmp->getOperand(1)))
+        Other = Cmp->getOperand(0);
+    else
+        return false;
+    if (Other == DesiredV)
+        return false;
+    Expected = Other;
+    Desired = DesiredV;
+    return true;
 }
 
 static Value *primaryIndex(const GetElementPtrInst *GEP)
@@ -1060,7 +1249,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         E.Base = Base;
         E.Index = Index;
         E.Origin = SI;
-        if (detectFirstWinsStore(SI))
+        if (detectFirstWinsClaim(SI, E.ClaimGuard, E.ClaimTransition))
         {
             E.Kind = EffectKind::Claim;
             E.Op = RedOp::FirstWins;
@@ -1378,6 +1567,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                         Info.DriverUGuard = guardICmpForStore(SI);
                     Effect DE = classifyStore(SI, SI->getPointerOperand(),
                                               Region::U, Base, IX);
+                    DE.Scope = OccurrenceScope::PerSource;
                     if (DE.Kind == EffectKind::Claim)
                         Info.HasDriverClaim = true;
                     Info.Effects.push_back(DE);
@@ -1405,6 +1595,9 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                     E.Base = Base;
                     E.Index = IX;
                     E.Origin = &I;
+                    E.Scope = OccurrenceScope::PerSource;
+                    E.ClaimGuard = CAS->getCompareOperand();
+                    E.ClaimTransition = CAS->getNewValOperand();
                     Info.Effects.push_back(E);
                     Info.HasFirstWins = true;
                     Info.DriverUClaims.push_back(CAS);
@@ -1431,48 +1624,16 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                     E.Base = canonicalArrayBase(GEP);
                     E.Index = IX;
                     E.Origin = LI;
+                    E.Scope = OccurrenceScope::PerSource;
                     Info.Effects.push_back(E);
                 }
         }
     }
 
-    /* Temporal: same-location RW vs cross-endpoint carried dependence. */
-    for (Effect &Rd : Info.Effects)
-    {
-        if (Rd.Kind != EffectKind::R || !Rd.Base)
-            continue;
-        Temporal Worst = Temporal::Independent;
-        for (const Effect &M : Info.Effects)
-        {
-            if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
-                continue;
-            if (M.Base != Rd.Base)
-                continue;
-            if (M.Reg == Rd.Reg)
-            {
-                if (temporalRank(Worst) < temporalRank(Temporal::SameRoundRead))
-                    Worst = Temporal::SameRoundRead;
-            }
-            else if ((Rd.Reg == Region::U && M.Reg == Region::V) ||
-                     (Rd.Reg == Region::V && M.Reg == Region::U))
-            {
-                /* dest-owned write does not make R(A,U)+W(A,V) automatically
-                 * safe.  A frontier F_t means R(A,U) saw a previous round's
-                 * dest write.  W(A,U)+R(A,V) is staged DualOwner control
-                 * (k-core alive) — not concurrent carried. */
-                if (Rd.Reg == Region::U && M.Reg == Region::V)
-                {
-                    Temporal T = Info.MembershipGated ? Temporal::PreviousRoundRead
-                                                      : Temporal::Carried;
-                    if (temporalRank(T) > temporalRank(Worst))
-                        Worst = T;
-                }
-                else if (temporalRank(Worst) < temporalRank(Temporal::SameRoundRead))
-                    Worst = Temporal::SameRoundRead;
-            }
-        }
-        Rd.Temp = Worst;
-    }
+    /* Temporal: derived from the expression tree (segment identity + round
+     * domain), independent of σ and RoundSepBases. */
+    buildEffectExpr(Info);
+    deriveAllTemporal(Info);
 
     /* Round-separation bases (composition A): a base read on one endpoint
      * region and written on the other.  These need a shadow snapshot so the
@@ -1593,7 +1754,250 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         Info.WriteKind = NeighborLoopInfo::WriteU;
     else
         Info.WriteKind = NeighborLoopInfo::WriteUnknown; /* red handled below */
+
+    /* Value source σ (assigned after round separation, never an input to τ):
+     * a read resolved by a round-separation shadow snapshot is Snapshot(t);
+     * every other read is Live.  The CrossReads sets are the witnesses. */
+    for (Effect &E : Info.Effects)
+    {
+        if (E.Kind != EffectKind::R)
+        {
+            E.VSource = ValueSource::None;
+            continue;
+        }
+        bool Snapshot = false;
+        if (auto *LI = dyn_cast_or_null<LoadInst>(E.Origin))
+            for (const auto &RS : Info.RoundSepBases)
+                if (RS.Base == E.Base && RS.CrossReads.count(LI))
+                    Snapshot = true;
+        E.VSource = Snapshot ? ValueSource::Snapshot : ValueSource::Live;
+    }
     return true;
+}
+
+/* ── expression construction and temporal derivation ─────────────
+ * buildEffectExpr partitions the primitive set into the preamble/pair/
+ * epilogue segments by occurrence scope (the driver preamble carries
+ * PerSource effects; the consume store is the per-source epilogue).  The
+ * temporal relation of every read is then derived from segment and round
+ * structure:
+ *
+ *   R,W in the same segment (same round, concurrent)   → SameRoundRead
+ *   W precedes R across segments (preamble→pair/consume) → SameRoundRead
+ *   R(A,U) in the pair with a V write to A             → PreviousRoundRead
+ *                                                         (membership-gated
+ *                                                          round boundary) or
+ *                                                         Carried (ungated)
+ *
+ * The pairwise scan was retired at the Phase-3 cutover (the differential
+ * harness reported zero disagreements); deriveTemporalWorst is the sole τ. */
+/* ── expression construction ─────────────────────────────────────
+ * The tree is built from the (already classified) primitive effects:
+ *
+ *     Root = SeqDomain(RoundDomain,
+ *              Seq(ParTree(P prims),
+ *                  Seq(SeqDomain(Neighbors, ParTree(B prims)),
+ *                      ParTree(Q prims))))
+ *
+ * Par trees are right-nested for deterministic flattening; their child order
+ * carries no temporal meaning.  The flat segments are filled by flattening the
+ * tree, which also checks that every primitive appears exactly once. */
+static unsigned newEffNode(EffectExpr &X, const EffNode &N)
+{
+    X.Arena.push_back(N);
+    return (unsigned)X.Arena.size() - 1;
+}
+
+static unsigned buildParTree(EffectExpr &X, ArrayRef<const Effect *> Prims,
+                             PhaseSegment Seg)
+{
+    if (Prims.empty())
+        return 0; /* ε */
+    unsigned Cur = newEffNode(X, EffNode{EffNodeKind::Prim, DomainKind::AllVertices,
+                                         Prims[0], Seg, 0, 0});
+    for (unsigned i = 1; i < Prims.size(); ++i)
+    {
+        unsigned P = newEffNode(X, EffNode{EffNodeKind::Prim, DomainKind::AllVertices,
+                                           Prims[i], Seg, 0, 0});
+        Cur = newEffNode(X, EffNode{EffNodeKind::Par, DomainKind::AllVertices,
+                                    nullptr, PhaseSegment::None, Cur, P});
+    }
+    return Cur;
+}
+
+/* Flatten the tree, asserting that the only unreachable constructors
+ * (ParDomain, Star) are never met.  The Seg tag on Prim nodes is the phase
+ * segment identity; it is assigned by the builder, not inferred from Par
+ * child order. */
+static void flattenTree(const EffectExpr &X, unsigned Idx,
+                        SmallVectorImpl<std::pair<const Effect *, PhaseSegment>> &Out)
+{
+    const EffNode &N = X.Arena[Idx];
+    switch (N.Kind)
+    {
+    case EffNodeKind::Empty:
+        return;
+    case EffNodeKind::Prim:
+        Out.push_back({N.Prim, N.Seg});
+        return;
+    case EffNodeKind::Seq:
+    case EffNodeKind::Par:
+    case EffNodeKind::SeqDomain:
+    case EffNodeKind::ParDomain:
+    case EffNodeKind::Star:
+        assert(N.Kind != EffNodeKind::ParDomain && N.Kind != EffNodeKind::Star &&
+               "ParDomain/Star are grammar-only: never generated by the compiler");
+        flattenTree(X, N.L, Out);
+        flattenTree(X, N.R, Out);
+        return;
+    }
+}
+
+/* Collect the primitive occurrences of the expression in tree order. */
+static void collectTreePrims(const EffectExpr &X,
+                             SmallVectorImpl<std::pair<const Effect *, PhaseSegment>> &Out)
+{
+    if (X.Arena.empty())
+        return;
+    flattenTree(X, X.Root, Out);
+}
+
+static void buildEffectExpr(NeighborLoopInfo &Info)
+{
+    EffectExpr &X = Info.Expr;
+    X.Arena.clear();
+    X.Preamble.clear();
+    X.Pair.clear();
+    X.Epilogue.clear();
+    X.MembershipGated = Info.MembershipGated;
+    X.RoundDomain = Info.MembershipGated ? DomainKind::Frontier
+                                         : DomainKind::AllVertices;
+    /* Construction is defined only for modelable programs (Modelable(P) in the
+     * design note); this function does not carry a totality flag.  Scope has no
+     * producer other than PerSource/PerPair, so every effect lands in exactly
+     * one segment. */
+    for (const Effect &E : Info.Effects)
+    {
+        if (E.Scope == OccurrenceScope::PerSource)
+        {
+            if (Info.AccConsumeStore && E.Origin == Info.AccConsumeStore)
+                X.Epilogue.push_back(&E);
+            else
+                X.Preamble.push_back(&E);
+        }
+        else
+            X.Pair.push_back(&E);
+    }
+    X.Arena.push_back(EffNode{}); /* node 0: ε */
+    unsigned P = buildParTree(X, X.Preamble, PhaseSegment::Preamble);
+    unsigned B = buildParTree(X, X.Pair, PhaseSegment::Pair);
+    unsigned Q = buildParTree(X, X.Epilogue, PhaseSegment::Epilogue);
+    unsigned Inner = newEffNode(X, EffNode{EffNodeKind::SeqDomain,
+                                           DomainKind::Neighbors, nullptr,
+                                           PhaseSegment::None, B, 0});
+    unsigned Tail = newEffNode(X, EffNode{EffNodeKind::Seq, DomainKind::AllVertices,
+                                          nullptr, PhaseSegment::None, Inner, Q});
+    unsigned Body = newEffNode(X, EffNode{EffNodeKind::Seq, DomainKind::AllVertices,
+                                          nullptr, PhaseSegment::None, P, Tail});
+    X.Root = newEffNode(X, EffNode{EffNodeKind::SeqDomain, X.RoundDomain,
+                                   nullptr, PhaseSegment::None, Body, 0});
+    /* flatten(E) ≡ Info.Effects modulo Par-induced permutation: multiset
+     * equality, not ordered equality. */
+    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Flat;
+    collectTreePrims(X, Flat);
+    assert(Flat.size() == Info.Effects.size() &&
+           "flatten(E) must cover every primitive exactly once");
+    (void)Flat;
+}
+
+/* Structural temporal relation τ of one read against one mutating primitive,
+ * with the oracle-exact five-case table:
+ *   same base, same region                      → SameRoundRead
+ *   R(A,U)×W(A,V), W in the pair phase, Frontier→ PreviousRoundRead
+ *   R(A,U)×W(A,V), W in the pair phase, AllVerts→ Carried
+ *   R(A,U)×W(A,V), W not in the pair phase      → SameRoundRead
+ *   R(A,V)×W(A,U)                               → SameRoundRead
+ *   all remaining cross-region pairs            → Independent
+ *
+ * The decisive condition is the WRITE's phase: a pair-phase (round-concurrent)
+ * dest write is exactly what a frontier-gated U read observes from the previous
+ * round.  The read's own segment never weakens the frontier rule: P(u);B(u,·)
+ * ;Q(u) is a per-source sequence, not a per-round barrier, so other sources'
+ * pair work is concurrent with every phase and sssp's driver read R(dist,U) in
+ * the preamble is PreviousRoundRead.  (Errata: the segment-equality variant
+ * `Seg(e_r) ≠ Seg(e_w) → SameRoundRead` is incorrect — it was a misreading of
+ * the pre-v7 write-side SameSegment boolean.  See proof/EFFECT_ALGEBRA_DESIGN.md
+ * §4.) */
+static Temporal relateReadWrite(const Effect &Rd, const Effect &M,
+                                PhaseSegment MSeg, DomainKind RoundDomain)
+{
+    if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
+        return Temporal::Independent;
+    if (M.Base != Rd.Base)
+        return Temporal::Independent;
+    if (M.Reg == Rd.Reg)
+        return Temporal::SameRoundRead;
+    if (Rd.Reg == Region::U && M.Reg == Region::V)
+    {
+        if (MSeg != PhaseSegment::Pair)
+            return Temporal::SameRoundRead; /* per-source write: sequenced */
+        return RoundDomain == DomainKind::Frontier ? Temporal::PreviousRoundRead
+                                                   : Temporal::Carried;
+    }
+    if (Rd.Reg == Region::V && M.Reg == Region::U)
+        return Temporal::SameRoundRead; /* staged owner control */
+    return Temporal::Independent; /* other cross-region pairs are unrelated */
+}
+
+/* Derive τ for every read from the tree: each read is related against every
+ * mutating primitive with the write's phase-segment identity and the
+ * round-domain kind.  No σ or RoundSepBases information is consulted. */
+static void deriveAllTemporal(NeighborLoopInfo &Info)
+{
+    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+    collectTreePrims(Info.Expr, Prims);
+    for (Effect &Rd : Info.Effects)
+    {
+        if (Rd.Kind != EffectKind::R || !Rd.Base)
+            continue;
+        Temporal Worst = Temporal::Independent;
+        for (const auto &P : Prims)
+        {
+            Temporal T = relateReadWrite(Rd, *P.first, P.second,
+                                         Info.Expr.RoundDomain);
+            if (temporalRank(T) > temporalRank(Worst))
+                Worst = T;
+        }
+        Rd.Temp = Worst;
+    }
+}
+
+/* Occurrence-preservation predicate over binder paths: does the expression
+ * contain a per-source claim (Preamble/Epilogue segment)?  A κ=PerSource
+ * effect may not become κ=PerPair under the rewrite. */
+static bool hasPerSourceClaim(const NeighborLoopInfo &Info)
+{
+    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+    collectTreePrims(Info.Expr, Prims);
+    for (const auto &P : Prims)
+        if (P.first->Kind == EffectKind::Claim && P.second != PhaseSegment::Pair)
+            return true;
+    return false;
+}
+
+/* Count mutating primitives in the Preamble segment (binder-path query); the
+ * per-source consume store lives in the Epilogue, so this is the occurrence
+ * check the source-reduction gate needs. */
+static unsigned preambleMutationCount(const NeighborLoopInfo &Info)
+{
+    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+    collectTreePrims(Info.Expr, Prims);
+    unsigned N = 0;
+    for (const auto &P : Prims)
+        if (P.second == PhaseSegment::Preamble &&
+            P.first->Kind != EffectKind::R)
+            ++N;
+    return N;
 }
 
 /* Iterator-less detection: does any store in the loop body write through a
@@ -1777,7 +2181,14 @@ static bool arrayBaseInfo(const Value *Base, Type *&ElemTy, Value *&Count,
     return false;
 }
 
-static bool opIsOrderIndependent(RedOp Op, Type *ElemTy)
+/* FoldSound(ω,T): does folding partition partials with ω.f_fold reproduce the
+ * serial left-to-right fold for element type T under exact machine semantics?
+ * Integer arithmetic is exact modulo the width for every recognized operator,
+ * so associativity (recorded in L_ω) is the whole obligation.  On floats only
+ * the idempotent, commutative min/max flavours satisfy it — float +/* and the
+ * bitwise ops re-associate, so they are refused.  Exactness is a property of
+ * this predicate, not an intrinsic field of the operator. */
+static bool foldSound(RedOp Op, Type *ElemTy)
 {
     if (!ElemTy)
         return false;
@@ -1873,8 +2284,28 @@ static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *Nest)
 
 /* Fill Info.Slots / Info.PrivArrays when the whole effect set is privatizable.
  * Returns true when the proof holds (the caller decides whether the layout is
- * *needed*: a single scalar slot with no array is the legacy Reduction path). */
+ * *needed*: a single scalar slot with no array is the legacy Reduction path).
+ *
+ * Algebraic premises (Composition R3) checked here:
+ *   (0) no claim / activation / non-preserved occurrence in the expression;
+ *   (1) every mutating primitive is an algebraic update U(A,r,ω) with ω known;
+ *   (2) every written base has a single compatible operator ω;
+ *   (3) every load from a written base is part of that base's old-value chain;
+ *   (4) the fold law holds for ω on the element type (foldSound). */
 static const char *PrivReason = "";
+
+/* Premise 0 at the expression level: a claim or an activation anywhere in the
+ * segmented effect expression makes the pure-accumulation theorem inapplicable
+ * (claims have per-source/ordered semantics, activations are dest-owned side
+ * effects).  This mirrors the legacy field checks and is checked before the
+ * layout is filled. */
+static bool exprHasClaimOrActivate(const NeighborLoopInfo &Info)
+{
+    for (const Effect &E : Info.Effects)
+        if (E.Kind == EffectKind::Claim || E.Kind == EffectKind::Activate)
+            return true;
+    return false;
+}
 
 static bool privLayout(NeighborLoopInfo &Info)
 {
@@ -1888,8 +2319,8 @@ static bool privLayout(NeighborLoopInfo &Info)
     /* The proof covers the whole nest: a driver-preamble update runs once per
      * source and is carried by the step's preamble phase (see the R3+D step). */
     Loop *Nest = Info.DriverLoop ? Info.DriverLoop : L;
-    if (Info.HasFrontierAppend || Info.HasFirstWins || Info.HasDriverClaim ||
-        !Info.DriverUClaims.empty())
+    if (Info.HasFrontierAppend || Info.HasFirstWins || hasPerSourceClaim(Info) ||
+        exprHasClaimOrActivate(Info))
     {
         PrivReason = "claim/append in the loop nest";
         return false;
@@ -1932,7 +2363,7 @@ static bool privLayout(NeighborLoopInfo &Info)
         if (!Found)
         {
             Type *Ty = slotElemType(E.Base);
-            if (!opIsOrderIndependent(E.Op, Ty))
+            if (!foldSound(E.Op, Ty))
             {
                 PrivReason = "operator re-associates for the element type";
                 return false;
@@ -1977,7 +2408,7 @@ static bool privLayout(NeighborLoopInfo &Info)
             PrivReason = "array base is not a sized alloca/global";
             return false;
         }
-        if (!opIsOrderIndependent(Op, ElemTy))
+        if (!foldSound(Op, ElemTy))
         {
             PrivReason = "operator re-associates for the element type";
             return false;
@@ -2005,11 +2436,208 @@ static bool privLayoutNeeded(const NeighborLoopInfo &Info)
     return !Info.PrivArrays.empty() || Info.Slots.size() > 1;
 }
 
+/* ── algebraic interpretation ⟦E⟧_par ────────────────────────────
+ * EffectSummary is the fold of the segmented expression into the predicates
+ * the parallelization laws are stated over.  summarizeEffects() computes it
+ * from the expression segments (Preamble ; Pair ; Epilogue), so the
+ * interpretation consumes the algebraic object rather than the raw list.
+ * interpretPar() is the interpretation function: a monotone map from the
+ * expression's algebraic properties to the execution class, with Sequential
+ * as the terminal refusal.  It is the sole classification path since the
+ * Phase-3 cutover; the legacy ladder was removed after the differential
+ * harness (algebra-only vs legacy-only over every fixture) reported zero
+ * disagreements, and validate_algebra.sh now guards the verdicts. */
+struct EffectSummary
+{
+    bool MutU = false, MutV = false, MutG = false, MutD = false, MutTop = false;
+    bool HasUopG = false, HasUnrecognizedG = false, HasCarriedOnMut = false;
+    SmallPtrSet<const Value *, 4> BaseU, BaseV;
+};
+
+/* Visit every primitive of the expression in tree order (binder-path walk). */
+template <typename Fn>
+static void forEachExprEffect(const NeighborLoopInfo &Info, Fn &&F)
+{
+    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+    collectTreePrims(Info.Expr, Prims);
+    for (const auto &P : Prims)
+        F(*P.first, P.second);
+}
+
+/* Φ: the recursive summary homomorphism E → S.  Primitive facts are joined
+ * with ⊙_seq/⊙_par/⊙_dom (idempotent boolean joins and set unions, so the fold
+ * order is immaterial); the phase-segment tag is used only to keep the tree
+ * walk honest.  HasCarriedOnMut is a projection of the order-sensitive temporal
+ * layer (τ is already derived), not reconstructed from Φ alone: a carried read
+ * that is not resolved by a shadow snapshot (σ=Snapshot) and shares its base
+ * with a cross-region mutation forces Sequential. */
+static void summarizeEffects(const NeighborLoopInfo &Info, EffectSummary &S)
+{
+    auto Scan = [&](const Effect &E, PhaseSegment Seg)
+    {
+        (void)Seg;
+        if (E.Kind == EffectKind::R)
+        {
+            if (E.Temp != Temporal::Carried || !E.Base)
+                return;
+            /* A carried read resolved by the round-separation shadow snapshot
+             * is not a sequential trigger (σ=Snapshot). */
+            if (E.VSource == ValueSource::Snapshot)
+                return;
+            forEachExprEffect(Info, [&](const Effect &M, PhaseSegment MSeg)
+            {
+                (void)MSeg;
+                if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
+                    return;
+                if (M.Base == E.Base && M.Reg != E.Reg)
+                    S.HasCarriedOnMut = true;
+            });
+            return;
+        }
+        if (E.Kind == EffectKind::Activate)
+        {
+            S.MutV = true;
+            return;
+        }
+        switch (E.Reg)
+        {
+        case Region::U:
+            S.MutU = true;
+            if (E.Base)
+                S.BaseU.insert(E.Base);
+            break;
+        case Region::V:
+            S.MutV = true;
+            if (E.Base)
+                S.BaseV.insert(E.Base);
+            break;
+        case Region::G:
+            S.MutG = true;
+            if (E.Kind == EffectKind::Uop)
+                S.HasUopG = true;
+            else
+                S.HasUnrecognizedG = true;
+            break;
+        case Region::D:
+            S.MutD = true;
+            break;
+        case Region::Bottom:
+            break;
+        default:
+            S.MutTop = true;
+            break;
+        }
+    };
+    if (Info.Expr.Arena.empty())
+    {
+        /* Defensive: the expression is built before classification; fall back
+         * to the raw set if a future path forgets, so the summary is never
+         * silently empty. */
+        for (const Effect &E : Info.Effects)
+            Scan(E, PhaseSegment::None);
+        return;
+    }
+    forEachExprEffect(Info, Scan);
+}
+
+/* The interpretation ⟦E⟧_par: algebraic properties of the expression →
+ * execution class.  Every rule is stated over the summary/expression, and the
+ * negative rules are explicit:
+ *   - a D-indexed write has no owner: Sequential unless the pure-accumulation
+ *     theorem (Priv) applies;
+ *   - a Top provenance refuses unconditionally;
+ *   - a carried read on a mutated base refuses unless a shadow snapshot
+ *     resolves it or the read is the partition's own accumulator (Priv);
+ *   - a PerSource claim cannot be replayed per pair (occurrence preservation).
+ * Shadow eligibility requires the write region to be a single endpoint (the
+ * round-separation base construction already enforces this). */
+static Klass interpretPar(NeighborLoopInfo &Info, const EffectSummary &S,
+                          bool Priv)
+{
+    if (Info.HasDataWrite && !Priv)
+        return Klass::Sequential;
+    if (hasPerSourceClaim(Info) && !::getenv("SGPL_COMP_F_ALLOW_DRIVER_CLAIM"))
+        return Klass::Sequential;
+    if (S.MutTop)
+        return Klass::Sequential;
+    if (S.HasCarriedOnMut && !Priv)
+        return Klass::Sequential;
+
+    /* Composition A: round-separated in-place (single-ownership step whose
+     * cross-endpoint reads go through the per-round shadow snapshot). */
+    if (!Info.RoundSepBases.empty() && !(S.MutU && S.MutV))
+    {
+        bool V = Info.RoundSepBases[0].WritesV;
+        bool Agree = true;
+        for (const auto &RS : Info.RoundSepBases)
+            if (RS.WritesV != V)
+                Agree = false;
+        if (Agree && ((V && !S.MutU) || (!V && !S.MutV)))
+            return V ? Klass::DestOwner : Klass::SourceOwner;
+    }
+
+    /* Dual ownership: disjoint single-endpoint write sets with no cross-phase
+     * data dependence.  A shadow would freeze round-start state these
+     * claim/activate state machines must observe within the round, so its
+     * presence refuses the class. */
+    if (S.MutU && S.MutV && !S.MutG)
+    {
+        bool Disjoint = true;
+        for (const Value *B : S.BaseU)
+            if (S.BaseV.count(B))
+                Disjoint = false;
+        if (Disjoint && !S.BaseU.empty() && !S.BaseV.empty() &&
+            !crossPhaseDataDep(Info, S.BaseU, S.BaseV) &&
+            Info.RoundSepBases.empty())
+        {
+            if (Info.HasFrontierAppend && !envelopeWired(Info))
+                return Klass::Sequential;
+            return Klass::DualOwner;
+        }
+        /* Same-base U+V or a data dependence: only the pure-accumulation
+         * theorem can parallelize it. */
+        if (Priv)
+        {
+            Info.UsePrivLayout = true;
+            return Klass::Privatized;
+        }
+        return Klass::Sequential;
+    }
+
+    /* Composition I / P10: per-source gather (pair accumulation sequenced
+     * with a per-source finish). */
+    if (getenv("SGPL_COMP_I_SOURCE_REDUCTION") && Info.ReducePtr &&
+        Info.AccConsumeStore && Info.AccResetSeen && Info.ReduceOp != RedOp::None &&
+        !Info.HasDataWrite && !S.MutV && !S.MutTop && !S.HasCarriedOnMut &&
+        !S.HasUnrecognizedG && !Info.HasFrontierAppend &&
+        !hasPerSourceClaim(Info) && preambleMutationCount(Info) == 0)
+        return Klass::SourceReduction;
+
+    /* Activation needs the dest envelope; DualOwner already returned. */
+    if (Info.HasFrontierAppend)
+    {
+        if (envelopeWired(Info) && S.MutV && !S.MutU && !S.MutG)
+            return Klass::DestOwner;
+        return Klass::Sequential;
+    }
+    /* Legacy reduction: exactly one scalar accumulator, recognized fold law. */
+    if (S.MutG && S.HasUopG && !S.HasUnrecognizedG && !S.MutU && !S.MutV &&
+        !privLayoutNeeded(Info))
+        return Klass::Reduction;
+    if (S.MutV && !S.MutU && !S.MutG)
+        return Klass::DestOwner;
+    if (S.MutU && !S.MutV && !S.MutG)
+        return Klass::SourceOwner;
+    if (Priv)
+    {
+        Info.UsePrivLayout = true;
+        return Klass::Privatized;
+    }
+    return Klass::Sequential;
+}
+
 static Klass classify(NeighborLoopInfo &Info)
 {
-    /* Semantic Mixed: incompatible ownership, carried same-array flow, or a
-     * cross-phase data dependence.  DualOwner is E=EU∪EV with disjoint bases
-     * and Dependence ⊆ Control/Membership. */
     /* Composition R3: a loop whose every mutating effect is a recognized U_⊕
      * update is a pure accumulation — no owner is needed, each partition can
      * accumulate into its own copy (see privLayout).  Computed before the
@@ -2023,197 +2651,9 @@ static Klass classify(NeighborLoopInfo &Info)
     if (getenv("GRAPH_FRONTIER_STATS") && !PrivProvable)
         errs() << "[graph-frontier]   priv: refused -- " << PrivReason << "\n";
 
-    if (Info.HasDataWrite && !Priv)
-        return Klass::Sequential;
-
-    /* Composition F: a first-wins claim in the *driver* preamble
-     * (`sgpl.first_wins.claim`, collected into DriverUClaims) runs once per
-     * source vertex in the serial program, and the branch it feeds decides
-     * whether that source's neighbour body runs at all.  Every emitted work
-     * function is called once per (u,v) pair, so the claim would run per pair
-     * and the body would run for sources whose claim failed: the dual-owner
-     * emit grafts the claim without its guard, the single-phase paths do not
-     * graft it at all.  Refuse until the model can prove a once-per-source
-     * visit.  The body-level claim is unaffected (it is cloned with the body
-     * and keeps its own guard).
-     * SGPL_COMP_F_ALLOW_DRIVER_CLAIM=1 restores the old behaviour for A/B. */
-    if ((!Info.DriverUClaims.empty() || Info.HasDriverClaim) &&
-        !::getenv("SGPL_COMP_F_ALLOW_DRIVER_CLAIM"))
-        return Klass::Sequential;
-
-    bool MutU = false, MutV = false, MutG = false, MutD = false, MutTop = false;
-    bool HasUopG = false, HasCarriedOnMut = false;
-    /* A global slot the reduction engine does not own: a second scalar
-     * accumulator, a second operator on the same accumulator, or a plain store
-     * to a scalar.  Only one slot (ReducePtr) gets per-partition storage, so any
-     * of these would be written concurrently by every partition. */
-    bool HasUnrecognizedG = false;
-    SmallPtrSet<const Value *, 4> BaseU, BaseV;
-    for (const Effect &E : Info.Effects)
-    {
-        if (E.Kind == EffectKind::R)
-        {
-            if (E.Temp != Temporal::Carried || !E.Base)
-                continue;
-            /* A carried read on a round-separation base is resolved by the
-             * shadow snapshot (composition A) — not a sequential trigger. */
-            bool OnShadowBase = false;
-            for (const auto &RS : Info.RoundSepBases)
-                if (RS.Base == E.Base)
-                    OnShadowBase = true;
-            if (OnShadowBase)
-                continue;
-            for (const Effect &M : Info.Effects)
-            {
-                if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
-                    continue;
-                if (M.Base == E.Base && M.Reg != E.Reg)
-                    HasCarriedOnMut = true;
-            }
-            continue;
-        }
-        if (E.Kind == EffectKind::Activate)
-        {
-            MutV = true;
-            continue;
-        }
-        switch (E.Reg)
-        {
-        case Region::U:
-            MutU = true;
-            if (E.Base)
-                BaseU.insert(E.Base);
-            break;
-        case Region::V:
-            MutV = true;
-            if (E.Base)
-                BaseV.insert(E.Base);
-            break;
-        case Region::G:
-            MutG = true;
-            if (E.Kind == EffectKind::Uop)
-                HasUopG = true;
-            else
-                HasUnrecognizedG = true;
-            break;
-        case Region::D:
-            MutD = true;
-            break;
-        case Region::Bottom:
-            break;
-        default:
-            MutTop = true;
-            break;
-        }
-    }
-
-    if (MutTop)
-        return Klass::Sequential;
-    if (MutD && !Priv)
-        return Klass::Sequential;
-    /* A carried read on the same base as a mutating effect is normally a
-     * sequential trigger.  When the whole effect set is privatizable the read
-     * is resolved differently: privLayout() only admits loads that are the
-     * old-value chain of an update to that same base, so the read is the
-     * partition's own accumulator, not a cross-partition observation. */
-    if (HasCarriedOnMut && !Priv)
-        return Klass::Sequential;
-
-    /* Composition A: round-separated in-place (same-base cross-endpoint
-     * R x W).  The loop is a single-ownership owner-computes step whose reads
-     * go through a per-round shadow snapshot; the shadow resolves the carried /
-     * previous-round read, so both the gated and the ungated form parallelize. */
-    if (!Info.RoundSepBases.empty() && !(MutU && MutV))
-    {
-        bool V = Info.RoundSepBases[0].WritesV;
-        bool Agree = true;
-        for (const auto &RS : Info.RoundSepBases)
-            if (RS.WritesV != V)
-                Agree = false;
-        if (Agree && ((V && !MutU) || (!V && !MutV)))
-            return V ? Klass::DestOwner : Klass::SourceOwner;
-    }
-
-    if (MutU && MutV && !MutG)
-    {
-        bool Disjoint = true;
-        for (const Value *B : BaseU)
-            if (BaseV.count(B))
-                Disjoint = false;
-        /* Fail closed when the loop would need a round-separation shadow:
-         * the shadow freezes round-start values, but these dual-owner loops are
-         * claim/activate state machines whose bodies must observe removals made
-         * earlier in the same round.  Demonstrated wrong on upstream's own
-         * small_kcore shape, scaled to the g20k fixture: the rewrite peeled
-         * 18898 survivors where the serial build leaves 18959, because a vertex
-         * already killed in the round still read alive[v] == 1 from the snapshot
-         * and decremented its live neighbours.  Sequential is the only sound
-         * verdict until the model can tell round-separated reads from
-         * within-round state reads. */
-        if (Disjoint && !BaseU.empty() && !BaseV.empty() &&
-            !crossPhaseDataDep(Info, BaseU, BaseV) &&
-            Info.RoundSepBases.empty())
-        {
-            if (Info.HasFrontierAppend && !envelopeWired(Info))
-                return Klass::Sequential;
-            return Klass::DualOwner;
-        }
-        /* Same-array U+V or data dep.  Composition R3: when every write on the
-         * shared base is a recognized update, the loop is a pure accumulation
-         * and privatizing the base is sound without any region ownership. */
-        if (Priv)
-        {
-            Info.UsePrivLayout = true;
-            return Klass::Privatized;
-        }
-        return Klass::Sequential;
-    }
-
-    /* Composition I / P10: per-source reduction ("gather").  The scalar
-     * accumulator is reset and consumed once per source in the driver preamble
-     * (`c = 0; for each neighbor v { c = c + f(v) } deg[u] = c`), so the
-     * reduction is over each source's own pairs and the result is written per
-     * source.  The source-owned step can reproduce that with a per-partition
-     * partial plus a finish hook (emitSourceReductionStep).  Enabled only under
-     * SGPL_COMP_I_SOURCE_REDUCTION while it proves itself; fails closed on
-     * everything the hook does not reproduce -- a second driver U store, a claim,
-     * a frontier append, destination-region work, or an unrecognized update. */
-    if (getenv("SGPL_COMP_I_SOURCE_REDUCTION") && Info.ReducePtr &&
-        Info.AccConsumeStore && Info.AccResetSeen && Info.ReduceOp != RedOp::None &&
-        !Info.HasDataWrite && !MutV && !MutTop && !MutD && !HasCarriedOnMut &&
-        !HasUnrecognizedG && !Info.HasFrontierAppend &&
-        Info.DriverUClaims.empty() && !Info.HasDriverClaim &&
-        Info.DriverUStores.size() == 1 &&
-        Info.DriverUStores[0] == Info.AccConsumeStore)
-        return Klass::SourceReduction;
-
-    if (Info.HasFrontierAppend)
-    {
-        /* Activate(V) needs the dest envelope. DualOwner already returned. */
-        if (envelopeWired(Info) && MutV && !MutU && !MutG)
-            return Klass::DestOwner;
-        return Klass::Sequential;
-    }
-    /* The legacy reduction engine maps exactly one slot; a body with several
-     * accumulators or a written array belongs to the privatization path below,
-     * which gives every one of them its own per-partition storage. */
-    if (MutG && HasUopG && !HasUnrecognizedG && !MutU && !MutV &&
-        !privLayoutNeeded(Info))
-        return Klass::Reduction;
-    if (MutV && !MutU && !MutG)
-        return Klass::DestOwner;
-    if (MutU && !MutV && !MutG)
-        return Klass::SourceOwner;
-    /* Composition R3: everything left is a pure accumulation the owner paths
-     * cannot express (several scalar accumulators, or a written base with no
-     * single owner region).  A non-privatizable effect set was refused above,
-     * so this only claims what privLayout proved. */
-    if (Priv)
-    {
-        Info.UsePrivLayout = true;
-        return Klass::Privatized;
-    }
-    return Klass::Sequential;
+    EffectSummary S;
+    summarizeEffects(Info, S);
+    return interpretPar(Info, S, Priv);
 }
 
 static const char *klassName(Klass K)
@@ -2281,11 +2721,105 @@ static void printEffects(const NeighborLoopInfo &Info, Klass K)
            << "  compat=" << compatName(K);
 }
 
+/* Segmented form of the same set: `preamble ; pair ; epilogue` with each
+ * segment's primitives joined by `⊕` and per-primitive occurrence scope. */
+static void printEffectExpr(const NeighborLoopInfo &Info)
+{
+    const EffectExpr &X = Info.Expr;
+    auto PrintSeg = [&](const char *Name, const auto &Seg)
+    {
+        errs() << "  " << Name << "=";
+        if (Seg.empty())
+        {
+            errs() << "ε";
+            return;
+        }
+        bool First = true;
+        for (const Effect *E : Seg)
+        {
+            if (!First)
+                errs() << "⊕";
+            First = false;
+            errs() << effectKindName(E->Kind);
+            if (E->Kind == EffectKind::Uop && E->Op != RedOp::None)
+                errs() << redOpName(E->Op);
+            errs() << "(";
+            if (E->Base && E->Base->hasName())
+                errs() << E->Base->getName();
+            else
+                errs() << "_";
+            errs() << "," << regionName(E->Reg) << ")";
+        }
+    };
+    errs() << "  expr:";
+    PrintSeg("pre", X.Preamble);
+    PrintSeg("pair", X.Pair);
+    PrintSeg("epi", X.Epilogue);
+    errs() << "  gated=" << (X.MembershipGated ? 1 : 0);
+}
+
+/* ── witness dump (Stage G) ──────────────────────────────────────
+ * Normalized, stable dump of every emission-relevant NeighborLoopInfo field
+ * plus the per-effect semantic facts (kind, base, region, occurrence scope,
+ * temporal).  This is the compatibility oracle for the algebra refactor:
+ * SGPL_WITNESS_DUMP=1 prints it; proof/refactor_golden_* captures it.
+ * Format is deliberately line-per-fact and sorted so it is diff-stable. */
+static void printWitness(const NeighborLoopInfo &Info, Klass K, bool IsIter)
+{
+    errs() << "[witness] iter=" << (IsIter ? 1 : 0)
+           << " driver="
+           << (Info.DriverLoop ? Info.DriverLoop->getHeader()->getName() : "<none>")
+           << " inner=" << Info.NeighborLoop->getHeader()->getName()
+           << " class=" << klassName(K) << "\n";
+    errs() << "[witness] writekind=" << (int)Info.WriteKind
+           << " hasdata=" << (Info.HasDataWrite ? 1 : 0)
+           << " redptr=" << (Info.ReducePtr && Info.ReducePtr->hasName()
+                                 ? Info.ReducePtr->getName()
+                                 : "_")
+           << " redop=" << redOpName(Info.ReduceOp)
+           << " firstwins=" << (Info.HasFirstWins ? 1 : 0)
+           << " driverclaim=" << (Info.HasDriverClaim ? 1 : 0)
+           << " append=" << (Info.HasFrontierAppend ? 1 : 0)
+           << " gated=" << (Info.MembershipGated ? 1 : 0)
+           << " needsroundsep=" << (Info.NeedsRoundSep ? 1 : 0)
+           << " priv=" << (Info.UsePrivLayout ? 1 : 0) << "\n";
+    errs() << "[witness] slots=" << Info.Slots.size()
+           << " privarrays=" << Info.PrivArrays.size()
+           << " roundsep=" << Info.RoundSepBases.size()
+           << " driverustores=" << Info.DriverUStores.size()
+           << " driveruclaims=" << Info.DriverUClaims.size()
+           << " accconsume=" << (Info.AccConsumeStore ? 1 : 0)
+           << " accreset=" << (Info.AccResetSeen ? 1 : 0) << "\n";
+    for (const auto &RS : Info.RoundSepBases)
+    {
+        errs() << "[witness] rs base="
+               << (RS.Base && RS.Base->hasName() ? RS.Base->getName() : "_")
+               << " writesv=" << (RS.WritesV ? 1 : 0)
+               << " crossreads=" << RS.CrossReads.size() << "\n";
+    }
+    /* Effect facts, in construction order. */
+    for (const Effect &E : Info.Effects)
+    {
+        errs() << "[witness] eff kind=" << effectKindName(E.Kind)
+               << " op=" << redOpName(E.Op)
+               << " base=" << (E.Base && E.Base->hasName() ? E.Base->getName() : "_")
+               << " reg=" << regionName(E.Reg)
+               << " scope=" << (int)E.Scope
+               << " temp=" << temporalName(E.Temp);
+        if (E.Kind == EffectKind::R)
+            errs() << " vsrc=" << (E.VSource == ValueSource::Snapshot ? "snapshot"
+                                                                       : "live");
+        errs() << "\n";
+    }
+}
+
 /* ── per-pair wrapper via manual clone ────────────────────────── */
 
-/* Combine one partition partial into the running total: `*out = *out (op) *partial`.
- * Float vs int chosen from the element type; ascending partition-order calls in
- * the runtime keep the fold deterministic. */
+/* Combine one partition partial into the running total: `*out = *out (op) *partial`
+ * where `op` is the operator record's *fold* operation.  Float vs int chosen from
+ * the element type; ascending partition-order calls in the runtime keep the fold
+ * deterministic.  The switch is over the fold op, so subtraction (whose partials
+ * hold the negated partition sums) folds through the Add arm. */
 static Function *emitRedCombiner(LLVMContext &Ctx, Module *Mod, RedOp Op,
                                  Type *ElemTy)
 {
@@ -2300,16 +2834,9 @@ static Function *emitRedCombiner(LLVMContext &Ctx, Module *Mod, RedOp Op,
     Value *O = B.CreateLoad(ElemTy, FN->getArg(1)); /* out (running total) */
     bool isFP = ElemTy->isFloatingPointTy();
     Value *R = nullptr;
-    switch (Op)
+    switch (redOpInfo(Op).FoldOp)
     {
     case RedOp::Add:
-        R = isFP ? B.CreateFAdd(O, P) : B.CreateAdd(O, P);
-        break;
-    case RedOp::Sub:
-        /* The body computed `acc = acc - x`, so each partition partial already
-         * holds the negated partition sum (identity 0); fold partials into the
-         * running total with addition so the result equals the serial
-         * `init - sum(x)`. */
         R = isFP ? B.CreateFAdd(O, P) : B.CreateAdd(O, P);
         break;
     case RedOp::Mul:
@@ -2357,12 +2884,13 @@ static Function *emitRedCombiner(LLVMContext &Ctx, Module *Mod, RedOp Op,
     return FN;
 }
 
-/* Identity element for a reduction operator, used to initialize per-partition
- * partials so the ordered combine yields the serial result. */
+/* Identity element for a reduction operator's *fold* operation, used to
+ * initialize per-partition partials so the ordered combine yields the serial
+ * result.  Subtraction folds through Add, so its identity is 0. */
 static Constant *identityFor(RedOp Op, Type *ElemTy)
 {
     bool isFP = ElemTy->isFloatingPointTy();
-    switch (Op)
+    switch (redOpInfo(Op).FoldOp)
     {
     case RedOp::Mul:
         return isFP ? ConstantFP::get(ElemTy, 1.0)
@@ -2389,7 +2917,7 @@ static Constant *identityFor(RedOp Op, Type *ElemTy)
     case RedOp::FMaxNum:
     case RedOp::FMaxProp:
         return ConstantFP::getInfinity(ElemTy, /*Negative=*/true);
-    default: /* Add, Sub, Or, Xor */
+    default: /* Add, Or, Xor (Sub folds through Add) */
         return Constant::getNullValue(ElemTy);
     }
 }
@@ -3886,9 +4414,18 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                     << " class=" << klassName(K)
                    << "  ";
             if (IsIter)
+            {
                 printEffects(Info, K);
+                if (getenv("GRAPH_FRONTIER_VERBOSE"))
+                    printEffectExpr(Info);
+            }
             errs() << "\n";
         }
+        if (IsIter && getenv("SGPL_WITNESS_DUMP"))
+            printWitness(Info, K, /*IsIter=*/true);
+        else if (!IsIter && getenv("SGPL_WITNESS_DUMP"))
+            errs() << "[witness] iter=0 class=" << klassName(K)
+                   << " inner=" << L->getHeader()->getName() << "\n";
         if (!RewriteMode)
         {
             /* Safe by default: the CleanCut rewrite is env-gated, but a graph

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="420" viewBox="0 0 980 420">
+<style>text{font:12px system-ui;fill:#26303b}.title{font-size:16px;font-weight:600}.grid{stroke:#d8dde5;stroke-width:1}</style>
+<text x="78" y="26" class="title">Algorithm time vs graph size (rewrite ON, kernel time)</text>
+<line x1="78" y1="358.0" x2="954" y2="358.0" class="grid"/>
+<text x="70" y="362.0" text-anchor="end">7.44</text>
+<line x1="78" y1="281.5" x2="954" y2="281.5" class="grid"/>
+<text x="70" y="285.5" text-anchor="end">24.4</text>
+<line x1="78" y1="205.0" x2="954" y2="205.0" class="grid"/>
+<text x="70" y="209.0" text-anchor="end">79.7</text>
+<line x1="78" y1="128.5" x2="954" y2="128.5" class="grid"/>
+<text x="70" y="132.5" text-anchor="end">261</text>
+<line x1="78" y1="52.0" x2="954" y2="52.0" class="grid"/>
+<text x="70" y="56.0" text-anchor="end">853</text>
+<text x="78.0" y="386" text-anchor="middle">125k</text>
+<text x="370.0" y="386" text-anchor="middle">250k</text>
+<text x="662.0" y="386" text-anchor="middle">500k</text>
+<text x="954.0" y="386" text-anchor="middle">1M</text>
+<text x="16" y="205.0" transform="rotate(-90 16 205.0)" text-anchor="middle">ms (log)</text>
+<polyline points="78.0,208.6 370.0,161.8 662.0,122.7 954.0,73.1" fill="none" stroke="#3478d4" stroke-width="3"/>
+<circle cx="78.0" cy="208.6" r="4" fill="#3478d4"/>
+<circle cx="370.0" cy="161.8" r="4" fill="#3478d4"/>
+<circle cx="662.0" cy="122.7" r="4" fill="#3478d4"/>
+<circle cx="954.0" cy="73.1" r="4" fill="#3478d4"/>
+<text x="78" y="412" fill="#3478d4">cc</text>
+<polyline points="78.0,226.7 370.0,185.6 662.0,145.4 954.0,98.7" fill="none" stroke="#d4553a" stroke-width="3"/>
+<circle cx="78.0" cy="226.7" r="4" fill="#d4553a"/>
+<circle cx="370.0" cy="185.6" r="4" fill="#d4553a"/>
+<circle cx="662.0" cy="145.4" r="4" fill="#d4553a"/>
+<circle cx="954.0" cy="98.7" r="4" fill="#d4553a"/>
+<text x="228" y="412" fill="#d4553a">kcore</text>
+<polyline points="78.0,326.3 370.0,336.9 662.0,252.4 954.0,218.1" fill="none" stroke="#238b57" stroke-width="3"/>
+<circle cx="78.0" cy="326.3" r="4" fill="#238b57"/>
+<circle cx="370.0" cy="336.9" r="4" fill="#238b57"/>
+<circle cx="662.0" cy="252.4" r="4" fill="#238b57"/>
+<circle cx="954.0" cy="218.1" r="4" fill="#238b57"/>
+<text x="378" y="412" fill="#238b57">bfs_parent</text>
+<polyline points="78.0,243.2 370.0,203.5 662.0,160.6 954.0,102.4" fill="none" stroke="#8a5cd4" stroke-width="3"/>
+<circle cx="78.0" cy="243.2" r="4" fill="#8a5cd4"/>
+<circle cx="370.0" cy="203.5" r="4" fill="#8a5cd4"/>
+<circle cx="662.0" cy="160.6" r="4" fill="#8a5cd4"/>
+<circle cx="954.0" cy="102.4" r="4" fill="#8a5cd4"/>
+<text x="528" y="412" fill="#8a5cd4">pagerank</text>
+<polyline points="78.0,241.7 370.0,205.1 662.0,155.8 954.0,101.8" fill="none" stroke="#c79a1f" stroke-width="3"/>
+<circle cx="78.0" cy="241.7" r="4" fill="#c79a1f"/>
+<circle cx="370.0" cy="205.1" r="4" fill="#c79a1f"/>
+<circle cx="662.0" cy="155.8" r="4" fill="#c79a1f"/>
+<circle cx="954.0" cy="101.8" r="4" fill="#c79a1f"/>
+<text x="678" y="412" fill="#c79a1f">sssp</text>
+<polyline points="78.0,232.2 370.0,196.2 662.0,158.3 954.0,101.3" fill="none" stroke="#0f8b8d" stroke-width="3"/>
+<circle cx="78.0" cy="232.2" r="4" fill="#0f8b8d"/>
+<circle cx="370.0" cy="196.2" r="4" fill="#0f8b8d"/>
+<circle cx="662.0" cy="158.3" r="4" fill="#0f8b8d"/>
+<circle cx="954.0" cy="101.3" r="4" fill="#0f8b8d"/>
+<text x="828" y="412" fill="#0f8b8d">pagerank_dataidx</text>
+<polyline points="78.0,257.5 370.0,252.6 662.0,180.5 954.0,137.2" fill="none" stroke="#3478d4" stroke-width="3"/>
+<circle cx="78.0" cy="257.5" r="4" fill="#3478d4"/>
+<circle cx="370.0" cy="252.6" r="4" fill="#3478d4"/>
+<circle cx="662.0" cy="180.5" r="4" fill="#3478d4"/>
+<circle cx="954.0" cy="137.2" r="4" fill="#3478d4"/>
+<text x="978" y="412" fill="#3478d4">bfs_set</text>
+</svg>

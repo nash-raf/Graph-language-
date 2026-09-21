@@ -1,0 +1,30 @@
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=85161173.919 measured_ns=64089015 predicted_ms=85.161174 measured_ms=64.089015
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=16 predicted_ns=0.000 measured_ns=2666158 predicted_ms=0.000000 measured_ms=2.666158
+[AutoTunerProfile] region=2 kind=Traverse layout=CSR visits=1064302 predicted_ns=22305773.919 measured_ns=61352538 predicted_ms=22.305774 measured_ms=61.352538
+[AutoTunerProfile] total kind=Traverse predicted_ns=107466947.838 measured_ns=125441553 predicted_ms=107.466948 measured_ms=125.441553 pure_kernel_ns=74193750 pure_kernel_ms=74.193750
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=2666158 predicted_ms=0.000000 measured_ms=2.666158 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+0.21
+---
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=85161173.919 measured_ns=63403346 predicted_ms=85.161174 measured_ms=63.403346
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=16 predicted_ns=0.000 measured_ns=2250713 predicted_ms=0.000000 measured_ms=2.250713
+[AutoTunerProfile] region=2 kind=Traverse layout=CSR visits=1064302 predicted_ns=22305773.919 measured_ns=63046440 predicted_ms=22.305774 measured_ms=63.046440
+[AutoTunerProfile] total kind=Traverse predicted_ns=107466947.838 measured_ns=126449786 predicted_ms=107.466948 measured_ms=126.449786 pure_kernel_ns=75277853 pure_kernel_ms=75.277853
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=2250713 predicted_ms=0.000000 measured_ms=2.250713 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+0.20
+---
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=85161173.919 measured_ns=64114820 predicted_ms=85.161174 measured_ms=64.114820
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=16 predicted_ns=0.000 measured_ns=3025275 predicted_ms=0.000000 measured_ms=3.025275
+[AutoTunerProfile] region=2 kind=Traverse layout=CSR visits=1064302 predicted_ns=22305773.919 measured_ns=68892402 predicted_ms=22.305774 measured_ms=68.892402
+[AutoTunerProfile] total kind=Traverse predicted_ns=107466947.838 measured_ns=133007222 predicted_ms=107.466948 measured_ms=133.007222 pure_kernel_ns=81226512 pure_kernel_ms=81.226512
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=3025275 predicted_ms=0.000000 measured_ms=3.025275 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+0.21
+---

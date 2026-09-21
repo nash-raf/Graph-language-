@@ -1,0 +1,71 @@
+==============================================================================
+  CleanCut / composable-runtime algorithm scalability benchmark
+  algos   : cc, kcore, bfs_parent, pagerank, sssp, pagerank_dataidx
+  sizes   : 125000:125000, 250000:250000, 500000:500000, 1000000:1000000
+  threads : [1, 2, 4, 6, 8, 10, 12]
+  rounds  : 3 (+1 warmup)
+  outdir  : /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_011039
+==============================================================================
+[build] runtime objects ...
+[build] runtime objects done
+[cache] prebuild synth_v_125000_e_125000_bench.txt ...
+[cache] prebuild synth_v_125000_e_125000_bench_w.txt (weighted) ...
+[cache] prebuild synth_v_250000_e_250000_bench.txt ...
+[cache] prebuild synth_v_250000_e_250000_bench_w.txt (weighted) ...
+[cache] prebuild synth_v_500000_e_500000_bench.txt ...
+[cache] prebuild synth_v_500000_e_500000_bench_w.txt (weighted) ...
+[cache] prebuild synth_v_1000000_e_1000000_bench.txt ...
+[cache] prebuild synth_v_1000000_e_1000000_bench_w.txt (weighted) ...
+
+[load] graph-load-only baseline
+  n=125000 m=125000   load@1=24.7ms load@12=28.3ms
+  n=125000 m=125000 w load@1=29.1ms load@12=25.5ms
+  n=250000 m=250000   load@1=39.8ms load@12=28.9ms
+  n=250000 m=250000 w load@1=47.8ms load@12=33.0ms
+  n=500000 m=500000   load@1=67.2ms load@12=56.3ms
+  n=500000 m=500000 w load@1=86.5ms load@12=57.9ms
+  n=1000000 m=1000000   load@1=127ms load@12=67.8ms
+  n=1000000 m=1000000 w load@1=162ms load@12=84.2ms
+
+[compile] workloads (ON = effect-algebra lowering, OFF = sequential)
+  cc               n=  125000 m=  125000 compiled
+  cc               n=  250000 m=  250000 compiled
+  cc               n=  500000 m=  500000 compiled
+  cc               n= 1000000 m= 1000000 compiled
+  kcore            n=  125000 m=  125000 compiled
+  kcore            n=  250000 m=  250000 compiled
+  kcore            n=  500000 m=  500000 compiled
+  kcore            n= 1000000 m= 1000000 compiled
+  bfs_parent       n=  125000 m=  125000 compiled
+  bfs_parent       n=  250000 m=  250000 compiled
+  bfs_parent       n=  500000 m=  500000 compiled
+  bfs_parent       n= 1000000 m= 1000000 compiled
+  pagerank         n=  125000 m=  125000 compiled
+  pagerank         n=  250000 m=  250000 compiled
+  pagerank         n=  500000 m=  500000 compiled
+  pagerank         n= 1000000 m= 1000000 compiled
+  sssp             n=  125000 m=  125000 compiled
+  sssp             n=  250000 m=  250000 compiled
+  sssp             n=  500000 m=  500000 compiled
+  sssp             n= 1000000 m= 1000000 compiled
+  pagerank_dataidx n=  125000 m=  125000 compiled
+  pagerank_dataidx n=  250000 m=  250000 compiled
+  pagerank_dataidx n=  500000 m=  500000 compiled
+  pagerank_dataidx n= 1000000 m= 1000000 compiled
+
+[validate] parallel (ON) vs sequential (OFF) checksums
+  cc               n=  125000 MATCH
+  cc               n=  250000 MATCH
+  cc               n=  500000 MATCH
+  cc               n= 1000000 MATCH
+  kcore            n=  125000 MISMATCH
+  kcore            n=  250000 MISMATCH
+Traceback (most recent call last):
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_algos_scalability.py", line 761, in <module>
+    main()
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_algos_scalability.py", line 570, in main
+    _, on1_ck = run_once(on_bin, 1, args.timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_algos_scalability.py", line 317, in run_once
+    raise RuntimeError(f"{binary} exited {proc.returncode}: {proc.stderr[-1500:]}")
+RuntimeError: /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_011039/bin/final_bench_kcore_500000_500000_on exited -11: 

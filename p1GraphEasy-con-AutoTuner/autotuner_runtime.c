@@ -3214,29 +3214,83 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
 
 /* Complete source-domain coverage for OWNER_V source lifecycle: a source's
  * arcs are split across destination partitions, so source_begin/source_end
- * cannot be driven by row iteration.  The passes walk the full source domain
- * ascending with the Frontier membership gate, before and after the parallel
- * pair traversal; every source therefore observes exactly one
- * source_begin(u) and one source_end(u), including zero-pair sources.  The
- * passes are sequential, so the finish order is deterministic.  Source-local
- * state shared by pairs across partitions is the operation's concern (its
- * declared AtomicWrite resources); the engine contributes no semantic
- * work. */
+ * cannot be driven by row iteration.  The scan is partition-local: each worker
+ * walks its owned source range [partition_start[p], partition_start[p+1]) --
+ * the same ownership the OWNER_U source slices use -- and compacts the
+ * membership-gated members into its slice of scratch_coverage_members.  A
+ * deterministic ascending walk (partition index, then source id) then emits
+ * the callbacks in exactly the serial order, so every source observes one
+ * source_begin(u) and one source_end(u) (zero-pair sources included) in the
+ * same deterministic order as before.  Source-local state shared by pairs
+ * across partitions is the operation's concern (its declared AtomicWrite
+ * resources); the engine contributes no semantic work. */
+typedef struct {
+  sgpl_exec_ctx *ctx;
+  int32_t *members; /* compacted member sources, capacity csr_n */
+  int32_t *counts;  /* per-partition member counts, capacity partition_count */
+} SgplCoverageJob;
+
+static int autograph_coverage_bufs_ensure(AutoGraphMeta *meta) {
+  if (!meta)
+    return 0;
+  if (meta->scratch_coverage_members_cap < meta->csr_n) {
+    int32_t *m = (int32_t *)realloc(
+        meta->scratch_coverage_members, (size_t)meta->csr_n * sizeof(int32_t));
+    if (!m)
+      return 0;
+    meta->scratch_coverage_members = m;
+    meta->scratch_coverage_members_cap = meta->csr_n;
+  }
+  if (meta->scratch_coverage_counts_cap < meta->partition_count) {
+    int32_t *c = (int32_t *)realloc(
+        meta->scratch_coverage_counts,
+        (size_t)meta->partition_count * sizeof(int32_t));
+    if (!c)
+      return 0;
+    meta->scratch_coverage_counts = c;
+    meta->scratch_coverage_counts_cap = meta->partition_count;
+  }
+  return meta->scratch_coverage_members && meta->scratch_coverage_counts;
+}
+
+/* Parallel phase: compact this partition's membership-gated source range. */
+static void sgpl_exec_coverage_scan(int64_t index, void *opaque) {
+  SgplCoverageJob *job = (SgplCoverageJob *)opaque;
+  AutoGraphMeta *meta = find_meta(job->ctx->graph);
+  int32_t p = (int32_t)index;
+  int32_t lo = (int32_t)meta->partition_start[p];
+  int32_t hi = (int32_t)meta->partition_start[p + 1];
+  int32_t n = 0;
+  for (int32_t u = lo; u < hi; ++u)
+    if (!job->ctx->membership || job->ctx->membership[u])
+      job->members[lo + n++] = u;
+  job->counts[p] = n;
+}
+
 static void sgpl_exec_source_coverage(sgpl_exec_ctx *ctx, int begin) {
   AutoGraphMeta *meta = find_meta(ctx->graph);
-  int64_t n;
-  int64_t u;
-  if (!meta)
+  SgplCoverageJob job;
+  int32_t p;
+  if (!meta || meta->csr_n <= 0 || meta->partition_count <= 0 ||
+      !meta->partition_start || !autograph_coverage_bufs_ensure(meta))
     return;
-  n = meta->csr_n;
-  for (u = 0; u < n; ++u) {
-    if (ctx->membership && !ctx->membership[u])
-      continue;
-    if (begin) {
-      ctx->source_state = NULL; /* source-scoped claim channel (R7) */
-      sgpl_exec_source_begin_ops(ctx, (int32_t)u);
-    } else
-      sgpl_exec_source_end_ops(ctx, (int32_t)u);
+  job.ctx = ctx;
+  job.members = meta->scratch_coverage_members;
+  job.counts = meta->scratch_coverage_counts;
+  parallel_for_runtime(0, meta->partition_count, 1, sgpl_exec_coverage_scan,
+                       &job, 0, 0);
+  for (p = 0; p < meta->partition_count; ++p) {
+    int32_t lo = (int32_t)meta->partition_start[p];
+    int32_t n = job.counts[p];
+    int32_t k;
+    for (k = 0; k < n; ++k) {
+      int32_t u = job.members[lo + k];
+      if (begin) {
+        ctx->source_state = NULL; /* source-scoped claim channel (R7) */
+        sgpl_exec_source_begin_ops(ctx, u);
+      } else
+        sgpl_exec_source_end_ops(ctx, u);
+    }
   }
 }
 
@@ -3245,7 +3299,7 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
   int64_t start_ns;
   int32_t p;
   uint32_t i;
-  int owner_v_coverage;
+  int cov_begin, cov_end;
 
   if (!ctx)
     return 0;
@@ -3259,10 +3313,13 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
 
   /* OWNER_V source lifecycle needs the complete source-domain coverage passes;
    * OWNER_U carries lifecycle inside the partition bodies (each source belongs
-   * to exactly one partition range). */
-  owner_v_coverage =
-      ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
-      sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END);
+   * to exactly one partition range).  Each pass is guarded by its own
+   * capability, so a context without SOURCE_END ops (the common compiled case)
+   * never runs the end scan at all. */
+  cov_begin = ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
+              sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_BEGIN);
+  cov_end = ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
+            sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_END);
 
   start_ns = now_monotonic_ns();
 
@@ -3271,13 +3328,13 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
     sgpl_exec_snapshot_ops(ctx);
   }
 
-  if (owner_v_coverage)
+  if (cov_begin)
     sgpl_exec_source_coverage(ctx, /*begin=*/1);
 
   parallel_for_runtime(0, meta->partition_count, 1, sgpl_exec_partition_body,
                        ctx, 0, 0);
 
-  if (owner_v_coverage)
+  if (cov_end)
     sgpl_exec_source_coverage(ctx, /*begin=*/0);
 
   /* Deterministic combine: partition partials fold in ascending partition

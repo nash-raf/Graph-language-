@@ -1,0 +1,156 @@
+[clean-cut] build parts=4 ns=109191515
+[clean-cut] reuse parts=4 ns=1062
+[parallel-runtime] plain-call=1 trips=4 total_trips=4 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=1 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=731
+[parallel-runtime] plain-call=2 trips=4 total_trips=8 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=2 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1022
+[parallel-runtime] plain-call=3 trips=4 total_trips=12 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=3 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1563
+[parallel-runtime] plain-call=4 trips=4 total_trips=16 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=4 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1282
+[parallel-runtime] plain-call=5 trips=4 total_trips=20 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=5 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=801
+[parallel-runtime] plain-call=6 trips=4 total_trips=24 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=6 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=451
+[parallel-runtime] plain-call=7 trips=4 total_trips=28 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=7 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1473
+[parallel-runtime] plain-call=8 trips=4 total_trips=32 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=8 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=431
+[parallel-runtime] plain-call=9 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=401
+[parallel-runtime] plain-call=10 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=361
+[parallel-runtime] plain-call=11 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=400
+[parallel-runtime] plain-call=12 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=511
+[parallel-runtime] plain-call=13 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=401
+[parallel-runtime] plain-call=14 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=461
+[parallel-runtime] plain-call=15 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=420
+[parallel-runtime] plain-call=16 budget-fallback=serial trips=4 reserved=0
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=85161173.919 measured_ns=127525989 predicted_ms=85.161174 measured_ms=127.525989
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=16 predicted_ns=0.000 measured_ns=67644542 predicted_ms=0.000000 measured_ms=67.644542
+[AutoTunerProfile] region=3 kind=Traverse layout=CSR visits=1 predicted_ns=104759000.000 measured_ns=12756950 predicted_ms=104.759000 measured_ms=12.756950
+[AutoTunerProfile] region=4 kind=Traverse layout=CSR visits=15 predicted_ns=104759000.000 measured_ns=96386130 predicted_ms=104.759000 measured_ms=96.386130
+[AutoTunerProfile] total kind=Traverse predicted_ns=294679173.919 measured_ns=236669069 predicted_ms=294.679174 measured_ms=236.669069 pure_kernel_ns=109129424 pure_kernel_ms=109.129424
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=67644542 predicted_ms=0.000000 measured_ms=67.644542 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+0.92
+---
+[clean-cut] build parts=4 ns=107022291
+[clean-cut] reuse parts=4 ns=651
+[parallel-runtime] plain-call=1 trips=4 total_trips=4 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=1 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=851
+[parallel-runtime] plain-call=2 trips=4 total_trips=8 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=2 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1744
+[parallel-runtime] plain-call=3 trips=4 total_trips=12 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=3 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1193
+[parallel-runtime] plain-call=4 trips=4 total_trips=16 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=4 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1142
+[parallel-runtime] plain-call=5 trips=4 total_trips=20 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=5 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=981
+[parallel-runtime] plain-call=6 trips=4 total_trips=24 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=6 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=591
+[parallel-runtime] plain-call=7 trips=4 total_trips=28 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=7 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=461
+[parallel-runtime] plain-call=8 trips=4 total_trips=32 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=8 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1403
+[parallel-runtime] plain-call=9 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1193
+[parallel-runtime] plain-call=10 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=912
+[parallel-runtime] plain-call=11 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=891
+[parallel-runtime] plain-call=12 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=892
+[parallel-runtime] plain-call=13 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=912
+[parallel-runtime] plain-call=14 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1162
+[parallel-runtime] plain-call=15 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=491
+[parallel-runtime] plain-call=16 budget-fallback=serial trips=4 reserved=0
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=85161173.919 measured_ns=125426958 predicted_ms=85.161174 measured_ms=125.426958
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=16 predicted_ns=0.000 measured_ns=75811235 predicted_ms=0.000000 measured_ms=75.811235
+[AutoTunerProfile] region=3 kind=Traverse layout=CSR visits=1 predicted_ns=104759000.000 measured_ns=12149106 predicted_ms=104.759000 measured_ms=12.149106
+[AutoTunerProfile] region=4 kind=Traverse layout=CSR visits=15 predicted_ns=104759000.000 measured_ns=100671634 predicted_ms=104.759000 measured_ms=100.671634
+[AutoTunerProfile] total kind=Traverse predicted_ns=294679173.919 measured_ns=238247698 predicted_ms=294.679174 measured_ms=238.247698 pure_kernel_ns=112802290 pure_kernel_ms=112.802290
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=75811235 predicted_ms=0.000000 measured_ms=75.811235 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+0.51
+---
+[clean-cut] build parts=4 ns=100446100
+[clean-cut] reuse parts=4 ns=702
+[parallel-runtime] plain-call=1 trips=4 total_trips=4 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=1 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1102
+[parallel-runtime] plain-call=2 trips=4 total_trips=8 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=2 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1472
+[parallel-runtime] plain-call=3 trips=4 total_trips=12 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=3 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1072
+[parallel-runtime] plain-call=4 trips=4 total_trips=16 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=4 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=1072
+[parallel-runtime] plain-call=5 trips=4 total_trips=20 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=5 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=501
+[parallel-runtime] plain-call=6 trips=4 total_trips=24 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=6 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=781
+[parallel-runtime] plain-call=7 trips=4 total_trips=28 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=7 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=480
+[parallel-runtime] plain-call=8 trips=4 total_trips=32 range=[0,4) step=1 threads=1
+[parallel-runtime] plain-call=8 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=481
+[parallel-runtime] plain-call=9 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=431
+[parallel-runtime] plain-call=10 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=401
+[parallel-runtime] plain-call=11 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=400
+[parallel-runtime] plain-call=12 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=371
+[parallel-runtime] plain-call=13 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=390
+[parallel-runtime] plain-call=14 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=471
+[parallel-runtime] plain-call=15 budget-fallback=serial trips=4 reserved=0
+[clean-cut] reuse parts=4 ns=461
+[parallel-runtime] plain-call=16 budget-fallback=serial trips=4 reserved=0
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=85161173.919 measured_ns=115713313 predicted_ms=85.161174 measured_ms=115.713313
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=16 predicted_ns=0.000 measured_ns=56200459 predicted_ms=0.000000 measured_ms=56.200459
+[AutoTunerProfile] region=3 kind=Traverse layout=CSR visits=1 predicted_ns=104759000.000 measured_ns=12183881 predicted_ms=104.759000 measured_ms=12.183881
+[AutoTunerProfile] region=4 kind=Traverse layout=CSR visits=15 predicted_ns=104759000.000 measured_ns=94743715 predicted_ms=104.759000 measured_ms=94.743715
+[AutoTunerProfile] total kind=Traverse predicted_ns=294679173.919 measured_ns=222640909 predicted_ms=294.679174 measured_ms=222.640909 pure_kernel_ns=106915073 pure_kernel_ms=106.915073
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=56200459 predicted_ms=0.000000 measured_ms=56.200459 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+0.45
+---

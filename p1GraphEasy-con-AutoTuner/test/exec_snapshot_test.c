@@ -111,6 +111,12 @@ static void check(int cond, const char *what) {
   }
 }
 
+static int cmp_i32(const void *a, const void *b) {
+  int32_t x = *(const int32_t *)a;
+  int32_t y = *(const int32_t *)b;
+  return (x > y) - (x < y);
+}
+
 /* Snapshot(A): RoundBegin -> Snapshot -> pairs read the frozen copy; mutating
  * the live array after the round does not affect what pairs observed. */
 static void test_snapshot_op(const SnTestGraph *g, int32_t partitions) {
@@ -164,9 +170,17 @@ static void test_snapshot_op(const SnTestGraph *g, int32_t partitions) {
   check(atomic_load(&g_snap_calls) == 1, "snapshot op ran exactly once");
   check(g_frozen_n == (int)g->m, "every pair observed the frozen snapshot");
   {
+    /* Partition bodies run concurrently, so the order in which pairs append
+     * their observations is schedule-dependent; compare as a multiset. */
+    int32_t obs[16];
+    int32_t exp[16];
     int ok = 1;
+    memcpy(obs, g_frozen_obs, (size_t)g_frozen_n * sizeof(int32_t));
+    memcpy(exp, expected, (size_t)g_frozen_n * sizeof(int32_t));
+    qsort(obs, (size_t)g_frozen_n, sizeof(int32_t), cmp_i32);
+    qsort(exp, (size_t)g_frozen_n, sizeof(int32_t), cmp_i32);
     for (i = 0; i < g_frozen_n; ++i)
-      if (g_frozen_obs[i] != expected[i])
+      if (obs[i] != exp[i])
         ok = 0;
     check(ok, "pairs read the round-start snapshot, not the mutated live");
   }

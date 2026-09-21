@@ -1,0 +1,12 @@
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond kind=1 red=0 sep=0 data=0 fw=0 env=1 shadow=0  W(parent,V) ⊗ Activate(next,V)  temporal=Independent  expr:  pre=ε  pair=W(parent,V)⊕Activate(next,V)  epi=ε  gated=1
+[graph-frontier] detected=1
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

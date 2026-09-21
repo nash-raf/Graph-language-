@@ -1108,10 +1108,35 @@ static void *worker_main(void *_arg)
      * DOACROSS is excluded: its wait/post protocol is written against the
      * cyclic order, and reordering iterations there would change synchronisation
      * semantics, not just locality.
-     * SGPL_LOOP_CHUNK=0 restores the cyclic schedule; >0 sets the chunk. */
+     * SGPL_LOOP_CHUNK=0 restores the cyclic schedule; >0 sets the chunk.
+     *
+     * The chunk is clamped adaptively: block-cyclic hands thread t the
+     * iterations [t*chunk, (t+1)*chunk), so a loop whose whole trip count fits
+     * in one chunk runs entirely on thread 0.  The CleanCut executor's
+     * partition loop (workers*4 trips, e.g. 48) hit exactly that and executed
+     * on a single worker.  Shrink the chunk so every worker owns at least one
+     * block whenever there are enough iterations; below that, fall back to the
+     * cyclic schedule. */
     {
         int64_t chunk = sgpl_loop_chunk_iterations();
         int use_chunked = (chunk > 1) && !a->doacross_state;
+
+        if (use_chunked)
+        {
+            int64_t total = step > 0
+                                ? (end - start + step - 1) / step
+                                : (start - end + (-step) - 1) / (-step);
+            int64_t max_chunk = total > 0
+                                    ? (total + nthreads - 1) / nthreads
+                                    : 1;
+            if (max_chunk < 1)
+                max_chunk = 1;
+            if (chunk > max_chunk)
+            {
+                chunk = max_chunk;
+                use_chunked = chunk > 1;
+            }
+        }
 
         if (!use_chunked)
         {

@@ -1,0 +1,25 @@
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  expr:  pre=ε  pair=R(deg,U)⊕U+(deg,U)  epi=ε  gated=0
+[graph-frontier]   modelable=1
+[atom] R(deg,U):seg=2:scope=2
+[atom] U[+](deg,U):seg=2:scope=2
+[exec] op=claim atoms=
+[exec] op=preamble atoms=
+[exec] op=pair atoms=R(deg,U):seg=2:scope=2|U[+](deg,U):seg=2:scope=2
+[exec] op=finish atoms=
+[exec] op=snapshot atoms=
+[exec] op=combine atoms=
+[graph-frontier] detected=1
+[graph-frontier] detected=0
+[graph-frontier] detected=0
+[graph-frontier] detected=0
+[graph-frontier] detected=0
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

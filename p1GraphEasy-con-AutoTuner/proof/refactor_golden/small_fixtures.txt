@@ -42,7 +42,7 @@
 ### kcore.graph
 [graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
@@ -63,7 +63,7 @@
 ### kcore_belgium.graph
 [graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
@@ -182,7 +182,7 @@
 ### rt_expr_kcore.graph
 [graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
@@ -203,7 +203,7 @@
 ### rt_expr_pagerank.graph
 [graph-frontier] candidate: main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond21 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=out_degree reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=out_degree reg=U scope=2 temp=Independent
@@ -268,7 +268,7 @@
 ### small_kcore.graph
 [graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
@@ -347,7 +347,7 @@
 ### ultimate_kcore.graph
 [graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
@@ -368,7 +368,7 @@
 ### ultimate_pagerank.graph
 [graph-frontier] candidate: main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond21 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=out_degree reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=out_degree reg=U scope=2 temp=Independent
@@ -411,7 +411,7 @@
 ### validate_kcore.graph
 [graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond12 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=deg reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=deg reg=U scope=2 temp=Independent
@@ -432,7 +432,7 @@
 ### validate_pagerank.graph
 [graph-frontier] candidate: main driver=foreach.cond21 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0  R(out_degree,U):SameRoundRead ⊗ U+(out_degree,U)  temporal=SameRoundRead
 [witness] iter=1 driver=foreach.cond21 inner=foreach_nbr.cond
-[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=1
+[witness] writekind=2 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
 [witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
 [witness] eff kind=R op= base=out_degree reg=U scope=2 temp=SameRoundRead vsrc=live
 [witness] eff kind=U op=+ base=out_degree reg=U scope=2 temp=Independent

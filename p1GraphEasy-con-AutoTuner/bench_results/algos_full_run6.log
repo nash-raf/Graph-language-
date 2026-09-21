@@ -1,0 +1,142 @@
+==============================================================================
+  CleanCut / composable-runtime algorithm scalability benchmark
+  algos   : cc, kcore, bfs_parent, pagerank, sssp, pagerank_dataidx, bfs_set
+  sizes   : 125000:125000, 250000:250000, 500000:500000, 1000000:1000000
+  threads : [1, 2, 4, 6, 8, 10, 12]
+  rounds  : 3 (+1 warmup)
+  outdir  : /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_031033
+==============================================================================
+[build] runtime objects ...
+[build] runtime objects done
+[cache] prebuild synth_v_125000_e_125000_bench.txt ...
+[cache] prebuild synth_v_125000_e_125000_bench_w.txt (weighted) ...
+[cache] prebuild synth_v_250000_e_250000_bench.txt ...
+[cache] prebuild synth_v_250000_e_250000_bench_w.txt (weighted) ...
+[cache] prebuild synth_v_500000_e_500000_bench.txt ...
+[cache] prebuild synth_v_500000_e_500000_bench_w.txt (weighted) ...
+[cache] prebuild synth_v_1000000_e_1000000_bench.txt ...
+[cache] prebuild synth_v_1000000_e_1000000_bench_w.txt (weighted) ...
+
+[load] graph-load-only baseline
+  n=125000 m=125000   load@1=25.7ms load@12=23.8ms
+  n=125000 m=125000 w load@1=31.3ms load@12=24.6ms
+  n=250000 m=250000   load@1=41.3ms load@12=30.6ms
+  n=250000 m=250000 w load@1=50.5ms load@12=33.5ms
+  n=500000 m=500000   load@1=81.9ms load@12=48.0ms
+  n=500000 m=500000 w load@1=87.1ms load@12=49.7ms
+  n=1000000 m=1000000   load@1=130ms load@12=68.1ms
+  n=1000000 m=1000000 w load@1=161ms load@12=78.8ms
+
+[compile] workloads (ON = effect-algebra lowering, OFF = sequential)
+  cc               n=  125000 m=  125000 compiled
+  cc               n=  250000 m=  250000 compiled
+  cc               n=  500000 m=  500000 compiled
+  cc               n= 1000000 m= 1000000 compiled
+  kcore            n=  125000 m=  125000 compiled
+  kcore            n=  250000 m=  250000 compiled
+  kcore            n=  500000 m=  500000 compiled
+  kcore            n= 1000000 m= 1000000 compiled
+  bfs_parent       n=  125000 m=  125000 compiled
+  bfs_parent       n=  250000 m=  250000 compiled
+  bfs_parent       n=  500000 m=  500000 compiled
+  bfs_parent       n= 1000000 m= 1000000 compiled
+  pagerank         n=  125000 m=  125000 compiled
+  pagerank         n=  250000 m=  250000 compiled
+  pagerank         n=  500000 m=  500000 compiled
+  pagerank         n= 1000000 m= 1000000 compiled
+  sssp             n=  125000 m=  125000 compiled
+  sssp             n=  250000 m=  250000 compiled
+  sssp             n=  500000 m=  500000 compiled
+  sssp             n= 1000000 m= 1000000 compiled
+  pagerank_dataidx n=  125000 m=  125000 compiled
+  pagerank_dataidx n=  250000 m=  250000 compiled
+  pagerank_dataidx n=  500000 m=  500000 compiled
+  pagerank_dataidx n= 1000000 m= 1000000 compiled
+  bfs_set          n=  125000 m=  125000 compiled
+  bfs_set          n=  250000 m=  250000 compiled
+  bfs_set          n=  500000 m=  500000 compiled
+  bfs_set          n= 1000000 m= 1000000 compiled
+
+[validate] parallel (ON) vs sequential (OFF) checksums
+  cc               n=  125000 MATCH
+  cc               n=  250000 MATCH
+  cc               n=  500000 MATCH
+  cc               n= 1000000 MATCH
+  kcore            n=  125000 MATCH
+  kcore            n=  250000 MATCH
+  kcore            n=  500000 MATCH
+  kcore            n= 1000000 MATCH
+  bfs_parent       n=  125000 MATCH
+  bfs_parent       n=  250000 MATCH
+  bfs_parent       n=  500000 MATCH
+  bfs_parent       n= 1000000 MATCH
+  pagerank         n=  125000 MATCH
+  pagerank         n=  250000 MATCH
+  pagerank         n=  500000 MATCH
+  pagerank         n= 1000000 MATCH
+  sssp             n=  125000 MATCH
+  sssp             n=  250000 MATCH
+  sssp             n=  500000 MATCH
+  sssp             n= 1000000 MATCH
+  pagerank_dataidx n=  125000 MATCH
+  pagerank_dataidx n=  250000 MATCH
+  pagerank_dataidx n=  500000 MATCH
+  pagerank_dataidx n= 1000000 MATCH
+  bfs_set          n=  125000 MATCH
+  bfs_set          n=  250000 MATCH
+  bfs_set          n=  500000 MATCH
+  bfs_set          n= 1000000 MATCH
+
+[size sweep] rewrite ON at 12 threads vs OFF at 1 thread
+  cc               n=  125000 on=    99.1ms off=    97.0ms speedup=0.95x
+  cc               n=  250000 on=     186ms off=     244ms speedup=1.30x
+  cc               n=  500000 on=     333ms off=     426ms speedup=1.21x
+  cc               n= 1000000 on=     683ms off=    1037ms speedup=1.47x
+  kcore            n=  125000 on=    80.7ms off=    42.2ms speedup=0.29x
+  kcore            n=  250000 on=     138ms off=    74.1ms speedup=0.30x
+  kcore            n=  500000 on=     249ms off=     145ms speedup=0.31x
+  kcore            n= 1000000 on=     482ms off=     295ms speedup=0.40x
+  bfs_parent       n=  125000 on=    35.9ms off=    39.2ms speedup=1.10x
+  bfs_parent       n=  250000 on=    41.0ms off=    44.5ms speedup=0.30x
+  bfs_parent       n=  500000 on=    86.3ms off=     175ms speedup=2.44x
+  bfs_parent       n= 1000000 on=     133ms off=     352ms speedup=3.41x
+  pagerank         n=  125000 on=    67.9ms off=     170ms speedup=3.27x
+  pagerank         n=  250000 on=     112ms off=     345ms speedup=3.73x
+  pagerank         n=  500000 on=     206ms off=     732ms speedup=4.10x
+  pagerank         n= 1000000 on=     459ms off=    1962ms speedup=4.69x
+  sssp             n=  125000 on=    69.7ms off=     107ms speedup=1.69x
+  sssp             n=  250000 on=     113ms off=     205ms speedup=1.94x
+  sssp             n=  500000 on=     221ms off=     444ms speedup=2.09x
+  sssp             n= 1000000 on=     473ms off=    1010ms speedup=2.15x
+  pagerank_dataidx n=  125000 on=    76.1ms off=     185ms speedup=3.05x
+  pagerank_dataidx n=  250000 on=     122ms off=     374ms speedup=3.64x
+  pagerank_dataidx n=  500000 on=     212ms off=     727ms speedup=3.93x
+  pagerank_dataidx n= 1000000 on=     466ms off=    1809ms speedup=4.22x
+  bfs_set          n=  125000 on=    59.1ms off=    44.4ms speedup=0.53x
+  bfs_set          n=  250000 on=    68.8ms off=    44.5ms speedup=0.08x
+  bfs_set          n=  500000 on=     165ms off=     163ms speedup=0.69x
+  bfs_set          n= 1000000 on=     296ms off=     336ms speedup=0.91x
+
+[thread sweep] largest size n=1000000 m=1000000, configs ['default', 'tuned']
+  default  cc               1T:1050  2T:903  4T:733  6T:700  8T:666  10T:664  12T:672
+  default  kcore            1T:430  2T:417  4T:383  6T:411  8T:423  10T:432  12T:489
+  default  bfs_parent       1T:317  2T:232  4T:172  6T:161  8T:135  10T:137  12T:145
+  default  pagerank         1T:513  2T:408  4T:388  6T:380  8T:401  10T:433  12T:476
+  default  sssp             1T:732  2T:628  4T:496  6T:481  8T:447  10T:436  12T:465
+  default  pagerank_dataidx 1T:567  2T:478  4T:411  6T:426  8T:424  10T:454  12T:588
+  default  bfs_set          1T:418  2T:360  4T:298  6T:294  8T:266  10T:267  12T:280
+  tuned    cc               1T:1139  2T:1016  4T:817  6T:799  8T:735  10T:723  12T:724
+  tuned    kcore            1T:391  2T:368  4T:343  6T:347  8T:329  10T:336  12T:343
+  tuned    bfs_parent       ERROR (nondeterministic output at 2 threads)
+  tuned    pagerank         1T:539  2T:418  4T:336  6T:339  8T:314  10T:334  12T:368
+  tuned    sssp             1T:625  2T:600  4T:473  6T:468  8T:429  10T:430  12T:460
+  tuned    pagerank_dataidx 1T:537  2T:398  4T:332  6T:335  8T:333  10T:330  12T:352
+  tuned    bfs_set          1T:418  2T:397  4T:338  6T:337  8T:303  10T:303  12T:305
+
+==============================================================================
+  artifacts
+    summary : /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_031033/summary.md
+    size    : /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_031033/size_scaling.csv
+    threads : /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_031033/thread_scaling.csv
+    coverage: /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_031033/effect_coverage.csv
+==============================================================================

@@ -1,0 +1,12 @@
+graph G { edges: file "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_031033/graphs/synth_v_1000000_e_1000000_bench.txt"; };
+int n = numVertices(G);
+int k = 2;
+int deg[n];
+int alive[n];
+set frontier;
+set next;
+for each vertex v in G { deg[v] = 0; alive[v] = 1; }
+for each vertex u in G { for each neighbor v of u in G { deg[u] = deg[u] + 1; } }
+frontier = {};
+for each vertex v in G { if (deg[v] < k) { frontier.add(v); } }
+print setSize(frontier);

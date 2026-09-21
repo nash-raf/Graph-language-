@@ -1,0 +1,10 @@
+[clean-cut] build parts=48 ns=94386047
+[clean-cut] reuse parts=48 ns=660
+[parallel-runtime] plain-call=1 trips=48 total_trips=48 range=[0,48) step=1 threads=12
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1000001 predicted_ns=62855400.000 measured_ns=249636668 predicted_ms=62.855400 measured_ms=249.636668
+[AutoTunerProfile] region=1 kind=Traverse layout=CSR visits=1 predicted_ns=62855400.000 measured_ns=13507201 predicted_ms=62.855400 measured_ms=13.507201
+[AutoTunerProfile] total kind=Traverse predicted_ns=125710800.000 measured_ns=263143869 predicted_ms=125.710800 measured_ms=263.143869 pure_kernel_ns=13506123 pure_kernel_ms=13.506123
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

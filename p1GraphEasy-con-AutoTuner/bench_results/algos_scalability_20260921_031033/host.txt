@@ -1,0 +1,478 @@
+$ uname -a
+Linux Sahib 6.6.87.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+
+$ nproc
+12
+
+$ lscpu
+Architecture:                         x86_64
+CPU op-mode(s):                       32-bit, 64-bit
+Address sizes:                        48 bits physical, 48 bits virtual
+Byte Order:                           Little Endian
+CPU(s):                               12
+On-line CPU(s) list:                  0-11
+Vendor ID:                            AuthenticAMD
+Model name:                           AMD Ryzen 5 5500
+CPU family:                           25
+Model:                                80
+Thread(s) per core:                   2
+Core(s) per socket:                   6
+Socket(s):                            1
+Stepping:                             0
+BogoMIPS:                             7186.31
+Flags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm
+Virtualization:                       AMD-V
+Hypervisor vendor:                    Microsoft
+Virtualization type:                  full
+L1d cache:                            192 KiB (6 instances)
+L1i cache:                            192 KiB (6 instances)
+L2 cache:                             3 MiB (6 instances)
+L3 cache:                             16 MiB (1 instance)
+NUMA node(s):                         1
+NUMA node0 CPU(s):                    0-11
+Vulnerability Gather data sampling:   Not affected
+Vulnerability Itlb multihit:          Not affected
+Vulnerability L1tf:                   Not affected
+Vulnerability Mds:                    Not affected
+Vulnerability Meltdown:               Not affected
+Vulnerability Mmio stale data:        Not affected
+Vulnerability Reg file data sampling: Not affected
+Vulnerability Retbleed:               Not affected
+Vulnerability Spec rstack overflow:   Vulnerable: Safe RET, no microcode
+Vulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                  Not affected
+Vulnerability Tsx async abort:        Not affected
+
+$ free -h
+total        used        free      shared  buff/cache   available
+Mem:           7.7Gi       525Mi       6.9Gi       3.5Mi       443Mi       7.2Gi
+Swap:          2.0Gi          0B       2.0Gi
+
+$ git rev-parse HEAD
+6a29d3b5a55654544acf96f7ecceffdbed235346
+
+$ git status --short
+M ../.gitignore
+ M ../COMPOSITION_R3_PRIVATIZATION.md
+ M ../COMPOSITION_STATUS.md
+ M ../HANDOFF_PROMPT.md
+ M ../OPEN_PROBLEMS_HANDOFF.md
+ M ../algo/bfs_parent.graph
+ M ../algo/cc.graph
+ M ../algo/kcore.graph
+ M ../algo/pagerank.graph
+ M ../algo/sssp.graph
+ M ../algo_validation/atomic_bench.c
+ M ../algo_validation/bfs_level.graph
+ M ../algo_validation/bifan/bifan.py
+ M ../algo_validation/bifan/bifan_bitset.graph
+ M ../algo_validation/bifan/bifan_census.py
+ M ../algo_validation/bifan/bifan_check.graph
+ M ../algo_validation/bifan/bifan_matmul.graph
+ M ../algo_validation/bifan/bifan_mm2.graph
+ M ../algo_validation/bifan/bifan_run.graph
+ M ../algo_validation/bifan/bifan_run_wide.graph
+ M ../algo_validation/bifan/census_16.csv
+ M ../algo_validation/bifan/layer_pair.txt
+ M ../algo_validation/bifan/real_layer.graph
+ M ../algo_validation/bifan/real_layer.txt
+ M ../algo_validation/bifan/timed_bitset.graph
+ M ../algo_validation/bifan/timed_mac.graph
+ M ../algo_validation/cc_with_fn.graph
+ M ../algo_validation/doall_test.graph
+ M ../algo_validation/fn_algos/bfs_parent.graph
+ M ../algo_validation/fn_algos/cc.graph
+ M ../algo_validation/fn_algos/kcore.graph
+ M ../algo_validation/fn_algos/pagerank.graph
+ M ../algo_validation/fn_algos/sssp.graph
+ M ../algo_validation/gen_ba.py
+ M ../algo_validation/gen_graph.c
+ M ../algo_validation/gen_grid.py
+ M ../algo_validation/load.py
+ M ../algo_validation/polly_matmul.graph
+ M ../algo_validation/polly_matmul512.graph
+ M ../algo_validation/polly_test.graph
+ M ../algo_validation/race_demo.c
+ M ../algo_validation/reference.py
+ M 03_run.sh
+ M AutoTunerPass.cpp
+ M Base.g4
+ M CC_AUTOTUNER_EDGEMAP_REGION.md
+ M CHANGES.md
+ M COMPOSITIONAL_MOTIF_MATCHING.md
+ M COST_MODEL_COMPROMISES.md
+ M INSERT_COST_EQUATIONS.md
+ M INSERT_EQUATIONS.md
+ M IRGenVisitor.cpp
+ M IRGenVisitor.h
+ M MOTIF_TEACHING_PROMPT.md
+ M MotifIRBuilder.cpp
+ M MotifIRBuilder.h
+ M MotifPattern.cpp
+ M MotifPattern.h
+ M PERFORMANCE_JOURNEY.md
+ M POLLY_VS_PDG_TRIGGERS.md
+ M SEMIRING_CLOSURE.md
+ M SET_BCSR_INSERT_COST_FIX.md
+ M SemanticAnalyzer.cpp
+ M access_class_cost.py
+ M analytic_rd.py
+ M analyze_ablation.py
+ M analyze_shift_state.py
+ M audit_insert_cost.py
+ M autotuner_runtime.ll
+ M bench_all_layouts.py
+ M bench_folder.py
+ M bench_fraud_scaling.py
+ M bench_generated_mutation_heavy.graph
+ M bench_generated_mutation_heavy_inbounds.graph
+ M bench_generated_mutation_loop_heavy.graph
+ M bench_generated_mutation_pcsr_set.graph
+ M bench_generated_pcsr_heavy.graph
+ M bench_motif_speedup.py
+ M bench_polly_vs_pdg_triggers.py
+ M bench_templates/minimal_no_gain.graph.tmpl
+ M bench_templates/mutation_heavy.graph.tmpl
+ M bench_templates/mutation_heavy_inbounds.graph.tmpl
+ M bench_templates/mutation_loop_heavy.graph.tmpl
+ M bench_templates/mutation_pcsr_set.graph.tmpl
+ M bench_templates/pcsr_heavy.graph.tmpl
+ M bench_traverse_update_scaling.py
+ M bench_varying_size.py
+ M benchmark_bfs_compare.py
+ M benchmark_bfs_e2e.sh
+ M benchmark_bfs_scalability.sh
+ M benchmark_graph_loader.py
+ M benchmark_switch_on_cases_runtime.csv
+ M bfs_parent_graptor_compare.graph
+ M bfs_parent_graptor_compare_2m.graph
+ M bfs_parent_graptor_large.graph
+ M bfs_parent_scaling_tmp.graph
+ M bfs_runtime.cpp
+ M bfs_runtime.ll
+ M bfs_runtime_src.cpp
+ M bfs_runtime_src.ll
+ M build_lowmem.sh
+ M calibrate_hw.sh
+ M class_calib.c
+ M cost_model.py
+ M da_div.graph
+ M da_stress.graph
+ M dfs_runtime.cpp
+ M dfs_runtime.ll
+ M dfs_runtime_src.cpp
+ M dfs_runtime_src.ll
+ M doacross_phi_fix_report.aux
+ M doacross_phi_fix_report.log
+ M doacross_phi_fix_report.tex
+ M doacross_phi_fix_report.toc
+ M fit_tier_proxy.py
+ M fresh_insert_bench.log
+ M gen_ablation_workloads.py
+ M gen_latex_tables.py
+ M gpu_runtime.c
+ M gpu_runtime.h
+ M graph_load_large.graph
+ M graph_loader_runtime.cpp
+ M graph_mutation_runtime.ll
+ M grapheasy_graph_grammar.aux
+ M grapheasy_graph_grammar.log
+ M grapheasy_graph_grammar.tex
+ M grapheasy_graph_grammar.toc
+ M hw_calib_bench.c
+ M hw_calib_constants.txt
+ M hybrid_experiment.py
+ M insert_cost_validate.py
+ M insitu_probe.py
+ M kcore_belgium.graph
+ M main.cpp
+ M mrc_calibrate.py
+ M parallel_loop_outline.cpp
+ M parallel_runtime.c
+ M parallel_runtime.h
+ M pdg.cpp
+ M pdg_global.dot
+ M plot_ablation.py
+ M plot_mem_penalty.py
+ M plot_ranking_density.py
+ M plot_sweep.py
+ M plot_tables.py
+ M quick_legacy_aware.py
+ M rank_validation.py
+ M ranking_table.py
+ M rd_hist.py
+ M run_ablation.py
+ M run_ablation_switch_cases.py
+ M run_fresh_insert_bench.sh
+ M semiring_runtime.c
+ M shift_state_bench.c
+ M sweep_bench.c
+ M test/bulk_insert_cost.graph
+ M test/bulk_traverse_cost.graph
+ M test/copresence.graph
+ M test/copresence_ins.graph
+ M test/copresence_minimal.graph
+ M test/copresence_trav.graph
+ M test/copresence_workload.graph
+ M test/density_scan.py
+ M test/dynamic_update_smoke.graph
+ M test/exec_snapshot_test.c
+ M test/extract_autotuner_schedule.py
+ M test/frontier_motif_test.c
+ M test/frontier_owner_pull_test.c
+ M test/graph_loader_benchmark.cpp
+ M test/graph_loader_runtime_test.cpp
+ M test/maintenance_mixed_regions.graph
+ M test/medium_500.txt
+ M test/parallel_append_runtime_test.c
+ M test/pcsr_wins_sensor.graph
+ M test/plot_crossover.py
+ M test/plot_summary.py
+ M test/real_bio_grid_yeast.graph
+ M test/real_copresence_InVS15.graph
+ M test/real_fb_pages_company.graph
+ M test/real_ia_dbpedia.graph
+ M test/real_ia_dbpedia_ins.graph
+ M test/real_ia_dbpedia_min.graph
+ M test/real_ia_dbpedia_trav.graph
+ M test/real_inf_roadNet_PA.graph
+ M test/recommendation_refresh_switch.graph
+ M test/run_frontier_motif_tests.sh
+ M test/run_frontier_owner_pull_tests.sh
+ M test/run_graph_loader_tests.sh
+ M test/set_wins_collaboration.graph
+ M test/set_wins_fair.graph
+ M test/set_wins_fair2.graph
+ M test/set_wins_fair_results.txt
+ M test/set_wins_results.txt
+ M test/set_wins_sparse.txt
+ M test/shared_edgelist.txt
+ M test/single_insert_cost.graph
+ M test/single_traverse_cost.graph
+ M test/small_dense_20.txt
+ M test/small_no_switch_control.graph
+ M test/streaming_fraud_switch.graph
+ M test/traverse_then_update.graph
+ M test/user_prog.graph
+ M test_2phase.graph
+ M test_autotuner_smoke.graph
+ M test_foreach_traverse.graph
+ M test_insert_switch.graph
+ M test_loop_add.graph
+ M test_small.graph
+ M test_switch_traverse.graph
+ M test_switch_update.graph
+ M test_traverse_switch.graph
+ M tools/prebuild_graph_cache.cpp
+ M trace_gen.py
+ M update_csvs_hybrid.py
+ M update_predictions.py
+ M user_request_example.graph
+ M validate_analytic.py
+ M validate_cache_aware.py
+ M validate_csr_analytic.py
+ M wcpm_spike.py
+ M ../p1GraphEasy/02_run.sh
+ M ../p1GraphEasy/03_run.sh
+ M ../p1GraphEasy/ASTBuilder.cpp
+ M ../p1GraphEasy/ASTNode.h
+ M ../p1GraphEasy/Base.g4
+ M ../p1GraphEasy/IRGenVisitor.cpp
+ M ../p1GraphEasy/IRGenVisitor.h
+ M ../p1GraphEasy/SemanticAnalyzer.cpp
+ M ../p1GraphEasy/graph_loader_runtime.cpp
+ M ../p1GraphEasy/graph_mutation_runtime.c
+ M ../p1GraphEasy/graph_mutation_runtime.ll
+ M ../p1GraphEasy/graph_runtime.cpp
+ M ../p1GraphEasy/main.cpp
+ M ../p1GraphEasy/pdg.cpp
+ M ../p1GraphEasy/test/dynamic_update_smoke.graph
+ M ../p1GraphEasy/test/maintenance_mixed_regions.graph
+ M ../p1GraphEasy/test/recommendation_refresh_switch.graph
+ M ../p1GraphEasy/test/shared_edgelist.txt
+ M ../p1GraphEasy/test/small_no_switch_control.graph
+ M ../p1GraphEasy/test/streaming_fraud_switch.graph
+ M ../p1GraphEasy/ultimate_bfs_parent.graph
+ M ../p1GraphEasy/ultimate_cc.graph
+ M ../p1GraphEasy/ultimate_kcore.graph
+ M ../p1GraphEasy/ultimate_pagerank.graph
+ M ../p1GraphEasy/ultimate_sssp.graph
+ M ../p2GraphEasy-con-AutoTuner/2final_run.sh
+ M ../p2GraphEasy-con-AutoTuner/ASTBuilder.cpp
+ M ../p2GraphEasy-con-AutoTuner/ASTNode.h
+ M ../p2GraphEasy-con-AutoTuner/AutoTunerPass.cpp
+ M ../p2GraphEasy-con-AutoTuner/Base.g4
+ M ../p2GraphEasy-con-AutoTuner/IRGenVisitor.cpp
+ M ../p2GraphEasy-con-AutoTuner/IRGenVisitor.h
+ M ../p2GraphEasy-con-AutoTuner/MotifIRBuilder.cpp
+ M ../p2GraphEasy-con-AutoTuner/MotifIRBuilder.h
+ M ../p2GraphEasy-con-AutoTuner/MotifPattern.cpp
+ M ../p2GraphEasy-con-AutoTuner/MotifPattern.h
+ M ../p2GraphEasy-con-AutoTuner/SemanticAnalyzer.cpp
+ M ../p2GraphEasy-con-AutoTuner/SemanticAnalyzer.h
+ M ../p2GraphEasy-con-AutoTuner/autotuner_runtime.c
+ M ../p2GraphEasy-con-AutoTuner/autotuner_runtime.h
+ M ../p2GraphEasy-con-AutoTuner/autotuner_runtime.ll
+ M ../p2GraphEasy-con-AutoTuner/bench_dense_ffl_polly.py
+ M ../p2GraphEasy-con-AutoTuner/bfs_parent_validation_large_10m.graph
+ M ../p2GraphEasy-con-AutoTuner/bfs_parent_validation_small.graph
+ M ../p2GraphEasy-con-AutoTuner/build_lowmem.sh
+ M ../p2GraphEasy-con-AutoTuner/dense_ffl_count.graph
+ M ../p2GraphEasy-con-AutoTuner/detect_scops.py
+ M ../p2GraphEasy-con-AutoTuner/graph_loader_runtime_mmap.cpp
+ M ../p2GraphEasy-con-AutoTuner/graph_runtime.cpp
+ M ../p2GraphEasy-con-AutoTuner/main.cpp
+ M ../p2GraphEasy-con-AutoTuner/milo_test/celegans.graph
+ M ../p2GraphEasy-con-AutoTuner/milo_test/ecoli.graph
+ M ../p2GraphEasy-con-AutoTuner/milo_test/ecoli2.graph
+ M ../p2GraphEasy-con-AutoTuner/nb_from_set.graph
+ M ../p2GraphEasy-con-AutoTuner/parallel_runtime.h
+ M ../p2GraphEasy-con-AutoTuner/parallel_runtime_shim.c
+ M ../p2GraphEasy-con-AutoTuner/probe_w.graph
+ M ../p2GraphEasy-con-AutoTuner/roaring_bitmap.cpp
+ M ../p2GraphEasy-con-AutoTuner/roaring_bitmap.h
+ M ../p2GraphEasy-con-AutoTuner/runtime.c
+ M ../p2GraphEasy-con-AutoTuner/semiring_apsp_demo.graph
+ M ../p2GraphEasy-con-AutoTuner/semiring_closure_demo.graph
+ M ../p2GraphEasy-con-AutoTuner/semiring_demo_edges.txt
+ M ../p2GraphEasy-con-AutoTuner/semiring_runtime.c
+ M ../p2GraphEasy-con-AutoTuner/smoke_algos.sh
+ M ../p2GraphEasy-con-AutoTuner/sssp_dbg.graph
+ M ../p2GraphEasy/ASTBuilder.cpp
+ M ../p2GraphEasy/ASTNode.h
+ M ../p2GraphEasy/Base.g4
+ M ../p2GraphEasy/IRGenVisitor.cpp
+ M ../p2GraphEasy/IRGenVisitor.h
+ M ../p2GraphEasy/MotifIRBuilder.cpp
+ M ../p2GraphEasy/MotifIRBuilder.h
+ M ../p2GraphEasy/MotifPattern.cpp
+ M ../p2GraphEasy/MotifPattern.h
+ M ../p2GraphEasy/MotifPatternTest.cpp
+ M ../p2GraphEasy/SemanticAnalyzer.cpp
+ M ../p2GraphEasy/SemanticAnalyzer.h
+ M ../p2GraphEasy/array_bounds_2d_bad.graph
+ M ../p2GraphEasy/array_bounds_2d_ok.graph
+ M ../p2GraphEasy/array_bounds_bad.graph
+ M ../p2GraphEasy/array_bounds_bad_read.graph
+ M ../p2GraphEasy/array_bounds_ok.graph
+ M ../p2GraphEasy/array_no_bounds_smoke.graph
+ M ../p2GraphEasy/bench_dense_ffl_polly.py
+ M ../p2GraphEasy/benchmark_polly_speed.py
+ M ../p2GraphEasy/benchmark_scop_kernels.sh
+ M ../p2GraphEasy/bfs_chain_1000.graph
+ M ../p2GraphEasy/bfs_parent_validation_large_10m.graph
+ M ../p2GraphEasy/bfs_parent_validation_small.graph
+ M ../p2GraphEasy/build_lowmem.sh
+ M ../p2GraphEasy/dense_ffl_count.graph
+ M ../p2GraphEasy/dfs_chain_1000.graph
+ M ../p2GraphEasy/dfs_real_chain.graph
+ M ../p2GraphEasy/ffl_all_layouts.graph
+ M ../p2GraphEasy/ffl_array_all_matches_manifest.txt
+ M ../p2GraphEasy/ffl_array_match_manifest.txt
+ M ../p2GraphEasy/ffl_match_array_test.graph
+ M ../p2GraphEasy/ffn_comprehension.graph
+ M ../p2GraphEasy/ffn_visualization.graph
+ M ../p2GraphEasy/floyd_warshall_small.graph
+ M ../p2GraphEasy/generate_random_milo_graph.py
+ M ../p2GraphEasy/graph_coloring.svg
+ M ../p2GraphEasy/graph_list_motif_test.graph
+ M ../p2GraphEasy/graph_loader_runtime.cpp
+ M ../p2GraphEasy/graph_loader_runtime_mmap.cpp
+ M ../p2GraphEasy/graph_runtime.cpp
+ M ../p2GraphEasy/incoherent_ffl_demo.graph
+ M ../p2GraphEasy/incoherent_ffl_demo_edges.txt
+ M ../p2GraphEasy/kcore_full.graph
+ M ../p2GraphEasy/main.cpp
+ M ../p2GraphEasy/milo2002_reproduction/data/grapheasy/yeast_table1.txt
+ M ../p2GraphEasy/milo2002_reproduction/paper/motif_recreation.tex
+ M ../p2GraphEasy/milo_motif_examples.graph
+ M ../p2GraphEasy/motif_automorphism_test.graph
+ M ../p2GraphEasy/motif_collection_test.graph
+ M ../p2GraphEasy/negative_mode_matches_manifest.txt
+ M ../p2GraphEasy/positive_mode_matches_manifest.txt
+ M ../p2GraphEasy/random_milo_ffl_all_layouts.graph
+ M ../p2GraphEasy/random_milo_motif_large.graph
+ M ../p2GraphEasy/random_milo_original_dot.graph
+ M ../p2GraphEasy/roaring_bitmap.cpp
+ M ../p2GraphEasy/runtime.c
+ M ../p2GraphEasy/scop_matmul_fn.graph
+ M ../p2GraphEasy/semiring_apsp_demo.graph
+ M ../p2GraphEasy/semiring_closure_demo.graph
+ M ../p2GraphEasy/semiring_demo_edges.txt
+ M ../p2GraphEasy/signed_motif_matches_manifest.txt
+ M ../p2GraphEasy/signed_motif_test.graph
+ M ../p2GraphEasy/validate_kcore_full.graph
+ M ../p2GraphEasy/validate_kcore_full_200k.graph
+ M ../p2GraphEasy/verify_ffn_comprehension.py
+ M ../p2GraphEasy/visualize_graph_coloring.graph
+ M ../p2GraphEasy/weight_modes_test.graph
+ M ../verify/cases/algo/bfs_level.graph
+ M ../verify/cases/algo/cc.graph
+ M ../verify/cases/algo/kcore.graph
+ M ../verify/cases/algo/pagerank.graph
+ M ../verify/cases/algo/sssp.graph
+ M ../verify/cases/lang/array2d_int.graph
+ M ../verify/cases/lang/array2d_real.graph
+ M ../verify/cases/lang/control_flow.graph
+ M ../verify/cases/lang/fn_call.graph
+ M ../verify/cases/lang/foreach_edge.graph
+ M ../verify/cases/lang/foreach_neighbor.graph
+ M ../verify/cases/lang/foreach_vertex.graph
+ M ../verify/cases/lang/graph_counts.graph
+ M ../verify/cases/lang/int_arith.graph
+ M ../verify/cases/lang/int_array.graph
+ M ../verify/cases/lang/int_array_const.graph
+ M ../verify/cases/lang/keyword_INF.graph
+ M ../verify/cases/lang/nested_fn_array.graph
+ M ../verify/cases/lang/real_arith.graph
+ M ../verify/cases/lang/real_array_const.graph
+ M ../verify/cases/lang/real_array_var.graph
+ M ../verify/cases/lang/real_precision.graph
+ M ../verify/cases/lang/weight_fn.graph
+ M ../verify/cases/motif/bifan.graph
+ M ../verify/cases/parallel/array_doall.graph
+ M ../verify/cases/parallel/claim_driver.graph
+ M ../verify/cases/parallel/data_index_write.graph
+ M ../verify/cases/parallel/doacross_scan.graph
+ M ../verify/cases/parallel/doall_scaling.graph
+ M ../verify/cases/parallel/dual_shadow.graph
+ M ../verify/cases/parallel/foreach_scan.graph
+ M ../verify/cases/parallel/int_gather.graph
+ M ../verify/cases/parallel/mixed_regions.graph
+ M ../verify/cases/parallel/mutual_deg.graph
+ M ../verify/cases/parallel/nested_gather.graph
+ M ../verify/cases/parallel/nested_while.graph
+ M ../verify/cases/parallel/nested_while2.graph
+ M ../verify/cases/parallel/priv_data_index_big.graph
+ M ../verify/cases/parallel/priv_reduce_write_big.graph
+ M ../verify/cases/parallel/priv_two_slots_big.graph
+ M ../verify/cases/parallel/reduce_int_ops.graph
+ M ../verify/cases/parallel/reduce_plus_write.graph
+ M ../verify/cases/parallel/reduce_real_ops.graph
+ M ../verify/cases/parallel/roundsep.graph
+ M ../verify/cases/parallel/same_slot.graph
+ M ../verify/cases/parallel/two_reduce_slots.graph
+ M ../verify/class_census.sh
+ M ../verify/expected/golden.json
+ M ../verify/expected/lang.manifest
+ M ../verify/expected/motif.manifest
+ M ../verify/fixtures/bipartite.txt
+ M ../verify/fixtures/g20k.txt
+ M ../verify/fixtures/g20k_w.txt
+ M ../verify/fixtures/mutual5.txt
+ M ../verify/fixtures/tiny.txt
+ M ../verify/fixtures/tiny_w.txt
+ M ../verify/reference/golden.py
+ M ../verify/run.sh
+ M ../verify/shape_fuzz.sh
+?? bench_algos_scalability.py
+?? bench_results/algos_full_run.log
+?? bench_results/algos_full_run2.log
+?? bench_results/algos_full_run3.log
+?? bench_results/algos_full_run4.log
+?? bench_results/algos_full_run5.log
+?? bench_results/algos_full_run6.log
+?? bench_results/algos_scalability_20260921_015110/
+?? bench_results/algos_scalability_20260921_022703/

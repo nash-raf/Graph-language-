@@ -81,6 +81,17 @@ typedef struct {
   int32_t *scratch_next_frontier; /* dense next-frontier buffer, size csr_n */
   int32_t *scratch_dest_seen;     /* per-round append flags, size csr_n */
 
+  /* OWNER_V source coverage: partition-local scan compacts each partition's
+   * membership-gated source range into scratch_coverage_members at the
+   * partition's slice (partition_start[p] .. partition_start[p+1]) and records
+   * the member count; a deterministic ascending walk then emits the
+   * source_begin/source_end callbacks.  Lazily grown to csr_n / partition_count
+   * and kept for the process lifetime, like the other scratch buffers. */
+  int32_t *scratch_coverage_members;
+  int64_t scratch_coverage_members_cap;
+  int32_t *scratch_coverage_counts;
+  int32_t scratch_coverage_counts_cap;
+
   /* Round-separation shadow buffers (in-place relax / round-separated loops).
    * One byte buffer per slot, lazily sized to the largest request (the round
    * preheader asks for csr_n * element-bytes); the compiler's emitted shadow

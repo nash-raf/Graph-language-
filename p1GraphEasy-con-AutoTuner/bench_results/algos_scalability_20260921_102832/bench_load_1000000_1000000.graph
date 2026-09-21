@@ -1,0 +1,3 @@
+graph G { edges: file "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_102832/graphs/synth_v_1000000_e_1000000_bench.txt";  };
+int n = numVertices(G);
+print n;

@@ -1,0 +1,38 @@
+graph G {
+  edges: file "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/algos_scalability_20260921_102832/graphs/synth_v_500000_e_500000_bench.txt";
+  //edges: file "../../../synth_graphs_unweighted/synth_v_50000_e_50000.txt";
+};
+
+int n = numVertices(G);
+int id[n];
+set frontier;
+set next;
+
+for each vertex v in G {
+  id[v] = v;
+}
+
+frontier = G.nodes;
+
+while (setSize(frontier) > 0) {
+  next = {};
+  for each element u in frontier {
+    for each neighbor v of u in G {
+      if (id[u] < id[v]) {
+        id[v] = id[u];
+        next.add(v);
+      }
+    }
+  }
+  frontier = next;
+}
+
+//print id[0];
+
+int checksum = 0;
+int ci = 0;
+while (ci < n) {
+  checksum = checksum + id[ci];
+  ci = ci + 1;
+}
+print checksum;

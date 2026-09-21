@@ -2443,11 +2443,23 @@ static bool privLayout(NeighborLoopInfo &Info)
     return true;
 }
 
-/* The layout is *needed* when the legacy owner/reduction paths cannot express
- * the loop: more than one scalar accumulator, or any array base. */
+/* True when ownership already localizes every mutation of every privatizable
+ * array to one endpoint, so the private per-partition copies are unnecessary. */
+static bool ownedLocalizedArray(const NeighborLoopInfo &Info);
+
+/* The layout is *needed* only when no cheaper legal realization exists: more
+ * than one scalar accumulator (the record is the sole carrier of multiple
+ * scalar partials), or an array whose mutations ownership does not already
+ * localize (dual endpoints, cross-endpoint pair reads, round-separation
+ * bases, derived/data-derived indices, ...).  `privatizable` means the
+ * transformation is legal; `needed` must mean "required". */
 static bool privLayoutNeeded(const NeighborLoopInfo &Info)
 {
-    return !Info.PrivArrays.empty() || Info.Slots.size() > 1;
+    if (Info.Slots.size() > 1)
+        return true;
+    if (Info.PrivArrays.empty())
+        return false;
+    return !ownedLocalizedArray(Info);
 }
 
 /* ── algebraic interpretation ⟦E⟧_par ────────────────────────────
@@ -2476,6 +2488,117 @@ static void forEachExprEffect(const NeighborLoopInfo &Info, Fn &&F)
     collectTreePrims(Info.Expr, Prims);
     for (const auto &P : Prims)
         F(*P.first, P.second);
+}
+
+/* True when `Index` is exactly the endpoint value the owner traversal hands to
+ * the pair callback -- the provenance seeds themselves, modulo same-kind casts
+ * and the u-slot / v-slot load rules the analysis already admits -- not merely
+ * a value whose provenance joins to that region (deg[u+1], deg[perm[u]], ...). */
+static bool isOwnedEndpointIndex(Value *Index, Region Owned,
+                                 const NeighborLoopInfo &Info)
+{
+    if (!Index)
+        return false;
+    auto Peel = [](Value *V)
+    {
+        while (auto *C = dyn_cast<CastInst>(V))
+            V = C->getOperand(0);
+        return V;
+    };
+    Value *I = Peel(Index);
+    if (Owned == Region::V)
+    {
+        /* Provenance::transfer's v-slot rule, exact. */
+        if (auto *LI = dyn_cast<LoadInst>(I))
+            return LI->getPointerOperand() == Info.VAlloca;
+        return false;
+    }
+    /* U: the same seeds the analysis uses (driver induction phi, the init u
+     * operand and its cast-peeled form). */
+    Value *USrc = Info.UVal;
+    while (USrc && isa<CastInst>(USrc))
+        USrc = cast<CastInst>(USrc)->getOperand(0);
+    Value *Seeds[3] = {driverIndVar(Info.DriverLoop), USrc, Info.UVal};
+    for (Value *S : Seeds)
+        if (S && sameAddressValue(I, Peel(S), 0))
+            return true;
+    if (Info.UAlloca)
+        if (auto *LI = dyn_cast<LoadInst>(I))
+            return LI->getPointerOperand() == Info.UAlloca;
+    return false;
+}
+
+/* True when a direct owner-computes write is already race-free for every
+ * privatizable array in the loop, so the per-partition private copies and the
+ * serial element-wise combine are unnecessary (privatization is legal but not
+ * required).  Requires: no scalar accumulator; no claim / shadow base; every
+ * array update accepted by privLayout(); every mutation indexed by exactly one
+ * owned endpoint; every pair-phase read of those bases at that same endpoint.
+ * Under OWNER_U each source and its row belong to exactly one partition and
+ * are traversed in serial order; OWNER_V is the destination mirror.  NOTE:
+ * requiring all arrays to share one endpoint is a conservative restriction of
+ * this patch (it keeps the single-traversal realization); it is not a
+ * fundamental correctness requirement. */
+static bool ownedLocalizedArray(const NeighborLoopInfo &Info)
+{
+    if (Info.PrivArrays.empty())
+        return false;
+    if (Info.ReducePtr || !Info.Slots.empty())
+        return false;
+    if (Info.HasFirstWins || hasPerSourceClaim(Info) ||
+        !Info.RoundSepBases.empty())
+        return false;
+
+    /* Every array update must be one the privatization proof accepted: a base
+     * rejected by privLayout() (fold-unsound type, load not in the old-value
+     * chain, unsized alloca, ...) keeps the existing behaviour. */
+    for (const Effect &E : Info.Effects)
+    {
+        if (E.Kind != EffectKind::Uop || E.Reg == Region::G || !E.Base)
+            continue;
+        bool Known = false;
+        for (const auto &A : Info.PrivArrays)
+            if (A.Base == E.Base)
+                Known = true;
+        if (!Known)
+            return false;
+    }
+
+    Region Owned = Region::Bottom;
+    for (const auto &A : Info.PrivArrays)
+        for (const Effect &E : Info.Effects)
+        {
+            if (E.Base != A.Base)
+                continue;
+            if (E.Kind == EffectKind::R || E.Kind == EffectKind::Activate)
+                continue;
+            if (E.Kind != EffectKind::Uop ||
+                (E.Reg != Region::U && E.Reg != Region::V))
+                return false;
+            if (!isOwnedEndpointIndex(E.Index, E.Reg, Info))
+                return false;
+            if (Owned == Region::Bottom)
+                Owned = E.Reg;
+            else if (Owned != E.Reg)
+                return false;
+        }
+    if (Owned == Region::Bottom)
+        return false;
+
+    bool CrossRead = false;
+    forEachExprEffect(Info, [&](const Effect &E, PhaseSegment Seg)
+    {
+        if (CrossRead || Seg != PhaseSegment::Pair ||
+            E.Kind != EffectKind::R || !E.Base)
+            return;
+        bool OnPriv = false;
+        for (const auto &A : Info.PrivArrays)
+            if (A.Base == E.Base)
+                OnPriv = true;
+        if (OnPriv && !isOwnedEndpointIndex(E.Index, Owned, Info))
+            CrossRead = true;
+    });
+    return !CrossRead;
 }
 
 /* Φ: the recursive summary homomorphism E → S.  Primitive facts are joined

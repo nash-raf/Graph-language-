@@ -325,6 +325,34 @@ else
   no "priv/mixed_regions" "build failed"
 fi
 
+# The emitted pair body must reach `arr` through the partition's private copy,
+# never through the shared symbol.  Values alone do not pin this: a body that
+# increments the global non-atomically still prints the right total on a quiet
+# machine or at one thread, which is exactly how the privatization machinery sat
+# inert (copies allocated, identity-initialized, never written) behind 70 green
+# checks.  GRAPH_FRONTIER_DUMP=1 dumps the post-emit module; the assertion is on
+# the pair work function's IR: it derives the record (autograph_exec_partition_state)
+# and no access inside it names the privatized base.
+rm -f /tmp/post_emit_module.ll   # a stale dump would report on the previous build
+if ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FRONTIER_DUMP=1 \
+       GRAPH_FILE="$R/cases/parallel/mixed_regions.graph" \
+       bash ./03_run.sh >"$R/bin/mixed_regions_ir.log" 2>&1 </dev/null ) &&
+   [[ -f /tmp/post_emit_module.ll ]]; then
+  pairfn=$(awk '/^define .*@sgpl_pair_work/{inf=1} inf{print} inf && /^}/{inf=0}' \
+             /tmp/post_emit_module.ll)
+  if [[ -z "$pairfn" ]]; then
+    no "priv/mixed_regions IR" "no sgpl_pair_work in the post-emit module (loop not rewritten)"
+  elif grep -qE '@arr\b' <<<"$pairfn"; then
+    no "priv/mixed_regions IR" "pair body still references the shared base: $(grep -m1 -E '@arr\b' <<<"$pairfn" | sed 's/^ *//' | cut -c1-60)"
+  elif ! grep -q 'autograph_exec_partition_state' <<<"$pairfn"; then
+    no "priv/mixed_regions IR" "pair body never derives the partition record"
+  else
+    ok "priv/mixed_regions IR (pair body writes the private copy, not @arr)"
+  fi
+else
+  no "priv/mixed_regions IR" "dump build failed"
+fi
+
 # Composition D: a scalar reduction next to a per-source array write.  The
 # preamble write runs once per source, so the privatized step carries it in a
 # separate per-source phase; the pair phase accumulates the reduction into the

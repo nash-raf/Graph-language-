@@ -533,6 +533,16 @@ static const Value *canonicalArrayBase(const GetElementPtrInst *GEP)
     return getUnderlyingObject(Base);
 }
 
+/* True when this GEP is the root of an address computation on its array, i.e.
+ * it indexes the base itself (or a load/cast of the base slot) rather than the
+ * result of another GEP.  Re-basing an address onto a private copy is only
+ * valid at the root: doing it again on a chained GEP would apply the leading
+ * offset twice. */
+static bool gepIsArrayRoot(const GetElementPtrInst *GEP)
+{
+    return !isa<GetElementPtrInst>(GEP->getPointerOperand()->stripPointerCasts());
+}
+
 /* True when A and B are the same address computation.
  *
  * The front end does not CSE, so one source-level slot routinely appears as
@@ -2234,8 +2244,18 @@ static bool foldSound(RedOp Op, Type *ElemTy)
  * in a store to `Base` (the old-value operand of an update), and at least one
  * such store must be reached.  Anything else — an index, a call argument, a
  * branch condition — reads the real array, which a private copy would not
- * reproduce. */
-static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *Nest)
+ * reproduce.
+ *
+ * Feeding an update is necessary but not sufficient: the load must be *that
+ * update's own old value*, i.e. read the element the update writes.  A load at
+ * a different element of the same base (`arr[u] = arr[u] + arr[u+1]`) also
+ * feeds an update, but a private copy holds the operator identity there, not
+ * the array's value, so the accumulation theorem does not cover it.  The one
+ * exception is a cross-endpoint read that round separation resolves: the pair
+ * body reads it from the frozen round-start snapshot, which is the real value
+ * independently of the copies (`ShadowResolved`). */
+static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *Nest,
+                                 bool ShadowResolved)
 {
     if (LI->use_empty())
         return false;
@@ -2257,6 +2277,10 @@ static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *Nest)
                 const auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
                 if (!GEP || canonicalArrayBase(GEP) != Base)
                     return false;
+                if (!ShadowResolved &&
+                    !sameArraySlot(const_cast<Value *>(SI->getPointerOperand()),
+                                   LI->getPointerOperand()))
+                    return false;
                 ReachedStore = true;
                 continue;
             }
@@ -2273,9 +2297,20 @@ static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *Nest)
 /* All stores to `Base` inside the nest (the neighbour loop *and* the driver
  * body around it -- a per-source preamble write such as `w[u] += 1` is one of
  * them) are recognized U_⊕ updates with `Op`, and every load is part of such an
- * update. */
-static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *Nest)
+ * update.  `Info` supplies the round-separation witnesses: a load listed as a
+ * cross-endpoint read of this base is served from the shadow snapshot by the
+ * emitted body, so it is exempt from the own-old-value requirement. */
+static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *Nest,
+                               const NeighborLoopInfo &Info)
 {
+    auto shadowResolved = [&](const LoadInst *LI) -> bool
+    {
+        for (const auto &RS : Info.RoundSepBases)
+            if (RS.Base == Base && RS.CrossReads.count(LI))
+                return true;
+        return false;
+    };
+
     for (BasicBlock *BB : Nest->blocks())
         for (Instruction &I : *BB)
         {
@@ -2295,7 +2330,7 @@ static bool baseIsPrivatizable(const Value *Base, RedOp Op, Loop *Nest)
                 const auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
                 if (!GEP || canonicalArrayBase(GEP) != Base)
                     continue;
-                if (!loadFeedsOnlyUpdates(LI, Base, Nest))
+                if (!loadFeedsOnlyUpdates(LI, Base, Nest, shadowResolved(LI)))
                     return false;
             }
         }
@@ -2427,7 +2462,7 @@ static bool privLayout(NeighborLoopInfo &Info)
             PrivReason = "operator re-associates for the element type";
             return false;
         }
-        if (!baseIsPrivatizable(B, Op, Nest))
+        if (!baseIsPrivatizable(B, Op, Nest, Info))
         {
             PrivReason = "a load from the base is not an update's own old value";
             return false;
@@ -3338,6 +3373,77 @@ enum class PairEnvKind
     Ctx        /* the runtime context (activation: the A* primitive) */
 };
 
+/* Emit-time postcondition for composition R3: the pure-accumulation theorem is
+ * only *realized* if the emitted body never touches the shared array, so no
+ * element of a privatized base may be read or written in the pair work
+ * function -- every such access must chain from the private copy published in
+ * the partition's record.  Returns the offending base, or null when the
+ * postcondition holds.
+ *
+ * A pointer-typed access at the base itself is not an element access: the front
+ * end keeps a declared array's address in a ptr-typed global slot and re-loads
+ * it at every use, and the redirect leaves those loads behind as dead address
+ * computations.  Both the canonical base and the resolved array pointer are
+ * checked, so a form the redirect does not recognize fails closed instead of
+ * silently writing through the shared array. */
+static const Value *privBaseStillShared(const Function *WF,
+                                        const NeighborLoopInfo &Info)
+{
+    SmallPtrSet<const Value *, 8> Bases;
+    for (const auto &A : Info.PrivArrays)
+    {
+        if (A.Base)
+            Bases.insert(A.Base);
+        if (A.Ptr)
+            Bases.insert(A.Ptr);
+    }
+    if (Bases.empty())
+        return nullptr;
+
+    for (const BasicBlock &BB : *WF)
+        for (const Instruction &I : BB)
+        {
+            const Value *Addr = nullptr;
+            Type *AccessTy = nullptr;
+            if (const auto *LI = dyn_cast<LoadInst>(&I))
+            {
+                Addr = LI->getPointerOperand();
+                AccessTy = LI->getType();
+            }
+            else if (const auto *SI = dyn_cast<StoreInst>(&I))
+            {
+                Addr = SI->getPointerOperand();
+                AccessTy = SI->getValueOperand()->getType();
+            }
+            else if (const auto *RMW = dyn_cast<AtomicRMWInst>(&I))
+            {
+                Addr = RMW->getPointerOperand();
+                AccessTy = RMW->getValOperand()->getType();
+            }
+            else if (const auto *CAS = dyn_cast<AtomicCmpXchgInst>(&I))
+            {
+                Addr = CAS->getPointerOperand();
+                AccessTy = CAS->getNewValOperand()->getType();
+            }
+            if (!Addr)
+                continue;
+            Addr = Addr->stripPointerCasts();
+            if (const auto *GEP = dyn_cast<GetElementPtrInst>(Addr))
+            {
+                const Value *B = canonicalArrayBase(GEP);
+                if (Bases.count(B))
+                    return B;
+                continue;
+            }
+            if (AccessTy && AccessTy->isPointerTy())
+                continue; /* the array slot, not one of its elements */
+            const Value *B = getUnderlyingObject(Addr);
+            if (Bases.count(B))
+                return B;
+        }
+    return nullptr;
+}
+
 static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
                                 bool RuntimeActivate = false,
                                 PairEnvKind EnvKind = PairEnvKind::State)
@@ -3546,14 +3652,18 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
             }
             /* Composition R3: a GEP on a privatized base is re-pointed at this
              * partition's private copy, so the body's own load/op/store chain
-             * accumulates there instead of in the shared array. */
+             * accumulates there instead of in the shared array.  This arm only
+             * covers values cloned on demand (loop-invariant addresses, the
+             * UOnly store clones); the body's own GEPs are pre-cloned before
+             * operand remap and are rewritten by the pass after remapInst. */
             if (!PrivPtrForBase.empty())
                 if (auto *SGEP = dyn_cast<GetElementPtrInst>(I))
-                {
-                    Value *PP = PrivPtrForBase.lookup(canonicalArrayBase(SGEP));
-                    if (PP)
-                        Clone->setOperand(0, PP);
-                }
+                    if (gepIsArrayRoot(SGEP))
+                    {
+                        Value *PP = PrivPtrForBase.lookup(canonicalArrayBase(SGEP));
+                        if (PP)
+                            Clone->setOperand(0, PP);
+                    }
             /* Round-separation (composition A): a read on an in-place base
              * loads through the shadow snapshot, not the live array.  The
              * original GEP pointer is cloned normally (base = live array) so
@@ -3722,6 +3832,26 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
             if (Map.count(&I))
                 if (!remapInst(cast<Instruction>(Map[&I])))
                     return nullptr;
+
+    /* Composition R3: after every operand is remapped, re-point the body's
+     * address computations on a privatized base at this partition's private
+     * copy.  This must be a pass of its own: phase 1 above pre-clones every
+     * body instruction into Map before operand remap, so CloneValue returns
+     * those clones from its Map hit and never reaches its own redirect.
+     * Without this the body's load/op/store chain keeps the shared array, the
+     * private copies stay at the operator identity, and the loop runs with a
+     * lost-update race that the combine cannot repair. */
+    if (!PrivPtrForBase.empty())
+        for (BasicBlock *BB : BodyBlocks)
+            for (Instruction &I : *BB)
+            {
+                auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+                if (!GEP || !Map.count(GEP) || !gepIsArrayRoot(GEP))
+                    continue;
+                Value *PP = PrivPtrForBase.lookup(canonicalArrayBase(GEP));
+                if (PP)
+                    cast<Instruction>(Map[GEP])->setOperand(0, PP);
+            }
 
     /* Round-separation (composition A): after every operand is remapped,
      * re-point the shadow reads at the shadow snapshot.  Runs as a separate
@@ -3918,6 +4048,56 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
         else
             WB.CreateBr(FirstClone);
     }
+
+    /* Drop the address computations the rewrites left unused: a GEP re-based on
+     * a private copy (or a load re-pointed at a shadow) no longer consumes the
+     * base-slot load that was cloned for it.  The backend folds those loads
+     * away regardless, but leaving the shared base named in the emitted body
+     * makes "this body never touches the shared array" unreadable -- for the
+     * postcondition below, for the suite's IR guard, and for anyone reading a
+     * disassembly. */
+    {
+        SmallVector<Instruction *, 16> Dead;
+        auto isDeadClone = [](Instruction *I)
+        { return I->use_empty() && !I->isTerminator() && !I->mayHaveSideEffects(); };
+        for (BasicBlock &BB : *WF)
+            for (Instruction &I : BB)
+                if (isDeadClone(&I))
+                    Dead.push_back(&I);
+        while (!Dead.empty())
+        {
+            Instruction *I = Dead.pop_back_val();
+            if (!isDeadClone(I))
+                continue;
+            SmallVector<Value *, 4> Ops(I->op_begin(), I->op_end());
+            I->eraseFromParent();
+            for (Value *O : Ops)
+                if (auto *OI = dyn_cast<Instruction>(O))
+                    if (isDeadClone(OI))
+                        Dead.push_back(OI);
+        }
+    }
+
+    /* Composition R3 postcondition.  A privatization proof whose emission is
+     * missing is not a proof: if any access to a privatized base survives on
+     * the shared array, refuse the work function.  The privatized path then
+     * fails to build and the loop falls through to the sequential marker,
+     * which answers exactly like the unrewritten program.
+     * SGPL_FRONTIER_STRICT=1 turns the refusal into an abort so a test run
+     * cannot mistake a silently sequential loop for a passing rewrite. */
+    if (Phase == PairPhase::All && Info.UsePrivLayout)
+        if (const Value *Shared = privBaseStillShared(WF, Info))
+        {
+            errs() << "[graph-frontier] POSTCONDITION FAILURE on "
+                   << F->getName() << ": privatized base "
+                   << (Shared->hasName() ? Shared->getName() : "<unnamed>")
+                   << " is still reached through the shared array in "
+                   << WF->getName() << "\n";
+            if (getenv("SGPL_FRONTIER_STRICT"))
+                std::abort();
+            WF->eraseFromParent();
+            return nullptr;
+        }
     return WF;
 }
 
@@ -4643,8 +4823,17 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         B.CreateRetVoid();
     }
 
-    /* Per-source preamble callback (privatized `w[u] += 1`): writes only into
-     * this partition's private copies. */
+    /* Per-source preamble callback (privatized `w[u] += 1`): updates the live
+     * base, not the private copies, and needs no privatization to do so.  The
+     * engine's source lifecycle runs it exactly once per source, in the single
+     * partition that owns that source (OWNER_U dispatches it inside the
+     * partition body at a source change; OWNER_V from the serial coverage
+     * pass), so no two workers ever update the same element.  The copies are
+     * identity-seeded, so the combine adds the pair phase's deltas on top of
+     * these per-source writes and the total is the serial one.  Routing the
+     * preamble through the copies instead would also have to hold under
+     * OWNER_V, where the coverage pass drives source_begin from the shared
+     * context and binds no partition record at all. */
     Function *SrcBeginCB = nullptr;
     if (PreambleFn)
     {

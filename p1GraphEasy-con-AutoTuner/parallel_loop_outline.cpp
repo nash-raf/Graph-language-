@@ -136,7 +136,6 @@ namespace
         bool Changed = false;
     };
 
-    static unsigned NextLoopProfileId = 1;
 
     static const char *modeName(ParallelMode Mode)
     {
@@ -1355,7 +1354,7 @@ namespace
         Info.StartArg = StartArg;
         Info.StepArg = StepArg;
         Info.EndArg = EndArg;
-        Info.LoopId = NextLoopProfileId++;
+        Info.LoopId = nextParallelSiteId();
         if (Candidate.Mode == ParallelMode::DoAll)
             Info.SerialStartTimeSlot = createEntryAlloca(F, Type::getInt64Ty(Ctx), "sgpl.serial.start.ns");
         else if (Candidate.Mode == ParallelMode::DoAcross)
@@ -2951,6 +2950,19 @@ namespace
         FunctionCallee SelectorFn = M->getOrInsertFunction(
             Versioning.Mode == ParallelMode::DoAcross ? "sgpl_should_parallelize_doacross" : "sgpl_should_parallelize_doall",
             FunctionType::get(Int32Ty, {DescPtrTy, Int64Ty, Int64Ty, Int64Ty}, false));
+
+        /* Register the loop identity for the runtime's TDG/budget layer before
+         * the dispatch, so the launch is attributed to this loop id: a TDG level
+         * containing it can hand it the assigned thread budget instead of
+         * serialising it as an unknown caller, and the budget ledger can
+         * attribute the reservation.  Every dispatch path clears the id. */
+        {
+            FunctionCallee SetLoopId = M->getOrInsertFunction(
+                "sgpl_set_pending_loop_id",
+                FunctionType::get(Type::getVoidTy(Ctx), {Int32Ty}, false));
+            DispatchBuilder.CreateCall(
+                SetLoopId, {ConstantInt::get(Int32Ty, (int32_t)Versioning.LoopId)});
+        }
 
         Value *ShouldParallel =
             DispatchBuilder.CreateCall(SelectorFn, {Descriptor, StartArg, EndArg, StepArg}, "sgpl.should.parallel");

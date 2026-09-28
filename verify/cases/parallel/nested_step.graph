@@ -1,0 +1,24 @@
+// An engine step nested inside a serial outer loop.
+//
+// The outer `while` can never be DOALL-outlined: after the frontier lowering,
+// its body contains the rewrite's setup call, which the loop classifier sees as
+// a stateful call (the call barrier) -- the refusal is the design, and this
+// case asserts it happens.  The *step* inside it is still a TDG site: it
+// calibrates over a bounded number of single-thread passes, then gets a
+// single-site level whose plan sets its dispatch width.  The answer must be
+// identical at 1 and 4 threads (checksum 200 on fixtures/tiny5.txt).
+graph G { directed: true; edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny5.txt"; };
+
+int arr[16];
+int k = 0;
+while (k < 16) {
+    for each vertex u in G { for each neighbor v of u in G { arr[v] = arr[v] + 1; } }
+    arr[k] = arr[k] + k;
+    k = k + 1;
+}
+
+int s = 0;
+k = 0;
+while (k < 16) { s = s + arr[k]; k = k + 1; }
+print "checksum";
+print s;

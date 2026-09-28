@@ -223,6 +223,31 @@ else
   no "race/nested_gather_default" "build failed"
 fi
 
+# An engine step nested inside a serial outer loop.  The outer loop must be
+# refused by the call barrier (its body holds the frontier rewrite's setup
+# call), which is the design -- a step is never re-planned into an outlined
+# loop.  The step itself must still be TDG-planned (calibration + single-site
+# level), and the answer must be identical at 1 and 4 threads.
+NSTEP_EXP="checksum 200"
+if ( cd "$C" && GRAPH_FRONTIER_STATS=1 SGPL_TDG_DEBUG=1 SGPL_LOOP_CLASSIFY_DEBUG=1 \
+       GRAPH_FILE="$R/cases/parallel/nested_step.graph" \
+       bash ./03_run.sh >"$R/bin/nested_step.log" 2>&1 </dev/null ) &&
+   [[ -f "$C/final_program" ]]; then
+  bad=""
+  grep -q 'call barrier: stateful call' "$R/bin/nested_step.log" \
+    || bad="no call-barrier evidence for the outer loop"
+  grep -q '\[tdg.single-site\]' "$R/bin/nested_step.log" \
+    || bad="$bad no TDG decision for the step"
+  n1=$(runt 1)
+  n4=$(runt 4)
+  [[ "$n1" == "$NSTEP_EXP" ]] || bad="$bad 1thr got='$n1'"
+  [[ "$n1" == "$n4" ]] || bad="$bad 1thr/4thr differ: '$n1' vs '$n4'"
+  [[ -z "$bad" ]] && ok "parallel/nested_step (outer refused, step TDG-planned, 1thr==4thr)" \
+                  || no "parallel/nested_step" "$bad"
+else
+  no "parallel/nested_step" "build failed"
+fi
+
 # Per-vertex scalar accumulators ("gather" loops).  The effect algebra refuses
 # them (reduction register / escaping scalar / inline query subloop), so they
 # must run serially and exactly.  Regression for the silent-0 class: before
@@ -684,6 +709,68 @@ if compile "$R/cases/algo/pagerank.graph"; then
   fi
 else
   no "race/marker_derived" "build failed"
+fi
+
+# P9b: derived verdicts are the *default* configuration -- the marker is no
+# longer the veto.  The default build must reach the traversal verdicts from
+# the analysis itself (an explicit call barrier in the trace), keep the safe
+# leaf loop's DOALL, and never fall back on the marker.  1thr == 4thr pins that
+# the derived set is race-free.
+if compile "$R/cases/algo/pagerank.graph"; then
+  ref=$(runt 1)
+  if ( cd "$C" && SGPL_LOOP_CLASSIFY_DEBUG=1 GRAPH_FILE="$R/cases/algo/pagerank.graph" \
+         bash ./03_run.sh >"$R/bin/derived_default.log" 2>&1 </dev/null ); then
+    bad=""
+    grep -q 'call barrier: stateful call' "$R/bin/derived_default.log" \
+      || bad="no call-barrier evidence"
+    grep -q 'classification=DOALL' "$R/bin/derived_default.log" \
+      || bad="$bad no derived DOALL"
+    if grep -q 'marker veto' "$R/bin/derived_default.log"; then
+      bad="$bad marker veto active by default"
+    fi
+    for t in 1 4 4; do
+      got=$(runt $t)
+      [[ "$got" == "$ref" ]] || bad="$bad threads=$t got='$got' want='$ref'"
+    done
+    [[ -z "$bad" ]] && ok "race/derived_default (verdicts derived, no marker veto)" \
+                    || no "race/derived_default" "$bad"
+  else
+    no "race/derived_default" "classification trace failed"
+  fi
+else
+  no "race/derived_default" "build failed"
+fi
+
+# P9c: the scatter case with the frontier rewrite off -- the neighbour loops
+# reach the PDG directly, and must say SEQUENTIAL *by derivation*: the iterator
+# call is barred by its declared memory effects and the data-dependent
+# subscript pairs land on an unknown carrier.  Answers at 1 and 4 threads pin
+# that the derived verdict is the safe one.
+if ( export GRAPH_FRONTIER_REWRITE_OFF=1; compile "$R/cases/algo/pagerank.graph" ); then
+  ref=$(runt 1)
+  if ( cd "$C" && GRAPH_FRONTIER_REWRITE_OFF=1 SGPL_LOOP_CLASSIFY_DEBUG=1 \
+         GRAPH_FILE="$R/cases/algo/pagerank.graph" \
+         bash ./03_run.sh >"$R/bin/derived_scatter.log" 2>&1 </dev/null ); then
+    bad=""
+    grep -q 'call barrier: stateful call autograph_neighbor_iter_next' "$R/bin/derived_scatter.log" \
+      || bad="no iterator call-barrier evidence"
+    grep -q 'hdr=foreach_nbr.cond87 depth=3 classification=SEQUENTIAL' "$R/bin/derived_scatter.log" \
+      || bad="$bad scatter loop not SEQUENTIAL"
+    if grep -q 'marker veto' "$R/bin/derived_scatter.log"; then
+      bad="$bad marker veto active"
+    fi
+    for t in 1 4 4; do
+      got=$( cd "$C" && GRAPH_FRONTIER_REWRITE_OFF=1 SGPL_NUM_THREADS=$t OMP_NUM_THREADS=$t \
+               timeout 120 ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' )
+      [[ "$got" == "$ref" ]] || bad="$bad threads=$t got='$got'"
+    done
+    [[ -z "$bad" ]] && ok "race/derived_scatter (iterator barrier + unknown carrier, 1thr==4thr)" \
+                    || no "race/derived_scatter" "$bad"
+  else
+    no "race/derived_scatter" "classification trace failed"
+  fi
+else
+  no "race/derived_scatter" "build failed"
 fi
 
 # Loop-shape regressions around the P11 class (nests that used to miscompile or

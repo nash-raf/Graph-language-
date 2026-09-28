@@ -37,6 +37,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/IR/CFG.h"
+#include "parallel_loop_outline.h" // nextParallelSiteId(): shared id space
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -4758,13 +4759,17 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
     /* Traversal mechanism: source-owned slices for source-owned, source
      * reduction and privatized loops, destination-owned rows otherwise. */
     const int32_t Traversal = IsRed || IsV ? 1 : 0;
+    /* TDG site id for this stage: allocated from the shared space so the
+     * runtime can plan the step (calibration + single-site level) exactly like
+     * an outlined loop.  -1 would disable the TDG path entirely. */
+    const int32_t StepId = (int32_t)nextParallelSiteId();
     FunctionCallee CtxCreate = Mod->getOrInsertFunction(
         "autograph_exec_ctx_create",
         FunctionType::get(I8P,
                           {I8P, I32, I32, I8P, I8P, I8P, I32, I8P, I8P, I64,
-                           I8P, I32},
+                           I8P, I32, I32},
                           false));
-    SmallVector<Value *, 12> CtxArgs = {
+    SmallVector<Value *, 13> CtxArgs = {
         GraphArg, ConstantInt::get(I32, Traversal),
         ConstantInt::get(I32, Info.MembershipGated ? SGPL_DOMAIN_FRONTIER
                                                    : SGPL_DOMAIN_ALL_VERTICES),
@@ -4773,7 +4778,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         WantEnvelope ? Env.NextArg : Null /* next_frontier */,
         ConstantInt::get(I32, 0) /* initial_next_size: appends start at 0 */,
         HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
-        ConstantInt::get(I32, NOps)};
+        ConstantInt::get(I32, NOps), ConstantInt::get(I32, StepId)};
     Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
     if (!SnapOps.empty())
     {
@@ -4950,8 +4955,11 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info)
         "autograph_exec_ctx_create",
         FunctionType::get(I8P,
                           {I8P, I32, I32, I8P, I8P, I8P, I32, I8P, I8P, I64,
-                           I8P, I32},
+                           I8P, I32, I32},
                           false));
+    /* Fork/join children are already the parallelism of this stage; their inner
+     * partition dispatch keeps the existing budget/ledger discipline instead of
+     * being re-planned as a TDG site (-1 disables the TDG path for them). */
     Value *Membership =
         Info.MembershipGated || WantEnvelope ? Env.Membership : Null;
     /* The owner carries the round lifecycle (snapshots); the U and V stages
@@ -4963,21 +4971,23 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info)
          WantEnvelope ? Env.SeenArg : Null,
          WantEnvelope ? Env.NextArg : Null, ConstantInt::get(I32, 0), HeadSlot,
          Null, ConstantInt::get(I64, 0), OpsOwner,
-         ConstantInt::get(I32, (int32_t)Oi)});
+         ConstantInt::get(I32, (int32_t)Oi), ConstantInt::get(I32, -1)});
     Value *CtxU = EB.CreateCall(
         CtxCreate,
         {GraphArg, ConstantInt::get(I32, SGPL_TRAVERSE_OWNER_U),
          ConstantInt::get(I32, Domain), Membership,
          WantEnvelope ? Env.SeenArg : Null,
          WantEnvelope ? Env.NextArg : Null, ConstantInt::get(I32, 0), HeadSlot,
-         Null, ConstantInt::get(I64, 0), OpsU, ConstantInt::get(I32, 1)});
+         Null, ConstantInt::get(I64, 0), OpsU, ConstantInt::get(I32, 1),
+         ConstantInt::get(I32, -1)});
     Value *CtxV = EB.CreateCall(
         CtxCreate,
         {GraphArg, ConstantInt::get(I32, SGPL_TRAVERSE_OWNER_V),
          ConstantInt::get(I32, Domain), Membership,
          WantEnvelope ? Env.SeenArg : Null,
          WantEnvelope ? Env.NextArg : Null, ConstantInt::get(I32, 0), HeadSlot,
-         Null, ConstantInt::get(I64, 0), OpsV, ConstantInt::get(I32, 1)});
+         Null, ConstantInt::get(I64, 0), OpsV, ConstantInt::get(I32, 1),
+         ConstantInt::get(I32, -1)});
     FunctionCallee Own = Mod->getOrInsertFunction(
         "autograph_exec_ctx_own_round",
         FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));

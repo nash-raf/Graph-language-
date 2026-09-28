@@ -9,7 +9,11 @@ re-verified. Do not trust this document blindly — read the code and run the co
 Date of writing: 2026-09-10. Updated 2026-09-12 with the P2/P7/P12 fixes (§2
 items 11–13) and their evidence. Updated again 2026-09-13 (night session): P1,
 P3, P5, P6 and P11 are now fixed on the working tree, and P8-residue/P9 have
-their first verified pieces — see §2b for that session's evidence.
+their first verified pieces — see §2b for that session's evidence. Updated
+2026-09-18: **P9 is closed** — call effects are modelled through LLVM memory
+attributes, the traversal verdicts are derived by default (the marker is an
+opt-in veto), and DOALL carries a LoopAccessAnalysis certificate; see the P9
+section and the new suite checks `race/derived_default` / `race/derived_scatter`.
 
 ---
 
@@ -969,22 +973,58 @@ itself stays SEQUENTIAL by analysis, not by marker.
 
 ---
 
-### P9 (S3) — the syntactic frontier marker remains the concurrency policy
+### P9 (S3) — RESOLVED 2026-09-18: derived verdicts by default, the marker is opt-in
 
-**What it is.** Loops under a frontier driver are forced SEQUENTIAL by IRGen/
-lowering metadata (`sgpl.frontier.nested.sequential`, attached in
-`graph_frontier_lowering.cpp:~729`, read in `pdg.cpp:~1015`). The marker stands in
-for a real dependence the analysis cannot see: the traversal state (neighbour
+**Resolution (2026-09-18).** The designed replacement below landed in three pieces:
+
+1. **Call effects are declared, not name-matched.** The `pdg.cpp` call barrier now
+   exempts a call only when its memory effects say it cannot touch loop data:
+   `doesNotAccessMemory()` or `onlyAccessesInaccessibleMemory()`. The runtime states
+   those effects where it declares the functions — `AutoTunerPass.cpp` marks
+   `autograph_profile_region_enter/exit` `memory(inaccessiblemem: readwrite)` (their
+   state is runtime-private and atomic-only), and `parallel_loop_outline.cpp` does
+   the same for `sgpl_now_ns`. Everything else — neighbour iterators, engine steps,
+   bitmap mutations, graph queries, indirect calls — still barriers the loop.
+2. **DOALL carries a second, fail-closed certificate.** LoopAccessAnalysis (the
+   vectorizer's memory-dependence gate) audits every DOALL candidate: where LAA can
+   see (statically bounded bases, loop-simplify form) a refusal demotes the loop to
+   SEQUENTIAL; where it structurally cannot (DSL arrays are heap pointers behind
+   globals, so LAA reports "cannot identify array bounds" with an empty dependence
+   list) it returns *no opinion* and the PDG proof stands. Switches:
+   `SGPL_PDG_NO_LAA_CERT=1` (A/B), `SGPL_PDG_LAA_DEBUG=1`, `SGPL_PDG_CALL_EFFECTS_DEBUG=1`.
+3. **The marker is no longer the policy.** `sgpl.frontier.nested.sequential` stays
+   attached (the task extractor still reads it) but is no longer a classification
+   veto by default: `SGPL_FORCE_FRONTIER_MARKER=1` restores the old veto for A/B,
+   `SGPL_NO_FRONTIER_MARKER=1` remains an explicit no-veto.
+
+Evidence: with the frontier rewrite off, pagerank's scatter nests are SEQUENTIAL
+*derived* — the trace shows `call barrier: stateful call autograph_neighbor_iter_next`
+and `carrier=UNKNOWN ... prefix=3`, with no `marker veto` line — while the safe leaf
+loop keeps its derived DOALL and 1thr == 4thr. New checks: `race/derived_default`,
+`race/derived_scatter` (verify/run.sh), alongside the existing `race/marker_derived`
+and `parallel/call_barrier`.
+
+A trap found while landing it: `memory(none)` on `sgpl_now_ns` let the optimizer
+collapse the two clock reads that bracket the serial timed run, which starved the
+runtime's warmup sampler (every dispatch stayed `warmup-uninitialized`, so the
+`scaling/doall_scaling` check saw 1.00x). The declaration therefore carries
+`inaccessiblemem: readwrite`: equally benign to the classifier, but it keeps the
+calls ordered.
+
+**What it is (historical).** Loops under a frontier driver were forced SEQUENTIAL by
+IRGen/lowering metadata (`sgpl.frontier.nested.sequential`, attached in
+`graph_frontier_lowering.cpp:~729`, read in `pdg.cpp:~1015`). The marker stood in
+for a real dependence the analysis could not see: the traversal state (neighbour
 variable, iterator slot) that a parallel dispatch would share.
 
-**The designed replacement (not implemented).** Fail-closed certification: DOALL
+**The designed replacement (now implemented).** Fail-closed certification: DOALL
 requires a positive proof at every nesting level; DOACROSS requires a proven
 positive-constant distance at the carrying level and `EQ` at all shallower levels;
 any confused/unknown/missing level → SEQUENTIAL. With call-effect modeling (treat
 unknown-effect calls inside a loop as unknown barriers; give the runtime functions
 honest memory attributes or an effect table), the marker becomes redundant and the
-verdicts are derived rather than asserted. The `isConfused` guard (P4) is the first
-piece of this; the rest is open.
+verdicts are derived rather than asserted. The `isConfused` guard (P4) was the first
+piece; the attributes + LAA certificate above are the rest.
 
 ---
 
@@ -1153,13 +1193,16 @@ What is left:
    global-scalar reduction path (`autograph_frontier_step_owner_red` with
    per-partition partials) landed, so the remaining work is the per-source slice
    + flush plus the `acc[u] = s` epilogue.
-4. **P9** — the `sgpl.frontier.nested.sequential` marker is still the concurrency
-   policy; a certificate-based classifier (DOALL needs a positive proof at every
-   nesting level, DOACROSS needs a proven positive-constant distance with `EQ`
-   at all shallower levels) is the designed replacement.
-5. **P8 residue / P13** — call-effect modelling for the traversal runtime
-   (memory attributes or an effect table) would let refusals hand off to the PDG
-   by default; grammar/generated-parser drift and the untracked `verify/` tree
+4. **P9 (closed 2026-09-18)** — derived verdicts are the default; the marker is an
+   opt-in veto (`SGPL_FORCE_FRONTIER_MARKER=1`) and call effects come from declared
+   memory attributes. Smaller pieces intentionally left: run LoopSimplify before
+   classification so LAA can speak about unsimplified loops (it currently returns
+   "no opinion" there), and give the CleanCut modelability lists in
+   `graph_frontier_lowering.cpp` the same attribute treatment (a different contract).
+5. **P8 residue / P13** — the PDG call barrier now reads declared memory
+   attributes (see P9); what remains of the call-effect work is the same treatment
+   for the CleanCut modelability lists in `graph_frontier_lowering.cpp`;
+   grammar/generated-parser drift and the untracked `verify/` tree
    remain as documented.
 
 ## 5. How to reproduce the key observations

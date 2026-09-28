@@ -482,6 +482,12 @@ typedef struct sgpl_exec_ctx {
   int32_t next_size;       /* out: initial_next_size + appended */
   int32_t run_round_begin; /* owned by the first stage of a round */
   int32_t run_round_end;   /* owned by the last stage of a round */
+  /* TDG site id for this stage (compiler-assigned, shared id space with the
+   * outlined loops).  -1 disables the TDG path: the stage dispatches exactly
+   * as before.  When >= 0 the executor plans the stage like any other parallel
+   * site: a bounded calibration of honest serial passes, then a single-site
+   * level whose plan sets the dispatch width. */
+  int32_t step_id;
 } sgpl_exec_ctx;
 
 /* Execute one stage: traverse the selected domain and dispatch the declared
@@ -534,7 +540,8 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
     void *graph, int32_t traversal_kind, int32_t domain_kind,
     const uint8_t *membership, int32_t *dest_seen, int32_t *next_frontier,
     int32_t initial_next_size, int32_t *append_head, void *partition_base,
-    int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count);
+    int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count,
+    int32_t step_id);
 
 void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx);
 

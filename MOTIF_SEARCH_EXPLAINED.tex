@@ -1,0 +1,840 @@
+% Motif search in GraphEasy (p1GraphEasy-con-AutoTuner)
+% Written 2026-09-24.  Every claim in Part IV/Appendix was executed against the
+% tree at that date; outputs are transcribed verbatim.
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage[hidelinks]{hyperref}
+
+\lstdefinestyle{cpp}{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!45!black}\itshape,
+  stringstyle=\color{red!60!black},
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  framesep=3pt,
+  columns=fullflexible,
+}
+\lstdefinestyle{plain}{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,framesep=3pt,columns=fullflexible}
+\lstset{style=cpp}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\texttt{#1}}
+
+\title{\bfseries Motif Search in GraphEasy\\[2mm]
+\large From a pattern in the DSL to a specialised loop nest --- a ground-up explanation}
+\author{GraphEasy (p1GraphEasy-con-AutoTuner)}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This document explains, from the ground up, how \emph{motif search} works in the
+GraphEasy compiler \file{p1GraphEasy-con-AutoTuner}: how a pattern such as
+\code{a->b; a->c; b->c;} written in a \file{.graph} program becomes a count of
+matches, a list of vertex bindings, and one induced subgraph per match. It walks
+the whole pipeline --- grammar, AST, semantic analysis, the two matching backends
+(a runtime backtracker and a compile-time-specialised IR loop nest), the
+compile-time pattern analysis, and the runtime --- and it records the theory and
+the design trade-offs behind each decision. Everything labelled
+\emph{verified} was executed on the tree and the output is transcribed verbatim.
+\end{abstract}
+
+\tableofcontents
+
+\section*{How to read this document}
+\begin{itemize}
+  \item \textbf{Part I} is the simple story: what a motif is, one example you can
+        count by hand, and what the DSL gives you back.
+  \item \textbf{Part II} follows one motif program through every compiler stage
+        with code references.
+  \item \textbf{Part III} is the theory and the ``why this way'' discussion,
+        including measured numbers and the traps in the current tree.
+  \item \textbf{Part IV} is the practical part: exact commands, env switches,
+        and a checklist for adding a new motif.
+\end{itemize}
+
+%==============================================================================
+\part{The simple story}
+
+\section{What a motif is}
+
+A \textbf{network motif} is a small subgraph pattern that occurs more often in a
+network than in a suitable random null model (Milo et al., \emph{Network Motifs},
+Science 2002). Typical patterns on three or four vertices:
+
+\begin{lstlisting}[style=plain]
+  (a) 3-chain            (b) feed-forward loop (FFL)      (c) bi-fan
+   a -> b -> c            a -> b -> c                         x <-- a
+                          |________|                           |     |
+                            a -> c                             y <-- b
+                                                               a -> y, b -> x, b -> y
+\end{lstlisting}
+
+The FFL is the canonical directed triangle with a bypass edge
+\code{a->b, b->c, a->c}; the bi-fan is the four-vertex bipartite pattern
+\code{a->x, a->y, b->x, b->y} in which the two ``sources'' share both
+``targets''.
+
+Two conventions matter and both are used here:
+
+\begin{description}
+  \item[Induced subgraphs.] When you match a pattern against a graph, the
+  subgraph induced by the matched vertices must be \emph{exactly} the pattern:
+  an edge between two matched vertices that is \emph{not} in the pattern makes
+  the match invalid. In the DSL, ``not in the pattern'' is written by simply not
+  writing the edge --- every pair of variables without a motif edge is
+  \emph{required to be absent} (ASTBuilder comment, \file{ASTBuilder.cpp:16}).
+  \item[Signs.] A pattern edge \code{a->b} requires an edge of \emph{positive}
+  weight (or an unweighted edge); \code{a-|b} requires a \emph{negative} one.
+  This is what makes signed-network motifs expressible.
+\end{description}
+
+\section{One example you can check by hand}
+\label{sec:hand}
+
+Take this five-arc directed graph (we will use it throughout; edges are
+\code{0->1, 1->2, 0->2, 1->3, 0->3}):
+
+\begin{lstlisting}[style=plain]
+        1  -->  2
+       ^  \      \
+      /    \      v
+     0      ---> 3          arcs: 0->1, 1->2, 0->2, 1->3, 0->3
+\end{lstlisting}
+
+Search for an FFL: \code{a->b; a->c; b->c;}. A match is an injective map
+$\{a,b,c\}\to\{0,1,2,3\}$ such that all three listed arcs exist and all other
+pairs are absent:
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+assignment & a->b & a->c & b->c & verdict \\
+\midrule
+$a{=}0,b{=}1,c{=}2$ & $0{\to}1$ \checkmark & $0{\to}2$ \checkmark & $1{\to}2$ \checkmark & match \\
+$a{=}0,b{=}1,c{=}3$ & $0{\to}1$ \checkmark & $0{\to}3$ \checkmark & $1{\to}3$ \checkmark & match \\
+$a{=}0,b{=}2,c{=}3$ & $0{\to}2$ \checkmark & $0{\to}3$ \checkmark & $2{\to}3$ \texttimes & no \\
+$a{=}1,b{=}2,c{=}3$ & $1{\to}2$ \checkmark & $1{\to}3$ \checkmark & $2{\to}3$ \texttimes & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+(Reverse pairs such as $1{\to}0$ are absent in this graph, so the induced
+requirement is satisfied for both matches; if the graph contained $2{\to}0$, the
+first row would fail because the pair $(c,a)$ would exist although the pattern
+does not list it.)
+
+In the p1 dialect the program is:
+
+\begin{lstlisting}[style=plain]
+graph G { directed: true; edges: file "tiny_edges.txt"; };
+
+motifs M = [G where motif { a->b; a->c; b->c; }];
+
+print "numMotifs";
+print numMotifs(M);
+
+for each motif (a,b,c) in M {
+    print "binding"; print a; print b; print c;
+}
+\end{lstlisting}
+
+\noindent\emph{Verified output}:
+
+\begin{lstlisting}[style=plain]
+numMotifs
+2
+binding
+0
+1
+2
+binding
+0
+1
+3
+\end{lstlisting}
+
+Two matches, and the bindings come out in exactly the two orders we derived by
+hand.
+
+\paragraph{The induced rule in one experiment.} Change the file so that the arc
+\code{2->0} also exists. Now the pair $(c,a)$ of the first match is an existing
+edge that the pattern does not list, so induced matching rejects it --- the count
+becomes 1. This is not a formality: it is the difference between counting
+\emph{induced} and \emph{non-induced} embeddings, and it is the reason the
+current tree refuses to find anything in graphs declared with inline edges (see
+\S\ref{sec:inline-trap}).
+
+\section{What the DSL gives back}
+\label{sec:surface}
+
+Five constructs use the same matching engine; only the action at a complete
+assignment differs:
+
+\begin{center}
+\begin{tabular}{@{}p{0.36\linewidth}p{0.58\linewidth}@{}}
+\toprule
+DSL construct & Result \\
+\midrule
+\code{motifs M = [G where motif \{...\}];} & a \emph{match collection}: the
+count and the vertex bindings of every match \\
+\code{graphs L = [G where motif \{...\}];} & one \emph{induced subgraph} per
+match, so you can run more code on each occurrence \\
+\code{for each motif (a,b,c) in M \{...\}} & iterates the bindings \\
+\code{numMotifs(M)}, \code{numGraphs(L)} & the counts \\
+\code{draw motif of G to "prefix" \{...\}} & renders the matches to an image \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\emph{Verified} on the same five-arc graph (file-backed!):
+
+\begin{lstlisting}[style=plain]
+motifs  M = [G where motif { a->b; a->c; b->c; }];   numMotifs(M)  ->  2
+graphs  L = [G where motif { a->b; a->c; b->c; }];   numGraphs(L)  ->  2
+for each graph H in L { numVertices(H) }             sum           ->  6
+for each graph H in L { numEdges(H)    }             sum           ->  2   (see \S\ref{sec:m2})
+\end{lstlisting}
+
+\section{The suite's pinned example: bi-fan on a 40-arc graph}
+
+\file{verify/cases/motif/bifan.graph} is the one motif case in the regression
+suite:
+
+\begin{lstlisting}[style=plain]
+graph G { directed: true; edges: file ".../fixtures/bipartite.txt"; };
+motifs BF = [G where motif { a->x; a->y; b->x; b->y; }];
+print numMotifs(BF);
+\end{lstlisting}
+
+\noindent\emph{Verified}: the program prints \code{34}, which is exactly the
+value pinned in \file{verify/expected/motif.manifest}. This is the ``hello
+world'' of the feature: a four-variable, two-source/two-target pattern on a small
+directed graph.
+
+%==============================================================================
+\part{The pipeline, stage by stage}
+
+\section{Stage 0 --- Grammar}
+\label{sec:grammar}
+
+The motif syntax lives in \file{Base.g4}:
+
+\begin{lstlisting}[style=plain]
+motifMatchesDecl:
+    'motifs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+graphListDecl:
+    'graphs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+
+motifEdge: ID ('->' | '-|') ID ';';
+
+graphCondition:
+      graphCondition AND graphCondition      # GraphLogicalAnd
+    | graphCondition OR graphCondition       # GraphLogicalOr
+    | 'degree' (...) INT                     # DegreeCondition
+    | 'connected' 'with' nodeID              # ConnectedCondition
+    | 'cycle'                                # CycleCondition
+    | 'motif' '{' motifEdge+ '}'             # MotifCondition
+    | '(' graphCondition ')'                 # ParenGraphCondition;
+
+foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
+loopTarget: ... | 'motif' '(' ID (',' ID)+ ')'  # ForEachMotif | ...;
+
+graphComprehension: ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
+\end{lstlisting}
+
+Read carefully, this fixes several things you might otherwise trip over:
+
+\begin{itemize}
+  \item A motif edge is \code{ID -> ID} or \code{ID -| ID} followed by
+        \code{;}. The left-hand side is a \emph{variable name}, not a vertex id;
+        it is the thing \code{for each motif (a,b,c)} binds.
+  \item \code{motifs} and \code{graphs} are separate statement forms with a fixed
+        \code{where motif} keyword order.
+  \item The comprehension rule's left-hand side is a bare \code{ID}, so in
+        \emph{p1} you write \code{F = [G where ...];} and \textbf{not}
+        \code{graph F = [G where ...];} (\code{graph} starts a graph
+        \emph{declaration}). This was verified: \code{graph F = [G];} fails to
+        parse with ``extraneous input `['\,'' at the \code{[}.
+\end{itemize}
+
+\section{Stage 1 --- AST}
+
+\file{ASTBuilder.cpp:16--26} turns one \code{motifEdge} into
+
+\begin{lstlisting}[style=cpp]
+struct MotifEdgeSpec { std::string source, target; MotifEdgeSign sign; };
+enum class MotifEdgeSign { Positive = 1, Negative = -1 };   // ASTNode.h:45
+\end{lstlisting}
+
+The declaration becomes a \code{MotifMatchesDeclNode} carrying the graph name,
+the result name, the edge list and the \emph{variable order}
+(\file{ASTNode.h:1196}), and \code{for each motif (...)} becomes
+\code{ForEachStatementNode} with \code{targetType == Motif} and
+\code{motifVars}. A motif inside a comprehension condition becomes a
+\code{GraphConditionNode} with \code{op == GraphConditionOp::Motif}
+(\file{ASTBuilder.cpp:1349}).
+
+\section{Stage 2 --- Semantic analysis}
+
+\file{SemanticAnalyzer.cpp:980} (\code{analyzeMotifMatchesDecl}) enforces the
+contract that the rest of the compiler relies on:
+
+\begin{itemize}
+  \item the graph must exist, and must be declared \code{directed: true}
+        --- motif matching over an undirected graph cannot express the
+        induced-absence rules meaningfully;
+  \item at least one edge and at least two variables;
+  \item at most \textbf{six} variables (\code{kMotifMaxVars}); and
+  \item no self edges (\code{a->a}) and no duplicate edges for the same ordered
+        pair.
+\end{itemize}
+
+\code{numMotifs} is typed against a \code{MotifMatches} symbol
+(\file{SemanticAnalyzer.cpp:206}), and \code{for each motif (a,b,c)} checks that
+the binding count matches the collection's variable count
+(\file{SemanticAnalyzer.cpp:682}).
+
+\section{Stage 3 --- Lowering: two backends, one meaning}
+\label{sec:backends}
+
+\file{IRGenVisitor.cpp} has two ways to answer ``which vertices match this
+pattern'':
+
+\begin{enumerate}
+  \item \textbf{Runtime backend} (default). \code{visitMotifMatchesDecl}
+        (\file{IRGenVisitor.cpp:1390}) marshals the motif edges into three
+        \code{i32} arrays (source var, target var, sign) and calls
+        \code{motif\_find\_matches\_runtime(n, row\_ptr, col\_idx, weights,
+        src, dst, sign, edge\_count, var\_count)}. The result is a heap struct
+        \code{MotifMatchesRuntime \{count, var\_count, bindings, capacity\}}.
+        This backend produces \emph{bindings}, so it serves every construct.
+  \item \textbf{IR backend}, selected with
+        \code{GRAPHEASY\_MOTIF\_BACKEND=ir} (\file{IRGenVisitor.cpp:1318}).
+        \code{emitMotifMatchesIR} (\file{IRGenVisitor.cpp:1361}) builds a
+        \code{MotifPattern} from the same edge list, then asks
+        \code{MotifIRBuilder} to emit a specialised loop nest and to count
+        complete assignments. It wraps the count in a stack
+        \code{MotifMatches} with \code{bindings = NULL}.
+\end{enumerate}
+
+Two consequences worth knowing before you rely on them:
+
+\begin{itemize}
+  \item the IR backend currently serves \emph{only} \code{motifs X = [...]},
+        and only its \textbf{count}. \code{for each motif}, \code{graphs L =
+        [...]} and \code{draw} always use the runtime backend;
+  \item \code{GRAPHEASY\_MOTIF\_ADJDRIVE=1} additionally switches the emitted
+        nest to enumerate CSR rows instead of scanning $0..n-1$ at every level
+        (\S\ref{sec:nest}, \S\ref{sec:measured}).
+\end{itemize}
+
+\section{Stage 3b --- Storage: what is materialised, when, and where}
+\label{sec:storage}
+
+Both backends speak one data layout, deliberately: the runtime heap struct
+
+\begin{lstlisting}[style=cpp]
+/* runtime.c:1135 -- heap, one per `motifs` / `graphs` declaration */
+typedef struct MotifMatchesRuntime {
+    int32_t  count;      /* matches found                                  */
+    int32_t  var_count;  /* k, the row width                               */
+    int32_t *bindings;   /* flat row-major array, k int32 per match        */
+    int32_t  capacity;   /* allocated rows (>= count)                      */
+} MotifMatchesRuntime;
+\end{lstlisting}
+
+and the compiler's IR type \code{struct.MotifMatches} are the same 24-byte
+\code{\{i32,i32,i32*,i32\}} layout, so ``a value produced by the runtime path and
+one produced by the IR path stay interchangeable''
+(\file{IRGenVisitor.h:40--47}; \code{IRGenVisitor.cpp:1377--1387}).
+
+\paragraph{The bindings array.} Match $i$ occupies
+\code{bindings[i*k .. i*k+k-1]}. It grows by doubling (capacity $16$, then
+$\times2$) through \code{realloc} + \code{memcpy} of one row at every append
+(\code{motif\_matches\_append\_runtime}, \file{runtime.c:1192}); appends happen at
+the leaves of the backtracking search, i.e.\ \emph{as matches are discovered}.
+The array is never freed: it lives for the rest of the program, costing
+$4k\cdot\text{count}$ bytes of rows (with up to a factor-two slack from the last
+doubling). Declaring \code{motifs}/\code{graphs} is therefore \emph{eager} ---
+\code{numMotifs} does not avoid the search; it reads \code{count}.
+
+\paragraph{What each construct materialises.}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.34\linewidth}p{0.24\linewidth}p{0.36\linewidth}@{}}
+\toprule
+construct & storage & when \\
+\midrule
+\code{motifs M = [...];} (runtime) & heap struct + all bindings rows & eagerly, at the declaration \\
+\code{motifs M = [...];} (IR backend) & a stack struct with \code{count} only; \code{bindings = NULL} & count computed at the declaration \\
+\code{numMotifs(M)}, \code{numGraphs(L)} & nothing new; reads \code{count} & --- \\
+\code{for each motif (a,b,c) in M} & nothing new; reads \code{bindings[i*k+j]} & per iteration \\
+\code{graphs L = [...];} & the same heap struct (bindings) & eagerly, at the declaration \\
+\code{for each graph H in L} & \code{H} = a fresh induced subgraph per iteration via \code{graph\_from\_match\_runtime} (deep CSR copy, never freed) & lazily, one per iteration \\
+\code{draw motif(s) ...} & nothing: a private streaming backtracker renders each match as found (\code{draw\_motif\_backtrack\_runtime}, \file{runtime.c:1522}) & streaming \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Count-only vs listing.} \emph{Listing} means reading the \code{bindings}
+array: \code{for each motif}, \code{for each graph}, and the streaming drawing
+path. \emph{Count-only} means reading \code{count}: \code{numMotifs},
+\code{numGraphs}, and the whole IR backend, which never stores individual matches.
+Mixing them is the trap: an IR-built collection has \code{count > 0} and
+\code{bindings = NULL}, so iterating it reads through a null pointer.
+
+\paragraph{\code{motifs} vs \code{graphs}, precisely.} Both run the same matcher
+and store the same binding rows; they differ only in the loop variable and the
+per-iteration materialisation. \code{motifs} gives the variable bindings
+(\code{for each motif (a,b,c) in M}, names bound \emph{positionally} in
+first-appearance order); \code{graphs} gives one induced subgraph per match
+(\code{for each graph H in L}, \code{H} usable as an ordinary graph, rebuilt on
+the fly). ``\code{F = [G where motif \{...\}];}'' is the comprehension form and is
+a third thing again --- currently the condition is dropped there entirely
+(\S\ref{sec:traps}).
+
+\section{Stage 4 --- Compile-time pattern analysis (\file{MotifPattern})}
+
+\file{MotifPattern.h} is deliberately free of LLVM dependencies so that it can be
+unit-tested against a transcription of the runtime semantics. Given the edge list
+and variable names it produces four things.
+
+\subsection{The required matrix}
+
+Mirroring the runtime exactly (\file{runtime.c:1115--1121}):
+
+\begin{lstlisting}[style=cpp]
+enum class ReqKind : int8_t { Absent = 0, Positive = 1, Negative = -1 };
+// build(): for each edge (src,dst,sign):
+//   self edges are ignored; a later edge overwrites an earlier one;
+//   required[src][dst] = sign<0 ? Negative : Positive;
+// everything else stays Absent.
+\end{lstlisting}
+
+\code{Absent} is not ``don't care''. The matcher requires
+\code{actual == required} in \emph{both} directions for every pair of bound
+variables, so an absent entry means ``this edge must not be present in either
+sign'' --- the induced rule.
+
+\subsection{Automorphisms}
+
+A permutation $\pi$ of the variables preserves the pattern if
+\code{required[$\pi$(i)][$\pi$(j)] == required[i][j]} for all $i,j$, i.e.\ the
+whole matrix, signs and absences included, is invariant. All permutations are
+enumerated ($k\le 6 \Rightarrow$ at most $720$), which is free at compile time
+(\file{MotifPattern.cpp:74}).
+
+The automorphism group is what makes counting well-defined: the same set of
+vertices is reachable by several variable assignments, and we want one
+representative per orbit.
+
+\subsection{Canonicality, reference and fast}
+
+The runtime decides ``is this assignment the representative?'' by the honest
+$O(k!)$ test: reject the assignment if \emph{any} automorphic image is
+lexicographically smaller (\file{runtime.c:1238--1266}). The emitter uses an
+equivalent reduction, derived in \file{MotifPattern.h}:
+
+\begin{quote}
+For every non-identity automorphism $\pi$, let $p=\min\{i : \pi(i)\ne i\}$. For
+\emph{injective} assignments the first index where the permuted vector can differ
+is exactly $p$, so ``some automorphic image is smaller'' collapses to a single
+comparison $A[p] < A[\pi(p)]$, and $p < \pi(p)$ always holds. Hence the whole
+canonicality test is a conjunction of \emph{lower bounds}: for each such pair,
+require
+\[
+  \mathrm{assignment}[p] < \mathrm{assignment}[\pi(p)].
+\]
+Only the fast form is used by the emitter; the reference form is kept for tests.
+\end{quote}
+
+\subsection{Level plans}
+
+For level $j$ (the $j$-th variable in binding order) the plan says where
+candidates come from and what they must satisfy:
+
+\begin{lstlisting}[style=cpp]
+enum class LevelSource { FullScan, OutRow, InRow };
+struct LevelCheck { int prev; ReqKind forward, backward; };
+struct LevelPlan  { LevelSource source; int driverVar;
+                    std::vector<LevelCheck> checks;
+                    std::vector<int> lowerBounds; };
+\end{lstlisting}
+
+\code{checks} lists every already-bound variable with the two required kinds
+(\code{required[j][prev]} and \code{required[prev][j]}). The driver for
+adjacency-driven enumeration is the \emph{most recently bound} variable that has
+a required edge to/from $j$: if \code{required[prev][j]} is present the candidate
+is an out-neighbour of $A[prev]$ (\code{OutRow}); otherwise, if
+\code{required[j][prev]} is present, an in-neighbour (\code{InRow}). The heuristic
+is cache-conscious (``most constrained, most recently touched''), and it never
+skips a probe: an edge that exists with the wrong sign still fails the kind test.
+
+\section{Stage 5 --- The emitted nest (\file{MotifIRBuilder})}
+\label{sec:nest}
+
+\code{emitNest} unrolls exactly $k$ levels. For each level it creates the blocks
+\code{cond/body/inc/done} and generates this shape (pseudo-IR):
+
+\begin{lstlisting}[style=plain]
+level j:
+  cond:  idx = phi(base, next);  if (idx < end) body else done
+  body:  candidate = loadCandidate(idx)      ; full scan: idx
+                                             ; OutRow   : col_idx[idx]
+         guards:  canonical lower bounds      (cheapest, prunes whole subtree)
+                  candidate != A[p] for all p < j          (injectivity)
+                  kind(candidate, A[p]) == required[j][p]  (forward)
+                  kind(A[p], candidate) == required[p][j]  (backward)
+         recurse into level j+1 with candidate pushed
+  inc:   next = idx + 1
+  done:  -> exit target (which is the increment block of the parent)
+\end{lstlisting}
+
+Three details carry the correctness argument and are quoted from the code:
+
+\begin{itemize}
+  \item \textbf{the probe} is a single emitted function
+        \code{\_\_ge\_motif\_edge\_kind(row\_ptr, col\_idx, weights, n, u, v)}
+        that reproduces \code{graph\_directed\_edge\_kind\_runtime} exactly:
+        scan row $u$ for $v$, first hit wins; \code{weights == NULL} means
+        unweighted ($\to 1$); else the sign of the weight decides ($>0 \to 1$,
+        $<0 \to -1$, $=0 \to 2$). Emitting it once and letting \code{-O3} inline
+        it keeps the semantics ``obviously identical to the C version''
+        (\file{MotifIRBuilder.cpp:12--22, 133});
+  \item \textbf{canonicality is tested first} because a failing lower bound
+        prunes the entire subtree below the candidate
+        (\file{MotifIRBuilder.cpp:196});
+  \item \textbf{injectivity is $k$ compares}, not a \code{used[]} array: at
+        $k\le 6$ that is cheaper than \code{calloc(n)} plus a zero fill
+        (\file{MotifIRBuilder.cpp:208}).
+\end{itemize}
+
+The leaf action is a callback. The tree instantiates it only as
+\code{emitCountOnly} (increment an \code{i64} counter); the header documents the
+general \code{LeafEmitter} used by ``all five DSL constructs'', which is the
+intended extension point for lowering \code{for each motif} to the IR backend.
+
+\section{Stage 6 --- The runtime matcher}
+
+For reference, the interpreter that the IR nest replaces. In
+\file{runtime.c:1271--1315} (\code{motif\_collect\_backtrack\_runtime}):
+
+\begin{lstlisting}[style=cpp]
+if (pos == var_count) {
+    if (!motif_assignment_is_canonical_runtime(...)) return 1;   // dedupe
+    return motif_matches_append_runtime(matches, assignment);    // bindings
+}
+for (candidate = 0; candidate < n; ++candidate) {
+    if (used[candidate]) continue;
+    for (prev = 0; prev < pos; ++prev)
+        if (kind(candidate, A[prev]) != required[pos][prev] ||
+            kind(A[prev], candidate) != required[prev][pos]) goto next;
+    A[pos] = candidate; used[candidate] = 1;
+    recurse(pos+1);
+    used[candidate] = 0;
+}
+\end{lstlisting}
+
+\begin{itemize}
+  \item enumerate candidates $0..n-1$, filter by \code{used[]}, then by both
+        directions of the required matrix for every earlier variable;
+  \item at a complete assignment, apply the canonicality test and append the
+        binding vector (\code{motif\_matches\_append\_runtime}, growth by
+        doubling);
+  \item for \code{graphs L = [...]}, each binding is turned into an induced
+        subgraph by \code{graph\_from\_match\_runtime}
+        (\file{runtime.c:1155}): mark the matched vertices in a roaring bitmap
+        and rebuild a CSR with only the arcs whose both endpoints are marked
+        (\code{build\_subgraph\_from\_bitmap\_runtime}, \file{runtime.c:759}).
+  \item \code{graph\_motif\_filter\_runtime} (\file{runtime.c:1078}) is the
+        comprehension-filter variant: it collects the \emph{union} of matched
+        vertices and returns the induced subgraph on that set. In this tree it
+        has no caller --- a comprehension written \code{F = [G where motif
+        \{...\}];} parses and runs, but the condition is silently dropped
+        (\S\ref{sec:traps}).
+\end{itemize}
+
+\section{Stage 7 --- Semantics reference card (all verified)}
+\label{sec:semantics}
+
+\begin{center}
+\begin{tabular}{@{}p{0.30\linewidth}p{0.24\linewidth}p{0.38\linewidth}@{}}
+\toprule
+Graph state for pair $(u,v)$ & kind & satisfies \\
+\midrule
+no edge & 0 & \code{Absent} only \\
+edge, unweighted & 1 & \code{Positive} \\
+edge, weight $>0$ & 1 & \code{Positive} \\
+edge, weight $<0$ & $-1$ & \code{Negative} \\
+edge, weight $=0$ & 2 & \emph{nothing} --- both present and absent requirements fail \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Experiments behind the table (small weighted file graph
+\code{0->1 (5), 1->2 (5), 0->2 (w)}; every run verified):
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+weight of the chord $0{\to}2$ & pattern & \code{numMotifs} \\
+\midrule
+$-3$ & \code{a->b; b->c; a->c;} & 0 \quad (chord is not positive) \\
+$-3$ & \code{a->b; b->c; a-|c;} & 1 \quad (chord is negative: \code{-|} is a \emph{present negative} edge) \\
+$-3$ & \code{a->b; b->c; c-|a;} & 0 \quad ($2{\to}0$ does not exist; use omission for ``absent'') \\
+$0$  & \code{a->b; b->c; a->c;} & 0 \\
+$0$  & \code{a->b; b->c; a-|c;} & 0 \\
+$0$  & \code{a->b; b->c;}       & 0 \quad (chord must be \emph{absent}, but a zero-weight edge is present) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The last row is the subtle one: a zero-weight edge \emph{poisons} the pair, so it
+prevents an induced match even when the pattern never mentions the pair.
+\code{MotifIRBuilder.cpp:20} states exactly this (``matches no
+\code{required} value, so it poisons the pair for both present- and
+absent-requirements''), and the experiment confirms it.
+
+%==============================================================================
+\part{Theory, rationale, measurements}
+
+\section{The algorithmic problem}
+
+Subgraph isomorphism is NP-hard in general; motif counting is normally done in
+the \emph{small-$k$} regime ($k\le 6$ here). The three things that make this
+implementation practical:
+
+\begin{enumerate}
+  \item \textbf{fixed small $k$}: the nest is unrolled, the pattern is a
+        compile-time constant, and no general isomorphism machinery is needed;
+  \item \textbf{induced semantics} turns ``which edges are forbidden'' into
+        data, not into a special case: the \code{required} matrix is total;
+  \item \textbf{canonical representatives} convert listing into counting by
+        orbits of the automorphism group, so each vertex set is reported once,
+        and the fast form turns the test into a handful of integer compares that
+        are evaluated \emph{while descending} (so they prune).
+\end{enumerate}
+
+\section{What was considered, and why this shape}
+
+\begin{description}
+  \item[Why not keep the runtime backtracker only?] It works and is the reference,
+  but it is written against data: it marshals arrays, rebuilds the
+  \code{required} matrix at run time, scans $0..n-1$ at every level, keeps a
+  \code{used[n]} array, and re-runs an $O(k!)$ canonicality search per complete
+  assignment. All of that is known when the compiler runs. \file{MotifPattern.h}
+  states the motivation explicitly: ``Everything in this file is the part of that
+  work that can be done once, at compile time, so the emitted IR carries
+  constants instead of an interpreter.''
+  \item[Why not a general subgraph-isomorphism library (VF2/RI/CFL)?] Those add
+  feasibility pruning for large patterns and large graphs, at the cost of a
+  general engine. Here $k\le6$ with induced constraints and a fixed pattern:
+  the dominating costs (scanning all $n$ per level, per-assignment canonicality)
+  are removed by specialisation, and the remaining algorithm is simple enough to
+  verify against a 40-line transcription.
+  \item[Why automorphism orbits rather than, say, sorting the binding by vertex
+  id?] Sorting by id would pick one representative per \emph{vertex set}, which
+  is not what a pattern query means when the pattern itself has a non-trivial
+  automorphism group (for example, a pattern with two interchangeable leaves must
+  not report the same embedding twice, but must still report mirror images that
+  the pattern distinguishes). Orbit canonicality is the minimal exact test.
+  \item[Why the fast canonicality reduction is safe] Because bindings are
+  injective: see the boxed argument in \S4.3 (first moved index $p$, and
+  $p<\pi(p)$ is forced).
+  \item[Why the ``first hit wins'' probe?] To be \emph{identical} to the runtime,
+  which matters more here than micro-optimisation: parallel edges with different
+  signs resolve to the first one in CSR order, and the zero-weight rule has a
+  single definition. The IR backend deliberately does not ``improve'' this;
+  \code{-O3} inlines the probe and folds the constant comparison.
+  \item[Why induced, not monomorphism?] Induced subgraph counts are the standard
+  network-motif convention (Milo et al.), and they are the reason the matcher
+  must check \emph{both} directions of every pair, including absences
+  (\file{MotifIRBuilder.cpp:216}).
+\end{description}
+
+\section{Measured behaviour}
+\label{sec:measured}
+
+Random directed graph, $n=2000$, $m=6000$ arcs (seed 7, generated for this
+document), FFL pattern \code{a->b; a->c; b->c;}, same program compiled three ways;
+counts identical, three timed runs each (wall clock, one process per run):
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+backend & count & 3 runs (s) & per run (s) \\
+\midrule
+runtime (default) & 26 & 0.837 & 0.279 \\
+IR nest (\code{GRAPHEASY\_MOTIF\_BACKEND=ir}) & 26 & 0.658 & 0.219 \\
+IR nest + adjacency driven (\code{...=ir}, \code{GRAPHEASY\_MOTIF\_ADJDRIVE=1}) & 26 & 0.049 & \textbf{0.016} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The adjacency-driven nest is $\approx17\times$ faster than the runtime
+interpreter here, and the agreement of all three counts (26) is itself a
+differential test: three independent code paths, one answer.
+
+The suite's pinned case is the bi-fan on a 40-arc directed fixture:
+\code{numMotifs} $=34$ (verified), matching
+\file{verify/expected/motif.manifest}.
+
+\section{Known limits and traps in this tree}
+\label{sec:traps}
+
+\begin{enumerate}
+  \item \textbf{Inline-edge graphs are stored undirected.}
+  \label{sec:inline-trap}
+  A graph declared as \code{graph G \{ directed: true; nodes: 0,1,2,3;
+  edges: 0->1, ...; \};} answers ``neighbours of 1'' with $\{0,2,3\}$ --- the
+  reverse arc is materialised. Therefore every induced pattern that omits the
+  reverse pair fails, and \code{numMotifs} is $0$; the identical topology loaded
+  from a file gives the correct $2$. \emph{Workaround (verified): declare graph
+  edges with \code{edges: file "..."} for motif search.} The file loader
+  preserves arc directions, as does \code{edge} iteration over file graphs.
+  \item \textbf{\code{where motif} in a comprehension is silently ignored.}
+  \code{F = [G where motif \{ a->b; a->c; b->c; \}];} compiles and runs, but
+  \code{numVertices(F)} equals the unfiltered graph (verified: $n=4$ with and
+  without the clause), while \code{F = [G where degree > 100];} filters
+  correctly ($n=0$). The reason is visible in \file{IRGenVisitor.cpp:1660--1716}:
+  the postfix condition emitter has cases for \code{Connected}, \code{Cycle},
+  \code{Degree}, \code{And}, \code{Or} --- and no case (and no \code{default})
+  for \code{GraphConditionOp::Motif}, so the motif constraint contributes no
+  filter token. Use \code{motifs}/\code{graphs} declarations instead.
+  \item \textbf{\code{graph F = [...]} is the p2 spelling.} In p1 a comprehension
+  is a bare \code{ID = [...]}, and the \code{graph} keyword before it is a parse
+  error (verified).
+  \item \textbf{The IR backend is count-only} and only for \code{motifs}
+  declarations. \code{for each motif} over an IR-built collection would read a
+  null \code{bindings} pointer --- do not mix them.
+  \item \textbf{InRow enumeration needs a private transpose}, which is not wired
+  up in the emitted nest: \file{MotifIRBuilder.cpp:168} asserts if a level plan
+  asks for \code{InRow} under adjacency-driven mode. Patterns whose only
+  adjacency anchor points backwards therefore need the full-scan fallback.
+  \item \textbf{\code{numEdges} reports undirected edges}: the lowering emits
+  \code{m / 2} (\file{IRGenVisitor.cpp:4916--4927}). On a directed graph with 5
+  arcs it prints 2, and each 3-arc match graph prints 1.
+  \label{sec:m2}
+  \item \textbf{Duplicate motif edges are rejected} at semantic level, and the
+  pattern builder also implements the runtime's \emph{later-wins} rule, so the
+  two definitions agree even for inputs that slip past the checker.
+\end{enumerate}
+
+%==============================================================================
+\part{Using it}
+
+\section{Commands}
+
+\begin{lstlisting}[style=plain]
+cd p1GraphEasy-con-AutoTuner
+
+# compile + run + time, runtime backend (default)
+rm -f final_program
+GRAPH_FILE=my_motif.graph bash ./03_run.sh
+
+# same program, IR backend, full scan levels
+GRAPH_FILE=my_motif.graph GRAPHEASY_MOTIF_BACKEND=ir bash ./03_run.sh
+
+# IR backend with adjacency-driven enumeration
+GRAPH_FILE=my_motif.graph GRAPHEASY_MOTIF_BACKEND=ir \
+  GRAPHEASY_MOTIF_ADJDRIVE=1 bash ./03_run.sh
+
+# the suite's motif check
+cd ../verify && bash run.sh motif        # motif/bifan (=34)
+\end{lstlisting}
+
+Useful environment switches: \code{GRAPHEASY\_MOTIF\_BACKEND=ir|runtime},
+\code{GRAPHEASY\_MOTIF\_ADJDRIVE=0|1}.
+
+\section{Checklist for a new motif}
+
+\begin{enumerate}
+  \item Write the pattern as motif edges over fresh variable names; remember the
+        induced rule --- every pair you do not mention must be absent in the
+        data.
+  \item Declare the graph with \code{directed: true} \emph{and} load it from a
+        file (\S\ref{sec:inline-trap}).
+  \item Use \code{motifs} to count or to iterate bindings; use \code{graphs} to
+        run further code on each occurrence; \code{draw motif} for pictures.
+  \item If you need speed on a large graph, compile with
+        \code{GRAPHEASY\_MOTIF\_BACKEND=ir GRAPHEASY\_MOTIF\_ADJDRIVE=1} --- but
+        only where a count is enough (bindings are not produced by that path).
+  \item Sanity-check small instances by hand (\S\ref{sec:hand}): the count of a
+        pattern you can enumerate is the fastest way to catch a semantic
+        misunderstanding --- signs, zero weights, or the induced rule.
+\end{enumerate}
+
+%==============================================================================
+\appendix
+
+\section{Code map}
+
+\begin{center}
+\begin{tabular}{@{}p{0.42\linewidth}p{0.52\linewidth}@{}}
+\toprule
+What & Where \\
+\midrule
+Grammar: \code{motifs}/\code{graphs}/\code{motifEdge}/\code{where motif} & \file{Base.g4:135--171} \\
+Grammar: comprehension & \file{Base.g4:126--128} \\
+AST: edge spec and signs & \file{ASTBuilder.cpp:16--26}, \file{ASTNode.h:41--51} \\
+AST: declaration node & \file{ASTNode.h:1196}, \file{ASTBuilder.cpp:230} \\
+Semantics: limits and checks & \file{SemanticAnalyzer.cpp:980--1010, 206, 682} \\
+Lowering: backend switch & \file{IRGenVisitor.cpp:1318--1332} \\
+Lowering: runtime path & \file{IRGenVisitor.cpp:1390--1449} \\
+Lowering: IR path (count) & \file{IRGenVisitor.cpp:1361--1388} \\
+Lowering: \code{graphs} path & \file{IRGenVisitor.cpp:1460--1530}, \file{runtime.c:1155} \\
+Lowering: \code{for each motif} & \file{IRGenVisitor.cpp:4256} \\
+Lowering: \code{numMotifs}, \code{numEdges} & \file{IRGenVisitor.cpp:4886, 4916} \\
+Lowering: \code{draw motif} & \file{IRGenVisitor.cpp:1197--1290} \\
+Condition emitter (missing \code{Motif} case) & \file{IRGenVisitor.cpp:1660--1716} \\
+Pattern: required matrix, automorphisms, bounds, plans & \file{MotifPattern.cpp:23--168} \\
+Nest: probe, ranges, filters, levels & \file{MotifIRBuilder.cpp:23--325} \\
+Runtime: probe, backtrack, canonical, collect & \file{runtime.c:1013--1357} \\
+Storage: match struct, growth, eager collection & \file{runtime.c:1135--1210} \\
+Storage: IR layout of the same struct & \file{IRGenVisitor.h:40--47} \\
+Storage: \code{for each motif} / \code{for each graph} reads & \file{IRGenVisitor.cpp:4300--4390} \\
+Storage: streaming draw & \file{runtime.c:1522, 1591} \\
+Runtime: induced subgraph & \file{runtime.c:759--905, 1155--1190} \\
+Suite & \file{verify/cases/motif/bifan.graph}, \file{verify/expected/motif.manifest} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Verified evidence log}
+
+All outputs below were produced on 2026-09-24 with the compiler built from the
+tree; commands are as in \S{}``Commands''.
+
+\begin{enumerate}
+  \item Hand example (file graph \code{0->1,1->2,0->2,1->3,0->3}): FFL count 2,
+        bindings \code{(0,1,2)} and \code{(0,1,3)}.
+  \item \code{graphs} collection: \code{numGraphs} 2, vertex total 6,
+        \code{numEdges} total 2 (\code{m/2} convention).
+  \item Bi-fan fixture: \code{numMotifs} 34 (\file{motif.manifest} pins 34).
+  \item Signed graph \code{0->1(5), 1->2(5), 0->2(-3)}: triangle pattern 0,
+        \code{a-|c} variant 1, \code{c-|a} variant 0.
+  \item Zero-weight chord \code{0->2(0)}: all three patterns 0 (poison).
+  \item Inline vs file declaration: neighbours of 1 = $\{0,2,3\}$ vs $\{2,3\}$;
+        FFL 0 vs 2.
+  \item Comprehension \code{where motif}: same result as no filter (dropped);
+        \code{where degree > 100}: $n=0$ (filter works).
+  \item \code{graph F = [G];}: parse error at \code{[}.
+  \item Timing on $n{=}2000,m{=}6000$ (FFL): 0.279 / 0.219 / 0.016 s per run for
+        runtime / IR / IR+adjacency, count 26 in all three.
+\end{enumerate}
+
+\end{document}

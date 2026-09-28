@@ -27,7 +27,7 @@ static void bench_step(Graph *g, bench_pair_fn work, int32_t traversal) {
         SGPL_OP_PAIR, NULL, work, NULL, NULL, NULL, NULL, NULL, 0);
     sgpl_runtime_op *ops[1] = {desc};
     sgpl_exec_ctx *ctx = autograph_exec_ctx_create(
-        g, traversal, 0, NULL, NULL, NULL, 0, NULL, NULL, 0, ops, 1);
+        g, traversal, 0, NULL, NULL, NULL, 0, NULL, NULL, 0, ops, 1, -1);
     autograph_frontier_execute(g, ctx);
     autograph_exec_ctx_destroy(ctx);
 }

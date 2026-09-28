@@ -106,7 +106,6 @@ static void analyzeTaskArguments(llvm::Function *extractedFunc,
 
 static bool tdgDebugEnabled()
 {
-    /* Debug logging disabled.
     static int cached = -1;
     if (cached != -1)
         return cached != 0;
@@ -121,8 +120,6 @@ static bool tdgDebugEnabled()
     std::string value(raw);
     cached = (value != "0" && value != "false" && value != "FALSE") ? 1 : 0;
     return cached != 0;
-    */
-    return false;
 }
 
 // global collector (keeps a single combined graph you can print later)
@@ -3879,6 +3876,19 @@ namespace llvm
 
         SmallVector<CallGroup> groups;
         groups.reserve(levels.size());
+        if (tdgDebugEnabled())
+        {
+            unsigned extracted = 0;
+
+            for (unsigned i = 0; i < extractedFunctions.size(); ++i)
+                if (extractedFunctions[i])
+                    extracted++;
+            fprintf(stderr,
+                    "[pdg-tdg] extracted=%u/%u tasks levels=%u\n",
+                    extracted,
+                    (unsigned)extractedFunctions.size(),
+                    (unsigned)levels.size());
+        }
         for (unsigned levelIdx = 0; levelIdx < levels.size(); ++levelIdx)
         {
             CallGroup G;
@@ -3902,6 +3912,9 @@ namespace llvm
             if (!G.calls.empty())
                 groups.push_back(std::move(G));
         }
+
+        if (tdgDebugEnabled())
+            fprintf(stderr, "[pdg-tdg] groups=%u\n", (unsigned)groups.size());
 
         auto castValueForStore = [&](IRBuilder<> &B, Value *V, Type *Ty) -> Value *
         {

@@ -3294,6 +3294,93 @@ static void sgpl_exec_source_coverage(sgpl_exec_ctx *ctx, int begin) {
   }
 }
 
+/* -- TDG site integration for engine steps --------------------------------
+ * An engine step (one frontend stage) is a parallel site exactly like an
+ * outlined loop: it has a compiler-assigned id, it calibrates on a bounded
+ * number of honest serial passes, and once its profile is ready the TDG level
+ * planner decides how many threads its dispatch gets.  Nothing here is keyed on
+ * an algorithm name: the work estimate is the graph's arc count, the span is
+ * the partition count, and the cost sample is the stage's own measured time. */
+typedef struct {
+  sgpl_exec_ctx *ctx;
+  int32_t partitions;
+} SgplExecStepArg;
+
+static void *sgpl_exec_step_task(void *opaque) {
+  SgplExecStepArg *arg = (SgplExecStepArg *)opaque;
+  parallel_for_runtime(0, arg->partitions, 1, sgpl_exec_partition_body, arg->ctx,
+                       0, 0);
+  return NULL;
+}
+
+/* Feed the stage's own measured pass time into the shared profile store.  The
+ * sample is a serial-equivalent per-partition cost: calibration passes run
+ * single-threaded, so the measurement is honest. */
+static void sgpl_exec_step_record_sample(int32_t step_id, int32_t partitions,
+                                         uint64_t elapsed_ns) {
+  sgpl_loop_profile_desc desc;
+  if (step_id < 0 || partitions <= 0 || elapsed_ns == 0)
+    return;
+  memset(&desc, 0, sizeof(desc));
+  desc.loop_id = step_id;
+  desc.mode = SGPL_LOOP_DOALL;
+  desc.runtime_kind = SGPL_RUNTIME_PLAIN;
+  desc.env_size = 0;
+  desc.debug_name = "engine-step";
+  sgpl_record_doall_serial_sample(&desc, 0, partitions, 1, elapsed_ns);
+}
+
+static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
+  int32_t step_id = ctx->step_id;
+  int32_t partitions = (int32_t)meta->partition_count;
+  static int tdg_engine_disabled = -1;
+
+  if (tdg_engine_disabled < 0) {
+    const char *v = getenv("SGPL_NO_TDG_ENGINE");
+    tdg_engine_disabled =
+        (v && *v && strcmp(v, "0") != 0 && strcmp(v, "false") != 0) ? 1 : 0;
+  }
+
+  if (step_id < 0 || tdg_engine_disabled) {
+    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+    return;
+  }
+
+  sgpl_set_pending_loop_id(step_id);
+
+  if (!sgpl_step_site_ready(step_id)) {
+    uint64_t t0 = now_monotonic_ns();
+    /* Bounded calibration: honest single-thread passes feed the same sampling
+     * state machine the outlined loops use (its batch size, not ours). */
+    sgpl_set_desired_threads(1, 1);
+    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+    sgpl_set_desired_threads(0, 0);
+    sgpl_exec_step_record_sample(step_id, partitions, now_monotonic_ns() - t0);
+    return;
+  }
+
+  /* Profile ready: plan the stage like any other site.  One level worker runs
+   * the stage; the plan decides how wide its dispatch runs (or leaves it at the
+   * level's spare when the model sees no gain). */
+  {
+    int32_t site_id = step_id;
+    int64_t arcs = canonical_edge_count_cached(meta);
+    SgplExecStepArg arg = {ctx, partitions};
+    sgpl_tdg_task_desc task;
+
+    memset(&task, 0, sizeof(task));
+    task.fn = sgpl_exec_step_task;
+    task.arg = &arg;
+    task.profile_id = step_id;
+    task.static_work_units =
+        (arcs > (int64_t)INT32_MAX) ? INT32_MAX : (int32_t)arcs;
+    task.num_loop_sites = 1;
+    task.loop_site_ids = &site_id;
+
+    sgpl_run_tdg_level(&task, 1, arcs, partitions);
+  }
+}
+
 int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   int64_t start_ns;
@@ -3331,8 +3418,7 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
   if (cov_begin)
     sgpl_exec_source_coverage(ctx, /*begin=*/1);
 
-  parallel_for_runtime(0, meta->partition_count, 1, sgpl_exec_partition_body,
-                       ctx, 0, 0);
+  sgpl_exec_step_dispatch(ctx, meta);
 
   if (cov_end)
     sgpl_exec_source_coverage(ctx, /*begin=*/0);
@@ -3526,7 +3612,8 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
     void *graph, int32_t traversal_kind, int32_t domain_kind,
     const uint8_t *membership, int32_t *dest_seen, int32_t *next_frontier,
     int32_t initial_next_size, int32_t *append_head, void *partition_base,
-    int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count) {
+    int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count,
+    int32_t step_id) {
   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)calloc(1, sizeof(*ctx));
   uint32_t i;
   if (!ctx)
@@ -3541,6 +3628,7 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
   ctx->append_head = append_head;
   ctx->partition_base = partition_base;
   ctx->partition_stride = partition_stride;
+  ctx->step_id = step_id;
   if (op_count) {
     ctx->ops = (sgpl_runtime_op *)calloc(op_count, sizeof(*ctx->ops));
     if (!ctx->ops) {

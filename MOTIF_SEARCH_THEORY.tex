@@ -1,0 +1,433 @@
+% Motif search in GraphEasy (p1GraphEasy-con-AutoTuner) --- THEORY companion.
+% Written 2026-09-24.  Every experiment referenced was executed on the tree.
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage[hidelinks]{hyperref}
+
+\lstdefinestyle{plain}{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,framesep=3pt,columns=fullflexible}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\texttt{#1}}
+\newcommand{\Aut}{\operatorname{Aut}}
+
+\title{\bfseries Motif Search in GraphEasy --- the Theory\\[2mm]
+\large Backtracking, spanning orders, and symmetry breaking: how the implementation
+relates to the textbook algorithms}
+\author{GraphEasy (p1GraphEasy-con-AutoTuner)}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This is the theory companion to \file{MOTIF\_SEARCH\_EXPLAINED.tex}. It answers
+one question in depth: \emph{what algorithm is actually running when you write
+\code{a->b; b->c;} and ask for the count?} The short answer is a depth-first
+backtracking search over the pattern's variables --- pick a vertex for \code{a},
+then a vertex for \code{b}, check the required edges, recurse --- and the longer
+answer is how the pattern's \emph{spanning structure} controls the enumeration,
+how symmetry breaking turns counting into ``one representative per orbit'',
+what the complexity is, and how this compares to VF2, RI, nauty-style canonical
+labelling and ESU enumeration. Two verified experiments anchor the theory: a
+$K_{2,2}$ bi-fan orbit of size 4 reported as exactly one match, and the effect
+of variable order on the search plan.
+\end{abstract}
+
+\tableofcontents
+
+%==============================================================================
+\part{The mental model, checked against the code}
+
+\section{``Loop over a, then loop over b, check the edge, recurse''}
+
+The description in the question is essentially the algorithm. Concretely, for a
+pattern with variables $a,b,c$:
+
+\begin{enumerate}
+  \item \textbf{Level 0 (variable \code{a}):} loop over candidate vertices.
+  \item \textbf{Level 1 (variable \code{b}):} for each candidate, check the
+        constraints that involve only \code{a} and \code{b} --- for
+        \code{a->b} that means $\mathrm{kind}(b,a)$ and $\mathrm{kind}(a,b)$ must
+        equal the pattern's requirements (both directions, so that ``no edge'' is
+        also a check).
+  \item \textbf{Level 2 (variable \code{c}):} same, against \code{a} and \code{b};
+  \item \textbf{Recurse to depth $k$:} a complete assignment is a match; report it
+        (or count it).
+\end{enumerate}
+
+That skeleton is exactly what \file{runtime.c:1271--1315} implements
+(\code{motif\_collect\_backtrack\_runtime}) and what the emitted IR nest
+implements (\file{MotifIRBuilder.cpp:246--293}). The one place where the two
+backends differ is \emph{where the candidates come from}, and that is where the
+``spanning tree'' in the question comes in.
+
+\section{Where a spanning tree of the pattern enters --- and where it does not}
+
+Think of the pattern as a graph whose vertices are the variables
+$\{a,b,c,\dots\}$ and whose edges are the motif edges (plus, implicitly, the
+``must be absent'' pairs, which are also constraints, just with the requirement
+$0$). Two roles:
+
+\begin{itemize}
+  \item \textbf{Tree edges drive enumeration.} Once some variable is bound, a
+        candidate for a variable adjacent to it in the pattern can be taken from
+        that variable's adjacency list --- one CSR row --- instead of scanning
+        all $n$ vertices. A connected order of the variables therefore gives
+        every level after the first a row to walk. In the implementation, this is
+        the \code{LevelPlan} (\file{MotifPattern.h}): \code{source = OutRow}
+        with a \code{driverVar} (``candidate is an out-neighbour of
+        $A[\text{prev}]$''), or \code{InRow} for the mirror case, or
+        \code{FullScan} when no tree edge is available.
+  \item \textbf{Non-tree (chord) edges are check-only constraints.} This is the
+        standard pattern of subgraph-search algorithms: enumerate along a
+        spanning tree, verify the remaining edges as constraints. In the
+        implementation every pair $(j,\text{prev})$ appears in the level's
+        \code{checks} list with \emph{both} directions; the driving edge is not
+        removed from the list, because the row proves the edge \emph{exists} but
+        not that its \emph{kind} (weight sign) matches.
+\end{itemize}
+
+What the implementation does \emph{not} do: it does not compute a minimum
+spanning tree, nor any optimal order. The variable order is simply the order in
+which the variables first appear in the motif edges (source before target,
+\file{ASTBuilder.cpp:230--243}), and the driver for each level is chosen by a
+recency heuristic: the most recently bound variable that has a required edge to
+the current level (\file{MotifPattern.cpp:127--168}). Section 5 discusses what an
+optimal order would be and why we can afford not to compute it.
+
+\section{The two backends, in this language}
+
+\begin{center}
+\begin{tabular}{@{}p{0.30\linewidth}p{0.30\linewidth}p{0.30\linewidth}@{}}
+\toprule
+& runtime backend (default) & IR backend (\code{GRAPHEASY\_MOTIF\_BACKEND=ir}) \\
+\midrule
+candidate source & always $0..n-1$ & \code{FullScan}, or one CSR row per level
+(\code{GRAPHEASY\_MOTIF\_ADJDRIVE=1}) \\
+consistency test & \code{required} matrix built at run time & constants baked in,
+same test, both directions \\
+injectivity & \code{used[n]} array & $k$ pairwise compares \\
+canonicality & $O(k!)$ search per complete assignment & lower-bound compares,
+evaluated while descending \\
+output & bindings (so \code{for each motif} works) & count only, today \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So the mental model ``loop over all vertices, then loop over b\,'' describes the
+runtime backend verbatim, and describes the IR backend once adjacency driving is
+enabled --- with the improvement that each level after the first walks a row
+rather than the whole vertex set.
+
+%==============================================================================
+\part{The problem, formally}
+
+\section{Definitions}
+
+Let $G=(V,E)$ be a directed graph with a \emph{kind function}
+\[
+  \kappa_G(u,v)=
+  \begin{cases}
+    0 & \text{no edge } u\to v,\\
+    1 & \text{edge with positive weight, or an unweighted edge},\\
+    -1 & \text{edge with negative weight},\\
+    2 & \text{edge with weight } 0.
+  \end{cases}
+\]
+
+A \emph{pattern} $P$ has variables $X=\{x_0,\dots,x_{k-1}\}$ and a total
+requirement matrix
+\[
+  R : X\times X \to \{0,+1,-1\},
+  \qquad
+  R(i,j)=
+  \begin{cases}
+    +1 & \text{if the motif wrote } x_i\to x_j,\\
+    -1 & \text{if the motif wrote } x_i\mathrel{-\mid} x_j,\\
+    0 & \text{otherwise (induced: the edge must be absent).}
+  \end{cases}
+\]
+
+An \emph{embedding} is an injective map $\sigma:X\to V$ such that for all
+$i\ne j$,
+\[
+  \kappa_G\bigl(\sigma(i),\sigma(j)\bigr)=R(i,j)
+  \qquad\text{(and, when }R(i,j)=+1\text{ or }-1\text{, the first-hit edge weight has that sign).}
+\]
+
+The fourth line of the definition of $\kappa_G$ is worth reading twice: a
+zero-weight edge satisfies \emph{neither} $+1$ nor $-1$ nor $0$ --- it poisons the
+pair in both directions. This was verified experimentally
+(\file{MOTIF\_SEARCH\_EXPLAINED.tex}, \S Stage 7): with a zero-weight chord, all
+three candidate patterns return $0$).
+
+\section{Counting modulo symmetry}
+
+The number that a motif query reports is \emph{not} the number of injections
+$\sigma$ satisfying the constraints. Let
+\[
+  \Aut(P)=\{\pi\in S_k : R(\pi(i),\pi(j)) = R(i,j)\ \forall i,j\}
+\]
+be the automorphism group of the pattern. Two embeddings $\sigma$ and
+$\sigma\circ\pi$ with $\pi\in\Aut(P)$ use the same vertex set with permuted
+variable names; a motif count reports one representative per orbit.
+
+This is not pedantry --- it is what makes ``$K_{2,2}$ contains one bi-fan'' true
+even though there are four injective bi-fan embeddings of a four-vertex
+bipartite graph. Verified experiment (pattern
+\code{a->x; a->y; b->x; b->y;} on the $K_{2,2}$ graph $0,1\to 2,3$):
+\code{numMotifs} $=1$, and the reported binding was the canonical one.
+
+%==============================================================================
+\part{The search}
+
+\section{Why depth-first backtracking is the right skeleton here}
+
+The constraints of $R$ are \emph{binary} and \emph{monotone with respect to the
+binding order}: the constraint between two variables is fully decided the moment
+the later of the two is bound. Therefore a partial assignment that fails a
+constraint can never be extended to a full embedding --- pruning is safe, and no
+backtracking beyond the offending level is needed. This is the entire
+justification for the ``check b; if b fails, next b'' structure.
+
+The alternative enumeration strategy --- generate all $k$-vertex induced
+subgraphs and classify each (ESU/Wernicke, Kavosh, MODA) --- is the right choice
+when you want \emph{all} motifs of size $k$ at once. For a single fixed pattern,
+direct backtracking examines far fewer partial states, because the pattern's
+edges are used as filters from the first level on.
+
+\section{Complexity}
+
+Naively the search tree has $n$ branches per level and depth $k$, so
+$O(n^k)$ leaves; each leaf costs $O(k^2)$ to check and $O(k!)$ to canonicalise in
+the reference scheme. Three reductions, all implemented:
+
+\begin{enumerate}
+  \item \textbf{consistency pruning}: a level only expands candidates that
+        satisfy all pairs to earlier variables; the branching factor at level $j$
+        is the number of vertices admissible given the first $j$ choices;
+  \item \textbf{adjacency driving}: with tree edges, the candidate set at level
+        $j$ is one CSR row, so its size is the degree, not $n$; for sparse graphs
+        this is the difference between $O(n^k)$ and $O\!\left(\prod_j d_j\right)$;
+  \item \textbf{symmetry breaking}: the canonical lower bounds reject a candidate
+        subtree as soon as it would produce a non-representative embedding, so
+        the $|\Aut(P)|$-fold overcounting is removed \emph{during} the descent,
+        not by a post-filter at the leaves.
+\end{enumerate}
+
+Worst case remains exponential in $k$ (subgraph isomorphism is NP-hard), but
+$k\le 6$ is enforced by the semantic analyser
+(\file{SemanticAnalyzer.cpp:987}), which is exactly the regime where a
+pattern-specialised nest with constants and $k$ nested loops is practical.
+
+\section{The canonicality reduction (proof of the fast form)}
+
+\textbf{Reference test} (what the runtime does): an assignment $A$ is canonical
+iff no automorphism image $A\circ\pi$ is lexicographically smaller than $A$,
+where the comparison walks $i=0,1,\dots,k-1$.
+
+\textbf{Fast test} (what the emitter does): for each non-identity
+$\pi\in\Aut(P)$, let $p=\min\{i:\pi(i)\ne i\}$; require $A[p] < A[\pi(p)]$.
+
+\begin{quote}
+\emph{Claim.} For injective $A$, the two tests agree.
+
+\emph{Proof.} For a given $\pi$, the permuted vector $B=A\circ\pi$ satisfies
+$B[i]=A[\pi(i)]$. Since $A$ is injective and $\pi$ is a bijection,
+$B[i]\ne A[i]$ exactly when $\pi(i)\ne i$; hence the first coordinate where $B$
+can differ from $A$ is $p$. Lexicographic comparison therefore reduces to the
+single comparison at $p$. Moreover $\pi(p)>p$: if $\pi(p)=q<p$ then, because
+$p$ is the first moved index, $\pi(q)=q$; but then $\pi(q)=q=\pi(p)$ would
+contradict injectivity of $\pi$. So $A[p]<A[\pi(p)]$ is a lower bound on the
+coordinate $p$ --- which is bound \emph{before} $\pi(p)$ in the search --- and can
+be evaluated while descending. \hfill$\square$
+\end{quote}
+
+\paragraph{Worked instance (verified).} The bi-fan pattern
+\code{a->x; a->y; b->x; b->y;} has $|\Aut(P)|=4$: the sources $a,b$ are
+interchangeable, the targets $x,y$ are interchangeable, independently. The
+bound-producing automorphisms are $\pi_{ab}$ (first moved index $a$), $\pi_{xy}$
+(first moved index $x$) and their product; the emitted nest therefore carries
+exactly two lower bounds:
+\[
+  A[a] < A[b], \qquad A[x] < A[y].
+\]
+On the $K_{2,2}$ graph this drops the four embeddings to the single canonical
+binding --- measured: \code{numMotifs} $=1$.
+
+The FFL pattern \code{a->b; a->c; b->c;} has trivial automorphism group (the
+directed triangle with a bypass has no symmetry: swapping $b,c$ would have to map
+the present edge $b\to c$ to the absent edge $c\to b$), so no lower bounds are
+emitted and both embeddings of the five-arc example are reported --- measured:
+$2$, with bindings $(0,1,2)$ and $(0,1,3)$.
+
+\section{Ordering: what a spanning tree does and does not buy}
+
+\begin{itemize}
+  \item A \emph{connected} variable order guarantees every level after the first
+        has a row to walk (\code{OutRow}/\code{InRow}); a disconnected pattern
+        forces a \code{FullScan} level, and --- under induced semantics --- all of
+        that level's checks are ``must be non-adjacent'' constraints, which is
+        expensive but correct.
+  \item The \emph{choice of driver} within a level matters for cache behaviour
+        (pick the most recently bound variable) and for the branching factor
+        (pick a low-degree variable). The implementation picks by recency;
+        VF2-style solvers additionally order variables by degree. At $k\le6$ one
+        could brute-force all $k!\le720$ orders at compile time and keep the
+        cheapest under a static cost model --- a natural, cheap future
+        improvement, not a requirement today.
+  \item The pattern's \emph{written} order matters for the plan: the variables are
+        indexed in first-appearance order, so rewriting the motif edges changes
+        the level plans (and speed). It does not change the answer --- verified:
+        the FFL written as \code{b->c; a->b; a->c;} still counts $2$.
+  \item A minimum spanning tree is not the right objective even in theory: for
+        enumeration cost we would minimise the \emph{product of candidate-set
+        sizes} (a treewidth-flavoured objective), not edge weights, and the
+        pattern's edges carry no weights to minimise.
+\end{itemize}
+
+%==============================================================================
+\part{Relation to the classical algorithms}
+
+\begin{center}
+\begin{tabular}{@{}p{0.22\linewidth}p{0.34\linewidth}p{0.36\linewidth}@{}}
+\toprule
+algorithm & idea & relation to this implementation \\
+\midrule
+plain backtracking & assign variables in order, check constraints & the runtime
+backend, verbatim; the correctness reference \\
+VF2 / VF2++ & feasibility sets, look-ahead, adaptive ordering & stronger pruning
+and variable ordering; not implemented here --- at $k\le6$ the bookkeeping is
+not repaid \\
+RI (Bonnici et al.) & spanning tree + back-edge verification & exactly the
+shape of the adjacency-driven IR nest: tree edges enumerate, chords check \\
+nauty / McKay canonical labelling & canonically label the whole graph to dedupe
+isomorphic subgraphs & we dedupe \emph{pattern orbits}, not graph isomorphism
+classes; at $k\le6$ the orbit check is a handful of compares \\
+ESU / Kavosh / MODA & enumerate all $k$-subgraphs, then classify & the better
+tool for ``all motifs at once''; for one fixed pattern, direct matching wins \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The differential evidence that the pattern-level theory is implemented
+consistently: on a 2000-vertex, 6000-arc graph the FFL count is $26$ under the
+runtime backend, the IR nest, and the adjacency-driven nest --- three code paths,
+one answer --- with per-run times $0.279$\,s, $0.219$\,s and $0.016$\,s
+respectively (\file{MOTIF\_SEARCH\_EXPLAINED.tex}, \S Measured behaviour).
+
+%==============================================================================
+\part{Correctness obligations and the naming trap}
+
+\section{Obligations}
+
+\begin{itemize}
+  \item \textbf{Soundness:} every reported/counted assignment satisfies all
+        pair constraints in both directions, is injective, and is a canonical
+        representative. Enforced by construction (the checks run before the
+        recursion) and by the induced-edge test.
+  \item \textbf{Completeness:} every canonical embedding is counted. The filters
+        are \emph{necessary conditions} only, so no valid assignment is
+        discarded; pruning removes only partial assignments that already violate
+        a constraint.
+  \item \textbf{Termination:} finite domains, finite depth, no cycles in the
+        recursion.
+  \item \textbf{Agreement of the two canonicality tests:} proved in \S 8; the
+        reference test is kept in \file{MotifPattern} for unit-testing against a
+        transcription of the runtime.
+  \item \textbf{Agreement of the probe:} the emitted
+        \code{\_\_ge\_motif\_edge\_kind} transcribes the runtime's
+        \code{graph\_directed\_edge\_kind\_runtime}, including first-hit-wins and
+        the zero-weight poison.
+\end{itemize}
+
+\section{The naming trap (verified)}
+
+The \code{for each motif (...)} binding list is \textbf{positional}. The
+variables of a pattern are collected in \emph{first-appearance order}, scanning
+edges left to right and source before target (\file{ASTBuilder.cpp:230--243}).
+Consequences:
+
+\begin{itemize}
+  \item for \code{\{ a->x; a->y; b->x; b->y; \}} the internal order is
+        $(a,x,y,b)$ --- so the correct binding spelling is
+        \code{for each motif (a,x,y,b)}, not \code{(a,b,x,y)};
+  \item the semantic analyser only checks the \emph{arity}
+        (\file{SemanticAnalyzer.cpp:687}), so a wrong order silently permutes the
+        names.
+\end{itemize}
+
+\noindent\emph{Demonstration.} Pattern written as \code{\{ b->c; a->b; a->c; \}}
+(internal order $b,c,a$) on the five-arc graph, printing
+\code{hasEdge(G,a,b)} and \code{hasEdge(G,a,c)} per match, $2$ matches:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+binding spelling & printed pairs & meaning \\
+\midrule
+\code{(a,b,c)} (wrong order) & \code{1 0 / 1 0} & ``a'' is really $b$, ``c'' is really $a$; the second probe asks for an absent edge \\
+\code{(b,c,a)} (first-appearance order) & \code{1 1 / 1 1} & both probes are pattern edges, as they should be \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Practical rule: write the motif edges so that the variables appear in
+the same order as the \code{for each} list, or list them in first-appearance
+order. (A friendlier compiler would match names instead of positions, or reject
+a permutation; today it does neither.)
+
+%==============================================================================
+\appendix
+
+\section{Annotated search trees}
+
+\paragraph{FFL on the five-arc graph.} Pattern \code{a->b; a->c; b->c;},
+$\Aut=1$, no bounds. Depth-first with levels $a,b,c$:
+
+\begin{lstlisting}[style=plain]
+a=0  accept (all pairs checked vacuously at level 0)
+  b=1  kind(1,0)=0 ok, kind(0,1)=1 ok
+    c=2  kind(2,0)=0 ok, kind(0,2)=1 ok, kind(2,1)=0 ok, kind(1,2)=1 ok  -> MATCH (0,1,2)
+    c=3  ... same shape                                                -> MATCH (0,1,3)
+    c=1,0 rejected by injectivity
+  b=2  kind(2,0)=0 ok, kind(0,2)=1 ok
+    c=3  kind(3,2)=0 ok, kind(2,3) must be 1 -> 0  -> reject  (no 2->3)
+  b=3  kind(3,0)=0 ok, kind(0,3)=1 ok
+    c=2  kind(2,3) must be 1 -> 0 -> reject
+a=1  ...
+a=2  ...
+\end{lstlisting}
+
+\paragraph{Bi-fan on $K_{2,2}$: the orbit of size four becomes one.} Pattern
+\code{a->x; a->y; b->x; b->y;}, bounds $a<b$, $x<y$. The four embeddings
+$(a,b,x,y)\in\{(0,1,2,3),(1,0,2,3),(0,1,3,2),(1,0,3,2)\}$ all satisfy the edge
+constraints; the lower bounds accept only $(0,1,2,3)$. Measured count: $1$.
+
+\section{Formula card}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+quantity & expression \\
+\midrule
+kind function & $\kappa_G(u,v)=0$ (no edge), $1$ (unweighted or $w>0$), $-1$ ($w<0$), $2$ ($w=0$) \\
+embedding condition & $\kappa_G(\sigma(i),\sigma(j))=R(i,j)$ for all $i\ne j$, $\sigma$ injective \\
+automorphism group & $\Aut(P)=\{\pi : R(\pi(i),\pi(j))=R(i,j)\}$ \\
+canonical representative & $\sigma$ such that no $\sigma\circ\pi$ is lexicographically smaller \\
+fast bounds & for each non-identity $\pi$: $A[p]<A[\pi(p)]$, $p=\min\{i:\pi(i)\ne i\}$ \\
+brute-force cost & $O(n^k)$ leaves, $O(k^2)$ checks per leaf; row-driven levels replace $n$ by the degree \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

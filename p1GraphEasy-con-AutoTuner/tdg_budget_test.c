@@ -18,6 +18,8 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+
+#include "gpu_runtime.h" /* sgpl_gpu_policy_verdict: device cost model, unit-tested here */
 #include <stdlib.h>
 #include <string.h>
 
@@ -294,9 +296,12 @@ static void t7(void)
           buf);
 }
 
+static void test_gpu_cost_model(void);
+
 int main(void)
 {
     printf("tdg_budget_test: threads=%d\n", sgpl_configured_worker_count());
+    test_gpu_cost_model();
     t1();
     t2();
     t3();
@@ -307,4 +312,56 @@ int main(void)
     printf("%s (%d failure%s)\n", failures == 0 ? "ALL PASS" : "FAILURES", failures,
            failures == 1 ? "" : "s");
     return failures == 0 ? 0 : 1;
+}
+
+/* T8/T9: device cost model (pure, so it runs everywhere).  DOALL: below the
+ * launch break-even the host pool wins.  DOACROSS: the wave kernel pays one
+ * cooperative grid sync per wave, so a distance-1 recurrence (one sync per
+ * iteration) is a wave storm and the CPU doacross path is the right verdict,
+ * while a large distance offloads. */
+static void test_gpu_cost_model(void)
+{
+    char buf[96];
+    int v;
+
+    v = sgpl_gpu_policy_verdict(4095, 0, 0, 4096, 8192);
+    snprintf(buf, sizeof(buf), "trip=4095 verdict=%d", v);
+    check("T8 doall below min_trips -> CPU", v == SGPL_GPU_SMALL_TRIPS, buf);
+
+    v = sgpl_gpu_policy_verdict(4096, 0, 0, 4096, 8192);
+    snprintf(buf, sizeof(buf), "trip=4096 verdict=%d", v);
+    check("T8 doall at min_trips -> device", v == SGPL_GPU_OFFLOAD, buf);
+
+    v = sgpl_gpu_policy_verdict(200000, 1, 1, 4096, 8192);
+    snprintf(buf, sizeof(buf), "trip=200000 dist=1 waves=200000 verdict=%d", v);
+    check("T9 doacross distance 1 -> wave storm", v == SGPL_GPU_WAVE_STORM, buf);
+
+    v = sgpl_gpu_policy_verdict(200000, 1, 64, 4096, 8192);
+    snprintf(buf, sizeof(buf), "trip=200000 dist=64 waves=3125 verdict=%d", v);
+    check("T9 doacross distance 64 -> device", v == SGPL_GPU_OFFLOAD, buf);
+
+    v = sgpl_gpu_policy_verdict(64, 1, 64, 4096, 8192);
+    snprintf(buf, sizeof(buf), "trip=64 verdict=%d", v);
+    check("T9 doacross below min_trips -> CPU", v == SGPL_GPU_SMALL_TRIPS, buf);
+
+    /* T10: the engine-step gate (one thread per owned source/row).  Same
+     * boundary discipline: just below the floor stays on the CPU partitions,
+     * at the floor and above runs on the device, and a non-positive floor
+     * disables the gate entirely (the harness forces device execution that
+     * way). */
+    v = sgpl_gpu_engine_step_verdict(1999999, 2000000);
+    snprintf(buf, sizeof(buf), "arcs=1999999 min=2000000 verdict=%d", v);
+    check("T10 engine step just below floor -> CPU", v == SGPL_GPU_SMALL_TRIPS, buf);
+
+    v = sgpl_gpu_engine_step_verdict(2000000, 2000000);
+    snprintf(buf, sizeof(buf), "arcs=2000000 min=2000000 verdict=%d", v);
+    check("T10 engine step at floor -> device", v == SGPL_GPU_OFFLOAD, buf);
+
+    v = sgpl_gpu_engine_step_verdict(0, 0);
+    snprintf(buf, sizeof(buf), "arcs=0 min=0 verdict=%d", v);
+    check("T10 engine step gate disabled -> device", v == SGPL_GPU_OFFLOAD, buf);
+
+    v = sgpl_gpu_engine_step_verdict(0, 2000000);
+    snprintf(buf, sizeof(buf), "arcs=0 min=2000000 verdict=%d", v);
+    check("T10 empty step -> CPU", v == SGPL_GPU_SMALL_TRIPS, buf);
 }

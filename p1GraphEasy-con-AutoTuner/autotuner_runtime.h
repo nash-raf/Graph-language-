@@ -551,7 +551,8 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx);
  * (its operation state) for the round's cross-reads.  The buffer lifecycle is
  * owned by the runtime. */
 void *autograph_snapshot_publish(void *graph_ptr, const void *live_base,
-                                 int64_t elem_bytes, int32_t slot);
+                                 int64_t elem_bytes, int32_t slot,
+                                 const char *name);
 
 /* Register a new graph with the Set-Base Architecture */
 void autograph_init(void *graph_ptr, int64_t n, int64_t m,

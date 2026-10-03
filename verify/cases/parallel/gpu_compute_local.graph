@@ -1,0 +1,14 @@
+fn void work()
+{
+    int a[1000000];
+    int i = 0;
+    while (i < 1000000)
+    {
+        int t = i * 3 + 7;
+        a[i] = t * 5 - i * 11 + (t + i) * 2;
+        i = i + 1;
+    }
+    print "a_last";
+    print a[999999];
+}
+work();

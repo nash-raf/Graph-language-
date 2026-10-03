@@ -1017,8 +1017,11 @@ namespace
         return Candidate.Header->getTerminator()->getMetadata("autotuner.traverse") != nullptr;
     }
 
+    static bool isGpuBackendEnabled(Module &M); /* defined below */
+
     static std::optional<std::string> precheckObviousUnprofitableLoop(const LoopCandidateAnalysis &Candidate,
-                                                                      ScalarEvolution &SE)
+                                                                     ScalarEvolution &SE,
+                                                                     bool ForGpu = false)
     {
         bool GraphDomain = isGraphDomainLoop(Candidate);
 
@@ -1033,7 +1036,12 @@ namespace
             GraphDomain = false;
         }
 
-        const unsigned Threshold = GraphDomain ? 3u : 8u;
+        /* The CPU-side heuristic: outlining a trivial body costs more than it
+         * saves.  The device pays a launch, not a per-iteration wrapper, and its
+         * economics are checked at run time (SGPL_GPU_MIN_TRIPS), so a trivial
+         * body is exactly what a GPU wants -- lower the bar when the GPU backend
+         * is selected and leave the CPU decision untouched. */
+        const unsigned Threshold = ForGpu ? 1u : (GraphDomain ? 3u : 8u);
         unsigned EffCount = countEffectiveLoopBodyInstructions(Candidate);
         if (EffCount < Threshold)
             return std::string("trivial-loop-body eff=") + std::to_string(EffCount) +
@@ -1182,7 +1190,8 @@ namespace
             /* Debug logging disabled: doacross-profile */
         }
 
-        if (std::optional<std::string> Reason = precheckObviousUnprofitableLoop(Candidate, SE))
+        if (std::optional<std::string> Reason = precheckObviousUnprofitableLoop(
+                Candidate, SE, isGpuBackendEnabled(*F.getParent())))
         {
             logLoopState(F, Candidate.Header, Candidate.Depth,
                          Twine("skip:not-profitable reason=" + *Reason).str());
@@ -1432,7 +1441,230 @@ namespace
             return false; // needed for cuModuleGetGlobal lookup by name
         if (!GV->getValueType()->isSized())
             return false;
+        /* A pointer-valued global (the language models a data array as a
+         * pointer variable) is allowed: its bytes are a host address, so the
+         * runtime materialises the *pointee* instead -- the generated code
+         * registers each array (name, base, bytes) where its size is known and
+         * the runtime stores the device buffer's address into the device
+         * global.  A pointer global without a registration refuses the offload
+         * at launch time, so an unregistered shape falls back to the CPU rather
+         * than dereferencing a host address (CUDA error 700, which poisons the
+         * context for every later offload). */
+        if (GV->getValueType()->isPointerTy() && getenv("SGPL_GPU_DEBUG"))
+            errs() << "[gpu] global " << GV->getName()
+                   << ": pointer-valued (pointee must be registered at run time)\n";
         return true;
+    }
+
+    /* Size source for env fields that arrive through the task ABI: register the
+     * sized objects of every function that dispatches a parallel loop.  A loop
+     * can exist in two copies -- one whose env is built from real allocas and
+     * one whose bases are function arguments -- and both hold the same objects,
+     * so the copy that owns the allocas tells the runtime how big they are and
+     * the other copy's descriptor (cap offset -3) resolves by pointer value. */
+    static void emitDispatchBufferRegistrations(Module &M, FunctionCallee RegisterBuf,
+                                                Type *Int8PtrTy, Type *Int64Ty)
+    {
+        SmallVector<CallInst *, 8> Dispatches;
+        for (Function &F : M)
+        {
+            if (F.isDeclaration())
+                continue;
+            for (BasicBlock &BB : F)
+                for (Instruction &I : BB)
+                    if (auto *CI = dyn_cast<CallInst>(&I))
+                        if (Function *Callee = CI->getCalledFunction())
+                            if (Callee->getName() == "parallel_for_runtime" ||
+                                Callee->getName() == "gpu_parallel_for_runtime")
+                                Dispatches.push_back(CI);
+        }
+        const DataLayout &DL = M.getDataLayout();
+        /* Register one alloca (skipping objects too small to be a kernel's live
+         * base; the minimum is only applied outside dispatchers, where the
+         * loop's own fields live). */
+        auto registerAlloca = [&](AllocaInst *AI, uint64_t MinBytes)
+        {
+            if (!AI || !AI->getAllocatedType()->isSized())
+                return;
+            uint64_t ElemSize = DL.getTypeAllocSize(AI->getAllocatedType());
+            IRBuilder<> RB(AI->getNextNode());
+            Value *Bytes = nullptr;
+            if (!AI->isArrayAllocation())
+            {
+                if (ElemSize < MinBytes)
+                    return;
+                Bytes = ConstantInt::get(Int64Ty, ElemSize);
+            }
+            else if (auto *C = dyn_cast<ConstantInt>(AI->getArraySize()))
+            {
+                uint64_t Total = C->getZExtValue() * ElemSize;
+                if (Total < MinBytes)
+                    return;
+                Bytes = ConstantInt::get(Int64Ty, Total);
+            }
+            else
+            {
+                Bytes = RB.CreateMul(RB.CreateZExtOrTrunc(AI->getArraySize(), Int64Ty, "buf.n"),
+                                     ConstantInt::get(Int64Ty, ElemSize), "buf.bytes");
+            }
+            RB.CreateCall(RegisterBuf, {RB.CreateBitCast(AI, Int8PtrTy), Bytes});
+        };
+
+        /* First the dispatchers' own objects (any size): those are the loop
+         * fields and the arrays a versioned copy owns. */
+        SmallPtrSet<Function *, 16> Done;
+        for (CallInst *CI : Dispatches)
+            if (Function *F = CI->getFunction())
+            {
+                if (!Done.insert(F).second)
+                    continue;
+                for (BasicBlock &BB : *F)
+                    for (Instruction &I : BB)
+                        if (auto *AI = dyn_cast<AllocaInst>(&I))
+                            registerAlloca(AI, 0);
+            }
+        /* Then any other sized object big enough to be a kernel base (the task
+         * ABI hands arrays to the function that runs the loop, and that
+         * function need not dispatch anything itself). */
+        for (Function &F : M)
+        {
+            if (F.isDeclaration() || Done.count(&F))
+                continue;
+            for (BasicBlock &BB : F)
+                for (Instruction &I : BB)
+                    if (auto *AI = dyn_cast<AllocaInst>(&I))
+                        registerAlloca(AI, 1024);
+        }
+    }
+
+    /* Register the pointee of every pointer-typed global a device kernel can
+     * reach, right where the global is installed.  The runtime cannot size a
+     * host pointer, and a device global holding one faults (CUDA error 700,
+     * which poisons the context), so the generated code hands over
+     * (name, base, bytes) and the runtime materialises the buffer on the
+     * device.  The size comes from the *object* the store installs -- a VLA
+     * alloca's element count x alloc size, or a global array's type -- never
+     * from the loop's trip count, which need not cover the object.  Values with
+     * no sizeable object behind them are deliberately left unregistered: the
+     * launch then refuses and the CPU keeps that shape correct. */
+    static void emitGpuPointeeRegistrations(Module &M, ArrayRef<GlobalVariable *> Globals,
+                                           FunctionCallee RegisterFn)
+    {
+        LLVMContext &Ctx = M.getContext();
+        Type *Int64Ty = Type::getInt64Ty(Ctx);
+        Type *Int8PtrTy = PointerType::getUnqual(Ctx);
+        const DataLayout &DL = M.getDataLayout();
+        for (GlobalVariable *GV : Globals)
+        {
+            if (!GV->getValueType()->isPointerTy())
+                continue;
+            SmallVector<StoreInst *, 8> Stores;
+            for (User *U : GV->users())
+                if (auto *SI = dyn_cast<StoreInst>(U))
+                    if (SI->getPointerOperand()->stripPointerCasts() == GV)
+                        Stores.push_back(SI);
+            if (Stores.empty())
+                continue;
+
+            Value *NameStr = createCStringPtr(
+                M, GV->getName(), ("gpu.pointee.name." + GV->getName()).str());
+            for (StoreInst *SI : Stores)
+            {
+                Value *Base = SI->getValueOperand()->stripPointerCasts();
+                IRBuilder<> RB(SI);
+                Value *Bytes = nullptr;
+                if (auto *AI = dyn_cast<AllocaInst>(Base))
+                {
+                    Type *ElemTy = AI->getAllocatedType();
+                    if (!ElemTy->isSized())
+                        continue;
+                    Value *Count = AI->isArrayAllocation()
+                                       ? AI->getArraySize()
+                                       : ConstantInt::get(Int64Ty, 1);
+                    Count = RB.CreateZExtOrTrunc(Count, Int64Ty, "pointee.n");
+                    Bytes = RB.CreateMul(Count,
+                                         ConstantInt::get(Int64Ty, DL.getTypeAllocSize(ElemTy)),
+                                         "pointee.bytes");
+                }
+                else if (auto *PGV = dyn_cast<GlobalVariable>(Base))
+                {
+                    Type *Ty = PGV->getValueType();
+                    if (!Ty->isSized())
+                        continue;
+                    Bytes = ConstantInt::get(Int64Ty, DL.getTypeAllocSize(Ty));
+                }
+                else
+                {
+                    if (getenv("SGPL_GPU_DEBUG"))
+                        errs() << "[gpu] pointee of " << GV->getName()
+                               << " not registrable (stored value is not a sized object)\n";
+                    continue;
+                }
+                RB.CreateCall(RegisterFn, {NameStr, RB.CreateBitCast(Base, Int8PtrTy), Bytes});
+                if (getenv("SGPL_GPU_DEBUG"))
+                    errs() << "[gpu] pointee registration emitted for " << GV->getName() << "\n";
+            }
+        }
+    }
+
+    /* Offset of a load off the env argument, if it can be traced: strips casts
+     * and constant GEPs.  Returns false for anything computed (the caller then
+     * assumes every field is live, which is the safe direction). */
+    static bool traceEnvOffset(Value *V, Value *EnvArg, int64_t &Off)
+    {
+        if (V == EnvArg)
+            return true;
+        if (auto *GEP = dyn_cast<GEPOperator>(V))
+        {
+            if (!GEP->hasAllConstantIndices() || GEP->getNumIndices() != 1)
+                return false;
+            int64_t Idx = 0;
+            auto *CI = dyn_cast<ConstantInt>(GEP->getOperand(1));
+            if (!CI)
+                return false;
+            Idx = CI->getSExtValue();
+            int64_t Base = 0;
+            if (!traceEnvOffset(GEP->getPointerOperand(), EnvArg, Base))
+                return false;
+            Off = Base + Idx;
+            return true;
+        }
+        if (auto *BC = dyn_cast<BitCastOperator>(V))
+            return traceEnvOffset(BC->getOperand(0), EnvArg, Off);
+        if (auto *SI = dyn_cast<Instruction>(V))
+            if (SI->getOpcode() == Instruction::AddrSpaceCast)
+                return traceEnvOffset(SI->getOperand(0), EnvArg, Off);
+        return false;
+    }
+
+    /* Which env fields the device bodies actually read.  The kernel passes the
+     * env to the wrapper's per-iteration body, so only the fields that body (or
+     * its callees) loads need a device copy; a field nothing reads can be passed
+     * as null instead of forcing a sizeable origin on the whole kernel (a task's
+     * state pointer typically arrives as an argument, and refusing over it cost
+     * every task-shaped loop its offload).  Anything untraceable marks every
+     * field live, which is the conservative direction. */
+    static void collectDeviceEnvFieldOffsets(Function *Fn, Value *EnvArg,
+                                             SmallVectorImpl<int64_t> &Offsets,
+                                             SmallPtrSetImpl<Function *> &Visited, bool &AllLive)
+    {
+        if (!Fn || Fn->isDeclaration() || Fn->isIntrinsic() || !Visited.insert(Fn).second)
+            return;
+        for (BasicBlock &BB : *Fn)
+            for (Instruction &I : BB)
+            {
+                if (auto *LI = dyn_cast<LoadInst>(&I))
+                {
+                    int64_t Off = 0;
+                    if (traceEnvOffset(LI->getPointerOperand(), EnvArg, Off))
+                        Offsets.push_back(Off);
+                    else
+                        AllLive = true; /* a load through an untraceable pointer */
+                }
+                if (auto *CI = dyn_cast<CallInst>(&I))
+                    if (Function *Callee = CI->getCalledFunction())
+                        collectDeviceEnvFieldOffsets(Callee, EnvArg, Offsets, Visited, AllLive);
+            }
     }
 
     static bool gpuFunctionIsDeviceSafe(Function *Fn,
@@ -1999,6 +2231,12 @@ namespace
         Value *RawPtr = B.CreateCall(MallocFn, {ConstantInt::get(Int64Ty, NewEnvSize)}, "env_raw");
         Value *NewEnvPtr = B.CreateBitCast(RawPtr, NewEnvStructTy->getPointerTo(), "envptr_struct");
 
+        /* The value each env field will actually hold at run time.  The origin
+         * bookkeeping drives the parameter plumbing and is *not* always the
+         * stored value (a versioned body can hand over a materialised base such
+         * as the loop's own alloca), so the device descriptors are derived from
+         * this list instead. */
+        SmallVector<Value *, 8> NewEnvStoreVals;
         for (unsigned FieldIndex = 0; FieldIndex < NewEnvOriginVals.size(); ++FieldIndex)
         {
             Value *Orig = NewEnvOriginVals[FieldIndex];
@@ -2042,6 +2280,7 @@ namespace
             }
 
             B.CreateStore(StoreVal, GEP);
+            NewEnvStoreVals.push_back(StoreVal);
         }
 
         SmallVector<EnvPrivTarget, 4> PrivTargets;
@@ -2395,19 +2634,132 @@ namespace
         // DOACROSS loops offload with the cooperative wave kernel when a
         // constant dependence distance is known (the wave width). Branched
         // bodies are fine: the barrier stays outside the per-iteration body.
+        /* ── effect-derived offload verdict ───────────────────────────────
+         * The device inherits the CPU discipline: the verdict is derived from
+         * the loop's effect shape, never from a mode name or a per-graph rule.
+         * The device realises a strictly smaller algebra than the CPU
+         * interpreter, so every shape it has no exact realisation for is
+         * refused with the effect reason, and the CPU keeps that shape correct.
+         *
+         *   pairs independent (PDG DoAll, no carried dependence)
+         *       -> space "Independent": each kernel thread owns its iteration.
+         *   carried relation with a proven positive constant distance
+         *       -> space "Carried": the cooperative wave kernel, wave w owns
+         *       [start + w*d, start + (w+1)*d), so every producer of those
+         *       iterations lies in a strictly earlier wave.
+         *   privatized layouts (Uop placement), reductions, first-wins claims,
+         *   frontier appends, or a carried read on a mutated base
+         *       -> refused: no device realisation yet.
+         *
+         * A SameRoundRead is exactly the case a bare DOALL kernel cannot
+         * realise: the CPU discharges it with a round snapshot, and until that
+         * realisation exists on the device the only correct answer is to refuse
+         * (the read would observe a concurrent write). */
+        struct GpuEffectVerdict
+        {
+            bool Ok = false;
+            const char *Space = "none";
+            std::string Reason;
+        };
+        auto gpuEffectVerdict = [&]()
+        {
+            GpuEffectVerdict V;
+            if (!isGpuBackendEnabled(*M))
+            {
+                V.Reason = "IR backend not selected (--gpu / FORCE_GPU=1)";
+                return V;
+            }
+            if (!(IsDoAll || IsDoAcross))
+            {
+                V.Reason = "loop carries no parallel mode (not DoAll/DoAcross)";
+                return V;
+            }
+            if (!PrivTargets.empty())
+            {
+                V.Reason = "privatized layout (Uop/claim placement) has no device realisation";
+                return V;
+            }
+            if (IsDoAll)
+            {
+                V.Ok = true;
+                V.Space = "Independent";
+                return V;
+            }
+            if (GpuDoAcrossMinDist == 0)
+            {
+                V.Reason = "Carried relation without a proven positive constant distance";
+                return V;
+            }
+            V.Ok = true;
+            V.Space = "Carried";
+            return V;
+        };
+        const GpuEffectVerdict GpuEffects = gpuEffectVerdict();
+        const bool GpuBackend = isGpuBackendEnabled(*M);
+        const bool GpuModeOk = IsDoAll || IsDoAcross;
+        const bool GpuNoPriv = PrivTargets.empty();
         bool GpuDoAcrossOk = IsDoAcross ? GpuDoAcrossMinDist > 0 : true;
-        bool GpuEligible = isGpuBackendEnabled(*M) && (IsDoAll || IsDoAcross) &&
-                           PrivTargets.empty() && GpuDoAcrossOk;
-        if (GpuEligible &&
+        const bool GpuShapeOk = GpuEffects.Ok;
+        if (getenv("SGPL_GPU_DEBUG"))
+            errs() << "[gpu] effects " << F.getName() << " hdr=" << Target.Header->getName()
+                   << ": space=" << GpuEffects.Space
+                   << (GpuEffects.Ok ? "" : (" refused: " + GpuEffects.Reason))
+                   << " doacross_dist=" << (IsDoAcross ? (int)GpuDoAcrossMinDist : 0) << "\n";
+        const bool GpuDeviceSafe =
+            GpuShapeOk &&
             gpuFunctionIsDeviceSafe(Outlined, &GpuGlobals, GpuVisited) &&
-            gpuFunctionIsDeviceSafe(WrapperFn, &GpuGlobals, GpuVisited))
+            gpuFunctionIsDeviceSafe(WrapperFn, &GpuGlobals, GpuVisited);
+        /* The offload decision is invisible in the emitted IR (a declined loop
+         * simply keeps its CPU call), so under SGPL_GPU_DEBUG say which gate
+         * closed -- otherwise "no kernel showed up" costs a long session. */
+        if (getenv("SGPL_GPU_DEBUG") && !GpuDeviceSafe)
+            errs() << "[gpu] no kernel for " << F.getName()
+                   << " hdr=" << Target.Header->getName()
+                   << ": backend=" << (GpuBackend ? 1 : 0)
+                   << " mode=" << (IsDoAll ? "doall" : (IsDoAcross ? "doacross" : "none"))
+                   << " priv=" << (GpuNoPriv ? 0 : 1)
+                   << " doacross-dist=" << (GpuDoAcrossOk ? 1 : 0)
+                   << " shape-ok=" << (GpuShapeOk ? 1 : 0)
+                   << " (device-safety/global/field gates reported separately)\n";
+        bool GpuEligible = GpuDeviceSafe;
+        if (GpuEligible)
         {
             const StructLayout *GpuEnvLayout = M->getDataLayout().getStructLayout(NewEnvStructTy);
+            /* Env fields the device bodies actually load (see
+             * collectDeviceEnvFieldOffsets): everything else is passed as null
+             * rather than forcing every field to have a device-copyable origin. */
+            SmallVector<int64_t, 8> GpuLiveFieldOffsets;
+            bool GpuAllFieldsLive = false;
+            {
+                SmallPtrSet<Function *, 8> EnvVisited;
+                Value *WrapperEnvArg = nullptr;
+                if (WrapperFn && WrapperFn->arg_size() >= 2)
+                    WrapperEnvArg = WrapperFn->getArg(1);
+                if (!WrapperEnvArg)
+                    GpuAllFieldsLive = true;
+                else
+                    collectDeviceEnvFieldOffsets(WrapperFn, WrapperEnvArg, GpuLiveFieldOffsets,
+                                                 EnvVisited, GpuAllFieldsLive);
+            }
+            auto gpuEnvFieldIsLive = [&](unsigned FieldIndex)
+            {
+                if (GpuAllFieldsLive)
+                    return true;
+                const int64_t Off = (int64_t)GpuEnvLayout->getElementOffset(FieldIndex);
+                const int64_t Size =
+                    (int64_t)M->getDataLayout().getTypeAllocSize(NewEnvFieldTys[FieldIndex]);
+                for (int64_t Live : GpuLiveFieldOffsets)
+                    if (Live >= Off && Live < Off + (Size > 0 ? Size : 1))
+                        return true;
+                return false;
+            };
             SmallVector<int64_t, 8> GpuPtrOffsets;
             SmallVector<int64_t, 8> GpuPtrSizes;
             SmallVector<int64_t, 8> GpuPtrCapOffsets;
             SmallVector<int64_t, 8> GpuPtrElemSizes;
             bool GpuPtrLayoutOk = true;
+            unsigned GpuPtrLayoutBadField = 0;
+            const char *GpuPtrLayoutReason = "ok";
 
             for (unsigned FieldIndex = 0; FieldIndex < NewEnvFieldTys.size(); ++FieldIndex)
             {
@@ -2420,6 +2772,17 @@ namespace
                 int64_t CapOffset = -1;
                 int64_t ElemSize = 0;
 
+                if (!gpuEnvFieldIsLive(FieldIndex))
+                {
+                    /* Passed as null: the runtime writes a null device pointer
+                     * for cap offset -2 and does not treat it as an error. */
+                    GpuPtrOffsets.push_back(Offset);
+                    GpuPtrSizes.push_back(0);
+                    GpuPtrCapOffsets.push_back(-2);
+                    GpuPtrElemSizes.push_back(0);
+                    continue;
+                }
+
                 if ((int)FieldIndex == AppendFrontierEnvField && AppendCapEnvField >= 0)
                 {
                     CapOffset = (int64_t)GpuEnvLayout->getElementOffset((unsigned)AppendCapEnvField);
@@ -2427,7 +2790,19 @@ namespace
                 }
                 else
                 {
-                    Value *Orig = stripToNamedPointer(NewEnvOriginVals[FieldIndex]);
+                    Value *Orig = FieldIndex < NewEnvStoreVals.size() && NewEnvStoreVals[FieldIndex]
+                                      ? NewEnvStoreVals[FieldIndex]
+                                      : NewEnvOriginVals[FieldIndex];
+                    /* The versioned/range body receives its bases as arguments,
+                     * so a field's recorded origin is often one of those
+                     * parameters; the object the device has to copy is the
+                     * value passed at the extraction call site.  Resolve one
+                     * level (the same mapping the parameter plumbing uses) and
+                     * refuse anything that still has no sizeable origin. */
+                    if (auto *A = dyn_cast_or_null<Argument>(Orig))
+                        if (A->getParent() == Outlined && A->getArgNo() < ArgOriginVals.size())
+                            Orig = ArgOriginVals[A->getArgNo()];
+                    Orig = stripToNamedPointer(Orig);
                     if (auto *AI = dyn_cast_or_null<AllocaInst>(Orig))
                     {
                         // A variable-length array (e.g. `alloca i32, i64 %n`) has a
@@ -2435,16 +2810,22 @@ namespace
                         // Fall back to CPU rather than copy the wrong number of bytes.
                         if (AI->isArrayAllocation())
                         {
-                            GpuPtrLayoutOk = false;
-                            break;
+                            /* Runtime-length object: size known only at run
+                             * time, so mark the field for the value-keyed
+                             * registry instead of refusing the kernel. */
+                            GpuPtrLayoutBadField = FieldIndex;
+                            GpuPtrLayoutReason = "variable-length alloca";
+                            Size = 0;
+                            CapOffset = -3;
                         }
                         Type *AllocTy = AI->getAllocatedType();
                         if (AllocTy->isSized())
                             Size = (int64_t)M->getDataLayout().getTypeAllocSize(AllocTy);
                         else
                         {
-                            GpuPtrLayoutOk = false;
-                            break;
+                            GpuPtrLayoutBadField = FieldIndex;
+                            GpuPtrLayoutReason = "unsized alloca";
+                            CapOffset = -3;
                         }
                     }
                     else if (auto *GV = dyn_cast_or_null<GlobalVariable>(Orig))
@@ -2455,15 +2836,22 @@ namespace
                     }
                     else
                     {
-                        GpuPtrLayoutOk = false;
-                        break;
+                        /* The base arrives through the task ABI (a function
+                         * argument).  The copy of this loop whose env is built
+                         * from real allocas registers the same object, so the
+                         * runtime can size it by pointer value. */
+                        GpuPtrLayoutBadField = FieldIndex;
+                        GpuPtrLayoutReason = "origin is neither alloca nor global";
+                        CapOffset = -3;
+                        Size = 0;
                     }
                 }
 
                 if (Size <= 0 && CapOffset < 0)
                 {
-                    GpuPtrLayoutOk = false;
-                    break;
+                    GpuPtrLayoutBadField = FieldIndex;
+                    GpuPtrLayoutReason = "zero-size field with no capacity field";
+                    CapOffset = -3;
                 }
 
                 GpuPtrOffsets.push_back(Offset);
@@ -2472,6 +2860,87 @@ namespace
                 GpuPtrElemSizes.push_back(ElemSize);
             }
 
+            /* Enumerate the env' pointer fields and where each came from: a
+             * field the device body never dereferences does not need a copyable
+             * origin, so seeing the whole list is what tells the two apart. */
+            if (getenv("SGPL_GPU_DEBUG"))
+            {
+                for (unsigned FI = 0; FI < NewEnvFieldTys.size(); ++FI)
+                {
+                    if (!NewEnvFieldTys[FI]->isPointerTy())
+                        continue;
+                    Value *Raw = NewEnvOriginVals[FI];
+                    StringRef RawKind = "none";
+                    if (Raw)
+                    {
+                        if (isa<AllocaInst>(Raw))
+                            RawKind = "alloca";
+                        else if (isa<GlobalVariable>(Raw))
+                            RawKind = "global";
+                        else if (isa<Argument>(Raw))
+                            RawKind = "argument";
+                        else if (isa<CallInst>(Raw))
+                            RawKind = "call";
+                        else if (isa<GEPOperator>(Raw))
+                            RawKind = "gep";
+                        else if (isa<LoadInst>(Raw))
+                            RawKind = "load";
+                        else if (isa<Instruction>(Raw))
+                            RawKind = "inst";
+                        else
+                            RawKind = "value";
+                    }
+                    auto describe = [](Value *V) -> std::string
+                    {
+                        if (!V)
+                            return "null";
+                        std::string S;
+                        raw_string_ostream OS(S);
+                        if (auto *A = dyn_cast<Argument>(V))
+                            OS << "arg" << A->getArgNo() << "-of-"
+                               << (A->getParent() ? A->getParent()->getName() : StringRef("?"));
+                        else if (auto *GV = dyn_cast<GlobalVariable>(V))
+                            OS << "global:" << GV->getName();
+                        else if (auto *AI = dyn_cast<AllocaInst>(V))
+                            OS << "alloca:" << AI->getName();
+                        else if (V->hasName())
+                            OS << V->getName();
+                        else if (auto *I = dyn_cast<Instruction>(V))
+                            OS << "inst:" << I->getOpcodeName();
+                        else
+                            OS << "value";
+                        return OS.str();
+                    };
+                    Value *Stored = FI < NewEnvStoreVals.size() ? NewEnvStoreVals[FI] : nullptr;
+                    Value *Resolved = Raw;
+                    if (auto *A = dyn_cast_or_null<Argument>(Raw))
+                        if (A->getParent() == Outlined && A->getArgNo() < ArgOriginVals.size())
+                            Resolved = ArgOriginVals[A->getArgNo()];
+                    Value *Eff = stripToNamedPointer(Resolved);
+                    StringRef EffKind = "none";
+                    if (Eff)
+                        EffKind = isa<AllocaInst>(Eff) ? "alloca" : (isa<GlobalVariable>(Eff) ? "global" : "other");
+                    std::string TyStr;
+                    raw_string_ostream TyOS(TyStr);
+                    NewEnvFieldTys[FI]->print(TyOS);
+                    errs() << "[gpu] env field " << FI << " " << TyOS.str()
+                           << " origin=" << RawKind << "[" << describe(Raw) << "]"
+                           << " stored=[" << describe(Stored) << "]"
+                           << " resolved=[" << describe(Resolved) << "]"
+                           << " stripped=" << EffKind << "\n";
+                }
+            }
+            if (!GpuPtrLayoutOk && getenv("SGPL_GPU_DEBUG"))
+            {
+                std::string TyStr;
+                raw_string_ostream TyOS(TyStr);
+                if (GpuPtrLayoutBadField < NewEnvFieldTys.size())
+                    NewEnvFieldTys[GpuPtrLayoutBadField]->print(TyOS);
+                errs() << "[gpu] no kernel for " << F.getName()
+                       << " hdr=" << Target.Header->getName()
+                       << ": env pointer field " << GpuPtrLayoutBadField << " (" << TyOS.str()
+                       << ") not copyable: " << GpuPtrLayoutReason << "\n";
+            }
             if (GpuPtrLayoutOk)
             {
                 stripDeviceIncompatibleIntrinsics(*Outlined);
@@ -2612,7 +3081,12 @@ namespace
 
                 NamedMDNode *GpuKernels = M->getOrInsertNamedMetadata("graph.gpu.kernels");
                 ValueAsMetadata *KernelVAM = ValueAsMetadata::get(KernelFn);
-                GpuKernels->addOperand(MDNode::get(Ctx, KernelVAM));
+                /* Operand 0 is the kernel function (emitGpuKernels reads it);
+                 * operand 1 records the effect space the kernel realises, so
+                 * the module states its device verdicts in the same vocabulary
+                 * the CPU census uses. */
+                GpuKernels->addOperand(MDNode::get(
+                    Ctx, {KernelVAM, MDString::get(Ctx, GpuEffects.Space)}));
 
                 unsigned NumGpuPtrFields = (unsigned)GpuPtrOffsets.size();
                 PointerType *I64PtrTy = cast<PointerType>(Int64Ty->getPointerTo());
@@ -2656,10 +3130,77 @@ namespace
                 // the device module; the runtime copies their data in/out by name.
                 SmallVector<GlobalVariable *, 8> GpuGlobalList(GpuGlobals.begin(), GpuGlobals.end());
                 unsigned NumGpuGlobals = (unsigned)GpuGlobalList.size();
+                /* Which of those globals are pointer-valued: the runtime copies
+                 * their pointee (registered by the generated code) instead of
+                 * their bytes. */
+                SmallVector<bool, 8> GpuGlobalIsPointer;
+                for (GlobalVariable *GV : GpuGlobalList)
+                    GpuGlobalIsPointer.push_back(GV->getValueType()->isPointerTy());
+
+                if (!GpuGlobalList.empty())
+                {
+                    FunctionCallee RegisterFn = M->getOrInsertFunction(
+                        "sgpl_gpu_register_pointee",
+                        FunctionType::get(VoidTy, {Int8PtrTy, Int8PtrTy, Int64Ty}, false));
+                    emitGpuPointeeRegistrations(*M, GpuGlobalList, RegisterFn);
+                }
+
+                {
+                    FunctionCallee RegisterBuf = M->getOrInsertFunction(
+                        "sgpl_gpu_register_buffer",
+                        FunctionType::get(VoidTy, {Int8PtrTy, Int64Ty}, false));
+                    emitDispatchBufferRegistrations(*M, RegisterBuf, Int8PtrTy, Int64Ty);
+                }
+
+                /* Register the sized objects this env holds, by pointer value.
+                 * A loop can be outlined in two copies -- one whose env is built
+                 * from real allocas, one whose bases arrive through the task ABI
+                 * -- and they point at the same objects, so the copy that knows
+                 * the sizes populates the table the other copy's descriptor
+                 * fields (cap offset -3) are resolved against at launch. */
+                {
+                    FunctionCallee RegisterBuf = M->getOrInsertFunction(
+                        "sgpl_gpu_register_buffer",
+                        FunctionType::get(VoidTy, {Int8PtrTy, Int64Ty}, false));
+                    for (Value *Stored : NewEnvStoreVals)
+                    {
+                        Value *Base = Stored ? Stored->stripPointerCasts() : nullptr;
+                        if (!Base)
+                            continue;
+                        Value *Bytes = nullptr;
+                        if (auto *AI = dyn_cast<AllocaInst>(Base))
+                        {
+                            Type *ElemTy = AI->getAllocatedType();
+                            if (!ElemTy->isSized())
+                                continue;
+                            Value *Count = AI->isArrayAllocation()
+                                               ? AI->getArraySize()
+                                               : ConstantInt::get(Int64Ty, 1);
+                            Bytes = B.CreateMul(
+                                B.CreateZExtOrTrunc(Count, Int64Ty, "buf.n"),
+                                ConstantInt::get(Int64Ty, M->getDataLayout().getTypeAllocSize(ElemTy)),
+                                "buf.bytes");
+                        }
+                        else if (auto *PGV = dyn_cast<GlobalVariable>(Base))
+                        {
+                            if (!PGV->getValueType()->isSized())
+                                continue;
+                            Bytes = ConstantInt::get(
+                                Int64Ty, M->getDataLayout().getTypeAllocSize(PGV->getValueType()));
+                        }
+                        else
+                            continue;
+                        B.CreateCall(RegisterBuf, {B.CreateBitCast(Base, Int8PtrTy), Bytes});
+                        if (getenv("SGPL_GPU_DEBUG"))
+                            errs() << "[gpu] buffer registration emitted for "
+                                   << (Base->hasName() ? Base->getName() : StringRef("<unnamed>")) << "\n";
+                    }
+                }
                 PointerType *Int8PtrPtrTy = cast<PointerType>(Int8PtrTy->getPointerTo());
                 Value *GpuGlobalNamesArg = ConstantPointerNull::get(Int8PtrPtrTy);
                 Value *GpuGlobalPtrsArg = ConstantPointerNull::get(Int8PtrPtrTy);
                 Value *GpuGlobalSizesArg = ConstantPointerNull::get(I64PtrTy);
+                Value *GpuGlobalPointeeArg = ConstantPointerNull::get(cast<PointerType>(Int32Ty->getPointerTo()));
 
                 if (NumGpuGlobals > 0)
                 {
@@ -2688,6 +3229,15 @@ namespace
                     GpuGlobalNamesArg = B.CreateInBoundsGEP(NamesArrTy, NamesGV, {Zero32, Zero32}, "gpu_global_names_ptr");
                     GpuGlobalPtrsArg = B.CreateInBoundsGEP(PtrsArrTy, PtrsGV, {Zero32, Zero32}, "gpu_global_ptrs_ptr");
                     GpuGlobalSizesArg = B.CreateInBoundsGEP(SizesArrTy, SizesGV, {Zero32, Zero32}, "gpu_global_sizes_ptr");
+
+                    ArrayType *FlagsArrTy = ArrayType::get(Int32Ty, NumGpuGlobals);
+                    SmallVector<Constant *, 8> FlagsC;
+                    for (unsigned G = 0; G < NumGpuGlobals; ++G)
+                        FlagsC.push_back(ConstantInt::get(Int32Ty, GpuGlobalIsPointer[G] ? 1 : 0));
+                    auto *FlagsGV = new GlobalVariable(*M, FlagsArrTy, true, GlobalValue::PrivateLinkage,
+                                                       ConstantArray::get(FlagsArrTy, FlagsC), "gpu_global_pointee");
+                    GpuGlobalPointeeArg =
+                        B.CreateInBoundsGEP(FlagsArrTy, FlagsGV, {Zero32, Zero32}, "gpu_global_pointee_ptr");
                 }
 
                 FunctionCallee GpuForFn = M->getOrInsertFunction(
@@ -2710,7 +3260,9 @@ namespace
                                        I64PtrTy,
                                        Int32Ty,
                                        Int32Ty,
-                                       Int32Ty},
+                                       Int32Ty,
+                                       Int32Ty->getPointerTo(),
+                                       Int64Ty},
                                       false));
 
                 Value *KernelNameStr =
@@ -2733,7 +3285,9 @@ namespace
                               GpuGlobalSizesArg,
                               ConstantInt::get(Int32Ty, NumGpuGlobals),
                               ConstantInt::get(Int32Ty, IsDoAcross ? 1 : 0),
-                              DoAcrossNumSyncIdsArg});
+                              DoAcrossNumSyncIdsArg,
+                              GpuGlobalPointeeArg,
+                              ConstantInt::get(Int64Ty, IsDoAcross ? (int64_t)GpuDoAcrossMinDist : 0)});
                 EmittedGpu = true;
             }
         }
@@ -3262,9 +3816,85 @@ void emitGpuKernels(Module &M, StringRef PtxPath)
         for (CallInst *CI : IntrinsicCalls)
         {
             Function *OldCallee = CI->getCalledFunction();
-            Function *Decl = Intrinsic::getDeclaration(DeviceModule.get(), OldCallee->getIntrinsicID());
+            /* Clone the declaration with its exact type instead of asking the
+             * intrinsic table for a fresh one: Intrinsic::getDeclaration(ID)
+             * without a type list decodes the signature with no overload types
+             * and crashes on overloaded intrinsics (llvm.memset.p0.i64 and
+             * friends), which is how a DOACROSS kernel's device module -- that
+             * contains an array-init memset -- used to segfault the compiler. */
+            Module *DM = DeviceModule.get();
+            Function *Decl = DM->getFunction(OldCallee->getName());
+            if (!Decl || Decl->getFunctionType() != OldCallee->getFunctionType())
+            {
+                Decl = Function::Create(OldCallee->getFunctionType(), OldCallee->getLinkage(),
+                                        OldCallee->getAddressSpace(), OldCallee->getName(), DM);
+                Decl->setAttributes(OldCallee->getAttributes());
+                Decl->setCallingConv(OldCallee->getCallingConv());
+            }
             CI->setCalledFunction(Decl);
         }
+
+    // The device step's activation primitive: the cloned pair body calls
+    // autograph_frontier_activate, which is only a declaration in the host
+    // module (its CPU definition lives in the runtime object).  Re-home such
+    // externals into the device module by name, then give the activation
+    // primitive a device definition -- no atomics: it marks the claimed
+    // destination in the runtime's claim map, whose base arrives through the
+    // sgpl_gpu_claimed global.  No CAS and no atomic ticket: the kernel's rows
+    // have disjoint destination owners, and the caller compacts the marks.
+    {
+        SmallVector<CallInst *, 16> ExternCalls;
+        for (Function &F : *DeviceModule)
+        {
+            if (F.isDeclaration())
+                continue;
+            for (BasicBlock &BB : F)
+                for (Instruction &I : BB)
+                    if (auto *CI = dyn_cast<CallInst>(&I))
+                        if (Function *Callee = CI->getCalledFunction())
+                            if (Callee->getParent() != DeviceModule.get())
+                                ExternCalls.push_back(CI);
+        }
+        for (CallInst *CI : ExternCalls)
+        {
+            Function *OldCallee = CI->getCalledFunction();
+            Function *Decl = DeviceModule->getFunction(OldCallee->getName());
+            if (!Decl || Decl->getFunctionType() != OldCallee->getFunctionType())
+                Decl = Function::Create(OldCallee->getFunctionType(),
+                                        GlobalValue::ExternalLinkage,
+                                        OldCallee->getName(), DeviceModule.get());
+            CI->setCalledFunction(Decl);
+        }
+    }
+    if (Function *Act = DeviceModule->getFunction("autograph_frontier_activate"))
+    {
+        LLVMContext &DCtx = DeviceModule->getContext();
+        Type *I8P = PointerType::getUnqual(DCtx);
+        Type *I32 = Type::getInt32Ty(DCtx);
+        Type *I64 = Type::getInt64Ty(DCtx);
+        if (!DeviceModule->getGlobalVariable("sgpl_gpu_claimed"))
+        {
+            new GlobalVariable(*DeviceModule, I8P, false,
+                               GlobalValue::ExternalLinkage,
+                               ConstantPointerNull::get(cast<PointerType>(I8P)),
+                               "sgpl_gpu_claimed");
+        }
+        // define i32 @autograph_frontier_activate(ptr %ctx, i32 %v) {
+        //   %base = load ptr, ptr @sgpl_gpu_claimed
+        //   %idx = sext i32 %v to i64
+        //   %slot = getelementptr i8, ptr %base, i64 %idx
+        //   store i8 1, ptr %slot
+        //   ret i32 1
+        // }
+        BasicBlock *Entry = BasicBlock::Create(DCtx, "entry", Act);
+        IRBuilder<> B(Entry);
+        GlobalVariable *ClaimG = DeviceModule->getGlobalVariable("sgpl_gpu_claimed");
+        Value *Base = B.CreateLoad(I8P, ClaimG, "claim.base");
+        Value *Idx = B.CreateSExt(Act->getArg(1), I64, "claim.idx");
+        Value *Slot = B.CreateGEP(Type::getInt8Ty(DCtx), Base, Idx, "claim.slot");
+        B.CreateStore(ConstantInt::get(Type::getInt8Ty(DCtx), 1), Slot);
+        B.CreateRet(ConstantInt::get(I32, 1));
+    }
     }
 
     // Drop all instruction metadata (debug, TBAA, ...) from the device module so

@@ -3225,13 +3225,23 @@ static void deactivateDriver(const NeighborLoopInfo &Info)
 /* Deterministic, per-loop unique name of the pass-created global slot that
  * publishes a round-separation shadow pointer.  Both the pair work fn (reads)
  * and the round preheader (writes) compute the same name. */
+static Constant *gpuCString(Module *Mod, StringRef Text, const std::string &Name);
+
 static std::string shadowGlobalName(const NeighborLoopInfo &Info, unsigned Index)
 {
     Function *F = Info.NeighborLoop->getHeader()->getParent();
     const auto &RS = Info.RoundSepBases[Index];
     std::string BaseName =
         RS.Base && RS.Base->hasName() ? RS.Base->getName().str() : "arr";
-    return F->getName().str() + "." + BaseName + ".shadow." + std::to_string(Index);
+    std::string N =
+        F->getName().str() + "." + BaseName + ".shadow." + std::to_string(Index);
+    /* PTX identifiers admit no '.', and the device module carries this global
+     * under its LLVM name (the runtime patches it by name), so keep the name
+     * addressable on both sides. */
+    for (char &Ch : N)
+        if (!isalnum((unsigned char)Ch) && Ch != '_')
+            Ch = '_';
+    return N;
 }
 
 /* Composition A: emit the round-separation shadow snapshot for every in-place
@@ -3256,7 +3266,7 @@ static void emitRoundSepShadow(
         "autograph_exec_ctx_graph", FunctionType::get(I8P, {I8P}, false));
     FunctionCallee Publish = Mod->getOrInsertFunction(
         "autograph_snapshot_publish",
-        FunctionType::get(I8P, {I8P, I8P, I64, I32}, false));
+        FunctionType::get(I8P, {I8P, I8P, I64, I32, I8P}, false));
     for (unsigned si = 0; si < Info.RoundSepBases.size(); ++si)
     {
         const auto &RS = Info.RoundSepBases[si];
@@ -3289,9 +3299,12 @@ static void emitRoundSepShadow(
         IRBuilder<> SB(BasicBlock::Create(Ctx, "entry", CB));
         Value *Graph = SB.CreateCall(GraphFn, {CB->getArg(1)});
         Value *Base = SB.CreateLoad(I8P, BaseG);
-        Value *Pub = SB.CreateCall(Publish,
-                                   {Graph, Base, ConstantInt::get(I64, ElemBytes),
-                                    ConstantInt::get(I32, (int32_t)si)});
+        std::string ShadowName = shadowGlobalName(Info, si);
+        Value *Pub = SB.CreateCall(
+            Publish,
+            {Graph, Base, ConstantInt::get(I64, ElemBytes),
+             ConstantInt::get(I32, (int32_t)si),
+             gpuCString(Mod, ShadowName, "gpu.shadow.name." + ShadowName)});
         SB.CreateStore(Pub, SlotG);
         SB.CreateRetVoid();
         SnapOps.push_back({CB, SlotG});
@@ -4625,6 +4638,25 @@ static void deriveExprFacts(NeighborLoopInfo &Info, ExprFacts &F)
     F.IsV = PairV && !PairU;
 }
 
+/* Debug report name for the realization the structural facts select (the same
+ * decision emitExprInterp makes below, restated as a name for the census and
+ * the diagnostics).  This is a *report*: nothing in the pipeline branches on
+ * it, and the emission path is chosen from the facts, never from the name. */
+static const char *realizationName(const ExprFacts &F)
+{
+    if (F.IsPriv)
+        return "privatized";
+    if (F.IsRed)
+        return "reduction";
+    if (F.IsSourceRed)
+        return "source-red";
+    if (F.IsDual)
+        return "dual-owner";
+    if (F.IsV)
+        return "dest-owner";
+    return "source-owner";
+}
+
 /* Emit a module-constant resource/access table (sgpl_res_access[]) and return
  * its i8* plus the entry count for autograph_exec_op_create.  The layout is the
  * C struct { uint32_t resource; uint8_t mode; } (size 8, align 4). */
@@ -4682,6 +4714,402 @@ static bool hasPairPhaseClaim(const NeighborLoopInfo &Info)
 /* Single-stage realization: one execution context plus an ordered op array
  * (preamble ops, Snapshot ops, the fused pair op).  `IsV` selects the
  * destination-owned traversal; reductions use it too. */
+
+/* ── device engine step (stage 1) ─────────────────────────────────────────
+ * The engine's frontier steps are executed by autograph_frontier_execute over
+ * CleanCut source-owned slices (meta->src_pairs).  For a step whose realization
+ * is source-owned, whose body is self-contained (the pair work takes neither
+ * state nor env), and which needs no shadow, claim, append or reduction, the
+ * identical work can run on the device: the runtime passes the same slices,
+ * partition by partition, and the owner-computes assignment is the same
+ * guarantee that makes the CPU partitions safe.  The kernel is emitted here,
+ * registered with the runtime, and added to graph.gpu.kernels so the device
+ * module builder clones it (with its callees and globals) into the PTX module.
+ * Any failure at launch falls back to the CPU dispatch. */
+static Constant *gpuCString(Module *Mod, StringRef Text, const std::string &Name)
+{
+    LLVMContext &Ctx = Mod->getContext();
+    Constant *Str = ConstantDataArray::getString(Ctx, Text, true);
+    auto *GV = new GlobalVariable(*Mod, Str->getType(), true,
+                                  GlobalValue::PrivateLinkage, Str, Name);
+    return ConstantExpr::getInBoundsGetElementPtr(Str->getType(), GV,
+                                                  ArrayRef<Constant *>{ConstantInt::get(Type::getInt32Ty(Ctx), 0),
+                                                                       ConstantInt::get(Type::getInt32Ty(Ctx), 0)});
+}
+
+/* Read a PTX special register.  Inline PTX rather than the nvvm_read_ptx_sreg_*
+ * intrinsics: those enum entries only exist in LLVM builds with the NVPTX target
+ * compiled in, and this file must compile against any LLVM 20 the project links
+ * (the string is only meaningful to the NVPTX backend, which is the only backend
+ * that ever codegen's this function). */
+static Value *gpuReadSreg(IRBuilder<> &B, const char *Sreg)
+{
+    std::string Asm = std::string("mov.u32 $0, %") + Sreg + ";";
+    FunctionType *FT = FunctionType::get(B.getInt32Ty(), false);
+    InlineAsm *IA = InlineAsm::get(FT, Asm, "=r", true);
+    return B.CreateCall(FT, IA);
+}
+
+static bool gpuBackendSelected(Module *Mod)
+{
+    if (NamedMDNode *NMD = Mod->getNamedMetadata("graph.ir.backend"))
+        for (const MDNode *Op : NMD->operands())
+            if (Op)
+                for (const MDOperand &MO : Op->operands())
+                    if (const MDString *MDS = dyn_cast_or_null<MDString>(MO.get()))
+                        if (MDS->getString() == "gpu")
+                            return true;
+    return false;
+}
+
+static void emitGpuStepPointeeRegs(Module *Mod, LLVMContext &Ctx, Function *Root);
+
+static Function *emitGpuEngineStep(Function &F, Module *Mod, LLVMContext &Ctx,
+                                   IRBuilder<> &RegB, NeighborLoopInfo &Info,
+                                   Function *PairWF, StringRef Tag, int32_t StepId)
+{
+    if (!PairWF || !gpuBackendSelected(Mod))
+        return nullptr;
+    if (!Info.RoundSepBases.empty() || Info.HasFirstWins || Info.HasFrontierAppend)
+        return nullptr;
+    if (Info.ReducePtr || Info.AccConsumeStore)
+        return nullptr;
+    if (PairWF->arg_size() != 4)
+        return nullptr;
+    for (Argument &A : PairWF->args())
+        if (A.getArgNo() < 2 && !A.use_empty())
+            return nullptr; /* the body reads state/env: not self-contained */
+
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::getUnqual(Ctx);
+    std::string KName = "gpu_step_" + F.getName().str() + "_" + Tag.str();
+    for (char &Ch : KName)
+        if (!isalnum((unsigned char)Ch) && Ch != '_')
+            Ch = '_';
+
+    /* One thread per source, its pair run iterated sequentially: ownership in
+     * this engine is per source, so parallelising per pair loses updates on
+     * read-modify-write bodies.  rows[] holds the sources, begins[] the run
+     * boundaries (nrows+1 entries). */
+    Type *I32P = PointerType::getUnqual(I32);
+    Type *I64P = PointerType::getUnqual(I64);
+    FunctionType *KFT =
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, I64, I8P, I64, I8P, I8P}, false);
+    Function *K = Function::Create(KFT, GlobalValue::ExternalLinkage, KName, Mod);
+    K->setCallingConv(CallingConv::PTX_Kernel);
+    Value *Pairs = &*K->arg_begin();
+    Argument *NpairsA = &*(K->arg_begin() + 1);
+    Argument *RowsA = &*(K->arg_begin() + 2);
+    Argument *NrowsA = &*(K->arg_begin() + 3);
+    Argument *BeginsA = &*(K->arg_begin() + 4);
+    Argument *EnvArg = &*(K->arg_begin() + 5);
+    Pairs->setName("pairs");
+    NpairsA->setName("npairs");
+    RowsA->setName("rows");
+    NrowsA->setName("nrows");
+    BeginsA->setName("begins");
+    EnvArg->setName("env");
+
+    BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", K);
+    BasicBlock *Body = BasicBlock::Create(Ctx, "body", K);
+    BasicBlock *Check = BasicBlock::Create(Ctx, "check", K);
+    BasicBlock *Iter = BasicBlock::Create(Ctx, "iter", K);
+    BasicBlock *Done = BasicBlock::Create(Ctx, "done", K);
+    IRBuilder<> KB(Entry);
+    Value *Bx = KB.CreateZExt(gpuReadSreg(KB, "ctaid.x"), I64, "bx64");
+    Value *Tx = KB.CreateZExt(gpuReadSreg(KB, "tid.x"), I64, "tx64");
+    Value *Bd = KB.CreateZExt(gpuReadSreg(KB, "ntid.x"), I64, "bd64");
+    Value *Lin = KB.CreateAdd(KB.CreateMul(Bx, Bd, "off"), Tx, "lin");
+    Value *InRange = KB.CreateICmpULT(Lin, NrowsA, "in.range");
+    KB.CreateCondBr(InRange, Body, Done);
+
+    IRBuilder<> BB(Body);
+    Value *RowsP = BB.CreateBitCast(RowsA, I32P, "rows32");
+    Value *BeginsP = BB.CreateBitCast(BeginsA, I64P, "begins64");
+    Value *UPtr = BB.CreateGEP(I32, RowsP, Lin, "row.ptr");
+    Value *U = BB.CreateLoad(I32, UPtr, "u");
+    Value *BeginPtr = BB.CreateGEP(I64, BeginsP, Lin, "begin.ptr");
+    Value *Begin = BB.CreateLoad(I64, BeginPtr, "begin");
+    Value *EndPtr = BB.CreateGEP(I64, BeginsP, BB.CreateAdd(Lin, ConstantInt::get(I64, 1), "row1"), "end.ptr");
+    Value *End = BB.CreateLoad(I64, EndPtr, "end");
+    BB.CreateBr(Check);
+
+    IRBuilder<> CB(Check);
+    PHINode *E = CB.CreatePHI(I64, 2, "e");
+    E->addIncoming(Begin, Body);
+    Value *More = CB.CreateICmpULT(E, End, "more");
+    CB.CreateCondBr(More, Iter, Done);
+
+    IRBuilder<> IB(Iter);
+    Value *Pairs32 = IB.CreateBitCast(Pairs, I32P, "pairs32");
+    Value *VIdx = IB.CreateAdd(IB.CreateMul(E, ConstantInt::get(I64, 2), "pair.idx"),
+                               ConstantInt::get(I64, 1), "pair.v.idx");
+    Value *VPtr = IB.CreateGEP(I32, Pairs32, VIdx, "pair.v.ptr");
+    Value *V = IB.CreateLoad(I32, VPtr, "v");
+    SmallVector<Value *, 4> PairArgs{ConstantPointerNull::get(cast<PointerType>(I8P)),
+                                     ConstantPointerNull::get(cast<PointerType>(I8P)), U, V};
+    IB.CreateCall(PairWF, PairArgs);
+    Value *ENext = IB.CreateAdd(E, ConstantInt::get(I64, 1), "e.next");
+    IB.CreateBr(Check);
+    E->addIncoming(ENext, Iter);
+
+    IRBuilder<> DB(Done);
+    DB.CreateRetVoid();
+
+    Mod->getOrInsertNamedMetadata("graph.gpu.kernels")
+        ->addOperand(MDNode::get(Ctx, {ValueAsMetadata::get(K), MDString::get(Ctx, "EngineStep")}));
+
+    /* Register with the runtime (the engine tries the device step first) and
+     * give the device copies of the globals the body touches: a pointer-valued
+     * global needs its pointee materialised, exactly as for outlined kernels. */
+    FunctionCallee RegisterStep = Mod->getOrInsertFunction(
+        "autograph_gpu_step_register",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, Type::getInt32Ty(Ctx)}, false));
+    Value *NameStr = gpuCString(Mod, KName, "gpu.step.name." + KName);
+    SmallVector<Value *, 3> StepArgs{NameStr, ConstantInt::get(Type::getInt32Ty(Ctx), StepId)};
+    RegB.CreateCall(RegisterStep, StepArgs);
+
+    emitGpuStepPointeeRegs(Mod, Ctx, PairWF);
+    if (getenv("SGPL_GPU_DEBUG"))
+        errs() << "[gpu] engine step kernel emitted: " << KName << "\n";
+    return K;
+}
+
+/* Register the device copies of the globals a step kernel's body touches: a
+ * pointer-valued global (the language's arrays) needs its *pointee* on the
+ * device, exactly as for outlined kernels.  The registration is emitted where
+ * the array base is known (the store that seeds the global), carrying the
+ * runtime's name for the device module's copy of that global. */
+static void emitGpuStepPointeeRegs(Module *Mod, LLVMContext &Ctx, Function *Root)
+{
+    Type *I8P = PointerType::getUnqual(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    SmallPtrSet<GlobalVariable *, 8> Refs;
+    SmallPtrSet<Function *, 8> Visited;
+    SmallVector<Function *, 8> Work{Root};
+    while (!Work.empty())
+    {
+        Function *Fn = Work.pop_back_val();
+        if (!Fn || !Visited.insert(Fn).second)
+            continue;
+        for (BasicBlock &BB2 : *Fn)
+            for (Instruction &I2 : BB2)
+            {
+                for (Value *Op : I2.operands())
+                    if (auto *GV = dyn_cast<GlobalVariable>(Op->stripPointerCasts()))
+                        Refs.insert(GV);
+                if (auto *CI2 = dyn_cast<CallInst>(&I2))
+                    if (Function *Callee = CI2->getCalledFunction())
+                        Work.push_back(Callee);
+            }
+    }
+    FunctionCallee RegPointee = Mod->getOrInsertFunction(
+        "sgpl_gpu_register_pointee",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P, I64}, false));
+    for (GlobalVariable *GV : Refs)
+    {
+        if (!GV->getValueType()->isPointerTy())
+            continue;
+        for (User *Usr : GV->users())
+        {
+            auto *SI = dyn_cast<StoreInst>(Usr);
+            if (!SI || SI->getPointerOperand()->stripPointerCasts() != GV)
+                continue;
+            Value *Base = SI->getValueOperand()->stripPointerCasts();
+            if (auto *AI = dyn_cast<AllocaInst>(Base))
+            {
+                Type *ElemTy = AI->getAllocatedType();
+                if (!ElemTy->isSized())
+                    continue;
+                Value *Count = AI->isArrayAllocation() ? AI->getArraySize()
+                                                       : ConstantInt::get(I64, 1);
+                IRBuilder<> SB(SI);
+                Value *Bytes = SB.CreateMul(
+                    SB.CreateZExtOrTrunc(Count, I64, "pointee.n"),
+                    ConstantInt::get(I64, Mod->getDataLayout().getTypeAllocSize(ElemTy)),
+                    "pointee.bytes");
+                SmallVector<Value *, 4> PA{
+                    gpuCString(Mod, GV->getName(),
+                               ("gpu.step.pointee." + GV->getName()).str()),
+                    SB.CreateBitCast(Base, I8P), Bytes};
+                SB.CreateCall(RegPointee, PA);
+            }
+            else if (auto *PGV = dyn_cast<GlobalVariable>(Base))
+            {
+                if (!PGV->getValueType()->isSized())
+                    continue;
+                IRBuilder<> SB(SI);
+                SmallVector<Value *, 4> PA{
+                    gpuCString(Mod, GV->getName(),
+                               ("gpu.step.pointee." + GV->getName()).str()),
+                    SB.CreateBitCast(Base, I8P),
+                    ConstantInt::get(I64, Mod->getDataLayout().getTypeAllocSize(PGV->getValueType()))};
+                SB.CreateCall(RegPointee, PA);
+            }
+        }
+    }
+}
+
+/* ── device activation step (destination-owned) ───────────────────────────
+ * The engine's activation step (A+) walks destination-partitioned rows: the
+ * partition owns a range of destinations and its rows are the sources with arcs
+ * into them.  The CPU needs no claim atomic because a destination has exactly
+ * one owning worker and that worker walks its rows in order; the device kernel
+ * mirrors that assignment -- one thread per row, arcs walked sequentially -- so
+ * it needs none either.  Concurrent rows may test-and-set the same destination,
+ * but every claimant writes the same value (the frontier is a set and the
+ * claim's payload is round-stable), so the writes are idempotent.
+ *
+ * The frontier append is a byte mark per claimed destination; the runtime
+ * compacts the marks into next_frontier in ascending vertex order, which is
+ * deterministic and independent of completion order.  The pair body's
+ * activation call is resolved inside the device module to a definition that
+ * writes the mark (see emitGpuKernels), so the emitted body itself is unchanged.
+ * Kernel ABI: (i32* rowsrc, i64 nrows, i64* rowptr, i32* arcs, i8* mem, i8* env)
+ */
+static Function *emitGpuEngineStepV(Function &F, Module *Mod, LLVMContext &Ctx,
+                                    IRBuilder<> &RegB, NeighborLoopInfo &Info,
+                                    Function *PairWF, StringRef Tag, int32_t StepId,
+                                    bool IsSimple, bool IsV)
+{
+    if (!PairWF || !gpuBackendSelected(Mod))
+        return nullptr;
+    if (!IsV || !IsSimple)
+        return nullptr; /* destination-owned, no reduction/private slot machinery */
+    if (!Info.HasFrontierAppend)
+        return nullptr; /* the activation envelope */
+    if (PairWF->arg_size() != 4)
+        return nullptr;
+    /* The body may not read its state slot and may touch the context only to
+     * activate: the device resolves that call to its own definition, so any
+     * other use of state/context (or any other callee) refuses. */
+    for (Argument &A : PairWF->args())
+    {
+        if (A.getArgNo() == 0 && !A.use_empty())
+            return nullptr;
+        if (A.getArgNo() != 1)
+            continue;
+        for (User *U : A.users())
+        {
+            auto *CI = dyn_cast<CallInst>(U);
+            if (!CI || CI->getArgOperand(0) != &A)
+                return nullptr; /* the context is used for something else */
+            Function *Callee = CI->getCalledFunction();
+            if (!Callee || Callee->getName() != "autograph_frontier_activate")
+                return nullptr;
+        }
+    }
+    for (BasicBlock &BB : *PairWF)
+        for (Instruction &I : BB)
+            if (auto *CI = dyn_cast<CallInst>(&I))
+            {
+                Function *Callee = CI->getCalledFunction();
+                if (!Callee || Callee->getName() != "autograph_frontier_activate")
+                    return nullptr;
+            }
+
+    Type *I8 = Type::getInt8Ty(Ctx);
+    Type *I32 = Type::getInt32Ty(Ctx);
+    Type *I64 = Type::getInt64Ty(Ctx);
+    Type *I8P = PointerType::getUnqual(Ctx);
+    Type *I32P = PointerType::getUnqual(I32);
+    Type *I64P = PointerType::getUnqual(I64);
+    std::string KName = "gpu_step_v_" + F.getName().str() + "_" + Tag.str();
+    for (char &Ch : KName)
+        if (!isalnum((unsigned char)Ch) && Ch != '_')
+            Ch = '_';
+
+    FunctionType *KFT =
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, I64, I8P, I8P, I8P, I8P}, false);
+    Function *K = Function::Create(KFT, GlobalValue::ExternalLinkage, KName, Mod);
+    K->setCallingConv(CallingConv::PTX_Kernel);
+    Value *RowsSrcA = &*K->arg_begin();
+    Argument *NrowsA = &*(K->arg_begin() + 1);
+    Value *RowPtrA = &*(K->arg_begin() + 2);
+    Value *ArcsA = &*(K->arg_begin() + 3);
+    Value *MemA = &*(K->arg_begin() + 4);
+    Argument *EnvArg = &*(K->arg_begin() + 5);
+    RowsSrcA->setName("rowsrc");
+    NrowsA->setName("nrows");
+    RowPtrA->setName("rowptr");
+    ArcsA->setName("arcs");
+    MemA->setName("mem");
+    EnvArg->setName("env");
+
+    BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", K);
+    BasicBlock *Body = BasicBlock::Create(Ctx, "body", K);
+    BasicBlock *Gate = BasicBlock::Create(Ctx, "gate", K);
+    BasicBlock *Check = BasicBlock::Create(Ctx, "check", K);
+    BasicBlock *Iter = BasicBlock::Create(Ctx, "iter", K);
+    BasicBlock *Done = BasicBlock::Create(Ctx, "done", K);
+
+    IRBuilder<> KB(Entry);
+    Value *Bx = KB.CreateZExt(gpuReadSreg(KB, "ctaid.x"), I64, "bx64");
+    Value *Tx = KB.CreateZExt(gpuReadSreg(KB, "tid.x"), I64, "tx64");
+    Value *Bd = KB.CreateZExt(gpuReadSreg(KB, "ntid.x"), I64, "bd64");
+    Value *Lin = KB.CreateAdd(KB.CreateMul(Bx, Bd, "off"), Tx, "lin");
+    Value *InRange = KB.CreateICmpULT(Lin, NrowsA, "in.range");
+    KB.CreateCondBr(InRange, Body, Done);
+
+    IRBuilder<> BB(Body);
+    Value *RowsP = BB.CreateBitCast(RowsSrcA, I32P, "rowsrc32");
+    Value *UPtr = BB.CreateGEP(I32, RowsP, Lin, "row.ptr");
+    Value *U = BB.CreateLoad(I32, UPtr, "u");
+    Value *PtrP = BB.CreateBitCast(RowPtrA, I64P, "rowptr64");
+    Value *BeginPtr = BB.CreateGEP(I64, PtrP, Lin, "begin.ptr");
+    Value *Begin = BB.CreateLoad(I64, BeginPtr, "begin");
+    Value *EndPtr = BB.CreateGEP(
+        I64, PtrP, BB.CreateAdd(Lin, ConstantInt::get(I64, 1), "row1"), "end.ptr");
+    Value *End = BB.CreateLoad(I64, EndPtr, "end");
+    Value *MemNull = BB.CreateICmpEQ(MemA, ConstantPointerNull::get(cast<PointerType>(I8P)), "mem.null");
+    BB.CreateCondBr(MemNull, Check, Gate);
+
+    IRBuilder<> GB(Gate);
+    Value *MemP = GB.CreateBitCast(MemA, I8P, "mem8");
+    Value *UIdx = GB.CreateZExt(U, I64, "u64");
+    Value *MPtr = GB.CreateGEP(I8, MemP, UIdx, "mem.u");
+    Value *MB = GB.CreateLoad(I8, MPtr, "member");
+    Value *GateOk = GB.CreateICmpNE(MB, ConstantInt::get(I8, 0), "member.ok");
+    GB.CreateCondBr(GateOk, Check, Done);
+
+    IRBuilder<> CB(Check);
+    PHINode *J = CB.CreatePHI(I64, 3, "j");
+    J->addIncoming(Begin, Body);
+    J->addIncoming(Begin, Gate);
+    Value *More = CB.CreateICmpULT(J, End, "more");
+    CB.CreateCondBr(More, Iter, Done);
+
+    IRBuilder<> IB(Iter);
+    Value *ArcsP = IB.CreateBitCast(ArcsA, I32P, "arcs32");
+    Value *VPtr = IB.CreateGEP(I32, ArcsP, J, "arc.ptr");
+    Value *V = IB.CreateLoad(I32, VPtr, "v");
+    SmallVector<Value *, 4> PairArgs{ConstantPointerNull::get(cast<PointerType>(I8P)),
+                                      ConstantPointerNull::get(cast<PointerType>(I8P)), U, V};
+    IB.CreateCall(PairWF, PairArgs);
+    Value *JNext = IB.CreateAdd(J, ConstantInt::get(I64, 1), "j.next");
+    IB.CreateBr(Check);
+    J->addIncoming(JNext, Iter);
+
+    IRBuilder<> DB(Done);
+    DB.CreateRetVoid();
+
+    Mod->getOrInsertNamedMetadata("graph.gpu.kernels")
+        ->addOperand(MDNode::get(Ctx, {ValueAsMetadata::get(K), MDString::get(Ctx, "ActivationStep")}));
+
+    FunctionCallee RegisterStep = Mod->getOrInsertFunction(
+        "autograph_gpu_step_register",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, Type::getInt32Ty(Ctx)}, false));
+    Value *NameStr = gpuCString(Mod, KName, "gpu.step.name." + KName);
+    SmallVector<Value *, 3> StepArgs{NameStr, ConstantInt::get(Type::getInt32Ty(Ctx), StepId)};
+    RegB.CreateCall(RegisterStep, StepArgs);
+
+    emitGpuStepPointeeRegs(Mod, Ctx, PairWF);
+    if (getenv("SGPL_GPU_DEBUG"))
+        errs() << "[gpu] activation step kernel emitted: " << KName << "\n";
+    return K;
+}
+
 static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
                             bool IsSourceRed, bool IsPriv, bool IsV)
 {
@@ -4978,6 +5406,12 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         EB.CreateCall(Own, {ExecCtx, ConstantInt::get(I32, 1),
                             ConstantInt::get(I32, 0)});
     }
+
+    /* Device engine step: emitted before the first round so the runtime can
+     * run the step on the device instead of the CPU partitions. */
+    emitGpuEngineStep(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"), StepId);
+    emitGpuEngineStepV(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"),
+                       StepId, IsSimple, IsV);
 
     FunctionCallee Exec = Mod->getOrInsertFunction(
         "autograph_frontier_execute", FunctionType::get(I32, {I8P, I8P}, false));
@@ -5368,8 +5802,24 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         std::string SemReason;
         const bool Supported =
             IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
-        if (getenv("GRAPH_FRONTIER_STATS"))
+        /* Verdict for the census, derived from the structural facts (the same
+         * decision the interpreter makes) and demoted to "sequential" whenever
+         * the loop is refused or the emit fails -- it reports what happened, and
+         * nothing in the pipeline branches on it.  Printed once, after the
+         * outcome of this candidate is known. */
+        const char *ClassName = "sequential";
+        ExprFacts VerdictFacts;
+        const bool HaveVerdictFacts = IsIter && Supported;
+        if (HaveVerdictFacts)
+            deriveExprFacts(Info, VerdictFacts);
+        auto claimClassName = [&]()
         {
+            ClassName = HaveVerdictFacts ? realizationName(VerdictFacts) : "sequential";
+        };
+        auto emitCandidateLine = [&]()
+        {
+            if (!getenv("GRAPH_FRONTIER_STATS"))
+                return;
             errs() << "[graph-frontier] candidate: " << F.getName();
             if (IsIter)
                 errs() << " driver=" << Info.DriverLoop->getHeader()->getName();
@@ -5383,6 +5833,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                    << " fw=" << (Info.HasFirstWins ? 1 : 0)
                    << " env=" << (Info.HasFrontierAppend ? 1 : 0)
                    << " shadow=" << Info.RoundSepBases.size()
+                   << " class=" << ClassName
                    << "  ";
             if (IsIter)
             {
@@ -5393,7 +5844,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             if (IsIter && !Supported)
                 errs() << " [refused: " << SemReason << "]";
             errs() << "\n";
-        }
+        };
+        claimClassName();
         if (IsIter && getenv("SGPL_WITNESS_DUMP"))
             printWitness(Info, /*IsIter=*/true);
         else if (!IsIter && getenv("SGPL_WITNESS_DUMP"))
@@ -5404,6 +5856,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             /* Safe by default: the CleanCut rewrite is env-gated, but a graph
              * loop must never be handed blindly to the racy DOALL path — mark
              * it sequential unconditionally. */
+            emitCandidateLine();
             markSequential(L);
             ++detected;
             continue;
@@ -5415,6 +5868,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
              * second-chance switch, conservatively sequential otherwise. */
             if (!IsIter)
             {
+                emitCandidateLine();
                 if (!getenv("SGPL_PDG_SECOND_CHANCE"))
                     markSequential(L);
                 ++detected;
@@ -5431,6 +5885,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             if (getenv("GRAPH_FRONTIER_STATS"))
                 errs() << "[graph-frontier]   modelable=" << (Modelable ? 1 : 0)
                        << (Modelable ? "" : (" reason=" + refuseReason)) << "\n";
+            if (!Modelable)
+                ClassName = "sequential";
             bool Rewritable = Supported && Modelable;
             if (Rewritable)
             {
@@ -5438,6 +5894,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                  * emitter.  A refused expression fails closed to the
                  * sequential marker. */
                 bool Emitted = emitExprInterp(Info);
+                if (!Emitted)
+                    ClassName = "sequential";
                 if (!Emitted && getenv("GRAPH_FRONTIER_STATS"))
                     errs() << "[graph-frontier]   expression path refused"
                               " -> stays sequential\n";
@@ -5499,6 +5957,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                         errs() << "[graph-frontier] verify OK on "
                                << F.getName() << "\n";
                     }
+                    emitCandidateLine();
                     continue;
                 }
             }
@@ -5511,6 +5970,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 markSequential(L);
             errs().flush();
         }
+        emitCandidateLine();
         ++detected;
     }
     if (getenv("GRAPH_FRONTIER_STATS") && getenv("GRAPH_FRONTIER_VERBOSE"))

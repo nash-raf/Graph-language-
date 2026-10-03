@@ -4,6 +4,9 @@
 # which is not installed here (system has 4.13.1) -- hence rebuilding.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
+# A failed compile must not be mistaken for a successful one: the binary can
+# only exist if the link that follows succeeded.
+rm -f GraphProgram
 LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
 OBJ_DIR="${OBJ_DIR:-$ROOT/build_lowmem}"; mkdir -p "$OBJ_DIR"
 LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"; LLVM_CXXFLAGS="${LLVM_CXXFLAGS//-fno-exceptions/}"
@@ -39,6 +42,7 @@ done
 echo "=== linking GraphProgram ==="
 g++ "${OBJECTS[@]}" $LLVM_LDFLAGS -Wl,--no-keep-memory -Wl,--reduce-memory-overheads \
   -pthread -lantlr4-runtime -lPolly -lPollyISL -lisl $LLVM_LIBS $LLVM_SYSTEM_LIBS -o GraphProgram
+if [ ! -f GraphProgram ]; then echo ">>> GraphProgram MISSING: build failed"; exit 1; fi
 echo ">>> p1-AT GraphProgram build complete"
 
 # Dense semiring-closure runtime (autograph_closure) — link into user programs.

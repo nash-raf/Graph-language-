@@ -248,18 +248,45 @@ else
   no "parallel/nested_step" "build failed"
 fi
 
-# Per-vertex scalar accumulators ("gather" loops).  The effect algebra refuses
-# them (reduction register / escaping scalar / inline query subloop), so they
-# must run serially and exactly.  Regression for the silent-0 class: before
-# the refusal, a gather was rewritten and the accumulator was lost.
+# Compute-heavy DOALL loops: the shapes the GPU offload targets.  These are the
+# CPU side of verify/gpu_check.sh (which repeats them on a device when one is
+# present).  The values are an independent Python reference of the arithmetic,
+# because the point of the GPU path is that a device run answers the same thing.
 while IFS='|' read -r name exp; do
   [[ -z "${name:-}" ]] && continue
+  if ( cd "$C" && SGPL_LOOP_CLASSIFY_DEBUG=1 \
+         GRAPH_FILE="$R/cases/parallel/$name.graph" \
+         bash ./03_run.sh >"$R/bin/$name.log" 2>&1 </dev/null ); then
+    if ! grep -q 'classification=DOALL .*hasProofOfNoCarriedDeps=1' "$R/bin/$name.log"; then
+      no "parallel/$name" "compute loop not proven DOALL (the GPU offload needs it)"
+    else
+      bad=""
+      for t in 1 4 4; do
+        got=$( runt $t )
+        [[ "$got" == "$exp" ]] || bad="threads=$t got='$got'"
+      done
+      [[ -z "$bad" ]] && ok "parallel/$name (compute DOALL, offload-target shape)" \
+                      || no "parallel/$name" "exp='$exp' $bad"
+    fi
+  else
+    no "parallel/$name" "build failed"
+  fi
+done <<'COMPUTE'
+gpu_compute|a_last 12000037 b_last 32000066
+gpu_compute_local|a_last 12000037
+COMPUTE
+
+# Per-vertex scalar accumulators ("gather" loops).  Composition I now has a
+# per-source reduction engine (the old SGPL_COMP_I_SOURCE_REDUCTION gate is
+# gone -- the realization is unconditional), so `int_gather` is emitted as
+# per-source partials folded by the finish hook; `mutual_deg` still has no
+# supported realization (its per-source query subloop is refused) and must run
+# serially and exactly.  The expected class is part of the contract in both
+# directions: refining a shape updates this table, it never silently flips.
+while IFS='|' read -r name exp wantcls; do
+  [[ -z "${name:-}" ]] && continue
   if compile "$R/cases/parallel/$name.graph"; then
-    # Composition I: the per-source gather has no engine support yet, so the
-    # verdict itself is part of the contract -- it must be a *derived* refusal,
-    # not an accident.  When the per-source reduction engine lands, this line is
-    # the one that has to change.
-    expect_class "$name" sequential 'red=1'
+    expect_class "$name" "$wantcls" 'red=1'
     bad=""
     for t in 1 4 4; do
       got=$( runt $t )
@@ -271,8 +298,8 @@ while IFS='|' read -r name exp; do
     no "race/$name" "build failed"
   fi
 done <<'GATHERS'
-int_gather|degsum 40
-mutual_deg|mutdegsum 8
+int_gather|degsum 40|source-red
+mutual_deg|mutdegsum 8|sequential
 GATHERS
 
 # P2 regression: a scalar-indexed same-address accumulator.  The index is read
@@ -303,10 +330,11 @@ if ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FILE="$R/cases/parallel/roundsep.gr
   if ! grep -q 'shadow=[1-9]' "$R/bin/roundsep.log"; then
     no "race/roundsep" "shadow snapshot not emitted (round-separation path not taken)"
   else
-    # Composition A is the one parallel in-place shape: the shadowed nest must
-    # stay dest-owner (a regression to sequential would silently give up the
-    # parallel path while still answering correctly).
-    expect_class roundsep dest-owner 'shadow=[1-9]' "$R/bin/roundsep.log"
+    # Composition A is the one parallel in-place shape.  Since the emitter
+    # unification it is realized through the privatized path (which owns the
+    # per-round snapshot, hence shadow>=1); a regression to sequential would
+    # silently give up the parallel path while still answering correctly.
+    expect_class roundsep privatized 'shadow=[1-9]' "$R/bin/roundsep.log"
     exp=$(python3 "$C/compute_roundsep_expected.py" add \
             "$R/cases/parallel/roundsep.graph" "$R/fixtures/g20k.txt" \
           | python3 -c 'import sys;print(sum(int(l) for l in sys.stdin))')
@@ -420,26 +448,30 @@ else
   no "priv/reduce_write_big" "build failed"
 fi
 
-# Dual-owner + shadow refusal (upstream's small_kcore shape): the shadow freezes
-# round-start `alive[]`, but this peeling loop must observe removals made earlier
-# in the same round.  The rewrite used to peel 18898 survivors where the serial
-# build leaves 18959 (and before that the object never linked at all), so the
-# only sound verdict is sequential; the shadow-eligible nest must be refused and
-# the answer must equal the serial build and the independent 10-core count.
+# Dual-owner + shadow (upstream's small_kcore shape): the shadow freezes
+# round-start `alive[]` and the peeling nest must observe removals made earlier
+# in the same round.  The pre-unification rewrite peeled 18898 survivors where
+# the serial build leaves 18959, so the verdict used to be a hard refusal; the
+# merged privatization/shadow path now realizes the nest and reproduces the
+# serial answer, so the contract is behavioural: the nest must be realized (a
+# regression to a sequential verdict fires this check for a re-review) and the
+# answer must equal the serial build's 18959 at every thread count.
 if ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FRONTIER_STRICT=1 \
        GRAPH_FILE="$R/cases/parallel/dual_shadow.graph" \
        bash ./03_run.sh >"$R/bin/dual_shadow.log" 2>&1 </dev/null ); then
-  if ! grep -q 'shadow=[1-9].*class=sequential' "$R/bin/dual_shadow.log"; then
-    no "race/dual_shadow" "shadow-eligible nest not refused (expected class=sequential)"
+  if ! grep -q 'class=' "$R/bin/dual_shadow.log"; then
+    no "race/dual_shadow" "no candidate line (nest not recognised)"
+  elif grep -q 'class=sequential' "$R/bin/dual_shadow.log"; then
+    no "race/dual_shadow" "shadow-eligible nest regressed to a sequential verdict"
   else
     bad=""
-    for t in 1 4; do
+    for t in 1 2 4 8; do
       got=$( ( cd "$C" && SGPL_NUM_THREADS=$t OMP_NUM_THREADS=$t \
                  ./final_program 2>/dev/null </dev/null \
                | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' ) )
       [[ "$got" == "alive_sum 18959" ]] || bad="threads=$t got='$got'"
     done
-    [[ -z "$bad" ]] && ok "race/dual_shadow (shadow refused, 10-core = 18959)" \
+    [[ -z "$bad" ]] && ok "race/dual_shadow (10-core = 18959 at 1/2/4/8 threads)" \
                     || no "race/dual_shadow" "exp='alive_sum 18959' $bad"
   fi
 else
@@ -588,14 +620,15 @@ else
   no "race/reduce_real_ops" "build failed"
 fi
 
-# Composition I / P10 under its switch: the per-source gather's visible result is
-# written per source (`deg[u] = c`), so the plain per-loop reduction path is
-# wrong for it -- that path folds all sources into one total and the epilogue
-# never runs (degsum would come out 0).  With SGPL_COMP_I_SOURCE_REDUCTION=1 the
-# nest must be classified `source-red`, keep the serial answer, and stay
+# Composition I / P10 (the per-source reduction engine, now unconditional: the
+# old SGPL_COMP_I_SOURCE_REDUCTION gate went away with the emitter unification):
+# the per-source gather's visible result is written per source (`deg[u] = c`), so
+# the plain per-loop reduction path is wrong for it -- that path folds all
+# sources into one total and the epilogue never runs (degsum would come out 0).
+# The nest must be classified `source-red`, keep the serial answer, and stay
 # invariant to the partition/thread split.  bipartite.txt has 10 sources with no
 # out-arcs, so the "no pairs" finish path is exercised by the expected 40.
-if ( cd "$C" && SGPL_COMP_I_SOURCE_REDUCTION=1 GRAPH_FRONTIER_STATS=1 \
+if ( cd "$C" && GRAPH_FRONTIER_STATS=1 \
        GRAPH_FILE="$R/cases/parallel/int_gather.graph" \
        bash ./03_run.sh >"$R/bin/int_gather_red.log" 2>&1 </dev/null ); then
   expect_class int_gather source-red 'red=1' "$R/bin/int_gather_red.log"
@@ -855,6 +888,22 @@ while IFS='|' read -r name exp; do
   compile "$R/cases/motif/$name.graph" || { no "motif/$name" "build failed"; continue; }
   got=$(runp); [[ "$got" == "$exp" ]] && ok "motif/$name (=$exp)" || no "motif/$name" "exp=$exp got=$got"
 done < "$R/expected/motif.manifest"
+fi
+
+# ---------------------------------------------------------------- GPU DEVICE
+# Opt-in (SGPL_GPU_VERIFY=1): repeats the offload-target cases on a device when
+# one is present.  The device answers must equal the CPU builds, the loop must
+# actually launch (not silently fall back), and the same binary with no visible
+# device must still answer through the CPU fallback.  Skips cleanly elsewhere.
+if [[ "${SGPL_GPU_VERIFY:-0}" == "1" ]]; then
+  echo "=== GPU DEVICE CHECK ==="
+  if out=$(bash "$R/gpu_check.sh" array_doall gpu_compute gpu_compute_local algo/pagerank 2>&1); then
+    echo "$out" | grep -E 'PASS|SKIP' | sed 's/^/  /'
+    ok "gpu/device-check ($(grep -c 'PASS' <<<"$out") case(s) verified, $(grep -c 'SKIP' <<<"$out") skipped)"
+  else
+    echo "$out" | grep -E 'PASS|SKIP|FAIL' | sed 's/^/  /'
+    no "gpu/device-check" "$(grep -m1 'FAIL' <<<"$out" | cut -c1-96)"
+  fi
 fi
 
 echo

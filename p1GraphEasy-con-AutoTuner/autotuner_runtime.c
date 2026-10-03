@@ -7,6 +7,7 @@
  * for specific execution phases and destroyed after use.
  */
 
+#include "gpu_runtime.h"
 #include <math.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -3330,6 +3331,238 @@ static void sgpl_exec_step_record_sample(int32_t step_id, int32_t partitions,
   sgpl_record_doall_serial_sample(&desc, 0, partitions, 1, elapsed_ns);
 }
 
+/* GPU runtime hooks: present only when the program links gpu_runtime (the
+ * runtime object is shared with the CPU-only compiler binary). */
+extern void sgpl_gpu_register_pointee(const char *name, void *base,
+                                      int64_t bytes) __attribute__((weak));
+
+int gpup_step_try(const char *kernel_name, const int32_t *pairs, int64_t npairs);
+int gpup_step_v_try(const char *kernel_name, const void *layout_sig, int32_t npart,
+                    int64_t *const *rp, const int32_t *const *ci,
+                    const int32_t *const *indir, const int64_t *row_counts,
+                    const uint8_t *mem, int64_t nmem, const uint8_t **claimed_out);
+int autograph_gpu_step_count(void);
+const char *autograph_gpu_step_name(void);
+int32_t autograph_gpu_step_id(void);
+
+/* ── device activation step (destination-owned) ──────────────────────────
+ * The verdict is derived from the operation's own resource facts, never from a
+ * strategy name.  The step must declare the destination envelope -- a claim on
+ * the destination set (DEST_SEEN, atomic write on the CPU) and an append into
+ * the next frontier (NEXT_FRONTIER, atomic write on the CPU) -- and must not
+ * declare partial/private resources, which need slot machinery the step does
+ * not carry.  The traversal must be destination-owned: that ownership is why
+ * the CPU needs no claim atomic (each destination has exactly one owning
+ * worker, and that worker walks its rows in order), and it is exactly what the
+ * device kernel mirrors -- one thread per partition row, arcs walked
+ * sequentially -- so neither side needs a CAS.  The device's frontier append is
+ * a byte mark per claimed destination; the marks are compacted here in
+ * ascending vertex order, so next_frontier never depends on completion order. */
+/* Refusal reporting: a step that cannot run on the device says why, once per
+ * step (these checks run every round).  A silent fallback is un-auditable; a
+ * per-round one is unreadable. */
+static void sgpl_gpu_step_refuse(int32_t step_id, const char *why) {
+  static int32_t seen_id[8];
+  static int seen_n = 0;
+  int i;
+  if (!getenv("SGPL_GPU_DEBUG"))
+    return;
+  for (i = 0; i < seen_n; ++i)
+    if (seen_id[i] == step_id)
+      return;
+  if (seen_n < 8)
+    seen_id[seen_n++] = step_id;
+  fprintf(stderr, "[gpu] step %d kept on the CPU: %s\n", (int)step_id, why);
+}
+
+static int sgpl_gpu_step_try_device_v(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
+  const char *name;
+  const uint8_t *claimed = NULL;
+  int have_pair = 0, have_seen = 0, have_next = 0;
+  int32_t i, p;
+  int64_t nv = meta->csr_n;
+
+  name = autograph_gpu_step_name_for(ctx->step_id);
+  if (!name) {
+    sgpl_gpu_step_refuse(ctx->step_id, "no device kernel registered for this step id");
+    return 0;
+  }
+  if (strncmp(name, "gpu_step_v_", 11) != 0) {
+    sgpl_gpu_step_refuse(ctx->step_id, "registered kernel is not an activation kernel");
+    return 0;
+  }
+  if (!ctx->dest_seen || !ctx->next_frontier || !ctx->append_head) {
+    sgpl_gpu_step_refuse(ctx->step_id, "destination envelope not wired (dest_seen/next_frontier/append_head)");
+    return 0;
+  }
+  if (!meta->push_rp || !meta->push_ci || !meta->push_indir ||
+      !meta->push_row_count || meta->partition_count <= 0) {
+    sgpl_gpu_step_refuse(ctx->step_id, "destination-partitioned rows not built");
+    return 0;
+  }
+
+  for (i = 0; i < (int32_t)ctx->op_count; ++i) {
+    sgpl_runtime_op *op = &ctx->ops[i];
+    uint32_t j;
+    if ((op->capabilities & SGPL_OP_PAIR) && op->pair) {
+      if (have_pair) {
+        sgpl_gpu_step_refuse(ctx->step_id, "more than one pair body (not the fused step shape)");
+        return 0;
+      }
+      have_pair = 1;
+    }
+    /* Any other phase runs per source or per partition on the CPU; the device
+     * step mirrors the pair phase only, so their presence refuses. */
+    if (op->combine || op->source_begin || op->source_end || op->partition_begin ||
+        op->partition_end || op->round_begin || op->round_end) {
+      sgpl_gpu_step_refuse(ctx->step_id, "a source/partition/round phase op is present (it is not mirrored on the device)");
+      return 0;
+    }
+    for (j = 0; j < op->resource_count; ++j) {
+      const sgpl_res_access *a = &op->resources[j];
+      if (a->resource == SGPL_RES_DEST_SEEN)
+        have_seen = 1;
+      if (a->resource == SGPL_RES_NEXT_FRONTIER)
+        have_next = 1;
+      if (a->resource == SGPL_RES_PARTIAL || a->resource == SGPL_RES_PRIVATE) {
+        sgpl_gpu_step_refuse(ctx->step_id, "partial/private slot resources present (no slot machinery on the device step)");
+        return 0;
+      }
+    }
+  }
+  if (!have_pair || !have_seen || !have_next) {
+    sgpl_gpu_step_refuse(ctx->step_id, "the destination envelope facts (claim + append) are not declared");
+    return 0;
+  }
+
+  /* Cost gate, the same policy as the source-owned path (a device step pays a
+   * launch, a per-round membership upload and the pointee round trip). */
+  {
+    int64_t arcs = 0;
+    const char *mp = getenv("SGPL_GPU_ENGINE_MIN_PAIRS");
+    int64_t min_pairs = mp ? atoll(mp) : 2000000;
+    for (p = 0; p < meta->partition_count; ++p)
+      arcs += meta->push_rp[p] ? meta->push_rp[p][meta->push_row_count[p]] : 0;
+    if (sgpl_gpu_engine_step_verdict(arcs, min_pairs) == SGPL_GPU_SMALL_TRIPS) {
+      char why[128];
+      snprintf(why, sizeof(why), "cost model: %lld arcs < min_pairs=%lld (SGPL_GPU_ENGINE_MIN_PAIRS)",
+               (long long)arcs, (long long)min_pairs);
+      sgpl_gpu_step_refuse(ctx->step_id, why);
+      return 0;
+    }
+  }
+
+  if (!gpup_step_v_try(name, meta->push_rp[0], meta->partition_count,
+                       meta->push_rp, meta->push_ci, meta->push_indir,
+                       meta->push_row_count, ctx->membership, nv, &claimed))
+    return 0;
+
+  /* The CPU's activate() sets dest_seen[v] and appends v under the atomic head;
+   * the device marked exactly the transitions, so reproduce both here. */
+  if (claimed) {
+    int32_t appended = 0;
+    int64_t v;
+    for (v = 0; v < nv; ++v)
+      if (claimed[v]) {
+        ctx->next_frontier[ctx->initial_next_size + appended] = (int32_t)v;
+        ctx->dest_seen[v] = 1;
+        ++appended;
+      }
+    if (appended > 0 && ctx->append_head)
+      __atomic_fetch_add(ctx->append_head, appended, __ATOMIC_RELAXED);
+    if (getenv("SGPL_GPU_DEBUG"))
+      fprintf(stderr, "[gpu] activation step appended %d of %lld vertices\n",
+              (int)appended, (long long)nv);
+  }
+  return 1;
+}
+
+static int sgpl_gpu_step_try_device(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
+  const char *name;
+  int32_t p;
+
+  /* Enabled by default now that device == CPU for the accepted shapes
+   * (kcore's degree phase: degrees [19 29 26 23], sum 320000 = 2*|E|, the same
+   * answer as the CPU partitions).  The gate is strict and every failure falls
+   * back, so an unverified shape keeps the CPU.  SGPL_NO_GPU_ENGINE_STEP=1
+   * forces the CPU for A/B, SGPL_GPU_ENGINE_STEP=0 disables it too. */
+  {
+    const char *on = getenv("SGPL_GPU_ENGINE_STEP");
+    const char *off = getenv("SGPL_NO_GPU_ENGINE_STEP");
+    int forced_on = on && *on && strcmp(on, "0") != 0 && strcmp(on, "false") != 0;
+    int disabled = off && *off && strcmp(off, "0") != 0 && strcmp(off, "false") != 0;
+    if (!forced_on && ((on && (!*on || strcmp(on, "0") == 0)) || disabled))
+      return 0;
+  }
+  if (!meta || meta->partition_count <= 0)
+    return 0;
+  /* Destination-owned steps take the activation path above. */
+  if (ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V)
+    return sgpl_gpu_step_try_device_v(ctx, meta);
+  if (!meta->src_pairs)
+    return 0;
+  /* Source-owned steps only: the slice groups arcs by source, and the
+   * owner-computes guarantee that makes concurrent execution safe (and the
+   * one-thread-per-source kernel) is the OWNER_U discipline. */
+  if (ctx->traversal_kind != SGPL_TRAVERSE_OWNER_U)
+    return 0;
+  name = autograph_gpu_step_name_for(ctx->step_id);
+  if (!name || !*name) {
+    sgpl_gpu_step_refuse(ctx->step_id, "no device kernel registered for this step id");
+    return 0;
+  }
+  if (strncmp(name, "gpu_step_v_", 11) == 0) {
+    sgpl_gpu_step_refuse(ctx->step_id, "registered kernel is an activation kernel (different parameter layout)");
+    return 0;
+  }
+  /* Full-domain only: a membership-restricted step would have to filter the
+   * sources, and the slices carry every arc of the partition's sources. */
+  if (ctx->membership) {
+    sgpl_gpu_step_refuse(ctx->step_id, "membership-restricted step (the source slices carry every arc)");
+    return 0;
+  }
+  /* Nothing to fold afterwards: partials are combined on the host. */
+  if (sgpl_exec_has_cap(ctx, SGPL_OP_COMBINE)) {
+    sgpl_gpu_step_refuse(ctx->step_id, "combine phase present (partials are folded on the host)");
+    return 0;
+  }
+  /* The source lifecycle ops (begin/end, incl. the zero-pair coverage pass) are
+   * part of the CPU partition body; the device step does not run them yet, so a
+   * step that has them stays on the CPU. */
+  if (sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_BEGIN) ||
+      sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_END)) {
+    sgpl_gpu_step_refuse(ctx->step_id, "per-source lifecycle ops are part of the CPU partition body");
+    return 0;
+  }
+  /* Cost gate.  A device step pays a launch per partition plus the per-step
+   * buffer copies (slices, run structure, pointee write-back), so a step that
+   * is small in arcs loses to the CPU partitions -- measured on the fixtures
+   * as 10-200x slower, which also pushed the autotuner's region predictions
+   * off their measured times.  Tunable; the default is deliberately
+   * conservative (the device step only pays off on large steps). */
+  {
+    int64_t total = 0;
+    const char *mp = getenv("SGPL_GPU_ENGINE_MIN_PAIRS");
+    int64_t min_pairs = mp ? atoll(mp) : 2000000;
+    for (p = 0; p < meta->partition_count; ++p)
+      total += meta->src_pair_count ? meta->src_pair_count[p] : 0;
+    if (sgpl_gpu_engine_step_verdict(total, min_pairs) == SGPL_GPU_SMALL_TRIPS)
+    {
+      char why[128];
+      snprintf(why, sizeof(why), "cost model: %lld pairs < min_pairs=%lld (SGPL_GPU_ENGINE_MIN_PAIRS)",
+               (long long)total, (long long)min_pairs);
+      sgpl_gpu_step_refuse(ctx->step_id, why);
+      return 0;
+    }
+  }
+
+  for (p = 0; p < meta->partition_count; ++p) {
+    if (!gpup_step_try(name, meta->src_pairs[p], meta->src_pair_count[p]))
+      return 0;
+  }
+  return 1;
+}
+
 static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   int32_t step_id = ctx->step_id;
   int32_t partitions = (int32_t)meta->partition_count;
@@ -3343,6 +3576,18 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
 
   if (step_id < 0 || tdg_engine_disabled) {
     parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+    return;
+  }
+
+  /* ── device engine step (stage 1) ────────────────────────────────────
+   * The CleanCut source-owned slices are the step's work list and the
+   * owner-computes assignment is the guarantee that no two partitions write the
+   * same slot -- the same reason the CPU runs them in parallel -- so the
+   * identical work may run on the device, partition by partition, over the same
+   * slices.  Only full-domain steps qualify (no membership restriction) and
+   * only when nothing has to fold afterwards; any failure falls through to the
+   * CPU dispatch below, whose answers are identical by construction. */
+  if (sgpl_gpu_step_try_device(ctx, meta)) {
     return;
   }
 
@@ -3419,6 +3664,14 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
     sgpl_exec_source_coverage(ctx, /*begin=*/1);
 
   sgpl_exec_step_dispatch(ctx, meta);
+
+  if (getenv("SGPL_GPU_DEBUG")) {
+    int64_t total_pairs = 0;
+    for (p = 0; p < meta->partition_count; ++p)
+      total_pairs += meta->src_pair_count ? meta->src_pair_count[p] : 0;
+    fprintf(stderr, "[step] partitions=%d total_src_pairs=%lld step=%d\n",
+            (int)meta->partition_count, (long long)total_pairs, (int)ctx->step_id);
+  }
 
   if (cov_end)
     sgpl_exec_source_coverage(ctx, /*begin=*/0);
@@ -3593,7 +3846,8 @@ sgpl_runtime_op *autograph_exec_op_create(
  * snapshot slot and return the buffer; the Snapshot op publishes the pointer
  * through its operation state for the round's cross-reads. */
 void *autograph_snapshot_publish(void *graph_ptr, const void *live_base,
-                                 int64_t elem_bytes, int32_t slot) {
+                                 int64_t elem_bytes, int32_t slot,
+                                 const char *name) {
   AutoGraphMeta *meta = find_meta(graph_ptr);
   int64_t bytes;
   void *buf;
@@ -3605,6 +3859,12 @@ void *autograph_snapshot_publish(void *graph_ptr, const void *live_base,
   if (!buf)
     return NULL;
   memcpy(buf, live_base, (size_t)bytes);
+  /* The device step's pair body reads this shadow through the module global the
+   * compiler named: register the published buffer under that same name so the
+   * step's pointee materialisation copies it to the device every round (the
+   * buffer is host-refreshed at round begin, so the upload must be per-launch). */
+  if (name && *name && sgpl_gpu_register_pointee)
+    sgpl_gpu_register_pointee(name, buf, bytes);
   return buf;
 }
 

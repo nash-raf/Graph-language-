@@ -68,7 +68,7 @@ static int32_t g_ended[8];         /* SourceEnd per source (exactly-once) */
 static void snap_op(sgpl_runtime_op *op, sgpl_exec_ctx *ctx) {
   void **slot = (void **)op->state;
   atomic_fetch_add(&g_snap_calls, 1);
-  *slot = autograph_snapshot_publish(ctx->graph, g_live, sizeof(int32_t), 0);
+  *slot = autograph_snapshot_publish(ctx->graph, g_live, sizeof(int32_t), 0, "snapshot");
 }
 
 static void pair_read_snap(void *state, sgpl_exec_ctx *ctx, int32_t u,

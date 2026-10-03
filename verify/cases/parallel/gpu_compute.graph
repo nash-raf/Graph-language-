@@ -1,0 +1,15 @@
+int n = 1000000;
+int a[n];
+int b[n];
+int i = 0;
+while (i < n)
+{
+    int t = i * 3 + 7;
+    a[i] = t * 5 - i * 11 + (t + i) * 2;
+    b[i] = a[i] + t * 7 - i;
+    i = i + 1;
+}
+print "a_last";
+print a[n - 1];
+print "b_last";
+print b[n - 1];

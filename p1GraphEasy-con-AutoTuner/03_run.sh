@@ -62,7 +62,9 @@ fi
 # 1) Generate program.o (contains the generated code entrypoints)
 # 1a) Run hardware calibration micro-benchmark for autotuner cost model
 if [[ ! -f hw_calib_bench ]]; then
-  gcc -O2 -o hw_calib_bench hw_calib_bench.c
+  # -lm: the calibration kernel uses log/exp; without it a fresh checkout cannot
+  # build (a long-lived tree hides this because the binary is already there).
+  gcc -O2 -o hw_calib_bench hw_calib_bench.c -lm
 fi
 mkdir -p "${HOME}/.config/sgpl"
 if [[ ! -f "${HOME}/.config/sgpl/hw_calib.json" ]]; then

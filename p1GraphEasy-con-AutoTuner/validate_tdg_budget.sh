@@ -26,9 +26,12 @@ fi
 echo "=== building tdg_budget_test ==="
 gcc -O2 $INC -c "$C/tdg_budget_test.c" -o "$OUT.test.o"
 gcc -O3 $INC -c "$C/parallel_runtime.c" -o "$OUT.rt.o"
+# gpu_runtime.c supplies the device cost model (sgpl_gpu_policy_verdict); it is
+# linked for its *pure* policy only -- no GPU is touched by this gate.
+gcc -O3 -c "$C/gpu_runtime.c" -o "$OUT.gpu.o"
 g++ -O3 -mavx2 -march=native -fopenmp -c "$C/roaring_bitmap.cpp" -o "$OUT.rb.o"
-g++ -O2 -fopenmp "$OUT.test.o" "$OUT.rt.o" "$OUT.rb.o" -o "$OUT.bin" \
-  $LIB -lnlopt -lpthread -lm
+g++ -O2 -fopenmp "$OUT.test.o" "$OUT.rt.o" "$OUT.rb.o" "$OUT.gpu.o" -o "$OUT.bin" \
+  $LIB -lnlopt -lpthread -lm -ldl
 
 fails=0
 run() {

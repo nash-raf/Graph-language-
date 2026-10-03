@@ -191,10 +191,18 @@ static std::string resolveBackend(std::string &backendReason)
         backendReason = requestGpu ? "--ir-backend=auto (GPU detected)" : "--ir-backend=auto (CPU default)";
     }
 
+    /* An explicit request is authoritative: FORCE_GPU=1 and --ir-backend=gpu mean
+     * "emit GPU IR here", which is exactly what a build host without a device
+     * needs (the PTX is JIT-compiled on the target at run time).  Only the
+     * automatic choice and --gpu (documented as "when a usable GPU is detected")
+     * fall back when the host has no device. */
+    const bool forcedGpu = forceGPU || chosen == "gpu";
     if (requestGpu && !usableGpu)
     {
-        backendReason += "; requested GPU backend but no usable GPU detected, falling back to CPU";
-        return "cpu";
+        backendReason += forcedGpu ? "; forced without a detectable GPU on this host"
+                                   : "; requested GPU backend but no usable GPU detected, falling back to CPU";
+        if (!forcedGpu)
+            return "cpu";
     }
 
     return requestGpu ? "gpu" : "cpu";
@@ -1017,6 +1025,9 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
     }
 }
 
+/* Defined by the GPU runtime when the binary carries one; absent otherwise. */
+extern "C" __attribute__((weak)) void sgpl_gpu_prepare(void);
+
 int main(int argc, char **argv)
 {
     InitLLVM initLLVM(argc, argv);
@@ -1030,6 +1041,13 @@ int main(int argc, char **argv)
 
     std::string backendSelectionReason;
     const std::string activeIRBackend = resolveBackend(backendSelectionReason);
+
+    /* Pay the device bring-up (driver load, context, module) before any
+     * profiling run can see it: the compiler profiles by running the program,
+     * and a first-call module load would otherwise land inside the profiled
+     * region and inflate its measured time against the model's prediction. */
+    if (activeIRBackend == "gpu" && sgpl_gpu_prepare)
+        sgpl_gpu_prepare();
 
     // errs() << "IR backend selected: " << activeIRBackend << " (" << backendSelectionReason << ")\n";
 

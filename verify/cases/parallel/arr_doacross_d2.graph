@@ -1,0 +1,14 @@
+// Array-only DOACROSS distance 2: statically sized array, literal bound
+// inline, dyadic arithmetic (bit-identical answers across thread counts).
+real a[131072];
+int round = 0;
+int i = 2;
+while (i < 131072) { a[i] = 1.0; i = i + 1; }
+while (round < 200) {
+  round = round + 1;
+  i = 2;
+  while (i < 131072) { a[i] = a[i - 2] * 0.5 + 3.0; i = i + 1; }
+}
+real tot = 0.0; i = 0;
+while (i < 131072) { tot = tot + a[i]; i = i + 1; }
+print "checksum"; print tot;

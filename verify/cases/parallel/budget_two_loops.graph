@@ -1,0 +1,128 @@
+// Universal-thread-budget validation case: two INDEPENDENT parallelizable task
+// loops at the same level with unequal work (A short, B long: ~1 vs 48 dependent
+// division terms), so the level's budget split matters and the optimum is not
+// uniform.  Both bodies carry a division chain, so neither is vectorized away --
+// both stay cost-model sites -- and the round loop repeats them for calibration.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+real a[n];
+real b[n];
+int round = 0;
+for each vertex v in G { a[v] = 1.0; b[v] = 1.0; }
+while (round < 200) {
+  round = round + 1;
+  for each vertex v in G {            // task loop A: short
+    real x = a[v];
+    real s = x * 0.5;
+    s = s + x / (1.0 + s * s + 1.0);
+    x = x * 1.0000001 + s;
+    a[v] = s;
+  }
+  for each vertex v in G {            // task loop B: long
+    real x = b[v];
+    real s = x * 0.5;
+    s = s + x / (1.0 + s * s + 0.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 1.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 2.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 3.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 4.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 5.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 6.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 7.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 8.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 9.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 10.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 11.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 12.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 13.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 14.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 15.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 16.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 17.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 18.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 19.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 20.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 21.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 22.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 23.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 24.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 25.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 26.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 27.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 28.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 29.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 30.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 31.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 32.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 33.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 34.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 35.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 36.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 37.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 38.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 39.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 40.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 41.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 42.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 43.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 44.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 45.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 46.0);
+    x = x * 1.0000001 + s;
+    s = s + x / (1.0 + s * s + 47.0);
+    x = x * 1.0000001 + s;
+    b[v] = s;
+  }
+}
+real ta = 0.0; real tb = 0.0; int q = 0;
+while (q < n) { ta = ta + a[q]; tb = tb + b[q]; q = q + 1; }
+print "ta"; print ta;
+print "tb"; print tb;

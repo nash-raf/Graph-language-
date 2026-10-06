@@ -1,0 +1,74 @@
+================================================================================
+PROMPT -- Effect-system rejection conditions: spatial vs temporal composition
+================================================================================
+(verbatim, with the accidentally repeated section de-duplicated)
+
+so we have like 8 rejection conditions. And currently we make the graph loop
+sequential if any one of them hold, right? COnfirm this statement. But each of
+the rejection condition proves interference for only one axis between spatial
+and temporal. No just because temporal interference holds and thus temporally it
+cannot be parallelised, doesnt mean that spatial interference holds as well and
+its not parallelisable spatally. Look at this code:
+
+for (int t = 0; t < num_rounds; t++) {
+
+    for (int u = 0; u < n; u++) {
+
+        // Read state produced for u in the preceding round.
+        int x = state[u];
+
+        // Graph traversal, but no cross-source shared mutation.
+        for (int k = row[u]; k < row[u + 1]; k++) {
+            int v = col[k];
+
+            // Compute something from x and v.
+            int y = x + weight[v];
+
+            // Each source writes only its own slot.
+            state[u] = y;
+        }
+    }
+}
+
+The essential temporal part is:
+
+    int x = state[u];
+    ...
+    state[u] = y;
+
+accross different rounds:
+
+    round t-1:  state[u] = ...
+                  |
+                  v
+    round t:    x = state[u]
+
+this is exactly rejection condition 4 which states that A carried read in each
+round accesses a base that is mutated in the preceding round, such that the read
+observes the preceding round's mutation. But spatially every source u touches
+only state[u] so the source can be partitioned. So the round can remain
+sequential while spatially it can be parallelised like this:
+
+    Round t
+     |-- Partition 1: u = 0..249    --+
+     |-- Partition 2: u = 250..499   |-- execute in parallel
+     |-- Partition 3: ...            |
+     +-- Partition 4: ...           -+
+                  |
+               barrier
+                  |
+    Round t+1
+     |-- Partition 1 --+
+     |-- Partition 2   |-- execute in parallel
+     +-- ...          -+
+
+So can we group the rejection conditions by spatial or temporal and then make it
+so that it is sequential only if both spatial and temproal rejection holds? Like
+if any spatial rejection holds then spatial rejection holds and same for
+temporal. Spatial rejections are rejection conditions 1,3,7. The rest, with the
+exception for condition 8 and 6 are temporal. Condition 8 is an implementation
+level guard, not theoretical. Condition 6 has both a spatial and a temporal
+part. So if spatial rejection is proven but temporal is not can we still compose
+a parallelisation that respects the sequential temporal nature but harnesses the
+spatial paralellisation available and vice versa? It needs to be generic like
+the engine we have right now. is this feasible?

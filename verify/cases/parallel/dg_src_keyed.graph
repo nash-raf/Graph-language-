@@ -1,0 +1,16 @@
+// Write keyed by the SOURCE of the neighbour loop: one owner per key.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+int deg[n];
+int alive[n];
+for each vertex v in G { deg[v] = 0; alive[v] = 1; }
+for each vertex u in G {
+  for each neighbor v of u in G {
+    deg[u] = deg[u] + 1;
+  }
+}
+int tot = 0; int q = 0;
+while (q < n) { tot = tot + deg[q]; q = q + 1; }
+print "degsum"; print tot;

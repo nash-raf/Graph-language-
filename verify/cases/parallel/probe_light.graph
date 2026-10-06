@@ -1,0 +1,9 @@
+// Does a plain element-wise loop become a DOALL site?
+real a[131072];
+int i = 0;
+while (i < 131072) { a[i] = 1.0; i = i + 1; }
+i = 0;
+while (i < 131072) { a[i] = a[i] + 1.0; i = i + 1; }
+real tot = 0.0; i = 0;
+while (i < 131072) { tot = tot + a[i]; i = i + 1; }
+print "checksum"; print tot;

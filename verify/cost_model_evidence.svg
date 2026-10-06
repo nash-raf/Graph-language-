@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" font-family="monospace" font-size="12">
+<rect width="900" height="520" fill="white"/>
+<line x1="90" y1="450.0" x2="700" y2="450.0" stroke="#ddd"/>
+<text x="82" y="454.0" text-anchor="end">0.0</text>
+<line x1="90" y1="341.7" x2="700" y2="341.7" stroke="#ddd"/>
+<text x="82" y="345.7" text-anchor="end">0.5</text>
+<line x1="90" y1="233.3" x2="700" y2="233.3" stroke="#ddd"/>
+<text x="82" y="237.3" text-anchor="end">1.0</text>
+<line x1="90" y1="125.0" x2="700" y2="125.0" stroke="#ddd"/>
+<text x="82" y="129.0" text-anchor="end">1.5</text>
+<line x1="90" y1="233.3" x2="700" y2="233.3" stroke="#888" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="708" y="237.3" fill="#555">break-even</text>
+<line x1="237.5" y1="60" x2="237.5" y2="450" stroke="#eee"/>
+<text x="237.5" y="468" text-anchor="middle">4k</text>
+<line x1="510.1" y1="60" x2="510.1" y2="450" stroke="#eee"/>
+<text x="510.1" y="468" text-anchor="middle">200k</text>
+<line x1="671.6" y1="60" x2="671.6" y2="450" stroke="#eee"/>
+<text x="671.6" y="468" text-anchor="middle">2M</text>
+<line x1="237.5" y1="60" x2="237.5" y2="450" stroke="#08c" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="242.5" y="74" fill="#08c">min_trips 4096</text>
+<line x1="671.6" y1="60" x2="671.6" y2="450" stroke="#c00" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="676.6" y="74" fill="#c00">engine floor 2M arcs</text>
+<polygon points="543.1,354.2 550.1,366.2 536.1,366.2" fill="#c00" fill-opacity="0.75"/>
+<circle cx="510.1" cy="185.7" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="304.8" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="185.7" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="239.8" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="239.8" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="209.5" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="242.0" r="6" fill="#08c" fill-opacity="0.75"/>
+<circle cx="510.1" cy="283.2" r="6" fill="#08c" fill-opacity="0.75"/>
+<rect x="538.1" y="185.0" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<rect x="538.1" y="267.3" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<rect x="538.1" y="198.0" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<rect x="538.1" y="187.2" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<rect x="538.1" y="230.5" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<rect x="538.1" y="180.7" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<rect x="538.1" y="198.0" width="10" height="10" fill="#777" fill-opacity="0.6"/>
+<polygon points="138.6,239.3 145.6,251.3 131.6,251.3" fill="#c00" fill-opacity="0.75"/>
+<polygon points="187.2,265.3 194.2,277.3 180.2,277.3" fill="#c00" fill-opacity="0.75"/>
+<polygon points="237.5,326.0 244.5,338.0 230.5,338.0" fill="#c00" fill-opacity="0.75"/>
+<polygon points="286.1,157.0 293.1,169.0 279.1,169.0" fill="#080" fill-opacity="0.75"/>
+<polygon points="334.7,159.2 341.7,171.2 327.7,171.2" fill="#080" fill-opacity="0.75"/>
+<polygon points="431.9,226.3 438.9,238.3 424.9,238.3" fill="#080" fill-opacity="0.75"/>
+<polygon points="529.1,252.3 536.1,264.3 522.1,264.3" fill="#c00" fill-opacity="0.75"/>
+<polygon points="626.3,189.5 633.3,201.5 619.3,201.5" fill="#080" fill-opacity="0.75"/>
+<polygon points="91.7,421.3 98.7,433.3 84.7,433.3" fill="#c00" fill-opacity="0.75"/>
+<polygon points="140.3,414.8 147.3,426.8 133.3,426.8" fill="#c00" fill-opacity="0.75"/>
+<polygon points="188.9,412.7 195.9,424.7 181.9,424.7" fill="#c00" fill-opacity="0.75"/>
+<polygon points="237.5,412.7 244.5,424.7 230.5,424.7" fill="#c00" fill-opacity="0.75"/>
+<polygon points="286.1,200.3 293.1,212.3 279.1,212.3" fill="#080" fill-opacity="0.75"/>
+<polygon points="334.7,414.8 341.7,426.8 327.7,426.8" fill="#c00" fill-opacity="0.75"/>
+<polygon points="431.9,395.3 438.9,407.3 424.9,407.3" fill="#c00" fill-opacity="0.75"/>
+<polygon points="541.7,343.3 548.7,355.3 534.7,355.3" fill="#c00" fill-opacity="0.75"/>
+<polygon points="541.7,334.7 548.7,346.7 534.7,346.7" fill="#c00" fill-opacity="0.75"/>
+<text x="714" y="130" fill="#c00">triangle controlled median (warm off)</text>
+<text x="714" y="150" fill="#08c">circle single pod run</text>
+<text x="714" y="170" fill="#777">square engine step declined (backend only)</text>
+<text x="90" y="496">work items (trips for kernels, arcs for engine steps), log scale</text>
+<text x="90" y="36">Device cost-model evidence: speedup cpu/gpu (&gt;1 = device faster) vs gate thresholds</text>
+</svg>

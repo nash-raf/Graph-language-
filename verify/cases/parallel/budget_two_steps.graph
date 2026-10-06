@@ -1,0 +1,79 @@
+// Universal-thread-budget validation case, STEP shape: two independent
+// neighbour loops in one round -- the shape the frontier lowering turns into two
+// engine steps, which the compiler groups into ONE TDG level with two tasks, so
+// the level's budget is split between them.  A is light, B is heavy, so the
+// optimal split is not uniform.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+int degA[n];
+int degB[n];
+real acc[n];
+int round = 0;
+for each vertex v in G { degA[v] = 0; degB[v] = 0; acc[v] = 1.0; }
+while (round < 50) {
+  round = round + 1;
+  for each vertex u in G {            // task A: light
+    for each neighbor v of u in G { degA[u] = degA[u] + 1; }
+  }
+  for each vertex u in G {            // task B: heavy
+    for each neighbor v of u in G {
+      real x = acc[u];
+      real s = x * 0.5;
+      s = s + x / (1.0 + s * s + 0.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 1.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 2.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 3.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 4.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 5.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 6.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 7.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 8.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 9.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 10.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 11.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 12.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 13.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 14.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 15.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 16.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 17.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 18.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 19.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 20.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 21.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 22.0);
+      x = x * 1.0000001 + s;
+      s = s + x / (1.0 + s * s + 23.0);
+      x = x * 1.0000001 + s;
+      acc[u] = s;
+    }
+  }
+}
+int ta = 0; int tb = 0; int q = 0;
+while (q < n) { ta = ta + degA[q]; tb = tb + degB[q]; q = q + 1; }
+print "ta"; print ta;
+print "alive"; print tb;

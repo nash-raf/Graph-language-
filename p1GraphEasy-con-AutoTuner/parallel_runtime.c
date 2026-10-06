@@ -2318,9 +2318,42 @@ static int32_t sgpl_loop_pool_lookup_assigned_threads(int32_t loop_id)
     return 0;
 }
 
+/* Validation knob: SGPL_FORCE_WIDTHS="<loop_id>:<width>[,<loop_id>:<width>...]"
+ * pins the width of named loop sites so a caller can enumerate allocations
+ * (e.g. sweep every (w1, w2) split between two task loops in one TDG level).
+ * Default off: with the variable unset the planner decides, unchanged. */
+static int32_t sgpl_forced_width_for_loop_id(int32_t loop_id)
+{
+    const char *env = getenv("SGPL_FORCE_WIDTHS");
+    const char *p = env;
+    if (!env || !*env || loop_id < 0)
+        return -1;
+    while (*p)
+    {
+        char *end = NULL;
+        long id = strtol(p, &end, 10);
+        if (end == p || !end || *end != ':')
+            break;
+        long w = strtol(end + 1, &end, 10);
+        if (end == p)
+            break;
+        p = end;
+        if (id == loop_id && w > 0)
+            return (int32_t)w;
+        while (*p && *p != ',')
+            ++p;
+        if (*p == ',')
+            ++p;
+    }
+    return -1;
+}
+
 static int32_t sgpl_loop_effective_decision_threads_for_loop_id(int32_t loop_id)
 {
     int32_t threads = sgpl_runtime_thread_count();
+    int32_t forced = sgpl_forced_width_for_loop_id(loop_id);
+    if (forced > 0)
+        return forced;
     int32_t assigned = sgpl_loop_pool_lookup_assigned_threads(loop_id);
 
     if (assigned > 0)
@@ -3360,6 +3393,90 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
     free(upper_bounds);
 }
 
+/* Validation: print the level's plan (the model's chosen allocation) and let
+ * SGPL_FORCE_WIDTHS pin it.  Gated on the budget debug flag, or on the sweep
+ * variable being present so a sweep always carries the model's own choice. */
+static void sgpl_tdg_print_level_plan(const sgpl_level_loop_plan *plan,
+                                      int64_t work_units,
+                                      int64_t span_units,
+                                      int32_t level_budget)
+{
+    const char *force = getenv("SGPL_FORCE_WIDTHS");
+    const char *dump = getenv("SGPL_TDG_PLAN_DUMP");
+    int32_t i;
+    if (!plan)
+        return;
+    if (!budget_debug_enabled() && !(force && *force) && !(dump && *dump))
+        return;
+    fprintf(stderr,
+            "[tdg.plan] level entries=%d budget=%d loop_budget=%d idle=%d dominant=%d total_model_ns=%.1f work=%lld span=%lld\n",
+            plan->entry_count,
+            level_budget,
+            plan->loop_budget,
+            plan->idle_threads,
+            plan->dominant_loop_id,
+            plan->total_model_ns,
+            (long long)work_units,
+            (long long)span_units);
+    for (i = 0; i < plan->entry_count; ++i)
+    {
+        fprintf(stderr,
+                "[tdg.plan]   slot=%d loop_id=%d assigned_threads=%d c_rank_ns=%.3f model_ns=%.1f\n",
+                plan->entries[i].task_slot,
+                plan->entries[i].loop_id,
+                plan->entries[i].assigned_threads,
+                plan->entries[i].c_rank_ns,
+                plan->entries[i].model_ns);
+    }
+    fflush(stderr);
+}
+
+static void sgpl_tdg_apply_forced_widths(sgpl_level_loop_plan *plan)
+{
+    const char *env = getenv("SGPL_FORCE_WIDTHS");
+    int32_t i;
+    int32_t sum = 0;
+    int32_t forced_any = 0;
+    if (!plan || plan->entry_count <= 0)
+        return;
+    for (i = 0; i < plan->entry_count; ++i)
+    {
+        int32_t forced = -1;
+        const char *q = env;
+        while (q && *q)
+        {
+            char *end = NULL;
+            long id = strtol(q, &end, 10);
+            if (end == q || !end || *end != ':')
+                break;
+            long w = strtol(end + 1, &end, 10);
+            if (end == q)
+                break;
+            q = end;
+            if (id == plan->entries[i].loop_id && w > 0)
+            {
+                forced = (int32_t)w;
+                break;
+            }
+            while (*q && *q != ',')
+                ++q;
+            if (*q == ',')
+                ++q;
+        }
+        if (forced > 0)
+        {
+            plan->entries[i].assigned_threads = forced;
+            forced_any = 1;
+        }
+        sum += plan->entries[i].assigned_threads;
+    }
+    if (forced_any)
+    {
+        plan->loop_budget = sum > 0 ? sum : 1;
+        plan->remaining_threads = plan->loop_budget;
+    }
+}
+
 static int32_t sgpl_choose_tdg_threads_with_loop_budget(int64_t work_units,
                                                         int64_t span_units,
                                                         const sgpl_tdg_task_desc *tasks,
@@ -3996,6 +4113,8 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
     loop_threads_total = level_budget_threads - chosen_threads;
     if (loop_threads_total < 0)
         loop_threads_total = 0;
+    sgpl_tdg_apply_forced_widths(&loop_plan);
+    sgpl_tdg_print_level_plan(&loop_plan, effective_work_units, effective_span_units, level_budget_threads);
 
     granted_threads = sgpl_budget_try_reserve(level_budget_threads);
     if (granted_threads <= 1)
@@ -4052,6 +4171,8 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
         loop_threads_total = level_budget_threads - chosen_threads;
         if (loop_threads_total < 0)
             loop_threads_total = 0;
+        sgpl_tdg_apply_forced_widths(&loop_plan);
+        sgpl_tdg_print_level_plan(&loop_plan, effective_work_units, effective_span_units, level_budget_threads);
 
         granted_threads = sgpl_budget_try_reserve(level_budget_threads);
         if (granted_threads <= 1)
@@ -4534,6 +4655,23 @@ static int sgpl_warmup_calibration_disabled(void)
     return cached;
 }
 
+/* A decision taken before the sampler is STABLE must not be cached: the
+ * DOACROSS path would otherwise freeze its very first (warming, serial)
+ * verdict for the life of the process and never calibrate.  Validation knob,
+ * default off (SGPL_NO_WARMUP_DECISION_CACHE=1 enables). */
+static int sgpl_should_cache_decision(const sgpl_loop_runtime_state *state)
+{
+    static int no_warm_cache = -1;
+    if (no_warm_cache < 0)
+    {
+        const char *v = getenv("SGPL_NO_WARMUP_DECISION_CACHE");
+        no_warm_cache = v && *v && strcmp(v, "0") != 0;
+    }
+    if (no_warm_cache && state && state->c_sampling_state != SGPL_C_SAMPLING_STABLE)
+        return 0;
+    return 1;
+}
+
 int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
                                       int64_t start,
                                       int64_t end,
@@ -4770,7 +4908,8 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
         threshold = l_ns / denominator;
 
     choose_parallel = denominator > 0.0 && (double)trip_count > threshold;
-    sgpl_loop_store_cached_decision(state, desc, effective_threads, choose_parallel);
+    if (sgpl_should_cache_decision(state))
+        sgpl_loop_store_cached_decision(state, desc, effective_threads, choose_parallel);
 
     if (runtime_debug_enabled())
     {
@@ -5393,7 +5532,8 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
                        ((double)trip_count * c_ind / (double)effective_threads) +
                        ((double)trip_count * sync_per_iter);
         choose_parallel = serial_lhs > parallel_rhs;
-        sgpl_loop_store_cached_decision(state, desc, effective_threads, choose_parallel);
+        if (sgpl_should_cache_decision(state))
+            sgpl_loop_store_cached_decision(state, desc, effective_threads, choose_parallel);
     }
 
     if (runtime_debug_enabled())

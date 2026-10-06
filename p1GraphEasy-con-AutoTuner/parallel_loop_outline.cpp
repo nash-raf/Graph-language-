@@ -1025,11 +1025,31 @@ namespace
     {
         bool GraphDomain = isGraphDomainLoop(Candidate);
 
+        /* Validation knobs (defaults unchanged): the flat floors below keep
+         * `while (i<N) { a[i] = a[i] + k; }` from ever reaching the online cost
+         * model, so such a loop cannot be used as a DOALL/DOACROSS validation
+         * subject.  SGPL_OUTLINER_MIN_TRIP / SGPL_OUTLINER_MIN_EFF lower those
+         * bars explicitly; unset, behaviour is byte-identical to before. */
+        unsigned TripFloor = 32u;
+        unsigned EffFloor = ForGpu ? 1u : (GraphDomain ? 3u : 8u);
+        if (const char *E = getenv("SGPL_OUTLINER_MIN_TRIP"))
+        {
+            long V = strtol(E, nullptr, 10);
+            if (V > 0)
+                TripFloor = (unsigned)V;
+        }
+        if (const char *E = getenv("SGPL_OUTLINER_MIN_EFF"))
+        {
+            long V = strtol(E, nullptr, 10);
+            if (V > 0)
+                EffFloor = (unsigned)V;
+        }
+
         if (std::optional<uint64_t> TripCount = getConstantTripCount(Candidate, SE))
         {
             if (*TripCount <= 1)
                 return std::string("constant-trip-count-leq-1");
-            if (*TripCount < 32)
+            if (*TripCount < TripFloor)
                 return std::string("constant-trip-count-small");
             /* A statically-bounded loop is not a graph traversal even if it is
              * tagged as one; keep the flat threshold. */
@@ -1041,7 +1061,7 @@ namespace
          * economics are checked at run time (SGPL_GPU_MIN_TRIPS), so a trivial
          * body is exactly what a GPU wants -- lower the bar when the GPU backend
          * is selected and leave the CPU decision untouched. */
-        const unsigned Threshold = ForGpu ? 1u : (GraphDomain ? 3u : 8u);
+        const unsigned Threshold = EffFloor;
         unsigned EffCount = countEffectiveLoopBodyInstructions(Candidate);
         if (EffCount < Threshold)
             return std::string("trivial-loop-body eff=") + std::to_string(EffCount) +

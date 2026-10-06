@@ -567,9 +567,17 @@ namespace
     switch (type)
     {
     case RegionType::Traverse:
-      return true; // CSR, PCSR, BCSR, SET all feasible
     case RegionType::Insert:
-      return true; // CSR, PCSR, BCSR, SET all feasible
+    {
+      /* AUTOTUNER_FORCE_LAYOUT constrains the *choice* among the layouts a
+       * traversal/insert region may use.  It is a validation instrument: force
+       * CSR, PCSR, BCSR or SET and measure the same workload under each.  The
+       * switch used to only relax the injection guards, so a forced layout that
+       * the DP did not itself choose was never installed (zero injections);
+       * constraining feasibility makes the force effective. */
+      const int forced = forcedLayoutFromEnv();
+      return forced < 0 || layout == forced;
+    }
     case RegionType::SetQuery:
       return layout == LAYOUT_SET; // graph bitmap / set queries require SET
     case RegionType::CSRQuery:

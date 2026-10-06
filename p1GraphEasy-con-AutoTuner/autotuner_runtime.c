@@ -3452,8 +3452,17 @@ static int sgpl_gpu_step_try_device_v(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
     }
   }
 
+  /* One kernel per step: the per-row (destination-owned) activation kernel.
+   * A per-arc "pull" variant was implemented and removed again: it read the
+   * same pair set in principle (gate on the arc's source's membership) but
+   * appended 5 instead of 19 frontier vertices in round 1 and ended at
+   * 'reached 8' instead of 'reached 20000' on the 20k fixture -- the arc->row
+   * source mapping does not reproduce the row kernel's gate, and a wrong
+   * kernel must not be reachable even behind an env.  See
+   * verify/GPU_GRAPH_SYSTEMS_REVIEW.md. */
   if (!gpup_step_v_try(name, meta->push_rp[0], meta->partition_count,
-                       meta->push_rp, meta->push_ci, meta->push_indir,
+                       meta->push_rp, (const int32_t *const *)meta->push_ci,
+                       (const int32_t *const *)meta->push_indir,
                        meta->push_row_count, ctx->membership, nv, &claimed))
     return 0;
 

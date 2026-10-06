@@ -1,0 +1,25 @@
+fixture,graph,N,P,rounds,t_s,c_ns,L_thread_ns,L_path_ns,L_total_ns,speedup,threshold_trips,samples,c_state,choose,ans,site,decisions
+doall_scaling,g20k.txt,20000,1,200,0.644058,-,-,-,-,-,-,-,-,-,no-site,checksum 674218.0289763,-,0
+doall_scaling,g20k.txt,20000,1,200,0.644058,-,-,-,-,-,-,-,-,-,no-site,checksum 674218.0289763,-,0
+doall_scaling,g20k.txt,20000,2,200,0.947826,90.600,1560.00,0.00,1560.00,0.500000,34.4,4,stable,parallel,checksum 674218.0289763,task_1::foreach.cond16,1
+doall_scaling,g20k.txt,20000,2,200,0.947826,90.600,1560.00,0.00,1560.00,0.500000,34.4,4,stable,parallel,checksum 674218.0289763,task_1::foreach.cond16,1
+doall_scaling,g20k.txt,20000,4,200,0.771564,86.770,1920.00,0.00,1920.00,0.750000,29.5,4,stable,parallel,checksum 674218.0289763,task_1::foreach.cond16,1
+doall_scaling,g20k.txt,20000,4,200,0.771564,86.770,1920.00,0.00,1920.00,0.750000,29.5,4,stable,parallel,checksum 674218.0289763,task_1::foreach.cond16,1
+doall_scaling,g20k.txt,20000,8,200,0.791445,85.290,2640.00,0.00,2640.00,0.875000,35.4,4,stable,parallel,checksum 674218.0289763,task_1::foreach.cond16,1
+doall_scaling,g20k.txt,20000,8,200,0.791445,85.290,2640.00,0.00,2640.00,0.875000,35.4,4,stable,parallel,checksum 674218.0289763,task_1::foreach.cond16,1
+doall_scaling,bio-grid-yeast.txt,0,1,200,0.388672,-,-,-,-,-,-,-,-,-,no-site,checksum 202535.0959045,-,0
+doall_scaling,bio-grid-yeast.txt,0,1,200,0.388672,-,-,-,-,-,-,-,-,-,no-site,checksum 202535.0959045,-,0
+doall_scaling,bio-grid-yeast.txt,6008,2,200,0.622028,113.940,1560.00,0.00,1560.00,0.500000,27.4,4,stable,parallel,checksum 202535.0959045,task_1::foreach.cond16,1
+doall_scaling,bio-grid-yeast.txt,6008,2,200,0.622028,113.940,1560.00,0.00,1560.00,0.500000,27.4,4,stable,parallel,checksum 202535.0959045,task_1::foreach.cond16,1
+doall_scaling,bio-grid-yeast.txt,6008,4,200,0.803798,138.110,1920.00,0.00,1920.00,0.750000,18.5,4,stable,parallel,checksum 202535.0959045,task_1::foreach.cond16,1
+doall_scaling,bio-grid-yeast.txt,6008,4,200,0.803798,138.110,1920.00,0.00,1920.00,0.750000,18.5,4,stable,parallel,checksum 202535.0959045,task_1::foreach.cond16,1
+doall_scaling,bio-grid-yeast.txt,6008,8,200,0.806825,106.130,2640.00,0.00,2640.00,0.875000,28.4,4,stable,parallel,checksum 202535.0959045,task_1::foreach.cond16,1
+doall_scaling,bio-grid-yeast.txt,6008,8,200,0.806825,106.130,2640.00,0.00,2640.00,0.875000,28.4,4,stable,parallel,checksum 202535.0959045,task_1::foreach.cond16,1
+doall_scaling,ia-dbpedia.txt,0,1,80,2.666609,-,-,-,-,-,-,-,-,-,no-site,checksum 12321098.50316,-,0
+doall_scaling,ia-dbpedia.txt,0,1,80,2.666609,-,-,-,-,-,-,-,-,-,no-site,checksum 12321098.50316,-,0
+doall_scaling,ia-dbpedia.txt,365493,2,80,1.288074,84.820,1560.00,0.00,1560.00,0.500000,36.8,4,stable,parallel,checksum 12321098.50316,task_1::foreach.cond16,1
+doall_scaling,ia-dbpedia.txt,365493,2,80,1.288074,84.820,1560.00,0.00,1560.00,0.500000,36.8,4,stable,parallel,checksum 12321098.50316,task_1::foreach.cond16,1
+doall_scaling,ia-dbpedia.txt,365493,4,80,1.370001,85.020,1920.00,0.00,1920.00,0.750000,30.1,4,stable,parallel,checksum 12321098.50316,task_1::foreach.cond16,1
+doall_scaling,ia-dbpedia.txt,365493,4,80,1.370001,85.020,1920.00,0.00,1920.00,0.750000,30.1,4,stable,parallel,checksum 12321098.50316,task_1::foreach.cond16,1
+doall_scaling,ia-dbpedia.txt,365493,8,80,1.237909,84.920,2640.00,0.00,2640.00,0.875000,35.5,4,stable,parallel,checksum 12321098.50316,task_1::foreach.cond16,1
+doall_scaling,ia-dbpedia.txt,365493,8,80,1.237909,84.920,2640.00,0.00,2640.00,0.875000,35.5,4,stable,parallel,checksum 12321098.50316,task_1::foreach.cond16,1

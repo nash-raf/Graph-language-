@@ -1,0 +1,16 @@
+// DOACROSS distance 2: doacross_carry's exact shape -- literal trip bound
+// inline, statically sized array, dyadic arithmetic so the answers are
+// bit-identical across thread counts -- with the recurrence reading i-2.
+// Waves on the device would be trips/2; the CPU-only measurement here is
+// what the online cost model's cost-doacross decision is validated against.
+int n = 8192;
+real pref[8192];
+int i = 2;
+while (i < 8192)
+{
+    real t = pref[i - 2] * 0.5 + 3.0;
+    pref[i] = t + i * 0.25 - 7.0;
+    i = i + 1;
+}
+print "last";
+print pref[8191];

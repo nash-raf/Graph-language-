@@ -1,0 +1,14 @@
+# measured_ms / predicted_ms per case per machine (suite checks "autotuner/*").
+# local: verify/bin/battery_suite.log (final code, 93/0 run)
+# old pod: b_suite.log run on 213.173.99.24 (values vary run to run; representative)
+machine,case,ratio,source
+local i3-9100F,bfs_level,1.7,verify/bin/battery_suite.log
+local i3-9100F,cc,1.9,verify/bin/battery_suite.log
+local i3-9100F,kcore,1.0,verify/bin/battery_suite.log
+local i3-9100F,pagerank,0.9,verify/bin/battery_suite.log
+local i3-9100F,sssp,0.6,verify/bin/battery_suite.log
+old pod (EPYC; no/bad calib),bfs_level,21.1,old box b_suite.log
+old pod (EPYC; no/bad calib),cc,203.3,old box b_suite.log
+old pod (EPYC; no/bad calib),kcore,5.8,old box b_suite.log
+old pod (EPYC; no/bad calib),pagerank,13.2,old box b_suite.log
+old pod (EPYC; no/bad calib),sssp,28.8,old box b_suite.log

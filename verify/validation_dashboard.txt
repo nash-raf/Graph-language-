@@ -1,0 +1,67 @@
+==============================================================================
+p1 cost-model validation  (text view of validation_dashboard.png)
+==============================================================================
+
+A. Schedule cost model (GPU): device-vs-CPU speedup, forced device, median of 3
+   family            work  cpu/gpu  bar (0 .. 1.6)
+   doacross           512     0.13  ###
+   doacross          1024     0.09  ##
+   doacross          2048     0.11  ##
+   doacross          4096     0.11  ##
+   doacross          8192     1.13  ############################
+   doacross         16384     0.16  ###
+   doacross         65536     0.26  ######
+   doall             1000     1.03  #########################
+   doall             2000     0.74  ##################
+   doall             4096     0.97  ########################
+   doall             8192     0.97  ########################
+   doall            16384     1.07  ##########################
+   doall            65536     0.84  ####################
+   doall           262144     1.16  ############################
+   doall          1048576     0.88  #####################
+   engine-step     313890     0.46  ###########
+   engine-step     313890     0.50  ############
+   engine-step     313890     0.46  ###########
+   engine-step     313890     0.44  ##########
+   engine-step     320000     0.41  ##########
+   break-even at 1.00; gate thresholds: min_trips 4096, engine floor 2M arcs
+
+B. Format model (CPU layouts): ms per forced layout, '-' = not measured
+   workload     cost-model        CSR       PCSR       BCSR        SET
+   kcore                49         50         47         48         44
+   big_kcore           219        252        254        386     600009
+   bfs16m             2392       2403       2373       2388       2379
+   all measured modes gave identical answers; SET on big_kcore timed out (600s cap)
+
+C. CPU region model: predicted vs measured (5x contract)
+   machine                      mode        case           pred      meas  ratio  band
+   i3-9100F                     cpu-only    bfs_level     2.467     7.177   2.91  in
+   i3-9100F                     cpu-only    cc            2.467     7.430   3.01  in
+   i3-9100F                     cpu-only    kcore        22.203    31.115   1.40  in
+   i3-9100F                     cpu-only    pagerank     51.808    66.598   1.29  in
+   i3-9100F                     cpu-only    sssp         12.335    12.862   1.04  in
+   EPYC-7352 (fresh calib)      cpu-only    bfs_level     0.826     5.060   6.13  OUT
+   EPYC-7352 (fresh calib)      cpu-only    cc            0.826     2.443   2.96  in
+   EPYC-7352 (fresh calib)      cpu-only    pagerank     17.347   135.076   7.79  OUT
+   EPYC-7352 (fresh calib)      gpu-backend bfs_level     0.826     7.920   9.59  OUT
+   EPYC-7352 (fresh calib)      gpu-backend cc            0.826    97.813 118.41  OUT
+   EPYC-7352 (fresh calib)      gpu-backend kcore         7.434    34.770   4.68  in
+   EPYC-7352 (fresh calib)      gpu-backend pagerank     17.347   120.526   6.95  OUT
+   EPYC-7352 (fresh calib)      gpu-backend sssp          4.130    11.827   2.86  in
+
+D. Contract checks (this session)
+   OK   T1-T7 CPU budget model             ALL PASS x3 configs
+   OK   T8-T10 device policy               ALL PASS x3 configs
+   OK   GPU cost-model direction           14/14 box, 8/0/6 cpu-only
+   OK   Cross-mode equality (11 fixtures)  11/11 CPU=dev, 1=4 thr, repeats
+   OK   Broad equality (50 fixtures)       50/50 both boxes
+   OK   Scale (780k/157k graphs)           3/3 device==CPU
+   OK   Device harness                     11 pass / 0 fail / 2 policy-skip
+   OK   Local suite (CPU-only)             93 pass / 0 fail
+   WARN Box suite (GPU)                    WARN  90 pass / 4 fail (load + prediction)
+   OK   Format answers across layouts      identical
+   OK   Force-layout wiring                was dead; fixed
+   OK   Region model: local CPU-only       all 5 within 5x (1.0-3.0x)
+   WARN Region model: EPYC CPU-only        WARN  cc 3.0x ok; bfs 6.1x, pagerank 7.8x off
+   WARN Region model: EPYC GPU backend     WARN  inflated by device work (cc 118x)
+

@@ -1,0 +1,27 @@
+// DOALL/DOACROSS predicted-vs-measured subject.  Inner while loops wrapped in
+// an outer round loop so the loop site is dispatched many times (the online
+// cost model samples serial passes: batch 4, probe every 64 -- one dispatch
+// per program would never leave WARMING).  The trip count is runtime-valued
+// (numVertices(G) + pad) so the constant-trip-count pre-veto does not apply;
+// sweep the work by sed'ing pad.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int pad = 0;
+int n = numVertices(G) + pad;
+real a[n];
+real b[n];
+int round = 0;
+int i = 0;
+while (i < n) { a[i] = 1.0; b[i] = 0.0; i = i + 1; }
+while (round < 200) {
+  round = round + 1;
+  i = 0;
+  while (i < n) {
+    b[i] = 1.0 * i;
+    i = i + 1;
+  }
+}
+real tot = 0.0; i = 0;
+while (i < n) { tot = tot + b[i]; i = i + 1; }
+print "checksum"; print tot;

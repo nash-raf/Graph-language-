@@ -1,0 +1,16 @@
+// memory-bound DOALL, per-vertex shape: the same loop shape as doall_scaling
+// (which the outliner versions and the cost model sees) but a one-store body,
+// so it exercises the model's memory-bound regime.
+graph G {
+  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+};
+int n = numVertices(G);
+real b[n];
+int round = 0;
+while (round < 200) {
+  round = round + 1;
+  for each vertex v in G { b[v] = 1.0 * v; }
+}
+real tot = 0.0; int q = 0;
+while (q < n) { tot = tot + b[q]; q = q + 1; }
+print "checksum"; print tot;

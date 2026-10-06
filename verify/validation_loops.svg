@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="980" viewBox="0 0 1240 980">
+<rect width="1240" height="980" fill="#fff"/>
+<text x="40.0" y="26.0" font-size="16" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">DOALL / DOACROSS / universal thread budget — validation</text>
+<text x="40.0" y="44.0" font-size="10" text-anchor="start" fill="#666" font-weight="normal" font-family="monospace">sources: bin/budget_detail.txt, bin/battery_suite.log, cost_model_evidence.csv</text>
+<text x="40.0" y="60.0" font-size="12" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">L1. DOALL loops: what is validated, and the result</text>
+<text x="40.0" y="76.0" font-size="10" text-anchor="start" fill="#555" font-weight="normal" font-family="monospace">equality/determinism from the suite; policy from the unit+e2e checks; curve measured</text>
+<text x="44.0" y="104.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="90.0" y="104.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">race/doall_scaling 1thr==4thr  </text>
+<text x="470.0" y="104.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">suite</text>
+<text x="44.0" y="122.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="90.0" y="122.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">parallel/doall_scaling device 1=4 thr</text>
+<text x="470.0" y="122.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">cross-mode</text>
+<text x="44.0" y="140.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="90.0" y="140.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">array_doall/gpu_compute device==CPU</text>
+<text x="470.0" y="140.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">cross-mode</text>
+<text x="44.0" y="158.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="90.0" y="158.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T8: trip 4095 -&gt; CPU, 4096 -&gt; device</text>
+<text x="470.0" y="158.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">unit</text>
+<text x="44.0" y="176.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="90.0" y="176.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">e2e: 100000 -&gt; device, 300000 -&gt; CPU</text>
+<text x="470.0" y="176.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">cost-model check</text>
+<text x="44.0" y="194.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="90.0" y="194.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">scaling/doall_scaling &gt;= 1.2x at 4 thr</text>
+<text x="470.0" y="194.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">suite</text>
+<text x="40.0" y="218.0" font-size="11" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">measured 4-thread speedup vs the 1.2x contract:</text>
+<rect x="48.0" y="228.0" width="380.0" height="18.0" fill="#f4f4f4" fill-opacity="1.0" stroke="#bbb" stroke-width="0.8"/>
+<rect x="48.0" y="228.0" width="380.0" height="18.0" fill="#0a0" fill-opacity="1.0" stroke="#666" stroke-width="0.8"/>
+<text x="434.0" y="241.0" font-size="11" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">2.38x</text>
+<line x1="276.0" y1="224.0" x2="276.0" y2="250.0" stroke="#c00" stroke-width="1.4" stroke-dasharray="4 3"/>
+<text x="276.0" y="220.0" font-size="9" text-anchor="middle" fill="#c00" font-weight="normal" font-family="monospace">1.2x contract</text>
+<text x="40.0" y="280.0" font-size="11" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">device-vs-CPU ratio across trips (forced device, gates off):</text>
+<line x1="88.0" y1="328.5" x2="570.0" y2="328.5" stroke="#888" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="572.0" y="332.5" font-size="9" text-anchor="start" fill="#666" font-weight="normal" font-family="monospace">1.0</text>
+<line x1="88.0" y1="317.0" x2="570.0" y2="317.0" stroke="#08c" stroke-width="1.0" stroke-dasharray="3 3"/>
+<line x1="128.3" y1="386.0" x2="128.3" y2="390.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="128.3" y="401.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">1k</text>
+<line x1="290.8" y1="386.0" x2="290.8" y2="390.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="290.8" y="401.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">16k</text>
+<line x1="451.9" y1="386.0" x2="451.9" y2="390.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="451.9" y="401.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">256k</text>
+<line x1="532.5" y1="386.0" x2="532.5" y2="390.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="532.5" y="401.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">1M</text>
+<circle cx="128.3" cy="326.8" r="5" fill="#08c" fill-opacity="0.85"/>
+<circle cx="168.6" cy="343.4" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="210.2" cy="330.2" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="250.5" cy="330.2" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="290.8" cy="324.5" r="5" fill="#08c" fill-opacity="0.85"/>
+<circle cx="371.3" cy="337.7" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="451.9" cy="319.3" r="5" fill="#08c" fill-opacity="0.85"/>
+<circle cx="532.5" cy="335.4" r="5" fill="#c60" fill-opacity="0.85"/>
+<text x="48.0" y="401.0" font-size="9" text-anchor="start" fill="#c60" font-weight="normal" font-family="monospace">device slower</text>
+<text x="48.0" y="298.0" font-size="9" text-anchor="start" fill="#08c" font-weight="normal" font-family="monospace">faster</text>
+<text x="88.0" y="418.0" font-size="9" text-anchor="start" fill="#555" font-weight="normal" font-family="monospace">trips (log); contract line 1.2x dashed</text>
+<text x="640.0" y="60.0" font-size="12" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">L2. DOACROSS loops: classification, policy, and the wave cliff</text>
+<text x="640.0" y="76.0" font-size="10" text-anchor="start" fill="#555" font-weight="normal" font-family="monospace">the cap (max_waves=8192) is drawn where the measured curve crosses break-even</text>
+<text x="644.0" y="104.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="690.0" y="104.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">classified DOACROSS + wait/post metadata</text>
+<text x="1110.0" y="104.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">race/doacross_scan</text>
+<text x="644.0" y="122.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="690.0" y="122.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">effect verdict: space=Carried</text>
+<text x="1110.0" y="122.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">effects/doacross_carry</text>
+<text x="644.0" y="140.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="690.0" y="140.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">1thr == 4thr (carry and scan)</text>
+<text x="1110.0" y="140.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">suite + cross-mode</text>
+<text x="644.0" y="158.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="690.0" y="158.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">device == CPU at 1/4 thr, repeats</text>
+<text x="1110.0" y="158.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">cross-mode 11/11</text>
+<text x="644.0" y="176.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="690.0" y="176.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T9: dist1 storm, dist64 device, trip64 CPU</text>
+<text x="1110.0" y="176.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">unit</text>
+<text x="644.0" y="194.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="690.0" y="194.0" font-size="11" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">e2e: default CPU (waves&gt;8192), cap0 device</text>
+<text x="1110.0" y="194.0" font-size="9" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">cost-model check</text>
+<rect x="922.2" y="232.0" width="247.8" height="180.0" fill="#fdd" fill-opacity="0.5" stroke="#fbb" stroke-width="0.8"/>
+<text x="928.2" y="244.0" font-size="9" text-anchor="start" fill="#a00" font-weight="normal" font-family="monospace">wave storm: waves &gt; 8192</text>
+<line x1="707.1" y1="412.0" x2="707.1" y2="416.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="707.1" y="427.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">512</text>
+<line x1="868.4" y1="412.0" x2="868.4" y2="416.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="868.4" y="427.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">4k</text>
+<line x1="922.2" y1="412.0" x2="922.2" y2="416.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="922.2" y="427.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">8k</text>
+<line x1="1083.5" y1="412.0" x2="1083.5" y2="416.0" stroke="#aaa" stroke-width="1.0"/>
+<text x="1083.5" y="427.0" font-size="9" text-anchor="middle" fill="#666" font-weight="normal" font-family="monospace">64k</text>
+<line x1="688.0" y1="342.8" x2="1170.0" y2="342.8" stroke="#eee" stroke-width="1.0"/>
+<text x="682.0" y="346.8" font-size="9" text-anchor="end" fill="#666" font-weight="normal" font-family="monospace">0.5</text>
+<line x1="688.0" y1="273.5" x2="1170.0" y2="273.5" stroke="#eee" stroke-width="1.0"/>
+<text x="682.0" y="277.5" font-size="9" text-anchor="end" fill="#666" font-weight="normal" font-family="monospace">1</text>
+<line x1="688.0" y1="245.8" x2="1170.0" y2="245.8" stroke="#eee" stroke-width="1.0"/>
+<text x="682.0" y="249.8" font-size="9" text-anchor="end" fill="#666" font-weight="normal" font-family="monospace">1.2</text>
+<line x1="688.0" y1="273.5" x2="1170.0" y2="273.5" stroke="#888" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="922.2" y1="232.0" x2="922.2" y2="412.0" stroke="#c00" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="922.2" y="226.0" font-size="9" text-anchor="middle" fill="#c00" font-weight="normal" font-family="monospace">cap 8192</text>
+<circle cx="707.1" cy="394.0" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="760.9" cy="399.5" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="814.7" cy="396.8" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="868.4" cy="396.8" r="5" fill="#c60" fill-opacity="0.85"/>
+<circle cx="922.2" cy="255.5" r="5" fill="#0a0" fill-opacity="0.85"/>
+<text x="928.2" y="259.5" font-size="9" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">1.13x</text>
+<circle cx="975.9" cy="389.8" r="5" fill="#c60" fill-opacity="0.85"/>
+<text x="981.9" y="393.8" font-size="9" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">0.16x</text>
+<circle cx="1083.5" cy="376.0" r="5" fill="#c60" fill-opacity="0.85"/>
+<text x="688.0" y="444.0" font-size="9" text-anchor="start" fill="#555" font-weight="normal" font-family="monospace">trips (= waves for distance 1, log)</text>
+<text x="40.0" y="530.0" font-size="12" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">L3. Universal thread budget: invariant matrix</text>
+<text x="40.0" y="546.0" font-size="10" text-anchor="start" fill="#555" font-weight="normal" font-family="monospace">tdg_budget_test: same assertions in 3 configurations, observed values shown</text>
+<text x="50.0" y="564.0" font-size="10" text-anchor="start" fill="#333" font-weight="bold" font-family="monospace">assertion</text>
+<text x="300.0" y="560.0" font-size="8" text-anchor="start" fill="#333" font-weight="bold" font-family="monospace">4 thr, integration on</text>
+<text x="470.0" y="560.0" font-size="8" text-anchor="start" fill="#333" font-weight="bold" font-family="monospace">4 thr, switches off</text>
+<text x="640.0" y="560.0" font-size="8" text-anchor="start" fill="#333" font-weight="bold" font-family="monospace">1 thread</text>
+<text x="50.0" y="588.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T1 trip clamp (2 trips, 4 threads)</text>
+<text x="300.0" y="588.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="600.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">workers=2 trips=2</text>
+<text x="470.0" y="588.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="588.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="618.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T2 desired threads (1,1) -&gt; one worke</text>
+<text x="300.0" y="618.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="630.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">workers=1</text>
+<text x="470.0" y="618.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="618.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="648.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T3 unregistered in level, sharing DIS</text>
+<text x="300.0" y="648.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="660.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">workers=3 trips=64 threads=4</text>
+<text x="470.0" y="648.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="648.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="678.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T4 reservation ledger balanced</text>
+<text x="300.0" y="678.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="690.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">reserved=0</text>
+<text x="470.0" y="678.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="678.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="708.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T5 nested dispatch inside a worker is</text>
+<text x="300.0" y="708.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="720.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">nested_parallel_calls=0 outer_threads=4</text>
+<text x="470.0" y="708.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="708.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="738.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T6 registered sites draw their planne</text>
+<text x="300.0" y="738.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="750.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">site101 workers=2 trips=64; site102 workers=</text>
+<text x="470.0" y="738.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="738.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="768.0" font-size="10" text-anchor="start" fill="#222" font-weight="normal" font-family="monospace">T7 single-site level plans its site</text>
+<text x="300.0" y="768.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="300.0" y="780.0" font-size="8" text-anchor="start" fill="#777" font-weight="normal" font-family="monospace">site210 workers=3 trips=64 threads=4</text>
+<text x="470.0" y="768.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="640.0" y="768.0" font-size="10" text-anchor="start" fill="#0a0" font-weight="bold" font-family="monospace">PASS</text>
+<text x="50.0" y="802.0" font-size="10" text-anchor="start" fill="#222" font-weight="bold" font-family="monospace">integration (suite + harness):</text>
+<text x="56.0" y="820.0" font-size="9" text-anchor="start" fill="#333" font-weight="normal" font-family="monospace">parallel/nested_step: outer refused by call barrier, inner step TDG-planned, 1thr==4thr</text>
+<text x="520.0" y="820.0" font-size="9" text-anchor="start" fill="#0a0" font-weight="normal" font-family="monospace">suite PASS</text>
+<text x="56.0" y="836.0" font-size="9" text-anchor="start" fill="#333" font-weight="normal" font-family="monospace">pagerank call-barrier check</text>
+<text x="520.0" y="836.0" font-size="9" text-anchor="start" fill="#0a0" font-weight="normal" font-family="monospace">suite PASS</text>
+<text x="56.0" y="852.0" font-size="9" text-anchor="start" fill="#333" font-weight="normal" font-family="monospace">kill switches: SGPL_NO_UNREGISTERED_POOL_SHARE, SGPL_NO_REGION_SCOPE</text>
+<text x="520.0" y="852.0" font-size="9" text-anchor="start" fill="#0a0" font-weight="normal" font-family="monospace">validator cfg 2 PASS</text>
+<text x="56.0" y="868.0" font-size="9" text-anchor="start" fill="#333" font-weight="normal" font-family="monospace">traversal corpus: 1thr==4thr + 5 repeats identical</text>
+<text x="520.0" y="868.0" font-size="9" text-anchor="start" fill="#0a0" font-weight="normal" font-family="monospace">suite race/* PASS</text>
+<text x="50.0" y="894.0" font-size="9" text-anchor="start" fill="#c60" font-weight="normal" font-family="monospace">gap: no width-accuracy study (chosen width vs best measured) yet</text>
+</svg>

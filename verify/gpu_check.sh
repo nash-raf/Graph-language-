@@ -16,6 +16,8 @@
 #
 # Case expectations are the same ones verify/run.sh pins, so a GPU run cannot
 # pass by answering something the suite does not already consider correct.
+# kcore's frame is ~32 MB: the harness must not depend on the caller's stack limit.
+ulimit -s unlimited 2>/dev/null || true
 set -uo pipefail
 R="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 C="${SGPL_AUTOTUNER_DIR:-$R/../p1GraphEasy-con-AutoTuner}"

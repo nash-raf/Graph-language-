@@ -759,6 +759,7 @@ static int64_t g_v_rows_cap = 0;
 static int64_t g_v_arcs_cap = 0;
 static int64_t g_v_nrows = -1;
 
+
 int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
                     int64_t *const *rp, const int32_t *const *ci,
                     const int32_t *const *indir, const int64_t *row_counts,
@@ -928,10 +929,11 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
     CUdeviceptr dummy_mem = 0;
     CUdeviceptr mem_arg = (mem && nmem > 0) ? g_v_mem_dev : 0;
     void *env_arg = NULL;
+    unsigned int block = 128;
     void *params[6] = {&g_v_rowsrc_dev, &g_v_nrows, &g_v_rowptr_dev,
                        &g_v_arcs_dev, &mem_arg, &env_arg};
-    unsigned int block = 128;
-    unsigned int grid = (unsigned int)((g_v_nrows + (int64_t)block - 1) / (int64_t)block);
+    int64_t nthreads = g_v_nrows;
+    unsigned int grid = (unsigned int)((nthreads + (int64_t)block - 1) / (int64_t)block);
     CUresult lr = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, NULL, params, NULL);
     (void)dummy_mem;
     if (lr != CUDA_SUCCESS)
@@ -953,7 +955,7 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
         *claimed_out = g_v_claim_host;
     if (getenv("SGPL_GPU_DEBUG"))
         fprintf(stderr, "[gpu] activation step ran on device: %s rows=%lld grid=%u\n",
-                name, (long long)g_v_nrows, grid);
+                name, (long long)nthreads, grid);
     return 1;
 }
 

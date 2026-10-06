@@ -5413,6 +5413,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
     emitGpuEngineStepV(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"),
                        StepId, IsSimple, IsV);
 
+
     FunctionCallee Exec = Mod->getOrInsertFunction(
         "autograph_frontier_execute", FunctionType::get(I32, {I8P, I8P}, false));
     Value *NewSize = EB.CreateCall(Exec, {GraphArg, ExecCtx});

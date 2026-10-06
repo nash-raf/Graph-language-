@@ -1,0 +1,17 @@
+# CPU region cost model: predicted_ms vs measured_ms, one row per (machine, mode, case).
+# The model predicts CPU execution; a GPU-backend build profiles device kernels in
+# the same region, so those rows are labelled and are NOT model errors.
+machine,mode,case,predicted_ms,measured_ms,ratio
+i3-9100F,cpu-only,bfs_level,2.467032,7.176588,2.91
+i3-9100F,cpu-only,cc,2.467032,7.430460,3.01
+i3-9100F,cpu-only,kcore,22.203288,31.114700,1.40
+i3-9100F,cpu-only,pagerank,51.807672,66.598467,1.29
+i3-9100F,cpu-only,sssp,12.335160,12.862327,1.04
+EPYC-7352 (fresh calib),cpu-only,bfs_level,0.826044,5.059796,6.13
+EPYC-7352 (fresh calib),cpu-only,cc,0.826044,2.443061,2.96
+EPYC-7352 (fresh calib),cpu-only,pagerank,17.346924,135.075730,7.79
+EPYC-7352 (fresh calib),gpu-backend,bfs_level,0.826044,7.919711,9.59
+EPYC-7352 (fresh calib),gpu-backend,cc,0.826044,97.813119,118.41
+EPYC-7352 (fresh calib),gpu-backend,kcore,7.434396,34.770140,4.68
+EPYC-7352 (fresh calib),gpu-backend,pagerank,17.346924,120.525643,6.95
+EPYC-7352 (fresh calib),gpu-backend,sssp,4.130220,11.826968,2.86

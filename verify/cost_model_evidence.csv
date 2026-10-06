@@ -1,0 +1,39 @@
+# Device cost-model evidence.  Columns:
+# family: shape family | case | work_units: trips|arcs | work: size in those units
+# controlled: 1 = repeated, warm-off, median (trustworthy); 0 = single pod run (noisy)
+# ran_on_device: what the device actually executed in the gpu column
+# cpu_ms, gpu_ms: 4-host-thread wall clock; ratio = cpu_ms/gpu_ms (>1 device wins)
+# gate_default: what the default policy decides at this size
+# gate_correct: 1 = the decision matches the measurement, 0 = mismatch, - = not decisive
+family,case,work_units,work,controlled,ran_on_device,cpu_ms,gpu_ms,ratio,gate_default,gate_correct
+engine-step,bfs_level (activation forced),arcs,320000,1,engine step,186,458,0.41,CPU,1
+doacross,doacross_carry,kernel,200000,0,wave kernel,219,179,1.22,device,1
+doacross,doacross_carry (2nd run),kernel,200000,0,wave kernel,182,188,0.97,device,-
+mixed,mixed_regions,kernel,200000,0,mixed kernel,254,263,0.97,device,-
+mixed,mixed_regions (2nd run),kernel,200000,0,mixed kernel,237,214,1.11,device,1
+engine-step,algo/kcore (default policy),arcs,320000,0,backend only (step declined),225,188,1.20,CPU,1
+engine-step,algo/kcore (2nd run),arcs,320000,0,backend only (step declined),200,244,0.82,CPU,-
+engine-step,algo/bfs_level (default policy),arcs,320000,0,backend only (step declined),214,187,1.14,CPU,1
+engine-step,algo/pagerank (default policy),arcs,320000,0,backend only (step declined),224,189,1.19,CPU,1
+engine-step,algo/pagerank (2nd run),arcs,320000,0,backend only (step declined),199,201,0.99,CPU,-
+engine-step,algo/cc (default policy),arcs,320000,0,backend only (step declined),204,167,1.22,CPU,1
+engine-step,algo/cc (2nd run),arcs,320000,0,backend only (step declined),179,157,1.14,CPU,1
+engine-step,algo/bfs_level (bio-grid-yeast.txt),arcs,313890,1,632,293,engine step,0.46,CPU,1
+engine-step,algo/kcore (bio-grid-yeast.txt),arcs,313890,1,639,317,engine step,0.50,CPU,1
+doall,doall n=1000,trip,1000,1,outlined kernel,31,30,1.03,device,1
+doall,doall n=2000,trip,2000,1,outlined kernel,23,31,0.74,device,1
+doall,doall n=4096,trip,4096,1,outlined kernel,30,31,0.97,device,1
+doall,doall n=8192,trip,8192,1,outlined kernel,30,31,0.97,device,1
+doall,doall n=16384,trip,16384,1,outlined kernel,31,29,1.07,device,1
+doall,doall n=65536,trip,65536,1,outlined kernel,268,320,0.84,device,1
+doall,doall n=262144,trip,262144,1,outlined kernel,319,276,1.16,device,1
+doall,doall n=1048576,trip,1048576,1,outlined kernel,302,345,0.88,device,1
+doacross,doacross n=512,trip,512,1,outlined kernel,47,354,0.13,device,1
+doacross,doacross n=1024,trip,1024,1,outlined kernel,31,350,0.09,device,1
+doacross,doacross n=2048,trip,2048,1,outlined kernel,34,296,0.11,device,1
+doacross,doacross n=4096,trip,4096,1,outlined kernel,36,319,0.11,device,1
+doacross,doacross n=8192,trip,8192,1,outlined kernel,343,304,1.13,device,1
+doacross,doacross n=16384,trip,16384,1,outlined kernel,54,341,0.16,device,1
+doacross,doacross n=65536,trip,65536,1,outlined kernel,94,355,0.26,device,1
+engine-step,algo/bfs_level (bio-grid-yeast.txt),arcs,313890,1,engine step,291,637,0.46,CPU,1
+engine-step,algo/kcore (bio-grid-yeast.txt),arcs,313890,1,engine step,290,653,0.44,CPU,1

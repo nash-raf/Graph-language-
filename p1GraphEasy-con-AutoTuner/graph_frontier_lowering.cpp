@@ -435,6 +435,60 @@ struct AccessRelation
     DischargeKind DischargedBy = DischargeKind::None;
 };
 
+/* ── spatial/temporal DAG templates (compiler side, V1) ──────────────────
+ * Templates are witness-backed execution structures: nodes are real work
+ * partitions / temporal units, edges carry the witness that licenses them or
+ * are tagged RealizationOrder when they only impose a deterministic order
+ * (claims, WAW).  A semantic edge without a witness ID is invalid by
+ * construction; the validator here checks that and the reference integrity.
+ * Nothing is emitted from the templates yet -- diagnostics only. */
+struct SpatialNodeTemplate
+{
+    uint32_t Id = 0;
+    Region Owned = Region::Bottom; /* U-owned slice / V-owned rows */
+    uint32_t PartitionCount = 0;   /* runtime partition count decides; 0 = all */
+};
+
+struct SpatialEdgeTemplate
+{
+    uint32_t From = 0, To = 0;
+    uint32_t WitnessId = 0;
+    ConstraintKind SemanticKind = ConstraintKind::MutualExclusion;
+    bool RealizationOrder = false;
+    InstanceRelation Relation;
+};
+
+struct TemporalUnitTemplate
+{
+    uint32_t Id = 0;
+    std::string EnclosingLoop;
+    uint32_t SpatialNodes = 0;
+};
+
+struct TemporalEdgeTemplate
+{
+    uint32_t From = 0, To = 0;
+    uint32_t WitnessId = 0;
+    InstanceRelation Relation;
+    bool RealizationOrder = true;
+};
+
+struct SpatialGraphTemplate
+{
+    SmallVector<SpatialNodeTemplate, 4> Nodes;
+    SmallVector<SpatialEdgeTemplate, 8> Edges;
+    bool Valid = false;
+    std::string InvalidReason;
+};
+
+struct TemporalGraphTemplate
+{
+    SmallVector<TemporalUnitTemplate, 4> Units;
+    SmallVector<TemporalEdgeTemplate, 8> Edges;
+    bool Valid = false;
+    std::string InvalidReason;
+};
+
 struct AxisCertificate
 {
     SmallVector<InterferenceWitness, 8> Spatial;
@@ -554,6 +608,9 @@ struct NeighborLoopInfo
     AxisCertificate Cert;
     /* Order-sensitive access relations (RAW/WAR/WAW), serial expression order. */
     SmallVector<AccessRelation, 16> AccessRelations;
+    /* Witness-backed DAG templates (compiler side, diagnostics only). */
+    SpatialGraphTemplate SpatialTemplate;
+    TemporalGraphTemplate TemporalTemplate;
 };
 
 static void buildEffectExpr(NeighborLoopInfo &Info);
@@ -4818,6 +4875,144 @@ static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
                     dischargeName(R.DischargedBy));
 }
 
+
+/* Construct and validate the V1 templates from the certificate + relations.
+ * Diagnostics only: no emission reads them.  Invariants (spec section 3):
+ *   - a refused axis invalidates its template with that axis's reason;
+ *   - every semantic edge must point back to a witness ID (realization-only
+ *     orders are tagged RealizationOrder instead);
+ *   - edge endpoints must reference existing nodes/units. */
+static void buildTemplates(NeighborLoopInfo &Info)
+{
+    AxisCertificate &Cert = Info.Cert;
+    SpatialGraphTemplate &SG = Info.SpatialTemplate;
+    TemporalGraphTemplate &TG = Info.TemporalTemplate;
+    SG = SpatialGraphTemplate();
+    TG = TemporalGraphTemplate();
+
+    bool PairU = false, PairV = false;
+    pairPhaseWriteRegions(Info, PairU, PairV);
+
+    /* --- spatial: one node per owner region actually written in the pair
+     * phase; partition counts are the runtime's decision (0 = all). */
+    if (Cert.RS)
+    {
+        SG.Valid = false;
+        SG.InvalidReason = "spatial refusal";
+    }
+    else if (Cert.R8)
+    {
+        SG.Valid = false;
+        SG.InvalidReason = Cert.ImplementationReason;
+    }
+    else
+    {
+        uint32_t Next = 1;
+        if (PairU)
+        {
+            SpatialNodeTemplate N;
+            N.Id = Next++;
+            N.Owned = Region::U;
+            SG.Nodes.push_back(N);
+        }
+        if (PairV)
+        {
+            SpatialNodeTemplate N;
+            N.Id = Next++;
+            N.Owned = Region::V;
+            SG.Nodes.push_back(N);
+        }
+        if (SG.Nodes.empty())
+        {
+            SpatialNodeTemplate N;
+            N.Id = Next++;
+            N.Owned = Region::Bottom;
+            SG.Nodes.push_back(N);
+        }
+        /* Discharged (privatization/snapshot) witnesses license the nodes and
+         * add no semantic edge; unresolved spatial witnesses cannot reach this
+         * branch (RS would be set). */
+        SG.Valid = true;
+    }
+
+    /* --- temporal: one unit for the enclosing loop instance; precedence
+     * edges only for order-sensitive relations that are not discharged.  A
+     * relation without a witness becomes a realization-order edge (claims /
+     * WAW keep their serial order), never a semantic edge. */
+    if (Cert.RT)
+    {
+        TG.Valid = false;
+        TG.InvalidReason = "temporal refusal";
+    }
+    else if (Cert.R8)
+    {
+        TG.Valid = false;
+        TG.InvalidReason = Cert.ImplementationReason;
+    }
+    else
+    {
+        TemporalUnitTemplate U;
+        U.Id = 1;
+        U.EnclosingLoop = Info.NeighborLoop && Info.NeighborLoop->getHeader()->hasName()
+                              ? Info.NeighborLoop->getHeader()->getName().str()
+                              : std::string("<loop>");
+        U.SpatialNodes = (uint32_t)SG.Nodes.size();
+        TG.Units.push_back(U);
+        for (const AccessRelation &R : Info.AccessRelations)
+        {
+            if (R.DischargedBy != DischargeKind::None)
+                continue;
+            if (R.SourceSegment == R.SinkSegment)
+                continue; /* same segment: ordered by construction */
+            TemporalEdgeTemplate E;
+            E.From = 1;
+            E.To = 1;
+            E.WitnessId = 0;
+            E.RealizationOrder = true; /* serial order preserved, no witness */
+            TG.Edges.push_back(E);
+        }
+        TG.Valid = true;
+    }
+
+    /* validation: reference integrity + semantic edges must be witness-backed */
+    for (const SpatialEdgeTemplate &E : SG.Edges)
+    {
+        if (!E.RealizationOrder && E.WitnessId == 0)
+        {
+            SG.Valid = false;
+            SG.InvalidReason = "semantic spatial edge without witness";
+        }
+        bool FromOk = false, ToOk = false;
+        for (const SpatialNodeTemplate &N : SG.Nodes)
+        {
+            FromOk |= (N.Id == E.From);
+            ToOk |= (N.Id == E.To);
+        }
+        if (!FromOk || !ToOk)
+        {
+            SG.Valid = false;
+            SG.InvalidReason = "spatial edge endpoint missing";
+        }
+    }
+    for (const TemporalEdgeTemplate &E : TG.Edges)
+    {
+        if (!E.RealizationOrder && E.WitnessId == 0)
+        {
+            TG.Valid = false;
+            TG.InvalidReason = "semantic temporal edge without witness";
+        }
+    }
+
+    if (getenv("GRAPH_FRONTIER_STATS"))
+        fprintf(stderr,
+                "[frontier-cert] tmpl spatial valid=%d nodes=%zu edges=%zu reason=%s | "
+                "temporal valid=%d units=%zu edges=%zu reason=%s\n",
+                SG.Valid ? 1 : 0, SG.Nodes.size(), SG.Edges.size(),
+                SG.Valid ? "-" : SG.InvalidReason.c_str(),
+                TG.Valid ? 1 : 0, TG.Units.size(), TG.Edges.size(),
+                TG.Valid ? "-" : TG.InvalidReason.c_str());
+}
+
 static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                                 bool Priv, std::string &reason)
 {
@@ -6216,6 +6411,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
         if (IsIter)
             printAxisCertificate(Info, Supported, SemReason);
+        if (IsIter)
+            buildTemplates(Info);
         /* Verdict for the census, derived from the structural facts (the same
          * decision the interpreter makes) and demoted to "sequential" whenever
          * the loop is refused or the emit fails -- it reports what happened, and

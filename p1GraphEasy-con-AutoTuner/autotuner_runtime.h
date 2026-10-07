@@ -568,6 +568,49 @@ void autograph_set_class_tiers(void *graph_ptr, const double *tiers);
  * (mirrors analytic_rd.py AnalyticCSR; scan unused). */
 void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers);
 
+/* ── V1 generic ready-work DAG scheduler (two-axis spec, section 11) ──────
+ * A template is a compact runtime-neutral descriptor: node count, relation
+ * list, one node function.  A run allocates predecessor counters and a ready
+ * ring for the actual runtime instances, dispatches ready nodes within the
+ * worker budget, and releases formula-derived successors on completion.
+ * Invalid descriptors, self edges and cycles fail closed. */
+#define SGPL_DAG_OK 0
+#define SGPL_DAG_ERR_INVALID (-1)
+#define SGPL_DAG_ERR_CYCLE (-2)
+#define SGPL_DAG_ERR_NODE (-3)
+#define SGPL_DAG_ERR_NOMEM (-4)
+
+#define SGPL_DAG_REL_PRECEDENCE 0u
+#define SGPL_DAG_REL_FLAG_SEMANTIC 0x1u   /* carries an R1-R7 witness id */
+#define SGPL_DAG_REL_FLAG_REALIZATION 0x2u /* deterministic order only */
+
+typedef struct sgpl_dag_relation_desc {
+  uint32_t kind;       /* SGPL_DAG_REL_PRECEDENCE (V1) */
+  int64_t offset;      /* affine instance offset (V1: 0) */
+  int32_t source_node; /* predecessor */
+  int32_t sink_node;   /* successor, released when the source completes */
+  uint32_t witness_id; /* semantic edges: witness id, else 0 */
+  uint32_t flags;      /* semantic / realization order tag */
+} sgpl_dag_relation_desc;
+
+typedef struct sgpl_dag_run sgpl_dag_run;
+
+typedef int32_t (*sgpl_dag_node_fn)(void *state, int64_t instance);
+
+typedef struct sgpl_dag_template {
+  int32_t node_count;
+  int32_t relation_count;
+  const sgpl_dag_relation_desc *relations;
+  sgpl_dag_node_fn node_fn;
+} sgpl_dag_template;
+
+/* Execute a template for one runtime instance set.  Returns SGPL_DAG_OK or a
+ * negative SGPL_DAG_ERR_* code; on failure new dispatch is cancelled, active
+ * nodes are awaited, and the failure is returned. */
+int32_t autograph_execute_dag(const sgpl_dag_template *template_desc,
+                              void *state,
+                              int32_t worker_budget);
+
 #ifdef __cplusplus
 }
 #endif

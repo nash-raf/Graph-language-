@@ -4603,3 +4603,174 @@ void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers) {
         meta->csr_class_tiers[i] = tiers[i];
     meta->has_csr_class_tiers = 1;
 }
+
+
+/* ── V1 generic ready-work DAG scheduler ───────────────────────────────────
+ * Ready-work execution: atomic-free under one mutex, predecessor counters,
+ * ready ring, workers bounded by the caller's budget, cycle detection by
+ * completed-count accounting after the ready set drains. */
+#define SGPL_DAG_MAX_NODES 65536
+
+struct sgpl_dag_run {
+  const sgpl_dag_template *tmpl;
+  void *state;
+  int32_t node_count;
+  int32_t *remaining;
+  unsigned char *completed;
+  int32_t *ready;
+  int32_t ready_head, ready_tail, ready_count;
+  pthread_mutex_t lock;
+  pthread_cond_t cv;
+  int32_t active;
+  int32_t completed_count;
+  int32_t failed;
+};
+
+static void dag_push(sgpl_dag_run *R, int32_t node) {
+  R->ready[R->ready_tail] = node;
+  R->ready_tail = (R->ready_tail + 1) % R->node_count;
+  R->ready_count++;
+}
+
+static int32_t dag_pop(sgpl_dag_run *R) {
+  int32_t node = R->ready[R->ready_head];
+  R->ready_head = (R->ready_head + 1) % R->node_count;
+  R->ready_count--;
+  return node;
+}
+
+/* Completion bookkeeping; caller holds the run lock. */
+static void dag_complete(sgpl_dag_run *R, int32_t node, int32_t rc) {
+  const sgpl_dag_template *T = R->tmpl;
+  R->active--;
+  R->completed[node] = 1;
+  R->completed_count++;
+  if (rc != 0) {
+    R->failed = 1; /* cancel new dispatch; active nodes drain */
+  } else {
+    for (int32_t i = 0; i < T->relation_count; i++) {
+      const sgpl_dag_relation_desc *E = &T->relations[i];
+      if (E->source_node != node)
+        continue;
+      if (--R->remaining[E->sink_node] == 0)
+        dag_push(R, E->sink_node);
+    }
+  }
+  pthread_cond_broadcast(&R->cv);
+}
+
+static void *dag_worker(void *arg) {
+  sgpl_dag_run *R = (sgpl_dag_run *)arg;
+  for (;;) {
+    pthread_mutex_lock(&R->lock);
+    while (R->ready_count == 0 && !R->failed && R->active > 0)
+      pthread_cond_wait(&R->cv, &R->lock);
+    if (R->failed || R->ready_count == 0) {
+      pthread_mutex_unlock(&R->lock);
+      return NULL;
+    }
+    int32_t node = dag_pop(R);
+    R->active++;
+    pthread_mutex_unlock(&R->lock);
+
+    int32_t rc = R->tmpl->node_fn(R->state, (int64_t)node);
+
+    pthread_mutex_lock(&R->lock);
+    dag_complete(R, node, rc);
+    pthread_mutex_unlock(&R->lock);
+  }
+}
+
+int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
+                              int32_t worker_budget) {
+  int32_t i, w, result = SGPL_DAG_OK;
+  pthread_t *tids = NULL;
+
+  if (!T || !T->node_fn || T->node_count <= 0 ||
+      T->node_count > SGPL_DAG_MAX_NODES || T->relation_count < 0)
+    return SGPL_DAG_ERR_INVALID;
+  if (T->relation_count > 0 && !T->relations)
+    return SGPL_DAG_ERR_INVALID;
+  for (i = 0; i < T->relation_count; i++) {
+    const sgpl_dag_relation_desc *E = &T->relations[i];
+    if (E->kind != SGPL_DAG_REL_PRECEDENCE)
+      return SGPL_DAG_ERR_INVALID;
+    if (E->source_node < 0 || E->source_node >= T->node_count ||
+        E->sink_node < 0 || E->sink_node >= T->node_count)
+      return SGPL_DAG_ERR_INVALID;
+    if (E->source_node == E->sink_node)
+      return SGPL_DAG_ERR_CYCLE;
+    if (!(E->flags & (SGPL_DAG_REL_FLAG_SEMANTIC | SGPL_DAG_REL_FLAG_REALIZATION)))
+      return SGPL_DAG_ERR_INVALID;
+    if ((E->flags & SGPL_DAG_REL_FLAG_SEMANTIC) && E->witness_id == 0)
+      return SGPL_DAG_ERR_INVALID; /* no semantic edge without a witness */
+  }
+
+  sgpl_dag_run *R = (sgpl_dag_run *)calloc(1, sizeof(*R));
+  if (!R)
+    return SGPL_DAG_ERR_NOMEM;
+  R->tmpl = T;
+  R->state = state;
+  R->node_count = T->node_count;
+  R->remaining = (int32_t *)calloc((size_t)T->node_count, sizeof(int32_t));
+  R->completed = (unsigned char *)calloc((size_t)T->node_count, 1);
+  R->ready = (int32_t *)calloc((size_t)T->node_count, sizeof(int32_t));
+  if (!R->remaining || !R->completed || !R->ready) {
+    free(R->remaining);
+    free(R->completed);
+    free(R->ready);
+    free(R);
+    return SGPL_DAG_ERR_NOMEM;
+  }
+  pthread_mutex_init(&R->lock, NULL);
+  pthread_cond_init(&R->cv, NULL);
+
+  for (i = 0; i < T->relation_count; i++)
+    R->remaining[T->relations[i].sink_node]++;
+  for (i = 0; i < T->node_count; i++)
+    if (R->remaining[i] == 0)
+      dag_push(R, i);
+
+  if (worker_budget < 1)
+    worker_budget = 1;
+  if (worker_budget > T->node_count)
+    worker_budget = T->node_count;
+
+  if (worker_budget <= 1) {
+    while (!R->failed && R->ready_count > 0) {
+      int32_t node = dag_pop(R);
+      R->active++;
+      int32_t rc = T->node_fn(state, (int64_t)node);
+      dag_complete(R, node, rc);
+    }
+  } else {
+    tids = (pthread_t *)calloc((size_t)worker_budget, sizeof(pthread_t));
+    if (!tids) {
+      pthread_mutex_destroy(&R->lock);
+      pthread_cond_destroy(&R->cv);
+      free(R->remaining);
+      free(R->completed);
+      free(R->ready);
+      free(R);
+      return SGPL_DAG_ERR_NOMEM;
+    }
+    for (w = 0; w < worker_budget; w++)
+      pthread_create(&tids[w], NULL, dag_worker, R);
+    for (w = 0; w < worker_budget; w++)
+      pthread_join(tids[w], NULL);
+    free(tids);
+  }
+
+  if (R->failed)
+    result = SGPL_DAG_ERR_NODE;
+  else if (R->completed_count != T->node_count)
+    result = SGPL_DAG_ERR_CYCLE;
+
+  pthread_mutex_destroy(&R->lock);
+  pthread_cond_destroy(&R->cv);
+  free(R->remaining);
+  free(R->completed);
+  free(R->ready);
+  free(R);
+  return result;
+}

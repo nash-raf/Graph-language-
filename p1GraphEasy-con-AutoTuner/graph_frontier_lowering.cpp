@@ -410,6 +410,31 @@ struct InterferenceWitness
     std::string RefusalReason;
 };
 
+/* Order-sensitive access relations over the effect expression: the RAW/WAR/WAW
+ * layer beneath the temporal verdicts.  Diagnostics for now; template
+ * construction consumes them in the DAG steps.  A relation whose DischargedBy
+ * is not None is resolved by that mechanism (snapshot read, privatization,
+ * recognized algebraic fold); atomic claims stay ordered by their owner/claim
+ * semantics and are never reordered on the strength of atomicity alone. */
+enum class AccessRelKind : uint8_t
+{
+    RAW = 0,
+    WAR,
+    WAW
+};
+struct AccessRelation
+{
+    AccessRelKind Kind = AccessRelKind::RAW;
+    const Effect *Source = nullptr; /* earlier access in serial expression order */
+    const Effect *Sink = nullptr;   /* later access */
+    const Value *Base = nullptr;
+    Region SourceRegion = Region::Bottom;
+    Region SinkRegion = Region::Bottom;
+    PhaseSegment SourceSegment = PhaseSegment::None;
+    PhaseSegment SinkSegment = PhaseSegment::None;
+    DischargeKind DischargedBy = DischargeKind::None;
+};
+
 struct AxisCertificate
 {
     SmallVector<InterferenceWitness, 8> Spatial;
@@ -527,10 +552,13 @@ struct NeighborLoopInfo
 
     /* Two-axis theorem certificate: unresolved R1-R7 witnesses per axis. */
     AxisCertificate Cert;
+    /* Order-sensitive access relations (RAW/WAR/WAW), serial expression order. */
+    SmallVector<AccessRelation, 16> AccessRelations;
 };
 
 static void buildEffectExpr(NeighborLoopInfo &Info);
 static void deriveAllTemporal(NeighborLoopInfo &Info);
+static void deriveAccessRelations(NeighborLoopInfo &Info);
 
 /* Does this load read one element out of a data array (base = a loaded pointer
  * or a global array), as opposed to a scalar slot?  A graph data array element
@@ -2084,6 +2112,61 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
                 Worst = T;
         }
         Rd.Temp = Worst;
+    }
+    deriveAccessRelations(Info);
+}
+
+/* RAW/WAR/WAW layer: every ordered pair of effects on one base with at least
+ * one mutation, in serial expression order (Preamble -> Pair -> Epilogue, tree
+ * order inside a phase).  Discharge follows the existing mechanisms only:
+ * snapshot-resolved reads discharge via Snapshot, a private-layout loop via
+ * Privatization, a recognized U_oplus fold via AlgebraicFold; claims and
+ * unrecognized mutations stay ordered (None).  Analysis/diagnostics only: no
+ * verdict reads this yet. */
+static void deriveAccessRelations(NeighborLoopInfo &Info)
+{
+    Info.AccessRelations.clear();
+    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+    collectTreePrims(Info.Expr, Prims);
+    for (size_t i = 0; i < Prims.size(); ++i)
+    {
+        const Effect *A = Prims[i].first;
+        if (!A || !A->Base)
+            continue;
+        for (size_t j = i + 1; j < Prims.size(); ++j)
+        {
+            const Effect *B = Prims[j].first;
+            if (!B || B->Base != A->Base)
+                continue;
+            const bool AMut = effectIsMutating(*A);
+            const bool BMut = effectIsMutating(*B);
+            if (!AMut && !BMut)
+                continue; /* read-read carries no order obligation */
+            AccessRelation R;
+            R.Source = A;
+            R.Sink = B;
+            R.Base = A->Base;
+            R.SourceRegion = A->Reg;
+            R.SinkRegion = B->Reg;
+            R.SourceSegment = Prims[i].second;
+            R.SinkSegment = Prims[j].second;
+            if (AMut && BMut)
+                R.Kind = AccessRelKind::WAW;
+            else if (AMut)
+                R.Kind = AccessRelKind::RAW;
+            else
+                R.Kind = AccessRelKind::WAR;
+            const Effect *Reader = AMut ? B : A;
+            if (Reader->VSource == ValueSource::Snapshot)
+                R.DischargedBy = DischargeKind::Snapshot;
+            else if (Info.UsePrivLayout)
+                R.DischargedBy = DischargeKind::Privatization;
+            else if ((AMut && A->Kind == EffectKind::Uop && A->Op != RedOp::None) ||
+                     (BMut && B->Kind == EffectKind::Uop && B->Op != RedOp::None))
+                R.DischargedBy = DischargeKind::AlgebraicFold;
+            if (Info.AccessRelations.size() < 64)
+                Info.AccessRelations.push_back(R);
+        }
     }
 }
 
@@ -4720,6 +4803,19 @@ static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
                 regionName(W.SinkRegion),
                 W.SinkAccess == AccessMode::Read ? "R" : "W",
                 (int)W.Relation.K, dischargeName(W.DischargedBy), W.RefusalReason.c_str());
+
+    if (getenv("GRAPH_FRONTIER_VERBOSE"))
+        for (const AccessRelation &R : Info.AccessRelations)
+            fprintf(stderr,
+                    "[frontier-cert]   rel %s base=%s src=%s.%s sink=%s.%s discharge=%s\n",
+                    R.Kind == AccessRelKind::RAW ? "RAW" : R.Kind == AccessRelKind::WAR ? "WAR" : "WAW",
+                    valueLabel(R.Base).c_str(), regionName(R.SourceRegion),
+                    R.SourceSegment == PhaseSegment::Preamble ? "P" :
+                    R.SourceSegment == PhaseSegment::Pair ? "B" : "Q",
+                    regionName(R.SinkRegion),
+                    R.SinkSegment == PhaseSegment::Preamble ? "P" :
+                    R.SinkSegment == PhaseSegment::Pair ? "B" : "Q",
+                    dischargeName(R.DischargedBy));
 }
 
 static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,

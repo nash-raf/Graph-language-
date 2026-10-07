@@ -4774,3 +4774,24 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
   free(R);
   return result;
 }
+
+/* Step 7 (runtime half): DAG-driven spatial dispatch.  The node wrapper is the
+ * existing partition body, so the round's lifecycle (begin/snapshots/combines/
+ * coverage/end) is untouched; only the partition fan-out goes through the
+ * ready-work scheduler. */
+static int32_t sgpl_dag_partition_node(void *state, int64_t instance) {
+  sgpl_exec_partition_body(instance, state);
+  return 0;
+}
+
+int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
+                              int32_t worker_budget) {
+  sgpl_dag_template tmpl;
+  if (!ctx || partitions <= 0)
+    return SGPL_DAG_ERR_INVALID;
+  tmpl.node_count = partitions;
+  tmpl.relation_count = 0; /* V1: independent partitions */
+  tmpl.relations = NULL;
+  tmpl.node_fn = sgpl_dag_partition_node;
+  return autograph_execute_dag(&tmpl, ctx, worker_budget);
+}

@@ -611,6 +611,15 @@ int32_t autograph_execute_dag(const sgpl_dag_template *template_desc,
                               void *state,
                               int32_t worker_budget);
 
+/* Step 7 (runtime half): run a frontier round's spatial partitions through
+ * the ready-work DAG scheduler.  V1 template: one node per partition, no
+ * relation edges (partitions independent); the compiler-side spatial template
+ * will supply witness-backed edges in the next sub-step.  Each node invokes
+ * the existing partition body, so all round lifecycle, snapshots, combines
+ * and coverage stay exactly where they are. */
+int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
+                              int32_t worker_budget);
+
 #ifdef __cplusplus
 }
 #endif

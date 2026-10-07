@@ -4825,20 +4825,6 @@ static void buildAxisCertificate(NeighborLoopInfo &Info, const EffectSummary &S,
     Cert.NIT = !Cert.RT;
 }
 
-static const char *regionName(Region R)
-{
-    switch (R)
-    {
-    case Region::Bottom: return "Bottom";
-    case Region::U: return "U";
-    case Region::V: return "V";
-    case Region::D: return "D";
-    case Region::G: return "G";
-    case Region::Top: return "Top";
-    }
-    return "?";
-}
-
 static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
                                  const std::string &SemReason)
 {

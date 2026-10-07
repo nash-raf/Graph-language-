@@ -1,0 +1,88 @@
+TDG LEVEL DESIGN AND THREAD-BUDGET AUDIT — 2026-10-07
+
+The runtime now reserves capacity once per TDG level, fixes the parent-worker count to h=min(number of tasks, actual granted budget), and optimizes only loop teams. An overloaded mixed level finishes ordinary tasks first, then replans the loop tasks within the same reservation. Different TDG levels are not jointly optimized.
+
+An ordinary callback was never intrinsically divided among several workers: the old model changed the number of workers serving the whole level. The error relative to the stated design was reducing h using task work/span estimates and exchanging parent workers for loop capacity. This also combined full task durations (which include their loops) with a separate sum of loop costs. Those durations no longer select h. Profiles remain available for diagnostics.
+
+For loop site i, keep the existing per-loop cost T_i(p_i). Serial execution p_i=1 uses its parent and consumes zero extra workers; a parallel team p_i>=2 consumes p_i extra workers because the existing dispatcher blocks the parent. The parent does not participate in that loop team. The runtime implementation is preserved.
+
+The capacity constraint is:
+  sum over tasks j of max over sites i in j {0 if p_i=1, else p_i} <= B-h.
+Sequential sites in one task reuse their team reservation. A plan records serial sites explicitly, so a serial choice cannot silently acquire spare capacity. Matched and unprofiled sites use the same atomic reservation protocol. Forced-width probes cannot enlarge B-h.
+
+The loop allocation objective is:
+  A_j = sum over sites i in task j of T_i(p_i)
+  Q   = sum of T_i(p_i) for parallel DOALL sites using the exclusive pool
+  F   = max(Q, max_j A_j, sum_j A_j / h).
+Parallel DOALL sibling launches serialize on the existing pool mutex; serial loops on distinct parents overlap; DOACROSS teams use the ephemeral path and are excluded from Q. F is a resource lower bound for profiled loop work, not an absolute prediction of full-level wall time. Ordinary work and parent launches still contribute to measured full-level time. Their duration does not change task worker counts or loop allocation.
+
+The existing NLOpt solver and measured loop cost tables are retained. Its constraint and rounding repair use the per-task maximum reservation and the level objective. Compare the repaired allocation with all-serial; enumerate feasible integer widths for one/two-site plans when the maximum grid has at most 65536 trials. This bound controls optimizer work, and is not a hardware or workload fit coefficient. Larger plans retain the heuristic solver, followed by at most two repair passes and 65536 trials that reuse each task's already reserved peak team for other profitable sequential sites. Task grouping is cached so each optimizer evaluation does linear work in site count. No per-machine coefficients were fitted.
+
+Four policies use identical arithmetic and output bodies, with no shared atomics inside timed loop bodies:
+  old: pre-design-change snapshot, including the earlier loop-equation fixes
+  fixed: fixed task workers, original ordering, sum of loop costs
+  phased_sum: ordinary-first phases, sum of loop costs
+  new: implemented policy with the resource objective.
+Each of 24 workload/thread-budget combinations has three processes per policy. Each process warms three levels and reports the median of eleven timed levels. Jobs are deterministically shuffled to reduce ordering bias. Timing is inside the process and includes planning, launches, joins, and both phases.
+
+Median of process medians; each process warms 3 levels then measures 11.
+P=2 fits-mixed: old=6.141ms, fixed=6.855ms, phased_sum=6.516ms, new=6.293ms; new vs fixed time change=-8.2%
+P=2 fits-loops: old=31.584ms, fixed=31.532ms, phased_sum=32.564ms, new=31.572ms; new vs fixed time change=+0.1%
+P=2 overflow-one-short: old=6.596ms, fixed=6.623ms, phased_sum=6.570ms, new=6.874ms; new vs fixed time change=+3.8%
+P=2 overflow-two-short: old=31.634ms, fixed=33.585ms, phased_sum=34.049ms, new=31.833ms; new vs fixed time change=-5.2%
+P=2 overflow-two-ordinary-first: old=31.539ms, fixed=31.754ms, phased_sum=31.902ms, new=32.092ms; new vs fixed time change=+1.1%
+P=2 overflow-one-long: old=24.970ms, fixed=25.088ms, phased_sum=25.156ms, new=25.229ms; new vs fixed time change=+0.6%
+P=2 overflow-many-loops: old=3.378ms, fixed=3.248ms, phased_sum=3.388ms, new=3.508ms; new vs fixed time change=+8.0%
+P=2 tiny-overflow: old=0.034ms, fixed=0.112ms, phased_sum=0.130ms, new=0.129ms; new vs fixed time change=+14.9%
+P=4 fits-mixed: old=2.281ms, fixed=3.662ms, phased_sum=3.404ms, new=3.464ms; new vs fixed time change=-5.4%
+P=4 fits-loops: old=13.208ms, fixed=16.285ms, phased_sum=17.581ms, new=16.232ms; new vs fixed time change=-0.3%
+P=4 overflow-one-short: old=6.275ms, fixed=6.715ms, phased_sum=2.869ms, new=2.482ms; new vs fixed time change=-63.0%
+P=4 overflow-two-short: old=31.567ms, fixed=31.487ms, phased_sum=17.228ms, new=16.481ms; new vs fixed time change=-47.7%
+P=4 overflow-two-ordinary-first: old=31.783ms, fixed=33.339ms, phased_sum=17.460ms, new=17.196ms; new vs fixed time change=-48.4%
+P=4 overflow-one-long: old=19.633ms, fixed=21.742ms, phased_sum=21.987ms, new=21.465ms; new vs fixed time change=-1.3%
+P=4 overflow-many-loops: old=6.840ms, fixed=3.763ms, phased_sum=4.312ms, new=4.050ms; new vs fixed time change=+7.6%
+P=4 tiny-overflow: old=0.194ms, fixed=0.162ms, phased_sum=0.208ms, new=0.227ms; new vs fixed time change=+40.1%
+P=8 fits-mixed: old=1.480ms, fixed=1.778ms, phased_sum=1.835ms, new=1.755ms; new vs fixed time change=-1.3%
+P=8 fits-loops: old=10.543ms, fixed=12.027ms, phased_sum=11.990ms, new=8.759ms; new vs fixed time change=-27.2%
+P=8 overflow-one-short: old=1.857ms, fixed=6.512ms, phased_sum=1.920ms, new=1.895ms; new vs fixed time change=-70.9%
+P=8 overflow-two-short: old=10.823ms, fixed=31.910ms, phased_sum=12.472ms, new=9.426ms; new vs fixed time change=-70.5%
+P=8 overflow-two-ordinary-first: old=11.446ms, fixed=33.772ms, phased_sum=12.676ms, new=9.869ms; new vs fixed time change=-70.8%
+P=8 overflow-one-long: old=31.857ms, fixed=23.952ms, phased_sum=22.450ms, new=24.809ms; new vs fixed time change=+3.6%
+P=8 overflow-many-loops: old=21.843ms, fixed=5.118ms, phased_sum=5.476ms, new=5.275ms; new vs fixed time change=+3.1%
+P=8 tiny-overflow: old=0.359ms, fixed=0.388ms, phased_sum=0.423ms, new=0.429ms; new vs fixed time change=+10.4%
+
+These results support ordinary-first phasing for short ordinary work plus heavy loops when it creates spare capacity. It is not a universal speedup: long ordinary work loses overlap, tiny work pays another phase launch, and a loop phase with at least B tasks has h=B and no extra team workers. Simply sorting the input ordinary-first while retaining one mixed phase does not free the parent slots reserved for that phase; the ordinary-first input-order case tests this.
+
+Fixed workers can also lose to the old policy on levels that already fit: e.g. a very short ordinary callback reserves a parent slot for its phase, while the old model could use one parent and leave a larger team for the heavy loop. This is a tradeoff of the requested fixed-worker design, not evidence of an ordinary callback speeding up by receiving several workers.
+
+Prediction comparison at the SAME implemented allocations, using the loop callback span (first loop callback start to last loop callback finish), not total level wall:
+  All process medians, n=72: median APE sum=26.21%, resource=3.53%; mean APE sum=48.02%, resource=11.14%; resource within 30%=65/72.
+  Loop spans >= 1 ms, n=63: median APE sum=29.11%, resource=5.05%; mean APE sum=53.51%, resource=11.36%; resource within 30%=57/63.
+The sum/resource comparison above isolates composition at identical chosen widths. The phased_sum/new policy comparison separately includes changes in chosen widths. The individual DOALL/DOACROSS equations were not changed during this design step.
+
+Legal allocation sweep, fixed two task parents, equal/unequal arithmetic plus streaming stores, B=4 and B=8, two processes per choice and eleven measured levels per process. Every choice, including the model choice, enables identical plan logging. Serial widths consume zero extra workers, and unused capacity is allowed. Compare process-median aggregates; negative apparent regret is clipped to zero because these are noisy measurements, not exact optima. Width-selection regret compares the forced measurement of the selected width with the best forced measurement, under identical controls. The default-run gap also includes differences in model planning, calibration history, and run-to-run performance; it is reported separately and is not silently attributed to the allocation choice.
+P=4 N=65536 chain=12 ratio=1: model=[(2, 1), (1, 2)] default_run=2.461ms; forced_selected=2.381ms; measured_best=(1, 2) 2.334ms; width_selection_regret=2.0%; default_run_gap=5.5%
+P=4 N=200000 chain=12 ratio=3: model=[(1, 2), (1, 2)] default_run=17.700ms; forced_selected=17.734ms; measured_best=(1, 2) 17.734ms; width_selection_regret=0.0%; default_run_gap=0.0%
+P=4 N=1000000 chain=0 ratio=1: model=[(1, 2), (1, 2)] default_run=1.041ms; forced_selected=1.067ms; measured_best=(2, 1) 0.837ms; width_selection_regret=27.4%; default_run_gap=24.4%
+P=8 N=65536 chain=12 ratio=1: model=[(3, 3), (3, 3)] default_run=2.069ms; forced_selected=2.087ms; measured_best=(3, 3) 2.087ms; width_selection_regret=0.0%; default_run_gap=0.0%
+P=8 N=200000 chain=12 ratio=3: model=[(1, 6), (1, 6)] default_run=8.552ms; forced_selected=8.952ms; measured_best=(1, 5) 8.249ms; width_selection_regret=8.5%; default_run_gap=3.7%
+P=8 N=1000000 chain=0 ratio=1: model=[(1, 2), (2, 1)] default_run=0.899ms; forced_selected=0.972ms; measured_best=(2, 3) 0.789ms; width_selection_regret=23.2%; default_run_gap=14.0%
+Median regret=5.3%; max=27.4%
+
+Three sequential profiled sites in one task, B=4, N=100000, arithmetic chains 12/36/12, three process medians each. Compare the same model before and after the bounded integer reuse repair:
+pre_polish: 12.967ms, site widths=[('1', '3', '1'), ('1', '3', '1'), ('1', '3', '1')]
+current: 8.765ms, site widths=[('3', '3', '3'), ('3', '3', '3'), ('3', '3', '3')]
+Time reduction=32.4%
+
+Correctness: TDG/budget integration and structural checks pass with B=1,2,4,8; unregistered sharing disabled passes at B=4; six equation reference tests pass. Checks cover distinct workers for fitting tasks, a highly skewed task profile, ordinary-before-loop ordering in overloaded levels, declared DOALL and independent DOACROSS work, sequential loop-site reuse, forced capacity bounds, 1000 concurrent planned/unprofiled reservation races per budget, pre-reserved capacity, and balanced global reservations. See validation.txt.
+The existing append-order test fails on both the captured baseline and current runtime with the identical message: order mismatch at 1: got 1, expected 4. The append scheduler is unchanged in this work.
+
+Limits: this is evidence from one host, across several budgets and workload shapes; it is not validation on every machine. Shared memory bandwidth, SMT/core contention, staggered releases, and sequences involving both the pool and ephemeral teams can make F underestimate time. Missing loop metadata cannot be inferred from an opaque callback; classification uses the existing declared loop-site list. Unprofiled sites retain the bounded fallback until calibration is ready. The earlier DOACROSS synchronization/dependency-distance limitations remain; these budget tests do not establish full DOACROSS time-model accuracy. No redesign of loop execution, pooling, dependencies, or graph layout is included.
+
+Reproduce in Linux/WSL with GCC/G++, pthread/OpenMP support, Python 3 and libnlopt:
+  python3 tools/tdg_level_design_audit.py --runs 3
+  python3 tools/tdg_level_design_sweep.py
+  python3 tools/tdg_level_design_validation.py
+  python3 tools/tdg_level_design_multisite.py
+  python3 tools/summarize_tdg_level_design.py
+metadata.json records source hashes, HEAD and hardware. The baseline and intermediate snapshots are local ignored build inputs; saved patches reconstruct the baseline and phased snapshot from the recorded HEAD, and the pre-repair snapshot from the recorded final runtime. All probes omit the graph-layout autotuner. Only parallel_runtime.c, its header documentation, the budget-test expectations, and diagnostic tools/artifacts changed during this design step.

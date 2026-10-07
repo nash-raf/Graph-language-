@@ -1183,12 +1183,16 @@ and *discharged* here by construction â€” see `proof/EFFECT_ALGEBRA_DESIGN.md` Â
 
 - The CleanCut pass runs before the AutoTuner region pass and PDG/outliner
   (`main.cpp:671-689`).
-- The AutoTuner pass annotates **both IR versions**: the (dead) loop regions keep their
-  events, and each CleanCut step call gets a paired `Traverse` region (same graph, same
-  `totalOps` prediction) with `profile_region_enter` before and `profile_region_exit`
-  after the call, so predicted-vs-measured and layout decisions cover the executed
-  kernel (`CLEANCUT_LOOP_SPEC.md:134-140`; `CC_AUTOTUNER_EDGEMAP_REGION.md:75-97`,
-  `AutoTunerPass.cpp:1491`, `:2166`).
+- The AutoTuner collects each CleanCut executor call as one whole-pass `Traverse`
+  event in the ordinary operation sequence. Each stage keeps its own region and
+  enclosing-loop multiplier; the deactivated iterator header loses its traversal
+  annotation, so the original and lowered forms are not counted twice. Fixed trip
+  counts come from `autotuner.trip_count` or constant ScalarEvolution counts,
+  multiplied across enclosing loops. Dynamic loops and conditional sites remain
+  estimates; runtime visits do not trigger online layout replanning. The profiler
+  brackets execution, excluding the preceding partition build. The conversion
+  anchor and native-layout cost equations remain separate integration limitations.
+  Regression coverage: `python3 test/test_autotuner_frequency.py` (Linux/WSL, LLVM 20).
 - Layout conversions are safe for CleanCut graphs because the partitions are
   layout-agnostic (`cc_arcs_init` enumerates whatever layout the AutoTuner picked).
 

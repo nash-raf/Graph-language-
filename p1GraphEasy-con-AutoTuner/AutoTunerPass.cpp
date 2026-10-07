@@ -1,8 +1,14 @@
 #include "AutoTunerPass.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -19,6 +25,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -591,7 +598,9 @@ namespace
   bool isTraverseCall(StringRef fn)
   {
     return fn == "bfs_runtime" || fn == "bfs_runtime_src" || fn == "dfs_runtime" ||
-           fn == "dfs_runtime_src" || fn == "autograph_frontier_step";
+           fn == "dfs_runtime_src" || fn == "autograph_frontier_step" ||
+           fn == "autograph_frontier_execute" ||
+           fn == "autograph_frontier_fork_join" || fn == "autograph_edgemap";
   }
 
   bool isInsertCall(StringRef fn)
@@ -1417,85 +1426,69 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return sites * H;
   }
 
-  double estimateExecMultiplier(BasicBlock *BB)
+  // Keep loop analysis alive only while collecting events, before ARS mutates
+  // the CFG. Following an arbitrary predecessor can miss an enclosing loop,
+  // or incorrectly charge a preceding loop to a call after that loop.
+  class ExecutionCounts
   {
-    // H = product of exact enclosing-loop trip counts (from IRGen metadata
-    // autotuner.trip_count, or recovered from icmp vs constant). No heuristic ×8.
-    double mult = 1.0;
-    SmallPtrSet<BasicBlock *, 16> visited;
-    BasicBlock *cur = BB;
-    while (cur && visited.insert(cur).second)
+    struct FunctionLoops
     {
-      if (Instruction *Term = cur->getTerminator())
+      TargetLibraryInfoImpl TLII;
+      TargetLibraryInfo TLI;
+      AssumptionCache AC;
+      DominatorTree DT;
+      LoopInfo LI;
+      ScalarEvolution SE;
+
+      explicit FunctionLoops(Function &F)
+          : TLII(Triple(F.getParent()->getTargetTriple())), TLI(TLII), AC(F),
+            DT(F), LI(DT), SE(F, TLI, AC, DT, LI) {}
+    };
+    std::map<Function *, std::unique_ptr<FunctionLoops>> analyses;
+
+  public:
+    double multiplier(BasicBlock *BB, bool wholeTraversal = false)
+    {
+      auto &A = analyses[BB->getParent()];
+      if (!A)
+        A = std::make_unique<FunctionLoops>(*BB->getParent());
+      if (!A->DT.isReachableFromEntry(BB))
+        return 0.0;
+      double mult = 1.0;
+      Loop *Enclosing = A->LI.getLoopFor(BB);
+      // An iterator-header event prices a whole graph pass, not one header
+      // visit per vertex. Only loops outside that traversal repeat the pass.
+      if (wholeTraversal && Enclosing && Enclosing->getHeader() == BB)
+        Enclosing = Enclosing->getParentLoop();
+      for (Loop *L = Enclosing; L; L = L->getParentLoop())
       {
-        if (MDNode *MD = Term->getMetadata("autotuner.trip_count"))
-        {
+        if (MDNode *MD = L->getHeader()->getTerminator()->getMetadata("autotuner.trip_count"))
           if (MD->getNumOperands() >= 1)
-          {
             if (auto *CAM = dyn_cast<ConstantAsMetadata>(MD->getOperand(0)))
-            {
               if (auto *CI = dyn_cast<ConstantInt>(CAM->getValue()))
               {
-                const uint64_t trips = CI->getZExtValue();
-                if (trips > 0)
-                  mult *= static_cast<double>(trips);
+                mult *= static_cast<double>(CI->getZExtValue());
+                continue;
               }
-            }
-          }
-        }
-        else if (auto *BI = dyn_cast<BranchInst>(Term))
-        {
-          // Fallback: loop header `br i1 (icmp slt/ult %iv, C), body, exit`
-          // with a back-edge into this block — use constant C as trip count
-          // when iv starts at 0 (matches SGPL while (i < N) lowering).
-          if (BI->isConditional())
-          {
-            bool hasBackedge = false;
-            for (BasicBlock *succ : successors(cur))
-            {
-              for (BasicBlock *pred : predecessors(cur))
-              {
-                if (pred == succ)
-                {
-                  hasBackedge = true;
-                  break;
-                }
-              }
-              if (hasBackedge)
-                break;
-            }
-            if (hasBackedge)
-            {
-              if (auto *Cmp = dyn_cast<ICmpInst>(BI->getCondition()))
-              {
-                if (Cmp->getPredicate() == ICmpInst::ICMP_SLT ||
-                    Cmp->getPredicate() == ICmpInst::ICMP_ULT ||
-                    Cmp->getPredicate() == ICmpInst::ICMP_SLE ||
-                    Cmp->getPredicate() == ICmpInst::ICMP_ULE)
-                {
-                  if (auto *C = dyn_cast<ConstantInt>(Cmp->getOperand(1)))
-                  {
-                    uint64_t trips = C->getZExtValue();
-                    if (Cmp->getPredicate() == ICmpInst::ICMP_SLE ||
-                        Cmp->getPredicate() == ICmpInst::ICMP_ULE)
-                      trips += 1;
-                    if (trips > 0)
-                      mult *= static_cast<double>(trips);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
 
-      if (cur->hasNPredecessorsOrMore(1))
-        cur = *pred_begin(cur);
-      else
-        break;
+        // For SSA loops, SCEV accounts for nonzero starts and non-unit steps.
+        // A pre-tested loop visits its header once more than its body. Avoid
+        // inferring a count for loops with multiple exits. Conditional sites
+        // are still estimates: a trip count does not prove a branch is taken.
+        if (BasicBlock *Exit = L->getExitingBlock())
+          if (auto *Count = dyn_cast<SCEVConstant>(A->SE.getBackedgeTakenCount(L)))
+          {
+            double trips = Count->getAPInt().roundToDouble();
+            if (Exit != L->getHeader() || BB == L->getHeader())
+              trips += 1.0;
+            mult *= trips;
+          }
+        // Data-dependent loops retain the one-visit estimate. Runtime visit
+        // counts remain diagnostics; there is no online layout replanning.
+      }
+      return mult;
     }
-    return std::max(1.0, mult);
-  }
+  };
 
   /* Step-kernel engine calls: the CleanCut executor (frontier_execute and its
    * fork/join variant) and the CAS/combine edgemap kernel (autograph_edgemap).
@@ -1515,16 +1508,6 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return false;
   }
 
-  bool moduleHasStepKernels(Module &M)
-  {
-    for (Function &Fn : M)
-      for (BasicBlock &BB : Fn)
-        for (Instruction &I : BB)
-          if (isCleanCutStepCall(&I))
-            return true;
-    return false;
-  }
-
   Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr);
 
   bool isOutlinedTaskFunction(const Function *F)
@@ -1539,6 +1522,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
   void collectOpEventsFromFunction(Function &F,
                                    const std::map<Value *, GraphMeta> &metaByGraphPtr,
                                    std::vector<OpEvent> &events,
+                                   ExecutionCounts &counts,
                                    std::set<Function *> &visited);
 
   void collectOpEventsInCallOrder(Function &F,
@@ -1546,12 +1530,14 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
                                   std::vector<OpEvent> &events)
   {
     std::set<Function *> visited;
-    collectOpEventsFromFunction(F, metaByGraphPtr, events, visited);
+    ExecutionCounts counts;
+    collectOpEventsFromFunction(F, metaByGraphPtr, events, counts, visited);
   }
 
   void collectOpEventsFromFunction(Function &F,
                                    const std::map<Value *, GraphMeta> &metaByGraphPtr,
                                    std::vector<OpEvent> &events,
+                                   ExecutionCounts &counts,
                                    std::set<Function *> &visited)
   {
     if (!visited.insert(&F).second)
@@ -1716,8 +1702,9 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
               graphPtr = finalizeGraphPtr(graphPtr);
               if (graphPtr && metaByGraphPtr.count(graphPtr))
               {
-                double mult = estimateExecMultiplier(&BB);
-                events.push_back({RegionType::Traverse, Term, graphPtr, mult});
+                double mult = counts.multiplier(&BB, /*wholeTraversal=*/true);
+                if (mult > 0.0)
+                  events.push_back({RegionType::Traverse, Term, graphPtr, mult});
               }
               (void)MDS;
             }
@@ -1733,7 +1720,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         Function *Callee = resolveCallee(CB);
         if (Callee && isOutlinedTaskFunction(Callee) && !Callee->isDeclaration())
         {
-          collectOpEventsFromFunction(*Callee, metaByGraphPtr, events, visited);
+          collectOpEventsFromFunction(*Callee, metaByGraphPtr, events, counts, visited);
           continue;
         }
         if (!Callee)
@@ -1753,8 +1740,9 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         graphPtr = finalizeGraphPtr(graphPtr);
         if (!graphPtr || !metaByGraphPtr.count(graphPtr))
           continue;
-        double mult = estimateExecMultiplier(CB->getParent());
-        events.push_back({ty, CB, graphPtr, mult});
+        double mult = counts.multiplier(CB->getParent());
+        if (mult > 0.0)
+          events.push_back({ty, CB, graphPtr, mult});
       }
     }
   }
@@ -1770,6 +1758,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     cur.anchor = events[0].call;
     cur.graphPtr = events[0].graphPtr;
     std::array<uint64_t, 4> counts = {0, 0, 0, 0};
+    double effectiveOps = 0.0;
 
     auto flushRegion = [&]()
     {
@@ -1777,12 +1766,17 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         return;
       for (int i = 0; i < 4; ++i)
         cur.freq[i] = static_cast<double>(counts[i]) / static_cast<double>(cur.totalOps);
+      cur.execCount = effectiveOps / static_cast<double>(cur.totalOps);
       regions.push_back(cur);
     };
 
     for (const OpEvent &ev : events)
     {
-      if (ev.type != cur.dominant)
+      // Each engine call represents one whole traversal, with its own outer
+      // repetition count and profiling boundary. Keep it separate from native
+      // iterator events and from the next engine call.
+      if (ev.type != cur.dominant || isCleanCutStepCall(ev.call) ||
+          isCleanCutStepCall(cur.anchor))
       {
         flushRegion();
         cur = Region{};
@@ -1790,11 +1784,12 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         cur.anchor = ev.call;
         cur.graphPtr = ev.graphPtr;
         counts = {0, 0, 0, 0};
+        effectiveOps = 0.0;
       }
       const int idx = opIndex(ev.type);
       counts[idx]++;
       cur.totalOps++;
-      cur.execCount = std::max(cur.execCount, ev.execMultiplier);
+      effectiveOps += ev.execMultiplier;
     }
     flushRegion();
     return regions;
@@ -1825,6 +1820,12 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     {
       Region &prev = merged.back();
       const Region &cur = raw[i];
+
+      if (isCleanCutStepCall(prev.anchor) || isCleanCutStepCall(cur.anchor))
+      {
+        merged.push_back(cur);
+        continue;
+      }
 
       // Forced-layout regions must not merge with non-forced or with each
       // other (conflicting forced layouts like SetQuery vs CSRQuery are
@@ -2148,7 +2149,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
 
   std::vector<OpEvent> allEvents;
   collectOpEventsInCallOrder(*mainFn, metaByGraphPtr, allEvents);
-  if (allEvents.empty() && !moduleHasStepKernels(M))
+  if (allEvents.empty())
   {
     return PreservedAnalyses::all();
   }
@@ -2177,10 +2178,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   }
 
   int totalInjected = 0;
-  /* Iterate every graph the module uses, not only graphs with classified call
-   * events: a program whose kernel is only an autograph_edgemap call (e.g.
-   * array-frontier connected components) produces zero OpEvents and still
-   * needs the step-region annotation below. */
+  // Canonical graph aliases share one schedule, including executor-only graphs.
   std::vector<const Value *> graphKeys;
   for (const auto &KV : eventsByGraph)
     graphKeys.push_back(KV.first);
@@ -2207,69 +2205,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     const double *gCsrClassTiers =
         metaIt->second.hasCsrClassTiers ? metaIt->second.csrClassTiers.data() : nullptr;
     std::vector<Region> regions = mergeSmallRegions(buildRegions(events));
-
-    /* CleanCut dual annotation: graph-iterator loops were lowered by the
-     * graph-frontier pass into owner-computes step calls.  Annotate each
-     * step call as a Traverse region paired with the loop region of the same
-     * graph (same totalOps estimate), so predicted-vs-measured and layout
-     * decisions cover the executed kernel, not just the residual loops. */
-    {
-      /* Slot -> graph map: the generated main stores the loaded graph pointer
-       * into the @G global; step calls re-load it.  Mirrors the collection
-       * logic in collectOpEventsFromFunction. */
-      std::map<Value *, Value *> storageToGraph;
-      for (Function &Fn : M)
-        for (BasicBlock &BB : Fn)
-          for (Instruction &I : BB)
-            if (auto *SI = dyn_cast<StoreInst>(&I))
-              if (metaByGraphPtr.count(SI->getValueOperand()))
-                storageToGraph[SI->getPointerOperand()->stripPointerCasts()] =
-                    SI->getValueOperand();
-      auto graphOfStepArg = [&](Value *V) -> Value * {
-        if (!V)
-          return nullptr;
-        V = V->stripPointerCasts();
-        if (metaByGraphPtr.count(V))
-          return V;
-        if (auto *LI = dyn_cast<LoadInst>(V))
-        {
-          Value *slot = LI->getPointerOperand()->stripPointerCasts();
-          auto it = storageToGraph.find(slot);
-          if (it != storageToGraph.end())
-            return it->second;
-        }
-        return nullptr;
-      };
-      uint64_t loopOps = 0;
-      for (const Region &R : regions)
-        if (R.graphPtr == graphKey)
-          loopOps = std::max<uint64_t>(loopOps, R.totalOps);
-      // No sibling loop regions (edgemap-only programs): the step executes one
-      // graph pass per call, and traversalCost already prices a whole pass, so
-      // the op-count multiplier is 1 -- NOT the edge count, which would
-      // overprice a pass by O(m).
-      if (loopOps == 0)
-        loopOps = 1;
-      for (Function &Fn : M)
-        for (BasicBlock &BB : Fn)
-          for (Instruction &I : BB)
-          {
-            auto *CB = dyn_cast<CallBase>(&I);
-            if (!CB || !isCleanCutStepCall(&I) || CB->arg_size() == 0)
-              continue;
-            Value *g = graphOfStepArg(CB->getArgOperand(0));
-            if (!g || g != const_cast<Value *>(graphKey))
-              continue;
-            Region SR;
-            SR.dominant = RegionType::Traverse;
-            SR.anchor = &I;
-            SR.graphPtr = const_cast<Value *>(graphKey);
-            SR.freq = {1.0, 0.0, 0.0, 0.0};
-            SR.totalOps = loopOps;
-            SR.execCount = 1.0;
-            regions.push_back(SR);
-          }
-    }
 
     if (regions.empty())
       continue;

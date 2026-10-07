@@ -34,10 +34,6 @@ extern void roaring_bitmap_clear_thread_local_overrides(void);
 #define SGPL_APPEND_PARALLEL_COPY_THRESHOLD 16384
 
 static const double SGPL_TDG_UNIT_COST_NS = 250.0;
-static const double SGPL_TDG_BASE_LAUNCH_NS = 18000.0;
-static const double SGPL_TDG_LAUNCH_PER_THREAD_NS = 2800.0;
-static const double SGPL_POOL_BASE_LAUNCH_NS = 1200.0;
-static const double SGPL_POOL_LAUNCH_PER_THREAD_NS = 180.0;
 static const double SGPL_TDG_HT_EFFICIENCY = 0.42;
 static const double SGPL_TDG_MIN_GAIN_FRACTION = 0.12;
 static const int64_t SGPL_TDG_MIN_WORK_FOR_HT = 64;
@@ -255,28 +251,6 @@ static void sgpl_tdg_init_runtime_config(void)
                 SGPL_TDG_MIN_GAIN_FRACTION,
                 (long long)SGPL_TDG_MIN_WORK_FOR_HT);
     }
-}
-
-static double sgpl_tdg_launch_overhead(int32_t threads, int64_t work_units)
-{
-    double base = SGPL_TDG_BASE_LAUNCH_NS;
-    double per_thread = SGPL_TDG_LAUNCH_PER_THREAD_NS;
-    double scaled = base + per_thread * (double)threads;
-    if (work_units > 0)
-    {
-        scaled += 0.35 * (double)work_units;
-    }
-    return scaled;
-}
-
-static double sgpl_tdg_effective_threads(int32_t threads)
-{
-    if (threads <= sgpl_tdg_physical_threads)
-        return (double)threads;
-    if (!sgpl_tdg_allow_hyperthread)
-        return (double)sgpl_tdg_physical_threads;
-    return (double)sgpl_tdg_physical_threads +
-           (double)(threads - sgpl_tdg_physical_threads) * SGPL_TDG_HT_EFFICIENCY;
 }
 
 static _Thread_local int32_t g_tls_thread_budget_depth = 0;
@@ -569,6 +543,7 @@ typedef struct
     sgpl_tdg_level_state *state;
     int32_t loop_threads;
     int32_t scope_threads;
+    int32_t first_index;
 } sgpl_tdg_worker_arg;
 
 typedef struct sgpl_level_loop_plan_entry
@@ -663,6 +638,7 @@ typedef struct
 typedef struct
 {
     int in_use;
+    int ephemeral;
     int mode;
     int runtime_kind;
     int threads;
@@ -687,8 +663,9 @@ static void sgpl_unbind_level_loop_pool(sgpl_level_loop_pool *saved_pool,
 static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_loop_profile_desc *desc, int threads);
 
 static sgpl_loop_runtime_state g_loop_states[SGPL_MAX_PROFILED_LOOPS];
-static double g_launch_thread_costs[SGPL_TDG_MAX_REPORTED_THREADS];
-static unsigned char g_launch_thread_cost_valid[SGPL_TDG_MAX_REPORTED_THREADS];
+static double g_launch_thread_costs[2][SGPL_TDG_MAX_REPORTED_THREADS];
+static unsigned char g_launch_thread_cost_valid[2][SGPL_TDG_MAX_REPORTED_THREADS];
+static pthread_mutex_t g_launch_model_lock = PTHREAD_MUTEX_INITIALIZER;
 static sgpl_launch_path_cost_entry g_launch_path_costs[SGPL_MAX_LAUNCH_KEYS];
 
 static atomic_long g_parallel_plain_calls = 0;
@@ -1457,9 +1434,9 @@ static void *sgpl_tdg_worker_main(void *arg)
     int32_t saved_pending_loop = -1;
     int32_t saved_task_slot = -1;
 
-    for (;;)
+    int idx = worker->first_index;
+    for (;; idx = atomic_fetch_add(&state->next_index, 1))
     {
-        int idx = atomic_fetch_add(&state->next_index, 1);
         if (idx >= state->task_count)
             break;
 
@@ -2498,15 +2475,21 @@ static int32_t sgpl_loop_pool_try_acquire(int32_t loop_id, int32_t requested)
             if (task_slot >= 0 && pool->entries[i].task_slot != task_slot)
                 continue;
 
+            matched = 1;
             if (requested > pool->entries[i].assigned_threads)
                 requested = pool->entries[i].assigned_threads;
 
-            if (pool->entries[i].active_threads == 0 && requested >= 2 && remaining >= requested)
+            while (pool->entries[i].active_threads == 0 && requested >= 2 && remaining >= requested)
             {
-                pool->entries[i].active_threads = requested;
-                atomic_store(&pool->remaining_threads, remaining - requested);
-                granted = requested;
-                matched = 1;
+                /* Unprofiled callers share this counter without the plan
+                 * mutex; the reservation must use their same atomic CAS. */
+                if (atomic_compare_exchange_weak(&pool->remaining_threads, &remaining,
+                                                 remaining - requested))
+                {
+                    pool->entries[i].active_threads = requested;
+                    granted = requested;
+                    break;
+                }
             }
             break;
         }
@@ -2613,31 +2596,6 @@ static void sgpl_loop_pool_release(int32_t loop_id, int32_t granted)
     }
 }
 
-static double sgpl_tdg_model_time_ns(int64_t work_units, int64_t span_units, int32_t threads)
-{
-    int64_t safe_work = work_units;
-    int64_t safe_span = span_units;
-    double launch_ns = 0.0;
-    double work_term = 0.0;
-
-    if (threads <= 1)
-    {
-        if (safe_work <= 0)
-            safe_work = 1;
-        return (double)safe_work * sgpl_tdg_unit_cost_ns;
-    }
-
-    if (safe_work <= 0 || safe_span <= 0)
-        return 1.0e300;
-
-    if (safe_span > safe_work)
-        safe_span = safe_work;
-
-    launch_ns = sgpl_tdg_launch_overhead(threads, safe_work);
-    work_term = (double)(safe_work - safe_span) / sgpl_tdg_effective_threads(threads);
-    return launch_ns + ((double)safe_span + work_term) * sgpl_tdg_unit_cost_ns;
-}
-
 static int sgpl_build_runtime_loop_desc(int32_t loop_id,
                                         const sgpl_loop_runtime_state *state,
                                         sgpl_loop_profile_desc *desc)
@@ -2667,6 +2625,33 @@ static double sgpl_loop_serial_model_time_ns(const sgpl_loop_profile_desc *desc,
     if (desc->mode == SGPL_LOOP_DOACROSS)
         return (double)trip_count * (state->c_dep_ns_per_iter_ewma + state->c_ind_ns_per_iter_ewma);
     return (double)trip_count * state->c_ns_per_iter_ewma;
+}
+
+/* Largest lane's work under the existing cyclic/block-cyclic schedule.
+ * Fractional N/P invents balance the dispatcher cannot deliver near a chunk
+ * boundary. This mirrors worker_main; it does not change the schedule. */
+static double sgpl_loop_max_lane_iterations(int64_t trips, int32_t threads, int doacross)
+{
+    int64_t chunk = doacross ? 1 : sgpl_loop_chunk_iterations();
+    int64_t max_chunk;
+    int64_t stride;
+    int64_t remainder;
+    if (trips <= 0)
+        return 0.0;
+    if (threads <= 1)
+        return (double)trips;
+    max_chunk = trips / threads + (trips % threads != 0);
+    if (chunk > max_chunk)
+        chunk = max_chunk;
+    if (chunk < 1)
+        chunk = 1;
+    /* Avoid signed overflow for extreme trip counts. */
+    if (chunk > INT64_MAX / threads)
+        return (double)chunk;
+    stride = chunk * threads;
+    remainder = trips % stride;
+    return (double)(trips / stride) * (double)chunk +
+           (double)(remainder < chunk ? remainder : chunk);
 }
 
 static double sgpl_loop_parallel_model_time_ns(const sgpl_loop_profile_desc *desc,
@@ -2702,11 +2687,12 @@ static double sgpl_loop_parallel_model_time_ns(const sgpl_loop_profile_desc *des
 
         return launch.total_ns +
                (double)trip_count * state->c_dep_ns_per_iter_ewma +
-               ((double)trip_count * state->c_ind_ns_per_iter_ewma / (double)threads) +
+               (sgpl_loop_max_lane_iterations(trip_count, threads, 1) * state->c_ind_ns_per_iter_ewma) +
                ((double)trip_count * sync_per_iter);
     }
 
-    return launch.total_ns + ((double)trip_count * state->c_ns_per_iter_ewma / (double)threads);
+    return launch.total_ns +
+           sgpl_loop_max_lane_iterations(trip_count, threads, 0) * state->c_ns_per_iter_ewma;
 }
 
 static int32_t sgpl_loop_min_profitable_threads(const sgpl_level_loop_candidate *candidate,
@@ -2786,7 +2772,35 @@ typedef struct
     int32_t candidate_count;
     int32_t loop_budget;
     const double *cost_table;
+    const sgpl_level_loop_candidate *candidates;
+    int32_t parent_workers;
+    int32_t group_index[SGPL_MAX_TDG_LEVEL_LOOPS];
 } sgpl_nlopt_problem;
+
+/* Serial sites on different task workers overlap. Parallel DOALL sites use
+ * the existing exclusive pool, so their service times add. Sites within one
+ * task are serial. This is a resource lower bound, not a release-time model. */
+static double sgpl_level_loop_cost_ns(const sgpl_level_loop_candidate *candidates,
+                                      int32_t count, const double *costs,
+                                      const double *pooled_fraction, int32_t workers,
+                                      const int32_t *group_index)
+{
+    double task_cost[SGPL_MAX_TDG_LEVEL_LOOPS];
+    double pool_cost = 0.0, total = 0.0, longest = 0.0;
+    for (int32_t i = 0; i < count; ++i) task_cost[i] = 0.0;
+    for (int32_t i = 0; i < count; ++i)
+    {
+        int32_t group = group_index[i];
+        task_cost[group] += costs[i];
+        total += costs[i];
+        if (candidates[i].desc.mode != SGPL_LOOP_DOACROSS)
+            pool_cost += pooled_fraction[i] * costs[i];
+    }
+    for (int32_t i = 0; i < count; ++i)
+        if (task_cost[i] > longest)
+            longest = task_cost[i];
+    return fmax(pool_cost, fmax(longest, total / (workers > 0 ? workers : 1)));
+}
 
 static double sgpl_loop_relaxed_cost_from_samples(const double *samples,
                                                   int32_t loop_budget,
@@ -2814,7 +2828,8 @@ static double sgpl_loop_relaxed_cost_from_samples(const double *samples,
 static double sgpl_nlopt_loop_objective(unsigned n, const double *x, double *grad, void *data)
 {
     sgpl_nlopt_problem *problem = (sgpl_nlopt_problem *)data;
-    double total = 0.0;
+    double costs[SGPL_MAX_TDG_LEVEL_LOOPS];
+    double pooled_fraction[SGPL_MAX_TDG_LEVEL_LOOPS];
     unsigned i = 0;
 
     (void)n;
@@ -2829,9 +2844,49 @@ static double sgpl_nlopt_loop_objective(unsigned n, const double *x, double *gra
     for (i = 0; i < (unsigned)problem->candidate_count; ++i)
     {
         const double *samples = problem->cost_table + (size_t)i * (size_t)(problem->loop_budget + 1);
-        total += sgpl_loop_relaxed_cost_from_samples(samples, problem->loop_budget, x[i]);
+        costs[i] = sgpl_loop_relaxed_cost_from_samples(samples, problem->loop_budget, x[i]);
+        pooled_fraction[i] = fmin(1.0, fmax(0.0, x[i] - 1.0));
+    }
+    return sgpl_level_loop_cost_ns(problem->candidates, problem->candidate_count,
+                                   costs, pooled_fraction, problem->parent_workers, problem->group_index);
+}
+
+static double sgpl_integer_loop_objective(const sgpl_nlopt_problem *problem, const int32_t *consumed)
+{
+    double x[SGPL_MAX_TDG_LEVEL_LOOPS + 1];
+    for (int32_t i = 0; i < problem->candidate_count; ++i)
+        x[i] = consumed[i];
+    x[problem->candidate_count] = 0.0;
+    return sgpl_nlopt_loop_objective((unsigned)(problem->candidate_count + 1), x, NULL, (void *)problem);
+}
+
+/* Sites in one callback execute sequentially and return their grant after
+ * each dispatch. Reserve the largest team per task, rather than summing all
+ * of that task's sequential sites. Different task workers can overlap. */
+static double sgpl_loop_consumed_budget(const int32_t *group_index,
+                                        int32_t count, const double *consumed)
+{
+    double peak[SGPL_MAX_TDG_LEVEL_LOOPS];
+    double total = 0.0;
+    for (int32_t i = 0; i < count; ++i) peak[i] = 0.0;
+    for (int32_t i = 0; i < count; ++i)
+    {
+        int32_t group = group_index[i];
+        if (consumed[i] > peak[group])
+        {
+            total += consumed[i] - peak[group];
+            peak[group] = consumed[i];
+        }
     }
     return total;
+}
+
+static int32_t sgpl_integer_consumed_budget(const sgpl_nlopt_problem *problem, const int32_t *consumed)
+{
+    double x[SGPL_MAX_TDG_LEVEL_LOOPS];
+    for (int32_t i = 0; i < problem->candidate_count; ++i)
+        x[i] = consumed[i];
+    return (int32_t)sgpl_loop_consumed_budget(problem->group_index, problem->candidate_count, x);
 }
 
 static double sgpl_nlopt_budget_constraint(unsigned n, const double *x, double *grad, void *data)
@@ -2843,13 +2898,29 @@ static double sgpl_nlopt_budget_constraint(unsigned n, const double *x, double *
     if (grad)
     {
         for (i = 0; i < n; ++i)
-            grad[i] = 1.0;
+            grad[i] = 0.0;
+        if (problem && x)
+        {
+            for (i = 0; i < (unsigned)problem->candidate_count; ++i)
+            {
+                unsigned winner = i, j;
+                for (j = 0; j < i; ++j)
+                    if (problem->candidates[j].task_slot == problem->candidates[i].task_slot)
+                        break;
+                if (j < i) continue;
+                for (j = i + 1; j < (unsigned)problem->candidate_count; ++j)
+                    if (problem->candidates[j].task_slot == problem->candidates[i].task_slot && x[j] > x[winner])
+                        winner = j;
+                grad[winner] = 1.0;
+            }
+            grad[problem->candidate_count] = 1.0;
+        }
     }
     if (!problem || !x)
         return 0.0;
 
-    for (i = 0; i < n; ++i)
-        sum += x[i];
+    sum = sgpl_loop_consumed_budget(problem->group_index, problem->candidate_count, x);
+    sum += x[problem->candidate_count];
     return sum - (double)problem->loop_budget;
 }
 
@@ -2971,80 +3042,10 @@ static int32_t sgpl_collect_level_loop_candidates(const sgpl_tdg_task_desc *task
     return count;
 }
 
-/* Single-site levels: a level whose single task owns parallel work (the task
- * declares loop sites) can still be planned -- one level worker runs the task
- * and its site draws the level's remaining budget.  Without this, such levels
- * were always decided serial and the site inside them (an engine step or a
- * single outlined loop) was forced to one thread.  Returns the site's chosen
- * width (>1 on success) and fills `plan` with a one-entry schedule; returns 1
- * (serial) when the model sees no gain. */
-static int32_t sgpl_plan_single_site(const sgpl_tdg_task_desc *tasks,
-                                     int32_t task_count,
-                                     sgpl_level_loop_plan *plan,
-                                     int32_t level_budget_threads,
-                                     double min_gain,
-                                     const char **reason_out)
-{
-    sgpl_level_loop_candidate candidates[SGPL_MAX_TDG_LEVEL_LOOPS];
-    int32_t candidate_count = 0;
-    int32_t best_threads = 1;
-    int32_t budget = level_budget_threads - 1; /* one worker runs the task */
-    double serial_time = 0.0;
-    double best_time = 0.0;
-    double gain = 0.0;
-    int32_t i = 0;
-
-    if (!tasks || task_count <= 0 || !plan || budget < 2)
-        return 1;
-
-    candidate_count = sgpl_collect_level_loop_candidates(
-        tasks, task_count, candidates, SGPL_MAX_TDG_LEVEL_LOOPS);
-    if (candidate_count <= 0)
-        return 1;
-
-    serial_time = sgpl_loop_candidate_model_time_ns(&candidates[0], 1);
-    best_time = serial_time;
-    for (i = 2; i <= budget; ++i)
-    {
-        double model = sgpl_loop_candidate_model_time_ns(&candidates[0], i);
-
-        if (model > 0.0 && model < best_time)
-        {
-            best_time = model;
-            best_threads = i;
-        }
-    }
-
-    if (best_threads <= 1 || serial_time <= 0.0)
-        return 1;
-
-    gain = (serial_time - best_time) / serial_time;
-    if (gain < min_gain)
-        return 1;
-
-    memset(plan, 0, sizeof(*plan));
-    plan->loop_budget = budget;
-    plan->remaining_threads = budget;
-    plan->idle_threads = budget - best_threads;
-    plan->entry_count = 1;
-    plan->dominant_loop_id = candidates[0].loop_id;
-    plan->dominant_model_ns = best_time;
-    plan->total_model_ns = best_time;
-    plan->slack_threads = plan->idle_threads;
-    plan->entries[0].task_slot = candidates[0].task_slot;
-    plan->entries[0].loop_id = candidates[0].loop_id;
-    plan->entries[0].assigned_threads = best_threads;
-    plan->entries[0].active_threads = 0;
-    plan->entries[0].c_rank_ns = candidates[0].c_rank_ns;
-    plan->entries[0].model_ns = best_time;
-    if (reason_out)
-        *reason_out = "single-site-model-win";
-    return best_threads;
-}
-
 static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candidates,
                                           int32_t candidate_count,
                                           int32_t loop_budget,
+                                          int32_t parent_workers,
                                           sgpl_level_loop_plan *plan)
 {
     int32_t assigned[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
@@ -3069,9 +3070,45 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
     plan->remaining_threads = loop_budget;
     plan->idle_threads = loop_budget;
     plan->dominant_loop_id = -1;
-    if (!candidates || candidate_count <= 0 || loop_budget <= 1)
+    if (!candidates || candidate_count <= 0)
     {
         plan->total_model_ns = 0.0;
+        plan->slack_threads = loop_budget;
+        return;
+    }
+
+    /* Cache task grouping once; optimizer evaluations need only linear work. */
+    for (i = 0; i < candidate_count; ++i)
+    {
+        problem.group_index[i] = i;
+        for (int32_t j = 0; j < i; ++j)
+            if (candidates[j].task_slot == candidates[i].task_slot)
+            {
+                problem.group_index[i] = j;
+                break;
+            }
+    }
+
+    if (loop_budget <= 1)
+    {
+        double costs[SGPL_MAX_TDG_LEVEL_LOOPS], pooled_fraction[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
+        for (i = 0; i < candidate_count; ++i)
+        {
+            sgpl_level_loop_plan_entry *entry = &plan->entries[plan->entry_count++];
+            entry->task_slot = candidates[i].task_slot;
+            entry->loop_id = candidates[i].loop_id;
+            entry->assigned_threads = 1;
+            entry->c_rank_ns = candidates[i].c_rank_ns;
+            entry->model_ns = sgpl_loop_candidate_model_time_ns(&candidates[i], 1);
+            costs[i] = entry->model_ns;
+            if (entry->model_ns > plan->dominant_model_ns)
+            {
+                plan->dominant_model_ns = entry->model_ns;
+                plan->dominant_loop_id = entry->loop_id;
+            }
+        }
+        plan->total_model_ns = sgpl_level_loop_cost_ns(candidates, candidate_count, costs,
+                                                      pooled_fraction, parent_workers, problem.group_index);
         plan->slack_threads = loop_budget;
         return;
     }
@@ -3108,7 +3145,7 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
     if (tdg_debug_enabled())
     {
         fprintf(stderr,
-                "[tdg.opt-input] loop_budget=%d loop_sites=%d objective=sum-cost solver=nlopt serial-consumes=0\n",
+                "[tdg.opt-input] loop_budget=%d loop_sites=%d objective=level-resources solver=nlopt serial-consumes=0\n",
                 loop_budget,
                 candidate_count);
     }
@@ -3116,6 +3153,8 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
     problem.candidate_count = candidate_count;
     problem.loop_budget = loop_budget;
     problem.cost_table = cost_table;
+    problem.candidates = candidates;
+    problem.parent_workers = parent_workers;
 
     for (i = 0; i <= candidate_count; ++i)
     {
@@ -3124,6 +3163,7 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
     }
 
     sgpl_initialize_nlopt_guess(candidates, candidate_count, loop_budget, x_relaxed);
+    x_relaxed[candidate_count] = loop_budget - sgpl_loop_consumed_budget(problem.group_index, candidate_count, x_relaxed);
     opt = nlopt_create(NLOPT_LN_COBYLA, (unsigned)(candidate_count + 1));
     if (opt)
     {
@@ -3160,8 +3200,8 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
         if (rounded == 1)
             rounded = 0;
         consumed[i] = rounded;
-        total_consumed += rounded;
     }
+    total_consumed = sgpl_integer_consumed_budget(&problem, consumed);
     rounded_idle = (int32_t)floor(x_relaxed[candidate_count] + 0.5);
     if (rounded_idle < 0)
         rounded_idle = 0;
@@ -3181,7 +3221,6 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
 
     while (total_consumed + rounded_idle < loop_budget)
     {
-        int32_t best_kind = 0;
         int32_t best_index = -1;
         int32_t best_new_value = 0;
         int32_t best_delta_budget = 1;
@@ -3210,16 +3249,20 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
             else
                 continue;
 
+            consumed[i] = next_value;
+            delta_budget = sgpl_integer_consumed_budget(&problem, consumed) - total_consumed;
+            consumed[i] = cur;
             if (total_consumed + rounded_idle + delta_budget > loop_budget)
                 continue;
 
-            old_cost = cost_table[(size_t)i * (size_t)(loop_budget + 1) + (size_t)(cur <= 1 ? 1 : cur)];
-            new_cost = cost_table[(size_t)i * (size_t)(loop_budget + 1) + (size_t)next_value];
+            old_cost = sgpl_integer_loop_objective(&problem, consumed);
+            consumed[i] = next_value;
+            new_cost = sgpl_integer_loop_objective(&problem, consumed);
+            consumed[i] = cur;
             delta_cost = new_cost - old_cost;
             if (!found || delta_cost + 1e-9 < best_delta_cost)
             {
                 found = 1;
-                best_kind = 1;
                 best_index = i;
                 best_new_value = next_value;
                 best_delta_budget = delta_budget;
@@ -3290,8 +3333,13 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
             else
                 continue;
 
-            old_cost = cost_table[(size_t)i * (size_t)(loop_budget + 1) + (size_t)cur];
-            new_cost = cost_table[(size_t)i * (size_t)(loop_budget + 1) + (size_t)(next_value <= 1 ? 1 : next_value)];
+            consumed[i] = next_value;
+            delta_budget = total_consumed - sgpl_integer_consumed_budget(&problem, consumed);
+            consumed[i] = cur;
+            old_cost = sgpl_integer_loop_objective(&problem, consumed);
+            consumed[i] = next_value;
+            new_cost = sgpl_integer_loop_objective(&problem, consumed);
+            consumed[i] = cur;
             delta_cost = new_cost - old_cost;
             if (!found || delta_cost + 1e-9 < best_delta_cost)
             {
@@ -3330,13 +3378,90 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
         }
     }
 
+    /* Rounding a relaxed solution can cross the serial/parallel discontinuity.
+     * Always compare with all-serial. Small one/two-site plans can be repaired
+     * exactly; bound this work by the number of trials, not by machine type. */
+    {
+        int32_t trial[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
+        double incumbent = sgpl_integer_loop_objective(&problem, consumed);
+        double serial = sgpl_integer_loop_objective(&problem, trial);
+        if (serial <= incumbent)
+        {
+            memset(consumed, 0, sizeof(consumed));
+            total_consumed = 0;
+            incumbent = serial;
+        }
+        if (candidate_count <= 2 && (int64_t)(loop_budget + 1) * (loop_budget + 1) <= 65536)
+        {
+            for (int32_t a = 0; a <= loop_budget; ++a)
+            {
+                if (a == 1) continue;
+                trial[0] = a;
+                for (int32_t b = 0; b <= (candidate_count == 2 ? loop_budget : 0); ++b)
+                {
+                    double cost;
+                    int32_t used;
+                    if (b == 1) continue;
+                    trial[1] = b;
+                    used = sgpl_integer_consumed_budget(&problem, trial);
+                    if (used > loop_budget) continue;
+                    cost = sgpl_integer_loop_objective(&problem, trial);
+                    if (cost < incumbent - 1e-9 || (fabs(cost - incumbent) <= 1e-9 && used < total_consumed))
+                    {
+                        consumed[0] = a; consumed[1] = b;
+                        total_consumed = used;
+                        incumbent = cost;
+                    }
+                }
+            }
+        }
+        /* On larger plans, fill profitable sequential sites within their
+         * task's already allocated peak team. A relaxed solver can stop on
+         * the flat serial interval without finding this free reuse. */
+        if (candidate_count > 2)
+        {
+            int32_t trials = 0;
+            for (int pass = 0; pass < 2 && trials < 65536; ++pass)
+            {
+                int changed = 0;
+                for (i = 0; i < candidate_count && trials < 65536; ++i)
+                {
+                    int32_t cap = 0, cur = consumed[i], best = cur;
+                    double best_cost = incumbent;
+                    for (int32_t j = 0; j < candidate_count; ++j)
+                        if (problem.group_index[i] == problem.group_index[j] && consumed[j] > cap)
+                            cap = consumed[j];
+                    for (int32_t width = 0; width <= cap && trials < 65536; ++width)
+                    {
+                        double cost;
+                        if (width == 1) continue;
+                        consumed[i] = width;
+                        ++trials;
+                        cost = sgpl_integer_loop_objective(&problem, consumed);
+                        if (cost < best_cost - 1e-9)
+                        {
+                            best = width;
+                            best_cost = cost;
+                        }
+                    }
+                    consumed[i] = best;
+                    if (best != cur) changed = 1;
+                    incumbent = best_cost;
+                }
+                if (!changed) break;
+            }
+            total_consumed = sgpl_integer_consumed_budget(&problem, consumed);
+        }
+        rounded_idle = loop_budget - total_consumed;
+        plan->total_model_ns = incumbent;
+    }
+
     for (i = 0; i < candidate_count; ++i)
     {
         int32_t actual_threads = consumed[i] >= 2 ? consumed[i] : 1;
         double model = cost_table[(size_t)i * (size_t)(loop_budget + 1) + (size_t)actual_threads];
 
         assigned[i] = actual_threads;
-        plan->total_model_ns += model;
 
         if (model > plan->dominant_model_ns)
         {
@@ -3344,7 +3469,7 @@ static void sgpl_evaluate_level_loop_plan(const sgpl_level_loop_candidate *candi
             plan->dominant_loop_id = candidates[i].loop_id;
         }
 
-        if (assigned[i] >= 2 && plan->entry_count < SGPL_MAX_TDG_LEVEL_LOOPS)
+        if (plan->entry_count < SGPL_MAX_TDG_LEVEL_LOOPS)
         {
             plan->entries[plan->entry_count].task_slot = candidates[i].task_slot;
             plan->entries[plan->entry_count].loop_id = candidates[i].loop_id;
@@ -3468,15 +3593,30 @@ static void sgpl_tdg_apply_forced_widths(sgpl_level_loop_plan *plan)
             plan->entries[i].assigned_threads = forced;
             forced_any = 1;
         }
-        sum += plan->entries[i].assigned_threads;
     }
     if (forced_any)
     {
-        plan->loop_budget = sum > 0 ? sum : 1;
-        plan->remaining_threads = plan->loop_budget;
+        for (i = 0; i < plan->entry_count; ++i)
+        {
+            int32_t peak = 0, j;
+            for (j = 0; j < i; ++j)
+                if (plan->entries[j].task_slot == plan->entries[i].task_slot)
+                    break;
+            if (j < i) continue;
+            for (j = i; j < plan->entry_count; ++j)
+                if (plan->entries[j].task_slot == plan->entries[i].task_slot && plan->entries[j].assigned_threads > peak)
+                    peak = plan->entries[j].assigned_threads;
+            if (peak >= 2) sum += peak;
+        }
+        plan->idle_threads = sum < plan->loop_budget ? plan->loop_budget - sum : 0;
+        plan->remaining_threads = plan->idle_threads;
+        plan->slack_threads = plan->idle_threads;
     }
 }
 
+/* A TDG task is a serial callback. Reserve one parent worker per task;
+ * only its declared loop sites can spend the remaining level capacity. Task
+ * duration profiles must not trade parent workers for loop workers. */
 static int32_t sgpl_choose_tdg_threads_with_loop_budget(int64_t work_units,
                                                         int64_t span_units,
                                                         const sgpl_tdg_task_desc *tasks,
@@ -3484,211 +3624,24 @@ static int32_t sgpl_choose_tdg_threads_with_loop_budget(int64_t work_units,
                                                         int32_t level_budget_threads,
                                                         sgpl_level_loop_plan *selected_plan)
 {
-    int64_t safe_work = work_units;
-    int64_t safe_span = span_units;
-    int32_t tdg_cap = 0;
-    int32_t task_limit = task_count > 0 ? task_count : 0;
-    int32_t best_threads = 1;
-    int32_t selected_threads = 1;
-    double best_time = 0.0;
-    double serial_time = 0.0;
-    double min_gain = SGPL_TDG_MIN_GAIN_FRACTION;
-    double span_ratio = 1.0;
-    double best_gain = 0.0;
-    const char *decision_reason = "serial-invalid-input";
     sgpl_level_loop_candidate candidates[SGPL_MAX_TDG_LEVEL_LOOPS];
-    int32_t candidate_count = 0;
-    sgpl_level_loop_plan best_plan;
-    sgpl_level_loop_plan candidate_plan;
-
-    memset(&best_plan, 0, sizeof(best_plan));
-    memset(&candidate_plan, 0, sizeof(candidate_plan));
-    if (selected_plan)
-        memset(selected_plan, 0, sizeof(*selected_plan));
-
-    sgpl_tdg_init_runtime_config();
-    candidate_count = sgpl_collect_level_loop_candidates(tasks,
-                                                         task_count,
-                                                         candidates,
-                                                         SGPL_MAX_TDG_LEVEL_LOOPS);
+    int32_t workers = task_count < level_budget_threads ? task_count : level_budget_threads;
+    int32_t count;
+    (void)work_units;
+    (void)span_units;
+    if (workers < 1)
+        workers = 1;
+    count = sgpl_collect_level_loop_candidates(tasks, task_count, candidates,
+                                               SGPL_MAX_TDG_LEVEL_LOOPS);
+    sgpl_evaluate_level_loop_plan(candidates, count,
+                                  level_budget_threads > workers ? level_budget_threads - workers : 0,
+                                  workers,
+                                  selected_plan);
     if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.univ] input work=%lld span=%lld tasks=%d level_budget=%d loop_sites=%d\n",
-                (long long)work_units,
-                (long long)span_units,
-                task_count,
-                level_budget_threads,
-                candidate_count);
-    }
-
-    if (safe_work <= 0 || safe_span <= 0 || task_limit <= 0)
-        goto tdg_finalize;
-    if (safe_span > safe_work)
-        safe_span = safe_work;
-    if (safe_span <= 0 || safe_work <= 0)
-    {
-        decision_reason = "serial-sanitized-invalid";
-        goto tdg_finalize;
-    }
-    if (task_limit <= 1)
-    {
-        const char *single_site_reason = NULL;
-        int32_t site_threads = sgpl_plan_single_site(tasks,
-                                                     task_count,
-                                                     &best_plan,
-                                                     level_budget_threads,
-                                                     min_gain,
-                                                     &single_site_reason);
-
-        if (site_threads > 1)
-        {
-            /* One level worker runs the task; the task's site draws the rest. */
-            selected_threads = 1;
-            decision_reason = single_site_reason;
-            if (tdg_debug_enabled())
-            {
-                fprintf(stderr,
-                        "[tdg.single-site] chosen_workers=1 site_threads=%d loop_id=%d level_budget=%d\n",
-                        site_threads,
-                        best_plan.dominant_loop_id,
-                        level_budget_threads);
-            }
-            goto tdg_finalize;
-        }
-
-        decision_reason = "serial-single-task";
-        goto tdg_finalize;
-    }
-    if (sgpl_tdg_runtime_threads <= 1)
-    {
-        decision_reason = "serial-single-runtime-thread";
-        goto tdg_finalize;
-    }
-    if (level_budget_threads <= 1)
-    {
-        decision_reason = "serial-no-level-budget";
-        goto tdg_finalize;
-    }
-
-    tdg_cap = sgpl_tdg_allow_hyperthread ? sgpl_tdg_runtime_threads : sgpl_tdg_physical_threads;
-    if (tdg_cap > level_budget_threads)
-        tdg_cap = level_budget_threads;
-    if (tdg_cap > task_limit)
-        tdg_cap = task_limit;
-    if (tdg_cap < 1)
-        tdg_cap = 1;
-
-    span_ratio = (double)safe_span / (double)safe_work;
-    if (span_ratio >= 0.95 || safe_work < 8)
-    {
-        decision_reason = span_ratio >= 0.95 ? "serial-span-dominated" : "serial-too-little-work";
-        goto tdg_finalize;
-    }
-
-    sgpl_evaluate_level_loop_plan(candidates, candidate_count, level_budget_threads - 1, &best_plan);
-    serial_time = sgpl_tdg_model_time_ns(safe_work, safe_span, 1) + best_plan.total_model_ns;
-    best_time = serial_time;
-    best_threads = 1;
-
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.univ-candidate] tdg_threads=1 loop_threads=%d tdg_model_ns=%.2f loop_model_ns=%.2f total_ns=%.2f dominant_loop=%d enabled_loops=%d slack=%d\n",
-                level_budget_threads > 0 ? level_budget_threads - 1 : 0,
-                sgpl_tdg_model_time_ns(safe_work, safe_span, 1),
-                best_plan.total_model_ns,
-                serial_time,
-                best_plan.dominant_loop_id,
-                best_plan.entry_count,
-                best_plan.slack_threads);
-    }
-
-    for (int32_t tdg_threads = 2; tdg_threads <= tdg_cap; ++tdg_threads)
-    {
-        int32_t loop_threads = level_budget_threads - tdg_threads;
-        double tdg_time = sgpl_tdg_model_time_ns(safe_work, safe_span, tdg_threads);
-        double loop_time = 0.0;
-        double model = 0.0;
-
-        if (loop_threads < 0)
-            loop_threads = 0;
-        sgpl_evaluate_level_loop_plan(candidates, candidate_count, loop_threads, &candidate_plan);
-        loop_time = candidate_plan.total_model_ns;
-        model = tdg_time + loop_time;
-
-        if (tdg_debug_enabled())
-        {
-            fprintf(stderr,
-                    "[tdg.univ-candidate] tdg_threads=%d loop_threads=%d tdg_model_ns=%.2f loop_model_ns=%.2f total_ns=%.2f dominant_loop=%d enabled_loops=%d slack=%d\n",
-                    tdg_threads,
-                    loop_threads,
-                    tdg_time,
-                    loop_time,
-                    model,
-                    candidate_plan.dominant_loop_id,
-                    candidate_plan.entry_count,
-                    candidate_plan.slack_threads);
-        }
-
-        if (model < best_time)
-        {
-            best_time = model;
-            best_threads = tdg_threads;
-            best_plan = candidate_plan;
-        }
-    }
-
-    if ((best_time <= 0.0) || (serial_time <= 0.0))
-    {
-        decision_reason = "serial-nonpositive-model";
-        selected_threads = 1;
-        goto tdg_finalize;
-    }
-
-    best_gain = (serial_time - best_time) / serial_time;
-    if (best_threads <= 1)
-    {
-        decision_reason = "serial-best-not-better";
-        selected_threads = 1;
-        goto tdg_finalize;
-    }
-    if (best_gain < min_gain)
-    {
-        decision_reason = "serial-gain-below-threshold";
-        selected_threads = 1;
-        goto tdg_finalize;
-    }
-
-    selected_threads = best_threads;
-    decision_reason = "parallel-model-win";
-
-tdg_finalize:
-    if (selected_threads < 1)
-        selected_threads = 1;
-    if (selected_plan)
-        *selected_plan = best_plan;
-
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.univ] decision=%s final_threads=%d reason=%s gain=%.6f work=%lld span=%lld tasks=%d level_budget=%d loop_budget=%d dominant_loop=%d enabled_loops=%d idle_threads=%d loop_model_ns=%.2f\n",
-                selected_threads <= 1 ? "serial" : "parallel",
-                selected_threads,
-                decision_reason,
-                best_gain,
-                (long long)safe_work,
-                (long long)safe_span,
-                task_limit,
-                level_budget_threads,
-                selected_plan ? selected_plan->loop_budget : 0,
-                selected_plan ? selected_plan->dominant_loop_id : -1,
-                selected_plan ? selected_plan->entry_count : 0,
-                selected_plan ? selected_plan->idle_threads : 0,
-                selected_plan ? selected_plan->total_model_ns : 0.0);
-    }
-
-    return selected_threads;
+        fprintf(stderr, "[tdg.univ] workers=%d tasks=%d level_budget=%d loop_budget=%d reason=one-worker-per-task\n",
+                workers, task_count, level_budget_threads,
+                selected_plan ? selected_plan->loop_budget : 0);
+    return workers;
 }
 
 static int sgpl_loop_try_cached_decision(sgpl_loop_runtime_state *state,
@@ -3809,240 +3762,23 @@ static int sgpl_loop_prepare_c_sampling(sgpl_loop_runtime_state *state,
 
 int32_t sgpl_choose_tdg_threads(int64_t work_units, int64_t span_units, int32_t task_count)
 {
-    int64_t safe_work = work_units;
-    int64_t safe_span = span_units;
-    int32_t raw_available_threads = 0;
-    int32_t available_threads = 0;
-    int32_t budget_available_threads = 0;
-    int32_t best_threads = 1;
-    int32_t selected_threads = 1;
-    double best_time = 0.0;
-    double serial_time = 0.0;
-    double min_gain = SGPL_TDG_MIN_GAIN_FRACTION;
-    double span_ratio = 1.0;
-    double best_gain = 0.0;
-    int32_t task_limit = task_count > 0 ? task_count : 0;
-    const char *decision_reason = "serial-invalid-input";
-    const char *ht_mode = "n/a";
-    const char *ht_reason = "not-applicable";
-
-    sgpl_tdg_init_runtime_config();
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.decide] input work=%lld span=%lld tasks=%d\n",
-                (long long)work_units,
-                (long long)span_units,
-                task_count);
-    }
-
-    if (safe_work <= 0 || safe_span <= 0 || task_limit <= 0)
-    {
-        selected_threads = 0;
-        goto tdg_finalize;
-    }
-
-    if (safe_span > safe_work)
-        safe_span = safe_work;
-    if (safe_span <= 0 || safe_work <= 0)
-    {
-        selected_threads = 0;
-        decision_reason = "serial-sanitized-invalid";
-        goto tdg_finalize;
-    }
-    if (task_limit <= 1)
-    {
-        selected_threads = 1;
-        decision_reason = "serial-single-task";
-        goto tdg_finalize;
-    }
-
-    if (sgpl_tdg_runtime_threads <= 1)
-    {
-        selected_threads = 1;
-        decision_reason = "serial-single-runtime-thread";
-        goto tdg_finalize;
-    }
-
-    budget_available_threads = sgpl_budget_available_threads();
-    if (sgpl_tdg_allow_hyperthread)
-        raw_available_threads = sgpl_tdg_runtime_threads;
-    else
-        raw_available_threads = sgpl_tdg_physical_threads;
-    available_threads = raw_available_threads;
-    if (budget_available_threads < available_threads)
-        available_threads = budget_available_threads;
-    if (task_limit < available_threads)
-        available_threads = task_limit;
-
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.budget] logical=%d physical=%d allow_ht=%d raw_cap=%d budget_cap=%d task_cap=%d available=%d reserved=%d\n",
-                sgpl_tdg_runtime_threads,
-                sgpl_tdg_physical_threads,
-                sgpl_tdg_allow_hyperthread,
-                raw_available_threads,
-                budget_available_threads,
-                task_limit,
-                available_threads,
-                atomic_load(&g_sgpl_reserved_threads));
-    }
-
-    span_ratio = (double)safe_span / (double)safe_work;
-    if (available_threads < 2 || span_ratio >= 0.95 || safe_work < 8)
-    {
-        selected_threads = 1;
-        if (available_threads < 2)
-            decision_reason = "serial-insufficient-budget";
-        else if (span_ratio >= 0.95)
-            decision_reason = "serial-span-dominated";
-        else
-            decision_reason = "serial-too-little-work";
-        goto tdg_finalize;
-    }
-
-    serial_time = (double)safe_work * sgpl_tdg_unit_cost_ns;
-    best_time = serial_time;
-
-    for (int32_t threads = 2; threads <= available_threads; ++threads)
-    {
-        int32_t candidate_threads = threads;
-        double effective_threads = sgpl_tdg_effective_threads(candidate_threads);
-        double launch_ns = sgpl_tdg_launch_overhead(candidate_threads, safe_work);
-        double work_term = (double)(safe_work - safe_span) / effective_threads;
-        double model = launch_ns + ((double)safe_span + work_term) * sgpl_tdg_unit_cost_ns;
-
-        if (tdg_debug_enabled())
-        {
-            fprintf(stderr,
-                    "[tdg.candidate] threads=%d class=%s effective_threads=%.2f launch_ns=%.2f model_ns=%.2f\n",
-                    candidate_threads,
-                    candidate_threads > sgpl_tdg_physical_threads ? "smt" : "physical",
-                    effective_threads,
-                    launch_ns,
-                    model);
-        }
-
-        if (model < best_time)
-        {
-            best_time = model;
-            best_threads = candidate_threads;
-        }
-    }
-
-    if (sgpl_tdg_allow_hyperthread && safe_work < SGPL_TDG_MIN_WORK_FOR_HT && best_threads > sgpl_tdg_physical_threads)
-    {
-        if (tdg_debug_enabled())
-        {
-            fprintf(stderr,
-                    "[tdg.ht] mode=clamped reason=min-work final_threads=%d original_threads=%d threshold_work=%lld\n",
-                    sgpl_tdg_physical_threads,
-                    best_threads,
-                    (long long)SGPL_TDG_MIN_WORK_FOR_HT);
-        }
-        best_threads = sgpl_tdg_physical_threads;
-        ht_mode = "clamped";
-        ht_reason = "min-work";
-    }
-
-    if (best_threads <= 1)
-    {
-        selected_threads = 1;
-        decision_reason = "serial-best-not-better";
-        goto tdg_finalize;
-    }
-    if ((best_time <= 0.0) || (serial_time <= 0.0))
-    {
-        selected_threads = 1;
-        decision_reason = "serial-nonpositive-model";
-        goto tdg_finalize;
-    }
-
-    best_gain = (serial_time - best_time) / serial_time;
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.best] best_threads=%d serial_ns=%.2f best_parallel_ns=%.2f gain=%.6f span_ratio=%.6f\n",
-                best_threads,
-                serial_time,
-                best_time,
-                best_gain,
-                span_ratio);
-    }
-
-    if (best_gain < min_gain)
-    {
-        selected_threads = 1;
-        decision_reason = "serial-gain-below-threshold";
-        goto tdg_finalize;
-    }
-
-    if (sgpl_tdg_allow_hyperthread == 0 && best_threads > sgpl_tdg_physical_threads)
-    {
-        best_threads = sgpl_tdg_physical_threads;
-        ht_mode = "denied";
-        ht_reason = "ht-disabled";
-    }
-
-    if (best_threads > sgpl_tdg_physical_threads)
-    {
-        if (span_ratio >= 0.75 || sgpl_tdg_ht_disallow_threshold)
-        {
-            selected_threads = sgpl_tdg_physical_threads;
-            ht_mode = "denied";
-            ht_reason = span_ratio >= 0.75 ? "span-ratio" : "env-disallow";
-            decision_reason = "parallel-physical-after-ht-check";
-            goto tdg_finalize;
-        }
-        ht_mode = "used";
-        ht_reason = "model-preferred";
-    }
-
-    if (best_threads <= sgpl_tdg_physical_threads)
-    {
-        if (sgpl_tdg_allow_hyperthread)
-        {
-            ht_mode = "not-needed";
-            ht_reason = "best-within-physical";
-        }
-        else
-        {
-            ht_mode = "disabled";
-            ht_reason = "ht-disabled";
-        }
-    }
-
-    selected_threads = best_threads;
-    decision_reason = "parallel-model-win";
-
-tdg_finalize:
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.final] decision=%s final_threads=%d reason=%s ht_mode=%s ht_reason=%s work=%lld span=%lld tasks=%d available=%d\n",
-                selected_threads <= 1 ? "serial" : "parallel",
-                selected_threads,
-                decision_reason,
-                ht_mode,
-                ht_reason,
-                (long long)safe_work,
-                (long long)safe_span,
-                task_limit,
-                available_threads);
-    }
-
-    return selected_threads;
+    int32_t available;
+    (void)work_units;
+    (void)span_units;
+    if (task_count <= 0)
+        return 0;
+    available = sgpl_budget_available_threads();
+    return task_count < available ? task_count : available;
 }
 
-void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
+static void sgpl_run_tdg_phase(const sgpl_tdg_task_desc *tasks,
                         int32_t task_count,
                         int64_t work_units,
-                        int64_t span_units)
+                        int64_t span_units,
+                        int32_t level_budget_threads)
 {
     int32_t chosen_threads = 0;
-    int32_t level_budget_threads = 0;
-    int32_t granted_threads = 0;
+    int32_t granted_threads = level_budget_threads;
     int i = 0;
     int64_t effective_work_units = 0;
     int64_t effective_span_units = 0;
@@ -4098,25 +3834,6 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
                 task_count);
     }
 
-    level_budget_threads = sgpl_budget_available_threads();
-    if (level_budget_threads < 1)
-        level_budget_threads = 1;
-
-    chosen_threads = sgpl_choose_tdg_threads_with_loop_budget(effective_work_units,
-                                                              effective_span_units,
-                                                              tasks,
-                                                              task_count,
-                                                              level_budget_threads,
-                                                              &loop_plan);
-    if (chosen_threads < 1)
-        chosen_threads = 1;
-    loop_threads_total = level_budget_threads - chosen_threads;
-    if (loop_threads_total < 0)
-        loop_threads_total = 0;
-    sgpl_tdg_apply_forced_widths(&loop_plan);
-    sgpl_tdg_print_level_plan(&loop_plan, effective_work_units, effective_span_units, level_budget_threads);
-
-    granted_threads = sgpl_budget_try_reserve(level_budget_threads);
     if (granted_threads <= 1)
     {
         if (tdg_debug_enabled())
@@ -4143,81 +3860,17 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
         return;
     }
 
-    if (granted_threads != level_budget_threads)
-    {
-        if (tdg_debug_enabled())
-        {
-            fprintf(stderr,
-                    "[tdg.budget] adjust requested=%d granted=%d reason=available-changed\n",
-                    level_budget_threads,
-                    granted_threads);
-        }
-
-        sgpl_budget_release(granted_threads);
-        level_budget_threads = sgpl_budget_available_threads();
-        if (level_budget_threads < 1)
-            level_budget_threads = 1;
-
-        chosen_threads = sgpl_choose_tdg_threads_with_loop_budget(effective_work_units,
-                                                                  effective_span_units,
-                                                                  tasks,
-                                                                  task_count,
-                                                                  level_budget_threads,
-                                                                  &loop_plan);
-        if (chosen_threads < 1)
-            chosen_threads = 1;
-        if (chosen_threads > level_budget_threads)
-            chosen_threads = level_budget_threads;
-        loop_threads_total = level_budget_threads - chosen_threads;
-        if (loop_threads_total < 0)
-            loop_threads_total = 0;
-        sgpl_tdg_apply_forced_widths(&loop_plan);
-        sgpl_tdg_print_level_plan(&loop_plan, effective_work_units, effective_span_units, level_budget_threads);
-
-        granted_threads = sgpl_budget_try_reserve(level_budget_threads);
-        if (granted_threads <= 1)
-        {
-            if (tdg_debug_enabled())
-            {
-                fprintf(stderr,
-                        "[tdg.launch] decision=serial chosen_threads=%d launched_threads=0 tasks=%d work=%lld span=%lld reason=budget-fallback-retry\n",
-                        chosen_threads,
-                        task_count,
-                        (long long)effective_work_units,
-                        (long long)effective_span_units);
-            }
-
-            for (i = 0; i < task_count; ++i)
-            {
-                if (tasks[i].fn)
-                {
-                    uint64_t t0 = sgpl_now_ns();
-                    tasks[i].fn(tasks[i].arg);
-                    sgpl_record_tdg_profile_sample(&tasks[i],
-                                                   i,
-                                                   (double)(sgpl_now_ns() - t0),
-                                                   "serial-budget-fallback-retry");
-                }
-            }
-            return;
-        }
-    }
+    level_budget_threads = granted_threads;
+    chosen_threads = sgpl_choose_tdg_threads_with_loop_budget(effective_work_units,
+                                                              effective_span_units,
+                                                              tasks, task_count,
+                                                              level_budget_threads,
+                                                              &loop_plan);
+    loop_threads_total = level_budget_threads - chosen_threads;
+    sgpl_tdg_print_level_plan(&loop_plan, effective_work_units, effective_span_units, level_budget_threads);
+    sgpl_tdg_apply_forced_widths(&loop_plan);
 
     sgpl_loop_pool_init(&loop_pool, &loop_plan);
-
-    /* A serial decision leaves the plan's loop_budget at 0 (no candidate plan
-     * was built), but the level still holds `granted_threads` from the ledger.
-     * Advertise the level's unused capacity to unregistered callers (engine
-     * steps nested in the level's tasks) so it can be used instead of idling;
-     * grants stay inside the level's reservation. */
-    {
-        int32_t spare = granted_threads - chosen_threads;
-
-        if (spare < 0)
-            spare = 0;
-        if (atomic_load(&loop_pool.remaining_threads) < spare)
-            atomic_store(&loop_pool.remaining_threads, spare);
-    }
 
     if (chosen_threads <= 1)
     {
@@ -4248,7 +3901,6 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
 
         sgpl_unbind_level_loop_pool(saved_pool, saved_pending_loop);
         sgpl_tdg_exit_budget_scope(prior_scope, old_depth);
-        sgpl_budget_release(granted_threads);
         sgpl_loop_pool_destroy(&loop_pool);
         return;
     }
@@ -4257,6 +3909,7 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
         pthread_t *threads = (pthread_t *)malloc((size_t)chosen_threads * sizeof(pthread_t));
         sgpl_tdg_worker_arg *args = (sgpl_tdg_worker_arg *)malloc((size_t)chosen_threads * sizeof(sgpl_tdg_worker_arg));
         sgpl_tdg_level_state state;
+        int32_t started = 0;
 
         if (!threads || !args)
         {
@@ -4266,9 +3919,8 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
 
             free(threads);
             free(args);
-            sgpl_budget_release(granted_threads);
-            /* The reservation is gone: do not advertise pool capacity that the
-             * level no longer holds. */
+            /* Allocation fallback runs callbacks serially, with no loop team.
+             * The public level executor still owns the reservation. */
             atomic_store(&loop_pool.remaining_threads, 0);
             if (tdg_debug_enabled())
             {
@@ -4303,14 +3955,14 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
         state.tasks = tasks;
         state.task_count = task_count;
         state.loop_pool = &loop_pool;
-        atomic_init(&state.next_index, 0);
+        atomic_init(&state.next_index, chosen_threads);
 
         if (tdg_debug_enabled())
         {
             fprintf(stderr,
-                    "[tdg.launch] decision=parallel chosen_threads=%d launched_threads=%d loop_threads=%d tasks=%d work=%lld span=%lld reserved=%d dominant_loop=%d enabled_loops=%d\n",
+                    "[tdg.launch] decision=parallel chosen_threads=%d launched_threads=%d loop_threads=%d tasks=%d work=%lld span=%lld reserved=%d dominant_loop=%d planned_sites=%d\n",
                     chosen_threads,
-                    granted_threads,
+                    chosen_threads,
                     loop_threads_total,
                     task_count,
                     (long long)effective_work_units,
@@ -4321,7 +3973,7 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
             for (i = 0; i < loop_plan.entry_count; ++i)
             {
                 fprintf(stderr,
-                        "[tdg.loop-plan] task_slot=%d loop_id=%d assigned_threads=%d c_ns=%.2f model_ns=%.2f\n",
+                        "[tdg.loop-plan] task_slot=%d loop_id=%d assigned_threads=%d c_ns=%.2f selection_model_ns=%.2f\n",
                         loop_plan.entries[i].task_slot,
                         loop_plan.entries[i].loop_id,
                         loop_plan.entries[i].assigned_threads,
@@ -4335,25 +3987,99 @@ void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
             args[i].state = &state;
             args[i].loop_threads = loop_threads_total;
             args[i].scope_threads = chosen_threads;
-            pthread_create(&threads[i], NULL, sgpl_tdg_worker_main, &args[i]);
+            args[i].first_index = i;
+            if (pthread_create(&threads[started], NULL, sgpl_tdg_worker_main, &args[i]) == 0)
+                ++started;
+            else
+                sgpl_tdg_worker_main(&args[i]);
         }
 
-        for (i = 0; i < chosen_threads; ++i)
+        for (i = 0; i < started; ++i)
             pthread_join(threads[i], NULL);
 
         free(threads);
         free(args);
-        sgpl_budget_release(granted_threads);
         sgpl_loop_pool_destroy(&loop_pool);
     }
+}
+
+/* Levels are independent allocation decisions. Only overloaded mixed
+ * levels are phased: ordinary callbacks complete first, then loop callbacks
+ * are replanned against the available capacity. Metadata is supplied by the
+ * compiler; a task with declared loop sites belongs to the loop phase. */
+void sgpl_run_tdg_level(const sgpl_tdg_task_desc *tasks,
+                        int32_t task_count,
+                        int64_t work_units,
+                        int64_t span_units)
+{
+    int32_t ordinary = 0;
+    int32_t budget;
+    int32_t i;
+    sgpl_tdg_task_desc *ordered;
+    if (!tasks || task_count <= 0)
+        return;
+    /* Choose phases against the actual grant, not an availability snapshot
+     * that another reservation can invalidate. Both phases share this one
+     * level reservation; no plan borrows capacity from a different level. */
+    budget = sgpl_budget_try_reserve(sgpl_budget_available_threads());
+    if (task_count <= budget)
+    {
+        sgpl_run_tdg_phase(tasks, task_count, work_units, span_units, budget);
+        sgpl_budget_release(budget);
+        return;
+    }
+    for (i = 0; i < task_count; ++i)
+        if (tasks[i].num_loop_sites <= 0 || !tasks[i].loop_site_ids)
+            ++ordinary;
+    if (ordinary == 0 || ordinary == task_count)
+    {
+        sgpl_run_tdg_phase(tasks, task_count, work_units, span_units, budget);
+        sgpl_budget_release(budget);
+        return;
+    }
+    ordered = malloc((size_t)task_count * sizeof(*ordered));
+    if (!ordered)
+    {
+        /* Allocation failure: keep correctness and bounded execution. */
+        sgpl_run_tdg_phase(tasks, task_count, work_units, span_units, budget);
+        sgpl_budget_release(budget);
+        return;
+    }
+    {
+        int32_t oi = 0, li = ordinary;
+        for (i = 0; i < task_count; ++i)
+            ordered[(tasks[i].num_loop_sites <= 0 || !tasks[i].loop_site_ids) ? oi++ : li++] = tasks[i];
+    }
+    if (tdg_debug_enabled())
+        fprintf(stderr, "[tdg.phases] ordinary=%d loop_tasks=%d tasks=%d\n",
+                ordinary, task_count - ordinary, task_count);
+    sgpl_run_tdg_phase(ordered, ordinary, work_units, span_units, budget);
+    sgpl_run_tdg_phase(ordered + ordinary, task_count - ordinary, work_units, span_units, budget);
+    free(ordered);
+    sgpl_budget_release(budget);
+}
+
+/* Ignore the cold first dispatch and use a median: scheduler interruptions
+ * during one calibration should not become a permanent launch threshold. */
+static double sgpl_launch_sample_median(double samples[5])
+{
+    for (int i = 0; i < 5; ++i)
+        for (int j = i + 1; j < 5; ++j)
+            if (samples[j] < samples[i])
+            {
+                double tmp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = tmp;
+            }
+    return samples[2];
 }
 
 static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
 {
     int sample = 0;
-    double total_ns = 0.0;
+    double samples[5];
 
-    for (sample = 0; sample < 3; ++sample)
+    for (sample = 0; sample < 6; ++sample)
     {
         uint64_t t0 = sgpl_now_ns();
         sgpl_parallel_launch_plain_raw(0,
@@ -4367,7 +4093,8 @@ static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
 
         {
             double sample_ns = (double)(sgpl_now_ns() - t0);
-            total_ns += sample_ns;
+            if (sample > 0)
+                samples[sample - 1] = sample_ns;
             if (runtime_debug_enabled())
             {
                 fprintf(stderr,
@@ -4379,15 +4106,15 @@ static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
         }
     }
 
-    return total_ns / 3.0;
+    return sgpl_launch_sample_median(samples);
 }
 
 static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_desc *desc, int threads)
 {
     int sample = 0;
-    double total_ns = 0.0;
+    double samples[5];
 
-    for (sample = 0; sample < 3; ++sample)
+    for (sample = 0; sample < 6; ++sample)
     {
         uint64_t t0 = sgpl_now_ns();
 
@@ -4448,7 +4175,8 @@ static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_de
 
         {
             double sample_ns = (double)(sgpl_now_ns() - t0);
-            total_ns += sample_ns;
+            if (sample > 0)
+                samples[sample - 1] = sample_ns;
             if (runtime_debug_enabled())
             {
                 fprintf(stderr,
@@ -4466,33 +4194,39 @@ static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_de
         }
     }
 
-    return total_ns / 3.0;
+    return sgpl_launch_sample_median(samples);
 }
 
 static double sgpl_get_thread_launch_overhead_ns(int threads)
 {
     double l_thread_ns = 0.0;
+    int ephemeral = g_tls_is_pool_worker || !sgpl_thread_pool_available();
 
     if (threads <= 0)
         return 0.0;
 
-    if (sgpl_thread_pool_available() && !g_tls_is_pool_worker)
-        return SGPL_POOL_BASE_LAUNCH_NS + SGPL_POOL_LAUNCH_PER_THREAD_NS * (double)threads;
-
-    if (threads < SGPL_TDG_MAX_REPORTED_THREADS && g_launch_thread_cost_valid[threads])
-        return g_launch_thread_costs[threads];
+    pthread_mutex_lock(&g_launch_model_lock);
+    if (threads < SGPL_TDG_MAX_REPORTED_THREADS && g_launch_thread_cost_valid[ephemeral][threads])
+    {
+        l_thread_ns = g_launch_thread_costs[ephemeral][threads];
+        pthread_mutex_unlock(&g_launch_model_lock);
+        return l_thread_ns;
+    }
+    pthread_mutex_unlock(&g_launch_model_lock);
 
     l_thread_ns = sgpl_calibrate_thread_launch_overhead_ns(threads);
+    pthread_mutex_lock(&g_launch_model_lock);
     if (threads < SGPL_TDG_MAX_REPORTED_THREADS)
     {
-        g_launch_thread_costs[threads] = l_thread_ns;
-        g_launch_thread_cost_valid[threads] = 1;
+        g_launch_thread_costs[ephemeral][threads] = l_thread_ns;
+        g_launch_thread_cost_valid[ephemeral][threads] = 1;
     }
+    pthread_mutex_unlock(&g_launch_model_lock);
 
     if (runtime_debug_enabled())
     {
         fprintf(stderr,
-                "[parallel-runtime] launch-thread-calibration threads=%d L_thread_ns(avg)=%.2f\n",
+                "[parallel-runtime] launch-thread-calibration threads=%d L_thread_ns(median)=%.2f\n",
                 threads,
                 l_thread_ns);
     }
@@ -4510,36 +4244,44 @@ static double sgpl_get_path_launch_overhead_ns(const sgpl_loop_profile_desc *des
     int64_t env_size = desc ? desc->env_size : 0;
     int32_t num_priv_targets = desc ? desc->num_priv_targets : 0;
     int32_t doacross_num_sync_ids = desc ? desc->doacross_num_sync_ids : 0;
+    int ephemeral = g_tls_is_pool_worker || !sgpl_thread_pool_available();
 
     if (runtime_kind == SGPL_RUNTIME_PLAIN && mode == SGPL_LOOP_DOALL)
         return 0.0;
 
+    pthread_mutex_lock(&g_launch_model_lock);
     for (i = 0; i < SGPL_MAX_LAUNCH_KEYS; ++i)
     {
         if (!g_launch_path_costs[i].in_use)
             continue;
 
-        if (g_launch_path_costs[i].runtime_kind == runtime_kind &&
+        if (g_launch_path_costs[i].ephemeral == ephemeral &&
+            g_launch_path_costs[i].runtime_kind == runtime_kind &&
             g_launch_path_costs[i].mode == mode &&
             g_launch_path_costs[i].threads == threads &&
             g_launch_path_costs[i].env_size == env_size &&
             g_launch_path_costs[i].num_priv_targets == num_priv_targets &&
             g_launch_path_costs[i].doacross_num_sync_ids == doacross_num_sync_ids)
         {
-            return g_launch_path_costs[i].path_ns;
+            path_ns = g_launch_path_costs[i].path_ns;
+            pthread_mutex_unlock(&g_launch_model_lock);
+            return path_ns;
         }
     }
+    pthread_mutex_unlock(&g_launch_model_lock);
 
     total_ns = sgpl_calibrate_total_launch_overhead_ns(desc, threads);
     path_ns = total_ns - sgpl_get_thread_launch_overhead_ns(threads);
     if (path_ns < 0.0)
         path_ns = 0.0;
 
+    pthread_mutex_lock(&g_launch_model_lock);
     for (i = 0; i < SGPL_MAX_LAUNCH_KEYS; ++i)
     {
         if (!g_launch_path_costs[i].in_use)
         {
             g_launch_path_costs[i].in_use = 1;
+            g_launch_path_costs[i].ephemeral = ephemeral;
             g_launch_path_costs[i].runtime_kind = runtime_kind;
             g_launch_path_costs[i].mode = mode;
             g_launch_path_costs[i].threads = threads;
@@ -4547,11 +4289,12 @@ static double sgpl_get_path_launch_overhead_ns(const sgpl_loop_profile_desc *des
             g_launch_path_costs[i].num_priv_targets = num_priv_targets;
             g_launch_path_costs[i].doacross_num_sync_ids = doacross_num_sync_ids;
             g_launch_path_costs[i].path_ns = path_ns;
+            pthread_mutex_unlock(&g_launch_model_lock);
 
             if (runtime_debug_enabled())
             {
                 fprintf(stderr,
-                        "[parallel-runtime] launch-path-calibration loop=%s kind=%d mode=%d threads=%d env=%lld targets=%d sync_ids=%d L_path_ns(avg)=%.2f\n",
+                        "[parallel-runtime] launch-path-calibration loop=%s kind=%d mode=%d threads=%d env=%lld targets=%d sync_ids=%d L_path_ns(median)=%.2f\n",
                         sgpl_loop_debug_name(desc),
                         runtime_kind,
                         mode,
@@ -4564,6 +4307,7 @@ static double sgpl_get_path_launch_overhead_ns(const sgpl_loop_profile_desc *des
             return path_ns;
         }
     }
+    pthread_mutex_unlock(&g_launch_model_lock);
 
     return path_ns;
 }
@@ -4571,27 +4315,17 @@ static double sgpl_get_path_launch_overhead_ns(const sgpl_loop_profile_desc *des
 static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_loop_profile_desc *desc, int threads)
 {
     sgpl_launch_overhead_detail detail;
-
-    if (sgpl_thread_pool_available() && !g_tls_is_pool_worker)
-    {
-        detail.thread_ns = SGPL_POOL_BASE_LAUNCH_NS + SGPL_POOL_LAUNCH_PER_THREAD_NS * (double)threads;
-        detail.path_ns = 0.0;
-        if (desc && desc->runtime_kind == SGPL_RUNTIME_PRIVATIZED)
-        {
-            /* Privatized path still copies env + allocates per-thread buffers. */
-            detail.path_ns = 2500.0 + 400.0 * (double)threads;
-            if (desc->num_priv_targets > 0)
-                detail.path_ns += 800.0 * (double)desc->num_priv_targets;
-        }
-        if (desc && desc->mode == SGPL_LOOP_DOACROSS)
-            detail.path_ns += 1500.0;
-        detail.total_ns = detail.thread_ns + detail.path_ns;
-        return detail;
-    }
-
+    /* Price the launch path that the runtime actually uses. The pool includes
+     * two barriers over ALL configured workers, including idle lanes; DOACROSS
+     * bypasses it and creates/join temporary threads. A fixed microsecond seed
+     * cannot represent either path on different hosts.
+     * Calibration must not consume the range entry point of the real launch. */
+    loop_range_fn saved_range_body = g_tls_pending_range_body;
+    g_tls_pending_range_body = NULL;
     detail.thread_ns = sgpl_get_thread_launch_overhead_ns(threads);
     detail.path_ns = sgpl_get_path_launch_overhead_ns(desc, threads);
     detail.total_ns = detail.thread_ns + detail.path_ns;
+    g_tls_pending_range_body = saved_range_body;
     return detail;
 }
 
@@ -4902,7 +4636,7 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
         l_path_ns = launch.path_ns;
         l_ns = launch.total_ns;
     }
-    speedup_factor = 1.0 - (1.0 / (double)effective_threads);
+    speedup_factor = 1.0 - sgpl_loop_max_lane_iterations(trip_count, effective_threads, 0) / (double)trip_count;
     denominator = c_ns * speedup_factor;
     if (denominator > 0.0)
         threshold = l_ns / denominator;
@@ -4925,7 +4659,7 @@ int32_t sgpl_should_parallelize_doall(const sgpl_loop_profile_desc *desc,
                 choose_parallel ? "parallel" : "serial",
                 state->c_sampling_epoch);
         fprintf(stderr,
-                "[parallel-runtime] cost-doall loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d c_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f speedup=(1-1/P)=%.6f denominator=c*speedup=%.6f threshold=L/denominator=%.2f samples=%u\n",
+                "[parallel-runtime] cost-doall loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d c_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f speedup=(1-max_lane/N)=%.6f denominator=c*speedup=%.6f threshold=L/denominator=%.2f samples=%u\n",
                 sgpl_loop_debug_name(desc),
                 desc ? desc->loop_id : -1,
                 decision_index,
@@ -5490,7 +5224,8 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
             reason = "warmup-uninitialized";
         else if (state->c_sampling_state != SGPL_C_SAMPLING_STABLE)
             reason = state->c_sampling_state == SGPL_C_SAMPLING_RECALIBRATING ? "recalibrating" : "warmup";
-        else if (state->c_dep_ns_per_iter_ewma <= 0.0 || state->c_ind_ns_per_iter_ewma <= 0.0)
+        else if (state->c_dep_ns_per_iter_ewma < 0.0 || state->c_ind_ns_per_iter_ewma < 0.0 ||
+                 state->c_dep_ns_per_iter_ewma + state->c_ind_ns_per_iter_ewma <= 0.0)
             reason = "missing-c-dep-or-c-ind";
     }
 
@@ -5529,7 +5264,7 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
                         (double)desc->doacross_posts_per_iter * sigma_post;
         serial_lhs = (double)trip_count * (c_dep + c_ind);
         parallel_rhs = l_ns + critical_path_ns +
-                       ((double)trip_count * c_ind / (double)effective_threads) +
+                       (sgpl_loop_max_lane_iterations(trip_count, effective_threads, 1) * c_ind) +
                        ((double)trip_count * sync_per_iter);
         choose_parallel = serial_lhs > parallel_rhs;
         if (sgpl_should_cache_decision(state))
@@ -5564,7 +5299,7 @@ int32_t sgpl_should_parallelize_doacross(const sgpl_loop_profile_desc *desc,
                     state ? state->c_sampling_epoch : 0);
         }
         fprintf(stderr,
-                "[parallel-runtime] cost-doacross loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d bucket=%d c_state=%s c_dep_ns=%.2f c_ind_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f C_ns=N*c_dep=%.2f f_w=%d sigma_wait_ns=%.2f%s f_p=%d sigma_post_ns=%.2f%s sync_term_per_iter=%.2f serial_lhs=N*(c_dep+c_ind)=%.2f parallel_rhs=L+C+N*c_ind/P+N*sync_term=%.2f serial_samples=%u sync_samples=%u%s%s\n",
+                "[parallel-runtime] cost-doacross loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d bucket=%d c_state=%s c_dep_ns=%.2f c_ind_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f C_ns=N*c_dep=%.2f f_w=%d sigma_wait_ns=%.2f%s f_p=%d sigma_post_ns=%.2f%s sync_term_per_iter=%.2f serial_lhs=N*(c_dep+c_ind)=%.2f parallel_rhs=L+C+max_lane*c_ind+N*sync_term=%.2f serial_samples=%u sync_samples=%u%s%s\n",
                 sgpl_loop_debug_name(desc),
                 desc ? desc->loop_id : -1,
                 decision_index,

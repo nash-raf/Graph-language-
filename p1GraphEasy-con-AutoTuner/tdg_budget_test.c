@@ -123,7 +123,9 @@ static void t3(void)
     disabled = (getenv("SGPL_NO_UNREGISTERED_POOL_SHARE") != NULL);
     snprintf(buf, sizeof(buf), "workers=%d trips=%lld threads=%d", le.workers,
              (long long)le.trips, sgpl_configured_worker_count());
-    if (disabled || sgpl_configured_worker_count() < 2)
+    /* The task's blocked parent still occupies one reservation. A separate
+     * two-worker loop team therefore needs a total budget of at least three. */
+    if (disabled || sgpl_configured_worker_count() < 3)
         check("T3 unregistered in level, sharing DISABLED", le.workers == 1, buf);
     else
         check("T3 unregistered in level shares pool budget",
@@ -292,7 +294,7 @@ static void t7(void)
              se.c.workers, (long long)se.c.trips, sgpl_configured_worker_count());
     check("T7 single-site level plans its site",
           se.c.trips == 64 &&
-              (sgpl_configured_worker_count() < 2 || se.c.workers >= 2),
+              (sgpl_configured_worker_count() < 3 || se.c.workers >= 2),
           buf);
 }
 

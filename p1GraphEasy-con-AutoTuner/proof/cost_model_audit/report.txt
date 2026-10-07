@@ -1,0 +1,322 @@
+CPU cost model diagnosis and proposed equations
+7 October 2026
+
+The present equations are a useful starting point, but they price the wrong
+launch path, assume unavailable parallel throughput, and mix useful work with
+profiling and queueing time. Some alarming errors in the supplied validation
+also compare different timing scopes. A complete system overhaul is unnecessary.
+The small corrections described below are implemented. The larger DOACROSS and
+budget proposals are reviewable reference models, not deployed rewrites.
+
+Scope: only model helpers in parallel_runtime.c and new diagnostic artifacts
+were changed. No graph-layout autotuner, compiler transformation, loop executor,
+thread pool, synchronization protocol, reservation ledger, or graph algorithm
+was modified. The plans in message (8).txt were treated as evidence, not as
+instructions to implement engine integration.
+
+1. Why the reported predictions differ from measurements
+
+1.1 DOALL launch cost is a seed, not the measured path
+
+sgpl_get_launch_overhead_detail and sgpl_get_thread_launch_overhead_ns previously
+returned 1200 + 180*P ns whenever the persistent pool was available. That bypassed
+the existing calibration code. sgpl_thread_pool_run takes a global mutex and
+performs TWO barriers involving ALL configured pool workers, including inactive
+lanes. Its cost depends on the host scheduler and configured width, not simply
+on the number of productive lanes.
+
+New warm empty-dispatch measurements were 44.7 to 142.8 microseconds, compared
+with the old 1.56 to 2.64 microsecond estimates. This confirms a missing cost on
+this host. It does not prove the old pod's entire 4.7 to 5.0 ms whole-program
+per-round plateau was pool overhead.
+
+1.2 DOACROSS is charged for a different launch implementation
+
+sgpl_parallel_launch_plain_raw explicitly excludes needs_doacross from the
+persistent pool path; these loops allocate synchronization state and create and
+join temporary pthreads. The former model could still charge the cheap pool
+seed plus 1500 ns. The calibrated query now measures the actual raw path.
+
+1.3 The old validation measures a whole program, not its modeled loop
+
+verify/eta_p24_sweep.py measures subprocess wall time and divides by 200. The
+DOALL program includes initialization, graph loading, allocation, the modeled
+compute loop, another array-update loop on every round, and a final checksum.
+Warmup serial runs and calibration are included too. DOACROSS additionally
+includes instrumentation on its serial path. These are legitimate application
+times, but they do not independently establish error in a single-loop estimate.
+
+verify/p24_out/eta_p24_fixed.csv is internally inconsistent in its DOALL serial
+prediction column. For P=2 it lists N=20000 and c=84.810 ns, whose product is
+1.6962 ms, but pred_serial_ms is 18.2920. The parallel column uses the 84.810
+anchor. Consequently that table cannot supply a consistent serial/parallel
+break-even comparison as written. No supplied evidence files were rewritten.
+
+1.4 The DOACROSS serial sample is an incomplete instrumented interval
+
+instrumentDoAcrossSerialBlocks measures each basic block between two clock
+calls, then accumulates the interval outside it. The recorded c_dep+c_ind omits
+the outside portion of the calls and bookkeeping, while whole-program timing
+includes it. It also prevents some optimizations. A block carrying one wait or
+post is categorized wholesale as dependent, so independent instructions in
+that block disappear into c_dep.
+
+A direct reproduction of these timing boundaries recorded a median 48.7% of
+its own instrumented serial wall time. This reproduces a large measurement
+scope bias without multiplying any model coefficient by a fitted constant.
+It does NOT imply the useful uninstrumented recurrence costs twice c_dep.
+
+The reported distance-1 fixture has c_ind=0. The old readiness check required
+both c_dep>0 and c_ind>0, so those runs returned missing-c-dep-or-c-ind rather
+than evaluating the advertised inequality. The table's zero launch and sync
+terms for these rows reflect that early exit. Its choice of serial was safe,
+but was not evidence that the fully calibrated inequality was accurate.
+
+1.5 DOACROSS cannot distinguish dependency topology
+
+The CPU loop descriptor has counts of waits/posts and synchronization IDs but
+no dependency distance, chain topology, or independent work's position around
+the wait/post. The current critical-path term N*c_dep treats every dependency
+as a single global distance-1 chain.
+
+The probe's recurrence body is identical at distances 1 and 4. At N=200000:
+
+  configured P    distance 1 (ms)    distance 4 (ms)
+       2              12.112             1.805
+       4              18.987             1.345
+       8              34.785             3.474
+
+Wait/post counts and sync-ID count are the same. Serial interval costs are of
+similar scale. A scalar coefficient on N*c_dep or N*sync cannot encode this
+missing dependency information. Measured sigma_wait also includes time spent
+waiting for predecessors. Adding it to an already-priced dependency span can
+double-count stalls. Its value depends on width and regime, which the existing
+single per-site EWMA does not distinguish.
+
+1.6 The universal allocator's objective misstates resource overlap
+
+The parent TDG tasks run concurrently, but their pooled DOALL dispatches all
+take g_sgpl_thread_pool_run_lock. Two parallel pooled loops therefore serialize
+their pool service. A width-1 loop executes on its parent worker and can overlap
+the other task's pool job. A serial parent executes its tasks sequentially.
+Neither an unconditional sum nor an unconditional max is the right objective.
+
+The level model also adds a task work/span estimate to its registered loops'
+costs. Task samples time the complete task, including loop launches and time
+waiting for the shared pool. Those samples are then reused as task work. This
+can double-count loop work and misclassify queueing time as useful computation.
+Static-unit clamps and a fixed 250 ns/unit conversion make that especially
+unreliable when an estimate was originally just an instruction count.
+
+The original budget_alloc_test.c performs an atomic exchange and a shared
+atomic trip-count increment EVERY iteration of BOTH sites. Per-site worker
+counts are shared too. Its serial calibration measures uncontended counters;
+parallel execution measures cache-line contention. These are real costs of
+that harness, but not proportional to N*c/P. The nominal arithmetic ratio 3
+does not establish a throughput ratio 3.
+
+The original 16/24-thread sweeps only enumerate widths summing to the remaining
+budget. They omit some serial and idle allocations. Width 1 costs zero extra
+loop workers because the parent worker runs it. Their measured optimum means
+best among enumerated splits, not best among all legal allocations. Also, the
+16-thread measured optimum is 2+12 while the 24-thread optimum is 21+1; this
+does not support a universal policy of keeping the heavy site serial.
+
+2. Targeted corrections implemented
+
+The DOALL structure remains:
+
+  T_serial = N*c
+  T_parallel = L(path, P, configured_pool_width) + m(N,P,C)*c
+
+Here C is the existing runtime chunk, clamped to ceil(N/P), with C=1 for cyclic
+scheduling. The exact maximum iteration count of one worker is:
+
+  m = floor(N/(P*C))*C + min(C, N mod (P*C)).
+
+This mirrors worker_main without changing its schedule. It replaces fractional
+N/P in both the per-loop chooser and the level's loop model. For DOACROSS only
+the independent work term changes to ceil(N/P)*c_ind; the present dependent and
+sync structure remains pending the proposal below.
+
+L now uses the existing raw-launch calibration, one discarded warmup followed
+by the median of five samples. Caches distinguish pool and nested temporary
+thread paths. Cache access is synchronized, but the cache mutex is NOT held
+across calibration launches, avoiding a lock cycle with callbacks executing
+inside an active pool job. The real pending range entry point is saved and
+restored around calibration. A legitimate zero c_ind is now accepted.
+
+This calibration prices warm launch service. Its initial calibration expense
+is additional startup cost and is not included in the warm prediction. It
+cannot price arbitrary privatization merge volume: empty private buffers are
+not a substitute for a measured merge. Reconstructed level descriptors also
+lack priv_offsets, so privatized level modeling remains a specific limitation.
+
+3. New measurements and their limits
+
+Platform: Ubuntu in WSL2, Ryzen 5 5500, 6 physical cores and 12 logical CPUs.
+The probe uses the real unchanged runtime and direct private equation helpers.
+No graph-layout autotuner is linked. Time is measured inside the process;
+warm medians use seven samples, and paired-task medians use five. Thread counts
+2/4/8 include a width above the physical core count. Sizes are 8192, 20000,
+65536, 200000, and 1000000; bodies include streaming stores and 4/12/24-stage
+compute chains. Paired compute sites use arithmetic ratios 1 and 3, without
+per-iteration shared atomic counters.
+
+                        old equation       corrected/reference equation
+  DOALL median error       30.9%                    12.1%
+  DOALL mean error         41.4%                    17.8%
+  DOALL within 30%         8/18                     15/18
+  DOACROSS empty-launch
+    median error           98.5%                     5.7%
+    within 20%              0/18                     18/18
+
+DOALL old/new errors are computed on the SAME measured serial inputs and
+parallel observations, isolating the equation difference. They are prediction
+errors, not claims of application runtime speedup. In particular, the present
+DOALL serial c still does not universally identify parallel throughput. Some
+streaming serial measurements vary, and the 1M compute loop at P=8 remains
+about 27% underestimated. The existing fixed 3 ns memory-floor heuristic has
+not been replaced or justified as a universal bandwidth classifier.
+
+The DOACROSS launch result is ONLY for launch cost, not full recurrence time.
+The full model has not become reasonably precise merely by fixing that term.
+
+4. Proposed universal thread budget equation and algorithm
+
+Let S_i(w_i) be isolated loop service time, excluding shared-pool queue time.
+Group serially executed sites by their owning task. Let R_t be task work outside
+registered sites, and F_t = R_t + sum_{i owned by t} S_i(w_i). Let Q be the sum
+of S_i for pooled sites whose widths exceed 1. With h parent workers:
+
+  T_level_lower = L_parent(h) + max(Q, max_t F_t, sum_t F_t / h).
+
+For two tasks with one site each and negligible outside work, this gives:
+
+  both pooled and parallel: S_1 + S_2
+  one inline and one pooled: max(S_1, S_2)
+  both inline on two parents: max(S_1, S_2)
+  one parent: S_1 + S_2.
+
+Ephemeral DOACROSS sites are not charged to Q. Multiple sites per task must be
+grouped before taking the task maximum. For general levels this is a resource
+lower bound, not a guarantee that every lower bound is simultaneously attainable;
+a scheduling simulation should price release order and pool queueing.
+
+The integer reference policy in tools/cost_model_equations.py minimizes this
+objective with:
+
+  h + sum_i (w_i if w_i>1 else 0) <= available_budget.
+
+It includes serial choices and idle capacity and uses deterministic ties that
+prefer fewer reserved workers. Its exhaustive search is a validation oracle;
+large levels need bounded integer search with repairs that evaluate the WHOLE
+resource objective, not just a changed site's local cost.
+
+Independent isolated curves were used to predict 130 paired executions, with
+the paired observations held out from prediction. Median composition error
+fell from 14.2% for an unconditional sum to 5.4% for resource composition.
+For the 77 observations above 1 ms it was 2.9%, with all 77 within 30%.
+Across 30 regimes, selection among measured alternatives had median regret 0%,
+but worst regret 21.5%. That worst case is an equal-cost 20k compute pair at
+P=4; small scheduling differences still matter. Do not claim a universal optimum.
+
+The isolated pool width is P and these diagnostic parents are two additional
+caller threads. The reference comparison therefore uses a hypothetical budget
+P+2; it bypasses the ledger to isolate resource composition. It validates the
+composition equation, not production sgpl_run_tdg_level end-to-end speedup.
+The separate real runtime budget gate verifies reservation behavior.
+
+This reference is not wired into the production allocator. Its required inputs
+S_i(w), queue-free R_t, and release order are not reliably available from the
+current scalar serial profiles. Feeding it the old inputs would retain the
+contention and double-counting errors while appearing to fix the solver.
+
+5. Proposed broader model revision for review
+
+DOALL does not need an overhaul. Retain its useful-work/launch structure, but
+allow distinct serial and outlined-path per-iteration costs plus a measured
+bandwidth ceiling:
+
+  T1 = N*c_serial
+  TP = L_actual + max(m*c_parallel, bytes_moved / BW_sustained(P,regime))
+       + merge_cost_if_privatized.
+
+These parameters must come from the actual site and regime or trustworthy
+mechanism calibration. A scalar serial c alone cannot tell whether a loop is
+limited by arithmetic, bandwidth, shared atomics, or different vectorization.
+The bytes/throughput term must not count already-included serial traffic twice.
+No new machine-specific coefficients have been inserted into the runtime.
+
+DOACROSS DOES need a revision of its dependent-span and synchronization terms,
+not a system rewrite. Carry dependency distances/edges and the positions of
+independent work around synchronization. Model its actual cyclic lane order
+using an earliest-ready recurrence. For a simple single wait/post site:
+
+  lane(i)       = i mod P
+  pre_end(i)    = lane_ready(lane(i)) + c_pre
+  dep_start(i)  = max(pre_end(i), post(i-d) + handoff_cost(P,d,regime))
+  post(i)       = dep_start(i) + c_dep_useful + nonblocking_post_cost
+  finish(i)     = post(i) + c_post
+  lane_ready(lane(i)) = finish(i)
+  TP            = L_ephemeral + max_i finish(i).
+
+For multiple waits use the maximum of the predecessor post-ready times. Handle
+initial predecessors as already satisfied. Model waits as ready-time constraints;
+do not also add the same blocking duration as global serial work. Positions
+relative to waits matter: independent work before the wait can hide dependency
+latency, while work before a predecessor's post extends its release time.
+
+A simpler attempted extension was deliberately tested and rejected: calibrate
+an empty wait/post recurrence at 4096 trips, infer a per-chain handoff cost, and
+scale by N/min(P,d), adding uninstrumented useful work. On the 18 held-out loop
+sizes its median error was 34.8% and mean error 60.6%; only 4/18 were within
+20%. At P=4,N=200000,d=4 it predicted 3.77 ms against 1.35 ms. Distance alone
+plus a scaled empty protocol still misses data traffic and schedule effects.
+The failed attempt is preserved as across-proposal rows, not deployed.
+
+The scheduled dependency model above is a concrete proposal; its full-loop
+precision has not yet been established. New model inputs are necessary before
+claiming it is reasonably precise. First obtain loop-only useful serial time,
+width/regime-specific observed service and sync information, and dependency
+topology. Separate timestamp overhead from useful work. Keep allocation and
+execution behavior unchanged while validating those inputs.
+
+For universal budgeting, retain the ledger and execution system. Replace the
+objective with resource scheduling and feed it queue-free site service and
+task residuals. Avoid applying task profiles and loop prices to the same work.
+The existing descriptors identify site ownership, but repeated/nested sites
+also need invocation multiplicity and release order to price a complete task.
+
+Approval requested for that model-input and dependent-span revision before any
+production equation overhaul. This is required by the user's explicit request
+to propose a necessary overhaul with evidence, rather than implement it first.
+
+Validation should hold out both loop shapes and sizes, include distances 1/2/4
+and longer distances, multiple waits, independent work before/after posts,
+streaming/compute/atomic/privatized bodies, and all legal integer allocations
+including idle/serial cases. Repeat on a second physical host using the same
+calibration process. The old pod data gives another machine's symptoms but is
+not equivalent loop-only validation of the proposed equations.
+
+6. Checks and reproduction
+
+All three real tdg_budget_test configurations report ALL PASS, 0 failures:
+4 threads integration on, 4 threads integration disabled, and 1 thread. The
+reservation ledger finishes at zero. Six reference-policy structural tests pass.
+The probe asserts real calibrated decisions for c_ind=0, preserves the pending
+range callback across calibration, and checks schedule grain boundaries.
+git diff --check passes. A pre-existing sysfs path truncation compiler warning
+remains; no unrelated fix was made.
+
+From the repository directory under Linux/WSL:
+
+  python3 tools/cost_model_audit.py --out proof/cost_model_audit
+  python3 tools/summarize_cost_model_audit.py proof/cost_model_audit
+  python3 tools/test_cost_model_equations.py
+
+The audit overwrites only its own generated measurements. raw.csv preserves
+observations; summary.json contains calculations; environment.txt records the
+host; gate1.txt, gate4.txt, and gate4_disabled.txt record actual budget tests.
+Diagnostic binaries and objects are ignored locally. Existing user results
+and the user's untracked proof/R2_REJECTION.md were preserved.

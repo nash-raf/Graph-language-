@@ -3219,7 +3219,14 @@ static void deactivateDriver(const NeighborLoopInfo &Info)
     if (Header)
         if (auto *HB = dyn_cast<BranchInst>(Header->getTerminator()))
             if (HB->isConditional())
+            {
                 HB->setSuccessor(0, HB->getSuccessor(1));
+                // ARS now accounts for the emitted executor in call order.
+                // These driver/neighbor traversals no longer execute; keeping
+                // their events would count the same graph pass a second time.
+                for (BasicBlock *BB : Info.DriverLoop->blocks())
+                    BB->getTerminator()->setMetadata("autotuner.traverse", nullptr);
+            }
 }
 
 /* Deterministic, per-loop unique name of the pass-created global slot that

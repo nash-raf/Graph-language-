@@ -1,0 +1,875 @@
+{
+  "doall_old_equation_on_same_inputs": {
+    "count": 18,
+    "median_ape_percent": 30.928976879609476,
+    "mean_ape_percent": 41.41496608258217,
+    "within_20_percent": 6,
+    "within_30_percent": 8
+  },
+  "doall_corrected": {
+    "count": 18,
+    "median_ape_percent": 12.085664388747707,
+    "mean_ape_percent": 17.807937721427674,
+    "within_20_percent": 12,
+    "within_30_percent": 15
+  },
+  "doacross_launch_old": {
+    "count": 18,
+    "median_ape_percent": 98.54365101328322,
+    "mean_ape_percent": 98.68352774135103,
+    "within_20_percent": 0,
+    "within_30_percent": 0
+  },
+  "doacross_launch_corrected": {
+    "count": 18,
+    "median_ape_percent": 5.728757819273506,
+    "mean_ape_percent": 7.401032946353976,
+    "within_20_percent": 18,
+    "within_30_percent": 18
+  },
+  "serial_profile_interval_fraction": 0.48725954878911504,
+  "pool_launch_measured_ns_range": [
+    44673.0,
+    142836.0
+  ],
+  "doacross_mechanism_proposal": {
+    "count": 18,
+    "median_ape_percent": 34.820595588329304,
+    "mean_ape_percent": 60.555931064644,
+    "within_20_percent": 4,
+    "within_30_percent": 8
+  },
+  "budget_composition_all_pairs": {
+    "old_sum": {
+      "count": 130,
+      "median_ape_percent": 14.151944137327387,
+      "mean_ape_percent": 22.577178764151462,
+      "within_20_percent": 78,
+      "within_30_percent": 98
+    },
+    "resource": {
+      "count": 130,
+      "median_ape_percent": 5.401615715281349,
+      "mean_ape_percent": 10.753332456720802,
+      "within_20_percent": 107,
+      "within_30_percent": 124
+    }
+  },
+  "budget_composition_pairs_above_1ms": {
+    "old_sum": {
+      "count": 77,
+      "median_ape_percent": 7.283408796871294,
+      "mean_ape_percent": 19.220868828783992,
+      "within_20_percent": 54,
+      "within_30_percent": 62
+    },
+    "resource": {
+      "count": 77,
+      "median_ape_percent": 2.940615187643858,
+      "mean_ape_percent": 4.773580103435554,
+      "within_20_percent": 75,
+      "within_30_percent": 77
+    }
+  },
+  "budget_holdout_selections": [
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        8192.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 11722.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        20000.0,
+        12.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 695705.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        20000.0,
+        12.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 3430118.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        65536.0,
+        4.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 483090.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        65536.0,
+        4.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 2271670.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        200000.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 290792.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        200000.0,
+        24.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 19441696.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        200000.0,
+        24.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 79885032.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        1000000.0,
+        12.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 34774050.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        2.0,
+        1000000.0,
+        12.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 170345937.0,
+        "idle_threads": 2
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        8192.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 11611.0,
+        "idle_threads": 4
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        20000.0,
+        12.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        3.0,
+        1.0
+      ],
+      "regret_percent": 21.52780048168612,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 697389.0,
+        "idle_threads": 4
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        20000.0,
+        12.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        3.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        3.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          3
+        ],
+        "predicted_ns": 1293459.0,
+        "idle_threads": 1
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        65536.0,
+        4.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        3.0,
+        1.0
+      ],
+      "regret_percent": 4.404782921500172,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 516101.0,
+        "idle_threads": 4
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        65536.0,
+        4.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        3.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        3.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          3
+        ],
+        "predicted_ns": 890959.0,
+        "idle_threads": 1
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        200000.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        2.0,
+        2.0
+      ],
+      "measured_best_pair": [
+        3.0,
+        1.0
+      ],
+      "regret_percent": 4.115551448119614,
+      "reference_search": {
+        "widths": [
+          2,
+          2
+        ],
+        "predicted_ns": 277638.0,
+        "idle_threads": 0
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        200000.0,
+        24.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        3.0,
+        1.0
+      ],
+      "regret_percent": 2.6806380820458386,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 19295414.0,
+        "idle_threads": 4
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        200000.0,
+        24.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        3.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        3.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          3
+        ],
+        "predicted_ns": 26394004.0,
+        "idle_threads": 1
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        1000000.0,
+        12.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        2.0,
+        2.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.7046597906270602,
+      "reference_search": {
+        "widths": [
+          2,
+          2
+        ],
+        "predicted_ns": 34640071.0,
+        "idle_threads": 0
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        4.0,
+        1000000.0,
+        12.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        3.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        3.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          3
+        ],
+        "predicted_ns": 61555035.0,
+        "idle_threads": 1
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        8192.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 11782.0,
+        "idle_threads": 8
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        20000.0,
+        12.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        4.0,
+        4.0
+      ],
+      "measured_best_pair": [
+        4.0,
+        4.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          4,
+          4
+        ],
+        "predicted_ns": 652817.0,
+        "idle_threads": 0
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        20000.0,
+        12.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        7.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        7.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          7
+        ],
+        "predicted_ns": 725692.0,
+        "idle_threads": 1
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        65536.0,
+        4.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        1.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 493700.0,
+        "idle_threads": 8
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        65536.0,
+        4.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        7.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        7.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          5
+        ],
+        "predicted_ns": 587244.0,
+        "idle_threads": 3
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        200000.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        1.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        7.0
+      ],
+      "regret_percent": 2.919860645390604,
+      "reference_search": {
+        "widths": [
+          1,
+          1
+        ],
+        "predicted_ns": 283969.0,
+        "idle_threads": 8
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        200000.0,
+        24.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        5.0,
+        3.0
+      ],
+      "measured_best_pair": [
+        4.0,
+        4.0
+      ],
+      "regret_percent": 1.697182928459351,
+      "reference_search": {
+        "widths": [
+          5,
+          3
+        ],
+        "predicted_ns": 11932972.0,
+        "idle_threads": 0
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        200000.0,
+        24.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        7.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        7.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          5
+        ],
+        "predicted_ns": 19474930.0,
+        "idle_threads": 3
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        1000000.0,
+        12.0,
+        0.0,
+        1.0
+      ],
+      "chosen_among_measured_pairs": [
+        5.0,
+        3.0
+      ],
+      "measured_best_pair": [
+        4.0,
+        4.0
+      ],
+      "regret_percent": 6.192329642745431,
+      "reference_search": {
+        "widths": [
+          5,
+          3
+        ],
+        "predicted_ns": 20701863.0,
+        "idle_threads": 0
+      }
+    },
+    {
+      "P_N_chain_streaming_ratio": [
+        8.0,
+        1000000.0,
+        12.0,
+        0.0,
+        3.0
+      ],
+      "chosen_among_measured_pairs": [
+        1.0,
+        7.0
+      ],
+      "measured_best_pair": [
+        1.0,
+        7.0
+      ],
+      "regret_percent": 0.0,
+      "reference_search": {
+        "widths": [
+          1,
+          6
+        ],
+        "predicted_ns": 36551011.0,
+        "idle_threads": 2
+      }
+    }
+  ],
+  "budget_selection_median_regret_percent": 0.0,
+  "budget_selection_max_regret_percent": 21.52780048168612,
+  "doacross_distance_contrast": [
+    {
+      "P": 2,
+      "d1_parallel_ns": 12112076.0,
+      "d4_parallel_ns": 1804530.0
+    },
+    {
+      "P": 4,
+      "d1_parallel_ns": 18986669.0,
+      "d4_parallel_ns": 1345385.0
+    },
+    {
+      "P": 8,
+      "d1_parallel_ns": 34784752.0,
+      "d4_parallel_ns": 3474360.0
+    }
+  ]
+}

@@ -133,11 +133,16 @@ int32_t sgpl_should_parallelize_doacross(
     int64_t end,
     int64_t step);
 
+/* Parent workers = min(task_count, available budget). Work/span are retained
+ * for API compatibility; task durations do not affect worker allocation. */
 int32_t sgpl_choose_tdg_threads(
     int64_t work_units,
     int64_t span_units,
     int32_t task_count);
 
+/* One allocation decision per level. Overloaded mixed levels run ordinary
+ * tasks first, then replan declared loop tasks with the available budget.
+ * Each callback is serial; only its loop dispatches receive extra workers. */
 void sgpl_run_tdg_level(
     const sgpl_tdg_task_desc *tasks,
     int32_t task_count,

@@ -618,3 +618,20 @@ generically:
   requires exact multiset equality `atoms(ExecOps(E)) == flatten(E)` and proves
   `cas=0` (no CAS-form claims in the target frontend configuration) across all
   72 fixtures.
+## Realization: two-axis DAG scheduling
+
+The algebra says which axes an expression admits; the runtime realizes them
+with a ready-work DAG scheduler whose edges are *witness-backed*:
+
+- A semantic edge carries a witness id, and `autograph_execute_dag` rejects a
+  semantic edge without one (`SGPL_DAG_REL_FLAG_SEMANTIC` + `witness_id != 0`)
+  — no graph-topology edge may appear without a witness.  Edges that only fix
+  a deterministic order are tagged `SGPL_DAG_REL_FLAG_REALIZATION`.
+- The temporal realization is a chain: unit *i+1* depends on unit *i* because
+  the next round reads the previous round's envelope (R2/R4/R5).  The spatial
+  realization is one node per partition over independent partition bodies.
+- Nested work shares the run's budget (`max(1, W/A)` per node, pushed on the
+  parallel_runtime ledger), so the *sum* of a node's nested dispatches never
+  exceeds the budget the scheduler was granted.
+- The scheduler fails closed on invalid descriptors, self edges, cycles and
+  node failure (new dispatch cancelled, active nodes awaited).

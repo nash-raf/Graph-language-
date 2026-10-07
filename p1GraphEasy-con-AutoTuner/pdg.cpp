@@ -1382,8 +1382,19 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     if (IsNestedFrontierLoop)
         logLoopClassify("frontier marker veto (SGPL_FORCE_FRONTIER_MARKER)");
 
+    /* Step 10: a region the DAG scheduler owns.  Its parallelism is already
+     * realized inside the engine (spatial partitions / temporal units are
+     * dispatched by the ready-work scheduler), so the classifier must not
+     * claim it -- same fail-closed direction as the refusal marker, but this
+     * is the success case, not a refusal. */
+    const bool IsDagOwnedLoop =
+        !::getenv("SGPL_NO_FRONTIER_MARKER") &&
+        loopHasTerminatorMetadata(L, "sgpl.frontier.dag.axes");
+    if (IsDagOwnedLoop)
+        logLoopClassify("dag-owned region (left to the DAG scheduler)");
+
     std::string classification;
-    if (IsNestedFrontierLoop)
+    if (IsNestedFrontierLoop || IsDagOwnedLoop)
     {
         classification = "SEQUENTIAL";
     }
@@ -3592,11 +3603,17 @@ namespace llvm
                         fprintf(stderr, "  [diag] header=null\n");
                 }
                 if (Region && Region->header &&
-                    Region->header->getTerminator()
-                        ->getMetadata("sgpl.frontier.nested.sequential"))
+                    Region->header->getTerminator() &&
+                    (Region->header->getTerminator()
+                         ->getMetadata("sgpl.frontier.nested.sequential") ||
+                     Region->header->getTerminator()
+                         ->getMetadata("sgpl.frontier.dag.axes")))
                 {
                     llvm::nulls() << "  Task " << taskId
-                                  << ": sequential round nest -> left inline\n";
+                                  << (Region->header->getTerminator()->getMetadata(
+                                          "sgpl.frontier.dag.axes")
+                                          ? ": dag-owned round nest -> left inline\n"
+                                          : ": sequential round nest -> left inline\n");
                     extractedFunctions[taskId] = nullptr;
                     continue;
                 }

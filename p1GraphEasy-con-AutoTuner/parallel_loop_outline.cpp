@@ -168,6 +168,11 @@ namespace
         if (!L || !L->getHeader() || !L->getHeader()->getTerminator())
             return ParallelMode::None;
 
+        /* Step 10: DAG-owned regions are scheduled by the ready-work DAG
+         * scheduler inside the engine; the outliner must not touch them. */
+        if (L->getHeader()->getTerminator()->getMetadata("sgpl.frontier.dag.axes"))
+            return ParallelMode::None;
+
         MDNode *LoopMD = L->getHeader()->getTerminator()->getMetadata("my.loop.parallel");
         if (!LoopMD)
             return ParallelMode::None;

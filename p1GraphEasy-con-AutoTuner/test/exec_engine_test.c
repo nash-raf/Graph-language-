@@ -519,6 +519,142 @@ static void test_owner_v_pairs(const ExecTestGraph *g, int32_t partitions) {
   (void)built;
 }
 
+/* Step 8: temporal unit wrappers.  Three rounds run as a witness-backed
+ * chain through the DAG scheduler; every unit keeps the full engine
+ * lifecycle (autograph_frontier_execute), and the chain enforces round
+ * order. */
+static void test_temporal_chain(const ExecTestGraph *g, int32_t partitions) {
+  sgpl_runtime_op ops[3];
+  RecState st[3];
+  sgpl_exec_ctx ctxs[3];
+  sgpl_temporal_unit units[3];
+  int i;
+
+  (void)autograph_build_clean_cut((void *)g, partitions);
+  log_reset();
+  for (i = 0; i < 3; ++i) {
+    make_rec_op(&ops[i], &st[i], 100 + i, 0);
+    ops[i].capabilities = SGPL_OP_PAIR;
+    memset(&ctxs[i], 0, sizeof(ctxs[i]));
+    ctxs[i].round_id = 100 + i;
+    ctxs[i].traversal_kind = SGPL_TRAVERSE_OWNER_U;
+    ctxs[i].domain_kind = SGPL_DOMAIN_ALL_VERTICES;
+    ctxs[i].ops = &ops[i];
+    ctxs[i].op_count = 1;
+    units[i].graph = (void *)g;
+    units[i].ctx = &ctxs[i];
+  }
+
+  check(sgpl_exec_dag_temporal_chain(units, 3, 2) == SGPL_DAG_OK,
+        "temporal chain executes (3 units)");
+  for (i = 0; i < 3; ++i) {
+    char what[64];
+    snprintf(what, sizeof(what), "unit %d enumerated every edge once", i);
+    check(count_kind(100 + i, EV_PAIR) == (int)g->m, what);
+  }
+  check(last_of(100, EV_PAIR) >= 0 && first_of(101, EV_PAIR) > last_of(100, EV_PAIR) &&
+            first_of(102, EV_PAIR) > last_of(101, EV_PAIR),
+        "units execute in round order (chain)");
+
+  check(sgpl_exec_dag_temporal_chain(NULL, 0, 2) == SGPL_DAG_ERR_INVALID,
+        "empty temporal set fails closed");
+  units[1].ctx = NULL;
+  check(sgpl_exec_dag_temporal_chain(units, 3, 2) == SGPL_DAG_ERR_NODE,
+        "unusable unit fails the chain closed");
+}
+
+int sgpl_gpu_engine_step_verdict(int64_t arcs, int64_t min_pairs) {
+  (void)arcs; (void)min_pairs;
+  return 1; /* SGPL_GPU_SMALL_TRIPS: tests stay on the CPU path */
+}
+int gpup_step_try(const char *kernel_name, const int32_t *pairs, int64_t npairs) {
+  (void)kernel_name; (void)pairs; (void)npairs;
+  return 0;
+}
+int gpup_step_v_try(const char *kernel_name, const void *layout_sig, int32_t npart,
+                    int64_t *const *rp, const int32_t *const *ci,
+                    const int32_t *const *indir, const int64_t *row_counts,
+                    const uint8_t *mem, int64_t nmem, const uint8_t **claimed_out) {
+  (void)kernel_name; (void)layout_sig; (void)npart; (void)rp; (void)ci;
+  (void)indir; (void)row_counts; (void)mem; (void)nmem; (void)claimed_out;
+  return 0;
+}
+
+/* GPU runtime hook stubs: these tests never take the device path. */
+const char *autograph_gpu_step_name_for(int32_t step_id) { (void)step_id; return NULL; }
+
+/* Step 9: nested scheduling shares the run's budget.  A temporal chain run
+ * with budget 2 gives each unit (a chain keeps the full share) at most 2
+ * threads for its own spatial dispatch; step_id = -1 selects the fallback
+ * dispatch path where the env-gated DAG spatial dispatch lives, independent
+ * of the TDG sampler. */
+static void test_temporal_nested_budget(const ExecTestGraph *g,
+                                        int32_t partitions) {
+  sgpl_runtime_op ops[2];
+  RecState st[2];
+  sgpl_exec_ctx ctxs[2];
+  sgpl_temporal_unit units[2];
+  int i, configured, expected, width, base_width;
+
+  (void)autograph_build_clean_cut((void *)g, partitions);
+  setenv("SGPL_DAG_SPATIAL", "1", 1);
+  log_reset();
+  for (i = 0; i < 2; ++i) {
+    make_rec_op(&ops[i], &st[i], 200 + i, 0);
+    ops[i].capabilities = SGPL_OP_PAIR;
+    memset(&ctxs[i], 0, sizeof(ctxs[i]));
+    ctxs[i].round_id = 200 + i;
+    ctxs[i].traversal_kind = SGPL_TRAVERSE_OWNER_U;
+    ctxs[i].domain_kind = SGPL_DOMAIN_ALL_VERTICES;
+    ctxs[i].ops = &ops[i];
+    ctxs[i].op_count = 1;
+    ctxs[i].step_id = -1;
+    units[i].graph = (void *)g;
+    units[i].ctx = &ctxs[i];
+  }
+
+  check(sgpl_exec_dag_temporal_chain(units, 2, 2) == SGPL_DAG_OK,
+        "nested: chain runs with budget 2");
+  width = sgpl_debug_last_dag_dispatch_width();
+  configured = sgpl_configured_worker_count();
+  if (configured < 1)
+    configured = 1;
+  /* CleanCut clamps the partition count to the vertex count. */
+  {
+    int32_t parts = partitions;
+    if (parts > (int32_t)g->n)
+      parts = (int32_t)g->n;
+    expected = configured < 2 ? configured : 2;
+    if (expected > parts)
+      expected = parts;
+    if (parts < 1)
+      parts = 1;
+    partitions = parts; /* baseline expectation below uses the same clamp */
+  }
+  if (width != expected)
+    printf("  [dbg] nested width=%d expected=%d configured=%d partitions=%d\n",
+           width, expected, configured, partitions);
+  check(width == expected,
+        "nested: unit dispatch clamped to the run's budget share");
+  check(count_kind(200, EV_PAIR) == (int)g->m &&
+            count_kind(201, EV_PAIR) == (int)g->m,
+        "nested: both units enumerated every edge once");
+  check(sgpl_debug_reserved_threads() == 0,
+        "nested: budget ledger balanced after the run");
+
+  /* Baseline: the same unit outside the scheduler has no pushed budget, so
+   * its dispatch runs at the configured width (min(configured, partitions)). */
+  log_reset();
+  (void)autograph_frontier_execute((void *)g, &ctxs[0]);
+  base_width = sgpl_debug_last_dag_dispatch_width();
+  if (base_width != (configured < partitions ? configured : partitions))
+    printf("  [dbg] base width=%d configured=%d partitions=%d\n", base_width,
+           configured, partitions);
+  check(base_width == (configured < partitions ? configured : partitions),
+        "un-nested: dispatch uses the configured width");
+  unsetenv("SGPL_DAG_SPATIAL");
+}
+
 int main(void) {
   /* n=7, m=12; vertex 6 has no out-edges (zero-pair source). */
   int64_t row_ptr[8] = {0, 2, 4, 6, 9, 11, 12, 12};
@@ -534,11 +670,21 @@ int main(void) {
   for (size_t pi = 0; pi < sizeof(partitions) / sizeof(partitions[0]); ++pi) {
     printf("== partitions=%d ==\n", partitions[pi]);
     test_owner_u_lifecycle(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after owner-u");
     test_membership(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after membership");
     test_round_flags_and_combine(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after round-flags");
     test_sequential_barrier(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after barrier");
     test_no_implicit_activation(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after no-activation");
     test_owner_v_pairs(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after owner-v");
+    test_temporal_chain(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after temporal chain");
+    test_temporal_nested_budget(&g, partitions[pi]);
+    check(sgpl_current_thread_budget() == 0, "budget balanced after nested budget");
   }
 
   printf("exec engine test: %d failures\n", failures);

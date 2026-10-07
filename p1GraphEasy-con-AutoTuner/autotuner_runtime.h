@@ -620,6 +620,34 @@ int32_t autograph_execute_dag(const sgpl_dag_template *template_desc,
 int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
                               int32_t worker_budget);
 
+/* Step 8: temporal unit wrapper.  A temporal unit is one whole round of a
+ * frontier nest (or one temporal stage of a multi-stage round); its wrapper
+ * executes that unit's complete lifecycle through the existing
+ * autograph_frontier_execute, so round-begin ops, snapshots, source coverage,
+ * combines and round-end ops are never duplicated in the scheduler -- the
+ * scheduler only orders and dispatches wrappers.
+ *
+ * V1 realization: a chain.  Unit i+1 starts only after unit i completed,
+ * because round i+1's traversal reads round i's output (the temporal-axis
+ * witnesses R2/R4/R5).  The chain edges are semantic: they carry round-carried
+ * dependence as witness id 1, never a graph-topology heuristic. */
+typedef struct sgpl_temporal_unit {
+  void *graph;        /* unit's graph (registered with the runtime) */
+  sgpl_exec_ctx *ctx; /* unit's context; lifetime owned by the caller */
+} sgpl_temporal_unit;
+
+/* Run `unit_count` temporal units as a witness-backed chain through the
+ * ready-work DAG scheduler.  Returns SGPL_DAG_OK or a negative SGPL_DAG_ERR_*
+ * code; a unit whose graph/context is unusable fails the chain closed. */
+int32_t sgpl_exec_dag_temporal_chain(const sgpl_temporal_unit *units,
+                                     int32_t unit_count,
+                                     int32_t worker_budget);
+
+/* Debug introspection: effective width of the most recent DAG spatial
+ * dispatch, after the nested-budget clamp.  Used by the nested-budget test
+ * to prove a unit's dispatch shares the run budget instead of the machine. */
+int32_t sgpl_debug_last_dag_dispatch_width(void);
+
 #ifdef __cplusplus
 }
 #endif

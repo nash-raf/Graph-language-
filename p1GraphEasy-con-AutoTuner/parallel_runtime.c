@@ -105,22 +105,26 @@ static int sgpl_tdg_env_enabled(const char *name, int default_value)
 
 static int tdg_debug_enabled(void)
 {
-    static int cached = -1;
-    if (cached != -1)
-        return cached;
+    static _Atomic int cached = -1;
+    int cached_v = atomic_load_explicit(&cached, memory_order_relaxed);
+    if (cached_v != -1)
+        return cached_v;
 
-    cached = sgpl_tdg_env_enabled("SGPL_TDG_DEBUG", 0);
-    return cached;
+    cached_v = sgpl_tdg_env_enabled("SGPL_TDG_DEBUG", 0);
+    atomic_store_explicit(&cached, cached_v, memory_order_relaxed);
+    return cached_v;
 }
 
 static int budget_debug_enabled(void)
 {
-    static int cached = -1;
-    if (cached != -1)
-        return cached;
+    static _Atomic int cached = -1;
+    int cached_v = atomic_load_explicit(&cached, memory_order_relaxed);
+    if (cached_v != -1)
+        return cached_v;
 
-    cached = sgpl_tdg_env_enabled("SGPL_BUDGET_DEBUG", 0) || tdg_debug_enabled();
-    return cached;
+    cached_v = sgpl_tdg_env_enabled("SGPL_BUDGET_DEBUG", 0) || tdg_debug_enabled();
+    atomic_store_explicit(&cached, cached_v, memory_order_relaxed);
+    return cached_v;
 }
 
 /* Kill switches for the engine-budget integration: an unregistered caller
@@ -129,18 +133,26 @@ static int budget_debug_enabled(void)
  * grant as a budget scope for nested work. */
 static int unregistered_pool_share_disabled(void)
 {
-    static int cached = -1;
-    if (cached == -1)
-        cached = sgpl_tdg_env_enabled("SGPL_NO_UNREGISTERED_POOL_SHARE", 0);
-    return cached;
+    static _Atomic int cached = -1;
+    int cached_v = atomic_load_explicit(&cached, memory_order_relaxed);
+    if (cached_v == -1)
+    {
+        cached_v = sgpl_tdg_env_enabled("SGPL_NO_UNREGISTERED_POOL_SHARE", 0);
+        atomic_store_explicit(&cached, cached_v, memory_order_relaxed);
+    }
+    return cached_v;
 }
 
 static int region_scope_disabled(void)
 {
-    static int cached = -1;
-    if (cached == -1)
-        cached = sgpl_tdg_env_enabled("SGPL_NO_REGION_SCOPE", 0);
-    return cached;
+    static _Atomic int cached = -1;
+    int cached_v = atomic_load_explicit(&cached, memory_order_relaxed);
+    if (cached_v == -1)
+    {
+        cached_v = sgpl_tdg_env_enabled("SGPL_NO_REGION_SCOPE", 0);
+        atomic_store_explicit(&cached, cached_v, memory_order_relaxed);
+    }
+    return cached_v;
 }
 
 static int sgpl_tdg_read_core_ids_once(void)
@@ -831,16 +843,16 @@ uint64_t sgpl_now_ns(void)
 
 static int sgpl_runtime_thread_count(void)
 {
-    static int cached_nthreads = 0;
+    static _Atomic int cached_nthreads = 0;
 
-    if (cached_nthreads > 0)
-        return cached_nthreads;
+    if (atomic_load_explicit(&cached_nthreads, memory_order_relaxed) > 0)
+        return atomic_load_explicit(&cached_nthreads, memory_order_relaxed);
 
     int online_threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
     if (online_threads <= 0)
         online_threads = 1;
 
-    cached_nthreads = online_threads;
+    atomic_store_explicit(&cached_nthreads, online_threads, memory_order_relaxed);
     {
         const char *requested = getenv("SGPL_NUM_THREADS");
         if (!requested || requested[0] == '\0')
@@ -854,11 +866,11 @@ static int sgpl_runtime_thread_count(void)
             {
                 if (parsed > online_threads)
                     parsed = online_threads;
-                cached_nthreads = (int)parsed;
+                atomic_store_explicit(&cached_nthreads, (int)parsed, memory_order_relaxed);
             }
         }
     }
-    return cached_nthreads;
+    return atomic_load_explicit(&cached_nthreads, memory_order_relaxed);
 }
 
 int32_t sgpl_configured_worker_count(void)
@@ -1104,19 +1116,19 @@ void doacross_post(int64_t iter, int32_t id)
  * enough that P chunks still balance a skewed loop. */
 static int64_t sgpl_loop_chunk_iterations(void)
 {
-    static int64_t cached = -1;
-    if (cached < 0)
+    static _Atomic int64_t cached = -1;
+    if (atomic_load_explicit(&cached, memory_order_relaxed) < 0)
     {
         const char *v = getenv("SGPL_LOOP_CHUNK");
-        cached = 256;
+        atomic_store_explicit(&cached, 256, memory_order_relaxed);
         if (v && *v)
         {
             long long parsed = atoll(v);
             if (parsed >= 0)
-                cached = (int64_t)parsed;
+                atomic_store_explicit(&cached, (int64_t)parsed, memory_order_relaxed);
         }
     }
-    return cached;
+    return atomic_load_explicit(&cached, memory_order_relaxed);
 }
 
 static void *worker_main(void *_arg)

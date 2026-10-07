@@ -1254,6 +1254,34 @@ static void markSequential(Loop *L)
     }
 }
 
+/* Step 10: a region the two-axis DAG scheduler owns.  The realized axes are
+ * the certificate's: the spatial template dispatches the partitions, the
+ * temporal template the units; the reconstruction must leave every part of
+ * the nest inline.  This is the success marker -- the refusal marker
+ * sgpl.frontier.nested.sequential stays reserved for R8 (the implementation
+ * full-serial guard) and for emit/analysis failure. */
+static void markDagOwned(Loop *L, llvm::StringRef Axes)
+{
+    if (!L)
+        return;
+    Loop *Top = L;
+    while (Loop *P = Top->getParentLoop())
+        Top = P;
+    std::vector<Loop *> Work{Top};
+    while (!Work.empty())
+    {
+        Loop *Cur = Work.back();
+        Work.pop_back();
+        if (Instruction *T = Cur->getHeader()->getTerminator())
+            T->setMetadata(
+                "sgpl.frontier.dag.axes",
+                MDNode::get(T->getContext(),
+                            MDString::get(T->getContext(), Axes)));
+        for (Loop *Sub : Cur->getSubLoops())
+            Work.push_back(Sub);
+    }
+}
+
 static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
 {
     BasicBlock *Header = L->getHeader();
@@ -6519,11 +6547,25 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 ++detected;
                 if (Emitted)
                 {
-                    /* Keep every part of the round nest serial (the step is
-                     * already parallel via CleanCut; the residual beta-init /
-                     * swap loops must not be DOALL/GPU-ified by the
-                     * reconstruction). */
-                    markSequential(L);
+                    /* The region is DAG-owned: the step's parallelism is
+                     * realized inside the engine, and every part of the round
+                     * nest (residual beta-init / swap / driver loops) is left
+                     * inline by the reconstruction.  The refusal marker is
+                     * reserved for R8 / emit failure. */
+                    {
+                        std::string Axes;
+                        if (!Info.Cert.Spatial.empty())
+                            Axes = "spatial";
+                        if (!Info.Cert.Temporal.empty())
+                            Axes = Axes.empty() ? "temporal" : Axes + "+temporal";
+                        if (Axes.empty())
+                            Axes = "spatial";
+                        markDagOwned(L, Axes);
+                        if (getenv("GRAPH_FRONTIER_STATS"))
+                            errs() << "[graph-frontier]   dag-owned: hdr="
+                                   << L->getHeader()->getName()
+                                   << " axes=" << Axes << "\n";
+                    }
                     if (getenv("GRAPH_FRONTIER_DUMP") && F.getParent())
                     {
                         std::error_code EC;

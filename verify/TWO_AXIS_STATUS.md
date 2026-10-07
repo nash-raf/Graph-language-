@@ -25,13 +25,33 @@ P=1,4,8,16, flag off vs on ("reached 20000 level_checksum 75722").
 DAG path is slower on this small graph (8.46 vs 5.53 ms kernel) -- scheduler
 overhead, a cost-model input later.
 
-NEXT (in order, commit each verified):
-2. step 8 temporal wrappers (round lifecycle stays in autograph_frontier_execute)
-3. step 9 nested scheduling + budget threading
-4. step 10 metadata sgpl.frontier.dag.* + markSequential replacement + pdg/outliner exclusions
-5. step 11 enable + docs (EFFECT_SYSTEM.md, proof/EFFECT_ALGEBRA_DESIGN.md) + compat switch
-6. VERIFICATION: corpus mismatch scan, validate_algebra.sh (52/53, class= diff on ultimate_pagerank is pre-existing),
-   dag_scheduler_test, tdg budget sweep, RACING: TSan build of dag test, worker-count sweeps, repeat-run determinism,
-   helgrind/TSan on BFS with SGPL_DAG_SPATIAL=1
+RACING detail (final): TSan on the DAG test + engine test = 0 warnings (after
+fixing the pool's env caches to relaxed atomics).  TSan on the BFS program with
+SGPL_DAG_SPATIAL=1 found one more real race in the step-9 code (dag_dispatch_budget
+read R->active outside the run lock) -- fixed by computing the share under the
+lock; the TSan BFS run is now 0 warnings.  The loader's OMP-hash loop reports a
+libgomp barrier false positive (this libgomp has 0 TSan annotations), only when
+OMP threads > 1.
 
-Recipes: TU check /tmp/cc_gfl.sh; dag test link g++ -Wl,--gc-sections; verify script /tmp/verify4.sh
+NEXT:
+- Optional: enable SGPL_DAG_SPATIAL by default after a perf review (small-graph
+  overhead 8.5 vs 5.5 ms), retire compat switches after more regression
+  coverage.  Nothing pending from the spec steps.
+
+VERIFICATION (this batch, all on the pod + locally):
+- corpus mismatch scan: 0 mismatches, no crashes (all verify/cases + test graphs)
+- validate_algebra.sh: 52/53 -- the 1 FAIL (ultimate_pagerank) is the
+  pre-existing class= golden diff, not from this work
+- dag_scheduler_test: ALL PASS (14 checks incl. 5 temporal-wrapper checks)
+- exec_engine_test: 0 failures (partitions 1,3,8; temporal chain, nested budget,
+  TLS-budget-balance invariants)
+- BFS differential SGPL_DAG_SPATIAL=0 vs 1: IDENTICAL at P=1,4,8,16
+  ("reached 20000 level_checksum 75722"); repeat-run determinism: 1 distinct
+  output hash over 3 runs
+- RACING: TSan 0 warnings on dag_scheduler_test and exec_engine_test after
+  fixing a real race (worker_main hit plain-int env caches; now relaxed atomics)
+- budget sweep re-run: reproduces the documented model mismatch
+  (model light=7 heavy=7 vs measured light=1 heavy=13)
+- GPU demo (separate ask): RTX 2000 Ada, ~55% util / 24% memory / 3968 MiB,
+  see verify/GPU_MATMUL_DEMO.md
+

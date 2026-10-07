@@ -1252,6 +1252,43 @@ call i32 @autograph_frontier_step_owner_source(ptr %0, ptr null, i32 0, ptr @sgp
 | Source finish hook | `buildSourceFinishHook` | `graph_frontier_lowering.cpp:3763-3800` |
 | Envelope/shadow helpers | `fillFrontierEnv`, `commitEnvelope`, `emitRoundSepShadow` | `graph_frontier_lowering.cpp:3010-3170` |
 | Partition build | `autograph_build_clean_cut(_inner)` | `autotuner_runtime.c:2907-3138` |
+### Two-axis DAG scheduling (realization layer)
+
+The certificate decides *which* axes a region may use; the ready-work DAG
+scheduler realizes them.  The two axes get two wrapper kinds, and both keep
+the engine's lifecycle exactly where it was:
+
+- **Spatial** — `sgpl_exec_dag_spatial(ctx, partitions, budget)` (step 7):
+  node *i* is partition *i*, and the node body is the existing
+  `sgpl_exec_partition_body`, so round-begin ops, snapshots, source coverage,
+  combines and round-end ops run exactly once, in `autograph_frontier_execute`.
+- **Temporal** — `sgpl_exec_dag_temporal_chain(units, n, budget)` (step 8):
+  node *i* is one whole round/stage, executed by
+  `autograph_frontier_execute`; the chain edges are semantic (round-carried
+  dependence, witnesses R2/R4/R5), never a topology heuristic.
+- **Nested budget (step 9)** — before running a node, the scheduler pushes
+  `max(1, W/A)` (W = the run's budget, A = nodes active at dispatch) through
+  the `parallel_runtime` ledger (`sgpl_push_thread_budget` / pop around the
+  node call).  `sgpl_exec_dag_spatial` clamps its width by
+  `sgpl_current_thread_budget()`, so a nested dispatch shares the run's budget
+  instead of claiming the whole machine; a chain (A = 1) keeps the full budget.
+- **Worker index** — scheduler threads present a per-thread ordinal through
+  `sgpl_set_current_worker_index` so partition code that reads
+  `sgpl_current_worker_index()` (lane assignment) behaves exactly as it does
+  in the worker pool.
+- **Ownership marker (step 10)** — on the emit success path the nest is marked
+  `sgpl.frontier.dag.axes=<spatial|temporal|spatial+temporal>` (certificate
+  derived); the PDG classifier and task extraction (`pdg.cpp`) and the loop
+  outliner (`parallel_loop_outline.cpp`) skip DAG-owned regions.  The refusal
+  marker `sgpl.frontier.nested.sequential` is reserved for R8 (the
+  implementation full-serial guard) and for emit/analysis failure.
+
+Compat switches: `SGPL_DAG_SPATIAL=1` enables the spatial DAG dispatch
+(default OFF — the fallback is the pre-existing `parallel_for_runtime`
+dispatch), `SGPL_NO_TDG_ENGINE=1` disables the TDG engine steps, and
+`sgpl_debug_last_dag_dispatch_width()` reports the last effective DAG width
+(after the nested clamp) for tests.
+
 | Executor | `autograph_frontier_execute` | `autotuner_runtime.c:3192-3260` |
 | Activation `A⁺` | `autograph_frontier_activate` | `autotuner_runtime.c:3263-3280` |
 | Fork/join | `autograph_frontier_fork_join` | `autotuner_runtime.c:3296-3340` |

@@ -4621,6 +4621,7 @@ struct sgpl_dag_run {
   const sgpl_dag_template *tmpl;
   void *state;
   int32_t node_count;
+  int32_t worker_budget;
   int32_t *remaining;
   unsigned char *completed;
   int32_t *ready;
@@ -4643,6 +4644,17 @@ static int32_t dag_pop(sgpl_dag_run *R) {
   R->ready_head = (R->ready_head + 1) % R->node_count;
   R->ready_count--;
   return node;
+}
+
+/* Step 9: the descendant budget a node runs with.  A node dispatched while
+ * A nodes are active in a run with budget W may hand max(1, W/A) threads to
+ * any nested dispatch it makes, so concurrent nodes share the run's budget
+ * instead of each claiming the whole machine.  A chain (A == 1) keeps the
+ * full budget, which is exact because the units are serial. */
+static int32_t dag_dispatch_budget(const sgpl_dag_run *R) {
+  int32_t active = R->active > 0 ? R->active : 1;
+  int32_t share = R->worker_budget / active;
+  return share > 0 ? share : 1;
 }
 
 /* Completion bookkeeping; caller holds the run lock. */
@@ -4686,9 +4698,15 @@ static void *dag_worker(void *arg) {
     }
     int32_t node = dag_pop(R);
     R->active++;
+    /* The share is read under the run lock: R->active is mutated by every
+     * worker's dispatch and completion. */
+    int32_t share = dag_dispatch_budget(R);
     pthread_mutex_unlock(&R->lock);
 
-    int32_t rc = R->tmpl->node_fn(R->state, (int64_t)node);
+    int32_t rc;
+    sgpl_push_thread_budget(share);
+    rc = R->tmpl->node_fn(R->state, (int64_t)node);
+    sgpl_pop_thread_budget();
 
     pthread_mutex_lock(&R->lock);
     dag_complete(R, node, rc);
@@ -4750,12 +4768,16 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
     worker_budget = 1;
   if (worker_budget > T->node_count)
     worker_budget = T->node_count;
+  R->worker_budget = worker_budget;
 
   if (worker_budget <= 1) {
     while (!R->failed && R->ready_count > 0) {
       int32_t node = dag_pop(R);
       R->active++;
-      int32_t rc = T->node_fn(state, (int64_t)node);
+      int32_t rc;
+      sgpl_push_thread_budget(dag_dispatch_budget(R));
+      rc = T->node_fn(state, (int64_t)node);
+      sgpl_pop_thread_budget();
       dag_complete(R, node, rc);
     }
   } else {
@@ -4815,14 +4837,77 @@ static int32_t sgpl_dag_partition_node(void *state, int64_t instance) {
   return 0;
 }
 
+static _Atomic int32_t g_dag_last_dispatch_width = 0;
+
+int32_t sgpl_debug_last_dag_dispatch_width(void) {
+  return atomic_load_explicit(&g_dag_last_dispatch_width, memory_order_relaxed);
+}
+
 int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
                               int32_t worker_budget) {
   sgpl_dag_template tmpl;
   if (!ctx || partitions <= 0)
     return SGPL_DAG_ERR_INVALID;
+  if (worker_budget <= 0)
+    worker_budget = 1;
+  {
+    /* Step 9: a dispatch made inside a scheduler node is capped by the run's
+     * pushed budget (the parallel_runtime ledger); no nested node may claim
+     * the whole machine behind the scheduler's back. */
+    int32_t avail = sgpl_current_thread_budget();
+    if (avail > 0 && worker_budget > avail)
+      worker_budget = avail;
+  }
+  if (worker_budget > partitions)
+    worker_budget = partitions; /* same clamp execute_dag applies */
+  atomic_store_explicit(&g_dag_last_dispatch_width, worker_budget,
+                        memory_order_relaxed);
   tmpl.node_count = partitions;
   tmpl.relation_count = 0; /* V1: independent partitions */
   tmpl.relations = NULL;
   tmpl.node_fn = sgpl_dag_partition_node;
   return autograph_execute_dag(&tmpl, ctx, worker_budget);
+}
+
+/* Step 8: temporal unit wrappers.  The wrapper never re-implements a round:
+ * it calls autograph_frontier_execute, which owns the whole lifecycle.  The
+ * scheduler only orders wrappers (V1: a witness-backed chain). */
+static int32_t sgpl_dag_temporal_node(void *state, int64_t instance) {
+  const sgpl_temporal_unit *unit =
+      &((const sgpl_temporal_unit *)state)[instance];
+  if (!unit->graph || !unit->ctx)
+    return SGPL_DAG_ERR_NODE;
+  (void)autograph_frontier_execute(unit->graph, unit->ctx);
+  return SGPL_DAG_OK;
+}
+
+int32_t sgpl_exec_dag_temporal_chain(const sgpl_temporal_unit *units,
+                                     int32_t unit_count,
+                                     int32_t worker_budget) {
+  sgpl_dag_relation_desc *rels = NULL;
+  sgpl_dag_template tmpl;
+  int32_t i, rc;
+  if (!units || unit_count <= 0)
+    return SGPL_DAG_ERR_INVALID;
+  if (unit_count > 1) {
+    rels = (sgpl_dag_relation_desc *)calloc((size_t)(unit_count - 1),
+                                            sizeof(*rels));
+    if (!rels)
+      return SGPL_DAG_ERR_NOMEM;
+    for (i = 0; i < unit_count - 1; ++i) {
+      rels[i].kind = SGPL_DAG_REL_PRECEDENCE;
+      rels[i].offset = 0;
+      rels[i].source_node = i;
+      rels[i].sink_node = i + 1;
+      rels[i].witness_id = 1; /* round-carried temporal dependence */
+      rels[i].flags = SGPL_DAG_REL_FLAG_SEMANTIC;
+    }
+  }
+  tmpl.node_count = unit_count;
+  tmpl.relation_count = unit_count > 1 ? unit_count - 1 : 0;
+  tmpl.relations = rels;
+  tmpl.node_fn = sgpl_dag_temporal_node;
+  rc = autograph_execute_dag(&tmpl, (void *)units, worker_budget);
+  free(rels);
+  return rc;
 }

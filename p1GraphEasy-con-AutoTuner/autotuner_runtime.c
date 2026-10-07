@@ -3309,8 +3309,11 @@ typedef struct {
 
 static void *sgpl_exec_step_task(void *opaque) {
   SgplExecStepArg *arg = (SgplExecStepArg *)opaque;
-  parallel_for_runtime(0, arg->partitions, 1, sgpl_exec_partition_body, arg->ctx,
-                       0, 0);
+  if (getenv("SGPL_DAG_SPATIAL"))
+    sgpl_exec_dag_spatial(arg->ctx, arg->partitions, sgpl_configured_worker_count());
+  else
+    parallel_for_runtime(0, arg->partitions, 1, sgpl_exec_partition_body, arg->ctx,
+                         0, 0);
   return NULL;
 }
 
@@ -3584,7 +3587,10 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   }
 
   if (step_id < 0 || tdg_engine_disabled) {
-    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+        if (getenv("SGPL_DAG_SPATIAL"))
+      sgpl_exec_dag_spatial(ctx, (int32_t)(partitions), sgpl_configured_worker_count());
+    else
+      parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
     return;
   }
 

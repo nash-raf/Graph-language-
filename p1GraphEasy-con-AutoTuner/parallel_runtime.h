@@ -63,6 +63,11 @@ void sgpl_pop_thread_budget(void);
 int32_t sgpl_configured_worker_count(void);
 int32_t sgpl_current_worker_index(void);
 
+/* Set the calling thread's runtime worker index (TLS).  Schedulers that run
+ * runtime work on their own threads use this so partition code observes a
+ * stable, unique lane index, exactly as it would inside the worker pool. */
+void sgpl_set_current_worker_index(int32_t index);
+
 /* Debug introspection: current global budget reservations.  Used by the
  * fork/join resources-and-budget tests to verify the ledger is balanced. */
 int32_t sgpl_debug_reserved_threads(void);

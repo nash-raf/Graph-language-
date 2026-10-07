@@ -871,6 +871,11 @@ int32_t sgpl_current_worker_index(void)
     return g_tls_worker_index;
 }
 
+void sgpl_set_current_worker_index(int32_t index)
+{
+    g_tls_worker_index = index;
+}
+
 static int64_t sgpl_compute_trip_count(int64_t start, int64_t end, int64_t step)
 {
     if (step == 0)

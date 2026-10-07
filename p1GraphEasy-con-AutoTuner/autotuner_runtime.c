@@ -4665,8 +4665,17 @@ static void dag_complete(sgpl_dag_run *R, int32_t node, int32_t rc) {
   pthread_cond_broadcast(&R->cv);
 }
 
+typedef struct {
+  sgpl_dag_run *run;
+  int32_t index;
+} sgpl_dag_worker_arg;
+
 static void *dag_worker(void *arg) {
-  sgpl_dag_run *R = (sgpl_dag_run *)arg;
+  sgpl_dag_worker_arg *wa = (sgpl_dag_worker_arg *)arg;
+  sgpl_dag_run *R = wa->run;
+  /* Partition code reads the worker index for lane assignment; the
+   * scheduler's threads must present one exactly like the pool does. */
+  sgpl_set_current_worker_index(wa->index);
   for (;;) {
     pthread_mutex_lock(&R->lock);
     while (R->ready_count == 0 && !R->failed && R->active > 0)
@@ -4760,10 +4769,26 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
       free(R);
       return SGPL_DAG_ERR_NOMEM;
     }
-    for (w = 0; w < worker_budget; w++)
-      pthread_create(&tids[w], NULL, dag_worker, R);
+    sgpl_dag_worker_arg *wargs =
+        (sgpl_dag_worker_arg *)calloc((size_t)worker_budget, sizeof(*wargs));
+    if (!wargs) {
+      free(tids);
+      pthread_mutex_destroy(&R->lock);
+      pthread_cond_destroy(&R->cv);
+      free(R->remaining);
+      free(R->completed);
+      free(R->ready);
+      free(R);
+      return SGPL_DAG_ERR_NOMEM;
+    }
+    for (w = 0; w < worker_budget; w++) {
+      wargs[w].run = R;
+      wargs[w].index = w;
+      pthread_create(&tids[w], NULL, dag_worker, &wargs[w]);
+    }
     for (w = 0; w < worker_budget; w++)
       pthread_join(tids[w], NULL);
+    free(wargs);
     free(tids);
   }
 

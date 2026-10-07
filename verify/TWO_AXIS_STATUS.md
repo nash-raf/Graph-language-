@@ -14,18 +14,18 @@ DONE (verified):
 - steps 5+6 runtime ready-work scheduler + test ALL PASS (5772cfc)
 - step 7 runtime half: sgpl_exec_dag_spatial (739226c)
 
-FINDING (step 7 wiring, this turn): SGPL_DAG_SPATIAL=1 differs from the
-default path on bfs_level (diff non-empty). Root cause: the DAG scheduler's own
-pthreads do not carry the runtime's worker-index TLS, so partition code that
-reads sgpl_current_worker_index() (lane assignment in frontier append) behaves
-differently. Fix next: route DAG node execution through the runtime worker pool
-(or set the worker-index TLS in dag_worker) before enabling SGPL_DAG_SPATIAL;
-flag is OFF by default so default behavior is unchanged.
+DONE: step 7 complete + verified.  Wiring is env-gated (SGPL_DAG_SPATIAL,
+default OFF) at both CPU partition dispatch sites (fallback and
+sgpl_exec_step_task); device path and calibration pass untouched.
+The differential first FAILED, root cause was the DAG threads not carrying
+the worker-index TLS; fixed by sgpl_set_current_worker_index() (new in
+parallel_runtime.[ch]) called in dag_worker with a per-thread ordinal.
+Strict differential (profile lines excluded): bfs_level answers IDENTICAL at
+P=1,4,8,16, flag off vs on ("reached 20000 level_checksum 75722").
+DAG path is slower on this small graph (8.46 vs 5.53 ms kernel) -- scheduler
+overhead, a cost-model input later.
 
 NEXT (in order, commit each verified):
-1. step 7 wiring: env-gated SGPL_DAG_SPATIAL dispatch in autotuner_runtime.c
-   - line ~3587 fallback dispatch, planned dispatch past ~3617; DO NOT touch ~3599 (device) or ~3610 (calibration, desired_threads(1,1))
-   - then BFS differential: flag off vs on, identical answers
 2. step 8 temporal wrappers (round lifecycle stays in autograph_frontier_execute)
 3. step 9 nested scheduling + budget threading
 4. step 10 metadata sgpl.frontier.dag.* + markSequential replacement + pdg/outliner exclusions

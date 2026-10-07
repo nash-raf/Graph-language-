@@ -4687,144 +4687,6 @@ static void appendWitness(AxisCertificate &Cert, InterferenceWitness W)
         Cert.Temporal.push_back(std::move(W));
 }
 
-/* R1..R7 -> (R_S, R_T).  Maps the semantic rejections exactly as the algebra
- * gate evaluates them today; implementation guards (privatization-free data
- * writes that discharged, dual-owner realization checks, R8) never fabricate a
- * witness.  Discharged witnesses are recorded but do not set R_S / R_T. */
-static void buildAxisCertificate(NeighborLoopInfo &Info, const EffectSummary &S, bool Priv)
-{
-    AxisCertificate &Cert = Info.Cert;
-    Cert = AxisCertificate();
-    bool PairU = false, PairV = false;
-    pairPhaseWriteRegions(Info, PairU, PairV);
-
-    /* R1 -- spatial: a write keyed by a data-derived index has no owner. */
-    if (Info.HasDataWrite)
-    {
-        InterferenceWitness W;
-        W.Rejection = RejectionId::R1;
-        W.Axis = WitnessAxis::Spatial;
-        W.Constraint = ConstraintKind::MutualExclusion;
-        W.SourceAccess = AccessMode::Write;
-        W.SinkAccess = AccessMode::Write;
-        W.SourceRegion = Region::D;
-        W.SinkRegion = Region::D;
-        W.DischargedBy = Priv ? DischargeKind::Privatization : DischargeKind::None;
-        W.RefusalReason = "data-derived write without a privatization proof";
-        appendWitness(Cert, W);
-    }
-    /* R2 -- temporal: per-source claim, occurrence preservation (needs staging). */
-    if (hasPerSourceClaim(Info) && perSourceClaims(Info).empty())
-    {
-        InterferenceWitness W;
-        W.Rejection = RejectionId::R2;
-        W.Axis = WitnessAxis::Temporal;
-        W.Constraint = ConstraintKind::Precedence;
-        W.SourceAccess = AccessMode::Write;
-        W.SinkAccess = AccessMode::Write;
-        W.SourceScope = OccurrenceScope::PerSource;
-        W.SinkScope = OccurrenceScope::PerSource;
-        W.Relation.K = InstanceRelation::SameInstance;
-        W.DischargedBy = DischargeKind::None;
-        W.RefusalReason = "per-source claim (occurrence preservation)";
-        appendWitness(Cert, W);
-    }
-    /* R3 -- spatial: unknown index provenance (Top). */
-    if (S.MutTop)
-    {
-        InterferenceWitness W;
-        W.Rejection = RejectionId::R3;
-        W.Axis = WitnessAxis::Spatial;
-        W.Constraint = ConstraintKind::MutualExclusion;
-        W.SourceRegion = Region::Top;
-        W.SinkRegion = Region::Top;
-        W.RefusalReason = "unknown index provenance (Top)";
-        appendWitness(Cert, W);
-    }
-    /* R4 -- temporal: a carried read observes a base mutated on the other side
-     * of the round boundary. */
-    if (S.HasCarriedOnMut)
-    {
-        InterferenceWitness W;
-        W.Rejection = RejectionId::R4;
-        W.Axis = WitnessAxis::Temporal;
-        W.Constraint = ConstraintKind::Precedence;
-        W.SourceAccess = AccessMode::Read;
-        W.SinkAccess = AccessMode::Write;
-        W.SourceSegment = PhaseSegment::Preamble;
-        W.SinkSegment = PhaseSegment::Preamble;
-        W.Relation.K = InstanceRelation::FixedOffset;
-        W.Relation.Offset = 1; /* preceding round -> current round */
-        W.DischargedBy = Priv ? DischargeKind::Privatization : DischargeKind::None;
-        W.RefusalReason = "carried read on a mutated base";
-        appendWitness(Cert, W);
-    }
-    /* R5 -- temporal: shadow-endpoint write breaks round separation. */
-    if (roundSepEndpointConflict(Info))
-    {
-        InterferenceWitness W;
-        W.Rejection = RejectionId::R5;
-        W.Axis = WitnessAxis::Temporal;
-        W.Constraint = ConstraintKind::Precedence;
-        W.SourceAccess = AccessMode::Read;
-        W.SinkAccess = AccessMode::Write;
-        W.SourceSegment = PhaseSegment::Pair;
-        W.SinkSegment = PhaseSegment::Pair;
-        W.Relation.K = InstanceRelation::SameInstance;
-        W.RefusalReason = "pair-phase write at the shadow read endpoint";
-        appendWitness(Cert, W);
-    }
-    /* R6 -- spatial: dual ownership over one base (U-owned and V-owned writes
-     * share a base).  Cross-phase dependence and empty-base cases are
-     * realization checks, not semantic witnesses. */
-    if (PairU && PairV && !S.MutG)
-    {
-        const Value *Shared = nullptr;
-        for (const Value *B : S.BaseU)
-            if (S.BaseV.count(B))
-            {
-                Shared = B;
-                break;
-            }
-        if (Shared)
-        {
-            InterferenceWitness W;
-            W.Rejection = RejectionId::R6;
-            W.Axis = WitnessAxis::Spatial;
-            W.Constraint = ConstraintKind::MutualExclusion;
-            W.Base = Shared;
-            W.SourceAccess = AccessMode::Write;
-            W.SinkAccess = AccessMode::Write;
-            W.SourceRegion = Region::U;
-            W.SinkRegion = Region::V;
-            W.DischargedBy = Priv ? DischargeKind::Privatization : DischargeKind::None;
-            W.RefusalReason = "same-base U+V dual ownership conflict";
-            appendWitness(Cert, W);
-        }
-    }
-    /* R7 -- spatial: frontier append without the wired envelope. */
-    if (Info.HasFrontierAppend && !envelopeWired(Info))
-    {
-        InterferenceWitness W;
-        W.Rejection = RejectionId::R7;
-        W.Axis = WitnessAxis::Spatial;
-        W.Constraint = ConstraintKind::MutualExclusion;
-        W.SourceRegion = Region::V;
-        W.SinkRegion = Region::V;
-        W.RefusalReason = "frontier append without a wired envelope";
-        appendWitness(Cert, W);
-    }
-
-    for (const InterferenceWitness &W : Cert.Spatial)
-        if (W.DischargedBy == DischargeKind::None)
-            Cert.RS = true;
-    for (const InterferenceWitness &W : Cert.Temporal)
-        if (W.DischargedBy == DischargeKind::None)
-            Cert.RT = true;
-    Cert.NIS = !Cert.RS;
-    Cert.NIT = !Cert.RT;
-}
-
 static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
                                  const std::string &SemReason)
 {
@@ -4861,39 +4723,136 @@ static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
 }
 
 static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
-                               bool Priv, std::string &reason)
+                                bool Priv, std::string &reason)
 {
+    AxisCertificate &Cert = Info.Cert;
+
+    /* The gate is the single producer of the theorem certificate: every
+     * refusal records the R1-R7 witness (semantic) or the R8 implementation
+     * guard that licenses it, and the verdict is exactly
+     *     Supported == !(R_S || R_T || R8).
+     * Check order and reason strings are unchanged; witnesses resolved by a
+     * discharge (privatization, claim staging) are recorded but do not set the
+     * axis refusal. */
+    auto refresh = [&Cert]()
+    {
+        Cert.RS = false;
+        Cert.RT = false;
+        for (const InterferenceWitness &W : Cert.Spatial)
+            if (W.DischargedBy == DischargeKind::None)
+                Cert.RS = true;
+        for (const InterferenceWitness &W : Cert.Temporal)
+            if (W.DischargedBy == DischargeKind::None)
+                Cert.RT = true;
+        Cert.NIS = !Cert.RS;
+        Cert.NIT = !Cert.RT;
+    };
+    auto admit = [&]() -> bool
+    {
+        refresh();
+        if (Cert.RS || Cert.RT || Cert.R8)
+            fprintf(stderr, "[frontier-cert] MISMATCH admitted with unresolved witness/guard\n");
+        return true;
+    };
+    auto refuse = [&](const char *Why) -> bool
+    {
+        refresh();
+        if (!(Cert.RS || Cert.RT || Cert.R8))
+            fprintf(stderr, "[frontier-cert] MISMATCH refused without witness/guard: %s\n", Why);
+        reason = Why;
+        return false;
+    };
+    auto witness = [&](WitnessAxis Axis, RejectionId R, const Value *B,
+                       Region SrcReg, Region SinkReg,
+                       AccessMode SrcAcc, AccessMode SinkAcc,
+                       PhaseSegment SrcSeg, PhaseSegment SinkSeg,
+                       InstanceRelation Rel, DischargeKind D, const char *Why)
+    {
+        InterferenceWitness W;
+        W.Rejection = R;
+        W.Axis = Axis;
+        W.Constraint = Axis == WitnessAxis::Spatial ? ConstraintKind::MutualExclusion
+                                                    : ConstraintKind::Precedence;
+        W.Base = B;
+        W.SourceRegion = SrcReg;
+        W.SinkRegion = SinkReg;
+        W.SourceAccess = SrcAcc;
+        W.SinkAccess = SinkAcc;
+        W.SourceSegment = SrcSeg;
+        W.SinkSegment = SinkSeg;
+        W.Relation = Rel;
+        W.DischargedBy = D;
+        W.RefusalReason = Why;
+        appendWitness(Cert, std::move(W));
+    };
+    auto sameInstance = []()
+    {
+        InstanceRelation R;
+        R.K = InstanceRelation::SameInstance;
+        return R;
+    };
+    auto prevInstance = []()
+    {
+        InstanceRelation R;
+        R.K = InstanceRelation::FixedOffset;
+        R.Offset = 1; /* preceding round -> current round */
+        return R;
+    };
+
     bool PairU = false, PairV = false;
     pairPhaseWriteRegions(Info, PairU, PairV);
-    if (Info.HasDataWrite && !Priv)
+
+    /* R1 -- spatial: a data-derived write has no owner. */
+    if (Info.HasDataWrite)
     {
-        reason = "data-derived write without a privatization proof";
-        return false;
+        const DischargeKind D = Priv ? DischargeKind::Privatization : DischargeKind::None;
+        witness(WitnessAxis::Spatial, RejectionId::R1, nullptr, Region::D, Region::D,
+                AccessMode::Write, AccessMode::Write, PhaseSegment::None, PhaseSegment::None,
+                sameInstance(), D, "data-derived write without a privatization proof");
+        if (!Priv)
+            return refuse("data-derived write without a privatization proof");
     }
-    if (hasPerSourceClaim(Info) && perSourceClaims(Info).empty())
+    /* R2 -- temporal: per-source claim, occurrence preservation. */
+    if (hasPerSourceClaim(Info))
     {
-        reason = "per-source claim (occurrence preservation)";
-        return false;
+        const DischargeKind D = perSourceClaims(Info).empty() ? DischargeKind::None
+                                                              : DischargeKind::ClaimStaging;
+        witness(WitnessAxis::Temporal, RejectionId::R2, nullptr, Region::Bottom, Region::Bottom,
+                AccessMode::Write, AccessMode::Write, PhaseSegment::None, PhaseSegment::None,
+                sameInstance(), D, "per-source claim (occurrence preservation)");
+        if (D == DischargeKind::None)
+            return refuse("per-source claim (occurrence preservation)");
     }
+    /* R3 -- spatial: unknown index provenance (Top). */
     if (S.MutTop)
     {
-        reason = "unknown index provenance (Top)";
-        return false;
+        witness(WitnessAxis::Spatial, RejectionId::R3, nullptr, Region::Top, Region::Top,
+                AccessMode::Write, AccessMode::Write, PhaseSegment::None, PhaseSegment::None,
+                sameInstance(), DischargeKind::None, "unknown index provenance (Top)");
+        return refuse("unknown index provenance (Top)");
     }
-    if (S.HasCarriedOnMut && !Priv)
+    /* R4 -- temporal: a carried read observes a base mutated across the round. */
+    if (S.HasCarriedOnMut)
     {
-        reason = "carried read on a mutated base";
-        return false;
+        const DischargeKind D = Priv ? DischargeKind::Privatization : DischargeKind::None;
+        witness(WitnessAxis::Temporal, RejectionId::R4, nullptr, Region::Bottom, Region::Bottom,
+                AccessMode::Read, AccessMode::Write, PhaseSegment::Preamble, PhaseSegment::Preamble,
+                prevInstance(), D, "carried read on a mutated base");
+        if (!Priv)
+            return refuse("carried read on a mutated base");
     }
-    /* Every shadow base must not be written in the pair phase at its read
-     * endpoint (the frozen side); writes at its own write endpoint are the
-     * normal single-ownership pattern, and bases only read in the pair phase
-     * (a claim at U, cross-read at V) are fine.  Shared with the R5 witness. */
+    /* R5 -- temporal: shadow-endpoint write breaks round separation. */
     if (roundSepEndpointConflict(Info))
     {
-        reason = "pair-phase write at the shadow read endpoint";
-        return false;
+        witness(WitnessAxis::Temporal, RejectionId::R5, nullptr, Region::Bottom, Region::Bottom,
+                AccessMode::Read, AccessMode::Write, PhaseSegment::Pair, PhaseSegment::Pair,
+                sameInstance(), DischargeKind::None, "pair-phase write at the shadow read endpoint");
+        return refuse("pair-phase write at the shadow read endpoint");
     }
+    /* R6 -- spatial: same-base U+V dual ownership.  The remaining DualOwner
+     * cases (empty bases, cross-phase dependence, shadow interference) are
+     * realization constraints and are recorded as the R8 guard, not a
+     * semantic witness. */
     if (PairU && PairV && !S.MutG)
     {
         bool Disjoint = true;
@@ -4904,16 +4863,38 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
               !crossPhaseDataDep(Info, S.BaseU, S.BaseV) &&
               Info.RoundSepBases.empty()))
         {
+            const Value *Shared = nullptr;
+            for (const Value *B : S.BaseU)
+                if (S.BaseV.count(B))
+                {
+                    Shared = B;
+                    break;
+                }
+            if (!Disjoint)
+            {
+                const DischargeKind D = Priv ? DischargeKind::Privatization : DischargeKind::None;
+                witness(WitnessAxis::Spatial, RejectionId::R6, Shared, Region::U, Region::V,
+                        AccessMode::Write, AccessMode::Write, PhaseSegment::Pair,
+                        PhaseSegment::Pair, sameInstance(), D,
+                        "same-base U+V dual ownership conflict");
+            }
             if (Priv)
-                return true;
-            reason = "same-base or cross-phase U+V without privatization";
-            return false;
+                return admit();
+            if (Disjoint)
+            {
+                Cert.R8 = true;
+                Cert.ImplementationReason = "dual-owner realization: cross-phase or empty-base U+V";
+            }
+            return refuse("same-base or cross-phase U+V without privatization");
         }
     }
+    /* R7 -- spatial: frontier append without the wired envelope. */
     if (Info.HasFrontierAppend && !envelopeWired(Info))
     {
-        reason = "frontier append without a wired envelope";
-        return false;
+        witness(WitnessAxis::Spatial, RejectionId::R7, nullptr, Region::V, Region::V,
+                AccessMode::Read, AccessMode::Write, PhaseSegment::Pair, PhaseSegment::Pair,
+                sameInstance(), DischargeKind::None, "frontier append without a wired envelope");
+        return refuse("frontier append without a wired envelope");
     }
     if (Info.ReducePtr && !Priv)
     {
@@ -4925,20 +4906,21 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                   !Info.HasFrontierAppend && !hasPerSourceClaim(Info) &&
                   preambleMutationCount(Info) == 0))
             {
-                reason = "source-reduction conditions not met";
-                return false;
+                Cert.R8 = true;
+                Cert.ImplementationReason = "source-reduction realization";
+                return refuse("source-reduction conditions not met");
             }
         }
         else if (!(S.MutG && S.HasUopG && !S.HasUnrecognizedG && !PairU &&
                    !PairV && !privLayoutNeeded(Info)))
         {
-            if (Priv)
-                return true;
-            reason = "reduction conditions not met";
-            return false;
+            Cert.R8 = true;
+            Cert.ImplementationReason = "reduction realization";
+            return refuse("reduction conditions not met");
         }
     }
-    return true;
+
+    return admit();
 }
 
 /* Structural facts derived from the effect expression and the analysis
@@ -6134,8 +6116,6 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         if (IsIter)
             summarizeEffects(Info, S);
         std::string SemReason;
-        if (IsIter)
-            buildAxisCertificate(Info, S, Priv);
         const bool Supported =
             IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
         if (IsIter)

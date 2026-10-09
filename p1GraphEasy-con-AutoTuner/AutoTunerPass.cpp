@@ -46,43 +46,6 @@ namespace
     LAYOUT_COUNT = 4
   };
 
-  // Cache-model selection (exactly one active; AUTOTUNER_CACHE_MODEL):
-  //   Hybrid    -> legacy structural equations + class-tier weighted
-  //                per-line rates on the memory-penalty terms (DEFAULT,
-  //                production cost model)
-  //   Legacy    -> footprint-only memPenalty (no RD correction)
-  //   Aware     -> legacy + cache-aware penalty F(W,h2,h3) (diagnostics)
-  //   ClassTier -> previous experimental class x residency rate model
-  //                (diagnostics only)
-  enum class CacheModel
-  {
-    Hybrid,
-    Legacy,
-    Aware,
-    ClassTier
-  };
-
-  static CacheModel g_cacheModel = CacheModel::Hybrid;
-
-  static CacheModel cacheModelFromEnv()
-  {
-    const char *raw = std::getenv("AUTOTUNER_CACHE_MODEL");
-    if (raw && *raw)
-    {
-      std::string value(raw);
-      std::transform(value.begin(), value.end(), value.begin(),
-                     [](unsigned char c)
-                     { return static_cast<char>(std::tolower(c)); });
-      if (value == "legacy")
-        return CacheModel::Legacy;
-      if (value == "aware")
-        return CacheModel::Aware;
-      if (value == "class_tier")
-        return CacheModel::ClassTier;
-    }
-    return CacheModel::Hybrid;
-  }
-
   // Class-tier weighted per-line rate: h2·r_L2 + (h3−h2)·r_L3 + (1−h3)·r_DRAM
   // (the RD/MRC residency fractions applied to a measured per-tier rate).
   double weightedRate(double h2, double h3, const double rate[3])
@@ -173,7 +136,7 @@ namespace
     // Measured by hw_calib_bench (with conservative fallbacks):
     double LLC = 8.0 * 1024.0 * 1024.0; // last-level-cache capacity in bytes
     // L2 capacity in bytes (1.25 MiB; matches rd_hist.L2_LINES * 64 and the
-    // cost_model.py L2_BYTES used by the cache-aware penalty F).
+    // cost_model.py L2_BYTES).
     double l2Bytes = 1310720.0;
     double Tm = 2.5;                    // per-line cost of a cache-resident overlapping memmove
                                         // (read + write per line; distinct from read-only T)
@@ -203,7 +166,7 @@ namespace
     // read stream, move/brow = overlapping R-M-W shift, struct = random
     // chase.  Defaults are this machine's measured class_calib.json values;
     // hw_calib.json "class_rates": {"seq": [L2,L3,DRAM], "rmw": [...],
-    // "rand": [...], "dep": [...]} overrides them.
+    // "rand": [...], "set_iter": [...]} overrides them.
     double seqRate[3] = {0.5235, 1.4058, 4.1822};
     double rmwRate[3] = {1.6780, 3.1595, 8.5411};
     double randRate[3] = {7.5485, 16.1414, 118.0597};
@@ -221,6 +184,10 @@ namespace
     // byte volume, so the rates are indistinguishable within noise.  Baked
     // as frozen-rmw x median ratio.
     double csrMoveRate[3] = {1.6756, 3.2460, 8.4735};
+    // SET neighbor-iterator per-pair rate (ns/pair, class_calib.c
+    // "set_iter"): the roaring_bitmap_contains probe + 2 int32 compares +
+    // branch while sweeping the pair table, at each table residency.
+    double setIterRate[3] = {3.1999, 4.1621, 6.4436};
   };
 
   // Log-linear ramp multiplier between lo (penalty 1.0) and hi (penalty P).
@@ -294,24 +261,6 @@ namespace
     // per-line cost ÷ cache-resident per-line cost (hw.Tm).  Without it, the
     // log-linear ramp over the [ramp_lo, ramp_hi] band.
     return curvePerLine(workingSetBytes, hw) / hw.Tm;
-  }
-
-  // F(W, h2, h3) — cache-aware extension of the footprint penalty (mirror of
-  // cost_model.py mem_penalty_cache_aware).  The RD/MRC (Sen/Wood) machinery
-  // supplies the residency fractions h2 (L2), h3−h2 (L3), 1−h3 (DRAM); the
-  // calibrated curve supplies the per-line cost proxy p(W)=memPenalty(W):
-  //     F = h2·p(min(W, L2)) + (h3−h2)·p(min(W, LLC)) + (1−h3)·p(W).
-  // Limits: h3=0 -> p(W) (exact legacy); h2=1 -> p(min(W,L2)) (cache-resident
-  // floor); W<=L2 -> p(W).  This is a locality correction to the calibrated
-  // penalty, NOT a replacement of the structural cost terms.
-  double memPenaltyCacheAware(double ws, double h2, double h3,
-                              const HwCalib &hw)
-  {
-    const double l2 = hw.l2Bytes;
-    const double llc = hw.LLC;
-    return h2 * memPenalty(std::min(ws, l2), hw) +
-           (h3 - h2) * memPenalty(std::min(ws, llc), hw) +
-           (1.0 - h3) * memPenalty(ws, hw);
   }
 
   // Size-aware per-insert cost for an EdgeHashMap bulk build.  The table is
@@ -495,6 +444,7 @@ namespace
     parseRateArray("\"rand\"", hw.randRate);
     parseRateArray("\"dep\"", hw.depRate);
     parseRateArray("\"csr_move\"", hw.csrMoveRate);
+    parseRateArray("\"set_iter\"", hw.setIterRate);
     return hw;
   }
 
@@ -666,12 +616,28 @@ namespace
       break;
     case LAYOUT_SET:
     {
-      // Per vertex: scan ALL m edge_pairs (16 bytes each) + per-pair compute.
-      // Inner loop: roaring_bitmap_contains + int32 compare + branch.
-      // The contains check is NOT free — it's a full function call with binary
-      // search (~log(#containers) comps).  Approximate as t/6 ≈ 5.5ns/pair.
-      bUseful = 8.0 * m;
-      return n * (std::ceil(bUseful / L) * T);
+      // Per vertex, the neighbor iterator sweeps the whole static pair
+      // table (m pairs x 8 B = 8m bytes) with a per-pair contains probe
+      // (roaring_bitmap_contains: container binary search + bit test) +
+      // 2 int32 compares + branch.  Derived reuse distance of a swept
+      // line = the table itself (re-touched once per vertex sweep) =
+      // 8m/64 = m/8 lines, so h2/h3 come from the L2/L3 thresholds:
+      //   per-pair compute at setIterRate (ns/pair, calibrated class)
+      //   table sweep at the seq rate (read-only stream, calibrated)
+      // both tier-weighted exactly like the insert terms.
+      constexpr double kL2Lines = 20480.0;   // 1.25 MiB / 64 B
+      constexpr double kL3Lines = 196608.0;  // 12 MiB / 64 B
+      const double tblLines = 8.0 * m / L;
+      const double h2 = (tblLines > 0.0) ? std::min(1.0, kL2Lines / tblLines)
+                                         : 1.0;
+      const double h3 = (tblLines > 0.0) ? std::min(1.0, kL3Lines / tblLines)
+                                         : 1.0;
+      auto wrate = [&](const double r[3]) {
+        return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2];
+      };
+      const double perPair = wrate(hw.setIterRate);
+      const double sweep = wrate(hw.seqRate);
+      return n * (2.0 * t + m * perPair + std::ceil(8.0 * m / L) * sweep);
     }
     default:
       return kInf;
@@ -717,79 +683,26 @@ namespace
     const double t = hw.t;
     const double T = hw.T;
     const double L = hw.L;
-    const double R = hw.R;
     const double gU = g * d;  // g(u) = physical span of vertex u
 
     switch (layout)
     {
     case LAYOUT_CSR:
     {
-      // PRODUCTION (Hybrid): legacy structural decomposition
-      // (locate + write + move + realloc) with the memory-penalty terms
-      // replaced by the class-tier weighted per-line rates:
-      //   C_write = ⌈8n/L⌉ · wrate_brow      (was 2T·memPenalty)
-      //   C_move  = ⌈4m·csrFrac/L⌉ · wrate_move  (was Tm·memPenalty)
-      // wrate uses the autotuner.class_tiers_csr payload (brow/move classes)
-      // at the rmw per-tier rates.  Absent the payload, the footprint-only
-      // legacy equation applies.  Mirrors cost_model.py insert_cost_csr
-      // under AUTOTUNER_CACHE_MODEL=hybrid.
-      if (csrClassTiers && g_cacheModel == CacheModel::Hybrid)
-      {
-        const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
-        const double cWrite =
-            std::ceil(8.0 * n / L) *
-            weightedRate(csrClassTiers[7], csrClassTiers[8], hw.rmwRate);
-        const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
-        const double cMove =
-            std::ceil(moveBytes / L) *
-            weightedRate(csrClassTiers[4], csrClassTiers[5], hw.rmwRate);
-        const double cRealloc = R + std::ceil(4.0 * m / L) * T;
-        return cLocate + cWrite + cMove + cRealloc;
-      }
-      // Class-tier diagnostics: the experimental class × residency rate
-      // model replacing the whole memory terms.
-      if (csrClassTiers && g_cacheModel == CacheModel::ClassTier)
-      {
-        const double *rates[4] = {hw.seqRate, hw.csrMoveRate, hw.depRate,
-                                  hw.randRate};
-        double perDir = 0.0;
-        for (int cls = 0; cls < 4; ++cls)
-        {
-          const double N = csrClassTiers[cls * 3 + 0];
-          const double h2 = csrClassTiers[cls * 3 + 1];
-          const double h3 = csrClassTiers[cls * 3 + 2];
-          perDir += N * (h2 * rates[cls][0] + (h3 - h2) * rates[cls][1] +
-                         (1.0 - h3) * rates[cls][2]);
-        }
-        return 2.0 * t + 2.0 * perDir;
-      }
-      // One undirected edge = 2 directed inserts (from→to, to→from).
-      // Per directed: realloc + memmove + row_ptr prefix-sum update.
-      // C_locate  = 2t + ⌈d·4/L⌉·T       (row_ptr[from+1] random read + scan)
-      // C_prefix  = t + ⌈(n−u)·8/L⌉·2T·pen (n/2 int64 R-M-W entries;
-      //                                 dependent load→store, DRAM-bound past LLC)
-      // C_move    = ⌈4m/L⌉·Tm·pen        (2 dirs × ~m/2 cols each ≈ 4m bytes
-      //                                 read+written via Tm — same physics as
-      //                                 cost_model.py insert_cost_csr)
-      // C_realloc = R + ⌈4m/L⌉·T        (realloc cap + col_idx growth write)
+      // Current ARS equation: locate + tier-weighted prefix/shift traffic.
+      // Unknown residency uses the DRAM rate; it never selects another model.
+      const double browRate = csrClassTiers
+          ? weightedRate(csrClassTiers[7], csrClassTiers[8], hw.rmwRate)
+          : hw.rmwRate[2];
+      const double moveRate = csrClassTiers
+          ? weightedRate(csrClassTiers[4], csrClassTiers[5], hw.rmwRate)
+          : hw.rmwRate[2];
       const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
-      const double prefixBytes = n * 8.0;
-      const bool awareCsr = (csrClassTiers && g_cacheModel == CacheModel::Aware);
-      const double browH2 = awareCsr ? csrClassTiers[7] : 0.0;
-      const double browH3 = awareCsr ? csrClassTiers[8] : 0.0;
-      const double cWrite =
-          1.0 * t + std::ceil(prefixBytes / L) * 2.0 * T *
-                        (awareCsr ? memPenaltyCacheAware(prefixBytes, browH2, browH3, hw)
-                                  : memPenalty(prefixBytes, hw));
+      const double cWrite = std::ceil(8.0 * n / L) * browRate;
       const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
-      const double moveH2 = awareCsr ? csrClassTiers[4] : 0.0;
-      const double moveH3 = awareCsr ? csrClassTiers[5] : 0.0;
-      const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm *
-          (awareCsr ? memPenaltyCacheAware(8.0 * m + moveBytes, moveH2, moveH3, hw)
-                    : memPenalty(8.0 * m + moveBytes, hw));
-      const double cRealloc = R + std::ceil(4.0 * m / L) * T;
-      return cLocate + cWrite + cMove + cRealloc;
+      const double cMove = std::ceil(moveBytes / L) * moveRate;
+      // In-place growth contributes no full-array relocation charge.
+      return cLocate + cWrite + cMove;
     }
     case LAYOUT_PCSR:
     {
@@ -802,86 +715,20 @@ namespace
     }
     case LAYOUT_BCSR:
     {
-      // PRODUCTION (Hybrid): legacy structural decomposition with the
-      // memory-penalty terms replaced by the class-tier weighted per-line
-      // rates:
-      //   C_move  = ⌈16m·bcsrFrac/L⌉ · wrate_move    (was Tm·memPenalty)
-      //   C_realloc = min(⌈16m/L⌉·wrate_struct, R)·2  (was reallocCost)
-      // C_write (brow prefix) has no memPenalty today and stays unchanged.
-      // wrate uses the autotuner.class_tiers payload (move at rmw, struct
-      // at rand).  Absent the payload, the footprint-only legacy equation
-      // applies.  Mirrors cost_model.py insert_cost_bcsr under
-      // AUTOTUNER_CACHE_MODEL=hybrid.
-      if (classTiers && g_cacheModel == CacheModel::Hybrid)
-      {
-        const double b = kBcsrBlockSize;
-        const double nb = std::ceil(n / b);
-        constexpr double kDirs = 2.0;
-        const double cLocate =
-            4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
-        const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
-        const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
-        const double cMove =
-            std::ceil(moveBytes / L) *
-            weightedRate(classTiers[4], classTiers[5], hw.rmwRate);
-        const double cRealloc =
-            std::min(std::ceil(16.0 * m / L) *
-                         weightedRate(classTiers[10], classTiers[11],
-                                      hw.randRate),
-                     R) *
-            kDirs;
-        return cLocate + cWrite + cMove + cRealloc;
-      }
-      // Class-tier diagnostics: the experimental class × residency rate
-      // model replacing the whole memory terms.
-      if (classTiers && g_cacheModel == CacheModel::ClassTier)
-      {
-        const double *rates[4] = {hw.seqRate, hw.rmwRate, hw.rmwRate,
-                                  hw.randRate};
-        double perDir = 0.0;
-        for (int cls = 0; cls < 4; ++cls)
-        {
-          const double N = classTiers[cls * 3 + 0];
-          const double h2 = classTiers[cls * 3 + 1];
-          const double h3 = classTiers[cls * 3 + 2];
-          perDir += N * (h2 * rates[cls][0] + (h3 - h2) * rates[cls][1] +
-                         (1.0 - h3) * rates[cls][2]);
-        }
-        return 4.0 * t + 2.0 * perDir;
-      }
-      // graph_add_edge calls autograph_bcsr_add_edge twice (both directions).
-      // Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc
-      // bcol by +2 ints, memmove everything after the insertion point, bump
-      // the brow prefix sums.  bcol backing array = 16m bytes.
-      //
-      // Both directed inserts always pay a memmove of the bcol tail after
-      // the sorted insertion point; the expected tail volume is computed
-      // exactly from the graph's degree vector (bcsrFrac) — deliberately NO
-      // degree-based piecewise approximation (append shortcut / second-shift
-      // probability / hard cutoff); the exact expected tail replaces all of
-      // it.  Mirrors insert_cost_bcsr() in cost_model.py.
+      // Current ARS equation, including both directed inserts.
       const double b = kBcsrBlockSize;
       const double nb = std::ceil(n / b);
       constexpr double kDirs = 2.0;
+      const double moveRate = classTiers
+          ? weightedRate(classTiers[4], classTiers[5], hw.rmwRate)
+          : hw.rmwRate[2];
       const double cLocate =
           4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
-      // brow prefix-sum R-M-W: expected E[nb−blk] = nb/2 int32 entries per
-      // directed insert × 2 dirs = nb int32 entries, 2T per line.
       const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
-      // Exact shift: bcsrFrac = expected tail / m (from the real degree
-      // vector; 1.0 = whole array).  Two directed inserts × 8 bytes per
-      // shifted edge-pair.  memPenalty keeps the working-set cache-pressure
-      // physics of the whole backing array.
       const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
-      const bool awareBcsr = (classTiers && g_cacheModel == CacheModel::Aware);
-      const double moveH2 = awareBcsr ? classTiers[4] : 0.0;
-      const double moveH3 = awareBcsr ? classTiers[5] : 0.0;
-      const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm *
-          (awareBcsr ? memPenaltyCacheAware(moveBytes, moveH2, moveH3, hw)
-                     : memPenalty(moveBytes, hw));
-      const double cRealloc = reallocCost(16.0 * m, kDirs, hw);
-      return cLocate + cWrite + cMove + cRealloc;
+      const double cMove = std::ceil(moveBytes / L) * moveRate;
+      // In-place growth contributes no full-array relocation charge.
+      return cLocate + cWrite + cMove;
     }
     case LAYOUT_SET:
     {
@@ -2159,7 +2006,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   // Load hardware calibration (cache-line size, access/transfer costs).
   const HwCalib hw = loadHwCalib();
   const int forcedLayout = forcedLayoutFromEnv();
-  g_cacheModel = cacheModelFromEnv();
 
   // Build per-graph event sequences while preserving order.
   // Canonicalize aliases (reloads of the same init graph) onto one key.

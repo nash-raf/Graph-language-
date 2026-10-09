@@ -16,6 +16,7 @@ bash "$SUITE/run_pdg_argmem_expansion.sh"
 bash "$SUITE/run_tdg_formal.sh"
 bash "$SUITE/run_tdg_shared_graph_levels.sh"
 python3 "$SUITE/test_autotuner_frequency.py"
+python3 "$SUITE/test_layout_cost_model.py"
 for script in run_exec_engine_tests.sh run_exec_r2_tests.sh \
               run_frontier_motif_tests.sh run_frontier_owner_pull_tests.sh \
               run_frontier_red_tests.sh run_frontier_shadow_tests.sh; do

@@ -35,6 +35,18 @@ Add `--frontend` after rebuilding the root `GraphProgram` compiler to also check
 predicted costs, runtime visit counts, and results for one/twenty rounds at
 one/four threads.
 
+The layout-equation regression also runs in both suite modes:
+
+```bash
+python3 test/pdg_tdg_verification/test_layout_cost_model.py
+```
+
+It compiles the actual autotuner pass and checks calibrated layout costs against
+fixed expected values. The current ARS equation is the sole layout model;
+missing residency metadata uses its DRAM rates. Retired environment selections
+cannot change the compiler's equation, and Python rejects retired comparison
+modes. The tests cover both supplied and missing residency metadata.
+
 `PDG_SOUNDNESS.md` and `TDG_TASK_SAFETY.md` state the proof boundaries. The
 formal scheduler result assumes complete task-effect summaries and ordering
 edges; these tests and models do not establish end-to-end compiler soundness.

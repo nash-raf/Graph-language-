@@ -635,3 +635,26 @@ with a ready-work DAG scheduler whose edges are *witness-backed*:
   exceeds the budget the scheduler was granted.
 - The scheduler fails closed on invalid descriptors, self edges, cycles and
   node failure (new dispatch cancelled, active nodes awaited).
+
+## The scheduler contract is per-axis (gate split)
+
+The pipeline is now `R1..R7 → (R_S,R_T) → (NI_S,NI_T) → (G_S,G_T) → schedule`,
+and the admittance gate is no longer the conjunction `!(R_S ∨ R_T ∨ R8)`:
+
+- `NI_S ⟺ ¬R_S`, `NI_T ⟺ ¬R_T`; a witness on one axis constrains only that
+  axis and cannot suppress proven parallelism on the other.
+- `R8` stays outside the lattice: it is the implementation full-serial guard.
+- Realizations: `¬R_S ∧ R_T` = spatial partitions concurrent with the temporal
+  order carried by the round sequence (R4's writer→reader order is exactly the
+  round order); `R_S ∧ ¬R_T` = theorem-licensed temporal-unit concurrency whose
+  constrained spatial dispatch V1 does not emit (explicit implementation
+  failure); `R_S ∧ R_T` = no theorem-licensed parallel route; both clean =
+  nested/strongest single-axis shape.
+- A semantic DAG edge must carry a witness id (`SGPL_DAG_REL_FLAG_SEMANTIC`);
+  a mutual-exclusion witness becomes a `RealizationOrder` edge, never semantic
+  precedence.  `witnessesConsumed` enforces at compile time that every
+  unresolved witness is consumed by the realization or the emission fails
+  closed with the witness id.
+- R6 is spatial-only (common-base DualOwner ownership conflict); cross-phase
+  dependence remains an implementation-level fork/join legality check and never
+  contributes to `R_T` on its own.

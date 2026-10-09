@@ -1,57 +1,68 @@
-# Two-axis DAG scheduler — status / resume pointer (keep updated every turn)
+# Two-axis DAG scheduler — status (gate split landed)
 
-Branch: two-axis-dag-scheduler   Tip: 739226c   (tdg-engine-budget = 3779928 checkpoint)
-Pod: root@213.173.108.40 -p 22295 -i ~/.ssh/id_ed25519  (48 cores, 251 GB)
-Pod tree: /workspace/IMTalker/p1/Graph-language-/p1GraphEasy-con-AutoTuner (branch checked out, GraphProgram built)
-Pod toolchain: /usr/local/llvm-20-polly-rtti (synced); build: PATH=/usr/local/llvm-20-polly-rtti/bin:$PATH bash build_lowmem.sh  (~2-4 min)
-Note: fresh pods need apt: libisl-dev libxml2-dev libzstd-dev libedit-dev libffi-dev zlib1g-dev libtinfo-dev
+Branch: `two-axis-dag-scheduler` (local `92e34c1` + this work, uncommitted until
+the commits below).  Pod: `root@213.173.110.201 -p 18657` (48 cores, RTX 2000
+Ada) — pod tree carries the same content; its HEAD is behind (739226c) with the
+newer commits present as working-tree changes.
 
-DONE (verified):
-- step 1 witnesses/certificate/diagnostics (6c76718, 7728b8d)
-- step 2 gate is single certificate producer; verdict = !(RS|RT|R8); MISMATCH self-checks (ac623e5)
-- step 3 RAW/WAR/WAW relation layer (c849d87)
-- step 4 spatial/temporal templates + validation (aee97a8)
-- steps 5+6 runtime ready-work scheduler + test ALL PASS (5772cfc)
-- step 7 runtime half: sgpl_exec_dag_spatial (739226c)
+## What this change does (complete certificate → per-axis gate → schedule)
 
-DONE: step 7 complete + verified.  Wiring is env-gated (SGPL_DAG_SPATIAL,
-default OFF) at both CPU partition dispatch sites (fallback and
-sgpl_exec_step_task); device path and calibration pass untouched.
-The differential first FAILED, root cause was the DAG threads not carrying
-the worker-index TLS; fixed by sgpl_set_current_worker_index() (new in
-parallel_runtime.[ch]) called in dag_worker with a per-thread ordinal.
-Strict differential (profile lines excluded): bfs_level answers IDENTICAL at
-P=1,4,8,16, flag off vs on ("reached 20000 level_checksum 75722").
-DAG path is slower on this small graph (8.46 vs 5.53 ms kernel) -- scheduler
-overhead, a cost-model input later.
+Pipeline: `R1..R7 → (R_S,R_T) → (NI_S,NI_T) → (G_S,G_T) → schedule`
+(`selectSchedule`, `graph_frontier_lowering.cpp`).
 
-RACING detail (final): TSan on the DAG test + engine test = 0 warnings (after
-fixing the pool's env caches to relaxed atomics).  TSan on the BFS program with
-SGPL_DAG_SPATIAL=1 found one more real race in the step-9 code (dag_dispatch_budget
-read R->active outside the run lock) -- fixed by computing the share under the
-lock; the TSan BFS run is now 0 warnings.  The loader's OMP-hash loop reports a
-libgomp barrier false positive (this libgomp has 0 TSan annotations), only when
-OMP threads > 1.
+- **Complete certificate**: `supportedByAlgebra` no longer short-circuits
+  (`RecordRefusal`), so both axes are populated; the first refusal keeps the
+  historical reason string and the verdict keeps the old `admit()/refuse()`
+  contract.
+- **Gate split**: `Rewritable = Modelable && schedule != serial && emitted`.
+  The old conjunction `!(R_S ∨ R_T ∨ R8)` no longer forces whole-nest serial
+  when only one axis has a witness.
+- **Realizations**: `¬R_S ∧ R_T` → `spatial-dag` (partitions concurrent, round
+  sequence preserves R4's writer→reader order); `R_S ∧ ¬R_T` → `temporal-dag`
+  selected but **not emitted** in V1 (explicit implementation reason — never a
+  semantic refusal); `R_S ∧ R_T` → serial (theorem); R8/unmodelable/failed emit
+  → serial + `sgpl.frontier.impl.serial`.
+- **Markers**: `sgpl.frontier.dag.owner=engine`, `.dag.axes` (compat),
+  `.dag.spatial`/`.dag.temporal` (`parallel|ordered|serial`); `pdg.cpp` reads
+  the *value* into its classification note.  `impl.serial` separates
+  implementation failure from theorem-serial.
+- **Consumption invariant**: `witnessesConsumed` fails the emission closed if
+  an unresolved witness has no graph constraint and no schedule-level order
+  proof.
+- `buildTemplates` now builds *constrained* templates for representable dirty
+  axes (R6 same-base → a `RealizationOrder` U→V edge; R1/R3/R7 stay
+  unrepresentable with their own reasons).
 
-NEXT:
-- Optional: enable SGPL_DAG_SPATIAL by default after a perf review (small-graph
-  overhead 8.5 vs 5.5 ms), retire compat switches after more regression
-  coverage.  Nothing pending from the spec steps.
+## Evidence (2026-10-09)
 
-VERIFICATION (this batch, all on the pod + locally):
-- corpus mismatch scan: 0 mismatches, no crashes (all verify/cases + test graphs)
-- validate_algebra.sh: 52/53 -- the 1 FAIL (ultimate_pagerank) is the
-  pre-existing class= golden diff, not from this work
-- dag_scheduler_test: ALL PASS (14 checks incl. 5 temporal-wrapper checks)
-- exec_engine_test: 0 failures (partitions 1,3,8; temporal chain, nested budget,
-  TLS-budget-balance invariants)
-- BFS differential SGPL_DAG_SPATIAL=0 vs 1: IDENTICAL at P=1,4,8,16
-  ("reached 20000 level_checksum 75722"); repeat-run determinism: 1 distinct
-  output hash over 3 runs
-- RACING: TSan 0 warnings on dag_scheduler_test and exec_engine_test after
-  fixing a real race (worker_main hit plain-int env caches; now relaxed atomics)
-- budget sweep re-run: reproduces the documented model mismatch
-  (model light=7 heavy=7 vs measured light=1 heavy=13)
-- GPU demo (separate ask): RTX 2000 Ada, ~55% util / 24% memory / 3968 MiB,
-  see verify/GPU_MATMUL_DEMO.md
+| check | result |
+|---|---|
+| `verify/cases/parallel/carried_read_state.graph` (new, R4) | `R_S=0 R_T=1`, `#1 R4 discharge=none`, `schedule=spatial-dag emitted=1`, `spatial=parallel temporal=ordered`, `class=dest-owner` |
+| its answer vs unrewritten build | identical `deg_sum 0` at threads 1/4/8 (local) and 1/4/8/16/32 (pod, 48 cores) |
+| `verify/run.sh parallel` | 60 PASS / 1 FAIL — the FAIL (`race/derived_default`, no derived DOALL) is **pre-existing**: baseline binary at HEAD shows 0 DOALL lines too |
+| corpus census (78 cases, new binary) | 78/78 builds rc=0; schedules seen: 42×nested, 2×serial (R8 reductions) — nothing else changed class |
+| `validate_algebra.sh` | 52/53 — only the pre-existing `ultimate_pagerank` golden `class=` diff |
+| `validate_roundsep.sh` / `validate_reduction.sh` / `validate_rt_expr.sh` | PASS |
+| `validate_composition.sh` | all cases MATCH; `reduce_add` SKIP (input file absent from the tree) |
+| `test/run_exec_engine_tests.sh` | PASS (0 failures) |
+| `test/run_exec_r2_tests.sh` | PASS after harness fix (link line lacked `gpu_runtime.c` — pre-existing breakage from the GPU commit) |
+| `test/run_frontier_shadow_tests.sh` | PASS after harness fixes (same link gap + the stale 12-arg `autograph_exec_ctx_create` call) |
+| `claim_driver` | `#1 R2 discharge=claim-staging`, emit fails closed with `impl_failure=1 reason=emit failed` + `impl.serial`; `class=sequential` kept (R2 proof obligation documented in `proof/R2_REJECTION.md`) |
 
+## Not done (explicit gaps, in plan order)
+
+1. **Temporal-dag emission** (§12): selected, template built, `Emitted=false`
+   with an explicit reason; needs multi-unit emission + constrained spatial
+   dispatch (the `SGPL_DAG_SPATIAL` runtime path) wired per-step.
+2. **Per-step runtime dispatch ABI** (§13/§16): `SGPL_DAG_SPATIAL` is still an
+   env-global switch (`autotuner_runtime.c:3312,3598`); the axes/class do not
+   cross the ABI; `sgpl_exec_dag_temporal_chain` still has no production call
+   site (tests only).
+3. **Budget policy** (§15): only the nested share `max(1, W/A)` + TLS clamp;
+   no ready-set reservation/redistribution, no `SGPL_DAG_DEBUG` tracing.
+4. **§19 fixture set**: only the R4 carried-read case + the existing claim/
+   shadow regressions exist; the partial-DAG (U1→U3, P1→P3), hazard
+   (RAW/WAR/WAW discharge), and failure (cyclic/unsupported/descriptor/budget)
+   fixtures are not written; per-witness R1-R7 fixtures are missing.
+5. **GPU corpus device differential** with the new paths (the two-fixture
+   device diff was run; the full corpus device diff was not completed).

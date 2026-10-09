@@ -130,7 +130,7 @@ static int run_sweep(const ShadowTestGraph *g, int32_t partitions) {
   sgpl_runtime_op *ops[1] = {op};
   sgpl_exec_ctx *ctx = autograph_exec_ctx_create(
       (void *)g, SGPL_TRAVERSE_OWNER_V, 0, NULL, NULL, NULL, 0, NULL, NULL, 0,
-      ops, 1);
+      ops, 1, -1 /* step_id: TDG path disabled for the unit test */);
   if (!ctx)
     return 0;
   autograph_frontier_execute((void *)g, ctx);

@@ -1297,3 +1297,51 @@ dispatch), `SGPL_NO_TDG_ENGINE=1` disables the TDG engine steps, and
 | Thread pool launch | `parallel_for_runtime` | `parallel_runtime.c:5162-5258` |
 | Golden harness | `validate_algebra.sh`, `validate_refactor.sh` | repo root |
 | Algebra design note | `proof/EFFECT_ALGEBRA_DESIGN.md` | repo `proof/` |
+
+## Schedule selection: the gate is per-axis (not a conjunction)
+
+The certificate is now *complete*: `supportedByAlgebra` evaluates every R1-R7
+check without short-circuiting (`graph_frontier_lowering.cpp`, "RecordRefusal"),
+so both axes are populated even when the first refusal would have stopped the
+old conjunction, and the first refusal keeps the historical reason string.
+`selectSchedule` maps the certificate to the realization (theorem section 17):
+
+| certificate state | realization |
+|---|---|
+| `!R_S ∧ !R_T` | `nested` — engine partition dispatch + round sequence |
+| `!R_S ∧ R_T` | `spatial-dag` — partitions concurrent; the temporal order is preserved by the round sequence (V1 realizes R4: writer precedes reader across rounds) |
+| `R_S ∧ !R_T` | `temporal-dag` — theorem-licensed; V1 does *not* emit the constrained spatial dispatch and fails closed with that explicit implementation reason (never as a new R1-R7 refusal) |
+| `R_S ∧ R_T` | `serial` — no theorem-licensed parallel route |
+| `R8` / unmodelable / failed emit | `serial` + `sgpl.frontier.impl.serial` (implementation failure, distinct from the theorem) |
+
+A witness on one axis never suppresses the other axis.  A refusal is reported
+by the certificate (`R_S`, `R_T`), an unemitted realization by
+`impl_failure=1` in the `[frontier-cert] schedule=…` line — the two are never
+conflated.
+
+**Metadata.** DAG-owned nests carry `sgpl.frontier.dag.owner=engine`,
+`sgpl.frontier.dag.axes=<spatial|temporal|spatial+temporal>` (compat),
+`sgpl.frontier.dag.spatial=<parallel|ordered|serial>` and
+`sgpl.frontier.dag.temporal=<parallel|ordered|serial>`; the PDG classifier
+reads the *value* (not just the marker's presence).  `sgpl.frontier.impl.serial`
+marks implementation failures; `sgpl.frontier.nested.sequential` remains the
+conservative reconstruction marker for theorem-serial and failure cases.
+
+**Invariant (spec section 3).** Every unresolved R1-R7 witness must be consumed
+by the chosen realization — a witness-backed graph edge, or a schedule-level
+order proof — `witnessesConsumed` fails the emission closed otherwise, with the
+unconsumed witness id in the reason.  Semantic edges always point back to a
+witness id; mutual-exclusion witnesses become `RealizationOrder` edges and are
+never labeled semantic precedence.
+
+**Live C1 regression** (`verify/cases/parallel/carried_read_state.graph`,
+`verify/run.sh` "race/carried_read_state"): an all-vertices peel whose driver
+preamble reads `deg[u]` while the pair phase writes `deg[v]` is `R_S=0 R_T=1`,
+witness `#1 R4 discharge=none`, `schedule=spatial-dag emitted=1`
+(`spatial=parallel temporal=ordered`), and equals the unrewritten build at
+1/4/8 threads.
+
+**Known implementation gaps (V1, explicit):** the temporal-dag realization
+(multi-unit emission with constrained spatial dispatch) is selected but not
+emitted; `SGPL_DAG_SPATIAL` remains the runtime switch for the spatial DAG
+dispatch (default OFF, the pool dispatch is the fallback).

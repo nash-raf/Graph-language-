@@ -10,7 +10,8 @@ gcc -O2 -std=gnu11 -pthread \
   "$ROOT/test/frontier_shadow_test.c" \
   "$ROOT/autotuner_runtime.c" \
   "$ROOT/parallel_runtime.c" \
-  -lnlopt -lm \
+  "$ROOT/gpu_runtime.c" \
+  -lnlopt -ldl -lm \
   -o "$TEST_BIN"
 
 for threads in 1 3 8; do

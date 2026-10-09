@@ -48,12 +48,16 @@ echo -n "pr100k nums: "; cat /tmp/pr100k.nums
 grep -E 'class=' /tmp/pr100k.stats | head -20
 
 echo "=== pagerank_dataidx ==="
-compile_rw pagerank_dataidx.graph didx 1
+compile_rw algos/pagerank_dataidx.graph didx 1
 echo -n "didx nums: "; cat /tmp/didx.nums
 grep 'graph-frontier] candidate' /tmp/didx.stats
 
 echo "=== reductions ==="
 for k in reduce_add reduce_sub reduce_min reduce_max reduce_mul; do
+  if [[ ! -f "${k}.graph" ]]; then
+    echo "$k: SKIP (input ${k}.graph not present in the tree)"
+    continue
+  fi
   compile_rw "${k}.graph" "$k" 1
   echo -n "$k nums: "; cat /tmp/${k}.nums
   grep 'class=' /tmp/${k}.stats | head -3

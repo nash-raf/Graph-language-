@@ -1,0 +1,38 @@
+DOACROSS parallel cost-model validation
+Prediction is the current production helper; no equations, runtime, compiler, or autotuner changed.
+Direct C recurrences with actual wait/post dependencies and production profiling, not SGPL compiler integration.
+Three fresh processes and seven held-out parallel timings per completed setting in the default run.
+Both forecasts are frozen before held-out timing; seeded and learned forecasts share actual timings.
+Signed error = 100*(predicted/measured-1); aggregate errors weight each completed setting equally.
+
+Synchronization input       Valid  Failed  Median absolute error  Mean absolute error  Within 20%
+learned-sync                   51       1                90.92%              123.46%    12/51
+seeded-sync                    51       1               436.59%              418.56%     3/51
+
+Learned sync costs, by worker width:
+Workers  Valid  Median absolute error  Mean absolute error  Within 20%
+      2     13                 7.98%               14.51%     9/13
+      4     13                68.24%               92.33%     1/13
+      6     12               144.43%              180.97%     1/12
+      8     13               156.42%              210.46%     1/13
+
+Largest learned-cost errors:
+Case                         P  Predicted ms  Measured ms  Signed error
+dependent_compute             8      58.3161       9.4984     +513.96%
+long_chain                    8     186.0166      34.5524     +438.36%
+short_chain                   8      20.5781       3.9130     +425.89%
+dependent_compute             6      42.8658       8.2741     +418.07%
+long_chain                    6     144.8793      30.3985     +376.60%
+short_chain                   6      14.0039       3.4164     +309.90%
+
+Failed configurations (excluded from accuracy metrics; see failures.csv and traces):
+uneven, workers=6, N=8193, distance=3
+
+These measurements establish poor accuracy across this suite, particularly for dependent chains at larger widths.
+Separate training measures synchronization blocking as well as service. The existing equation multiplies
+its wait/post estimates by N; this can accumulate overlapping lane waits as elapsed time. That is a
+mechanism consistent with the width-dependent overpredictions, not an isolated causal experiment.
+
+Reproduce timings and tables: python3 test/doacross_cost_validation/run.py
+Regenerate tables: python3 test/doacross_cost_validation/run.py --render-only
+Protocol and scope: test/doacross_cost_validation/README.txt

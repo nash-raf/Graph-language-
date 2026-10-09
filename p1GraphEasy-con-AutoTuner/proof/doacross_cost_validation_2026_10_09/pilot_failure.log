@@ -1,0 +1,34 @@
+1/156 dependent_compute P=8 repeat=0
+2/156 independent_before P=2 repeat=2
+3/156 uneven P=2 repeat=1
+4/156 tiny_chain P=4 repeat=2
+5/156 independent_before P=8 repeat=1
+6/156 independent_before P=4 repeat=2
+7/156 short_four_chains P=4 repeat=1
+8/156 large_arrays P=6 repeat=1
+9/156 short_four_chains P=2 repeat=2
+10/156 two_streams P=8 repeat=2
+11/156 two_streams P=2 repeat=2
+12/156 uneven P=8 repeat=1
+13/156 dependent_compute P=8 repeat=1
+14/156 short_many_chains P=4 repeat=2
+15/156 long_four_chains P=8 repeat=1
+16/156 dependent_compute P=6 repeat=0
+17/156 short_many_chains P=2 repeat=2
+18/156 short_many_chains P=4 repeat=0
+19/156 uneven P=6 repeat=0
+20/156 uneven P=8 repeat=0
+21/156 independent_before P=2 repeat=0
+Traceback (most recent call last):
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/doacross_cost_validation/run.py", line 227, in <module>
+    if __name__=='__main__': main()
+                             ^^^^^^
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/doacross_cost_validation/run.py", line 204, in main
+    result=command([binary,*arguments(case,args.samples)],env=env(p),capture_output=True,text=True,timeout=120)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/doacross_cost_validation/run.py", line 54, in command
+    return subprocess.run(list(map(str,args)),cwd=ROOT,check=True,**kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/doacross_cost_validation_2026_10_09/build/probe', '8193', '3', '4', '8', '0', '1', '7']' died with <Signals.SIGABRT: 6>.

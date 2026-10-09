@@ -1,0 +1,43 @@
+DOACROSS parallel cost-model validation
+Prediction is the exact helper in the frozen runtime; sources unchanged during the run.
+Model: per-lane computation and waits; width-specific profiles.
+Direct C recurrences with actual wait/post dependencies and production profiling, not SGPL compiler integration.
+Three fresh processes and seven held-out parallel timings per completed setting in the default run.
+Both forecasts are frozen before held-out timing; seeded and learned forecasts share actual timings.
+Signed error = 100*(predicted/measured-1); aggregate errors weight each completed setting equally.
+
+Synchronization input       Valid  Failed  Median absolute error  Mean absolute error  Within 20%
+learned-sync                   90       1                14.47%               14.73%    60/90
+seeded-sync                    90       1                68.05%               80.11%    12/90
+
+Learned sync costs, by worker width:
+Workers  Valid  Median absolute error  Mean absolute error  Within 20%
+      2     13                21.06%               17.56%     6/13
+      3     13                14.55%               14.40%     8/13
+      4     13                 9.29%               12.89%    11/13
+      5     13                11.34%               14.50%     8/13
+      6     12                11.31%               14.89%     8/12
+      7     13                 9.42%               10.84%    11/13
+      8     13                18.42%               18.07%     8/13
+
+Largest learned-cost errors:
+Case                         P  Predicted ms  Measured ms  Signed error
+two_streams                   2       2.4739       3.7596      -34.20%
+long_many_chains              8       3.0228       4.4453      -32.00%
+long_many_chains              2       7.5373      10.8495      -30.53%
+tiny_chain                    6       0.5510       0.4233      +30.19%
+two_streams                   3       2.5809       3.6256      -28.81%
+large_arrays                  8      13.3232      18.5635      -28.23%
+
+Failed configurations (excluded from accuracy metrics; see failures.csv and traces):
+uneven, workers=6, N=8193, distance=3
+
+Dependent and independent useful work plus measured synchronization are charged per cyclic worker.
+There is no separate global dependent-work/critical-path charge. Blocking waits include dependency delays.
+Matched-width learned inputs are measured before holdout; unseen widths still use synchronization seeds.
+Residual errors can include serial-to-parallel work-cost differences, profiling overhead and uneven lanes.
+No machine-specific constants were fitted. A runtime timeout is excluded from prediction statistics.
+
+Reproduce timings and tables: python3 test/doacross_cost_validation/run.py
+Regenerate tables: python3 test/doacross_cost_validation/run.py --render-only
+Protocol and scope: test/doacross_cost_validation/README.txt

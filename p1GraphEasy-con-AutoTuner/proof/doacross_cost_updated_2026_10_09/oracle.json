@@ -1,0 +1,338 @@
+[
+  {
+    "case": 0,
+    "selected_ns": 13000000.0,
+    "oracle_ns": 13000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 1,
+    "selected_ns": 14000000.0,
+    "oracle_ns": 14000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 2,
+    "selected_ns": 13000000.0,
+    "oracle_ns": 13000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 3,
+    "selected_ns": 9000000.0,
+    "oracle_ns": 9000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 4,
+    "selected_ns": 11823333.33,
+    "oracle_ns": 11823333.33,
+    "regret": 0,
+    "evaluations": 133
+  },
+  {
+    "case": 5,
+    "selected_ns": 12000000.0,
+    "oracle_ns": 12000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 6,
+    "selected_ns": 13000000.0,
+    "oracle_ns": 11420000.0,
+    "regret": 0.13835376532399302,
+    "evaluations": 109
+  },
+  {
+    "case": 7,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 8,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 9,
+    "selected_ns": 16000000.0,
+    "oracle_ns": 16000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 10,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 11,
+    "selected_ns": 11000000.0,
+    "oracle_ns": 11000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 12,
+    "selected_ns": 13946666.67,
+    "oracle_ns": 13946666.67,
+    "regret": 0,
+    "evaluations": 121
+  },
+  {
+    "case": 13,
+    "selected_ns": 11000000.0,
+    "oracle_ns": 11000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 14,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 15,
+    "selected_ns": 13000000.0,
+    "oracle_ns": 13000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 16,
+    "selected_ns": 11000000.0,
+    "oracle_ns": 11000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 17,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 18,
+    "selected_ns": 13000000.0,
+    "oracle_ns": 12420000.0,
+    "regret": 0.04669887278582929,
+    "evaluations": 109
+  },
+  {
+    "case": 19,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 20,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 21,
+    "selected_ns": 8450000.0,
+    "oracle_ns": 8296666.67,
+    "regret": 0.018481317389119623,
+    "evaluations": 145
+  },
+  {
+    "case": 22,
+    "selected_ns": 5000000.0,
+    "oracle_ns": 5000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 23,
+    "selected_ns": 16000000.0,
+    "oracle_ns": 16000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 24,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0.1333333333333333,
+    "evaluations": 109
+  },
+  {
+    "case": 25,
+    "selected_ns": 11000000.0,
+    "oracle_ns": 11000000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 26,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 27,
+    "selected_ns": 12200000.0,
+    "oracle_ns": 12000000.0,
+    "regret": 0.016666666666666607,
+    "evaluations": 129
+  },
+  {
+    "case": 28,
+    "selected_ns": 14000000.0,
+    "oracle_ns": 14000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 29,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 30,
+    "selected_ns": 16000000.0,
+    "oracle_ns": 16000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 31,
+    "selected_ns": 5850000.0,
+    "oracle_ns": 5000000.0,
+    "regret": 0.16999999999999993,
+    "evaluations": 129
+  },
+  {
+    "case": 32,
+    "selected_ns": 17000000.0,
+    "oracle_ns": 17000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 33,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 34,
+    "selected_ns": 13000000.0,
+    "oracle_ns": 13000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 35,
+    "selected_ns": 7700000.0,
+    "oracle_ns": 7700000.0,
+    "regret": 0,
+    "evaluations": 129
+  },
+  {
+    "case": 36,
+    "selected_ns": 11946666.67,
+    "oracle_ns": 11946666.67,
+    "regret": 0,
+    "evaluations": 121
+  },
+  {
+    "case": 37,
+    "selected_ns": 14000000.0,
+    "oracle_ns": 14000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 38,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 39,
+    "selected_ns": 11000000.0,
+    "oracle_ns": 10000000.0,
+    "regret": 0.10000000000000009,
+    "evaluations": 129
+  },
+  {
+    "case": 40,
+    "selected_ns": 13560000.0,
+    "oracle_ns": 12280000.0,
+    "regret": 0.10423452768729646,
+    "evaluations": 109
+  },
+  {
+    "case": 41,
+    "selected_ns": 10000000.0,
+    "oracle_ns": 10000000.0,
+    "regret": 0,
+    "evaluations": 145
+  },
+  {
+    "case": 42,
+    "selected_ns": 14000000.0,
+    "oracle_ns": 14000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 43,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 44,
+    "selected_ns": 15000000.0,
+    "oracle_ns": 15000000.0,
+    "regret": 0,
+    "evaluations": 121
+  },
+  {
+    "case": 45,
+    "selected_ns": 14000000.0,
+    "oracle_ns": 14000000.0,
+    "regret": 0,
+    "evaluations": 113
+  },
+  {
+    "case": 46,
+    "selected_ns": 16000000.0,
+    "oracle_ns": 16000000.0,
+    "regret": 0,
+    "evaluations": 109
+  },
+  {
+    "case": 47,
+    "selected_ns": 16000000.0,
+    "oracle_ns": 16000000.0,
+    "regret": 0,
+    "evaluations": 113
+  }
+]

@@ -1,0 +1,106 @@
+DOACROSS diagnosis and proposed minimal correction
+
+Scope: production sources, scheduler and graph-layout autotuner unchanged.
+This report proposes changes; it does not implement a new production equation.
+
+Current equation (parallel_runtime.c:2682):
+  T = L(P) + N*c_dep + ceil(N/P)*c_ind + N*S
+  S = waits_per_iteration*sigma_wait + posts_per_iteration*sigma_post.
+
+sigma_wait measures the duration of a wait including blocking. Concurrent
+workers' waiting intervals overlap. Adding N*S charges aggregate worker time
+as elapsed loop time. Moreover the runtime keeps one synchronization EWMA
+per loop, not per width; observations learned at one width can be reused for
+another width despite different blocking durations. The present validation
+uses matched-width inputs, so it isolates the first problem, not cross-width
+prediction quality.
+
+First candidate to validate in production:
+  T_lane_sync = L(P) + N*c_dep + ceil(N/P)*(c_ind + S(P)).
+It changes only the synchronization scaling. Keeping N*c_dep preserves the
+existing conservative dependent-work approximation. This is a pragmatic
+candidate, not a proof that all dependent work is globally serial or that
+mean waits fully describe the slowest lane.
+
+Coefficient-free ablations on the original 51 completed settings:
+Candidate                         Median APE  Mean APE  Within 20%  Worst APE
+Current                              90.92%    123.46%    12/51      513.96%
+Synchronization per lane             13.29%     14.69%    34/51       38.15%
+All dependent work also per lane     32.71%     35.42%     7/51       74.90%
+Dependent work / min(P,distance)      30.80%     32.57%    14/51       74.90%
+max(N*c_dep, lane total)              28.61%     31.43%     8/51       51.68%
+
+The last three alternatives are diagnostic comparisons, not recommended
+equations or rigorous bounds for this cyclic executor. Their worse errors
+show that blindly dividing every term by worker count or dependency distance
+is not supported by these measurements.
+
+Width  Current median APE  Lane-sync median APE
+2             7.98%             24.81%
+4            68.24%             12.55%
+6           144.43%             13.20%
+8           156.42%             12.64%
+
+Examples at P=8:
+Dependent compute: measured 9.498 ms; current 58.316 ms (+514.0%);
+                  candidate 10.892 ms (+14.7%).
+Long chain: measured 34.552 ms; current 186.017 ms (+438.4%);
+            candidate 27.487 ms (-20.4%).
+
+Caveats: this reuses measured pre-holdout synchronization inputs at each
+width. No model coefficients are fitted, but this is still the original
+workload collection, not new cross-workload or unseen-width validation.
+Two-worker accuracy regresses. Serial block timing is not the entire
+parallel iteration's cost: per-iteration profile updates and dispatch/body
+overhead also exist. The current shared EWMA updates are unsynchronized;
+this may add observation noise and is separate from the equation error.
+
+Recommended model follow-up, before considering a major equation overhaul:
+1. Test lane synchronization scaling with the same executor and profiler.
+2. Maintain synchronization inputs by actual execution width; aggregate
+   worker-local counts/totals at loop completion rather than racing shared
+   per-event EWMAs. Include measurable profiling cost without double counting.
+3. Validate held-out trip counts, intermediate widths, heavier compute and
+   real SGPL-generated DOACROSS loops. Examine two-worker regressions.
+4. If dependent-work error remains material, propose a topology-aware
+   earliest-ready model: each iteration can advance only when its cyclic
+   lane and predecessor post are ready. Separate pre-wait, dependent and
+   post work. This would need dependency distances and synchronization
+   positions absent from the current descriptor; do not implement that
+   larger change on the strength of the present ablation alone.
+
+Failed workload: N=8193, dependency distance=3, six workers.
+Reproduced using the frozen production runtime plus test-only observations.
+The completion ring has 4096 slots; post uses atomic_store(iteration), and
+wait only tests completion[dependency % 4096] >= dependency.
+Three independent dependency chains can advance at different rates. Slots
+are reused across chains without protecting an earlier/later generation.
+
+Captured first diagnostic run (diagnostic.9.stderr.txt):
+  lane 0 waiting at i=7935 for dependency 7932;
+  slot 3836 contains 3836 although dependency 7932 was already posted;
+  lane 3 waiting at i=7938 for dependency 7935;
+  all four other lanes have finished.
+Captured second run (diagnostic.6.stderr.txt):
+  lane 0 waiting at i=4419 for dependency 4416;
+  slot 320 contains 320 although dependency 4416 was already posted;
+  lane 3 waiting at i=4422 for dependency 4419;
+  all four other lanes have finished.
+
+These are permanent stalls: the needed producer will not post again.
+slot_replay.txt independently demonstrates post(7932), post(3836) regressing
+the same slot. Its wait predicate then blocks despite the earlier post.
+The original validation timeout had no stack trace; the same workload's
+reproductions identify a concrete production synchronization failure, not
+a cost-model error. Test instrumentation changes interleaving, not the
+production wait/post semantics. These timings are excluded from accuracy.
+
+A separate runtime correction would have to preserve the completion of
+each still-needed iteration across ring reuse. Merely enlarging the ring
+only delays the problem. Atomic-max alone is not a general dependency
+correctness fix: a later colliding post can also satisfy the >= predicate
+before the actual requested iteration completes. No such fix was applied.
+
+Reproduce: python3 test/doacross_cost_validation/diagnose.py (WSL Ubuntu).
+Saved validation raw.csv remains unchanged. ablations.csv gives every
+comparison; ablation_metrics.json contains overall and per-width metrics.

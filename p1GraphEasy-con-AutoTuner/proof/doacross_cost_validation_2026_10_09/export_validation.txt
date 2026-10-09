@@ -1,0 +1,5 @@
+PASS: all predictions match exported production-equation components
+PASS: seeded and learned forecasts share identical held-out observations
+PASS: exported prediction errors independently recomputed
+PASS: 51 complete settings, 1071 held-out timings; one failed setting excluded
+Maximum component reconstruction difference: 0.00079876184463501 ns

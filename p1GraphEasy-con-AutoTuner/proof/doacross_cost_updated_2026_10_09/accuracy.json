@@ -1,0 +1,24 @@
+{
+  "learned-sync": {
+    "settings": 91,
+    "valid_settings": 90,
+    "failed_settings": 1,
+    "median_absolute_error_percent": 19.345871703241436,
+    "mean_absolute_error_percent": 20.184614002486462,
+    "median_signed_error_percent": 17.790511818874656,
+    "within_10_percent": 25,
+    "within_20_percent": 46,
+    "within_30_percent": 65
+  },
+  "seeded-sync": {
+    "settings": 91,
+    "valid_settings": 90,
+    "failed_settings": 1,
+    "median_absolute_error_percent": 85.62923074149872,
+    "mean_absolute_error_percent": 103.24865519593932,
+    "median_signed_error_percent": 85.62923074149872,
+    "within_10_percent": 6,
+    "within_20_percent": 10,
+    "within_30_percent": 18
+  }
+}

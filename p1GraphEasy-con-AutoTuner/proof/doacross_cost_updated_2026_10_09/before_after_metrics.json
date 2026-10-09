@@ -1,0 +1,92 @@
+[
+  {
+    "threads": 0,
+    "model": "Original",
+    "settings": 51,
+    "median_ape": 90.91753688897226,
+    "mean_ape": 123.45980115538873,
+    "within_20": 12,
+    "worst_ape": 513.9560567732533
+  },
+  {
+    "threads": 0,
+    "model": "Updated",
+    "settings": 51,
+    "median_ape": 20.43133520337279,
+    "mean_ape": 20.71618178383407,
+    "within_20": 25,
+    "worst_ape": 68.382073803247
+  },
+  {
+    "threads": 2,
+    "model": "Original",
+    "settings": 13,
+    "median_ape": 7.976338703298547,
+    "mean_ape": 14.50895844098756,
+    "within_20": 9,
+    "worst_ape": 51.29392703357256
+  },
+  {
+    "threads": 2,
+    "model": "Updated",
+    "settings": 13,
+    "median_ape": 7.387004410906406,
+    "mean_ape": 8.918699468391893,
+    "within_20": 12,
+    "worst_ape": 22.859160868298655
+  },
+  {
+    "threads": 4,
+    "model": "Original",
+    "settings": 13,
+    "median_ape": 68.24017981298968,
+    "mean_ape": 92.32834097768826,
+    "within_20": 1,
+    "worst_ape": 207.88273866693117
+  },
+  {
+    "threads": 4,
+    "model": "Updated",
+    "settings": 13,
+    "median_ape": 24.6860240417768,
+    "mean_ape": 21.58274586886688,
+    "within_20": 4,
+    "worst_ape": 33.52544836456066
+  },
+  {
+    "threads": 6,
+    "model": "Original",
+    "settings": 12,
+    "median_ape": 144.431793142022,
+    "mean_ape": 180.96714119565198,
+    "within_20": 1,
+    "worst_ape": 418.07243268722124
+  },
+  {
+    "threads": 6,
+    "model": "Updated",
+    "settings": 12,
+    "median_ape": 22.354813153961206,
+    "mean_ape": 21.775094395304343,
+    "within_20": 5,
+    "worst_ape": 37.97037929353726
+  },
+  {
+    "threads": 8,
+    "model": "Original",
+    "settings": 13,
+    "median_ape": 156.41529489712647,
+    "mean_ape": 210.45840554878583,
+    "within_20": 1,
+    "worst_ape": 513.9560567732533
+  },
+  {
+    "threads": 8,
+    "model": "Updated",
+    "settings": 13,
+    "median_ape": 33.69387305213627,
+    "mean_ape": 30.669642219040107,
+    "within_20": 4,
+    "worst_ape": 68.382073803247
+  }
+]

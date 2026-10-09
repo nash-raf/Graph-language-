@@ -1,0 +1,175 @@
+1/156 dependent_compute P=8 repeat=0
+2/156 independent_before P=2 repeat=2
+3/156 uneven P=2 repeat=1
+4/156 tiny_chain P=4 repeat=2
+5/156 independent_before P=8 repeat=1
+6/156 independent_before P=4 repeat=2
+7/156 short_four_chains P=4 repeat=1
+8/156 large_arrays P=6 repeat=1
+9/156 short_four_chains P=2 repeat=2
+10/156 two_streams P=8 repeat=2
+11/156 two_streams P=2 repeat=2
+12/156 uneven P=8 repeat=1
+13/156 dependent_compute P=8 repeat=1
+14/156 short_many_chains P=4 repeat=2
+15/156 long_four_chains P=8 repeat=1
+16/156 dependent_compute P=6 repeat=0
+17/156 short_many_chains P=2 repeat=2
+18/156 short_many_chains P=4 repeat=0
+19/156 uneven P=6 repeat=0
+20/156 uneven P=8 repeat=0
+21/156 independent_before P=2 repeat=0
+FAILED uneven P=6: Command '['/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/doacross_cost_validation_2026_10_09/build/probe', '8193', '3', '4', '8', '0', '1', '7']' timed out after 30 seconds
+23/156 long_many_chains P=4 repeat=0
+24/156 two_streams P=4 repeat=2
+25/156 short_chain P=4 repeat=1
+26/156 tiny_chain P=6 repeat=0
+27/156 short_four_chains P=4 repeat=2
+28/156 dependent_compute P=4 repeat=2
+29/156 short_chain P=6 repeat=0
+30/156 two_streams P=4 repeat=1
+31/156 long_chain P=8 repeat=0
+32/156 long_many_chains P=8 repeat=0
+33/156 short_four_chains P=8 repeat=0
+34/156 long_four_chains P=4 repeat=0
+35/156 dependent_compute P=6 repeat=1
+36/156 short_four_chains P=6 repeat=2
+37/156 uneven P=2 repeat=0
+38/156 independent_after P=8 repeat=0
+39/156 two_streams P=8 repeat=1
+40/156 dependent_compute P=4 repeat=1
+41/156 short_chain P=8 repeat=2
+42/156 long_many_chains P=6 repeat=1
+43/156 uneven P=4 repeat=1
+44/156 tiny_chain P=6 repeat=1
+45/156 long_many_chains P=2 repeat=1
+46/156 short_four_chains P=6 repeat=1
+47/156 independent_before P=6 repeat=2
+48/156 large_arrays P=8 repeat=0
+49/156 short_four_chains P=8 repeat=1
+50/156 long_many_chains P=4 repeat=1
+51/156 independent_after P=6 repeat=0
+52/156 short_chain P=6 repeat=2
+53/156 long_chain P=6 repeat=2
+54/156 independent_after P=4 repeat=1
+55/156 long_many_chains P=8 repeat=1
+56/156 two_streams P=6 repeat=0
+57/156 short_chain P=2 repeat=2
+58/156 long_four_chains P=2 repeat=0
+59/156 short_chain P=6 repeat=1
+60/156 two_streams P=4 repeat=0
+61/156 long_chain P=8 repeat=1
+62/156 two_streams P=2 repeat=1
+63/156 independent_before P=2 repeat=1
+64/156 tiny_chain P=8 repeat=0
+65/156 tiny_chain P=4 repeat=1
+66/156 large_arrays P=6 repeat=2
+67/156 short_four_chains P=6 repeat=0
+68/156 long_chain P=2 repeat=2
+69/156 short_chain P=4 repeat=2
+70/156 independent_before P=6 repeat=0
+71/156 independent_after P=4 repeat=0
+72/156 uneven P=8 repeat=2
+73/156 short_many_chains P=2 repeat=1
+74/156 dependent_compute P=6 repeat=2
+75/156 short_chain P=2 repeat=1
+76/156 long_four_chains P=6 repeat=1
+77/156 short_many_chains P=6 repeat=0
+78/156 two_streams P=8 repeat=0
+79/156 tiny_chain P=2 repeat=0
+80/156 tiny_chain P=2 repeat=2
+81/156 independent_after P=4 repeat=2
+82/156 short_many_chains P=4 repeat=1
+83/156 short_chain P=8 repeat=1
+84/156 short_many_chains P=2 repeat=0
+85/156 tiny_chain P=8 repeat=1
+86/156 short_many_chains P=8 repeat=2
+87/156 long_many_chains P=2 repeat=0
+88/156 independent_after P=2 repeat=0
+89/156 long_many_chains P=8 repeat=2
+90/156 short_many_chains P=6 repeat=2
+91/156 independent_after P=6 repeat=2
+92/156 tiny_chain P=4 repeat=0
+93/156 short_four_chains P=2 repeat=1
+94/156 long_four_chains P=4 repeat=1
+95/156 two_streams P=6 repeat=1
+96/156 long_four_chains P=4 repeat=2
+97/156 long_chain P=6 repeat=0
+98/156 independent_before P=8 repeat=2
+99/156 tiny_chain P=2 repeat=1
+100/156 long_many_chains P=6 repeat=0
+101/156 uneven P=2 repeat=2
+102/156 large_arrays P=2 repeat=1
+103/156 short_chain P=4 repeat=0
+104/156 long_chain P=4 repeat=2
+105/156 independent_before P=4 repeat=1
+106/156 short_chain P=2 repeat=0
+107/156 long_many_chains P=6 repeat=2
+108/156 large_arrays P=6 repeat=0
+109/156 long_four_chains P=6 repeat=2
+110/156 long_chain P=6 repeat=1
+111/156 short_many_chains P=8 repeat=0
+112/156 dependent_compute P=2 repeat=0
+113/156 long_many_chains P=2 repeat=2
+114/156 two_streams P=6 repeat=2
+115/156 long_four_chains P=2 repeat=1
+116/156 short_four_chains P=4 repeat=0
+117/156 dependent_compute P=8 repeat=2
+118/156 tiny_chain P=8 repeat=2
+119/156 independent_before P=8 repeat=0
+120/156 long_chain P=4 repeat=1
+121/156 long_four_chains P=2 repeat=2
+122/156 large_arrays P=2 repeat=2
+123/156 short_many_chains P=6 repeat=1
+124/156 short_many_chains P=8 repeat=1
+125/156 large_arrays P=4 repeat=0
+126/156 long_four_chains P=8 repeat=2
+127/156 independent_after P=2 repeat=1
+128/156 dependent_compute P=2 repeat=2
+129/156 long_four_chains P=8 repeat=0
+130/156 long_chain P=2 repeat=0
+131/156 independent_after P=2 repeat=2
+132/156 independent_after P=6 repeat=1
+133/156 large_arrays P=8 repeat=2
+134/156 independent_before P=6 repeat=1
+135/156 independent_after P=8 repeat=2
+136/156 uneven P=4 repeat=0
+137/156 tiny_chain P=6 repeat=2
+138/156 two_streams P=2 repeat=0
+140/156 independent_before P=4 repeat=0
+141/156 large_arrays P=4 repeat=2
+142/156 long_many_chains P=4 repeat=2
+143/156 dependent_compute P=4 repeat=0
+144/156 large_arrays P=2 repeat=0
+145/156 long_four_chains P=6 repeat=0
+146/156 large_arrays P=4 repeat=1
+147/156 short_four_chains P=2 repeat=0
+148/156 long_chain P=8 repeat=2
+149/156 large_arrays P=8 repeat=1
+150/156 uneven P=4 repeat=2
+151/156 long_chain P=2 repeat=1
+152/156 short_chain P=8 repeat=0
+153/156 dependent_compute P=2 repeat=1
+154/156 short_four_chains P=8 repeat=2
+155/156 independent_after P=8 repeat=1
+156/156 long_chain P=4 repeat=0
+{
+  "learned-sync": {
+    "settings": 51,
+    "median_absolute_error_percent": 90.91753688897226,
+    "mean_absolute_error_percent": 123.45980115538873,
+    "median_signed_error_percent": 90.91753688897226,
+    "within_10_percent": 7,
+    "within_20_percent": 12,
+    "within_30_percent": 14
+  },
+  "seeded-sync": {
+    "settings": 51,
+    "median_absolute_error_percent": 436.5929013355395,
+    "mean_absolute_error_percent": 418.56407942161997,
+    "median_signed_error_percent": 436.5929013355395,
+    "within_10_percent": 2,
+    "within_20_percent": 3,
+    "within_30_percent": 3
+  }
+}

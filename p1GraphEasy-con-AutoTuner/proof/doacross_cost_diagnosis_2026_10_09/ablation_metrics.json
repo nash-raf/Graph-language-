@@ -1,0 +1,227 @@
+[
+  {
+    "equation": "current",
+    "threads": 0,
+    "settings": 51,
+    "median_ape": 90.91753688897226,
+    "mean_ape": 123.45980115538873,
+    "within_20": 12,
+    "worst_ape": 513.9560567732533
+  },
+  {
+    "equation": "current",
+    "threads": 2,
+    "settings": 13,
+    "median_ape": 7.9763387032985245,
+    "mean_ape": 14.50895844098756,
+    "within_20": 9,
+    "worst_ape": 51.29392703357256
+  },
+  {
+    "equation": "current",
+    "threads": 4,
+    "settings": 13,
+    "median_ape": 68.24017981298971,
+    "mean_ape": 92.32834097768826,
+    "within_20": 1,
+    "worst_ape": 207.88273866693117
+  },
+  {
+    "equation": "current",
+    "threads": 6,
+    "settings": 12,
+    "median_ape": 144.431793142022,
+    "mean_ape": 180.96714119565198,
+    "within_20": 1,
+    "worst_ape": 418.07243268722124
+  },
+  {
+    "equation": "current",
+    "threads": 8,
+    "settings": 13,
+    "median_ape": 156.41529489712647,
+    "mean_ape": 210.45840554878583,
+    "within_20": 1,
+    "worst_ape": 513.9560567732533
+  },
+  {
+    "equation": "distance_dep_lane_sync",
+    "threads": 0,
+    "settings": 51,
+    "median_ape": 30.804012741974553,
+    "mean_ape": 32.56768360048912,
+    "within_20": 14,
+    "worst_ape": 74.89527615419614
+  },
+  {
+    "equation": "distance_dep_lane_sync",
+    "threads": 2,
+    "settings": 13,
+    "median_ape": 26.38214627827168,
+    "mean_ape": 29.708465503204433,
+    "within_20": 4,
+    "worst_ape": 49.17944594022612
+  },
+  {
+    "equation": "distance_dep_lane_sync",
+    "threads": 4,
+    "settings": 13,
+    "median_ape": 24.155360085057676,
+    "mean_ape": 31.765870890354357,
+    "within_20": 4,
+    "worst_ape": 58.50041424351484
+  },
+  {
+    "equation": "distance_dep_lane_sync",
+    "threads": 6,
+    "settings": 12,
+    "median_ape": 34.125481312243885,
+    "mean_ape": 33.76925662031703,
+    "within_20": 4,
+    "worst_ape": 64.83026606683529
+  },
+  {
+    "equation": "distance_dep_lane_sync",
+    "threads": 8,
+    "settings": 13,
+    "median_ape": 30.804012741974553,
+    "mean_ape": 35.119570081913565,
+    "within_20": 2,
+    "worst_ape": 74.89527615419614
+  },
+  {
+    "equation": "lane_all",
+    "threads": 0,
+    "settings": 51,
+    "median_ape": 32.70990578181028,
+    "mean_ape": 35.417264963427634,
+    "within_20": 7,
+    "worst_ape": 74.89527615419614
+  },
+  {
+    "equation": "lane_all",
+    "threads": 2,
+    "settings": 13,
+    "median_ape": 35.85547344352167,
+    "mean_ape": 32.75655545371906,
+    "within_20": 3,
+    "worst_ape": 49.17944594022612
+  },
+  {
+    "equation": "lane_all",
+    "threads": 4,
+    "settings": 13,
+    "median_ape": 27.698126236953968,
+    "mean_ape": 34.37813921153638,
+    "within_20": 1,
+    "worst_ape": 58.50041424351484
+  },
+  {
+    "equation": "lane_all",
+    "threads": 6,
+    "settings": 12,
+    "median_ape": 28.908933939573004,
+    "mean_ape": 34.8893991260344,
+    "within_20": 2,
+    "worst_ape": 64.83026606683528
+  },
+  {
+    "equation": "lane_all",
+    "threads": 8,
+    "settings": 13,
+    "median_ape": 35.16985217338521,
+    "mean_ape": 39.60436099800583,
+    "within_20": 1,
+    "worst_ape": 74.89527615419614
+  },
+  {
+    "equation": "lane_sync",
+    "threads": 0,
+    "settings": 51,
+    "median_ape": 13.292178753155993,
+    "mean_ape": 14.686817055402456,
+    "within_20": 34,
+    "worst_ape": 38.15032123867104
+  },
+  {
+    "equation": "lane_sync",
+    "threads": 2,
+    "settings": 13,
+    "median_ape": 24.814094607447114,
+    "mean_ape": 20.50470036623793,
+    "within_20": 5,
+    "worst_ape": 38.15032123867104
+  },
+  {
+    "equation": "lane_sync",
+    "threads": 4,
+    "settings": 13,
+    "median_ape": 12.548078848048261,
+    "mean_ape": 11.637753227385918,
+    "within_20": 11,
+    "worst_ape": 29.623022462660554
+  },
+  {
+    "equation": "lane_sync",
+    "threads": 6,
+    "settings": 12,
+    "median_ape": 13.195797477276912,
+    "mean_ape": 14.174060637308942,
+    "within_20": 9,
+    "worst_ape": 33.5746408296824
+  },
+  {
+    "equation": "lane_sync",
+    "threads": 8,
+    "settings": 13,
+    "median_ape": 12.644798658152045,
+    "mean_ape": 12.391311189285219,
+    "within_20": 9,
+    "worst_ape": 25.752617202295102
+  },
+  {
+    "equation": "max_dep_lane_all",
+    "threads": 0,
+    "settings": 51,
+    "median_ape": 28.61136222312064,
+    "mean_ape": 31.428604706402194,
+    "within_20": 8,
+    "worst_ape": 51.68274804865989
+  },
+  {
+    "equation": "max_dep_lane_all",
+    "threads": 2,
+    "settings": 13,
+    "median_ape": 35.85547344352167,
+    "mean_ape": 32.75655545371906,
+    "within_20": 3,
+    "worst_ape": 49.17944594022612
+  },
+  {
+    "equation": "max_dep_lane_all",
+    "threads": 4,
+    "settings": 13,
+    "median_ape": 27.270960496123287,
+    "mean_ape": 31.04190229753966,
+    "within_20": 1,
+    "worst_ape": 51.68274804865989
+  },
+  {
+    "equation": "max_dep_lane_all",
+    "threads": 6,
+    "settings": 12,
+    "median_ape": 27.073605175943023,
+    "mean_ape": 30.838792129594502,
+    "within_20": 2,
+    "worst_ape": 49.34531017065957
+  },
+  {
+    "equation": "max_dep_lane_all",
+    "threads": 8,
+    "settings": 13,
+    "median_ape": 29.989375425442187,
+    "mean_ape": 31.03179874653958,
+    "within_20": 2,
+    "worst_ape": 41.82946507962866
+  }
+]

@@ -1,0 +1,22 @@
+PASS model_test
+PASS model_test_sanitized
+[
+  {
+    "threads": 0,
+    "model": "Original",
+    "settings": 51,
+    "median_ape": 90.91753688897226,
+    "mean_ape": 123.45980115538873,
+    "within_20": 12,
+    "worst_ape": 513.9560567732533
+  },
+  {
+    "threads": 0,
+    "model": "Updated",
+    "settings": 51,
+    "median_ape": 20.43133520337279,
+    "mean_ape": 20.71618178383407,
+    "within_20": 25,
+    "worst_ape": 68.382073803247
+  }
+]

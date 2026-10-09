@@ -36,6 +36,53 @@ static uint64_t mutation_now_ns(void) {
   return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
+/* ── In-situ CSR shift profiling (env AUTOTUNER_CSR_SHIFT_PROFILE=<path>) ──
+ * Mirrors the BCSR shift profiler: counts csr_add_directed realloc calls,
+ * realloc relocations (new pointer != old), relocated bytes, and memmove
+ * wall-time.  Inert unless the env var is set. */
+static int64_t csr_prof_shift_ns = 0, csr_prof_shift_cnt = 0;
+static int64_t csr_prof_shift_bytes = 0;
+static int64_t csr_prof_reloc_cnt = 0, csr_prof_reloc_bytes = 0;
+static int csr_prof_state = -1; /* -1 uninit, 0 off, 1 on */
+
+static void csr_prof_dump(void) {
+  const char *path = getenv("AUTOTUNER_CSR_SHIFT_PROFILE");
+  if (!path || csr_prof_shift_cnt <= 0)
+    return;
+  FILE *f = fopen(path, "a");
+  if (!f)
+    return;
+  fprintf(f,
+          "{\"shift_ns\": %lld, \"shift_cnt\": %lld, \"shift_bytes\": %lld, "
+          "\"shift_per_line\": %.4f, \"reloc_cnt\": %lld, "
+          "\"reloc_bytes\": %lld}\n",
+          (long long)csr_prof_shift_ns, (long long)csr_prof_shift_cnt,
+          (long long)csr_prof_shift_bytes,
+          csr_prof_shift_bytes > 0
+              ? (double)csr_prof_shift_ns / ((double)csr_prof_shift_bytes / 64.0)
+              : 0.0,
+          (long long)csr_prof_reloc_cnt, (long long)csr_prof_reloc_bytes);
+  fclose(f);
+}
+
+static int csr_prof_on(void) {
+  if (csr_prof_state < 0) {
+    if (getenv("AUTOTUNER_CSR_SHIFT_PROFILE")) {
+      csr_prof_state = 1;
+      atexit(csr_prof_dump);
+    } else {
+      csr_prof_state = 0;
+    }
+  }
+  return csr_prof_state;
+}
+
+static int64_t csr_prof_now_ns(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+
 /* ═══════════════════════════════════════════════════════════════
  *  CSR-native mutations — O(E) due to realloc + memmove
  * ═══════════════════════════════════════════════════════════════ */
@@ -49,16 +96,30 @@ static void csr_add_directed(Graph *g, void *graph_ptr, int32_t from, int32_t to
 
   int64_t pos = g->row_ptr[from + 1];
   int64_t old_m = g->m;
+  int32_t *old_ci = g->col_idx;
   int32_t *new_ci = (int32_t *)realloc(g->col_idx, (size_t)(old_m + 1) * sizeof(int32_t));
   if (!new_ci)
     return;
+  if (csr_prof_on()) {
+    csr_prof_shift_cnt++;
+    if (new_ci != old_ci) {
+      csr_prof_reloc_cnt++;
+      csr_prof_reloc_bytes += (int64_t)old_m * 4;
+    }
+  }
   g->col_idx = new_ci;
   if (graph_ptr)
     autograph_update_csr_pointers(graph_ptr, g->row_ptr, g->col_idx);
 
   if (pos < old_m) {
+    int64_t mv = (int64_t)(old_m - pos) * sizeof(int32_t);
+    int64_t t0 = csr_prof_on() ? csr_prof_now_ns() : 0;
     memmove(&g->col_idx[pos + 1], &g->col_idx[pos],
             (size_t)(old_m - pos) * sizeof(int32_t));
+    if (csr_prof_on()) {
+      csr_prof_shift_ns += csr_prof_now_ns() - t0;
+      csr_prof_shift_bytes += mv;
+    }
   }
   g->col_idx[pos] = to;
   g->m = old_m + 1;
@@ -143,14 +204,17 @@ static int pcsr_remove_directed(Graph *g, int32_t from, int32_t to) {
 /* Option B: Bitmaps only updated when layout == SET. Else convert to SET first. */
 void graph_add_node(void *graph_ptr, void *nodes_bmp, void *edge_pairs,
                     int32_t node_id) {
-  uint64_t start_ns = mutation_now_ns();
   (void)nodes_bmp;
   Graph *g = (Graph *)graph_ptr;
+  /* One-time ownership transfer runs BEFORE the kernel timer (load-time
+   * setup, not kernel physics — must not enter measured kernel time). */
+  if (g)
+    graph_ensure_owned_storage(g);
+  uint64_t start_ns = mutation_now_ns();
   if (!g) {
     autograph_profile_record_kernel_ns(1, mutation_now_ns() - start_ns);
     return;
   }
-  graph_ensure_owned_storage(g);
   autograph_update_csr_pointers(graph_ptr, g->row_ptr, g->col_idx);
 
   int32_t layout_before = autograph_get_layout(graph_ptr);
@@ -167,14 +231,17 @@ void graph_add_node(void *graph_ptr, void *nodes_bmp, void *edge_pairs,
 
 void graph_remove_node(void *graph_ptr, void *nodes_bmp, void *edge_pairs,
                        int32_t node_id) {
-  uint64_t start_ns = mutation_now_ns();
   (void)nodes_bmp;
   Graph *g = (Graph *)graph_ptr;
+  /* One-time ownership transfer runs BEFORE the kernel timer (load-time
+   * setup, not kernel physics — must not enter measured kernel time). */
+  if (g)
+    graph_ensure_owned_storage(g);
+  uint64_t start_ns = mutation_now_ns();
   if (!g) {
     autograph_profile_record_kernel_ns(1, mutation_now_ns() - start_ns);
     return;
   }
-  graph_ensure_owned_storage(g);
   autograph_update_csr_pointers(graph_ptr, g->row_ptr, g->col_idx);
 
   int32_t layout_before = autograph_get_layout(graph_ptr);
@@ -191,25 +258,30 @@ void graph_remove_node(void *graph_ptr, void *nodes_bmp, void *edge_pairs,
 
 void graph_add_edge(void *graph_ptr, void *edges_bmp, int32_t from, int32_t to,
                     int32_t edge_id) {
-  uint64_t start_ns = mutation_now_ns();
   (void)edge_id;
   (void)edges_bmp;
   Graph *g = (Graph *)graph_ptr;
+
+  /* Layout must be read before ensure_owned: after a convert-to-SET the Graph
+   * CSR pointers can be stale, and memcpy in ensure_owned would SIGSEGV. */
+  int32_t layout = g ? autograph_get_layout(graph_ptr) : LAYOUT_SET;
+  /* One-time ownership transfer (graph_ensure_owned_storage copies the
+   * mmap'd canonical edge-pair backing) runs BEFORE the kernel timer —
+   * load-time setup, not insert physics; it must not enter measured
+   * kernel time. */
+  if (g)
+    graph_ensure_owned_storage(g);
+  uint64_t start_ns = mutation_now_ns();
   if (!g) {
     autograph_profile_record_kernel_ns(1, mutation_now_ns() - start_ns);
     return;
   }
 
-  /* Layout must be read before ensure_owned: after a convert-to-SET the Graph
-   * CSR pointers can be stale, and memcpy in ensure_owned would SIGSEGV. */
-  int32_t layout = autograph_get_layout(graph_ptr);
   if (layout == LAYOUT_SET) {
     autograph_canonical_add_edge(graph_ptr, from, to);
     autograph_profile_record_kernel_ns(1, mutation_now_ns() - start_ns);
     return;
   }
-
-  graph_ensure_owned_storage(g);
   autograph_update_csr_pointers(graph_ptr, g->row_ptr, g->col_idx);
 
   int in_bounds = (from >= 0 && (int64_t)from < g->n && to >= 0 && (int64_t)to < g->n);
@@ -279,15 +351,18 @@ void graph_add_edge(void *graph_ptr, void *edges_bmp, int32_t from, int32_t to,
 
 void graph_remove_edge(void *graph_ptr, void *edges_bmp, int32_t from,
                        int32_t to, int32_t edge_id) {
-  uint64_t start_ns = mutation_now_ns();
   (void)edge_id;
   (void)edges_bmp;
   Graph *g = (Graph *)graph_ptr;
+  /* One-time ownership transfer runs BEFORE the kernel timer (load-time
+   * setup, not kernel physics — must not enter measured kernel time). */
+  if (g)
+    graph_ensure_owned_storage(g);
+  uint64_t start_ns = mutation_now_ns();
   if (!g) {
     autograph_profile_record_kernel_ns(1, mutation_now_ns() - start_ns);
     return;
   }
-  graph_ensure_owned_storage(g);
   autograph_update_csr_pointers(graph_ptr, g->row_ptr, g->col_idx);
 
   int32_t layout = autograph_get_layout(graph_ptr);

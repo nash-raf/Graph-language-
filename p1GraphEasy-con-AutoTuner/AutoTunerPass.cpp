@@ -213,6 +213,10 @@ namespace
     // byte volume, so the rates are indistinguishable within noise.  Baked
     // as frozen-rmw x median ratio.
     double csrMoveRate[3] = {1.6756, 3.2460, 8.4735};
+    // SET neighbor-iterator per-pair rate (ns/pair, class_calib.c
+    // "set_iter"): the roaring_bitmap_contains probe + 2 int32 compares +
+    // branch while sweeping the pair table, at each table residency.
+    double setIterRate[3] = {3.1999, 4.1621, 6.4436};
   };
 
   // Log-linear ramp multiplier between lo (penalty 1.0) and hi (penalty P).
@@ -487,6 +491,7 @@ namespace
     parseRateArray("\"rand\"", hw.randRate);
     parseRateArray("\"dep\"", hw.depRate);
     parseRateArray("\"csr_move\"", hw.csrMoveRate);
+    parseRateArray("\"set_iter\"", hw.setIterRate);
     return hw;
   }
 
@@ -648,12 +653,28 @@ namespace
       break;
     case LAYOUT_SET:
     {
-      // Per vertex: scan ALL m edge_pairs (16 bytes each) + per-pair compute.
-      // Inner loop: roaring_bitmap_contains + int32 compare + branch.
-      // The contains check is NOT free — it's a full function call with binary
-      // search (~log(#containers) comps).  Approximate as t/6 ≈ 5.5ns/pair.
-      bUseful = 8.0 * m;
-      return n * (std::ceil(bUseful / L) * T);
+      // Per vertex, the neighbor iterator sweeps the whole static pair
+      // table (m pairs x 8 B = 8m bytes) with a per-pair contains probe
+      // (roaring_bitmap_contains: container binary search + bit test) +
+      // 2 int32 compares + branch.  Derived reuse distance of a swept
+      // line = the table itself (re-touched once per vertex sweep) =
+      // 8m/64 = m/8 lines, so h2/h3 come from the L2/L3 thresholds:
+      //   per-pair compute at setIterRate (ns/pair, calibrated class)
+      //   table sweep at the seq rate (read-only stream, calibrated)
+      // both tier-weighted exactly like the insert terms.
+      constexpr double kL2Lines = 20480.0;   // 1.25 MiB / 64 B
+      constexpr double kL3Lines = 196608.0;  // 12 MiB / 64 B
+      const double tblLines = 8.0 * m / L;
+      const double h2 = (tblLines > 0.0) ? std::min(1.0, kL2Lines / tblLines)
+                                         : 1.0;
+      const double h3 = (tblLines > 0.0) ? std::min(1.0, kL3Lines / tblLines)
+                                         : 1.0;
+      auto wrate = [&](const double r[3]) {
+        return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2];
+      };
+      const double perPair = wrate(hw.setIterRate);
+      const double sweep = wrate(hw.seqRate);
+      return n * (2.0 * t + m * perPair + std::ceil(8.0 * m / L) * sweep);
     }
     default:
       return kInf;
@@ -725,7 +746,12 @@ namespace
         const double cMove =
             std::ceil(moveBytes / L) *
             weightedRate(csrClassTiers[4], csrClassTiers[5], hw.rmwRate);
-        const double cRealloc = R + std::ceil(4.0 * m / L) * T;
+        // cRealloc = 0: the kernel's realloc(col_idx, +1 int32) grows the
+        // array in place and never relocates (proven in-situ: reloc_cnt == 0
+        // at 10 MB and 25 MB col_idx sizes), and it grows by 1 int32 per
+        // add — no capacity doubling, so the old R + ⌈4m/L⌉·T charged a
+        // phantom page-remap + growth-write cost on every add.
+        const double cRealloc = 0.0;
         return cLocate + cWrite + cMove + cRealloc;
       }
       // Class-tier diagnostics: the experimental class × residency rate
@@ -806,12 +832,12 @@ namespace
         const double cMove =
             std::ceil(moveBytes / L) *
             weightedRate(classTiers[4], classTiers[5], hw.rmwRate);
-        const double cRealloc =
-            std::min(std::ceil(16.0 * m / L) *
-                         weightedRate(classTiers[10], classTiers[11],
-                                      hw.randRate),
-                     R) *
-            kDirs;
+        // cRealloc = 0: the kernel's realloc(bcol, +2 int32) grows the array
+        // in place and never relocates (proven in-situ: reloc_cnt == 0 at
+        // both 834 KB and 20 MB bcol sizes), so there is no full-array copy
+        // traffic.  The old min(⌈16m/L⌉·wrate(struct), R)·2 charged the
+        // page-remap cap per add for a migration that never happens.
+        const double cRealloc = 0.0;
         return cLocate + cWrite + cMove + cRealloc;
       }
       // Class-tier diagnostics: the experimental class × residency rate

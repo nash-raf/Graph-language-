@@ -20,6 +20,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdint.h>
+#include "roaring_bitmap.h"
 
 static double now_ns(void) {
     struct timespec ts;
@@ -163,11 +164,49 @@ static double rand_per_line(long bytes, int passes) {
     return (t1 - t0) / (double)N / (double)passes;
 }
 
+/* SET neighbor-iterator inner loop (autotuner_runtime.c, LAYOUT_SET):
+ * per pair e the iterator calls the REAL roaring_bitmap_contains (container
+ * binary search + within-container lookup) + 2 int32 compares + branch,
+ * while the pair table (8 B/pair) is swept.  Reports ns/PAIR at each table
+ * residency (the table sweep itself is the traffic term, priced by the seq
+ * class at wrate_sweep). */
+static double set_iter_per_pair(long ws, long line, int passes) {
+    long P = ws / 8;
+    if (P < 8) P = 8;
+    int32_t *pairs = (int32_t *)malloc((size_t)P * 8);
+    if (!pairs) return 0.0;
+    for (long i = 0; i < P; i++) {
+        pairs[2*i]   = (int32_t)((i * 2654435761u) % 4093);
+        pairs[2*i+1] = (int32_t)((i * 40503u) % 4093);
+    }
+    /* live-edge bitmap over the pair indices (~1/3 live, like the real
+     * edges_bitmap); the container region is part of the working set. */
+    RoaringBitmap *eb = roaring_bitmap_create(128 * 1024,
+        (int)((P + 65535) / 65536) + 1);
+    for (long i = 0; i < P; i += 3)
+        roaring_bitmap_add(eb, (uint32_t)i);
+    volatile int32_t sink = 0;
+    int32_t target = -1; /* never matches: every pair is "not this vertex" */
+    (void)line;
+    double t0 = now_ns();
+    for (int p = 0; p < passes; p++) {
+        for (long e = 0; e < P; e++) {
+            sink += roaring_bitmap_contains(eb, (uint32_t)e);
+            if (pairs[2*e] == target || pairs[2*e+1] == target)
+                sink++;
+        }
+    }
+    double t1 = now_ns();
+    free(pairs);
+    roaring_bitmap_free(eb);
+    return (t1 - t0) / ((double)P * (double)passes);   /* ns/pair */
+}
+
 #define MAX_PTS 40
 
 static long g_ws[MAX_PTS];
 static double g_seq[MAX_PTS], g_rmw[MAX_PTS], g_rand[MAX_PTS];
-static double g_dep[MAX_PTS], g_csrmove[MAX_PTS];
+static double g_dep[MAX_PTS], g_csrmove[MAX_PTS], g_setiter[MAX_PTS];
 static int g_n = 0;
 
 /* Log-spaced sweep from L2/8 up to 8*LLC. */
@@ -187,6 +226,7 @@ static void sweep(long l2, long llc, long line) {
         g_rand[g_n] = rand_per_line(ws, 8);
         g_dep[g_n]  = dep_per_line(ws, line, passes);
         g_csrmove[g_n] = csr_move_per_line(ws, line, passes);
+        g_setiter[g_n] = set_iter_per_pair(ws, line, passes);
         g_n++;
     }
 }
@@ -232,25 +272,25 @@ int main(void) {
     sweep(l2, llc, line);
 
     printf("{\n  \"l2_bytes\": %ld,\n  \"llc_bytes\": %ld,\n  \"levels\": {\n", l2, llc);
-    const char *names[5] = {"seq", "rmw", "rand", "dep", "csr_move"};
-    const double *arrs[5] = {g_seq, g_rmw, g_rand, g_dep, g_csrmove};
-    for (int c = 0; c < 5; c++) {
+    const char *names[6] = {"seq", "rmw", "rand", "dep", "csr_move", "set_iter"};
+    const double *arrs[6] = {g_seq, g_rmw, g_rand, g_dep, g_csrmove, g_setiter};
+    for (int c = 0; c < 6; c++) {
         printf("    \"%s\": {\"L2\": %.4f, \"L3\": %.4f, \"DRAM\": %.4f}%s\n",
                names[c],
                tier_rate(l2, llc, 0, arrs[c]),
                tier_rate(l2, llc, 1, arrs[c]),
                tier_rate(l2, llc, 2, arrs[c]),
-               c < 4 ? "," : "");
+               c < 5 ? "," : "");
     }
     printf("  },\n  \"curves\": {\n");
-    for (int c = 0; c < 5; c++) {
+    for (int c = 0; c < 6; c++) {
         printf("    \"%s\": [", names[c]);
         for (int i = 0; i < g_n; i++) {
             printf("%s{\"ws\": %ld, \"ns_per_line\": %.4f, \"tier\": \"%s\"}",
                    i ? ", " : "", g_ws[i], arrs[c][i],
                    tier_of(l2, llc, g_ws[i]));
         }
-        printf("]%s\n", c < 4 ? "," : "");
+        printf("]%s\n", c < 5 ? "," : "");
     }
     printf("  }\n}\n");
     return 0;

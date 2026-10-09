@@ -225,6 +225,7 @@ def class_rates_model():
         return _CLASS_RATES
     _DEP = (1.6220, 2.1931, 8.6007)
     _CSR_MOVE = (1.6756, 3.2460, 8.4735)
+    _SET_ITER = (3.1999, 4.1621, 6.4436)   # ns/pair, measured (class_calib.c "set_iter": real roaring_bitmap_contains, fully-live bitmap, locked state)
     cr = _hw.get("class_rates")
     if cr:
         _CLASS_RATES = {
@@ -232,6 +233,7 @@ def class_rates_model():
             "brow": tuple(cr["rmw"]), "struct": tuple(cr["rand"]),
             "dep": tuple(cr.get("dep", _DEP)),
             "csr_move": tuple(cr.get("csr_move", _CSR_MOVE)),
+            "set_iter": tuple(cr.get("set_iter", _SET_ITER)),
         }
         return _CLASS_RATES
     try:
@@ -248,6 +250,9 @@ def class_rates_model():
             "csr_move": (lev.get("csr_move", {}).get("L2", _CSR_MOVE[0]),
                          lev.get("csr_move", {}).get("L3", _CSR_MOVE[1]),
                          lev.get("csr_move", {}).get("DRAM", _CSR_MOVE[2])),
+            "set_iter": (lev.get("set_iter", {}).get("L2", _SET_ITER[0]),
+                         lev.get("set_iter", {}).get("L3", _SET_ITER[1]),
+                         lev.get("set_iter", {}).get("DRAM", _SET_ITER[2])),
         }
     except Exception:
         _CLASS_RATES = {
@@ -257,6 +262,7 @@ def class_rates_model():
             "struct": (7.5485, 16.1414, 118.0597),
             "dep": _DEP,
             "csr_move": _CSR_MOVE,
+            "set_iter": _SET_ITER,
         }
     return _CLASS_RATES
 
@@ -603,7 +609,12 @@ def insert_cost_csr_hybrid(n, m, csr_frac, csr_tiers):
         cf, _ = _shift_fracs_for_n_m(n, m)
         move_bytes = move_bytes * max(cf, 0.0)
     cMove = math.ceil(move_bytes / L) * wrate("move")
-    cRealloc = R + math.ceil(4.0 * m / L) * T
+    # cRealloc = 0: the kernel's realloc(col_idx, +1 int32) grows the array
+    # in place and never relocates (proven in-situ: reloc_cnt == 0 at 10 MB
+    # and 25 MB col_idx sizes), and it grows by 1 int32 per add — there is
+    # no capacity doubling, so the old R + ⌈4m/L⌉·T charged a phantom
+    # page-remap + growth-write cost on every add.
+    cRealloc = 0.0
     return cLocate + cWrite + cMove + cRealloc
 
 
@@ -702,7 +713,13 @@ def insert_cost_bcsr_hybrid(n, m, bcsr_frac, bcsr_tiers):
     """Hybrid BCSR insert cost (per undirected add): legacy structural terms
     with the memory-penalty terms charged at the class-tier weighted
     per-line rates (move at rmw, struct at rand).  Mirror of the C++ pass's
-    CacheModel::Hybrid branch."""
+    CacheModel::Hybrid branch.
+
+    cRealloc is ZERO: the kernel's realloc(bcol, +2 int32) grows the array
+    in place and never relocates (proven in-situ: reloc_cnt == 0 at both
+    834 KB and 20 MB bcol sizes), so there is no full-array copy traffic.
+    The old min(⌈16m/L⌉·wrate(struct), R)·2 charged the page-remap cap
+    per add for a migration that never happens."""
     rates = class_rates_model()
 
     def wrate(cls):
@@ -721,7 +738,7 @@ def insert_cost_bcsr_hybrid(n, m, bcsr_frac, bcsr_tiers):
         bf = bcsr_frac
     move_bytes = dirs * 8.0 * max(bf, 0.0) * m
     cMove = math.ceil(move_bytes / L) * wrate("move")
-    cRealloc = min(math.ceil(16.0 * m / L) * wrate("struct"), R) * dirs
+    cRealloc = 0.0
     return cLocate + cWrite + cMove + cRealloc
 
 def insert_setup_cost_set(m):
@@ -781,8 +798,29 @@ def traverse_cost_bcsr(n, m):
     return n * (2.0 * t + math.ceil(bU / L) * T)
 
 def traverse_cost_set(n, m):
-    bU = 8 * m
-    return n * ( math.ceil(bU / L) * T)
+    """SET traversal: per vertex the neighbor iterator sweeps the whole
+    static pair table (m pairs x 8 B = 8m bytes) with a per-pair
+    roaring_bitmap_contains probe + 2 int32 compares + branch.  Both the
+    per-pair compute and the table sweep are priced by the derived reuse
+    distance of a swept line — the table itself, RD = 8m/64 = m/8 lines —
+    giving h2/h3 from the L2/L3 thresholds, at the calibrated per-tier
+    rates (set_iter ns/pair for the compute, seq ns/line for the sweep).
+    Mirrors traversalCost(LAYOUT_SET) in AutoTunerPass.cpp."""
+    tbl_lines = 8.0 * m / L
+    if tbl_lines <= 0.0:
+        return 0.0
+    l2_lines = L2_BYTES / L
+    l3_lines = LLC / L
+    h2 = min(1.0, l2_lines / tbl_lines)
+    h3 = min(1.0, l3_lines / tbl_lines)
+    rates = class_rates_model()
+
+    def wrate(r):
+        return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2]
+
+    per_pair = wrate(rates["set_iter"])
+    sweep = wrate(rates["scan"])
+    return n * (2.0 * t + m * per_pair + math.ceil(8.0 * m / L) * sweep)
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────

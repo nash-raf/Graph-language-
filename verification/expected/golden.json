@@ -1,0 +1,12 @@
+{
+  "bfs_level_checksum": 75722,
+  "bfs_reached": 20000,
+  "cc_components": 1,
+  "cc_label_checksum": 0,
+  "kcore5_size": 19995,
+  "pagerank_r0": 5.792550846249321e-05,
+  "pagerank_r1": 8.421942101246602e-05,
+  "pagerank_total": 0.9999999999999999,
+  "sssp_dist_checksum": 1182819,
+  "sssp_reachable": 20000
+}

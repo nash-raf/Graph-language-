@@ -4,7 +4,7 @@
 // vertex, `autotuner_runtime.c` CC_PART_OF) cannot express an owner for it.
 // The nest must stay SEQUENTIAL, and the answer must match the serial build.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt";
+  edges: file "../verify/fixtures/tiny.txt";
 };
 
 int n = numVertices(G);

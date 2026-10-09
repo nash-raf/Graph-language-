@@ -6043,9 +6043,18 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
 
     /* Device engine step: emitted before the first round so the runtime can
      * run the step on the device instead of the CPU partitions. */
-    emitGpuEngineStep(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"), StepId);
-    emitGpuEngineStepV(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"),
+    Function *Ksr = emitGpuEngineStep(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"), StepId);
+    Function *Kv = emitGpuEngineStepV(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"),
                        StepId, IsSimple, IsV);
+    if (getenv("SGPL_GPU_EMIT_DEBUG"))
+        errs() << "[gpu-emit] step " << StepId << " tag=" << (WF ? WF->getName() : StringRef("nosg"))
+               << " IsV=" << (int)IsV << " IsSimple=" << (int)IsSimple
+               << " IsRed=" << (int)IsRed << " IsSourceRed=" << (int)IsSourceRed
+               << " IsPriv=" << (int)IsPriv
+               << " app=" << (int)Info.HasFrontierAppend << " fw=" << (int)Info.HasFirstWins
+               << " rs=" << (int)!Info.RoundSepBases.empty()
+               << " pl=" << (int)Info.UsePrivLayout << " rp=" << (int)(Info.ReducePtr != nullptr)
+               << " -> src=" << (Ksr ? "y" : "n") << " v=" << (Kv ? "y" : "n") << "\n";
 
 
     FunctionCallee Exec = Mod->getOrInsertFunction(

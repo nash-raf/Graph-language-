@@ -4,7 +4,7 @@
 // (L(P) + c_ns*N/P).  Body and shape are doall_scaling's (a `for each vertex`
 // loop, which the outliner versions and the cost model sees).
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 real a[n];

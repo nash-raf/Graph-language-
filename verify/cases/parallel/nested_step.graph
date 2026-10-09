@@ -7,7 +7,7 @@
 // calibrates over a bounded number of single-thread passes, then gets a
 // single-site level whose plan sets its dispatch width.  The answer must be
 // identical at 1 and 4 threads (checksum 200 on fixtures/tiny5.txt).
-graph G { directed: true; edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny5.txt"; };
+graph G { directed: true; edges: file "../verify/fixtures/tiny5.txt"; };
 
 int arr[16];
 int k = 0;

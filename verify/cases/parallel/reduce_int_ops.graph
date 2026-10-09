@@ -11,7 +11,7 @@
 // The graph convention is the undirected one the reference model uses: every
 // edge contributes both (u,v) and (v,u).
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 
 int n = numVertices(G);

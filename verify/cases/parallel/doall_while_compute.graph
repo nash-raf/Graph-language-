@@ -5,7 +5,7 @@
 // (numVertices(G) + pad) so the constant-trip-count pre-veto does not apply;
 // sweep the work by sed'ing pad.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int pad = 0;
 int n = numVertices(G) + pad;

@@ -1,6 +1,6 @@
 graph G {
     directed: true;
-    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/mutual5.txt";
+    edges: file "../verify/fixtures/mutual5.txt";
 };
 int n = numVertices(G);
 int mdeg[n];

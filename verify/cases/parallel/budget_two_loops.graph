@@ -4,7 +4,7 @@
 // uniform.  Both bodies carry a division chain, so neither is vectorized away --
 // both stay cost-model sites -- and the round loop repeats them for calibration.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 real a[n];

@@ -3378,6 +3378,8 @@ static void sgpl_gpu_step_refuse(int32_t step_id, const char *why) {
   fprintf(stderr, "[gpu] step %d kept on the CPU: %s\n", (int)step_id, why);
 }
 
+static int sgpl_gpu_step_try_device(sgpl_exec_ctx *ctx, AutoGraphMeta *meta);
+
 static int sgpl_gpu_step_try_device_v(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   const char *name;
   const uint8_t *claimed = NULL;
@@ -3391,8 +3393,14 @@ static int sgpl_gpu_step_try_device_v(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
     return 0;
   }
   if (strncmp(name, "gpu_step_v_", 11) != 0) {
-    sgpl_gpu_step_refuse(ctx->step_id, "registered kernel is not an activation kernel");
-    return 0;
+    /* The compiler registered the source-owned kernel for this step: its shape
+     * does not need the activation envelope (no frontier append), so the
+     * compile-time decision is authoritative -- run it on the source-owned
+     * device path instead of refusing the step outright. */
+    if (getenv("SGPL_GPU_DEBUG"))
+      fprintf(stderr, "[gpu] step %d: kernel %s is source-owned; routed to the source-owned device path\n",
+              (int)ctx->step_id, name);
+    return sgpl_gpu_step_try_device(ctx, meta);
   }
   if (!ctx->dest_seen || !ctx->next_frontier || !ctx->append_head) {
     sgpl_gpu_step_refuse(ctx->step_id, "destination envelope not wired (dest_seen/next_frontier/append_head)");

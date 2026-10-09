@@ -5,7 +5,7 @@
 // the engine.  With it: 1.11s, engine misses.  Without: 0.17s, engine hits.
 // Bellman-Ford style SSSP -- identical algorithm to sssp.graph, array frontier.
 graph G {
-  edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k_w.txt";
+  edges: file "../verify/fixtures/g20k_w.txt";
   TRUE
 };
 

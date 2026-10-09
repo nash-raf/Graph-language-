@@ -12,7 +12,7 @@
 // acc = number of traversed arcs = 160000.
 graph G {
     directed: true;
-    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+    edges: file "../verify/fixtures/g20k.txt";
 };
 
 int n = numVertices(G);

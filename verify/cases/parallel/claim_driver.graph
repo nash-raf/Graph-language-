@@ -10,7 +10,7 @@
 // once-per-source visit.  The answer is checked against the serial semantics:
 // only u in {0,1} claim, so only their arcs count.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt";
+  edges: file "../verify/fixtures/tiny.txt";
 };
 
 int n = numVertices(G);

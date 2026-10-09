@@ -8,7 +8,7 @@
 // independent Python computation, and 1-thread == 4-thread bit-for-bit (the
 // partition count is fixed by the tuner, so an ordered combine is exact).
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 
 int n = numVertices(G);

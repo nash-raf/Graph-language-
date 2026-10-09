@@ -1,176 +1,202 @@
-# The effect system on the GPU — how the port works
+# Effect system on the GPU — realization report
 
-p1GraphEasy-con-AutoTuner · technical report · 2026-10-04
-
----
-
-## 0. Scope and one-paragraph summary
-
-This report explains **what the effect system is**, **what a verdict licenses**, and **how
-those verdicts are realized on the GPU** in p1 — the code that does it, and the exact flow of
-a round from the compiler's decision to a device launch and back.  It closes with what was
-verified, what is deliberately still on the CPU, and why.
-
-The short version: the effect system stays a *compile-time decision layer* and its verdicts are
-**unchanged** for the device; what we built is a second set of *executors* that honor the same
-guarantees.  A device kernel exists only for a shape whose declared facts the device realization
-can honor, and every other shape falls back to the CPU partitions.  The verified property is
-**bit-identical results** between the CPU and device executions of the same program.
+How the same certificate that governs the CPU path is *mirrored* on the device:
+what is emitted, what admits it at run time, how the two axes appear on a GPU, and
+what deliberately stays on the CPU. Theory first, then the code for exactly that
+theory. Code blocks are verbatim from the tree (trimmed with `…`); the few
+pseudocode blocks are labelled. Compiler: `graph_frontier_lowering.cpp`; gates:
+`autotuner_runtime.c`; driver runtime: `gpu_runtime.c`; device module assembly:
+`parallel_loop_outline.cpp`; driver: `main.cpp`.
 
 ---
 
-## Part I — Theory
+## 1. Theory
 
-### 1.1 What the effect system is
+The device is not a second semantics. It is **one realization of the same
+certificate**, and three rules make that true:
 
-For every loop the compiler asks two questions: *may this run concurrently?* and *what shape does
-that concurrency have?*  It answers from **effect facts about memory**, never from the loop's name
-or its text.  An *effect* summarizes one operation's interaction with a *resource*:
+1. **The mirror is admitted by the certificate, never by a heuristic.** The
+   compiler emits a device kernel only for shapes whose witness set is clear on
+   the axis the kernel implements; the runtime re-checks the same facts before
+   launching and falls back to the CPU partitions on any mismatch. Nothing runs
+   on the device because it looked cheap.
+2. **The work list is the same list.** The kernel walks exactly the CleanCut
+   slices / destination rows the CPU partitions walk (`src_pairs` resp.
+   `push_rp·ci·indir`), and the owner-computes assignment is the no-conflict
+   guarantee on both sides: one pair per thread, no two threads own the same slot.
+3. **The irreversible facts are reproduced by the host.** The device may *mark* a
+   claim transition (`claimed[v] = 1`, idempotent) but must not own the frontier:
+   the runtime replays exactly the transitions it marked (append + `dest_seen` +
+   one `fetch_add` on the head). The round envelope and the combine stay on the
+   host.
 
-| component | meaning | examples in p1 |
-|---|---|---|
-| resource | the thing touched | a vertex-indexed array, the frontier membership, the destination set, the append buffer, a partial slot, a private copy |
-| access mode | how it is touched | read, write, atomic write, private |
-| index space | what it is keyed by | the pair's source `u`, the pair's destination `v`, the loop iteration |
-| temporal label | when the value comes from | same round, previous round |
+**Two shapes qualify today**, both from the certificate's own vocabulary:
+destination-owned **activation** (`gpu_step_v_*`: claim + frontier append, one
+pair body, no phase ops, no partial/private) and source-owned **full-domain**
+(`gpu_step_*`: no membership restriction, no combine, no source lifecycle).
+Everything else refuses with a *named reason* and runs on the CPU.
 
-The temporal label is the part that is easy to forget and hard to fake.  `SameRoundRead` means "I
-read a value another iteration may be writing in this same round"; `PreviousRoundRead` means "I
-read the value as of the round boundary".  A *round-separated* base is one that must be frozen
-before the round begins.
+**Axes on the device.** *Spatial* = the grid/block decomposition of the walk plus
+the **resident-block budget** — the CPU ledger's `max(1, W/A)` share mapped onto
+grid sizing. *Temporal* = **launch order on one stream**, while the round
+sequence itself stays host-driven: the device step never knows about rounds.
 
-### 1.2 The algebra, and the vocabulary it produces
+What a verdict *licenses* (the guarantees an executor must preserve): single
+writer per key; first-wins exactness; round-stable reads; associative-only folds
+in the fixed order ("associativity is the law; permutation invariance is never
+assumed"); deterministic composition. A device path that cannot honour all five
+for a shape refuses — that is the whole fail-closed story.
 
-Per-iteration effects are combined into a loop-level verdict by rules over those facts:
-
-* conflicting writes on the same key with no ordering → **dependence**; if regular, the extraction
-  also yields a **distance `d`** (a *Carried* recurrence);
-* a previous-round read next to a same-round write → admissible only with **round separation**
-  (a snapshot);
-* a guarded write whose loser must not proceed → a **Claim**, admissible when the key has a single
-  owner (first-wins);
-* a fold with an associative operator → **reduction**, realized over partial slots plus a combine;
-* anything that cannot be discharged → **refusal, with a named reason**.
-
-The output vocabulary is small and explicit:
-
-```
-Independent                      -- all iterations commute
-Carried doacross_dist = d        -- ordered recurrence with distance d
-Activation (Claim + Append)      -- first-wins on a keyed object, plus a frontier append
-Reduction / Privatised           -- fold over slots / per-unit copies
-<refusal with a reason>          -- e.g. "same-round read without a snapshot"
-```
-
-### 1.3 What a verdict licenses (the guarantees an executor must preserve)
-
-A verdict is not a scheduling suggestion; it is a *licence to execute concurrently*, valid only if
-the executor preserves the guarantees the verdict was proved from:
-
-1. **Single writer per key** — for an owner-computes decomposition, each key's writer is unique.
-2. **First-wins claims** — where a `Claim` resource exists, exactly one writer may win the
-   transition; the lost writers must not proceed.
-3. **Round-stable reads** — every `SameRoundRead` must observe the round-boundary value.
-4. **Associative-only folds** — reductions may be re-associated but **not** permuted arbitrarily:
-   the CPU folds partition partials in ascending partition order, and that order is part of the
-   contract ("associativity is the law; permutation invariance is never assumed").
-5. **Deterministic composition** — the observable result must not depend on scheduling.
-
-### 1.4 The CPU executor these guarantees were written against
-
-The CPU realization in p1 is a **CleanCut** engine (the name and the partitioning idea come from
-Graptor, ICS 2020: *"a graph partitioning approach that rules out inter-thread race conditions"*):
-
-* the graph is partitioned by the **owner** of the write — sources for source-owned shapes
-  (`OWNER_U`), destinations for destination-owned shapes (`OWNER_V`);
-* one **worker per partition**, and inside a worker the rows/sources are walked **sequentially**;
-* `source_begin` / `source_end` lifecycle callbacks run around each source's pairs (`OWNER_U`) or
-  as coverage passes (`OWNER_V`);
-* the frontier append is an **atomic ticket** and the claim an **atomic CAS**
-  (`autograph_frontier_activate`), because the append buffer and the claim set are shared across
-  partitions;
-* `SameRoundRead` is served by a published **snapshot** (the shadow array), refreshed once per
-  round before any traversal.
-
-Because ownership is per key and the owner works serially, guarantee (1) holds by construction and
-(2) holds *by schedule* — the CAS is a belt-and-braces second check, not the primary reason.
-
-### 1.5 What is genuinely different on a GPU
-
-The GPU does not invalidate the guarantees; it changes which mechanisms can provide them:
-
-| machine property | consequence for the port |
-|---|---|
-| SIMT execution: a warp advances only when all its lanes agree | irregular work (degree skew, hub vertices) causes divergence and load imbalance; a *work assignment* designed for it is needed |
-| no shared host memory: arguments, state and results must be copied | per-round copies are a real cost; they dominate below a few hundred thousand arcs |
-| blocks cannot synchronize with each other without a **cooperative grid sync** | an ordered recurrence cannot be "pinned to a worker" as on the CPU; it becomes a bulk-synchronous **wave** kernel |
-| thousands of threads, no persistent identity | "one worker per partition, walked in order" becomes "one thread per owned row/source, walked in order" — the same *ownership*, a much finer *unit* |
-| atomics are available but contended; **idempotent writes are free** | first-wins can be realized by ownership + idempotent same-value writes instead of a CAS |
-| launches are coarse, and each launch is a barrier | rounds become launches; a device-resident loop is the way to avoid that (not yet done) |
-| a cost model is needed because offload can lose | the device path is gated by a **pure policy** with measured thresholds |
-
-### 1.6 The design principle adopted
-
-**Verdicts identical, mechanisms analogous, and eligibility derived from facts.**
-
-* The device executor consumes the *same* effect verdicts; no GPU-specific verdict exists.
-* The device *mechanism* for a verdict may differ from the CPU's (wave kernel vs ordered partition,
-  marks vs CAS+ticket, thread-per-row vs worker-per-partition) as long as the guarantee is
-  preserved.
-* Whether a step may run on the device is decided by **reading the step's own resource table** —
-  the masks a compiler emits next to each operation — never by matching a name or a shape string.
-* Anything not provably honorable on the device **falls back to the CPU** (fail-closed).  A wrong
-  answer must never be reachable by default; that is why the one kernel variant that misbehaved
-  (per-arc pull activation) was removed rather than left behind an environment variable.
-
----
-
-## Part II — Verdict → realization mapping
-
-| verdict / fact | CPU realization | GPU realization | how the guarantee is preserved |
+| verdict / fact | CPU realization | GPU realization | guarantee preserved by |
 |---|---|---|---|
-| `Independent` (a DOALL loop) | outlined parallel loop over a range, worker pool | **outlined kernel**, one thread per iteration, grid-strided | iteration space is disjoint by construction; verified 1thr == 4thr and across repeats |
-| `Carried doacross_dist = d` | static partitioning with the recurrence ordered inside a worker; `doacross.wait/post` metadata | **wave kernel**: all threads compute wave *k*, cooperative **grid sync**, wave *k+1*; `waves = ceil(trips/d)` | the synchronisation edge is explicit; verified against CPU, plus a classification assertion that the loop really is DOACROSS with wait/post metadata |
-| `Claim` on the destination set + frontier append (BFS activation) | destination-partitioned rows; first-wins by ownership and serial row order; CAS + atomic ticket in `autograph_frontier_activate` | **one thread per owned row**, arcs walked in order, frontier-membership gated; the append becomes a byte **mark** `claimed[v] = 1`; the host compacts the marks into the next frontier in ascending vertex order | single ownership per destination makes first-wins exact; concurrent claimers write the *same* value (round-homogeneous frontier), so the writes are idempotent; the mark is idempotent too — **no atomics anywhere in the module** |
-| source-owned step (kcore degree phase, PageRank sweeps) | source-owned flat slices, one worker per partition | **one thread per source**, its pair run walked sequentially | ownership is per source; per-pair parallelism would lose read-modify-write updates (measured: device sums collapsed to ~1/16 of the arcs), which is why the unit is the *source* |
-| `SameRoundRead` (snapshot) | `Snapshot(A)` op publishes a frozen buffer at round begin | the same buffer is **registered as a device pointee** under the name of the module global the body reads, materialized and re-uploaded **every launch** | the value read is the round-boundary value; re-upload is required because the buffer is refreshed per round (an upload-once cache was a real bug) |
-| reduction (`partial` slots + combine) | per-worker partials folded in ascending partition order | partials + combine kernel in the **outlined** path (ported & verified); **not** ported for engine steps | fold order contract honoured in the outlined path; engine-step case refuses |
-| privatised (`private` copies) | per-partition private copies | private copies in the outlined path (verified in cross-mode) | per-unit copies keep writes private |
-| fork/join of two concurrent children | two host threads with a join, shared round resources | **not ported** — the runtime has no device fork/join; children stay on the CPU | results unaffected; only the overlap is lost |
-| shapes needing staged per-source claim state | source lifecycle stages S[u][j]; pairs consume it | **not ported** — refused | requires device-side claim callbacks and a materialized state array |
-
-Measured device-vs-CPU ratios for the same work (forced device, gates off, median of 3):
-
-```
-DOALL (1k .. 1M trips)                0.74 .. 1.16   ~ break-even
-DOACROSS  waves <= 8192               0.09 .. 0.26   device loses badly
-DOACROSS  waves == 8192               1.13           the one clear win
-DOACROSS  waves == 16384              0.16           the cliff past the cap
-engine step (source-owned, 320k arcs) 0.41 .. 0.62   device loses (copies dominate)
-```
-
-That table *is* the cost model's justification: `min_trips = 4096`, `max_waves = 8192`,
-engine-step floor `2M arcs`.
+| `Independent` (DOALL) | outlined pool loop | outlined kernel, one thread/iteration, grid-strided | disjoint iteration space |
+| `Carried doacross_dist=d` | ordered recurrence in one worker | wave kernel + cooperative grid sync | explicit sync edge |
+| `Claim`(V)+append (activation) | destination rows, serial per row, CAS+ticket | one thread per owned row, membership gate, **byte mark**; host compacts marks ascending | single ownership ⇒ first-wins exact; marks idempotent (**no atomics in the module**) |
+| source-owned step | flat `src_pairs` slices, worker per partition | one thread per source, its pair run in order | read-modify-write exact only per source (per-arc device sums collapsed, measured) |
+| `SameRoundRead` (snapshot) | `Snapshot(A)` publishes a frozen buffer at round begin | same buffer registered as device **pointee**, re-uploaded every launch | value is the round-boundary value (upload-once was a real bug) |
+| reduction (partials + combine) | ascending-partition fold | outlined path only; **engine steps refuse** | fold order is a contract |
+| privatised copies | per-partition private copies | outlined path only | per-unit copies |
+| fork/join children | two host threads + join | **not ported** (no device fork/join) | results unaffected; overlap lost |
 
 ---
 
-## Part III — The code
+## 2. Compiler side: what is emitted, and for which shapes
 
-### 3.1 Where the decisions live
+### 2.1 The two emitters and their guards
 
-| file | what it does |
-|---|---|
-| `graph_frontier_lowering.cpp` | the effect algebra and all emission: `summarizeEffects` → `supportedByAlgebra` → `deriveExprFacts` → `emitExprInterp`; builds the op descriptors and the execution context; emits the resource tables; emits the device step kernels (`emitGpuEngineStep` for source-owned, `emitGpuEngineStepV` for destination-owned activation), their registration call, and the pointee registrations; publishes round snapshots (`emitRoundSepShadow`) |
-| `autotuner_runtime.c` | the CleanCut engine itself: `autograph_build_clean_cut` (partitions, slices, destination rows), `sgpl_exec_partition_body` (the CPU partition body), `sgpl_exec_step_dispatch` (the dispatch point), `autograph_frontier_activate` (CPU CAS + ticket), the snapshot publish implementation, and the **engine hook** where the device step is attempted |
-| `gpu_runtime.c` / `.h` | the driver-API runtime: `dlopen("libcuda.so.1")`, context, module load (`kernels.ptx` or the embedded payload), the pure cost policies (`sgpl_gpu_policy_verdict`, `sgpl_gpu_engine_step_verdict`), the **step registry keyed by step id**, the launchers (source-owned `gpup_step_try`, activation `gpup_step_v_try`), pointee materialization, and the claimed-mark read-back |
-| `parallel_loop_outline.cpp` | the **device module builder** `emitGpuKernels`: collects the kernel plus its callees and referenced globals, re-homes external declarations, defines the device side of `autograph_frontier_activate` (the mark writer) and the `sgpl_gpu_claimed` global, and emits PTX for `sm_70` |
-| `main.cpp` | backend selection (`auto|cpu|gpu`, `FORCE_GPU`/`FORCE_CPU`), the `kernels.ptx` output, and the eager device bring-up before any profiling run |
+`graph_frontier_lowering.cpp:5401-5412` — source-owned (`gpu_step_*`): free of
+round separation, claims, frontier append, reductions, accumulating
+source-reduction, and the 4-argument pair ABI:
 
-### 3.2 The facts are machine-readable
+```cpp
+static Function *emitGpuEngineStep(Function &F, Module *Mod, LLVMContext &Ctx,
+                                   IRBuilder<> &RegB, NeighborLoopInfo &Info,
+                                   Function *PairWF, StringRef Tag, int32_t StepId)
+{
+    if (!PairWF || !gpuBackendSelected(Mod))
+        return nullptr;
+    if (!Info.RoundSepBases.empty() || Info.HasFirstWins || Info.HasFrontierAppend)
+        return nullptr;
+    if (Info.ReducePtr || Info.AccConsumeStore)
+        return nullptr;
+    if (PairWF->arg_size() != 4)
+        return nullptr;
+```
 
-The verdict is not left implicit: each emitted operation carries a **resource table** of
-`{mask, access}` pairs, and the context carries the traversal kind and the domain kind.  This is
-what makes fact-based eligibility possible:
+`graph_frontier_lowering.cpp:5611-5620` — activation (`gpu_step_v_*`): V-shaped
+*and* simple, *and* the step must actually append; then the argument-use
+restriction that keeps the body device-resolvable:
+
+```cpp
+    if (!IsV || !IsSimple)
+        return nullptr; /* destination-owned, no reduction/private slot machinery */
+    if (!Info.HasFrontierAppend)
+        return nullptr; /* the activation envelope */
+    if (PairWF->arg_size() != 4)
+        return nullptr;
+    /* The body may not read its state slot and may touch the context only to
+     * activate: the device resolves that call to its own definition, so any
+     * other use of state/context (or any other callee) refuses. */
+```
+
+The pair body is the **same function** the CPU calls (`sgpl_pair_work`), cloned
+into the device module — arithmetic and guards identical by construction. The two
+kernel signatures:
+
+```
+gpu_step_<fn>_<pairfn>(i32* pairs, i64 npairs, i32* rows, i64 nrows, i64* begins, i8* env)
+gpu_step_v_<fn>_<pairfn>(i32* rowsrc, i64 nrows, i64* rowptr, i32* arcs, i8* mem, i8* env)
+```
+
+### 2.2 The kernel walk (flat 1-D over the same work list)
+
+Both emitters produce the same mapping — one thread per owned row,
+`ctaid.x`-major (`:5454-5461` source-owned, `:5682-5690` activation):
+
+```cpp
+    Value *Bx = KB.CreateZExt(gpuReadSreg(KB, "ctaid.x"), I64, "bx64");
+    Value *Tx = KB.CreateZExt(gpuReadSreg(KB, "tid.x"),  I64, "tx64");
+    Value *Bd = KB.CreateZExt(gpuReadSreg(KB, "ntid.x"), I64, "bd64");
+    Value *Lin = KB.CreateAdd(KB.CreateMul(Bx, Bd, "off"), Tx, "lin");
+    Value *InRange = KB.CreateICmpULT(Lin, NrowsA, "in.range");
+    KB.CreateCondBr(InRange, Body, Done);
+```
+
+Activation variant (`:5693-5700`) — source `u`, arc range, membership null-check
+queued before the gate:
+
+```cpp
+    Value *RowsP = BB.CreateBitCast(RowsSrcA, I32P, "rowsrc32");
+    Value *UPtr  = BB.CreateGEP(I32, RowsP, Lin, "row.ptr");
+    Value *U     = BB.CreateLoad(I32, UPtr, "u");
+    Value *PtrP  = BB.CreateBitCast(RowPtrA, I64P, "rowptr64");
+    Value *Begin = BB.CreateLoad(I64, BB.CreateGEP(I64, PtrP, Lin, "begin.ptr"), "begin");
+    Value *End   = BB.CreateLoad(I64, BB.CreateGEP(I64, PtrP,
+                       BB.CreateAdd(Lin, ConstantInt::get(I64, 1), "row1"), "end.ptr"), "end");
+    Value *MemNull = BB.CreateICmpEQ(MemA, ConstantPointerNull::get(cast<PointerType>(I8P)), "mem.null");
+    BB.CreateCondBr(MemNull, Check, Gate);
+```
+
+There is **no stride loop** in this mapping — a fact M3 must respect (§4).
+
+### 2.3 Registration, pointees, module
+
+`graph_frontier_lowering.cpp:5498-5505` — the registration call sits in the loop
+preheader (so it executes once per round) and every pointer global the body
+touches gets a pointee registration:
+
+```cpp
+    FunctionCallee RegisterStep = Mod->getOrInsertFunction(
+        "autograph_gpu_step_register",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, Type::getInt32Ty(Ctx)}, false));
+    Value *NameStr = gpuCString(Mod, KName, "gpu.step.name." + KName);
+    SmallVector<Value *, 3> StepArgs{NameStr, ConstantInt::get(Type::getInt32Ty(Ctx), StepId)};
+    RegB.CreateCall(RegisterStep, StepArgs);
+    emitGpuStepPointeeRegs(Mod, Ctx, PairWF);
+```
+
+The module is written at compile time (`main.cpp:1410`,
+`emitGpuKernels(*M, "kernels.ptx")`) and read at run time
+(`gpu_runtime.c:266-341`):
+
+```c
+static char *read_ptx_file(size_t *len_out) { FILE *fp = fopen("kernels.ptx", "rb"); … }
+…
+    CUresult r = p_cuModuleLoadDataEx(&mod, ptx, 0, NULL, NULL);
+    if (r != CUDA_SUCCESS || !mod) { … return NULL; }
+```
+
+Device module assembly (`parallel_loop_outline.cpp`): kernel + callees + the
+globals they reference are cloned; external callees are re-homed; the device
+defines its own activation primitive — the **mark**, no CAS, no ticket:
+
+```llvm
+@sgpl_gpu_claimed = external global i8*      ; patched by the runtime, per launch
+define i32 @autograph_frontier_activate(ptr %ctx, i32 %v) {
+  %base = load ptr, ptr @sgpl_gpu_claimed
+  %slot = getelementptr i8, ptr %base, i64 (sext i32 %v to i64)
+  store i8 1, ptr %slot                        ; idempotent mark
+  ret i32 1
+}
+```
+
+(`atom.` count in the emitted PTX = 0 — verified earlier by instruction count.)
+The activation runtime additionally requires that the claim global exists in the
+module before it launches (`gpu_runtime.c:337-341`):
+
+```c
+        if (p_cuModuleGetGlobal(&cg, &cgs, mod, "sgpl_gpu_claimed") != CUDA_SUCCESS ||
+            !cg || cgs < sizeof(CUdeviceptr)) {
+            if (getenv("SGPL_GPU_DEBUG"))
+                fprintf(stderr, "[gpu] activation step: module has no sgpl_gpu_claimed; CPU\n");
+            return 0;
+        }
+```
+
+### 2.4 Eligibility is read from the operation's own resource table
+
+Each emitted operation carries `{mask, access}` pairs, and the context carries
+traversal + domain kind — the gate reads these, never a loop name:
 
 ```c
 /* resource masks (autotuner_runtime.h) */
@@ -178,257 +204,333 @@ SGPL_RES_MEMBERSHIP   SGPL_RES_DEST_SEEN   SGPL_RES_NEXT_FRONTIER
 SGPL_RES_SNAPSHOT     SGPL_RES_PARTIAL     SGPL_RES_PRIVATE     SGPL_RES_CLAIM
 /* access modes */
 SGPL_ACCESS_READ = 0, WRITE = 1, ATOMIC_WRITE = 2, PRIVATE = 3
-/* traversal */
-SGPL_TRAVERSE_OWNER_U = 0   /* source-owned flat slices  (src_pairs)          */
-SGPL_TRAVERSE_OWNER_V = 1   /* destination-owned rows   (push_rp/ci/indir)   */
-/* domain */
+/* traversal / domain */
+SGPL_TRAVERSE_OWNER_U = 0, SGPL_TRAVERSE_OWNER_V = 1
 SGPL_DOMAIN_ALL_VERTICES = 0, SGPL_DOMAIN_FRONTIER = 1
 ```
 
-For example, a BFS activation op declares exactly
-`MEMBERSHIP:READ, DEST_SEEN:ATOMIC_WRITE, NEXT_FRONTIER:ATOMIC_WRITE, SNAPSHOT:READ, CLAIM:ATOMIC_WRITE`
-— the facts that say "destination-owned first-wins claim with a frontier gate, plus an append, plus
-a round-stable read".  The device gate reads that table; it never asks what the loop looks like.
+A BFS activation op declares exactly `MEMBERSHIP:READ, DEST_SEEN:ATOMIC_WRITE,
+NEXT_FRONTIER:ATOMIC_WRITE, SNAPSHOT:READ, CLAIM:ATOMIC_WRITE`.
 
-### 3.3 The device step: emission
+---
 
-Two kernel shapes are emitted by the frontier lowering, together with their registration:
+## 3. Runtime side: gates, then the mirror
 
-```
-/* source-owned step (U) -- one thread per source, its pair run in order */
-gpu_step_<fn>_<pairfn>(i32* pairs, i64 npairs, i32* rows, i64 nrows, i64* begins, i8* env)
+### 3.1 The dispatch point
 
-/* destination-owned activation step (V) -- one thread per owned row */
-gpu_step_v_<fn>_<pairfn>(i32* rowsrc, i64 nrows, i64* rowptr, i32* arcs, i8* mem, i8* env)
-```
+`sgpl_exec_step_dispatch` (`autotuner_runtime.c:3586-3650`) tries the device
+before any CPU work; everything after it — combine, coverage, `next_size`,
+round-end — is unchanged engine code:
 
-* The **pair body is the same function** the CPU calls (`sgpl_pair_work`), cloned into the device
-  module — so the arithmetic and the guards are identical by construction.
-* Emission also emits `autograph_gpu_step_register(<name>, <step id>)` into the program, and
-  `sgpl_gpu_register_pointee(<global name>, <base>, <bytes>)` for every pointer global the body
-  touches (the DSL arrays, the round shadow).
-* The body's call to `autograph_frontier_activate(ctx, v)` is left alone in the host module; the
-  device module *defines* its own version (below).  The eligibility check verifies that the body
-  uses its state/context arguments *only* for that call.
-
-### 3.4 The device step: module assembly
-
-`emitGpuKernels` builds a fresh module containing only what the kernels need:
-
-1. collect each kernel plus its callees and the globals they reference (`graph.gpu.kernels`
-   metadata lists the kernels; names containing `sgpl.` are host-only and skipped);
-2. **re-home external callees** — the pair body calls `autograph_frontier_activate`, which in the
-   host module is only a declaration (its CPU definition lives in the runtime object).  The device
-   module gets a declaration with the same signature, so the cloned IR is valid;
-3. **define the device activation primitive** and the claim map it writes:
-
-```llvm
-; emitted into the device module only
-@sgpl_gpu_claimed = external global i8*          ; patched by the runtime, per launch
-
-define i32 @autograph_frontier_activate(ptr %ctx, i32 %v) {
-  %base = load ptr, ptr @sgpl_gpu_claimed
-  %idx  = sext i32 %v to i64
-  %slot = getelementptr i8, ptr %base, i64 %idx
-  store i8 1, ptr %slot          ; no CAS, no ticket: the mark is idempotent
-  ret i32 1
-}
+```c
+  if (sgpl_gpu_step_try_device(ctx, meta)) {
+    return;
+  }
 ```
 
-4. hand the module to the NVPTX backend targeting `sm_70` (the driver JITs it for any Volta or
-   newer card).
+### 3.2 The activation gate (V path)
 
-### 3.5 The runtime: policy, registry, launchers
+`autotuner_runtime.c:3390-3398`:
+
+```c
+  name = autograph_gpu_step_name_for(ctx->step_id);
+  if (!name) {
+    sgpl_gpu_step_refuse(ctx->step_id, "no device kernel registered for this step id");
+    return 0;
+  }
+  if (strncmp(name, "gpu_step_v_", 11) != 0) { … /* see 3.5: routing */ }
+  if (!ctx->dest_seen || !ctx->next_frontier || !ctx->append_head) {
+    sgpl_gpu_step_refuse(ctx->step_id, "destination envelope not wired (dest_seen/next_frontier/append_head)");
+    return 0;
+  }
+```
+
+Behind it, all one-shot via `sgpl_gpu_step_refuse` (`:3367/:3378`, printed under
+`SGPL_GPU_DEBUG`): destination rows not built (`:3411`), more than one pair body
+(`:3420`), a "source/partition/round phase op present (not mirrored on the
+device)" (`:3429`), partial/private slot resources (`:3439`), envelope facts not
+declared (`:3445`), cost model small (`:3457`).
+
+### 3.3 The source-owned gate (U path)
+
+`autotuner_runtime.c:3529-3574`: resolve name; refuse an *activation* kernel here
+(`:3535`); refuse membership-restricted steps — "source slices carry every arc"
+(`:3541`); refuse when a combine phase is present — "partials are folded on the
+host" (`:3546`); refuse per-source lifecycle ops (`:3554`); refuse when the cost
+model says small (`:3569`).
+
+### 3.4 What the device marks, the host replays
+
+`autotuner_runtime.c:3481-3496` — exactly the CPU's `autograph_frontier_activate`
+semantics (claim CAS 0→1, then append under the head), performed in one place:
+
+```c
+  /* The CPU's activate() sets dest_seen[v] and appends v under the atomic head;
+   * the device marked exactly the transitions, so reproduce both here. */
+  if (claimed) {
+    int32_t appended = 0;
+    int64_t v;
+    for (v = 0; v < nv; ++v)
+      if (claimed[v]) {
+        ctx->next_frontier[ctx->initial_next_size + appended] = (int32_t)v;
+        ctx->dest_seen[v] = 1;
+        ++appended;
+      }
+    if (appended > 0 && ctx->append_head)
+      __atomic_fetch_add(ctx->append_head, appended, __ATOMIC_RELAXED);
+    if (getenv("SGPL_GPU_DEBUG"))
+      fprintf(stderr, "[gpu] activation step appended %d of %lld vertices\n", …);
+  }
+```
+
+The frontier stays a *set* on both sides: the device may mark in any order, the
+host fixes the order.
+
+### 3.5 Routing: the compile-time decision is authoritative
+
+A V-shaped step *without* the activation envelope legitimately gets the
+source-owned kernel; when the runtime reaches it through the activation path it
+hands the step to the source-owned device attempt instead of refusing
+(`autotuner_runtime.c:3390-3401`):
+
+```c
+  if (strncmp(name, "gpu_step_v_", 11) != 0) {
+    /* … the compile-time decision is authoritative -- run it on the source-owned
+     * device path instead of refusing the step outright. */
+    if (getenv("SGPL_GPU_DEBUG"))
+      fprintf(stderr, "[gpu] step %d: kernel %s is source-owned; routed to the source-owned device path\n",
+              (int)ctx->step_id, name);
+    return sgpl_gpu_step_try_device(ctx, meta);
+  }
+```
+
+### 3.6 Policy, registry, pointees
 
 **Policy** (pure, unit-tested without a GPU):
 
 ```c
 int sgpl_gpu_policy_verdict(int64_t trip, int needs_doacross, int64_t dist,
                             int64_t min_trips, int64_t max_waves);
-/*  trip <= 0                                   -> SMALL_TRIPS (CPU)
- *  min_trips > 0 && trip < min_trips           -> SMALL_TRIPS (CPU)
- *  doacross && ceil(trip/dist) > max_waves     -> WAVE_STORM  (CPU doacross)
- *  otherwise                                   -> OFFLOAD                              */
-
 int sgpl_gpu_engine_step_verdict(int64_t arcs, int64_t min_pairs);
-/*  min_pairs > 0 && arcs < min_pairs           -> SMALL_TRIPS (CPU partitions)
- *  otherwise                                   -> OFFLOAD                              */
 ```
 
 Defaults: `SGPL_GPU_MIN_TRIPS = 4096`, `SGPL_GPU_MAX_WAVES = 8192`,
-`SGPL_GPU_ENGINE_MIN_PAIRS = 2 000 000`; each knob takes `0` to disable the bound, which is how the
-verification harness forces device execution.
+`SGPL_GPU_ENGINE_MIN_PAIRS = 2 000 000`; each knob takes `0` to disable the bound,
+which is how the verification harness forces device execution. The registry
+deduplicates `(name, step_id)` and is looked up by the dispatching context's own
+step id; pointees and the claim map are refreshed **per launch** (an upload-once
+cache made round 2 read round-1 state — a real bug).
 
-**Registry.**  The registration call sits in the program's loop preheader and therefore executes
-*once per round*; the registry is a set of `(name, step id)` pairs, deduplicated on re-registration,
-and looked up **by the dispatching context's own step id** (`autograph_gpu_step_name_for(id)`).
-(An earlier gate refused whenever more than one step was registered at all, which silently disabled
-multi-step programs; and before deduplication the registry grew every round and tripped that same
-gate from round 2 onward — both were real bugs.)
-
-**Pointee materialization.**  A device step's arrays live on the host; the runtime keeps a device
-buffer per registered name, and on **every launch** copies host → device, patches the module's
-global to the device buffer, and after the launch copies device → host.  The upload cannot be
-cached: the runtime rewrites these arrays between rounds (the snapshot refresh especially), and an
-upload-once cache made round 2 read round-1 state.
-
-**Claimed marks.**  For activation steps the runtime allocates a byte-per-vertex claim map, zeroes
-it, patches `sgpl_gpu_claimed`, launches, copies the map back, and clears it for the next round.
-
-### 3.6 The engine hook: the whole decision in one place
-
-`sgpl_exec_step_dispatch` — the function the engine calls to execute one step — begins with the
-device attempt and falls through to the CPU partitions on any refusal or failure:
+Pseudocode of the whole decision (the code is `:3367-3574`, quoted above at the
+decision points):
 
 ```
 sgpl_exec_step_dispatch(ctx, meta)
-├─ env switch (SGPL_GPU_ENGINE_STEP / SGPL_NO_GPU_ENGINE_STEP)
-├─ resolve the registered kernel for ctx->step_id   (no name → refuse)
-├─ OWNER_V ?  → sgpl_gpu_step_try_device_v(ctx, meta)
-│               ├─ kernel name must be an activation kernel (gpu_step_v_)
-│               ├─ envelope must be wired: dest_seen, next_frontier, append_head
-│               ├─ destination rows must be built (push_rp/ci/indir/row_count)
-│               ├─ per-op facts: exactly one pair body; no source/partition/round hook;
-│               │                 no PARTIAL/PRIVATE resource; DEST_SEEN and
-│               │                 NEXT_FRONTIER both declared
-│               ├─ cost gate: Σ arcs vs SGPL_GPU_ENGINE_MIN_PAIRS
-│               └─ gpup_step_v_try(...)  →  on success:
-│                    compact claimed marks ascending v:
-│                       next_frontier[initial + k] = v ; dest_seen[v] = 1 ; k++
-│                    append_head += k        (matching the CPU's activate)
-└─ else OWNER_U → sgpl_gpu_step_try_device(ctx, meta)
-                 ├─ kernel name must be a source-owned kernel (not gpu_step_v_)
-                 ├─ full domain only (a membership-restricted step stays on the CPU)
-                 ├─ no COMBINE cap, no SOURCE_BEGIN/SOURCE_END caps
-                 ├─ cost gate: Σ src_pair_count vs floor
-                 └─ gpup_step_try(...) per partition
-   each refusal prints a once-per-step audit line under SGPL_GPU_DEBUG:
-       [gpu] step 1 kept on the CPU: cost model: 320000 arcs < min_pairs=2000000 …
+├─ OWNER_V → sgpl_gpu_step_try_device_v:  kernel=gpu_step_v_*; envelope wired;
+│            rows built; exactly one pair body; no source/partition/round hook;
+│            no PARTIAL/PRIVATE; DEST_SEEN+NEXT_FRONTIER declared; cost gate
+│            └─ success → replay marks ascending: next_frontier[…] = v,
+│                         dest_seen[v] = 1, append_head += k
+├─ else    → sgpl_gpu_step_try_device:    kernel is source-owned; full domain;
+│            no COMBINE, no SOURCE_BEGIN/END; cost gate → gpup_step_try
+└─ any refusal → CPU partitions (reason printed once per step under SGPL_GPU_DEBUG)
 ```
-
-Everything after the hook — the combine phase, the coverage passes, `next_size` computation,
-round-end ops — is the *unchanged* CPU engine code, which is why a device-executed step composes
-with the rest of the engine without special cases.
-
-### 3.7 The flow of one round, end to end (BFS activation)
-
-```
-1  compile time
-   summarizeEffects → verdict: Claim(V) + Append + SameRoundRead(level)
-   → emitSingleStage emits, in program order:
-        Snapshot op    (publishes the round-start shadow)
-        Pair op        (resources: MEMBERSHIP, DEST_SEEN, NEXT_FRONTIER, SNAPSHOT, CLAIM)
-        ctx            (traversal = OWNER_V, domain = FRONTIER, step id = 1)
-        activation kernel gpu_step_v_*  +  registration(name, 1)
-        pointee registrations: visited, lvl, main_lvl_shadow_0
-   → emitGpuKernels clones the kernel + pair body + globals into the device module,
-     defines the mark-writing activate, emits PTX (sm_70), embedded in the binary
-2  program start
-   autograph_build_clean_cut builds the destination-partitioned rows;
-   autograph_prepare_frontier_array fills the membership bytes for this round;
-   the snapshot op runs on the host and publishes the shadow buffer, which is
-   registered for the device under the module global's name
-3  round r, engine dispatch
-   sgpl_exec_step_dispatch → OWNER_V gate passes (facts + cost) →
-   gpup_step_v_try:
-        flatten partitions' rows → (rowsrc, rowptr, arcs) on device
-        upload membership bytes; zero and patch the claim map; patch pointees
-        launch: ceil(nrows/128) blocks × 128 threads
-4  device
-   thread i: u = rowsrc[i]; if (membership[u] == 0) return;
-             for j in row i's arcs: pair(u, v):
-                 if (visited[v] == 0) { visited[v] = 1;
-                                        lvl[v] = shadow[u] + 1;
-                                        claimed[v] = 1; }        /* mark, no atomics */
-5  back on the host
-   copy claimed back; walk v ascending; write next_frontier[initial + k];
-   dest_seen[v] = 1; append_head += k
-   copy pointees back (visited, lvl, shadow) so the host state is current
-6  the unchanged engine continues: next_size = initial + append_head, round-end ops,
-   and the DSL loop either runs another round or terminates on an empty frontier
-```
-
-The source-owned flow (kcore's degree phase, PageRank's sweeps) is the same shape with a different
-unit: one thread per *source* over the source-owned slices (`gpup_step_try`, one launch per
-partition), because the body's read-modify-write is only exact when a source is owned by one
-thread and walked in order.
-
-### 3.8 What the device must never do
-
-* It must not run a step whose facts it cannot honor (lifecycle callbacks, slot resources,
-  membership-gated source slices, an ambiguous step id) — those refuse with a printed reason.
-* It must not run a shape whose earlier instantiation was wrong — the per-arc "pull" activation
-  kernel is gone for that reason, not hidden.
-* It must not answer when a launch, sync, module load or pointee materialization fails — every
-  failure returns to the CPU partitions, whose answers are identical by construction.
 
 ---
 
-## Part IV — What is verified, and how
+## 4. Spatial axis on the device (M1 + M3)
 
-| property | method | result |
-|---|---|---|
-| effect verdicts | harness assertions (`space=Independent`, `space=Carried`) | PASS |
-| CPU budget model invariants | `tdg_budget_test` T1–T7 (clamp, desired width, pool sharing + kill switches, ledger balance, bounded nesting, planned width, single-site plan) × 3 configs | ALL PASS |
-| device policy boundaries | T8/T9 (trips, distance → waves) + T10 (engine floor) | ALL PASS |
-| device policy direction, end to end | gate the device across its threshold, require the audit line and the answer | 14/14 (box), 8/0/6 (CPU-only box) |
-| device execution actually happens | per-case debug proof (`engine step ran`, `activation step ran`) | 11/0/2 harness |
-| device == CPU, threads, repeats, partitions | cross-mode check: CPU 1=4 thr, device 1=4 thr ×2, `{1,3,7}` partitions | 11/11 both boxes; 50/50 broad |
-| device == CPU on large graphs | 780k-edge and 157k-edge graphs | 3/3 |
-| no atomics in the claim path | instruction count in the module's PTX | `atom.` count = 0 |
-| above the engine floor (≥2M arcs) | the regime the default gate admits | **not measured** — for the 16M-edge build the program never registers a step (blocker identified, next work item) |
-| region-model accuracy | predicted vs measured per region | 1.0–3.0× on the calibration machine; machine-dependent on pods; the model does not account for device time it will incur |
+**Decomposition.** One thread per owned row/source, `ctaid.x`-major (§2.2). The
+owner-computes assignment is inherited, so data writes need no atomics; the claim
+is an idempotent byte store, and the frontier counter is the host's.
+
+**The budget (M3): the CPU ledger's `max(1, W/A)` as a resident-block cap.**
+The launcher takes a block budget and walks the row domain in chunks, shifting
+the base pointers per chunk — no kernel change, no work dropped
+(`gpu_runtime.c`, activation launcher; the source-owned launcher is identical
+with `(rows, begins)` in place of `(rowsrc, rowptr)`):
+
+```c
+    unsigned int budget = (unsigned int)gpup_block_budget();
+    int64_t chunk_rows = budget ? (int64_t)budget * (int64_t)block : g_v_nrows;
+    unsigned int grid_total = 0;
+    CUresult lr = CUDA_SUCCESS;
+    for (int64_t off = 0; off < g_v_nrows; off += chunk_rows)
+    {
+        int64_t rows_now = g_v_nrows - off;
+        if (rows_now > chunk_rows)
+            rows_now = chunk_rows;
+        CUdeviceptr rowsrc_c = g_v_rowsrc_dev + (size_t)off * sizeof(int32_t);
+        CUdeviceptr rowptr_c = g_v_rowptr_dev + (size_t)off * sizeof(int64_t);
+        void *params[6] = {&rowsrc_c, &rows_now, &rowptr_c, &g_v_arcs_dev, &mem_arg, &env_arg};
+        unsigned int grid = (unsigned int)((rows_now + (int64_t)block - 1) / (int64_t)block);
+        grid_total = grid;
+        lr = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, gpup_step_stream(), params, NULL);
+        if (lr != CUDA_SUCCESS)
+            break;
+    }
+```
+
+Chunking rather than clamping is what makes the cap **sound**: the mapping has no
+stride loop (§2.2), so a clamped grid would silently drop rows; sub-range pointer
+shifts keep each chunk's rows exactly the global rows, and the arc indices
+(`rowptr`/`begins`) stay absolute.
+
+The budget source is the same ledger the CPU's `max(1, W/A)` uses — the thread's
+share, read weakly so a build without `parallel_runtime.c` still links
+(`gpu_runtime.c:644-661`):
+
+```c
+static int gpup_block_budget(void)
+{
+    if (g_block_budget < 0)
+    {
+        const char *e = getenv("SGPL_GPU_BLOCK_BUDGET");
+        int v = e ? atoi(e) : 0;
+        if (v <= 0 && getenv("SGPL_GPU_BUDGET_FROM_LEDGER"))
+        {
+            extern int32_t sgpl_current_thread_budget(void) __attribute__((weak));
+            if (sgpl_current_thread_budget)
+                v = (int)sgpl_current_thread_budget();
+        }
+        g_block_budget = v > 0 ? v : 0;
+        …
+    }
+    return g_block_budget;
+}
+```
+
+`gpup_set_block_budget(int32_t)` is the explicit setter for the engine; passing
+the node's `max(1, W/A)` share is the intended wiring.
 
 ---
 
-## Part V — What is deliberately left on the CPU, and why
+## 5. Temporal axis on the device (M2)
 
-The unifying reason: the port covers shapes whose semantics are a **pure function of the round and
-the owned key**.  What remains needs **host-side callback state that has no device counterpart**,
-or is an efficiency lever rather than a correctness gap.
+**One launch order is one stream order.** All device launches go to a single
+explicit non-blocking stream, so the round sequence the host drives becomes a
+stream-ordered sequence; the host still synchronizes at the round boundary. The
+stream is created lazily, and the A/B switch is an env var
+(`gpu_runtime.c:617-643`):
 
-1. **Staged per-source claim state** (`SOURCE_BEGIN` claim callbacks consumed by the pair body):
-   the claim array and the callback bodies live on the host.  Requires emitting the callbacks as
-   device functions with an exact first-wins claim, and materializing the state array.
-2. **Partial/private slot resources inside engine steps**: the outlined path has them; the engine
-   step refuses.  Requires device slots plus a fold that reproduces the ascending-partition order
-   the CPU contract fixes.
-3. **Membership-restricted source-owned steps**: the U slices carry all arcs of a partition's
-   sources.  Cheap to add (upload membership, gate per source) — currently refused conservatively.
-4. **Fork/join of concurrent children**: no device fork/join or inter-context barrier exists.
-   Results are unaffected by running children on the CPU; only the overlap is lost.
-5. **Efficiency levers** (not correctness): device-resident rounds with a device worklist (removes
-   the per-round copies that cause the measured 2–2.5× loss below the floor); size-classed rows /
-   hub splitting (one thread per row lets a hub serialize its warp); device-side compaction instead
-   of host compaction; and the pull direction, which needs its arc→source mapping unit-checked
-   against the row kernel's gate before another attempt.
-6. **Cost-model coupling**: the region predictor assumes CPU execution, so an offloaded region is
-   predicted wrongly (observed as a 118× apparent error that collapses to 2.96× when built
-   CPU-only).  The fix is to teach the model about the offload it will actually take.
+```c
+static CUstream gpup_step_stream(void)
+{
+    static int cached = -1;
+    if (cached < 0)
+        cached = (getenv("SGPL_GPU_TEMPORAL_STREAM") && atoi(getenv("SGPL_GPU_TEMPORAL_STREAM")) == 0) ? 0 : 1;
+    if (!cached)
+        return NULL;
+    if (!g_step_stream_tried)
+    {
+        g_step_stream_tried = 1;
+        if (p_cuStreamCreate && p_cuStreamCreate(&g_step_stream, 0x1u /* NON_BLOCKING */) != CUDA_SUCCESS)
+            g_step_stream = NULL;
+        …
+    }
+    return g_step_stream;
+}
+
+static CUresult gpup_step_sync(void)
+{
+    CUstream s = gpup_step_stream();
+    if (s && p_cuStreamSynchronize)
+        return p_cuStreamSynchronize(s);
+    return p_cuCtxSynchronize();
+}
+```
+
+The stream symbols are loaded **optionally** (`gpu_runtime.c:237-240`, plain
+`dlsym`), so a driver without them degrades to the default stream rather than
+failing the load. The temporal *template* is untouched by the device: the round
+body (`autograph_frontier_execute`) is the unit — begin/snapshot/combine/end stay
+on the host — and only the dispatch inside it moves. That is why the device step
+never has to know about rounds.
 
 ---
 
-## Appendix — map, knobs, artifacts
+## 6. What is *not* mirrored (the coverage surface)
 
-**Environment knobs (all optional):** `SGPL_GPU_MIN_TRIPS` (4096), `SGPL_GPU_MAX_WAVES` (8192),
-`SGPL_GPU_ENGINE_MIN_PAIRS` (2 000 000), `SGPL_GPU_ENGINE_STEP` / `SGPL_NO_GPU_ENGINE_STEP`,
-`SGPL_GPU_DEBUG` (per-step audit lines, launch parameters, copy diagnostics), `FORCE_GPU`,
-`FORCE_CPU`, `SGPL_GPU_BACKEND` (build-time backend), `AUTOTUNER_FORCE_LAYOUT` (CPU format study).
+Refused by the **emitters**, so the runtime reports "no device kernel registered
+for this step id": `ReducePtr` / `AccConsumeStore` (reductions,
+source-reductions), `RoundSepBases` (round separation), `HasFirstWins` (claims),
+`HasFrontierAppend` without a wired envelope (R7), and non-simple V shapes
+(`IsV && IsSimple`).
 
-**Where to look:**
+Refused by the **runtime gates** even when a kernel exists: membership-restricted
+steps, steps with a combine phase, per-source lifecycle ops, partial/private slot
+resources, more than one pair body, undeclared envelope facts, and the cost
+model's small-step threshold. Every refusal is printed once per step with its
+reason, and the CPU answer is identical by construction — which is what the
+differentials check.
 
+---
+
+## 7. Evidence
+
+Commands (pod, from `p1GraphEasy-con-AutoTuner`; `LD_LIBRARY_PATH` for antlr,
+`ulimit -s unlimited` for the generated frames):
+
+```bash
+export LD_LIBRARY_PATH=/usr/local/lib
+FORCE_GPU=1 GRAPH_FILE=../verify/cases/algo/bfs_level.graph bash 03_run.sh
+ulimit -s unlimited
+SGPL_NUM_THREADS=4 ./final_program                                    # device off
+SGPL_NUM_THREADS=4 SGPL_GPU_ENGINE_STEP=1 SGPL_GPU_ENGINE_MIN_PAIRS=0 ./final_program
+SGPL_GPU_DEBUG=1 SGPL_NUM_THREADS=4 SGPL_GPU_ENGINE_STEP=1 \
+  SGPL_GPU_ENGINE_MIN_PAIRS=0 SGPL_GPU_BLOCK_BUDGET=32 ./final_program
 ```
-graph_frontier_lowering.cpp   effect algebra, resource tables, step + kernel emission
-autotuner_runtime.c           CleanCut engine, dispatch hook, device gates, marks → frontier
-gpu_runtime.c/.h              driver runtime, policies, registry, launchers, pointees
-parallel_loop_outline.cpp     device module assembly (activate stub, claimed global, PTX)
-verify/gpu_check.sh           device execution proof + equality + fallback
-verify/gpu_cross_mode_check.sh  CPU vs device, thread counts, repeats, partition sweep
-verify/gpu_broad_cross_check.sh every fixture, both backends
-verify/gpu_cost_model_check.sh  policy direction, end to end
-verify/plot_validation*.py    the figures (dashboard, loops, DOALL predicted-vs-actual)
-```
 
-**Standing rule:** a shape runs on the device only when its own declared facts say the device
-realization can honor the verdict, and every refusal is printed with its reason; anything else runs
-on the CPU, where the answer is identical by construction.
+**This session (new pod, LLVM 20.1.8 `X86;NVPTX`):**
+
+- **M2**: `[gpu] temporal stream (M2): explicit non-blocking stream`; with
+  `SGPL_GPU_TEMPORAL_STREAM=0` the default stream is used; both runs identical to
+  device-off.
+- **M3**: `[gpu] block budget (M3): 32 blocks` and
+  `activation step ran on device: … rows=202273 grid=13 budget=32` (last of ~50
+  chunk launches, ≤32 blocks resident); identical to device-off and to the
+  unbudgeted run.
+- **Corpus differential** (`verify/gpu_corpus_diff.sh`, 63/78 fixtures at last
+  read): **58 same, 0 DIFF**, 5 environmental failures (the generated program
+  killed by the host on some fixtures — identically with the device off).
+  Device-eligible: `bfs_level` 6 dispatches, `kcore` 16, `budget_two_steps`
+  **1600**, `data_index_write` 4, `dg_src_keyed` 16.
+- **Routing**: `edge_write_v` (measured emit flags `IsV=1 IsSimple=1 app=0 fw=0
+  rs=0 → src=y v=n`) prints `[gpu] step 1: kernel gpu_step_main_sgpl_pair_work is
+  source-owned; routed to the source-owned device path`; its full differential is
+  blocked on that fixture's program being killed by the host even with the device
+  off.
+
+**Recorded earlier (2026-10-04 era; mechanisms unchanged, kept for the record):**
+device policy boundaries T8/T9/T10 all PASS; device-execution proof 11/0/2;
+cross-mode CPU==device with thread counts/repeats/partition sweep 11/11 and 50/50
+broad; CPU==device on 780k- and 157k-edge graphs 3/3; `atom.` count in the module
+= 0; measured device/CPU ratios: DOALL 0.74–1.16, DOACROSS-waves≤8192 0.09–0.26,
+one clear win at waves==8192 (1.13), engine step (source-owned, 320k arcs)
+0.41–0.62 — which is why the engine-step cost floor exists
+(`SGPL_GPU_ENGINE_MIN_PAIRS`).
+
+---
+
+## Appendix — knobs, files, standing rule
+
+**Environment knobs:** `SGPL_GPU_MIN_TRIPS` (4096), `SGPL_GPU_MAX_WAVES` (8192),
+`SGPL_GPU_ENGINE_MIN_PAIRS` (2 000 000), `SGPL_GPU_ENGINE_STEP` /
+`SGPL_NO_GPU_ENGINE_STEP`, `SGPL_GPU_DEBUG`, `SGPL_GPU_TEMPORAL_STREAM` (M2),
+`SGPL_GPU_BLOCK_BUDGET` / `SGPL_GPU_BUDGET_FROM_LEDGER` (M3), `FORCE_GPU`,
+`FORCE_CPU`, `SGPL_GPU_BACKEND`.
+
+**Files:** `graph_frontier_lowering.cpp` (algebra, resource tables, step + kernel
+emission, registration, pointees, snapshots) · `autotuner_runtime.c` (CleanCut
+engine, dispatch hook, device gates, marks→frontier, snapshot publish) ·
+`gpu_runtime.c/.h` (driver runtime, policies, registry, launchers M2/M3,
+pointees) · `parallel_loop_outline.cpp` (device module assembly: activate stub,
+claimed global, PTX `sm_70`) · `main.cpp` (backend selection, `kernels.ptx`) ·
+harnesses: `verify/gpu_check.sh`, `verify/gpu_cross_mode_check.sh`,
+`verify/gpu_device_diff.sh`, `verify/gpu_corpus_diff.sh`,
+`verify/gpu_gate_probe.sh`, `verify/gpu_cost_model_check.sh`.
+
+**Standing rule:** a shape runs on the device only when its own declared facts
+say the device realization can honour the verdict; every refusal is printed with
+its reason; anything else runs on the CPU, where the answer is identical by
+construction.

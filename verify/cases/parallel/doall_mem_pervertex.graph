@@ -2,7 +2,7 @@
 // (which the outliner versions and the cost model sees) but a one-store body,
 // so it exercises the model's memory-bound regime.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 real b[n];

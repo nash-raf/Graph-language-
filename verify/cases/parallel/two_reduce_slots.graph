@@ -5,7 +5,7 @@
 // must match the serial build -- `b` is the discriminating value (20 serial,
 // ~20/partitions if the second slot were emitted).
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/tiny.txt";
+  edges: file "../verify/fixtures/tiny.txt";
 };
 
 int n = numVertices(G);

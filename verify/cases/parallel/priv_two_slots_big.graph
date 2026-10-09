@@ -8,7 +8,7 @@
 //   a = 160000, b = sum of v over all arcs = 2068247825.
 graph G {
     directed: true;
-    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+    edges: file "../verify/fixtures/g20k.txt";
 };
 
 int a = 0;

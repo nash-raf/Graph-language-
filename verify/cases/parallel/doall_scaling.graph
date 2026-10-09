@@ -7,7 +7,7 @@
 // inlined or vectorised and 4 threads ran *slower* than 1.  A plain
 // correctness check cannot see that; only the timing can.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 real a[n];

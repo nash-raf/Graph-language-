@@ -1,6 +1,6 @@
 // Write keyed by the NEIGHBOUR: two sources share a neighbour -> real race.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 int deg[n];

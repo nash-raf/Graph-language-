@@ -35,6 +35,9 @@ int gpup_step_try(const char *kernel_name, const int32_t *pairs, int64_t npairs)
  * *claimed_out (ascending vertex order) for the caller to compact. */
 /* Pass a name prefixed gpu_step_vp_ for the pull variant (one thread per
  * arc; the launcher then builds and uploads the per-arc source array). */
+/* M3: cap resident blocks of device launches (0 = unlimited). */
+void gpup_set_block_budget(int32_t blocks);
+
 int gpup_step_v_try(const char *kernel_name, const void *layout_sig, int32_t npart,
                     int64_t *const *rp, const int32_t *const *ci,
                     const int32_t *const *indir, const int64_t *row_counts,

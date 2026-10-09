@@ -10,7 +10,7 @@
 // endpoints (2*m), so tot = n + 2m = 340000.
 graph G {
     directed: true;
-    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+    edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 int arr[n];

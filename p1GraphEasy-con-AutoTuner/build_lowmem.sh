@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
 # A failed compile must not be mistaken for a successful one: the binary can
 # only exist if the link that follows succeeded.
 rm -f GraphProgram
-LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+LLVM_CONFIG="${LLVM_CONFIG:-/usr/local/llvm-20-polly-rtti/bin/llvm-config}"
 OBJ_DIR="${OBJ_DIR:-$ROOT/build_lowmem}"; mkdir -p "$OBJ_DIR"
 LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"; LLVM_CXXFLAGS="${LLVM_CXXFLAGS//-fno-exceptions/}"
 LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"; LLVM_LIBS="$($LLVM_CONFIG --libs all)"

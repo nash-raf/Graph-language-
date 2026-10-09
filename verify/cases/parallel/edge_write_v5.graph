@@ -5,7 +5,7 @@
 // (a false proof -> order-dependent answer), or does it refuse and let ownership
 // (destination-partitioning) make the order deterministic?
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/race5.txt";
+  edges: file "../verify/fixtures/race5.txt";
 };
 int n = numVertices(G);
 int a[n];

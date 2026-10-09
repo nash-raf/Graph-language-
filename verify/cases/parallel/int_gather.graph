@@ -1,6 +1,6 @@
 graph G {
     directed: true;
-    edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/bipartite.txt";
+    edges: file "../verify/fixtures/bipartite.txt";
 };
 int n = numVertices(G);
 int deg[n];

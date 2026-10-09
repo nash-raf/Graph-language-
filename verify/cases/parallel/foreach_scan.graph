@@ -1,4 +1,4 @@
-graph G { edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt"; };
+graph G { edges: file "../verify/fixtures/g20k.txt"; };
 int n = numVertices(G);
 real pref[n];
 pref[0] = 0.0;

@@ -185,8 +185,12 @@ static cuMemAllocFn p_cuMemAlloc = NULL;
 static cuMemFreeFn p_cuMemFree = NULL;
 static cuMemcpyHtoDFn p_cuMemcpyHtoD = NULL;
 static cuMemcpyDtoHFn p_cuMemcpyDtoH = NULL;
+typedef CUresult (*cuStreamCreateFn)(CUstream *, unsigned int);
+typedef CUresult (*cuStreamSynchronizeFn)(CUstream);
 static cuLaunchKernelFn p_cuLaunchKernel = NULL;
 static cuCtxSynchronizeFn p_cuCtxSynchronize = NULL;
+static cuStreamCreateFn p_cuStreamCreate = NULL;
+static cuStreamSynchronizeFn p_cuStreamSynchronize = NULL;
 static cuLaunchCooperativeKernelFn p_cuLaunchCooperativeKernel = NULL;
 static cuOccupancyMaxActiveBlocksPerMultiprocessorFn p_cuOccupancyMaxActiveBlocksPerMultiprocessor = NULL;
 static cuDeviceGetAttributeFn p_cuDeviceGetAttribute = NULL;
@@ -235,6 +239,9 @@ static int load_cuda(void)
     LOAD_SYM(cuMemcpyDtoH);
     LOAD_SYM(cuLaunchKernel);
     LOAD_SYM(cuCtxSynchronize);
+    /* Optional (M2): streams for the temporal axis; absent -> default stream. */
+    *(void **)(&p_cuStreamCreate) = dlsym(g_cuda_lib, "cuStreamCreate");
+    *(void **)(&p_cuStreamSynchronize) = dlsym(g_cuda_lib, "cuStreamSynchronize");
     LOAD_SYM(cuLaunchCooperativeKernel);
     LOAD_SYM(cuOccupancyMaxActiveBlocksPerMultiprocessor);
     LOAD_SYM(cuDeviceGetAttribute);
@@ -599,6 +606,70 @@ void sgpl_gpu_prepare(void)
     (void)load_module();
 }
 
+/* --- M2: the temporal axis on a real stream ----------------------------- */
+static CUstream g_step_stream = NULL;
+static int g_step_stream_tried = 0;
+static int g_block_budget = -1;
+
+/* The temporal chain is launch-ordered; putting the launches on one explicit
+ * non-blocking stream makes that ordering a stream ordering.  The default
+ * stream keeps the legacy behaviour (SGPL_GPU_TEMPORAL_STREAM=0). */
+static CUstream gpup_step_stream(void)
+{
+    static int cached = -1;
+    if (cached < 0)
+        cached = (getenv("SGPL_GPU_TEMPORAL_STREAM") && atoi(getenv("SGPL_GPU_TEMPORAL_STREAM")) == 0) ? 0 : 1;
+    if (!cached)
+        return NULL;
+    if (!g_step_stream_tried)
+    {
+        g_step_stream_tried = 1;
+        if (p_cuStreamCreate && p_cuStreamCreate(&g_step_stream, 0x1u /* NON_BLOCKING */) != CUDA_SUCCESS)
+            g_step_stream = NULL;
+        if (getenv("SGPL_GPU_DEBUG"))
+            fprintf(stderr, "[gpu] temporal stream (M2): %s\n",
+                    g_step_stream ? "explicit non-blocking stream" : "default (unavailable)");
+    }
+    return g_step_stream;
+}
+
+static CUresult gpup_step_sync(void)
+{
+    CUstream s = gpup_step_stream();
+    if (s && p_cuStreamSynchronize)
+        return p_cuStreamSynchronize(s);
+    return p_cuCtxSynchronize();
+}
+
+/* --- M3: the ledger share as a device block budget ---------------------- */
+static int gpup_block_budget(void)
+{
+    if (g_block_budget < 0)
+    {
+        const char *e = getenv("SGPL_GPU_BLOCK_BUDGET");
+        int v = e ? atoi(e) : 0;
+        if (v <= 0 && getenv("SGPL_GPU_BUDGET_FROM_LEDGER"))
+        {
+            extern int32_t sgpl_current_thread_budget(void) __attribute__((weak));
+            if (sgpl_current_thread_budget)
+                v = (int)sgpl_current_thread_budget();
+        }
+        g_block_budget = v > 0 ? v : 0;
+        if (getenv("SGPL_GPU_DEBUG") && g_block_budget)
+            fprintf(stderr, "[gpu] block budget (M3): %d blocks\n", g_block_budget);
+    }
+    return g_block_budget;
+}
+
+/* Explicit setter for the engine: pass the node's ledger share (threads) and
+ * the device side turns it into a resident-block cap. */
+void gpup_set_block_budget(int32_t blocks)
+{
+    g_block_budget = blocks > 0 ? blocks : 0;
+    if (getenv("SGPL_GPU_DEBUG"))
+        fprintf(stderr, "[gpu] block budget set (M3): %d blocks\n", g_block_budget);
+}
+
 int gpup_step_try(const char *name, const int32_t *pairs, int64_t npairs)
 {
     if (!name || !name[0] || !pairs || npairs <= 0)
@@ -702,17 +773,32 @@ int gpup_step_try(const char *name, const int32_t *pairs, int64_t npairs)
         return 0;
 
     void *env_arg = NULL; /* stage 1: the pair body takes no state or env */
-    void *params[6] = {&g_pairs_dev, &npairs, &g_rows_dev, &nrows, &g_begins_dev, &env_arg};
     unsigned int block = 128;
-    unsigned int grid = (unsigned int)((nrows + (int64_t)block - 1) / (int64_t)block);
-    CUresult lr = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, NULL, params, NULL);
+    unsigned int budget = (unsigned int)gpup_block_budget();
+    int64_t chunk_rows = budget ? (int64_t)budget * (int64_t)block : nrows;
+    unsigned int grid_total = 0;
+    CUresult lr = CUDA_SUCCESS;
+    for (int64_t off = 0; off < nrows; off += chunk_rows)
+    {
+        int64_t rows_now = nrows - off;
+        if (rows_now > chunk_rows)
+            rows_now = chunk_rows;
+        CUdeviceptr rows_c = g_rows_dev + (size_t)off * sizeof(int32_t);
+        CUdeviceptr begins_c = g_begins_dev + (size_t)off * sizeof(int64_t);
+        void *params[6] = {&g_pairs_dev, &npairs, &rows_c, &rows_now, &begins_c, &env_arg};
+        unsigned int grid = (unsigned int)((rows_now + (int64_t)block - 1) / (int64_t)block);
+        grid_total = grid;
+        lr = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, gpup_step_stream(), params, NULL);
+        if (lr != CUDA_SUCCESS)
+            break;
+    }
     if (lr != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
             fprintf(stderr, "[gpu] engine step launch failed r=%d; CPU\n", (int)lr);
         return 0;
     }
-    if (p_cuCtxSynchronize() != CUDA_SUCCESS)
+    if (gpup_step_sync() != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
             fprintf(stderr, "[gpu] engine step sync failed (context poisoned); CPU\n");
@@ -720,8 +806,8 @@ int gpup_step_try(const char *name, const int32_t *pairs, int64_t npairs)
     }
     gpu_step_copy_back();
     if (getenv("SGPL_GPU_DEBUG"))
-        fprintf(stderr, "[gpu] engine step ran on device: %s pairs=%lld rows=%lld grid=%u\n",
-                name, (long long)npairs, (long long)nrows, grid);
+        fprintf(stderr, "[gpu] engine step ran on device: %s pairs=%lld rows=%lld grid=%u budget=%u\n",
+                name, (long long)npairs, (long long)nrows, grid_total, budget);
     return 1;
 }
 
@@ -930,11 +1016,24 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
     CUdeviceptr mem_arg = (mem && nmem > 0) ? g_v_mem_dev : 0;
     void *env_arg = NULL;
     unsigned int block = 128;
-    void *params[6] = {&g_v_rowsrc_dev, &g_v_nrows, &g_v_rowptr_dev,
-                       &g_v_arcs_dev, &mem_arg, &env_arg};
-    int64_t nthreads = g_v_nrows;
-    unsigned int grid = (unsigned int)((nthreads + (int64_t)block - 1) / (int64_t)block);
-    CUresult lr = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, NULL, params, NULL);
+    unsigned int budget = (unsigned int)gpup_block_budget();
+    int64_t chunk_rows = budget ? (int64_t)budget * (int64_t)block : g_v_nrows;
+    unsigned int grid_total = 0;
+    CUresult lr = CUDA_SUCCESS;
+    for (int64_t off = 0; off < g_v_nrows; off += chunk_rows)
+    {
+        int64_t rows_now = g_v_nrows - off;
+        if (rows_now > chunk_rows)
+            rows_now = chunk_rows;
+        CUdeviceptr rowsrc_c = g_v_rowsrc_dev + (size_t)off * sizeof(int32_t);
+        CUdeviceptr rowptr_c = g_v_rowptr_dev + (size_t)off * sizeof(int64_t);
+        void *params[6] = {&rowsrc_c, &rows_now, &rowptr_c, &g_v_arcs_dev, &mem_arg, &env_arg};
+        unsigned int grid = (unsigned int)((rows_now + (int64_t)block - 1) / (int64_t)block);
+        grid_total = grid;
+        lr = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, gpup_step_stream(), params, NULL);
+        if (lr != CUDA_SUCCESS)
+            break;
+    }
     (void)dummy_mem;
     if (lr != CUDA_SUCCESS)
     {
@@ -942,7 +1041,7 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
             fprintf(stderr, "[gpu] activation step launch failed r=%d; CPU\n", (int)lr);
         return 0;
     }
-    if (p_cuCtxSynchronize() != CUDA_SUCCESS)
+    if (gpup_step_sync() != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
             fprintf(stderr, "[gpu] activation step sync failed (context poisoned); CPU\n");
@@ -954,8 +1053,8 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
     if (claimed_out)
         *claimed_out = g_v_claim_host;
     if (getenv("SGPL_GPU_DEBUG"))
-        fprintf(stderr, "[gpu] activation step ran on device: %s rows=%lld grid=%u\n",
-                name, (long long)nthreads, grid);
+        fprintf(stderr, "[gpu] activation step ran on device: %s rows=%lld grid=%u budget=%u\n",
+                name, (long long)g_v_nrows, grid_total, budget);
     return 1;
 }
 

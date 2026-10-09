@@ -7,7 +7,7 @@
 // of a set.  Duplicates in the worklist are harmless: the alive[] test skips a
 // vertex that was already peeled, exactly as the set version's dedup did.
 graph G {
-  edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 
 int n = numVertices(G);

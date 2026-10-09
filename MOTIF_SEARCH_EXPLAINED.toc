@@ -1,0 +1,34 @@
+\contentsline {part}{I\hspace {1em}The simple story}{2}{part.1}%
+\contentsline {section}{\numberline {1}What a motif is}{2}{section.1}%
+\contentsline {section}{\numberline {2}One example you can check by hand}{3}{section.2}%
+\contentsline {paragraph}{The induced rule in one experiment.}{4}{section*.3}%
+\contentsline {section}{\numberline {3}What the DSL gives back}{4}{section.3}%
+\contentsline {section}{\numberline {4}The suite's pinned example: bi-fan on a 40-arc graph}{4}{section.4}%
+\contentsline {part}{II\hspace {1em}The pipeline, stage by stage}{4}{part.2}%
+\contentsline {section}{\numberline {5}Stage 0 --- Grammar}{5}{section.5}%
+\contentsline {section}{\numberline {6}Stage 1 --- AST}{5}{section.6}%
+\contentsline {section}{\numberline {7}Stage 2 --- Semantic analysis}{5}{section.7}%
+\contentsline {section}{\numberline {8}Stage 3 --- Lowering: two backends, one meaning}{6}{section.8}%
+\contentsline {section}{\numberline {9}Stage 3b --- Storage: what is materialised, when, and where}{6}{section.9}%
+\contentsline {paragraph}{The bindings array.}{6}{section*.4}%
+\contentsline {paragraph}{What each construct materialises.}{7}{section*.5}%
+\contentsline {paragraph}{Count-only vs listing.}{7}{section*.6}%
+\contentsline {paragraph}{\texttt {motifs} vs \texttt {graphs}, precisely.}{7}{section*.7}%
+\contentsline {section}{\numberline {10}Stage 4 --- Compile-time pattern analysis (\texttt {MotifPattern})}{7}{section.10}%
+\contentsline {subsection}{\numberline {10.1}The required matrix}{7}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Automorphisms}{8}{subsection.10.2}%
+\contentsline {subsection}{\numberline {10.3}Canonicality, reference and fast}{8}{subsection.10.3}%
+\contentsline {subsection}{\numberline {10.4}Level plans}{8}{subsection.10.4}%
+\contentsline {section}{\numberline {11}Stage 5 --- The emitted nest (\texttt {MotifIRBuilder})}{8}{section.11}%
+\contentsline {section}{\numberline {12}Stage 6 --- The runtime matcher}{9}{section.12}%
+\contentsline {section}{\numberline {13}Stage 7 --- Semantics reference card (all verified)}{10}{section.13}%
+\contentsline {part}{III\hspace {1em}Theory, rationale, measurements}{10}{part.3}%
+\contentsline {section}{\numberline {14}The algorithmic problem}{10}{section.14}%
+\contentsline {section}{\numberline {15}What was considered, and why this shape}{11}{section.15}%
+\contentsline {section}{\numberline {16}Measured behaviour}{11}{section.16}%
+\contentsline {section}{\numberline {17}Known limits and traps in this tree}{12}{section.17}%
+\contentsline {part}{IV\hspace {1em}Using it}{12}{part.4}%
+\contentsline {section}{\numberline {18}Commands}{12}{section.18}%
+\contentsline {section}{\numberline {19}Checklist for a new motif}{13}{section.19}%
+\contentsline {section}{\numberline {A}Code map}{13}{appendix.A}%
+\contentsline {section}{\numberline {B}Verified evidence log}{14}{appendix.B}%

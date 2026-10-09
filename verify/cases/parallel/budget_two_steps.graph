@@ -4,7 +4,7 @@
 // the level's budget is split between them.  A is light, B is heavy, so the
 // optimal split is not uniform.
 graph G {
-  edges: file "/home/user/D/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt";
+  edges: file "../verify/fixtures/g20k.txt";
 };
 int n = numVertices(G);
 int degA[n];

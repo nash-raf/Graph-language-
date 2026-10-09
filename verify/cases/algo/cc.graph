@@ -3,7 +3,7 @@
 // compiler's frontier engine recognises and lowers to autograph_edgemap.
 // Written with a `set` frontier the algorithm is identical but the engine
 // cannot see it: measured 1.56s (set) vs 0.50s (array), same output.
-graph G { edges: file "/home/user/Course/msk1/2nd/Graph-language-/verify/fixtures/g20k.txt"; };
+graph G { edges: file "../verify/fixtures/g20k.txt"; };
 int n = numVertices(G);
 int id[n];
 int frontier[n];

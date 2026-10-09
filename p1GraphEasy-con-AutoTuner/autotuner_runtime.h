@@ -157,6 +157,14 @@ typedef struct {
    * source step never touches the transient layout directly. */
   int32_t **src_pairs;
   int64_t *src_pair_count;
+
+  /* Per-graph CleanCut cache identity.  The cache lock protects rebuilding
+   * and these fields; independent graphs must not evict one another. */
+  int32_t cc_cache_valid;
+  int32_t cc_cache_partitions;
+  int32_t cc_cache_layout_epoch;
+  int64_t cc_cache_live_edges;
+  int64_t cc_cache_extra_edges;
 } AutoGraphMeta;
 
 #ifdef __cplusplus
@@ -306,6 +314,10 @@ typedef void (*sgpl_frontier_pair_fn)(int32_t source, int32_t destination,
  * the worker count).  Returns the partition count built.
  */
 int32_t autograph_build_clean_cut(void *graph_ptr, int32_t partitions);
+/* Compiler-emitted stage scope: pin the selected partitions through setup,
+ * executor, and commit.  The calls must be paired on the same task thread. */
+int32_t autograph_pin_clean_cut(void *graph_ptr, int32_t partitions);
+void autograph_unpin_clean_cut(void);
 
 int32_t autograph_home_partition_of(void *graph_ptr, int32_t destination);
 
@@ -546,7 +558,7 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
 void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx);
 
 /* Snapshot primitive (R7): copy `live_base` (n * elem_bytes, n from the graph)
- * into the per-graph scratch snapshot slot and return the frozen buffer.  A
+ * into the invocation scratch snapshot slot and return the frozen buffer.  A
  * Snapshot op calls this in its round-phase callback and publishes the pointer
  * (its operation state) for the round's cross-reads.  The buffer lifecycle is
  * owned by the runtime. */

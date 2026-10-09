@@ -1,0 +1,60 @@
+Early diverse allocation candidates -- 2026-10-09
+
+Scope: only the optimizer seed construction and enumeration order changed.
+For each admission setting, try reference, directly wide, serial, and curve-selected
+widths before moving to the next admission setting. Wide uses budget-1, respects
+trip/max-thread caps and repeated-site reuse, and wins only under the existing objective.
+The original 2048-evaluation maximum and soft 5%-of-serial-work deadline remain.
+The executor, cache policy, equations, loop engines, compiler and autotuner are unchanged.
+The old seed order could spend its first 16 evaluations on similar narrow plans;
+the new regression reproduces this miss with fixed costs, and fails against the old search.
+
+Method: 53 workload/budget settings, 5 randomized paired fresh processes,
+15 steady native timings and 15 frozen-winner replays per variant/process: 15,900 timings.
+Confirmation: 5 selected settings, 9 fresh pairs, 25 timings per policy: 4,500 timings.
+Same saved SGPL objects, same adapters, two frozen runtime builds.
+Each process trains 8 serial levels, then warms 12 native levels before measurement.
+Reported steady time is median of process medians and includes policy execution overhead.
+The first-policy-call metric is after serial training; it is not whole-program startup.
+Learning counters include search and calibration/revalidation, exclude cache-hit lookup.
+The fixed winner is the previously exhaustive winner replayed in this run; this is
+not a new exhaustive search, so it is not proof of the current absolute optimum.
+Mixed cases exercise real compiled SGPL callbacks in a synthetic runtime level.
+
+Primary: summed steady times fell 10.18%.
+Settings >5% faster: 15; >5% slower: 4.
+Mixed settings: median additional first-policy-call time 1.076 ms; additional learning 1.113 ms.
+Existing launch calibration is atomic and can overrun the soft search deadline.
+Evaluating wide plans sooner can trigger previously deferred width/parent calibration.
+
+Independent confirmation (negative change means faster):
+Case                      B  Before ms   After ms    Change   Widths
+large_arrays              6   5.742168   5.488806    -4.41%      5,5
+large_arrays              8   5.152894   6.779680   +31.57%      7,7
+mixed_short_ordinary      6   0.225324   0.225434    +0.05%      1,1
+mixed_compute             6   1.429661   0.689333   -51.78%      5,5
+mixed_loop_skew           6   0.491433   0.273419   -44.36%      5,1
+
+The large_arrays/B8 regression persisted. Earlier diversity fixes a search miss,
+but also exposes wider allocations that the unchanged cost curve overvalues.
+The initial mixed_short_ordinary/B6 slowdown did not reproduce (confirmation +0.05%).
+No workload-specific correction or forced-width rule was added.
+
+Validation: structural/resource tests at 1/2/4/8 workers; independent simulator;
+equation and dispatch gates; ASan/UBSan; generated sibling-graph fixtures, formal
+tests and default/alias numeric compilation. All requested checks passed.
+The existing append-order assertion fails identically against the frozen reference.
+scope_validation.json verifies all snapshotted production sources except the optimizer
+are byte-for-byte unchanged, including both autotuner sources.
+
+Reproduce from the repository in WSL Ubuntu:
+python3 tools/tdg_diverse_allocation_benchmark.py
+python3 tools/tdg_diverse_allocation_benchmark.py --measure-only --cases large_arrays mixed_short_ordinary mixed_compute mixed_loop_skew --budgets 6 8 --repeats 9 --samples 25 --tag confirmation
+python3 proof/tdg_diverse_allocations_2026_10_09/analyse.py
+python3 proof/tdg_diverse_allocations_2026_10_09/negative_control.py
+SGPL_JOINT_RESULTS_DIR=proof/tdg_diverse_allocations_2026_10_09 python3 tools/tdg_joint_validate.py
+SGPL_JOINT_RESULTS_DIR=proof/tdg_diverse_allocations_2026_10_09 python3 tools/tdg_joint_validate.py --sanitizers
+SGPL_JOINT_RESULTS_DIR=proof/tdg_diverse_allocations_2026_10_09 python3 tools/tdg_joint_validate.py --generated
+
+The benchmark requires the saved SGPL/SDK objects referenced by the previous manifests.
+Before/after source hashes and the saved before implementation remain in this folder.

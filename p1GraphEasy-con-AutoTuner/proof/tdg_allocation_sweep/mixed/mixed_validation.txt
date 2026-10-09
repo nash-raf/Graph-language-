@@ -1,0 +1,7 @@
+PASS: complete mixed allocation/order/parent/backfill coverage; shared oracle; native choices covered.
+PASS: ordinary callbacks once each, serial results, loop outputs/grants, balanced budget, actual ordinary-first phase ordering.
+PASS: SGPL object/source and protected production hashes.
+{
+  "checked executions": 762645,
+  "verified ordinary-first phased executions": 927
+}

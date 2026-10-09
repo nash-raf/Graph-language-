@@ -1,0 +1,6 @@
+case,budget,model_modal_policy,model_modal_fraction,model_policy_counts,model_time_ms,sweep_best_policy,best_remeasured_time_ms,extra_time_ms,gap_percent,native_processes,best_definition
+large_arrays,6,1:5:5:0:1,1.0,"{""1:5:5:0:1"": 225}",5.488806,1:5:3:0:1,5.682427,-0.19362099999999938,-3.407364494079723,9,"Previously exhaustive sweep winner, remeasured"
+large_arrays,8,1:7:7:0:1,0.8888888888888888,"{""1:7:7:0:1"": 200, ""1:7:7:1:1"": 25}",6.77968,1:5:3:1:1,5.554729,1.224951,22.052398955916665,9,"Previously exhaustive sweep winner, remeasured"
+mixed_compute,6,1:5:5:0:1,0.8888888888888888,"{""1:5:5:0:1"": 200, ""1:5:5:8:1"": 25}",0.689333,1:5:5:7:1,0.702663,-0.013330000000000064,-1.897068722844386,9,"Previously exhaustive sweep winner, remeasured"
+mixed_loop_skew,6,1:5:1:0:1,1.0,"{""1:5:1:0:1"": 225}",0.273419,1:5:1:17:1,0.263,0.010419000000000012,3.9615969581749066,9,"Previously exhaustive sweep winner, remeasured"
+mixed_short_ordinary,6,1:1:1:0:1,1.0,"{""1:1:1:0:1"": 225}",0.225434,1:5:1:23:1,0.240091,-0.014657000000000003,-6.104768608569255,9,"Previously exhaustive sweep winner, remeasured"

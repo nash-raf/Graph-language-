@@ -1,0 +1,22 @@
+graph G { edges: file "test/shared_edgelist.txt"; };
+int n = numVertices(G);
+int score_a[n];
+int plain[n];
+int init = 0;
+int j = 0;
+while (init < n) {
+  score_a[init] = 0;
+  plain[init] = 0;
+  init = init + 1;
+}
+for each vertex u in G {
+  for each neighbor v of u in G {
+    score_a[u] = score_a[u] + 1;
+  }
+}
+while (j < n) {
+  plain[j] = j + 2;
+  j = j + 1;
+}
+print score_a[0];
+print plain[0];

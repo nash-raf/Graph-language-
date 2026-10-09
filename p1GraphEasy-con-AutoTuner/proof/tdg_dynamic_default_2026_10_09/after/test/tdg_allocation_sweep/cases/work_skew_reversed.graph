@@ -1,0 +1,51 @@
+// reverse admission-order sensitivity. Each loop writes a separate allocation.
+int nl = 65536;
+int nr = 65536;
+int left[nl];
+int right[nr];
+int i = 0;
+int j = 0;
+while (i < nl) {
+  left[i] = (i * 17 + 3) % 1009;
+  left[i] = (left[i] * 21 + 8) % 1011;
+  left[i] = (left[i] * 23 + 9) % 1013;
+  left[i] = (left[i] * 25 + 10) % 1015;
+  i = i + 1;
+}
+while (j < nr) {
+  right[j] = (j * 31 + 5) % 1013;
+  right[j] = (right[j] * 21 + 8) % 1011;
+  right[j] = (right[j] * 23 + 9) % 1013;
+  right[j] = (right[j] * 25 + 10) % 1015;
+  right[j] = (right[j] * 27 + 11) % 1017;
+  right[j] = (right[j] * 29 + 12) % 1019;
+  right[j] = (right[j] * 31 + 13) % 1021;
+  right[j] = (right[j] * 33 + 14) % 1023;
+  right[j] = (right[j] * 35 + 15) % 1025;
+  right[j] = (right[j] * 37 + 16) % 1027;
+  right[j] = (right[j] * 39 + 17) % 1029;
+  right[j] = (right[j] * 41 + 18) % 1031;
+  right[j] = (right[j] * 43 + 19) % 1033;
+  right[j] = (right[j] * 45 + 20) % 1035;
+  right[j] = (right[j] * 47 + 21) % 1037;
+  right[j] = (right[j] * 49 + 22) % 1039;
+  right[j] = (right[j] * 51 + 23) % 1041;
+  right[j] = (right[j] * 53 + 24) % 1043;
+  right[j] = (right[j] * 55 + 25) % 1045;
+  right[j] = (right[j] * 57 + 26) % 1047;
+  right[j] = (right[j] * 59 + 27) % 1049;
+  right[j] = (right[j] * 61 + 28) % 1051;
+  right[j] = (right[j] * 63 + 29) % 1053;
+  right[j] = (right[j] * 65 + 30) % 1055;
+  right[j] = (right[j] * 67 + 31) % 1057;
+  right[j] = (right[j] * 69 + 32) % 1059;
+  right[j] = (right[j] * 71 + 33) % 1061;
+  right[j] = (right[j] * 73 + 34) % 1063;
+  right[j] = (right[j] * 75 + 35) % 1065;
+  right[j] = (right[j] * 77 + 36) % 1067;
+  right[j] = (right[j] * 79 + 37) % 1069;
+  right[j] = (right[j] * 81 + 38) % 1071;
+  j = j + 1;
+}
+print left[65535];
+print right[65535];

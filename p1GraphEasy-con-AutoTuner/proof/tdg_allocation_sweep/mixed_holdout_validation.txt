@@ -1,0 +1,1 @@
+PASS: expected fresh-process samples, serial task/loop outputs, grants, budget, ordinary-first phase checks and protected sources.

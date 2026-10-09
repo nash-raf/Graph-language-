@@ -1,0 +1,28 @@
+{
+  "source_sha256": {
+    "main.cpp": "0efb988bf3a63a82c31f02123e7c2424b8e37b0cc7094e09155d780c2bb36838",
+    "pdg.cpp": "e6f143eb355e09088b932d4a2fa5a28a47d1ad51d8fe086cb65668a68642fc0a",
+    "parallel_runtime.c": "e82046decd31642de9b1a425914b6ccfc1b901b3719a015cc914d6ee90f67f87",
+    "parallel_runtime.h": "ffa93e0f192c6785dd6824c9fdbe326fc67e26636b5bd7c5b53f678efce1bed0",
+    "experimental/tdg_joint_trace.inc": "c096b46da0cd91715dff299353df8ca6187c81fa6a673949c2e483d7555a0c7b",
+    "experimental/tdg_joint_schedule.inc": "8e5be1df43e4ab0672270dd291854e548daafb16f58f7d4c036f5f451bd834b5",
+    "autotuner_runtime.c": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "AutoTunerPass.cpp": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "parallel_loop_outline.cpp": "c3c4f7f61b8f05b3d02d8a61f68233d993ecab610a0a7da8b292b148afac6da6",
+    "graph_frontier_lowering.cpp": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45",
+    "tools/tdg_joint_analyze.py": "65824ebe16c70ff7de55a07a8c59984e866c28498fcad568e060a3c18fe47f49",
+    "tools/tdg_joint_benchmark.py": "da705ad76f24fa4c33569d9ec46be15f152f5de23d509be2d9e661ca99d1d396",
+    "tools/tdg_joint_build.py": "849db1412d7e77e3ced5bc7bf246e864ef4fd64750e785ba1cbc3c0f4c622a70",
+    "tools/tdg_joint_numeric_test.py": "d1f5eabd7ba4fe95f2bbd0da5a62994e1a8dde321017749159b543e036a76502",
+    "tools/tdg_joint_oracle.py": "f1a0a222afc1ebf6bcda25eeed8fa7d70c9e3939fa06e8904736c06f45674a7d",
+    "tools/tdg_joint_oracle_probe.c": "5f6e5889aeab1246151347d27d8dc5c4140b412e23a7ced860cb6fa14843a088",
+    "tools/tdg_joint_probe.c": "b7c7a18f747ad0521131aff08cc7a4687c06bf7cde2180a05f926de1f3ca8e4b",
+    "tools/tdg_joint_reference_check.py": "c26073552e706f777a36645bc9ddc105e946fe8ee19bf3e11cf3a116bbb69d0f",
+    "tools/tdg_joint_runtime_test.c": "bff666db13c699c335119864b7a8996da09f0e00477c41671da03b887c68020a",
+    "tools/tdg_joint_validate.py": "48f2e7ef8459f466ee61e62b6bd489bcc232909ba677b22480b65ba2c8267e23"
+  },
+  "machine": "Linux Sahib 6.6.87.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux",
+  "cpu": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        48 bits physical, 48 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               12\nOn-line CPU(s) list:                  0-11\nVendor ID:                            AuthenticAMD\nModel name:                           AMD Ryzen 5 5500\nCPU family:                           25\nModel:                                80\nThread(s) per core:                   2\nCore(s) per socket:                   6\nSocket(s):                            1\nStepping:                             0\nBogoMIPS:                             7186.59\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                       AMD-V\nHypervisor vendor:                    Microsoft\nVirtualization type:                  full\nL1d cache:                            192 KiB (6 instances)\nL1i cache:                            192 KiB (6 instances)\nL2 cache:                             3 MiB (6 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-11\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n",
+  "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "frozen_reference_verified": true
+}

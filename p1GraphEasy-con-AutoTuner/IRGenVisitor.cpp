@@ -5893,9 +5893,11 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
                         Builder.CreateStructGEP(GraphTy, graphPtr, 2, "g_rp_ptr"));
     Builder.CreateStore(colPtr,
                         Builder.CreateStructGEP(GraphTy, graphPtr, 3, "g_ci_ptr"));
-    // Field 5 must be initialized: the struct is malloc'd, so leaving it
-    // uninitialized would make graph_ensure_in_csr and the motif engine read
-    // whatever the allocator happened to hand back.
+    // Unweighted graph literals have no weights.  The runtime tests this
+    // pointer before reading edge weights, so it must not retain malloc data.
+    Builder.CreateStore(llvm::ConstantPointerNull::get(
+                            llvm::cast<llvm::PointerType>(GraphTy->getElementType(4))),
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 4, "g_w_ptr"));
     Builder.CreateStore(Builder.getInt32(G->directed ? 1 : 0),
                         Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr"));
 
@@ -6207,6 +6209,8 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
             GraphTy, graphPtr, 4, "g_w_ptr");
         Builder.CreateStore(wPtr, wtPtr);
     }
+    Builder.CreateStore(Builder.getInt32(G->directed ? 1 : 0),
+                        Builder.CreateStructGEP(GraphTy, graphPtr, 5, "g_directed_ptr"));
 
     llvm::Value *graphStorage = nullptr;
     if (EmittingTopLevel)

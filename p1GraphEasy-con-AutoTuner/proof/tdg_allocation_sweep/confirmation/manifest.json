@@ -1,0 +1,306 @@
+{
+  "arguments": {
+    "out": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep/confirmation",
+    "cases": [
+      "tiny",
+      "uneven_chunks",
+      "balanced_compute",
+      "trip_skew",
+      "work_skew"
+    ],
+    "budgets": [
+      6
+    ],
+    "repeats": 5,
+    "samples": 15,
+    "seed": 7319,
+    "timeout": 600,
+    "analyze_only": false,
+    "diagnose": true
+  },
+  "cases": [
+    {
+      "name": "tiny",
+      "n": [
+        64,
+        64
+      ],
+      "depth": [
+        4,
+        4
+      ],
+      "purpose": "launch overhead dominates"
+    },
+    {
+      "name": "balanced_compute",
+      "n": [
+        65536,
+        65536
+      ],
+      "depth": [
+        16,
+        16
+      ],
+      "purpose": "equal substantial compute"
+    },
+    {
+      "name": "trip_skew",
+      "n": [
+        262144,
+        16384
+      ],
+      "depth": [
+        8,
+        8
+      ],
+      "purpose": "16:1 iteration-count skew"
+    },
+    {
+      "name": "work_skew",
+      "n": [
+        65536,
+        65536
+      ],
+      "depth": [
+        32,
+        4
+      ],
+      "purpose": "different work per iteration"
+    },
+    {
+      "name": "uneven_chunks",
+      "n": [
+        1025,
+        4097
+      ],
+      "depth": [
+        8,
+        8
+      ],
+      "purpose": "uneven trip/chunk counts"
+    }
+  ],
+  "generated": [
+    {
+      "case": "tiny",
+      "source_sha256": "51793d049f1b2b676dd380ec77cd4f28923c090c6f364a01f661342684aef199",
+      "object_sha256": "ba8c28bd1b1bda84dbb76d49e17ea4b78a69e97538167db15e1e3dc430c71f4c",
+      "ir_sha256": "4d764f49cb9c76fde0d3aca96d0c3a4894bf1419e93ae50213c8c5c049d7df33",
+      "loop_callbacks": [
+        "task_1",
+        "task_0"
+      ],
+      "compiler_level_counts": [
+        [
+          "0",
+          "1"
+        ],
+        [
+          "2",
+          "1"
+        ],
+        [
+          "3",
+          "1"
+        ],
+        [
+          "4",
+          "1"
+        ],
+        [
+          "5",
+          "1"
+        ],
+        [
+          "6",
+          "1"
+        ]
+      ],
+      "adapter": "two separate levels combined for runtime validation"
+    },
+    {
+      "case": "balanced_compute",
+      "source_sha256": "665a1d98e3ab466250faee28d01527630f0b47738e570e5db48412f2ddfd623b",
+      "object_sha256": "8ec7bf2c62bc67f71522b6452999c325c9de132a51ad5534bffd74dde7f077e8",
+      "ir_sha256": "7f8fcba32e8dec0f391565bf8a673a1662fecd416770bb067261748670d0af2a",
+      "loop_callbacks": [
+        "task_1",
+        "task_0"
+      ],
+      "compiler_level_counts": [
+        [
+          "0",
+          "1"
+        ],
+        [
+          "2",
+          "1"
+        ],
+        [
+          "3",
+          "1"
+        ],
+        [
+          "4",
+          "1"
+        ],
+        [
+          "5",
+          "1"
+        ],
+        [
+          "6",
+          "1"
+        ]
+      ],
+      "adapter": "two separate levels combined for runtime validation"
+    },
+    {
+      "case": "trip_skew",
+      "source_sha256": "fa4d2424385e7f9350b02d36b5f87d68ff98f5233e2ef0cd6e3f066b926148c6",
+      "object_sha256": "ead296a438f7bdad995b41e4cc3ff8298b3649b5ca32bab75e70578f689b48e3",
+      "ir_sha256": "1044df3c64c532df2b154c998a227d8833e9199d5998d08c137b8c9383884af6",
+      "loop_callbacks": [
+        "task_1",
+        "task_0"
+      ],
+      "compiler_level_counts": [
+        [
+          "0",
+          "1"
+        ],
+        [
+          "2",
+          "1"
+        ],
+        [
+          "3",
+          "1"
+        ],
+        [
+          "4",
+          "1"
+        ],
+        [
+          "5",
+          "1"
+        ],
+        [
+          "6",
+          "1"
+        ]
+      ],
+      "adapter": "two separate levels combined for runtime validation"
+    },
+    {
+      "case": "work_skew",
+      "source_sha256": "68cb64ed96c7535cba80f9520dd588d234f1e349832535527fc93c10a0c36ae7",
+      "object_sha256": "a4f036869cd4aaa81b177389f0c586566fe77592179ec5589d7167c214a27cad",
+      "ir_sha256": "de72f5cbfcb0a3d5164083762a830e566d704589e4e81b1e1cd6edf0a80fae97",
+      "loop_callbacks": [
+        "task_1",
+        "task_0"
+      ],
+      "compiler_level_counts": [
+        [
+          "0",
+          "1"
+        ],
+        [
+          "2",
+          "1"
+        ],
+        [
+          "3",
+          "1"
+        ],
+        [
+          "4",
+          "1"
+        ],
+        [
+          "5",
+          "1"
+        ],
+        [
+          "6",
+          "1"
+        ]
+      ],
+      "adapter": "two separate levels combined for runtime validation"
+    },
+    {
+      "case": "uneven_chunks",
+      "source_sha256": "69f2dee57bbc710783ae2641c6c44dd6d3d2d5b7a97fa17014acfe570b3d6a3f",
+      "object_sha256": "518cb159438ad22e487fd8f8f1b7db48b0294515d055cc6ee1986fd957c41028",
+      "ir_sha256": "0759b839dd87639bba8cfff6e4f108766a8c6d2a47bab9aa6c6e68a2c72c1d33",
+      "loop_callbacks": [
+        "task_1",
+        "task_0"
+      ],
+      "compiler_level_counts": [
+        [
+          "0",
+          "1"
+        ],
+        [
+          "2",
+          "1"
+        ],
+        [
+          "3",
+          "1"
+        ],
+        [
+          "4",
+          "1"
+        ],
+        [
+          "5",
+          "1"
+        ],
+        [
+          "6",
+          "1"
+        ]
+      ],
+      "adapter": "two separate levels combined for runtime validation"
+    }
+  ],
+  "protected_sha256": {
+    "parallel_runtime.c": "e82046decd31642de9b1a425914b6ccfc1b901b3719a015cc914d6ee90f67f87",
+    "parallel_runtime.h": "ffa93e0f192c6785dd6824c9fdbe326fc67e26636b5bd7c5b53f678efce1bed0",
+    "experimental/tdg_joint_schedule.inc": "70f142236f9caf90f26e955d9a5584dbb2a49801b9d2bfcdf1c4eee38637d80e",
+    "experimental/tdg_joint_trace.inc": "c096b46da0cd91715dff299353df8ca6187c81fa6a673949c2e483d7555a0c7b",
+    "main.cpp": "0efb988bf3a63a82c31f02123e7c2424b8e37b0cc7094e09155d780c2bb36838",
+    "pdg.cpp": "e6f143eb355e09088b932d4a2fa5a28a47d1ad51d8fe086cb65668a68642fc0a",
+    "parallel_loop_outline.cpp": "c3c4f7f61b8f05b3d02d8a61f68233d993ecab610a0a7da8b292b148afac6da6",
+    "autotuner_runtime.c": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "AutoTunerPass.cpp": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "graph_frontier_lowering.cpp": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45"
+  },
+  "platform": "linux",
+  "cpu": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        48 bits physical, 48 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               12\nOn-line CPU(s) list:                  0-11\nVendor ID:                            AuthenticAMD\nModel name:                           AMD Ryzen 5 5500\nCPU family:                           25\nModel:                                80\nThread(s) per core:                   2\nCore(s) per socket:                   6\nSocket(s):                            1\nStepping:                             0\nBogoMIPS:                             7186.59\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                       AMD-V\nHypervisor vendor:                    Microsoft\nVirtualization type:                  full\nL1d cache:                            192 KiB (6 instances)\nL1i cache:                            192 KiB (6 instances)\nL2 cache:                             3 MiB (6 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-11\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "started_utc": "2026-10-09T03:47:51Z",
+  "stack_limit_bytes": 67108864,
+  "test_source_sha256": {
+    "driver.c": "6717f1c7b0fb52e4b94db9a4a2c0839fdfd74a250e746f6dcf0e43ef3725f642",
+    "run.py": "aa38378505e094502dbf38dfba661caadb7c6e19e6f11686e8b749ccab4c7e2f",
+    "README.txt": "d8fe9b470fd83b72ba3d454374d0eb70bc6df5a8f746c3f6c5deda16ca8a8f28"
+  }
+}

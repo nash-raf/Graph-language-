@@ -1,0 +1,1 @@
+PASS: independently recomputed every mixed schedule median/range, native time and best ratio; both policies share one oracle; allocation plots/tables present.

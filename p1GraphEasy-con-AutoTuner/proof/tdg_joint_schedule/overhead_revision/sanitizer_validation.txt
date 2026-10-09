@@ -1,0 +1,28 @@
+$ gcc -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -pthread -fopenmp -I. -c tools/tdg_joint_runtime_test.c -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/overhead_revision/build/sanitized.o
+In file included from tools/tdg_joint_probe.c:6,
+                 from tools/tdg_joint_runtime_test.c:5:
+tools/../parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+tools/../parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from tools/../parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at tools/../parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+
+$ g++ -pthread -fopenmp -fsanitize=address,undefined /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/overhead_revision/build/sanitized.o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/overhead_revision/build/bitmap.o -lnlopt -lm -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/overhead_revision/build/sanitized
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/overhead_revision/build/sanitized
+PASS model: coupled choices, occupied parents, pool serialization, ephemeral teams, site reuse
+PASS executor: resource peaks, exactly-once callbacks, failed creation, actual grant, ledger
+PASS adaptation: calibrated traces, cache reuse, changed work, metadata refusal, bounded fallback
+PASS: fixed workers, unique task threads, barrier progress, sequential site reuse, serial plans, forced budget, concurrent grants, balanced ledger
+ALL PHASE A STRUCTURAL TESTS PASS
+

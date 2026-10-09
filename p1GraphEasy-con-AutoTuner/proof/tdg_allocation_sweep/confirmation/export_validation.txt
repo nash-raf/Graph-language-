@@ -1,0 +1,2 @@
+PASS: 31500 timed samples; 410 complete allocation/schedule configurations; 10 case/budget/policy results.
+PASS: actual grants, CSV statistics, every allocation bar/table, generated objects and protected source hashes.

@@ -1,0 +1,16 @@
+benchmark
+  steady_ns: joint/reference=0.7988, hierarchical paired 95% CI=[0.6688880257726167, 0.922963686297152]
+  first_ns: joint/reference=1.0835, hierarchical paired 95% CI=[1.0469873846935647, 1.1316851834190504]
+  all14_ns: joint/reference=0.9513, hierarchical paired 95% CI=[0.911810470905594, 0.9914397051768086]
+  ablations: {'ordering': 0.8090452192863561, 'overload': 0.7953484200460522, 'previous': 0.7929304815623903}
+  excluding tiny: 0.9162
+  all-three-process >10% regressions: B=8 overflow-unequal-loops
+  prediction median proxy: {'eligible_processes': 87, 'median_relative_error': 0.045854199935527085}
+cold
+  steady_ns: joint/reference=0.5278, hierarchical paired 95% CI=[0.3046540304850984, 0.850587149811762]
+  first_ns: joint/reference=1.2275, hierarchical paired 95% CI=[1.0856565617797433, 1.4027968157321449]
+  all14_ns: joint/reference=0.9366, hierarchical paired 95% CI=[0.8731466071095687, 0.9973417233717395]
+  ablations: {'previous': 0.8220523682049845}
+  excluding tiny: 0.8947
+  all-three-process >10% regressions: none
+  prediction median proxy: {'eligible_processes': 18, 'median_relative_error': 0.026930548635448193}

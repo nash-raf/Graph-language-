@@ -1192,7 +1192,8 @@ and *discharged* here by construction â€” see `proof/EFFECT_ALGEBRA_DESIGN.md` Â
   estimates; runtime visits do not trigger online layout replanning. The profiler
   brackets execution, excluding the preceding partition build. The conversion
   anchor and native-layout cost equations remain separate integration limitations.
-  Regression coverage: `python3 test/test_autotuner_frequency.py` (Linux/WSL, LLVM 20).
+  Regression coverage: `python3 test/pdg_tdg_verification/test_autotuner_frequency.py`
+  (Linux/WSL, LLVM 20).
 - Layout conversions are safe for CleanCut graphs because the partitions are
   layout-agnostic (`cc_arcs_init` enumerates whatever layout the AutoTuner picked).
 

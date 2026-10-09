@@ -1,0 +1,212 @@
+SGPL two-loop exhaustive validation
+
+SGPL two-loop exhaustive allocation validation
+
+Run from the repository in Linux/Ubuntu WSL:
+  python3 test/tdg_allocation_sweep/run.py
+On Windows:
+  wsl -d Ubuntu bash -lc 'cd /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner && python3 test/tdg_allocation_sweep/run.py'
+Smoke run (three independent processes, both policies):
+  python3 test/tdg_allocation_sweep/run.py --cases short --budgets 4 --samples 3 --out proof/tdg_allocation_sweep_smoke
+Recreate plots/tables from saved data:
+  python3 test/tdg_allocation_sweep/run.py --analyze-only
+Repeat representative cases and diagnose bounded search vs equations:
+  python3 test/tdg_allocation_sweep/run.py --cases tiny uneven_chunks balanced_compute trip_skew work_skew --budgets 6 --repeats 5 --samples 15 --diagnose --out proof/tdg_allocation_sweep/confirmation
+Check the test adapter and runtime with ASan/UBSan after a build:
+  python3 test/tdg_allocation_sweep/run.py --sanitizers-only
+Independently verify saved coverage, exported statistics and source hashes:
+  python3 test/tdg_allocation_sweep/check_exports.py proof/tdg_allocation_sweep
+
+Requires the existing LLVM20/ANTLR/compiler toolchain, GCC/G++, NLOPT,
+Python3, NumPy and Matplotlib. No GPU or graph-layout autotuning is exercised.
+Sources are regenerated deterministically from the case specifications in run.py.
+The harness raises its subprocess stack limit to 64 MiB for SGPL stack arrays.
+All generated SGPL fixtures remain in cases/. Builds are incremental for the
+compiler, but fresh for each workload and adapter. Results use a fixed shuffle
+seed; settings, CPU, affinity and source/object hashes are saved in manifest.json.
+
+Scope and legality
+------------------
+This is a runtime-model unit validation using real SGPL-generated DOALL loops.
+The numeric compiler currently emits these independent source loops in separate
+TDG levels. A linker adapter combines their callbacks only in the test executable.
+Compiler grouping is therefore NOT validated by these allocation sweeps.
+Each callback has its own separately allocated array; its only argument is that
+array. The harness checks the emitted environment shape and fails if it changes.
+It invokes both callbacks before SGPL consumes either output. No generated loop
+body, production model, runtime scheduling algorithm, or autotuner is modified.
+A temporary runtime copy adds two boundary grant-observation calls, shared by
+both policies. Production sources are hashed before/after the complete run.
+
+Width 1 means serial loop execution on its task's parent. A parallel width p>=2
+requires p extra workers, because its parent waits. These are NOT p-1 workers.
+For ordinary-first with two parent callbacks and budget B, enumerate ALL positive
+integer pairs satisfying e(p1)+e(p2)<=B-2, e(1)=0 and e(p)=p for p>=2.
+Unused capacity is allowed; an optimal allocation may leave workers idle.
+For dynamic scheduling, enumerate ALL p1,p2<=B-1 (also capped by trip counts),
+both admission orders, and one-parent execution. Enumerate two-parent execution
+when 2+e(p1)+e(p2)<=B. Otherwise the plan necessarily serializes admission and
+uses one parent. Backfill makes no additional choices for just two callbacks.
+The dynamic oracle also includes the ordinary executor, matching its fallback.
+The single DOALL pool serializes parallel teams; parallel loops are not assumed
+to overlap merely because their thread reservations fit.
+These are all legal widths under the tested executors, not all possible operating
+system interleavings or arbitrary timing delays. There are no ordinary sibling
+tasks in these fixtures: the ordinary-first phase rule itself is not stressed.
+DOACROSS dependencies and Phase B graph sibling scaling need separate fixtures;
+these results must not be generalized to those paths.
+
+Measurement and interpretation
+------------------------------
+Each case/budget/policy is run in three fresh processes by default. Each process
+first trains with eight useful serial SGPL level executions and twelve policy
+warmup executions, then records nine model executions. It next evaluates every
+legal forced allocation/schedule in a randomized order, with two untimed warmups
+and nine timed executions per configuration. Models never see sweep results
+before making the recorded choices. Model measurement comes before the sweep;
+repeat-to-repeat variation and process medians expose some, not all, clock drift.
+Timers enclose the complete two-callback level: planning, dispatch, synchronization
+and useful work. Source allocation/zeroing, checks and printing are outside it.
+Ordinary forced allocations keep the ordinary executor's planning overhead.
+Joint forced schedules replay fixed plans without joint search overhead. The
+model/oracle ratio therefore measures attainable runtime including the model's
+planning cost; it is not solely a test of the mathematical width prediction.
+summary.csv separates allocation_only_ratio (best schedule at the model's actual
+width pair), selected_schedule_replay_ratio (replay its actual width/order/parent
+choice), and model_over_best_ratio (native runtime including planning). A model
+can choose the fastest allocation while its measured runtime ratio exceeds 1
+because of timing noise or planning overhead. These must not be conflated.
+
+Forced runs override the profitability gate at the loop boundary and verify the
+actual grant exactly matches the requested width. They do not use force-borrow
+environment flags. Native model runs preserve the profitability gate; both the
+requested widths and actual granted widths are recorded. Orange bars mark every
+actual allocation used by the model, rather than hiding unstable choices.
+Purple diamonds mark the planner's assigned widths; these can differ from the
+executed widths because the per-loop profitability gate can choose serial work.
+Each bar is the median across process medians of the best tested schedule for
+that allocation. Error bars show the min/max process medians. The red dashed
+line is native model time, including its planning. The green outline marks the
+fastest measured configuration. The complete schedule table is schedules.csv;
+allocations.csv collapses schedules only for plotting. raw.csv retains every
+sample, allocation_columns.csv supplies allocations as columns, and tables.html
+contains the complete readable tables and plots.
+
+Summary bootstrap intervals resample paired process medians (4000 draws); with
+only three processes, these intervals are coarse. Selecting the minimum among
+many noisy configurations is optimistic. The fastest observed allocation is an
+empirical optimum for this workload, machine and run, not a universal proof.
+Use more repeats/samples and reproduce on other machines before changing models.
+--diagnose exhaustively scores frozen learned profiles after the native model
+measurements and before the oracle. DIAG_SEARCH and DIAG_SCORE lines in traces/
+record the bounded search's evaluations, planning time, chosen widths, and each
+alternative's predicted cost. No alternate plan is fed back to the native model.
+The 10% and 25% classifications are reporting tolerances, not correctness claims.
+
+
+Allocation quality (best measured schedule at the selected actual width pair):
+{
+  "ordinary-first": {
+    "within_10_percent": 35,
+    "within_25_percent": 35,
+    "nontrivial_within_10_percent": 26,
+    "nontrivial_tested": 27,
+    "tested": 36
+  },
+  "dynamic": {
+    "within_10_percent": 25,
+    "within_25_percent": 27,
+    "nontrivial_within_10_percent": 16,
+    "nontrivial_tested": 27,
+    "tested": 36
+  }
+}
+
+Native model times, including planning, relative to the exhaustive oracle:
+{
+  "ordinary-first": {
+    "within 10%": 35,
+    "10\u201325% slower": 1,
+    ">25% slower": 0
+  },
+  "dynamic": {
+    "within 10%": 21,
+    "10\u201325% slower": 1,
+    ">25% slower": 14
+  }
+}
+
+balanced_compute       B2 dynamic        chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.023x native=1.039x
+balanced_compute       B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.027x
+balanced_compute       B4 dynamic        chosen=(2,1) best=1:3:3:1:1 allocation=1.316x schedule=1.316x native=1.353x
+balanced_compute       B4 ordinary-first chosen=(2,1) best=0:1:2:0:2 allocation=1.025x schedule=1.025x native=1.042x
+balanced_compute       B6 dynamic        chosen=(2,1) best=1:5:5:1:1 allocation=2.006x schedule=2.006x native=2.025x
+balanced_compute       B6 ordinary-first chosen=(2,1) best=0:1:1:0:2 allocation=0.986x schedule=0.986x native=1.097x
+balanced_compute       B8 dynamic        chosen=(3,3) best=1:5:6:0:1 allocation=1.692x schedule=1.830x native=1.699x
+balanced_compute       B8 ordinary-first chosen=(3,3) best=0:3:3:0:2 allocation=1.000x schedule=1.000x native=0.993x
+chunk_edge             B2 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.000x native=1.076x
+chunk_edge             B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.866x
+chunk_edge             B4 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.000x native=1.080x
+chunk_edge             B4 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.977x
+chunk_edge             B6 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.000x native=1.078x
+chunk_edge             B6 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.008x
+chunk_edge             B8 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.000x native=1.073x
+chunk_edge             B8 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.990x
+large_arrays           B2 dynamic        chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.024x native=1.038x
+large_arrays           B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.000x
+large_arrays           B4 dynamic        chosen=(2,1) best=1:3:3:0:1 allocation=1.022x schedule=1.022x native=1.008x
+large_arrays           B4 ordinary-first chosen=(2,1) best=0:2:1:0:2 allocation=1.000x schedule=1.000x native=0.988x
+large_arrays           B6 dynamic        chosen=(2,1) best=1:5:3:0:1 allocation=1.066x schedule=1.066x native=1.090x
+large_arrays           B6 ordinary-first chosen=(2,1) best=0:2:1:0:2 allocation=1.000x schedule=1.000x native=1.067x
+large_arrays           B8 dynamic        chosen=(3,3) best=1:5:3:1:1 allocation=1.025x schedule=1.025x native=1.036x
+large_arrays           B8 ordinary-first chosen=(3,3) best=0:3:1:0:2 allocation=1.023x schedule=1.023x native=1.071x
+short                  B2 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.000x native=1.260x
+short                  B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.002x
+short                  B4 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.045x native=1.066x
+short                  B4 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.947x
+short                  B6 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.006x native=1.066x
+short                  B6 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.047x
+short                  B8 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.000x native=1.062x
+short                  B8 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.095x
+tiny                   B2 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.000x native=1.515x
+tiny                   B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.951x
+tiny                   B4 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.011x native=1.514x
+tiny                   B4 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.994x
+tiny                   B6 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.006x native=1.515x
+tiny                   B6 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.986x
+tiny                   B8 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.024x native=1.508x
+tiny                   B8 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.042x
+trip_skew              B2 dynamic        chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.017x native=1.022x
+trip_skew              B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.033x
+trip_skew              B4 dynamic        chosen=(2,1) best=1:3:3:1:1 allocation=1.438x schedule=1.515x native=1.551x
+trip_skew              B4 ordinary-first chosen=(2,1) best=0:2:1:0:2 allocation=1.000x schedule=1.000x native=0.989x
+trip_skew              B6 dynamic        chosen=(4,1) best=1:5:5:0:1 allocation=1.314x schedule=1.362x native=1.446x
+trip_skew              B6 ordinary-first chosen=(4,1) best=0:3:1:0:2 allocation=1.266x schedule=1.266x native=1.206x
+trip_skew              B8 dynamic        chosen=(6,1) best=1:6:5:1:1 allocation=1.586x schedule=1.586x native=1.597x
+trip_skew              B8 ordinary-first chosen=(6,1) best=0:4:1:0:2 allocation=0.813x schedule=0.813x native=1.065x
+uneven_chunks          B2 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.000x native=1.025x
+uneven_chunks          B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.000x
+uneven_chunks          B4 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.001x native=1.004x
+uneven_chunks          B4 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.031x
+uneven_chunks          B6 dynamic        chosen=(1,1) best=1:1:1:1:1 allocation=1.000x schedule=1.000x native=1.000x
+uneven_chunks          B6 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.931x
+uneven_chunks          B8 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.002x native=1.013x
+uneven_chunks          B8 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.044x
+work_skew              B2 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.020x native=1.016x
+work_skew              B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=1.004x
+work_skew              B4 dynamic        chosen=(2,1) best=1:3:3:0:1 allocation=1.428x schedule=1.454x native=1.455x
+work_skew              B4 ordinary-first chosen=(2,1) best=0:2:1:0:2 allocation=1.000x schedule=1.000x native=0.991x
+work_skew              B6 dynamic        chosen=(4,1) best=1:5:5:1:1 allocation=1.226x schedule=1.226x native=1.199x
+work_skew              B6 ordinary-first chosen=(4,1) best=0:4:1:0:2 allocation=1.000x schedule=1.000x native=1.010x
+work_skew              B8 dynamic        chosen=(6,1) best=1:6:4:1:1 allocation=1.102x schedule=1.102x native=1.058x
+work_skew              B8 ordinary-first chosen=(6,1) best=0:6:1:0:2 allocation=1.000x schedule=1.000x native=0.982x
+work_skew_reversed     B2 dynamic        chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.015x native=1.003x
+work_skew_reversed     B2 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.999x
+work_skew_reversed     B4 dynamic        chosen=(1,2) best=1:3:3:1:1 allocation=1.407x schedule=1.443x native=1.410x
+work_skew_reversed     B4 ordinary-first chosen=(1,2) best=0:1:2:0:2 allocation=1.000x schedule=1.000x native=1.011x
+work_skew_reversed     B6 dynamic        chosen=(1,4) best=1:5:5:1:1 allocation=1.265x schedule=1.265x native=1.370x
+work_skew_reversed     B6 ordinary-first chosen=(1,4) best=0:1:4:0:2 allocation=1.000x schedule=1.000x native=1.007x
+work_skew_reversed     B8 dynamic        chosen=(1,6) best=1:3:7:1:1 allocation=1.041x schedule=1.041x native=1.060x
+work_skew_reversed     B8 ordinary-first chosen=(1,6) best=0:1:6:0:2 allocation=1.000x schedule=1.000x native=1.044x
+
+

@@ -1,0 +1,194 @@
+Phase A overhead revision — 9 October 2026
+
+Outcome
+
+The revised candidate reaches and modestly beats ordinary-first on the primary
+complete-run comparison. With the same frozen reference, inputs and kernels,
+all 14 level invocations take 5.8% less time on the paired geometric mean.
+The previous candidate, rerun in the same randomized pairs, takes 14.1% more
+than ordinary-first. The revision takes 17.4% less time than that candidate.
+Steady-state time remains about 21% below ordinary-first (9.6% excluding tiny
+workloads). These are measurements on one Ryzen 5 5500/WSL2 host.
+
+Ordinary-first remains the integrated default; the revised candidate is opt-in.
+The cold matrix is encouraging but does not establish a confident cold-start
+win, and single-invocation costs remain higher. The graph-layout autotuner,
+loop kernels, compiler task grouping, and DOALL/DOACROSS equations were not
+changed in this revision. Graph-containing levels remain Phase B. Each level
+is still optimized independently and completes before the next level starts.
+
+What changed
+
+1. Sparse executor calibration
+   Previously, candidate search ran six empty levels for every new combination
+   of parent count and task count. There are now three shared anchors per
+   executor: one inline callback, two inline callbacks, and two callbacks on
+   two parents. Each anchor takes two samples; the larger is a conservative
+   estimate. Across both executors this is at most 12 empty levels per process,
+   with no new calibration for additional level shapes or parent limits.
+
+   If A1 and A2 are the inline anchors and P2 the two-parent anchor, the
+   additional overhead estimate for h parents and K callbacks is
+
+     H_inline(K) = A1 + (K-1) max(A2-A1, 0)
+     H(h,K) = H_inline(K) + (h/2) max(P2-A2, 0), for h >= 2.
+
+   h=1 uses H_inline. This is an approximation of fixed, queue and parent
+   launch costs, fitted from the actual executor on the running system. It
+   contains no host names, benchmark IDs or workload-specific coefficients.
+   Actual ordinary-first/candidate observations provide a further policy guard.
+
+2. Lazy loop curves and bounded search
+   Existing loop equations are queried only when a schedule needs that width.
+   Evaluated widths are memoized for the current search. Broad search receives
+   a soft wall-time allowance of 5% of estimated serial work, retains the
+   2,048-evaluation cap, and checks the clock every 16 evaluations. An ongoing
+   legacy loop calibration cannot be interrupted: cold setup can exceed this
+   allowance. This is not a hard latency guarantee or a claim of zero setup.
+
+3. Cached-plan revalidation and local reuse
+   Structural identity, event order/count, budget, hints, declared sites and
+   loop execution regimes still require compatible metadata. Timing/coefficient
+   drift first causes the old candidate and its reference to be rescored with
+   current costs. A modest change in level completion estimate can refresh
+   the cache without a new search. Larger changes start from the old winning
+   plan and refine nearby choices rather than restarting all order seeds.
+
+4. Sparse timing with continuous structural validation
+   Initial callback timing is collected normally. After eight observations,
+   detailed callback timing is sampled every eighth invocation. Loop boundary
+   intervals and occurrence identity are still checked every invocation to
+   reject overlapping or changed traces. An unsampled structural change
+   invalidates costs immediately and forces fresh timing on subsequent useful
+   execution. Ordinary durations may therefore adapt with a sampling delay.
+
+5. Passive policy feedback
+   Useful ordinary-first executions record the level's actual execution time.
+   The second observation replaces the cold first sample; later observations
+   update an EWMA. The observed reference caps an optimistic model comparison.
+   Two consecutive slower executions of the same candidate plan trigger
+   ordinary-first fallback. A different allocation/admission plan receives
+   fresh feedback. Every sixteenth observed level provides a useful reference
+   verification when a candidate would otherwise run. Work is never duplicated:
+   a level runs once under its chosen policy. Feedback is keyed by level/task,
+   loop trace/regime, observed work and granted budget, not by benchmark names.
+
+6. Avoid unnecessary per-worker model state
+   During development, a temporary reference plan was stored in TLS, growing
+   the experimental binary's TLS footprint to 9,248 bytes per worker. It now
+   lives on the planner's call stack. Final ELF TLS sizes are 224 bytes for the
+   revised candidate, 208 for the previous candidate and 192 for the reference.
+   The executor's resource behavior and loop bodies are unchanged.
+
+The objective remains minimum completion time for one level, with one parent
+per active callback and a peak loop-team reservation for its lifetime. All
+ordinary tasks have width one. Width changes and ordering changes are scored
+together; the shared exclusive DOALL pool and ephemeral DOACROSS teams retain
+their existing behavior. These changes reduce the cost of solving that model.
+
+Final experiment
+
+Primary: 36 workload/budget combinations, budgets 2/4/8, three independent
+processes per policy/case, 3 warm plus 11 measured levels. Five arms: frozen
+reference, revised candidate, ordering-only, overload-only and preserved
+previous candidate. Cold: the same nine-case subset without isolated loop
+calibration, three paired processes for reference/revised/previous. Policy
+order and case order are shuffled deterministically. No jobs overlap.
+Everything inside the level, including profiling, lookup, planning and passive
+verification, is timed. Common external preparation is outside level timing.
+
+Joint/reference paired geometric ratios, with hierarchical paired 95% bootstrap
+intervals (below one is faster):
+
+                            Primary                     Cold subset
+  Steady median             0.787 [0.658, 0.911]         0.519 [0.297, 0.840]
+  First invocation          1.092 [1.040, 1.154]         1.201 [1.071, 1.376]
+  All 14 invocations        0.942 [0.895, 0.991]         0.929 [0.847, 1.009]
+
+The cold complete-run interval includes parity. First-invocation overhead is
+still material; this implementation does not promise a one-shot improvement.
+The previous implementation's paired all-14/reference ratios are 1.141 in the
+primary matrix and 1.315 in the cold subset. Revised/previous ratios are 0.826
+and 0.707 respectively. The primary steady performance is approximately equal
+to the previous candidate (ratio 1.003), while total cost is substantially lower.
+
+Primary per-case median time improves in 29/36 combinations. Its worst median
+ratio is 1.095. The cold B=4 overflow-short case regresses 16.3% on the ratio of
+policy medians; no stratum has a >10% regression in all three paired processes.
+All cases, including these exceptions, remain in the aggregate results. Three
+processes do not establish absence of regressions. Tiny cases influence the
+geometric means strongly; non-tiny steady ratios are 0.904 primary and 0.881 cold.
+
+Across 108 primary revised-candidate processes:
+  117 full searches (1.08/process), versus approximately four/process before;
+  1,004 direct cache hits and 193 cheap revalidations;
+  1,260 calibration executions (maximum 12/process);
+  3,741 schedule evaluations;
+  85.8 ms cumulative recorded learning/search time (0.79 ms/process average).
+The counter excludes fast cache lookup and some boundary bookkeeping; all-14
+timing includes those costs. In the cold subset, recorded learning averages
+2.53 ms/process because existing loop calibration can also be encountered.
+
+Developmental results are preserved in overhead_revision_pre_guard and
+overhead_revision_with_tls. The shorter search initially produced a repeatable
+20.6% steady regression for B=8 unequal sibling loops. This motivated passive
+comparison with useful reference execution; the TLS issue then motivated
+moving model bookkeeping onto the planner stack. Final cases and thresholds
+were not edited to remove failures. Source snapshots and old results remain
+available separately from final benchmark.csv/cold.csv.
+
+Verification
+
+PASS focused resource/ledger/exactly-once tests at budgets 1/2/4/8, including
+actual-grant limits, thread/allocation failure, private loop reservations,
+sequential site reuse, changed work/regime and forced/undeclared fallback.
+New tests exercise elapsed-search stopping, anchor reuse across shapes,
+revalidation without a full search, unsampled overlap/shape invalidation,
+fresh timing recovery, observed-policy fallback and periodic verification.
+The adaptation test executes 24 levels to cover continued reuse/verification.
+PASS existing TDG budget suite at 1/2/4/8 plus sharing-disabled behavior.
+PASS six existing cost-equation tests.
+PASS 11 generated sibling-graph fixtures against candidate and frozen reference,
+with outputs/certificates/overlap/loop and allocation fallback checks.
+PASS repeated generated numeric program at 1/2/4/8 for all three compiler
+selectors, identical workload IR after policy normalization, and rejection of
+invalid selectors/mismatched runtimes.
+PASS ASan/UBSan (existing process-lifetime pool leak checking disabled).
+PASS existing TLAPS/TLC dependency-safety proofs/checks. They do not prove the
+optimizer optimal or bound prediction error.
+PASS independent simulator and small exhaustive list-schedule oracle: all 48
+selected scores agree; median regret 0%, maximum 17%, cap respected. Abstract
+oracle searches deliberately exclude runtime timing budgets and overhead.
+PASS kernel machine-code check: body/range/task have matching instructions
+across all three implementations after address/TLS relocation normalization.
+PASS protected source hashes, frozen snapshot verification and whitespace checks.
+
+Known existing failure: append-order test still reports "order mismatch at 1:
+got 1, expected 4" identically in current and frozen runtimes. It was not fixed
+or counted as a passing append-order test.
+
+Reproduction in Ubuntu/WSL, from the repository
+
+  export SGPL_JOINT_RESULTS_DIR=proof/tdg_joint_schedule/overhead_revision
+  export SGPL_JOINT_COMPARE_PREVIOUS=1
+  python3 tools/tdg_joint_build.py
+  python3 tools/tdg_joint_validate.py
+  python3 tools/tdg_joint_validate.py --generated
+  python3 tools/tdg_joint_validate.py --sanitizers
+  python3 tools/tdg_joint_kernel_check.py
+  python3 tools/tdg_joint_benchmark.py --no-build
+  python3 tools/tdg_joint_benchmark.py --cold --no-build
+  python3 tools/tdg_joint_analyze.py
+
+Candidate compiler selector remains --tdg-scheduler=joint-experimental, linked
+with one SGPL_ENABLE_JOINT_SCHEDULER runtime. The normal entry is ordinary-first
+and has no dependency on the backup. Final raw data, paired old/new comparisons,
+source hashes and detailed validation logs are alongside this report.
+
+Interpretation
+
+The setup penalty that previously erased steady-state gains is substantially
+reduced. The primary complete-run comparison now clears parity, but cold-start
+uncertainty, first-invocation cost and workload-specific exceptions remain.
+This supports further evaluation of the candidate; it is not evidence of a
+universal performance guarantee or a reason to change graph-layout selection.

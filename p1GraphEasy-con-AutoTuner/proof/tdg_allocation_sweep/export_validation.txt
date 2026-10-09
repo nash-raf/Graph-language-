@@ -1,0 +1,2 @@
+PASS: 1157316 CSV timing references (shared mixed oracle rows are counted twice); 2556 complete original allocation/schedule configurations; 106 case/budget/policy results.
+PASS: actual grants, CSV statistics, every allocation bar/table, generated objects and protected source hashes.

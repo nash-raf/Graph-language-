@@ -1,0 +1,12 @@
+{
+  "ordinary-first": {
+    "within 10%": 35,
+    "10\u201325% slower": 4,
+    ">25% slower": 14
+  },
+  "dynamic": {
+    "within 10%": 32,
+    "10\u201325% slower": 3,
+    ">25% slower": 18
+  }
+}

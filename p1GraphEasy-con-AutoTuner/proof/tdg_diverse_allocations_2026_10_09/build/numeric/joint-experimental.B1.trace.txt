@@ -1,0 +1,504 @@
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=42 samples=0 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=42 span=42 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=301035.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=301035.00 refined_units=1204
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=42 samples=0 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=42 span=42 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=198737.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=198737.00 refined_units=795
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=5 samples=0 source=static
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=5 effective_span=5 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=5 span=5 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=156.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=156.00 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=129 samples=0 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=129 span=129 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=360831.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=360831.00 refined_units=1443
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=129 samples=0 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=129 span=129 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=290207.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=290207.00 refined_units=1161
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=42 samples=0 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=42 span=42 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=9560.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=9560.00 refined_units=38
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=42 samples=1 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=42 span=42 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=61191.00 old_samples=1 new_samples=2 old_ewma_ns=301035.00 new_ewma_ns=241074.00 refined_units=964
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=42 samples=1 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=42 span=42 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=61154.00 old_samples=1 new_samples=2 old_ewma_ns=198737.00 new_ewma_ns=164341.25 refined_units=657
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=5 samples=1 source=static
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=5 effective_span=5 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=5 span=5 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=129.00 old_samples=1 new_samples=2 old_ewma_ns=156.00 new_ewma_ns=149.25 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=129 samples=1 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=129 span=129 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=395665.00 old_samples=1 new_samples=2 old_ewma_ns=360831.00 new_ewma_ns=369539.50 refined_units=1478
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=129 samples=1 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=129 span=129 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=290042.00 old_samples=1 new_samples=2 old_ewma_ns=290207.00 new_ewma_ns=290165.75 refined_units=1161
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=42 samples=1 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=42 span=42 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=322.00 old_samples=1 new_samples=2 old_ewma_ns=9560.00 new_ewma_ns=7250.50 refined_units=29
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=672 samples=2 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=672 effective_span=672 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=672 span=672 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=61090.00 old_samples=2 new_samples=3 old_ewma_ns=241074.00 new_ewma_ns=196078.00 refined_units=784
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=657 samples=2 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=657 effective_span=657 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=657 span=657 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=61099.00 old_samples=2 new_samples=3 old_ewma_ns=164341.25 new_ewma_ns=138530.69 refined_units=554
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=2 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=129.00 old_samples=2 new_samples=3 old_ewma_ns=149.25 new_ewma_ns=144.19 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1478 samples=2 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1478 effective_span=1478 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1478 span=1478 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=361115.00 old_samples=2 new_samples=3 old_ewma_ns=369539.50 new_ewma_ns=367433.38 refined_units=1470
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1161 samples=2 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1161 effective_span=1161 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1161 span=1161 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=290023.00 old_samples=2 new_samples=3 old_ewma_ns=290165.75 new_ewma_ns=290130.06 refined_units=1161
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=29 samples=2 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=29 effective_span=29 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=29 span=29 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=257.00 old_samples=2 new_samples=3 old_ewma_ns=7250.50 new_ewma_ns=5502.12 refined_units=22
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=672 samples=3 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=672 effective_span=672 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=672 span=672 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=61118.00 old_samples=3 new_samples=4 old_ewma_ns=196078.00 new_ewma_ns=162338.00 refined_units=649
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=554 samples=3 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=554 effective_span=554 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=554 span=554 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=60971.00 old_samples=3 new_samples=4 old_ewma_ns=138530.69 new_ewma_ns=119140.77 refined_units=477
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=3 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=119.00 old_samples=3 new_samples=4 old_ewma_ns=144.19 new_ewma_ns=137.89 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1470 samples=3 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1470 effective_span=1470 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1470 span=1470 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=357543.00 old_samples=3 new_samples=4 old_ewma_ns=367433.38 new_ewma_ns=364960.78 refined_units=1460
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1161 samples=3 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1161 effective_span=1161 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1161 span=1161 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=286378.00 old_samples=3 new_samples=4 old_ewma_ns=290130.06 new_ewma_ns=289192.05 refined_units=1157
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=22 samples=3 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=22 effective_span=22 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=22 span=22 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=266.00 old_samples=3 new_samples=4 old_ewma_ns=5502.12 new_ewma_ns=4193.09 refined_units=17
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=649 samples=4 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=649 effective_span=649 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=649 span=649 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=60319.00 old_samples=4 new_samples=5 old_ewma_ns=162338.00 new_ewma_ns=136833.25 refined_units=547
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=477 samples=4 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=477 effective_span=477 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=477 span=477 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=60337.00 old_samples=4 new_samples=5 old_ewma_ns=119140.77 new_ewma_ns=104439.82 refined_units=418
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=4 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=119.00 old_samples=4 new_samples=5 old_ewma_ns=137.89 new_ewma_ns=133.17 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1460 samples=4 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1460 effective_span=1460 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1460 span=1460 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=356661.00 old_samples=4 new_samples=5 old_ewma_ns=364960.78 new_ewma_ns=362885.84 refined_units=1452
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1157 samples=4 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1157 effective_span=1157 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1157 span=1157 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=284559.00 old_samples=4 new_samples=5 old_ewma_ns=289192.05 new_ewma_ns=288033.79 refined_units=1152
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=4 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=275.00 old_samples=4 new_samples=5 old_ewma_ns=4193.09 new_ewma_ns=3213.57 refined_units=13
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=547 samples=5 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=547 effective_span=547 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=547 span=547 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=59952.00 old_samples=5 new_samples=6 old_ewma_ns=136833.25 new_ewma_ns=117612.94 refined_units=470
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=418 samples=5 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=418 effective_span=418 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=418 span=418 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=59970.00 old_samples=5 new_samples=6 old_ewma_ns=104439.82 new_ewma_ns=93322.37 refined_units=373
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=5 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=119.00 old_samples=5 new_samples=6 old_ewma_ns=133.17 new_ewma_ns=129.63 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1452 samples=5 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1452 effective_span=1452 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1452 span=1452 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=353207.00 old_samples=5 new_samples=6 old_ewma_ns=362885.84 new_ewma_ns=360466.13 refined_units=1442
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1152 samples=5 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1152 effective_span=1152 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1152 span=1152 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=285606.00 old_samples=5 new_samples=6 old_ewma_ns=288033.79 new_ewma_ns=287426.84 refined_units=1150
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=5 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=257.00 old_samples=5 new_samples=6 old_ewma_ns=3213.57 new_ewma_ns=2474.43 refined_units=10
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=470 samples=6 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=470 effective_span=470 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=470 span=470 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=59208.00 old_samples=6 new_samples=7 old_ewma_ns=117612.94 new_ewma_ns=103011.70 refined_units=412
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=373 samples=6 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=373 effective_span=373 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=373 span=373 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=59236.00 old_samples=6 new_samples=7 old_ewma_ns=93322.37 new_ewma_ns=84800.78 refined_units=339
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=6 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=120.00 old_samples=6 new_samples=7 old_ewma_ns=129.63 new_ewma_ns=127.22 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1442 samples=6 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1442 effective_span=1442 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1442 span=1442 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=367231.00 old_samples=6 new_samples=7 old_ewma_ns=360466.13 new_ewma_ns=362157.35 refined_units=1449
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1150 samples=6 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1150 effective_span=1150 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1150 span=1150 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=277671.00 old_samples=6 new_samples=7 old_ewma_ns=287426.84 new_ewma_ns=284987.88 refined_units=1140
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=6 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=275.00 old_samples=6 new_samples=7 old_ewma_ns=2474.43 new_ewma_ns=1924.57 refined_units=8
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=412 samples=7 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=412 effective_span=412 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=412 span=412 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=58510.00 old_samples=7 new_samples=8 old_ewma_ns=103011.70 new_ewma_ns=91886.28 refined_units=368
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=339 samples=7 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=339 effective_span=339 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=339 span=339 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=58501.00 old_samples=7 new_samples=8 old_ewma_ns=84800.78 new_ewma_ns=78225.83 refined_units=313
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=7 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=128.00 old_samples=7 new_samples=8 old_ewma_ns=127.22 new_ewma_ns=127.41 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1449 samples=7 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1449 effective_span=1449 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1449 span=1449 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=343886.00 old_samples=7 new_samples=8 old_ewma_ns=362157.35 new_ewma_ns=357589.51 refined_units=1430
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1140 samples=7 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1140 effective_span=1140 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1140 span=1140 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=282024.00 old_samples=7 new_samples=8 old_ewma_ns=284987.88 new_ewma_ns=284246.91 refined_units=1137
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=7 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=239.00 old_samples=7 new_samples=8 old_ewma_ns=1924.57 new_ewma_ns=1503.18 refined_units=6
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=368 samples=8 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=368 effective_span=368 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=368 span=368 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=58160.00 old_samples=8 new_samples=9 old_ewma_ns=91886.28 new_ewma_ns=83454.71 refined_units=334
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=313 samples=8 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=313 effective_span=313 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=313 span=313 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=58161.00 old_samples=8 new_samples=9 old_ewma_ns=78225.83 new_ewma_ns=73209.62 refined_units=293
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=8 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=128.00 old_samples=8 new_samples=9 old_ewma_ns=127.41 new_ewma_ns=127.56 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1430 samples=8 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1430 effective_span=1430 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1430 span=1430 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=337577.00 old_samples=8 new_samples=9 old_ewma_ns=357589.51 new_ewma_ns=352586.38 refined_units=1410
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1137 samples=8 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1137 effective_span=1137 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1137 span=1137 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=274338.00 old_samples=8 new_samples=9 old_ewma_ns=284246.91 new_ewma_ns=281769.68 refined_units=1127
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=8 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=266.00 old_samples=8 new_samples=9 old_ewma_ns=1503.18 new_ewma_ns=1193.88 refined_units=5
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=334 samples=9 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=334 effective_span=334 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=334 span=334 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=81111.00 old_samples=9 new_samples=10 old_ewma_ns=83454.71 new_ewma_ns=82868.78 refined_units=331
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=293 samples=9 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=293 effective_span=293 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=293 span=293 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=57922.00 old_samples=9 new_samples=10 old_ewma_ns=73209.62 new_ewma_ns=69387.72 refined_units=278
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=9 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=74.00 old_samples=9 new_samples=10 old_ewma_ns=127.56 new_ewma_ns=114.17 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1410 samples=9 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1410 effective_span=1410 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1410 span=1410 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=335758.00 old_samples=9 new_samples=10 old_ewma_ns=352586.38 new_ewma_ns=348379.29 refined_units=1394
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1127 samples=9 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1127 effective_span=1127 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1127 span=1127 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=278232.00 old_samples=9 new_samples=10 old_ewma_ns=281769.68 new_ewma_ns=280885.26 refined_units=1124
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=9 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=230.00 old_samples=9 new_samples=10 old_ewma_ns=1193.88 new_ewma_ns=952.91 refined_units=4
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=331 samples=10 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=331 effective_span=331 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=331 span=331 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=57086.00 old_samples=10 new_samples=11 old_ewma_ns=82868.78 new_ewma_ns=76423.09 refined_units=306
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=278 samples=10 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=278 effective_span=278 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=278 span=278 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=57059.00 old_samples=10 new_samples=11 old_ewma_ns=69387.72 new_ewma_ns=66305.54 refined_units=265
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=10 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=64.00 old_samples=10 new_samples=11 old_ewma_ns=114.17 new_ewma_ns=101.63 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1394 samples=10 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1394 effective_span=1394 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1394 span=1394 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=331672.00 old_samples=10 new_samples=11 old_ewma_ns=348379.29 new_ewma_ns=344202.46 refined_units=1377
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1124 samples=10 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1124 effective_span=1124 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1124 span=1124 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=281336.00 old_samples=10 new_samples=11 old_ewma_ns=280885.26 new_ewma_ns=280997.95 refined_units=1124
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=10 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=257.00 old_samples=10 new_samples=11 old_ewma_ns=952.91 new_ewma_ns=778.93 refined_units=3
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=306 samples=11 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=306 effective_span=306 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=306 span=306 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=79596.00 old_samples=11 new_samples=12 old_ewma_ns=76423.09 new_ewma_ns=77216.31 refined_units=309
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=265 samples=11 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=265 effective_span=265 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=265 span=265 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=57068.00 old_samples=11 new_samples=12 old_ewma_ns=66305.54 new_ewma_ns=63996.15 refined_units=256
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=11 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=64.00 old_samples=11 new_samples=12 old_ewma_ns=101.63 new_ewma_ns=92.22 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1377 samples=11 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1377 effective_span=1377 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1377 span=1377 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=339873.00 old_samples=11 new_samples=12 old_ewma_ns=344202.46 new_ewma_ns=343120.10 refined_units=1372
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1124 samples=11 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1124 effective_span=1124 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1124 span=1124 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=271151.00 old_samples=11 new_samples=12 old_ewma_ns=280997.95 new_ewma_ns=278536.21 refined_units=1114
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=11 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=193.00 old_samples=11 new_samples=12 old_ewma_ns=778.93 new_ewma_ns=632.45 refined_units=3
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=309 samples=12 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=309 effective_span=309 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=309 span=309 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=57426.00 old_samples=12 new_samples=13 old_ewma_ns=77216.31 new_ewma_ns=72268.74 refined_units=289
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=256 samples=12 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=256 effective_span=256 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=256 span=256 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=64039.00 old_samples=12 new_samples=13 old_ewma_ns=63996.15 new_ewma_ns=64006.87 refined_units=256
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=12 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=55.00 old_samples=12 new_samples=13 old_ewma_ns=92.22 new_ewma_ns=82.92 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1372 samples=12 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1372 effective_span=1372 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1372 span=1372 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=333628.00 old_samples=12 new_samples=13 old_ewma_ns=343120.10 new_ewma_ns=340747.07 refined_units=1363
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1114 samples=12 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1114 effective_span=1114 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1114 span=1114 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=272666.00 old_samples=12 new_samples=13 old_ewma_ns=278536.21 new_ewma_ns=277068.66 refined_units=1108
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=12 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=193.00 old_samples=12 new_samples=13 old_ewma_ns=632.45 new_ewma_ns=522.59 refined_units=2
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=3 static=42 effective=289 samples=13 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=289 effective_span=289 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=289 span=289 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-fallback elapsed_ns=57417.00 old_samples=13 new_samples=14 old_ewma_ns=72268.74 new_ewma_ns=68555.80 refined_units=274
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=2 static=42 effective=256 samples=13 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=256 effective_span=256 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=256 span=256 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-fallback elapsed_ns=56728.00 old_samples=13 new_samples=14 old_ewma_ns=64006.87 new_ewma_ns=62187.15 refined_units=249
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=13 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=2 span=2 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-fallback elapsed_ns=73.00 old_samples=13 new_samples=14 old_ewma_ns=82.92 new_ewma_ns=80.44 refined_units=1
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1363 samples=13 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1363 effective_span=1363 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1363 span=1363 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-fallback elapsed_ns=326106.00 old_samples=13 new_samples=14 old_ewma_ns=340747.07 new_ewma_ns=337086.81 refined_units=1348
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1108 samples=13 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1108 effective_span=1108 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1108 span=1108 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-fallback elapsed_ns=269443.00 old_samples=13 new_samples=14 old_ewma_ns=277068.66 new_ewma_ns=275162.24 refined_units=1101
+[tdg.joint] policy=fifo reason=profile-or-scope budget=1 tasks=1
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=13 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=21 span=21 reason=budget-fallback
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-fallback elapsed_ns=203.00 old_samples=13 new_samples=14 old_ewma_ns=522.59 new_ewma_ns=442.69 refined_units=2

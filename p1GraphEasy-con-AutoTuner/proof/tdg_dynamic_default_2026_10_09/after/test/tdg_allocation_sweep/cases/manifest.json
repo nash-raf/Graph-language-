@@ -1,0 +1,110 @@
+[
+  {
+    "name": "tiny",
+    "n": [
+      64,
+      64
+    ],
+    "depth": [
+      4,
+      4
+    ],
+    "purpose": "launch overhead dominates"
+  },
+  {
+    "name": "chunk_edge",
+    "n": [
+      257,
+      513
+    ],
+    "depth": [
+      8,
+      8
+    ],
+    "purpose": "256-iteration chunk imbalance"
+  },
+  {
+    "name": "short",
+    "n": [
+      4096,
+      4096
+    ],
+    "depth": [
+      4,
+      4
+    ],
+    "purpose": "serial/parallel crossover"
+  },
+  {
+    "name": "balanced_compute",
+    "n": [
+      65536,
+      65536
+    ],
+    "depth": [
+      16,
+      16
+    ],
+    "purpose": "equal substantial compute"
+  },
+  {
+    "name": "trip_skew",
+    "n": [
+      262144,
+      16384
+    ],
+    "depth": [
+      8,
+      8
+    ],
+    "purpose": "16:1 iteration-count skew"
+  },
+  {
+    "name": "work_skew",
+    "n": [
+      65536,
+      65536
+    ],
+    "depth": [
+      32,
+      4
+    ],
+    "purpose": "different work per iteration"
+  },
+  {
+    "name": "work_skew_reversed",
+    "n": [
+      65536,
+      65536
+    ],
+    "depth": [
+      4,
+      32
+    ],
+    "purpose": "reverse admission-order sensitivity"
+  },
+  {
+    "name": "large_arrays",
+    "n": [
+      1048576,
+      1048576
+    ],
+    "depth": [
+      4,
+      4
+    ],
+    "purpose": "large streaming arrays plus compute"
+  },
+  {
+    "name": "uneven_chunks",
+    "n": [
+      1025,
+      4097
+    ],
+    "depth": [
+      8,
+      8
+    ],
+    "purpose": "uneven trip/chunk counts"
+  }
+]

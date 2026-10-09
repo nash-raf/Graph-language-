@@ -1,0 +1,6 @@
+PASS body: same 27 instructions after address/TLS relocation normalization
+PASS range: same 37 instructions after address/TLS relocation normalization
+PASS task: same 188 instructions after address/TLS relocation normalization
+reference: TLS=192 bytes
+joint: TLS=224 bytes
+previous: TLS=208 bytes

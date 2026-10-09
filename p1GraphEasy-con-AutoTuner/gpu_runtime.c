@@ -79,11 +79,13 @@ typedef struct
 
 static gpu_pointee_desc g_pointees[GPUP_MAX_POINTEES];
 static int g_num_pointees = 0;
+static pthread_mutex_t g_gpu_registry_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void sgpl_gpu_register_pointee(const char *name, void *base, int64_t bytes)
 {
     if (!name || !name[0] || !base || bytes <= 0)
         return;
+    pthread_mutex_lock(&g_gpu_registry_lock);
     for (int i = 0; i < g_num_pointees; ++i)
     {
         if (strncmp(g_pointees[i].name, name, sizeof(g_pointees[i].name) - 1) == 0)
@@ -92,11 +94,15 @@ void sgpl_gpu_register_pointee(const char *name, void *base, int64_t bytes)
              * loaded); the latest base/size wins. */
             g_pointees[i].base = base;
             g_pointees[i].bytes = bytes;
+            pthread_mutex_unlock(&g_gpu_registry_lock);
             return;
         }
     }
     if (g_num_pointees >= GPUP_MAX_POINTEES)
+    {
+        pthread_mutex_unlock(&g_gpu_registry_lock);
         return;
+    }
     if (strlen(name) >= sizeof(g_pointees[0].name))
     {
         /* A truncated name would silently miss the module global lookup and
@@ -104,6 +110,7 @@ void sgpl_gpu_register_pointee(const char *name, void *base, int64_t bytes)
         if (getenv("SGPL_GPU_DEBUG"))
             fprintf(stderr, "[gpu] pointee name too long (%zu bytes): ignored\n",
                     strlen(name));
+        pthread_mutex_unlock(&g_gpu_registry_lock);
         return;
     }
     gpu_pointee_desc *D = &g_pointees[g_num_pointees++];
@@ -113,6 +120,7 @@ void sgpl_gpu_register_pointee(const char *name, void *base, int64_t bytes)
     if (getenv("SGPL_GPU_DEBUG"))
         fprintf(stderr, "[gpu] pointee registered: %s base=%p bytes=%lld\n", name, base,
                 (long long)bytes);
+    pthread_mutex_unlock(&g_gpu_registry_lock);
 }
 
 /* Value-keyed buffer registry: the generated code registers the sized objects
@@ -134,21 +142,27 @@ void sgpl_gpu_register_buffer(void *base, int64_t bytes)
 {
     if (!base || bytes <= 0)
         return;
+    pthread_mutex_lock(&g_gpu_registry_lock);
     for (int i = 0; i < g_num_buffers; ++i)
     {
         if (g_buffers[i].base == base)
         {
             g_buffers[i].bytes = bytes; /* re-registered after a reallocation */
+            pthread_mutex_unlock(&g_gpu_registry_lock);
             return;
         }
     }
     if (g_num_buffers >= GPUB_MAX_BUFFERS)
+    {
+        pthread_mutex_unlock(&g_gpu_registry_lock);
         return;
+    }
     g_buffers[g_num_buffers].base = base;
     g_buffers[g_num_buffers].bytes = bytes;
     ++g_num_buffers;
     if (getenv("SGPL_GPU_DEBUG"))
         fprintf(stderr, "[gpu] buffer registered: base=%p bytes=%lld\n", base, (long long)bytes);
+    pthread_mutex_unlock(&g_gpu_registry_lock);
 }
 
 static const gpu_buffer_desc *gpu_lookup_buffer(const void *base)
@@ -402,6 +416,7 @@ void autograph_gpu_step_register(const char *name, int32_t step_id)
 {
     if (!name || !name[0])
         return;
+    pthread_mutex_lock(&g_gpu_registry_lock);
     /* The compiler emits this in the program's loop preheader, so it runs once
      * per round: the registry is a set of (name, step) pairs, and re-registering
      * must not grow it -- the engine reads the registry to decide whether the
@@ -410,14 +425,21 @@ void autograph_gpu_step_register(const char *name, int32_t step_id)
     for (int i = 0; i < g_num_steps; ++i)
         if (g_step_ids[i] == step_id &&
             strncmp(g_step_names[i], name, sizeof(g_step_names[0]) - 1) == 0)
+        {
+            pthread_mutex_unlock(&g_gpu_registry_lock);
             return;
+        }
     if (g_num_steps >= GPUP_MAX_STEPS)
+    {
+        pthread_mutex_unlock(&g_gpu_registry_lock);
         return;
+    }
     snprintf(g_step_names[g_num_steps], sizeof(g_step_names[0]), "%s", name);
     g_step_ids[g_num_steps] = step_id;
     ++g_num_steps;
     if (getenv("SGPL_GPU_DEBUG"))
         fprintf(stderr, "[gpu] engine step registered: %s (step %d)\n", name, (int)step_id);
+    pthread_mutex_unlock(&g_gpu_registry_lock);
 }
 
 int autograph_gpu_step_count(void) { return g_num_steps; }

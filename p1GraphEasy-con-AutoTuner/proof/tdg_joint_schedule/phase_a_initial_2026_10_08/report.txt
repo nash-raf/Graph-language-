@@ -1,0 +1,197 @@
+Phase A implementation and evaluation — 8 October 2026
+
+Decision
+
+Joint allocation/admission is implemented, compiler-wired, and tested. It wins
+after warm-up on this test matrix, but its calibration and repeated planning
+costs lose over the complete 14-invocation runs. Keep ordinary-first integrated
+through the normal runtime entry point. The candidate remains explicitly
+experimental; neither production nor the candidate loads a backup at runtime.
+The frozen reference remains unchanged and its hashes were verified.
+
+The graph-layout autotuner and loop kernels were not edited. DOALL/DOACROSS
+cost equations remain the existing equations in this Phase A comparison.
+Graph-containing levels and GPU compilation use the existing scheduler.
+Graph sibling-loop scaling/allocation remains Phase B.
+
+Why allocation and ordering must be coupled
+
+The decision is local to one TDG level. Levels still complete serially. Each
+ordinary callback has one execution thread and fixed estimated duration a_j;
+allocating additional threads cannot reduce a_j. Its duration still determines
+which start order minimizes the level completion time.
+
+A loop-containing callback consists of measured ordinary intervals b_ji,
+sequential observed loop occurrences with existing duration curves T_ji(p),
+and a final ordinary interval. Its uncontended duration is
+
+  D_j(p_j) = a_j + sum_i T_ji(p_ji),
+  a_j = sum_i b_ji + tail_j.
+
+Boundary traces subtract actual dispatch intervals, including dispatch waits,
+from callback time; they do not subtract predicted loop costs. Repeated site
+occurrences are counted separately but share the site's dispatch width.
+Unknown/nested/undeclared traces fall back to ordinary-first. Ordinary tasks
+use existing instruction weights converted to nanoseconds as a cold prior,
+then use observed residual time. Raw heuristic units are never added to time.
+
+Phase A matches the implementation's resource lifetime conservatively:
+
+  r_j = 1 + max_i (p_ji if p_ji >= 2, otherwise 0),
+  sum_{j active at t} r_j <= B,
+  minimize C_max = max_j finish_j + executor/planning overhead.
+
+B is the actual granted budget. The parent remains occupied during a parallel
+dispatch; the current loop team consists of p additional workers. A serial
+loop runs on its parent and needs no additional team. Sequential sites reuse
+the same reservation. Reservation is held for the whole callback, including
+ordinary segments and pool waits. Ordinary callbacks always have r_j = 1.
+The executor gives each callback a private budget view, preventing other
+callbacks from taking its reserved extra workers.
+
+The simulator includes the existing shared exclusive DOALL pool. Concurrent
+parallel DOALL dispatches serialize there; independent DOACROSS teams use
+ephemeral workers instead. It models pool acquisition in admission/event
+order; actual thread arrival can differ, so this remains an approximation.
+
+Example: with B=4, one 8 ms ordinary task, three 0.2 ms ordinary tasks, and a
+loop taking 5 ms with two team workers, ordinary-first takes about 13 ms.
+Starting the long ordinary task alongside the loop can finish in about 8 ms.
+Giving that loop three team workers occupies all four slots and delays the
+long ordinary task, even if the loop itself gets faster. Width changes
+admission feasibility; start order changes overlap and pool waiting. Every
+candidate is scored against the complete remaining level, capturing both.
+
+Implementation
+
+The bounded search considers reference/all-serial/individually-fastest width
+seeds; long/ordinary/loop-first orders; strict priority versus backfilling; and
+different parent concurrency limits. Coordinate width changes and order swaps
+refine the seeds, with at most 2,048 simulated schedules. It is approximate,
+not an exact optimizer. Profiles and an eight-entry plan cache invalidate on
+task/site metadata, observed occurrence sequence, work bucket, width hints,
+ordinary-time drift, loop coefficient drift and execution-regime changes.
+Limits are 64 tasks/budget and 16 observed occurrences per callback; unsupported
+levels retain the existing executor. Forced diagnostic widths also retain it.
+
+The first experimental timing matrix exposed missing parent admission/gate
+overhead: at B=2 tiny work regressed 32.8%, and B=8 many loops regressed 24.2%.
+Those developmental results are preserved in benchmark_initial.csv. The
+final model measures the actual empty candidate/reference executors for each
+needed concurrency/task-count combination, permits fewer parent workers, and
+compares predicted savings with measured planner/lookup cost. These are
+runtime measurements, not machine- or workload-specific fitted constants.
+Measuring them has a real startup cost, included in the final results.
+
+Compiler testing also found that task loop-site lists were populated before
+ordinary-loop outlining. New outlined sites could therefore be absent. A
+narrow post-outline metadata refresh now supplies identical lists to both
+policies, without changing task grouping, dependencies or loop bodies. The
+numeric generated test verifies both IDs and identical workload IR after
+normalizing only scheduler entry names/declarations and blank lines.
+
+Evaluation
+
+Host: Ryzen 5 5500, 6 cores/12 logical CPUs, Ubuntu in WSL2, GCC 13.3.
+Primary matrix: 36 combinations (budgets 2/4/8, 12 workload shapes), three
+independent processes per policy/case. Each process has 3 warm and 11 measured
+levels. Cases and paired policy order are randomized; jobs never overlap.
+All arms run identical kernels. Common isolated loop calibration is outside
+level timing; a separate nine-case cold matrix omits it. Planner, collector,
+cache, and executor costs inside each level are timed. No workloads are dropped.
+
+Ratios below are joint/reference geometric means of paired process ratios;
+95% intervals resample workload/budget strata and process pairs within strata.
+Ratios below one indicate improvement.
+
+                             Primary matrix            Cold matrix
+  Steady median ratio        0.801 [0.680, 0.912]       0.758 [0.625, 0.897]
+  First invocation ratio     1.130 [1.054, 1.240]       1.201 [1.084, 1.349]
+  All 14 invocations ratio   1.138 [1.044, 1.247]       1.362 [1.082, 1.717]
+
+The ratio of policy medians improves in 27/36 primary cases. At B=4:
+  fits-mixed:            2.202 -> 1.488 ms (-32.4%)
+  overflow-one-long:     9.452 -> 7.660 ms (-19.0%)
+  independent-DOACROSS:  8.430 -> 5.969 ms (-29.2%)
+  streaming:            1.182 -> 1.343 ms (+13.6%)
+At B=8, many loops regress 6.5%. No stratum regresses more than 10% in all
+three paired processes, but three processes cannot establish absence of risk.
+Tiny cases provide large percentage gains and influence the geometric mean.
+Excluding tiny cases, the paired primary steady ratio is 0.909 (9.1% less
+time). The full per-case tables and raw CSVs are retained.
+
+Ordering-only (fixed reference widths) has paired steady ratio 0.837;
+joint restricted to overloaded levels has ratio 0.822. Full joint has 0.801.
+The B=4 fits-mixed case improves with full joint but barely changes with
+ordering-only, showing that changing widths contributes beyond ordering.
+The independent-DOACROSS/long-ordinary case benefits mainly from ordering.
+These ablations support coupling, without proving that every decision wins.
+
+For 94 eligible primary processes (>=9 predictions and >=1 ms steady time),
+the median absolute relative difference between prediction and measured
+medians is 6.2%. This is a descriptive median comparison, not per-invocation
+error or a guarantee for unseen code. Unknown-profile invocations are excluded
+from prediction medians. No cross-machine generalization is established.
+
+The unchanged default versus frozen reference audit passes phase and budget
+assertions; steady timing ratio 0.930, paired bootstrap interval [0.828, 1.019].
+This is consistent with parity under noise; it does not establish a default
+speedup. Reference calls are direct. The reference SDK alias forwards to the
+single frozen runtime, introducing no second set of global pools or ledgers.
+
+Validation
+
+PASS: focused structural/resource/ledger checks at budgets 1/2/4/8; exactly-once
+callbacks; allocation/thread-creation fallback; actual grant rather than
+configured budget; exclusive pool versus ephemeral team behavior; sequential
+site reuse; cache reuse/invalidation; forced and undeclared-site fallback.
+PASS: existing TDG budget suite at 1/2/4/8 and sharing-disabled variant.
+PASS: six existing cost-equation tests.
+PASS: all 11 generated sibling-graph fixtures with candidate and reference,
+including output comparisons, certificates, overlap, warmed loops and fallback.
+PASS: numeric generated program, 14 invocations at 1/2/4/8 for all three policies.
+PASS: invalid scheduler option and mismatched runtime linking rejected.
+PASS: address/undefined-behavior sanitizers (existing process-lifetime global
+pool leak checking disabled).
+PASS: existing TLAPS TDG/PDG proofs and TLC exhaustive safety/counterexample
+checks. These prove existing dependency safety, not optimizer optimality.
+PASS: independent Python simulation agrees with all 48 selected abstract
+schedules and evaluation bounds; exhaustive small-list-schedule oracle regret
+median 0%, maximum 17%. This oracle excludes dispatch overhead and compares
+non-preemptive list schedules, not unrestricted global schedules.
+PASS: frozen snapshot hashes, unchanged loop outliner/frontier source hashes,
+and scoped whitespace checks.
+
+Known pre-existing failure: parallel_append_runtime_test reports
+"order mismatch at 1: got 1, expected 4". The current normal runtime and exact
+frozen reference fail identically. It was not changed or silently treated as
+a passing append-order test.
+
+Reproduction (from the repository in Ubuntu/WSL)
+
+  python3 tools/tdg_joint_build.py
+  python3 tools/tdg_joint_validate.py
+  python3 tools/tdg_joint_validate.py --generated
+  python3 tools/tdg_joint_validate.py --sanitizers
+  python3 tools/tdg_joint_benchmark.py --no-build
+  python3 tools/tdg_joint_benchmark.py --cold --no-build
+  python3 tools/tdg_joint_reference_check.py
+  python3 tools/tdg_joint_analyze.py
+
+Compiler comparison: --tdg-scheduler=current|ordinary-first-reference|
+joint-experimental. Joint requires a sole parallel_runtime.c object compiled
+with SGPL_ENABLE_JOINT_SCHEDULER; reference requires the sole frozen runtime
+compiled with its renamed reference entry and the SDK forwarding alias. A
+runtime mismatch fails linking. Numeric/graph validation scripts demonstrate
+complete linking. Normal builds exclude experimental profiling/planning.
+
+Next decision
+
+This evidence supports joint scheduling for sufficiently repeated levels, but
+does not justify replacing ordinary-first generally. The next Phase A work
+would reduce/calibrate planner setup lazily and stabilize repeated replanning,
+then repeat the same matrix with startup included. No equation overhaul is
+proposed from these data. Phase B needs graph-loop resource/scaling observations
+before adding graph sibling loops to the same objective. The candidate and
+temporary compiler selector remain available for reproducible comparison;
+ordinary-first is already integrated in production, not wired to its backup.

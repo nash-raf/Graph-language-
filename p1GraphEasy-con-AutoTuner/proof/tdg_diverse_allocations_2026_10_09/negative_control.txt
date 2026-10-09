@@ -1,0 +1,3 @@
+old_search_regression: tools/tdg_joint_runtime_test.c:73: model_cases: Assertion `diverse.widths[0][0]==5 && diverse.widths[1][0]==5' failed.
+
+PASS: the saved old search fails the new wide-allocation regression.

@@ -1,0 +1,175 @@
+SGPL two-loop exhaustive validation
+
+SGPL two-loop exhaustive allocation validation
+
+Run from the repository in Linux/Ubuntu WSL:
+  python3 test/tdg_allocation_sweep/run.py
+On Windows:
+  wsl -d Ubuntu bash -lc 'cd /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner && python3 test/tdg_allocation_sweep/run.py'
+Smoke run (three independent processes, both policies):
+  python3 test/tdg_allocation_sweep/run.py --cases short --budgets 4 --samples 3 --out proof/tdg_allocation_sweep_smoke
+Recreate plots/tables from saved data:
+  python3 test/tdg_allocation_sweep/run.py --analyze-only
+Repeat representative cases and diagnose bounded search vs equations:
+  python3 test/tdg_allocation_sweep/run.py --cases tiny uneven_chunks balanced_compute trip_skew work_skew --budgets 6 --repeats 5 --samples 15 --diagnose --out proof/tdg_allocation_sweep/confirmation
+Check the test adapter and runtime with ASan/UBSan after a build:
+  python3 test/tdg_allocation_sweep/run.py --sanitizers-only
+Independently verify saved coverage, exported statistics and source hashes:
+  python3 test/tdg_allocation_sweep/check_exports.py proof/tdg_allocation_sweep
+
+Requires the existing LLVM20/ANTLR/compiler toolchain, GCC/G++, NLOPT,
+Python3, NumPy and Matplotlib. No GPU or graph-layout autotuning is exercised.
+Sources are regenerated deterministically from the case specifications in run.py.
+The harness raises its subprocess stack limit to 64 MiB for SGPL stack arrays.
+All generated SGPL fixtures remain in cases/. Builds are incremental for the
+compiler, but fresh for each workload and adapter. Results use a fixed shuffle
+seed; settings, CPU, affinity and source/object hashes are saved in manifest.json.
+
+Scope and legality
+------------------
+This is a runtime-model unit validation using real SGPL-generated DOALL loops.
+The numeric compiler currently emits these independent source loops in separate
+TDG levels. A linker adapter combines their callbacks only in the test executable.
+Compiler grouping is therefore NOT validated by these allocation sweeps.
+Each callback has its own separately allocated array; its only argument is that
+array. The harness checks the emitted environment shape and fails if it changes.
+It invokes both callbacks before SGPL consumes either output. No generated loop
+body, production model, runtime scheduling algorithm, or autotuner is modified.
+A temporary runtime copy adds two boundary grant-observation calls, shared by
+both policies. Production sources are hashed before/after the complete run.
+
+Width 1 means serial loop execution on its task's parent. A parallel width p>=2
+requires p extra workers, because its parent waits. These are NOT p-1 workers.
+For ordinary-first with two parent callbacks and budget B, enumerate ALL positive
+integer pairs satisfying e(p1)+e(p2)<=B-2, e(1)=0 and e(p)=p for p>=2.
+Unused capacity is allowed; an optimal allocation may leave workers idle.
+For dynamic scheduling, enumerate ALL p1,p2<=B-1 (also capped by trip counts),
+both admission orders, and one-parent execution. Enumerate two-parent execution
+when 2+e(p1)+e(p2)<=B. Otherwise the plan necessarily serializes admission and
+uses one parent. Backfill makes no additional choices for just two callbacks.
+The dynamic oracle also includes the ordinary executor, matching its fallback.
+The single DOALL pool serializes parallel teams; parallel loops are not assumed
+to overlap merely because their thread reservations fit.
+These are all legal widths under the tested executors, not all possible operating
+system interleavings or arbitrary timing delays. There are no ordinary sibling
+tasks in these fixtures: the ordinary-first phase rule itself is not stressed.
+DOACROSS dependencies and Phase B graph sibling scaling need separate fixtures;
+these results must not be generalized to those paths.
+
+Measurement and interpretation
+------------------------------
+Each case/budget/policy is run in three fresh processes by default. Each process
+first trains with eight useful serial SGPL level executions and twelve policy
+warmup executions, then records nine model executions. It next evaluates every
+legal forced allocation/schedule in a randomized order, with two untimed warmups
+and nine timed executions per configuration. Models never see sweep results
+before making the recorded choices. Model measurement comes before the sweep;
+repeat-to-repeat variation and process medians expose some, not all, clock drift.
+Timers enclose the complete two-callback level: planning, dispatch, synchronization
+and useful work. Source allocation/zeroing, checks and printing are outside it.
+Ordinary forced allocations keep the ordinary executor's planning overhead.
+Joint forced schedules replay fixed plans without joint search overhead. The
+model/oracle ratio therefore measures attainable runtime including the model's
+planning cost; it is not solely a test of the mathematical width prediction.
+summary.csv separates allocation_only_ratio (best schedule at the model's actual
+width pair), selected_schedule_replay_ratio (replay its actual width/order/parent
+choice), and model_over_best_ratio (native runtime including planning). A model
+can choose the fastest allocation while its measured runtime ratio exceeds 1
+because of timing noise or planning overhead. These must not be conflated.
+
+Forced runs override the profitability gate at the loop boundary and verify the
+actual grant exactly matches the requested width. They do not use force-borrow
+environment flags. Native model runs preserve the profitability gate; both the
+requested widths and actual granted widths are recorded. Orange bars mark every
+actual allocation used by the model, rather than hiding unstable choices.
+Purple diamonds mark the planner's assigned widths; these can differ from the
+executed widths because the per-loop profitability gate can choose serial work.
+Each bar is the median across process medians of the best tested schedule for
+that allocation. Error bars show the min/max process medians. The red dashed
+line is native model time, including its planning. The green outline marks the
+fastest measured configuration. The complete schedule table is schedules.csv;
+allocations.csv collapses schedules only for plotting. raw.csv retains every
+sample, allocation_columns.csv supplies allocations as columns, and tables.html
+contains the complete readable tables and plots.
+
+Summary bootstrap intervals resample paired process medians (4000 draws); with
+only three processes, these intervals are coarse. Selecting the minimum among
+many noisy configurations is optimistic. The fastest observed allocation is an
+empirical optimum for this workload, machine and run, not a universal proof.
+Use more repeats/samples and reproduce on other machines before changing models.
+--diagnose exhaustively scores frozen learned profiles after the native model
+measurements and before the oracle. DIAG_SEARCH and DIAG_SCORE lines in traces/
+record the bounded search's evaluations, planning time, chosen widths, and each
+alternative's predicted cost. No alternate plan is fed back to the native model.
+The 10% and 25% classifications are reporting tolerances, not correctness claims.
+
+
+Allocation quality (best measured schedule at the selected actual width pair):
+{
+  "ordinary-first": {
+    "within_10_percent": 5,
+    "within_25_percent": 5,
+    "nontrivial_within_10_percent": 5,
+    "nontrivial_tested": 5,
+    "tested": 5
+  },
+  "dynamic": {
+    "within_10_percent": 2,
+    "within_25_percent": 3,
+    "nontrivial_within_10_percent": 2,
+    "nontrivial_tested": 5,
+    "tested": 5
+  }
+}
+
+Native model times, including planning, relative to the exhaustive oracle:
+{
+  "ordinary-first": {
+    "within 10%": 5,
+    "10\u201325% slower": 0,
+    ">25% slower": 0
+  },
+  "dynamic": {
+    "within 10%": 1,
+    "10\u201325% slower": 1,
+    ">25% slower": 3
+  }
+}
+
+balanced_compute       B6 dynamic        chosen=(2,1) best=1:4:5:0:1 allocation=1.885x schedule=1.885x native=1.857x
+balanced_compute       B6 ordinary-first chosen=(2,1) best=0:1:2:0:2 allocation=1.028x schedule=1.028x native=1.036x
+tiny                   B6 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.000x native=1.483x
+tiny                   B6 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.926x
+trip_skew              B6 dynamic        chosen=(4,1) best=1:5:5:1:1 allocation=1.262x schedule=1.396x native=1.643x
+trip_skew              B6 ordinary-first chosen=(4,1) best=0:4:1:0:2 allocation=1.000x schedule=1.000x native=1.004x
+uneven_chunks          B6 dynamic        chosen=(1,1) best=1:1:1:0:1 allocation=1.000x schedule=1.007x native=1.028x
+uneven_chunks          B6 ordinary-first chosen=(1,1) best=0:1:1:0:2 allocation=1.000x schedule=1.000x native=0.954x
+work_skew              B6 dynamic        chosen=(4,1) best=1:5:4:1:1 allocation=1.148x schedule=1.216x native=1.182x
+work_skew              B6 ordinary-first chosen=(4,1) best=0:4:1:0:2 allocation=1.000x schedule=1.000x native=1.014x
+
+Frozen-profile search diagnostics (see search_diagnostics.csv and diagnostic_scores.csv):
+balanced_compute       B6 repeat=0 evaluations=16 chosen=(1,2) prediction=2.653ms best-predicted=1:5:5:0:1 prediction=1.244ms ratio=2.132x
+balanced_compute       B6 repeat=1 evaluations=16 chosen=(2,1) prediction=2.619ms best-predicted=1:5:5:0:1 prediction=1.245ms ratio=2.104x
+balanced_compute       B6 repeat=2 evaluations=16 chosen=(2,1) prediction=2.649ms best-predicted=1:5:5:0:1 prediction=1.262ms ratio=2.100x
+balanced_compute       B6 repeat=3 evaluations=16 chosen=(2,1) prediction=2.686ms best-predicted=1:5:5:0:1 prediction=1.277ms ratio=2.102x
+balanced_compute       B6 repeat=4 evaluations=16 chosen=(2,1) prediction=2.599ms best-predicted=1:5:5:0:1 prediction=1.241ms ratio=2.094x
+tiny                   B6 repeat=0 evaluations=16 chosen=(1,1) prediction=0.002ms best-predicted=1:1:1:0:1 prediction=0.002ms ratio=1.072x
+tiny                   B6 repeat=1 evaluations=16 chosen=(1,1) prediction=0.002ms best-predicted=1:1:1:0:1 prediction=0.002ms ratio=1.000x
+tiny                   B6 repeat=2 evaluations=16 chosen=(1,1) prediction=0.003ms best-predicted=1:1:1:0:1 prediction=0.003ms ratio=1.091x
+tiny                   B6 repeat=3 evaluations=16 chosen=(1,1) prediction=0.002ms best-predicted=1:1:1:0:1 prediction=0.002ms ratio=1.000x
+tiny                   B6 repeat=4 evaluations=16 chosen=(1,1) prediction=0.002ms best-predicted=1:1:1:0:1 prediction=0.002ms ratio=1.000x
+trip_skew              B6 repeat=0 evaluations=16 chosen=(4,1) prediction=1.386ms best-predicted=1:5:5:0:1 prediction=1.155ms ratio=1.200x
+trip_skew              B6 repeat=1 evaluations=16 chosen=(4,1) prediction=1.403ms best-predicted=1:5:4:0:1 prediction=1.163ms ratio=1.206x
+trip_skew              B6 repeat=2 evaluations=16 chosen=(4,1) prediction=1.367ms best-predicted=1:5:5:0:1 prediction=1.125ms ratio=1.215x
+trip_skew              B6 repeat=3 evaluations=16 chosen=(4,1) prediction=1.212ms best-predicted=1:5:5:0:1 prediction=1.002ms ratio=1.210x
+trip_skew              B6 repeat=4 evaluations=16 chosen=(4,1) prediction=1.421ms best-predicted=1:5:4:0:1 prediction=1.213ms ratio=1.171x
+uneven_chunks          B6 repeat=0 evaluations=16 chosen=(1,1) prediction=0.126ms best-predicted=1:1:1:0:1 prediction=0.125ms ratio=1.003x
+uneven_chunks          B6 repeat=1 evaluations=16 chosen=(1,1) prediction=0.076ms best-predicted=1:1:1:0:1 prediction=0.076ms ratio=1.000x
+uneven_chunks          B6 repeat=2 evaluations=16 chosen=(1,1) prediction=0.112ms best-predicted=1:1:1:0:1 prediction=0.112ms ratio=1.000x
+uneven_chunks          B6 repeat=3 evaluations=16 chosen=(1,1) prediction=0.079ms best-predicted=1:1:1:0:1 prediction=0.079ms ratio=1.003x
+uneven_chunks          B6 repeat=4 evaluations=16 chosen=(1,1) prediction=0.082ms best-predicted=1:1:1:0:1 prediction=0.082ms ratio=1.002x
+work_skew              B6 repeat=0 evaluations=16 chosen=(4,1) prediction=1.870ms best-predicted=1:5:5:0:1 prediction=1.571ms ratio=1.190x
+work_skew              B6 repeat=1 evaluations=16 chosen=(4,1) prediction=1.871ms best-predicted=1:5:5:0:1 prediction=1.535ms ratio=1.219x
+work_skew              B6 repeat=2 evaluations=16 chosen=(4,1) prediction=1.859ms best-predicted=1:5:5:0:1 prediction=1.592ms ratio=1.168x
+work_skew              B6 repeat=3 evaluations=16 chosen=(4,1) prediction=1.868ms best-predicted=1:5:5:0:1 prediction=1.531ms ratio=1.220x
+work_skew              B6 repeat=4 evaluations=16 chosen=(4,1) prediction=1.784ms best-predicted=1:5:5:0:1 prediction=1.467ms ratio=1.216x

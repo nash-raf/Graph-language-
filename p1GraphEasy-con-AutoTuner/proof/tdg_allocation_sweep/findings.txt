@@ -1,0 +1,101 @@
+Historical findings for the original nine loop-only fixtures.
+The ongoing CSVs now also contain mixed ordinary-task workloads. Read
+mixed_findings.txt, mixed_comparison.csv and mixed_holdout_summary.csv for that
+comparison; the original fixtures did not exercise the ordinary-first phase rule.
+
+Findings from the 2026-10-09 run (AMD Ryzen 5 5500, Ubuntu under WSL)
+
+Evidence and scope
+------------------
+Nine SGPL fixtures, worker budgets 2/4/6/8, both policies, three independent
+processes per setting, nine timed samples per model/configuration: 70,956 samples
+and 2,556 distinct case/budget/policy/allocation/schedule configurations.
+Five representative fixtures were repeated at budget 6 with five independent
+processes and fifteen samples: 31,500 additional timings and 410 configurations.
+Every configuration's actual grants matched its requested widths. Full output
+arrays were verified during training; sampled indices were checked on every
+execution. Saved CSV statistics, allocation coverage, tables, plots, object
+hashes and protected production source hashes were independently checked.
+Adapter/runtime ASan/UBSan checks passed. See export_validation.txt and
+sanitizer_validation.txt for their precise scope.
+
+This validates the runtime planner using real generated SGPL loop callbacks.
+The compiler emits these independent numeric loops in separate TDG levels, so
+a TEST-ONLY linker adapter combines them into one runtime level. This does not
+validate compiler sibling grouping. These fixtures cover DOALL, with two loop
+callbacks and no ordinary sibling tasks. DOACROSS and graph sibling scaling
+remain separate validation problems. No production implementation or model was
+changed, and no graph-layout autotuning was exercised.
+
+Performance and allocation accuracy are different questions
+----------------------------------------------------------
+In the initial sweep, native dynamic execution beat native ordinary-first in
+29/36 case/budget comparisons by median wall time. This is descriptive evidence
+from this machine, not a claim that each improvement is statistically resolved.
+The dynamic executor's ability to inline small workloads explains many wins.
+See policy_comparison.csv for the actual times and ratios.
+
+Excluding the nine budget-2 settings with only one legal width pair per policy,
+ordinary-first's selected actual widths were within 10% of its own allocation
+oracle in 26/27 settings; dynamic scheduling achieved 16/27. The oracle spaces
+DIFFER: ordinary-first retains two parent workers, whereas the dynamic executor
+can admit one callback at a time and reuse up to B-1 loop workers. These accuracy
+counts must not be interpreted as ordinary-first finding the globally fastest
+schedule more often. See README.txt and summary.csv for the metric definitions.
+
+Confirmed strong failure
+------------------------
+balanced_compute, B=6, five-process confirmation:
+  Native dynamic model: median 2.725915 ms.
+  Most frequent executed width pair: (2,1), 80% of recorded samples;
+    the other observed choice was (1,2).
+  Best measured configuration: (4,5), left then right, one parent worker,
+    median 1.468124 ms; each loop receives its own team sequentially.
+  Model/native oracle ratio: 1.8567 (bootstrap interval about 1.646--2.049).
+  The initial three-process run instead found (5,5) fastest. Nearby high-width
+    sequential plans remain much faster in both runs; the precise winner varies.
+
+Frozen-profile diagnostics, BEFORE consuming any exhaustive sweep timings:
+  In all five repeats the cached search had evaluated 16 candidates.
+  It predicted about 2.60--2.69 ms for its retained (2,1)/(1,2) allocation.
+  Those same learned equations predicted about 1.24--1.28 ms for sequential
+    (5,5), roughly half the retained plan's predicted cost.
+See confirmation/search_diagnostics.csv and confirmation/diagnostic_scores.csv.
+The equations can express a much better choice in this case. The bounded search
+and cache path did not select it. The runtime's 5%-of-serial-work search deadline,
+atomic calibration work and reuse of previously selected plans are plausible
+contributors; these measurements alone do not isolate their individual effects.
+This is evidence for investigating that path before overhauling the equations.
+
+Good and intermediate cases
+---------------------------
+uneven_chunks, B=6, five-process confirmation:
+  Dynamic chooses (1,1), the fastest measured width pair.
+  Native time 0.079252 ms versus oracle 0.077123 ms (1.028x).
+work_skew, B=6:
+  Dynamic chooses (4,1); oracle (5,4) with right-first sequential admission.
+  Native 2.047639 ms versus oracle 1.732022 ms (1.182x).
+tiny, B=6:
+  Dynamic chooses the fastest widths (1,1).
+  Native 0.002615 ms versus fixed-plan replay 0.001763 ms (1.483x).
+  Its width choice is correct; sub-microsecond planning/lookup overhead matters.
+  It remains far faster than ordinary-first's native 0.182770 ms here.
+
+The ordinary-first trip_skew/B6 miss in the initial run did not reproduce as a
+material miss in confirmation. This reinforces treating individual noisy
+minimum allocations cautiously rather than asserting unique optima.
+
+Artifacts and reproduction
+--------------------------
+tables.html: complete allocation tables and marked plots for both policies.
+raw.csv: every individual timing, requested widths, actual grants and schedule.
+allocations.csv: best measured schedule for every legal width pair.
+allocation_columns.csv: the allocation times pivoted into separate columns.
+schedules.csv: every legal allocation/admission-order/parent-count configuration.
+summary.csv: allocation, schedule-replay and native runtime metrics separately.
+confirmation/: independent repeats plus frozen-profile prediction diagnostics.
+test/tdg_allocation_sweep/README.txt: complete protocol and reproducible commands.
+
+Minima selected among many configurations are optimistic; process variation,
+WSL scheduling and frequency changes affect timings. These are empirical
+optima for these runs, not universally optimal thread allocations.

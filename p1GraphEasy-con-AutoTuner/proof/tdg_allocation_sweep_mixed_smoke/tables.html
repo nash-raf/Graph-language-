@@ -1,0 +1,103 @@
+<!doctype html><meta charset="utf-8"><title>SGPL allocation sweep</title><style>body{font:14px system-ui;margin:30px}table{border-collapse:collapse}td,th{padding:6px;border:1px solid #ddd}.chosen{background:#fff1d9}img{max-width:100%}pre{white-space:pre-wrap}</style><h1>SGPL allocation and scheduling validation</h1><pre>SGPL two-loop exhaustive allocation validation
+
+Run from the repository in Linux/Ubuntu WSL:
+  python3 test/tdg_allocation_sweep/run.py
+On Windows:
+  wsl -d Ubuntu bash -lc &#x27;cd /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner &amp;&amp; python3 test/tdg_allocation_sweep/run.py&#x27;
+Smoke run (three independent processes, both policies):
+  python3 test/tdg_allocation_sweep/run.py --cases short --budgets 4 --samples 3 --out proof/tdg_allocation_sweep_smoke
+Recreate plots/tables from saved data:
+  python3 test/tdg_allocation_sweep/run.py --analyze-only
+Repeat representative cases and diagnose bounded search vs equations:
+  python3 test/tdg_allocation_sweep/run.py --cases tiny uneven_chunks balanced_compute trip_skew work_skew --budgets 6 --repeats 5 --samples 15 --diagnose --out proof/tdg_allocation_sweep/confirmation
+Check the test adapter and runtime with ASan/UBSan after a build:
+  python3 test/tdg_allocation_sweep/run.py --sanitizers-only
+Independently verify saved coverage, exported statistics and source hashes:
+  python3 test/tdg_allocation_sweep/check_exports.py proof/tdg_allocation_sweep
+
+Requires the existing LLVM20/ANTLR/compiler toolchain, GCC/G++, NLOPT,
+Python3, NumPy and Matplotlib. No GPU or graph-layout autotuning is exercised.
+Sources are regenerated deterministically from the case specifications in run.py.
+The harness raises its subprocess stack limit to 64 MiB for SGPL stack arrays.
+All generated SGPL fixtures remain in cases/. Builds are incremental for the
+compiler, but fresh for each workload and adapter. Results use a fixed shuffle
+seed; settings, CPU, affinity and source/object hashes are saved in manifest.json.
+
+Scope and legality
+------------------
+This is a runtime-model unit validation using real SGPL-generated DOALL loops.
+The numeric compiler currently emits these independent source loops in separate
+TDG levels. A linker adapter combines their callbacks only in the test executable.
+Compiler grouping is therefore NOT validated by these allocation sweeps.
+Each callback has its own separately allocated array; its only argument is that
+array. The harness checks the emitted environment shape and fails if it changes.
+It invokes both callbacks before SGPL consumes either output. No generated loop
+body, production model, runtime scheduling algorithm, or autotuner is modified.
+A temporary runtime copy adds two boundary grant-observation calls, shared by
+both policies. Production sources are hashed before/after the complete run.
+
+Width 1 means serial loop execution on its task&#x27;s parent. A parallel width p&gt;=2
+requires p extra workers, because its parent waits. These are NOT p-1 workers.
+For ordinary-first with two parent callbacks and budget B, enumerate ALL positive
+integer pairs satisfying e(p1)+e(p2)&lt;=B-2, e(1)=0 and e(p)=p for p&gt;=2.
+Unused capacity is allowed; an optimal allocation may leave workers idle.
+For dynamic scheduling, enumerate ALL p1,p2&lt;=B-1 (also capped by trip counts),
+both admission orders, and one-parent execution. Enumerate two-parent execution
+when 2+e(p1)+e(p2)&lt;=B. Otherwise the plan necessarily serializes admission and
+uses one parent. Backfill makes no additional choices for just two callbacks.
+The dynamic oracle also includes the ordinary executor, matching its fallback.
+The single DOALL pool serializes parallel teams; parallel loops are not assumed
+to overlap merely because their thread reservations fit.
+These are all legal widths under the tested executors, not all possible operating
+system interleavings or arbitrary timing delays. There are no ordinary sibling
+tasks in these fixtures: the ordinary-first phase rule itself is not stressed.
+DOACROSS dependencies and Phase B graph sibling scaling need separate fixtures;
+these results must not be generalized to those paths.
+
+Measurement and interpretation
+------------------------------
+Each case/budget/policy is run in three fresh processes by default. Each process
+first trains with eight useful serial SGPL level executions and twelve policy
+warmup executions, then records nine model executions. It next evaluates every
+legal forced allocation/schedule in a randomized order, with two untimed warmups
+and nine timed executions per configuration. Models never see sweep results
+before making the recorded choices. Model measurement comes before the sweep;
+repeat-to-repeat variation and process medians expose some, not all, clock drift.
+Timers enclose the complete two-callback level: planning, dispatch, synchronization
+and useful work. Source allocation/zeroing, checks and printing are outside it.
+Ordinary forced allocations keep the ordinary executor&#x27;s planning overhead.
+Joint forced schedules replay fixed plans without joint search overhead. The
+model/oracle ratio therefore measures attainable runtime including the model&#x27;s
+planning cost; it is not solely a test of the mathematical width prediction.
+summary.csv separates allocation_only_ratio (best schedule at the model&#x27;s actual
+width pair), selected_schedule_replay_ratio (replay its actual width/order/parent
+choice), and model_over_best_ratio (native runtime including planning). A model
+can choose the fastest allocation while its measured runtime ratio exceeds 1
+because of timing noise or planning overhead. These must not be conflated.
+
+Forced runs override the profitability gate at the loop boundary and verify the
+actual grant exactly matches the requested width. They do not use force-borrow
+environment flags. Native model runs preserve the profitability gate; both the
+requested widths and actual granted widths are recorded. Orange bars mark every
+actual allocation used by the model, rather than hiding unstable choices.
+Purple diamonds mark the planner&#x27;s assigned widths; these can differ from the
+executed widths because the per-loop profitability gate can choose serial work.
+Each bar is the median across process medians of the best tested schedule for
+that allocation. Error bars show the min/max process medians. The red dashed
+line is native model time, including its planning. The green outline marks the
+fastest measured configuration. The complete schedule table is schedules.csv;
+allocations.csv collapses schedules only for plotting. raw.csv retains every
+sample, allocation_columns.csv supplies allocations as columns, and tables.html
+contains the complete readable tables and plots.
+
+Summary bootstrap intervals resample paired process medians (4000 draws); with
+only three processes, these intervals are coarse. Selecting the minimum among
+many noisy configurations is optimistic. The fastest observed allocation is an
+empirical optimum for this workload, machine and run, not a universal proof.
+Use more repeats/samples and reproduce on other machines before changing models.
+--diagnose exhaustively scores frozen learned profiles after the native model
+measurements and before the oracle. DIAG_SEARCH and DIAG_SCORE lines in traces/
+record the bounded search&#x27;s evaluations, planning time, chosen widths, and each
+alternative&#x27;s predicted cost. No alternate plan is fed back to the native model.
+The 10% and 25% classifications are reporting tolerances, not correctness claims.
+</pre><h2>mixed_short_ordinary.B4.dynamic</h2><p>{&#x27;case&#x27;: &#x27;mixed_short_ordinary&#x27;, &#x27;budget&#x27;: 4, &#x27;policy&#x27;: &#x27;dynamic&#x27;, &#x27;allocations&#x27;: 9, &#x27;schedules&#x27;: 1443, &#x27;model_actual_left&#x27;: 1, &#x27;model_actual_right&#x27;: 1, &#x27;modal_selection_fraction&#x27;: 1.0, &#x27;requested_allocations&#x27;: &#x27;1,1&#x27;, &#x27;best_config&#x27;: &#x27;1:3:1:9:1&#x27;, &#x27;best_ms&#x27;: 0.230009, &#x27;model_ms&#x27;: 0.243474, &#x27;model_over_best_ratio&#x27;: 1.0585411875187494, &#x27;ratio_bootstrap_low&#x27;: 1.049041559243334, &#x27;ratio_bootstrap_high&#x27;: 1.0646697422218336, &#x27;allocation_only_ratio&#x27;: 1.0451199735662517, &#x27;selected_schedule_replay_ratio&#x27;: 1.093495419463454, &#x27;exact_best_allocation_repeat_fraction&#x27;: 0, &#x27;fallback_fraction&#x27;: 0.0, &#x27;verdict&#x27;: &#x27;within 10%&#x27;}</p><a href="plots/mixed_short_ordinary.B4.dynamic.svg"><img src="plots/mixed_short_ordinary.B4.dynamic.png"></a><table><tr><th>left</th><th>right</th><th>median_ms</th><th>best_backend</th><th>best_order</th><th>best_parents</th><th>planner_assignment_fraction</th><th>model_selection_fraction</th><th>empirical_best</th></tr><tr class="chosen"><td>1</td><td>1</td><td>0.240387</td><td>joint</td><td>ordinary1,ordinary2,left,ordinary3,right; backfill=1</td><td>1</td><td>1.0</td><td>1.0</td><td>0</td></tr><tr><td>1</td><td>2</td><td>0.265069</td><td>joint</td><td>right,left,ordinary1,ordinary2,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>1</td><td>3</td><td>0.235629</td><td>joint</td><td>ordinary1,left,ordinary2,ordinary3,right; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>2</td><td>1</td><td>0.251869</td><td>joint</td><td>ordinary1,ordinary2,ordinary3,left,right; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>2</td><td>2</td><td>0.280071</td><td>joint</td><td>left,ordinary1,ordinary2,ordinary3,right; backfill=0</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>2</td><td>3</td><td>0.259458</td><td>joint</td><td>right,ordinary1,ordinary2,left,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>3</td><td>1</td><td>0.230009</td><td>joint</td><td>right,left,ordinary1,ordinary2,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>1</td></tr><tr><td>3</td><td>2</td><td>0.25749</td><td>joint</td><td>ordinary1,right,ordinary2,left,ordinary3; backfill=0</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>3</td><td>3</td><td>0.232453</td><td>joint</td><td>ordinary1,left,ordinary2,right,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr></table><h2>mixed_short_ordinary.B4.ordinary-first</h2><p>{&#x27;case&#x27;: &#x27;mixed_short_ordinary&#x27;, &#x27;budget&#x27;: 4, &#x27;policy&#x27;: &#x27;ordinary-first&#x27;, &#x27;allocations&#x27;: 9, &#x27;schedules&#x27;: 1443, &#x27;model_actual_left&#x27;: 1, &#x27;model_actual_right&#x27;: 1, &#x27;modal_selection_fraction&#x27;: 1.0, &#x27;requested_allocations&#x27;: &#x27;1,1&#x27;, &#x27;best_config&#x27;: &#x27;1:3:1:9:1&#x27;, &#x27;best_ms&#x27;: 0.230009, &#x27;model_ms&#x27;: 0.49947, &#x27;model_over_best_ratio&#x27;: 2.1715237229847526, &#x27;ratio_bootstrap_low&#x27;: 2.108333509815964, &#x27;ratio_bootstrap_high&#x27;: 2.3579946871644153, &#x27;allocation_only_ratio&#x27;: 1.0451199735662517, &#x27;selected_schedule_replay_ratio&#x27;: 2.2874322309127035, &#x27;exact_best_allocation_repeat_fraction&#x27;: 0, &#x27;fallback_fraction&#x27;: 0, &#x27;verdict&#x27;: &#x27;&gt;25% slower&#x27;}</p><a href="plots/mixed_short_ordinary.B4.ordinary-first.svg"><img src="plots/mixed_short_ordinary.B4.ordinary-first.png"></a><table><tr><th>left</th><th>right</th><th>median_ms</th><th>best_backend</th><th>best_order</th><th>best_parents</th><th>planner_assignment_fraction</th><th>model_selection_fraction</th><th>empirical_best</th></tr><tr class="chosen"><td>1</td><td>1</td><td>0.240387</td><td>joint</td><td>ordinary1,ordinary2,left,ordinary3,right; backfill=1</td><td>1</td><td>1.0</td><td>1.0</td><td>0</td></tr><tr><td>1</td><td>2</td><td>0.265069</td><td>joint</td><td>right,left,ordinary1,ordinary2,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>1</td><td>3</td><td>0.235629</td><td>joint</td><td>ordinary1,left,ordinary2,ordinary3,right; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>2</td><td>1</td><td>0.251869</td><td>joint</td><td>ordinary1,ordinary2,ordinary3,left,right; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>2</td><td>2</td><td>0.280071</td><td>joint</td><td>left,ordinary1,ordinary2,ordinary3,right; backfill=0</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>2</td><td>3</td><td>0.259458</td><td>joint</td><td>right,ordinary1,ordinary2,left,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>3</td><td>1</td><td>0.230009</td><td>joint</td><td>right,left,ordinary1,ordinary2,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>1</td></tr><tr><td>3</td><td>2</td><td>0.25749</td><td>joint</td><td>ordinary1,right,ordinary2,left,ordinary3; backfill=0</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr><tr><td>3</td><td>3</td><td>0.232453</td><td>joint</td><td>ordinary1,left,ordinary2,right,ordinary3; backfill=1</td><td>1</td><td>0.0</td><td>0.0</td><td>0</td></tr></table>

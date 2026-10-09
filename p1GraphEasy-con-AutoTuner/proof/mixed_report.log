@@ -1,0 +1,56 @@
+{
+  "all mixed": {
+    "settings": 17,
+    "dynamic_wins": 16,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.7805176996781068,
+    "ordinary-first": {
+      "mean_gap_percent": 75.52035088402175,
+      "total_time_gap_percent": 73.20304585781348,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 13
+    },
+    "dynamic": {
+      "mean_gap_percent": 25.489823456216865,
+      "total_time_gap_percent": 35.18804293018223,
+      "within_10_percent": 11,
+      "allocation_within_10_percent": 13
+    }
+  },
+  "overloaded": {
+    "settings": 9,
+    "dynamic_wins": 9,
+    "ordinary_first_wins": 0,
+    "total_time_dynamic_over_ordinary": 0.727462853038692,
+    "ordinary-first": {
+      "mean_gap_percent": 78.32906160399938,
+      "total_time_gap_percent": 69.73386256051819,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 7
+    },
+    "dynamic": {
+      "mean_gap_percent": 14.809899064644002,
+      "total_time_gap_percent": 23.475079915551778,
+      "within_10_percent": 6,
+      "allocation_within_10_percent": 7
+    }
+  },
+  "not overloaded": {
+    "settings": 8,
+    "dynamic_wins": 7,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.8587960679224381,
+    "ordinary-first": {
+      "mean_gap_percent": 72.36055132404692,
+      "total_time_gap_percent": 78.58858451960438,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 6
+    },
+    "dynamic": {
+      "mean_gap_percent": 37.504738396736336,
+      "total_time_gap_percent": 53.37117416127024,
+      "within_10_percent": 5,
+      "allocation_within_10_percent": 6
+    }
+  }
+}

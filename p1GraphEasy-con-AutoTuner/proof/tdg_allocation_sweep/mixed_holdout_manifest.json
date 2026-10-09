@@ -1,0 +1,9 @@
+{
+  "repeats": 3,
+  "samples": 15,
+  "physical_timed_samples": 3060,
+  "method": "Freeze exhaustive winner, measure it and native policies on fresh independent processes. No reselection; not another exhaustive sweep.",
+  "dynamic_wins": 16,
+  "ordinary_first_wins": 1,
+  "total_time_dynamic_over_ordinary": 0.764305488658171
+}

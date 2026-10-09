@@ -1,0 +1,50 @@
+[
+  {
+    "file": "tdg_trace.inc",
+    "baseline": "f7e7f4591e4b2470c7d14ffe7d162f30dccbf048e76c254a75a649b46f25b0c4",
+    "current": "f7e7f4591e4b2470c7d14ffe7d162f30dccbf048e76c254a75a649b46f25b0c4",
+    "changed": false
+  },
+  {
+    "file": "main.cpp",
+    "baseline": "c4ff157532b17a43823a3b76d5ae140a77b87c879bf47dc27a36192998c049eb",
+    "current": "c4ff157532b17a43823a3b76d5ae140a77b87c879bf47dc27a36192998c049eb",
+    "changed": false
+  },
+  {
+    "file": "parallel_runtime.h",
+    "baseline": "27bfd1907dd1cb43e1e5fbef0babb0228ab0598a97eda6303c24e06ee12a2437",
+    "current": "27bfd1907dd1cb43e1e5fbef0babb0228ab0598a97eda6303c24e06ee12a2437",
+    "changed": false
+  },
+  {
+    "file": "graph_frontier_lowering.cpp",
+    "baseline": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45",
+    "current": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45",
+    "changed": false
+  },
+  {
+    "file": "parallel_runtime.c",
+    "baseline": "f0436d66e5176dbae87eea83b78844fa06b5c441df7c2164cfa402a1f146a6d1",
+    "current": "f0436d66e5176dbae87eea83b78844fa06b5c441df7c2164cfa402a1f146a6d1",
+    "changed": false
+  },
+  {
+    "file": "tdg_scheduler.inc",
+    "baseline": "87d7742806a7e1064d33b631e13086a3316c1f4a6eb83404159596f700e19dfe",
+    "current": "a25bd1b53b329589503a7f410c6fa0094e0fbe3a78e3501f9c89476021f98d3f",
+    "changed": true
+  },
+  {
+    "file": "AutoTunerPass.cpp",
+    "baseline": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "current": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "changed": false
+  },
+  {
+    "file": "autotuner_runtime.c",
+    "baseline": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "current": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "changed": false
+  }
+]

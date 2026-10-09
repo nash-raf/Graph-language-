@@ -1,0 +1,92 @@
+Mixed SGPL level validation. Both policies use exactly the same measured oracle.
+Physical timed samples: 543435; CSV references: 1086360 (shared forced rows appear twice).
+3 fresh-process repeats, 5 timed samples/configuration; min over many configurations is optimistic.
+Synthetic runtime levels of real SGPL bodies; compiler level grouping and graph-loop scaling are not validated.
+All protected production model/compiler/autotuner source hashes verified unchanged.
+
+{
+  "all mixed": {
+    "settings": 17,
+    "dynamic_wins": 16,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.7805176996781068,
+    "ordinary-first": {
+      "mean_gap_percent": 75.52035088402175,
+      "total_time_gap_percent": 73.20304585781348,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 13
+    },
+    "dynamic": {
+      "mean_gap_percent": 25.489823456216865,
+      "total_time_gap_percent": 35.18804293018223,
+      "within_10_percent": 11,
+      "allocation_within_10_percent": 13
+    }
+  },
+  "overloaded": {
+    "settings": 9,
+    "dynamic_wins": 9,
+    "ordinary_first_wins": 0,
+    "total_time_dynamic_over_ordinary": 0.727462853038692,
+    "ordinary-first": {
+      "mean_gap_percent": 78.32906160399938,
+      "total_time_gap_percent": 69.73386256051819,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 7
+    },
+    "dynamic": {
+      "mean_gap_percent": 14.809899064644002,
+      "total_time_gap_percent": 23.475079915551778,
+      "within_10_percent": 6,
+      "allocation_within_10_percent": 7
+    }
+  },
+  "not overloaded": {
+    "settings": 8,
+    "dynamic_wins": 7,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.8587960679224381,
+    "ordinary-first": {
+      "mean_gap_percent": 72.36055132404692,
+      "total_time_gap_percent": 78.58858451960438,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 6
+    },
+    "dynamic": {
+      "mean_gap_percent": 37.504738396736336,
+      "total_time_gap_percent": 53.37117416127024,
+      "within_10_percent": 5,
+      "allocation_within_10_percent": 6
+    }
+  }
+}
+
+Dynamic wins 16/17 settings; 21.9% less summed native time.
+Allocations within 10% under their best tested schedule: ordinary-first 13/17; dynamic 13/17.
+When policies select the same widths, runtime differences include ordering, parent count, dispatch and planning.
+Dynamic allocation failures (>10% slower width pair): mixed_compute B4, mixed_compute B6, mixed_loop_skew B4, mixed_loop_skew B6
+Long serial tasks test the assumption that ordinary work always finishes sooner than loop work.
+
+Six-thread compute: dynamic/ordinary=1.054; dynamic/best=2.161; ordinary/best=2.050.
+
+Independent confirmation: 3060 timings; 3 new processes/policy/setting, 15 timings/native or fixed winner.
+Dynamic wins 16/17 settings; 23.6% less summed native time.
+The fixed winners sometimes replay slower than their exhaustive-sweep minimum. Use mixed_holdout_summary.csv alongside the optimistic exhaustive gaps; the remaining large-loop allocation failures persist.
+
+mixed_compute               B4 O=3 overload=1 ordinary=1.569824ms dynamic=1.560351ms best=0.935642ms dynamic/ordinary=0.994 best-config=1:3:3:22:1
+mixed_compute               B6 O=3 overload=0 ordinary=1.376515ms dynamic=1.450528ms best=0.671333ms dynamic/ordinary=1.054 best-config=1:5:5:20:1
+mixed_long_ordinary         B4 O=3 overload=1 ordinary=0.784441ms dynamic=0.681669ms best=0.671220ms dynamic/ordinary=0.869 best-config=1:1:1:7:3
+mixed_loop_skew             B4 O=3 overload=1 ordinary=0.705472ms dynamic=0.382261ms best=0.282592ms dynamic/ordinary=0.542 best-config=1:3:1:39:1
+mixed_loop_skew             B6 O=3 overload=0 ordinary=0.749880ms dynamic=0.540834ms best=0.224507ms dynamic/ordinary=0.721 best-config=1:5:1:12:1
+mixed_medium_ordinary       B4 O=3 overload=1 ordinary=0.498256ms dynamic=0.262646ms best=0.247989ms dynamic/ordinary=0.527 best-config=1:3:3:4:1
+mixed_medium_ordinary       B6 O=3 overload=0 ordinary=0.318525ms dynamic=0.289566ms best=0.258817ms dynamic/ordinary=0.909 best-config=1:5:5:35:1
+mixed_one_long_ordinary     B4 O=3 overload=1 ordinary=0.753232ms dynamic=0.444608ms best=0.415979ms dynamic/ordinary=0.590 best-config=1:1:1:94:2
+mixed_one_ordinary          B2 O=1 overload=1 ordinary=0.255952ms dynamic=0.226610ms best=0.220925ms dynamic/ordinary=0.885 best-config=1:1:1:8:1
+mixed_one_ordinary          B4 O=1 overload=0 ordinary=0.337293ms dynamic=0.223588ms best=0.211796ms dynamic/ordinary=0.663 best-config=1:3:1:10:1
+mixed_one_ordinary          B6 O=1 overload=0 ordinary=0.288600ms dynamic=0.227280ms best=0.214826ms dynamic/ordinary=0.788 best-config=1:5:1:9:1
+mixed_short_ordinary        B2 O=3 overload=1 ordinary=0.436036ms dynamic=0.241909ms best=0.240038ms dynamic/ordinary=0.555 best-config=1:1:1:21:1
+mixed_short_ordinary        B4 O=3 overload=1 ordinary=0.455461ms dynamic=0.241268ms best=0.214119ms dynamic/ordinary=0.530 best-config=1:3:1:7:1
+mixed_short_ordinary        B6 O=3 overload=0 ordinary=0.286892ms dynamic=0.223643ms best=0.211043ms dynamic/ordinary=0.780 best-config=1:5:1:23:1
+mixed_two_ordinary          B2 O=2 overload=1 ordinary=0.433598ms dynamic=0.245087ms best=0.242973ms dynamic/ordinary=0.565 best-config=1:1:1:12:1
+mixed_two_ordinary          B4 O=2 overload=0 ordinary=0.316010ms dynamic=0.244134ms best=0.232302ms dynamic/ordinary=0.773 best-config=1:3:1:13:1
+mixed_two_ordinary          B6 O=2 overload=0 ordinary=0.319899ms dynamic=0.230127ms best=0.211585ms dynamic/ordinary=0.719 best-config=1:5:1:0:1

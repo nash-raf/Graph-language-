@@ -1,0 +1,48 @@
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+In file included from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/driver.c:8,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/mixed_driver.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep_mixed_smoke/build/observed_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep_mixed_smoke/build/observed_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep_mixed_smoke/build/observed_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep_mixed_smoke/build/observed_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+Built mixed_short_ordinary
+mixed_short_ordinary B4 ordinary-first r1: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B4 dynamic r1: 1443 schedules, 4332 physical samples, 3.7s
+mixed_short_ordinary B4 dynamic r2: 1443 schedules, 4332 physical samples, 3.6s
+mixed_short_ordinary B4 ordinary-first r2: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B4 dynamic r3: 1443 schedules, 4332 physical samples, 3.7s
+mixed_short_ordinary B4 ordinary-first r3: 0 schedules, 3 physical samples, 0.0s
+PASS: complete mixed allocation/order/parent/backfill coverage; shared oracle; native choices covered.
+PASS: ordinary callbacks once each, serial results, loop outputs/grants, balanced budget, actual ordinary-first phase ordering.
+PASS: SGPL object/source and protected production hashes.
+{
+  "checked executions": 21783,
+  "verified ordinary-first phased executions": 93
+}
+
+{
+  "ordinary-first": {
+    "within 10%": 0,
+    "10\u201325% slower": 0,
+    ">25% slower": 1
+  },
+  "dynamic": {
+    "within 10%": 1,
+    "10\u201325% slower": 0,
+    ">25% slower": 0
+  }
+}

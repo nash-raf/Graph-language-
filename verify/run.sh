@@ -478,6 +478,32 @@ else
   no "race/dual_shadow" "build failed"
 fi
 
+# Two-axis C1 (temporal dirty, spatial clean): the carried-read peel must be
+# realized with the spatial axis concurrent and the temporal order preserved by
+# the round sequence.  The structural assertions pin the property itself
+# (R_S/R_T split, schedule, DAG axes metadata) and the answer must equal the
+# unrewritten build at 1/4/8 threads -- a temporal witness may no longer force
+# the whole nest sequential.
+if ser=$(compile_serial "$R/cases/parallel/carried_read_state.graph") && \
+   compile "$R/cases/parallel/carried_read_state.graph"; then
+  expect_class carried_read_state dest-owner "temporal=Carried"
+  bad=""
+  grep -q "schedule=spatial-dag" "$R/bin/build.log" \
+    || bad="no schedule=spatial-dag in the certificate"
+  grep -q "R_S=0 R_T=1" "$R/bin/build.log" \
+    || bad="$bad R_S/R_T split missing"
+  grep -q "spatial=parallel temporal=ordered" "$R/bin/build.log" \
+    || bad="$bad DAG axes metadata missing"
+  for t in 1 4 8; do
+    got=$(runt $t)
+    [[ "$got" == "$ser" ]] || bad="$bad threads=$t got='$got' serial='$ser'"
+  done
+  [[ -z "$bad" ]] && ok "race/carried_read_state (temporal dirty, spatial concurrent, == serial)" \
+                  || no "race/carried_read_state" "$bad"
+else
+  no "race/carried_read_state" "build failed"
+fi
+
 # Composition F: a first-wins claim in the *driver* preamble.  The claim runs
 # once per source vertex in the serial program and the branch it feeds decides
 # whether that source's neighbour body runs at all; every engine work function

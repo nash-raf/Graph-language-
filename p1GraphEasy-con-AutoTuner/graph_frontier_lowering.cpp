@@ -501,6 +501,29 @@ struct AxisCertificate
     std::string ImplementationReason;
 };
 
+/* Two-axis schedule selection (theorem section 17).  The certificate decides
+ * the semantic state; selectSchedule maps it to the realization.  A witness on
+ * one axis must not suppress parallelism on the other: the realization of the
+ * dirty axis preserves that axis's required order while the clean axis runs
+ * concurrently.  `Emitted` is the V1 capability flag: a theorem-licensed
+ * realization the current emitter cannot produce is reported as an explicit
+ * implementation failure (never as a new R1-R7 refusal). */
+enum class ScheduleKind : uint8_t
+{
+    Serial = 0,
+    SpatialDag,
+    TemporalDag,
+    Nested
+};
+struct ScheduleChoice
+{
+    ScheduleKind Kind = ScheduleKind::Serial;
+    bool Emitted = true;
+    bool ImplementationFailure = false;
+    std::string Reason;
+};
+static const char *scheduleName(ScheduleKind K);
+
 struct NeighborLoopInfo
 {
     Loop *NeighborLoop = nullptr;
@@ -1260,7 +1283,8 @@ static void markSequential(Loop *L)
  * the nest inline.  This is the success marker -- the refusal marker
  * sgpl.frontier.nested.sequential stays reserved for R8 (the implementation
  * full-serial guard) and for emit/analysis failure. */
-static void markDagOwned(Loop *L, llvm::StringRef Axes)
+static void markDagOwned(Loop *L, llvm::StringRef Axes, llvm::StringRef Spatial,
+                         llvm::StringRef Temporal)
 {
     if (!L)
         return;
@@ -1273,10 +1297,44 @@ static void markDagOwned(Loop *L, llvm::StringRef Axes)
         Loop *Cur = Work.back();
         Work.pop_back();
         if (Instruction *T = Cur->getHeader()->getTerminator())
-            T->setMetadata(
-                "sgpl.frontier.dag.axes",
-                MDNode::get(T->getContext(),
-                            MDString::get(T->getContext(), Axes)));
+        {
+            LLVMContext &Ctx = T->getContext();
+            T->setMetadata("sgpl.frontier.dag.axes",
+                           MDNode::get(Ctx, MDString::get(Ctx, Axes)));
+            T->setMetadata("sgpl.frontier.dag.owner",
+                           MDNode::get(Ctx, MDString::get(Ctx, "engine")));
+            T->setMetadata("sgpl.frontier.dag.spatial",
+                           MDNode::get(Ctx, MDString::get(Ctx, Spatial)));
+            T->setMetadata("sgpl.frontier.dag.temporal",
+                           MDNode::get(Ctx, MDString::get(Ctx, Temporal)));
+        }
+        for (Loop *Sub : Cur->getSubLoops())
+            Work.push_back(Sub);
+    }
+}
+
+/* Implementation-failure serial mark.  The nest is still kept sequential for
+ * the conservative reconstruction, but the failure carries its own marker so
+ * a theorem-level refusal (no parallel route) is never confused with an
+ * unemitted realization. */
+static void markImplSerial(Loop *L)
+{
+    if (!L)
+        return;
+    Loop *Top = L;
+    while (Loop *P = Top->getParentLoop())
+        Top = P;
+    std::vector<Loop *> Work{Top};
+    while (!Work.empty())
+    {
+        Loop *Cur = Work.back();
+        Work.pop_back();
+        if (Instruction *T = Cur->getHeader()->getTerminator())
+        {
+            LLVMContext &Ctx = T->getContext();
+            T->setMetadata("sgpl.frontier.impl.serial",
+                           MDNode::get(Ctx, MDString::get(Ctx, "unemitted")));
+        }
         for (Loop *Sub : Cur->getSubLoops())
             Work.push_back(Sub);
     }
@@ -4856,7 +4914,8 @@ static void appendWitness(AxisCertificate &Cert, InterferenceWitness W)
 }
 
 static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
-                                 const std::string &SemReason)
+                                 const std::string &SemReason,
+                                 const ScheduleChoice &Schedule)
 {
     if (!getenv("GRAPH_FRONTIER_STATS"))
         return;
@@ -4865,11 +4924,17 @@ static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
                                               : (Info.DriverLoop ? Info.DriverLoop->getHeader() : nullptr);
     std::string HdrName = Hdr && Hdr->hasName() ? Hdr->getName().str() : std::string("<unnamed>");
     std::string Guard = Cert.R8 ? ("R8:" + Cert.ImplementationReason)
-                                : (Supported ? "none" : ("realization:" + SemReason));
+                                : ((Schedule.Kind != ScheduleKind::Serial || Supported)
+                                       ? "none"
+                                       : ("realization:" + SemReason));
     fprintf(stderr,
             "[frontier-cert] hdr=%s R_S=%d R_T=%d NI_S=%d NI_T=%d spatial=%zu temporal=%zu impl_guard=%s\n",
             HdrName.c_str(), Cert.RS ? 1 : 0, Cert.RT ? 1 : 0, Cert.NIS ? 1 : 0,
             Cert.NIT ? 1 : 0, Cert.Spatial.size(), Cert.Temporal.size(), Guard.c_str());
+    fprintf(stderr,
+            "[frontier-cert] schedule=%s emitted=%d impl_failure=%d reason=%s\n",
+            scheduleName(Schedule.Kind), Schedule.Emitted ? 1 : 0,
+            Schedule.ImplementationFailure ? 1 : 0, Schedule.Reason.c_str());
     for (const InterferenceWitness &W : Cert.Spatial)
         fprintf(stderr,
                 "[frontier-cert]   #%u %s %s base=%s src=%s.%s sink=%s.%s relation=%d discharge=%s reason=%s\n",
@@ -4923,25 +4988,21 @@ static void buildTemplates(NeighborLoopInfo &Info)
 
     /* --- spatial: one node per owner region actually written in the pair
      * phase; partition counts are the runtime's decision (0 = all). */
-    if (Cert.RS)
-    {
-        SG.Valid = false;
-        SG.InvalidReason = "spatial refusal";
-    }
-    else if (Cert.R8)
+    if (Cert.R8)
     {
         SG.Valid = false;
         SG.InvalidReason = Cert.ImplementationReason;
     }
     else
     {
-        uint32_t Next = 1;
+        uint32_t Next = 1, NodeU = 0, NodeV = 0;
         if (PairU)
         {
             SpatialNodeTemplate N;
             N.Id = Next++;
             N.Owned = Region::U;
             SG.Nodes.push_back(N);
+            NodeU = N.Id;
         }
         if (PairV)
         {
@@ -4949,6 +5010,7 @@ static void buildTemplates(NeighborLoopInfo &Info)
             N.Id = Next++;
             N.Owned = Region::V;
             SG.Nodes.push_back(N);
+            NodeV = N.Id;
         }
         if (SG.Nodes.empty())
         {
@@ -4957,49 +5019,97 @@ static void buildTemplates(NeighborLoopInfo &Info)
             N.Owned = Region::Bottom;
             SG.Nodes.push_back(N);
         }
-        /* Discharged (privatization/snapshot) witnesses license the nodes and
-         * add no semantic edge; unresolved spatial witnesses cannot reach this
-         * branch (RS would be set). */
-        SG.Valid = true;
+        /* A refused spatial axis still builds the constrained template when
+         * the witness is representable: the R6 same-base dual-owner conflict
+         * is a mutual-exclusion constraint realized as a RealizationOrder
+         * edge (all U-owned before all V-owned is a sound superset of the
+         * required per-base order) and is never labeled semantic precedence.
+         * Unknown provenance (R1/R3) and frontier state (R7) have no
+         * partition representation and invalidate the template with a
+         * distinct reason.  Discharged (privatization/snapshot) witnesses
+         * license the nodes and add no edge. */
+        bool Representable = !Cert.RS;
+        std::string Why = "spatial refusal";
+        if (Cert.RS)
+        {
+            Representable = true;
+            Why = "spatial refusal";
+            for (const InterferenceWitness &W : Cert.Spatial)
+            {
+                if (W.DischargedBy != DischargeKind::None)
+                    continue;
+                if (W.Rejection == RejectionId::R6 && NodeU && NodeV)
+                    continue;
+                Representable = false;
+                Why = std::string("spatial witness ") + rejectionName(W.Rejection) +
+                      " has no partition representation";
+            }
+            if (Representable)
+            {
+                SpatialEdgeTemplate E;
+                E.From = NodeU;
+                E.To = NodeV;
+                E.WitnessId = 0; /* tagged realization order, not precedence */
+                E.RealizationOrder = true;
+                SG.Edges.push_back(E);
+            }
+        }
+        if (Representable)
+            SG.Valid = true;
+        else
+        {
+            SG.Valid = false;
+            SG.InvalidReason = Why;
+            SG.Nodes.clear();
+        }
     }
 
     /* --- temporal: one unit for the enclosing loop instance; precedence
      * edges only for order-sensitive relations that are not discharged.  A
      * relation without a witness becomes a realization-order edge (claims /
      * WAW keep their serial order), never a semantic edge. */
-    if (Cert.RT)
-    {
-        TG.Valid = false;
-        TG.InvalidReason = "temporal refusal";
-    }
-    else if (Cert.R8)
+    if (Cert.R8)
     {
         TG.Valid = false;
         TG.InvalidReason = Cert.ImplementationReason;
     }
     else
     {
-        TemporalUnitTemplate U;
-        U.Id = 1;
-        U.EnclosingLoop = Info.NeighborLoop && Info.NeighborLoop->getHeader()->hasName()
-                              ? Info.NeighborLoop->getHeader()->getName().str()
-                              : std::string("<loop>");
-        U.SpatialNodes = (uint32_t)SG.Nodes.size();
-        TG.Units.push_back(U);
-        for (const AccessRelation &R : Info.AccessRelations)
+        bool Representable = !Cert.RT;
+        std::string Why = "temporal refusal";
+        if (Cert.RT)
         {
-            if (R.DischargedBy != DischargeKind::None)
-                continue;
-            if (R.SourceSegment == R.SinkSegment)
-                continue; /* same segment: ordered by construction */
-            TemporalEdgeTemplate E;
-            E.From = 1;
-            E.To = 1;
-            E.WitnessId = 0;
-            E.RealizationOrder = true; /* serial order preserved, no witness */
-            TG.Edges.push_back(E);
+            Representable = true;
+            for (const InterferenceWitness &W : Cert.Temporal)
+            {
+                if (W.DischargedBy != DischargeKind::None)
+                    continue;
+                if (W.Rejection == RejectionId::R4)
+                    continue; /* the round sequence is exactly this order */
+                Representable = false;
+                Why = std::string("temporal witness ") + rejectionName(W.Rejection) +
+                      " has no ordered-unit representation";
+            }
         }
-        TG.Valid = true;
+        if (!Representable)
+        {
+            TG.Valid = false;
+            TG.InvalidReason = Why;
+        }
+        else
+        {
+            TemporalUnitTemplate U;
+            U.Id = 1;
+            U.EnclosingLoop = Info.NeighborLoop && Info.NeighborLoop->getHeader()->hasName()
+                                  ? Info.NeighborLoop->getHeader()->getName().str()
+                                  : std::string("<loop>");
+            U.SpatialNodes = (uint32_t)SG.Nodes.size();
+            TG.Units.push_back(U);
+            /* V1 executes the single unit in serial expression order, so
+             * non-discharged AccessRelations are realized inside the unit and
+             * are not DAG edges; a multi-unit template emits them as edges. */
+            TG.Valid = true;
+        }
     }
 
     /* validation: reference integrity + semantic edges must be witness-backed */
@@ -5121,6 +5231,21 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
     bool PairU = false, PairV = false;
     pairPhaseWriteRegions(Info, PairU, PairV);
 
+    /* The certificate is complete: every R1-R7 check runs (no short circuit),
+     * so the schedule selector sees both axes even when the first refusal
+     * would have stopped the old gate.  The first refusal keeps the reason
+     * string and the verdict stays admit()/refuse() exactly as before. */
+    bool Refused = false;
+    std::string FirstRefusal;
+    auto RecordRefusal = [&](const char *Why)
+    {
+        if (!Refused)
+        {
+            Refused = true;
+            FirstRefusal = Why;
+        }
+    };
+
     /* R1 -- spatial: a data-derived write has no owner. */
     if (Info.HasDataWrite)
     {
@@ -5129,7 +5254,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                 AccessMode::Write, AccessMode::Write, PhaseSegment::None, PhaseSegment::None,
                 sameInstance(), D, "data-derived write without a privatization proof");
         if (!Priv)
-            return refuse("data-derived write without a privatization proof");
+            RecordRefusal("data-derived write without a privatization proof");
     }
     /* R2 -- temporal: per-source claim, occurrence preservation. */
     if (hasPerSourceClaim(Info))
@@ -5140,7 +5265,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                 AccessMode::Write, AccessMode::Write, PhaseSegment::None, PhaseSegment::None,
                 sameInstance(), D, "per-source claim (occurrence preservation)");
         if (D == DischargeKind::None)
-            return refuse("per-source claim (occurrence preservation)");
+            RecordRefusal("per-source claim (occurrence preservation)");
     }
     /* R3 -- spatial: unknown index provenance (Top). */
     if (S.MutTop)
@@ -5148,7 +5273,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
         witness(WitnessAxis::Spatial, RejectionId::R3, nullptr, Region::Top, Region::Top,
                 AccessMode::Write, AccessMode::Write, PhaseSegment::None, PhaseSegment::None,
                 sameInstance(), DischargeKind::None, "unknown index provenance (Top)");
-        return refuse("unknown index provenance (Top)");
+        RecordRefusal("unknown index provenance (Top)");
     }
     /* R4 -- temporal: a carried read observes a base mutated across the round. */
     if (S.HasCarriedOnMut)
@@ -5158,7 +5283,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                 AccessMode::Read, AccessMode::Write, PhaseSegment::Preamble, PhaseSegment::Preamble,
                 prevInstance(), D, "carried read on a mutated base");
         if (!Priv)
-            return refuse("carried read on a mutated base");
+            RecordRefusal("carried read on a mutated base");
     }
     /* R5 -- temporal: shadow-endpoint write breaks round separation. */
     if (roundSepEndpointConflict(Info))
@@ -5166,7 +5291,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
         witness(WitnessAxis::Temporal, RejectionId::R5, nullptr, Region::Bottom, Region::Bottom,
                 AccessMode::Read, AccessMode::Write, PhaseSegment::Pair, PhaseSegment::Pair,
                 sameInstance(), DischargeKind::None, "pair-phase write at the shadow read endpoint");
-        return refuse("pair-phase write at the shadow read endpoint");
+        RecordRefusal("pair-phase write at the shadow read endpoint");
     }
     /* R6 -- spatial: same-base U+V dual ownership.  The remaining DualOwner
      * cases (empty bases, cross-phase dependence, shadow interference) are
@@ -5197,14 +5322,20 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                         PhaseSegment::Pair, sameInstance(), D,
                         "same-base U+V dual ownership conflict");
             }
-            if (Priv)
+            /* Only admit early when nothing was refused before: the complete
+             * certificate decides, and a witness on the other axis must not be
+             * dropped because this realization happens to hold. */
+            if (Priv && !Refused)
                 return admit();
-            if (Disjoint)
+            if (!Priv)
             {
-                Cert.R8 = true;
-                Cert.ImplementationReason = "dual-owner realization: cross-phase or empty-base U+V";
+                if (Disjoint)
+                {
+                    Cert.R8 = true;
+                    Cert.ImplementationReason = "dual-owner realization: cross-phase or empty-base U+V";
+                }
+                RecordRefusal("same-base or cross-phase U+V without privatization");
             }
-            return refuse("same-base or cross-phase U+V without privatization");
         }
     }
     /* R7 -- spatial: frontier append without the wired envelope. */
@@ -5213,7 +5344,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
         witness(WitnessAxis::Spatial, RejectionId::R7, nullptr, Region::V, Region::V,
                 AccessMode::Read, AccessMode::Write, PhaseSegment::Pair, PhaseSegment::Pair,
                 sameInstance(), DischargeKind::None, "frontier append without a wired envelope");
-        return refuse("frontier append without a wired envelope");
+        RecordRefusal("frontier append without a wired envelope");
     }
     if (Info.ReducePtr && !Priv)
     {
@@ -5227,7 +5358,7 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
             {
                 Cert.R8 = true;
                 Cert.ImplementationReason = "source-reduction realization";
-                return refuse("source-reduction conditions not met");
+                RecordRefusal("source-reduction conditions not met");
             }
         }
         else if (!(S.MutG && S.HasUopG && !S.HasUnrecognizedG && !PairU &&
@@ -5235,11 +5366,149 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
         {
             Cert.R8 = true;
             Cert.ImplementationReason = "reduction realization";
-            return refuse("reduction conditions not met");
+            RecordRefusal("reduction conditions not met");
         }
     }
 
+    /* Every check ran: both axes are fully populated.  The verdict keeps the
+     * old admit()/refuse() contract and the first refusal's reason string. */
+    if (Refused)
+        return refuse(FirstRefusal.c_str());
     return admit();
+}
+
+static const char *scheduleName(ScheduleKind K)
+{
+    switch (K)
+    {
+    case ScheduleKind::SpatialDag:
+        return "spatial-dag";
+    case ScheduleKind::TemporalDag:
+        return "temporal-dag";
+    case ScheduleKind::Nested:
+        return "nested";
+    default:
+        return "serial";
+    }
+}
+
+/* Map the certificate to the realization the emitted program uses (theorem
+ * section 17).  A witness on one axis never suppresses the other axis:
+ *   - both axes independent -> nested (strongest proven single-axis shape);
+ *   - temporal dirty only   -> spatial partitions run concurrently; the
+ *                              temporal order is preserved by the round
+ *                              sequence (only R4's writer->reader order is
+ *                              exactly the round order in V1);
+ *   - spatial dirty only    -> theorem-licensed temporal-unit concurrency;
+ *                              V1 builds the constrained spatial template but
+ *                              does not emit its realization -> explicit
+ *                              implementation failure (Emitted = false);
+ *   - both axes refused     -> no theorem-licensed parallel route (serial);
+ *   - R8                    -> implementation full-serial guard. */
+static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
+{
+    ScheduleChoice Ch;
+    AxisCertificate &C = Info.Cert;
+    if (C.R8)
+    {
+        Ch.Reason = "R8 guard: " + C.ImplementationReason;
+        Ch.ImplementationFailure = true;
+        return Ch;
+    }
+    if (C.RS && C.RT)
+    {
+        Ch.Reason = "both axes refused (R_S and R_T): no theorem-licensed parallel route";
+        return Ch;
+    }
+    if (!C.RS && !C.RT)
+    {
+        Ch.Kind = ScheduleKind::Nested;
+        Ch.Reason = "both axes independent";
+        return Ch;
+    }
+    if (!C.RS && C.RT)
+    {
+        for (const InterferenceWitness &W : C.Temporal)
+        {
+            if (W.DischargedBy != DischargeKind::None)
+                continue;
+            if (W.Rejection == RejectionId::R4)
+                continue; /* writer precedes reader == the round order */
+            Ch.Reason = std::string("temporal witness ") + rejectionName(W.Rejection) +
+                        " has no preserving realization (V1)";
+            Ch.ImplementationFailure = true;
+            return Ch;
+        }
+        Ch.Kind = ScheduleKind::SpatialDag;
+        Ch.Reason = "spatial partitions concurrent; temporal order preserved by the round sequence";
+        return Ch;
+    }
+    /* Spatial dirty, temporal clean: units may run concurrently, the spatial
+     * constraint must be preserved inside each unit. */
+    if (!Info.SpatialTemplate.Valid)
+    {
+        Ch.Reason = "implementation: spatial realization unrepresentable: " +
+                    Info.SpatialTemplate.InvalidReason;
+        Ch.ImplementationFailure = true;
+        return Ch;
+    }
+    Ch.Kind = ScheduleKind::TemporalDag;
+    Ch.Emitted = false; /* V1: no emitted dispatch for spatial constraints */
+    Ch.ImplementationFailure = true;
+    Ch.Reason = "theorem-licensed temporal-unit concurrency; V1 does not emit "
+                "the constrained spatial dispatch";
+    return Ch;
+}
+
+/* Compiler-side invariant (spec section 3): every unresolved R1-R7 witness is
+ * consumed by the chosen realization -- a witness-backed graph constraint, or
+ * a schedule-level order proof (the round sequence realizes R4).  Nothing may
+ * be silently dropped; an unconsumed witness fails the emission closed. */
+static bool witnessesConsumed(const NeighborLoopInfo &Info,
+                              const ScheduleChoice &Ch, std::string &Why)
+{
+    const AxisCertificate &C = Info.Cert;
+    for (const InterferenceWitness &W : C.Spatial)
+    {
+        if (W.DischargedBy != DischargeKind::None)
+            continue;
+        bool Consumed = false;
+        if (Ch.Kind == ScheduleKind::TemporalDag)
+            for (const SpatialEdgeTemplate &E : Info.SpatialTemplate.Edges)
+                if (E.WitnessId == W.Id)
+                {
+                    Consumed = true;
+                    break;
+                }
+        if (!Consumed)
+        {
+            Why = "unconsumed spatial witness #" + std::to_string(W.Id) + " (" +
+                  rejectionName(W.Rejection) + ")";
+            return false;
+        }
+    }
+    for (const InterferenceWitness &W : C.Temporal)
+    {
+        if (W.DischargedBy != DischargeKind::None)
+            continue;
+        bool Consumed = false;
+        if (Ch.Kind == ScheduleKind::SpatialDag && W.Rejection == RejectionId::R4)
+            Consumed = true; /* round-order proof */
+        if (Ch.Kind == ScheduleKind::TemporalDag)
+            for (const TemporalEdgeTemplate &E : Info.TemporalTemplate.Edges)
+                if (E.WitnessId == W.Id)
+                {
+                    Consumed = true;
+                    break;
+                }
+        if (!Consumed)
+        {
+            Why = "unconsumed temporal witness #" + std::to_string(W.Id) + " (" +
+                  rejectionName(W.Rejection) + ")";
+            return false;
+        }
+    }
+    return true;
 }
 
 /* Structural facts derived from the effect expression and the analysis
@@ -6446,10 +6715,32 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         std::string SemReason;
         const bool Supported =
             IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
+        ScheduleChoice Schedule;
+        bool EmissionSerialized = false;
         if (IsIter)
-            printAxisCertificate(Info, Supported, SemReason);
-        if (IsIter)
+        {
             buildTemplates(Info);
+            Schedule = selectSchedule(Info);
+            std::string ConsumeReason;
+            if (Schedule.Kind != ScheduleKind::Serial && Schedule.Emitted &&
+                !witnessesConsumed(Info, Schedule, ConsumeReason))
+            {
+                /* Invariant section 3: an unconsumed R1-R7 witness fails the
+                 * emission closed, and never as a new semantic refusal. */
+                Schedule.Kind = ScheduleKind::Serial;
+                Schedule.Emitted = false;
+                Schedule.ImplementationFailure = true;
+                Schedule.Reason = ConsumeReason;
+            }
+            EmissionSerialized =
+                Schedule.Kind == ScheduleKind::Serial || !Schedule.Emitted;
+            if (getenv("GRAPH_FRONTIER_STATS"))
+                errs() << "[graph-frontier]   schedule=" << scheduleName(Schedule.Kind)
+                       << " emitted=" << (Schedule.Emitted ? 1 : 0)
+                       << " impl_failure=" << (Schedule.ImplementationFailure ? 1 : 0)
+                       << " reason=" << Schedule.Reason << "\n";
+            printAxisCertificate(Info, Supported, SemReason, Schedule);
+        }
         /* Verdict for the census, derived from the structural facts (the same
          * decision the interpreter makes) and demoted to "sequential" whenever
          * the loop is refused or the emit fails -- it reports what happened, and
@@ -6457,7 +6748,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
          * outcome of this candidate is known. */
         const char *ClassName = "sequential";
         ExprFacts VerdictFacts;
-        const bool HaveVerdictFacts = IsIter && Supported;
+        const bool HaveVerdictFacts =
+            IsIter && Schedule.Kind != ScheduleKind::Serial && Schedule.Emitted;
         if (HaveVerdictFacts)
             deriveExprFacts(Info, VerdictFacts);
         auto claimClassName = [&]()
@@ -6489,8 +6781,12 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 if (getenv("GRAPH_FRONTIER_VERBOSE"))
                     printEffectExpr(Info);
             }
-            if (IsIter && !Supported)
-                errs() << " [refused: " << SemReason << "]";
+            if (IsIter && EmissionSerialized)
+                errs() << " [refused: "
+                       << ((Schedule.ImplementationFailure && !Info.Cert.R8)
+                               ? Schedule.Reason
+                               : SemReason)
+                       << "]";
             errs() << "\n";
         };
         claimClassName();
@@ -6534,8 +6830,14 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 errs() << "[graph-frontier]   modelable=" << (Modelable ? 1 : 0)
                        << (Modelable ? "" : (" reason=" + refuseReason)) << "\n";
             if (!Modelable)
+            {
                 ClassName = "sequential";
-            bool Rewritable = Supported && Modelable;
+                EmissionSerialized = true;
+                Schedule.Reason = "modelable: " + refuseReason;
+                Schedule.ImplementationFailure = true;
+            }
+            const bool Rewritable =
+                Modelable && Schedule.Kind != ScheduleKind::Serial && Schedule.Emitted;
             if (Rewritable)
             {
                 /* The recursive structural interpreter is the sole
@@ -6543,7 +6845,12 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                  * sequential marker. */
                 bool Emitted = emitExprInterp(Info);
                 if (!Emitted)
+                {
                     ClassName = "sequential";
+                    EmissionSerialized = true;
+                    Schedule.Reason = "emit failed";
+                    Schedule.ImplementationFailure = true;
+                }
                 if (!Emitted && getenv("GRAPH_FRONTIER_STATS"))
                     errs() << "[graph-frontier]   expression path refused"
                               " -> stays sequential\n";
@@ -6562,18 +6869,34 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                      * inline by the reconstruction.  The refusal marker is
                      * reserved for R8 / emit failure. */
                     {
-                        std::string Axes;
-                        if (!Info.Cert.Spatial.empty())
+                        std::string Axes, SVal = "serial", TVal = "serial";
+                        switch (Schedule.Kind)
+                        {
+                        case ScheduleKind::Nested:
+                            Axes = "spatial+temporal";
+                            SVal = "parallel";
+                            TVal = "parallel";
+                            break;
+                        case ScheduleKind::SpatialDag:
                             Axes = "spatial";
-                        if (!Info.Cert.Temporal.empty())
-                            Axes = Axes.empty() ? "temporal" : Axes + "+temporal";
-                        if (Axes.empty())
+                            SVal = "parallel";
+                            TVal = "ordered";
+                            break;
+                        case ScheduleKind::TemporalDag:
+                            Axes = "temporal";
+                            SVal = "ordered";
+                            TVal = "parallel";
+                            break;
+                        default:
                             Axes = "spatial";
-                        markDagOwned(L, Axes);
+                            break;
+                        }
+                        markDagOwned(L, Axes, SVal, TVal);
                         if (getenv("GRAPH_FRONTIER_STATS"))
                             errs() << "[graph-frontier]   dag-owned: hdr="
                                    << L->getHeader()->getName()
-                                   << " axes=" << Axes << "\n";
+                                   << " axes=" << Axes << " spatial=" << SVal
+                                   << " temporal=" << TVal << "\n";
                     }
                     if (getenv("GRAPH_FRONTIER_DUMP") && F.getParent())
                     {
@@ -6629,7 +6952,11 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
              * invisible to the dependence analysis until call effects are
              * modelled, so releasing by default would be unsound. */
             if (!getenv("SGPL_PDG_SECOND_CHANCE"))
+            {
                 markSequential(L);
+                if (Schedule.ImplementationFailure)
+                    markImplSerial(L);
+            }
             errs().flush();
         }
         emitCandidateLine();

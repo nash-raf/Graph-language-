@@ -1,0 +1,44 @@
+// R4, one axis only (temporal dirty, spatial clean): a peel pass over all
+// vertices whose *driver preamble* reads `deg[u]` while the pair phase writes
+// `deg[v]` in the other region.  With an all-vertices round domain the
+// relation is Temporal::Carried (not PreviousRoundRead, which is the
+// frontier-gated class), the read is not one of the round-separation shadow's
+// cross-reads, so the temporal witness R4 stays unresolved.
+//
+// Two-axis contract (spec section 17): a witness on one axis must not suppress
+// proven parallelism on the other.  This nest is destination-owned (deg[v]
+// writes, no data-derived index, no claim, no unwired append), so NI_S = 1 and
+// NI_T = 0; the required realization is spatial partitions concurrent inside
+// each round with the writer->reader order preserved by the round sequence.
+// Before the gate split the whole nest was refused; it must now be realized
+// and must equal the unrewritten build at every thread count.
+graph G {
+    edges: file "../verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int deg[n];
+
+for each vertex v in G {
+    deg[v] = 0;
+}
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        deg[u] = deg[u] + 1;
+    }
+}
+
+for each vertex u in G {
+    if (deg[u] >= 0) {
+        for each neighbor v of u in G {
+            deg[v] = deg[v] - 1;
+        }
+    }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + deg[i]; i = i + 1; }
+print "deg_sum";
+print s;

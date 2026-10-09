@@ -1391,7 +1391,21 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         !::getenv("SGPL_NO_FRONTIER_MARKER") &&
         loopHasTerminatorMetadata(L, "sgpl.frontier.dag.axes");
     if (IsDagOwnedLoop)
-        logLoopClassify("dag-owned region (left to the DAG scheduler)");
+    {
+        /* Read the marker's value, not just its presence: the classifier's
+         * note names the realized axes, so a schedule change is observable
+         * here.  The engine owns the parallelism for every value; the value
+         * states which axis runs concurrently and which is ordered. */
+        std::string AxesValue = "<unreadable>";
+        if (L->getHeader() && L->getHeader()->getTerminator())
+            if (MDNode *AxesNode =
+                    L->getHeader()->getTerminator()->getMetadata("sgpl.frontier.dag.axes"))
+                if (auto *MDS = dyn_cast_or_null<MDString>(AxesNode->getOperand(0)))
+                    AxesValue = MDS->getString().str();
+        logLoopClassify(("dag-owned region (left to the DAG scheduler): axes=" +
+                         AxesValue)
+                            .c_str());
+    }
 
     std::string classification;
     if (IsNestedFrontierLoop || IsDagOwnedLoop)

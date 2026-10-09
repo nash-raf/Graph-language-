@@ -48,6 +48,9 @@ Pipeline: `R1..R7 → (R_S,R_T) → (NI_S,NI_T) → (G_S,G_T) → schedule`
 | `test/run_exec_r2_tests.sh` | PASS after harness fix (link line lacked `gpu_runtime.c` — pre-existing breakage from the GPU commit) |
 | `test/run_frontier_shadow_tests.sh` | PASS after harness fixes (same link gap + the stale 12-arg `autograph_exec_ctx_create` call) |
 | `claim_driver` | `#1 R2 discharge=claim-staging`, emit fails closed with `impl_failure=1 reason=emit failed` + `impl.serial`; `class=sequential` kept (R2 proof obligation documented in `proof/R2_REJECTION.md`) |
+| pod: gpu_device_diff `carried_read_state` | P=1/4/8 **identical**, 16 device dispatches / 1 CPU fallback |
+| pod: gpu_device_diff `dual_shadow` | P=1/4/8 identical (device-ineligible, CPU fallback) |
+| pod: `verify/run.sh parallel` | 57 PASS / 4 FAIL — `nested_step` = `./final_program` **SIGKILLed** (rc=137, environmental OOM; locally PASS), `marker_derived` + `derived_default` = no `classification=DOALL` in the trace on the pod's NVPTX build (`derived_default` fails locally too, pre-existing), `doall_scaling` = sentinel `99999 -> 99999` (measurement path, locally PASS).  `dual_shadow`, `claim_driver`, `carried_read_state` all PASS on the pod. |
 
 ## Not done (explicit gaps, in plan order)
 

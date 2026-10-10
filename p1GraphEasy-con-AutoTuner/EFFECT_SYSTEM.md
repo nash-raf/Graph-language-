@@ -1439,3 +1439,108 @@ belongs to the caller.  Undeclared schedules (`0,0`, legacy callers) keep the
 historical device behavior.  Unit evidence: `tdg_budget_test` T11 (five checks,
 all configurations in `validate_tdg_budget.sh`); device-vs-CPU parity is the
 `verify/gpu_device_diff.sh` / `verify/gpu_corpus_diff.sh` differentials.
+
+## The two-axis proof layer (plan sections 3–11)
+
+The scheduler legality contract in section 17 (`R_S = R1∨R3∨R6∨R7`,
+`R_T = R2∨R4∨R5`) is *sound*: a witness that fires is real interference.  It is
+not *complete*: R1–R7 are **witness classes and transformations, never an
+assumed-exhaustive decision procedure**.  "No witness remains ⇒ parallelize" is
+therefore not a theorem, and the implementation no longer relies on it.  The
+decision now comes from a complete relation/graph proof:
+
+```
+effects ─▶ §3.1 footprints ─▶ §3.2 complete RAW/WAR/WAW
+        ─▶ §4 per-relation temporal projection (phase + round scopes)
+        ─▶ §5 owner resolution (region is provenance, not ownership)
+        ─▶ §7 transformations (edge removals with named conditions)
+        ─▶ §6/§4.3 phase + round + spatial graphs ─▶ §9 AxisProof
+        ─▶ §10 schedule ─▶ §11 runtime descriptors
+```
+
+**§3.1 Footprints.**  `Effect::Footprints` holds one `Footprint` per access
+mode the effect performs: a write is `FP_WRITE`, a private-copy update
+`FP_PRIVATE`, a claim `FP_ATOMIC`, an RMW a *Read and a Write* (so one effect
+carries its own RAW/WAR pair and the WAW its write owes to other writers).
+Round-scoped runtime resources (`MEMBERSHIP`, `DEST_SEEN`, `NEXT_FRONTIER`,
+`SNAPSHOT`, `PARTIAL`, `PRIVATE`, `CLAIM`) are footprints too, in the same
+`SGPL_RES_*` vocabulary the emitter hands to `sgpl_runtime_op.resources`, so
+resource conflicts enter the same relation layer.
+
+**§3.2 Relations.**  `deriveAccessRelations` generates every ordered footprint
+pair on an aliased base (or sharing a resource class) with at least one write,
+with the full record: footprints, indices, regions, phase segments, occurrence
+scopes, original semantic order (only `Seq`/phase changes create one — two `Par`
+siblings inside a phase have **no** order), resource mask, instance relation,
+temporal class, owner class, witness id, discharge.  The old hard 64-relation
+cap is replaced by `RelationOverflow`, which the proof layer rejects.
+
+**§4 Temporal.**  `relateAccessTemporal` extends the oracle-exact
+`relateReadWrite` rule to the WAR/WAW projections
+(`SameRoundWrite`, `SameRoundOrdered`, `PreviousRoundWrite`, `FixedOffset`,
+`Affine`, `Unknown`) and both scopes are materialized: the within-round phase
+graph (`Preamble → Pair → Epilogue`) and the across-round graph (a carried or
+previous-round relation is a self-edge on the round node).
+
+**§5 Ownership.**  `footprintHasOwner`/`relateAccessSpatial` classify every
+access as `ExactOwner` (same canonical index — the endpoint slots are memory,
+so two `load %v_slot` uses are the same element), `MayCrossOwner` (a different
+index expression in one region can collide across iterations), `CrossOwner`
+(opposite endpoint regions), `NoOwner` (data-derived, scalar/global, constant
+index: a constant element is written by *every* iteration) or `UnknownOwner`
+(`Top`).  Private copies, recognized-fold partials, staged claims and the wired
+frontier envelope resolve ownership; nothing else does.
+
+**§7 Transformations.**  Every edge removal points at a `Transformation` record
+naming the mechanism, the relations it removes, whether a realization exists
+for it, and the conditions that were checked (privatization, owner-computes,
+snapshot, claim staging, algebraic fold, frontier envelope — each with its
+section 7 precondition list).  The soundness rule is the plan's: an edge may be
+removed only by a proof of disjointness, ownership, privatization,
+snapshotting, occurrence-preserving staging, or a valid algebraic/commutative
+transformation.  Atomicity alone never discharges anything.
+
+**§6/§9 The proof object.**  `AxisProof` carries all relations, all discharged
+and unresolved edges, the transformations, the components, the overflow/cycle
+status and the axis verdicts.  `NIS`/`NIT` are **false** whenever an edge
+survives, whenever a *unary* obligation survives (a mutating footprint no
+partition can own — the R1/R3 class, which needs no pair relation), and
+whenever the proof is inconclusive (overflow, invalid, cyclic): an inconclusive
+proof is never treated as non-interference.
+
+**§10 Schedule.**  `selectSchedule` consumes the proof: R8 keeps its
+implementation guard and reason; an inconclusive or unrealizable proof fails
+closed to `serial` with `impl_failure=1`; otherwise the effective axes are the
+certificate **or** the graph — the graph can only be stricter.  A surviving
+`CrossOwner` edge adds the tagged `RealizationOrder` edge the staged dual
+needs even when no witness fired, so a proof-stricter candidate is realized,
+not silently parallelized.
+
+**Evidence and the exhaustiveness question.**  `verify/check_graphs.sh` sweeps
+the whole corpus with `GRAPH_FRONTIER_GRAPHS=1` and compares the graph verdict
+with the witness certificate of the same candidate:
+
+* **cover_S / cover_T** is the soundness gate — a witness that fires must
+  appear as a surviving graph edge (certificate dirty ⇒ graph dirty).  Across
+  the corpus it holds with zero failures.
+* **stricter_S / stricter_T** is the completeness delta — candidates the
+  certificate admitted while the complete graph does not.  These are listed,
+  never silenced; they are the counterexamples to "no witness ⇒ parallelize".
+  The observed deltas are the two `reduce_real_ops` min/max candidates (already
+  refused by the R8 guard) and the uncapped shapes the graph now rejects on its
+  own.
+
+**§11 Runtime.**  `sgpl_dag_relation_desc` carries the proof metadata (axis
+mask, relation kind, access kind, discharge reference, phase/round/partition
+projection) and the scheduler validates it fail-closed: a relation removed by a
+transformation is never scheduled, a unary obligation has no DAG at all, a
+mutex edge must be realization-tagged, contradictory duplicate edges and
+unknown axis bits are rejected, and legacy zero-filled descriptors stay
+accepted.  `sgpl_exec_dag_spatial_graph` runs real spatial edges,
+`sgpl_exec_dag_temporal_units` runs temporal partial DAGs (the chain is now a
+caller) and `sgpl_exec_dag_product` runs the `(unit × partition)` product with
+spatial edges inside each unit and cross-round edges between units.  The
+runtime orders existing lifecycle units only; it never re-implements a round,
+snapshot, combine or claim.  Open item: the emitted programs still declare
+their schedule through `autograph_exec_ctx_set_dag_axes` instead of passing the
+compiler's descriptor array to these entry points.

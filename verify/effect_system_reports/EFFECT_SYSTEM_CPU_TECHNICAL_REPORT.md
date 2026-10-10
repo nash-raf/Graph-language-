@@ -680,3 +680,77 @@ directions (`admitted ⇒ every witness consumed`; `refused ⇒ ∃ witness/guar
   `parallel_runtime`.
 - **`sgpl_exec_ctx` growth.**  The per-step declaration added two trailing
   fields; no existing field or lifecycle meaning changed.
+
+---
+
+# Addendum — the two-axis proof layer (plan sections 3–11)
+
+The report above documents the *witness* pipeline: R1–R7 checked without
+short-circuit, a per-axis gate split, and a schedule selected from
+`R_S`/`R_T`.  That pipeline is sound but its completeness assumption — "no
+witness remains ⇒ parallelize" — is not a theorem.  The implementation now
+decides from a complete relation/graph proof instead, and the witness list is
+demoted to diagnostics and transformations.
+
+## Theory
+
+* **Footprints** (§3.1): an effect owns one footprint per access mode it
+  performs (an RMW owns a Read *and* a Write), plus resource footprints in the
+  `SGPL_RES_*` vocabulary the emitter already uses.
+* **Relations** (§3.2): every ordered footprint pair on an aliased base or
+  shared resource with at least one write — RAW, WAR, WAW — with its phases,
+  scopes, semantic order (never invented for `Par` siblings), instance relation
+  and discharge.  No cap: an overflow is an explicit, rejected state.
+* **Temporal projection** (§4): the phase-scope graph and the round-scope
+  graph; a carried read is a self-edge on the round node.
+* **Ownership** (§5): region is provenance, not ownership.  Exact endpoint-slot
+  identity (the U/V slots are memory, so their loads are canonicalized) is
+  `ExactOwner`; a different index in one region may cross; opposite endpoint
+  regions are `CrossOwner`; data-derived, scalar/global and constant-index
+  writes have `NoOwner`.
+* **Transformations** (§7): each removal is a record with the conditions it
+  checked; atomicity alone never discharges.
+* **Proof object** (§9): three-valued — proven non-interference, proven
+  interference, inconclusive — and inconclusive is *not* non-interference.
+
+## Logic
+
+`finalizeProofInputs()` runs once per admitted candidate, after σ, round
+separation and the privatization decision are final: `buildFootprints` →
+`deriveAccessRelations` → `linkRelationWitnesses` → `buildProofGraphs` →
+`buildAxisProof`.  `graphAxisVerdict` reports `NIS`/`NIT`/`Realizable`;
+`buildTransformations` groups the discharged relations per mechanism;
+`selectSchedule` consumes the proof (R8 → serial+impl with its own reason;
+overflow/invalid/unrealizable → serial+impl; otherwise effective axes =
+certificate ∨ graph).
+
+## Code
+
+* `graph_frontier_lowering.cpp`: `Footprint`, `ResourceAccess`, `FP_*`,
+  `OwnerClass`, `PhaseRelation`, extended `Temporal`/`AccessRelation`,
+  `buildFootprints`, `deriveAccessRelations` (rewritten over footprints),
+  `relateAccessTemporal`, `relateAccessSpatial`, `footprintHasOwner`,
+  `ProofNode/Edge/Graph(s)`, `buildProofGraphs`, `graphAxisVerdict`,
+  `buildTransformations`, `buildAxisProof`, `proofRelationReport`,
+  `proofGraphReport`, `finalizeProofInputs`, the proof-first `selectSchedule`,
+  and the graph-derived `RealizationOrder` edge in `buildTemplates`.
+* `autotuner_runtime.[ch]`: extended `sgpl_dag_relation_desc` with fail-closed
+  validation, `sgpl_exec_dag_spatial_graph`, `sgpl_exec_dag_temporal_units`,
+  `sgpl_exec_dag_product`.
+* `test/dag_scheduler_test.c`: 17 new checks (proof metadata, discharged edge,
+  unary obligation, mutex tagging, contradictory duplicates, axis bits, spatial
+  axis/shape validation, temporal partial DAG, product exactly-once, product
+  bounds).
+
+## Evidence
+
+| check | result |
+|---|---|
+| `verify/run.sh parallel` | 64–67 PASS / 0 FAIL (1 load-dependent SKIP with its measured number) |
+| `test/run_exec_engine_tests.sh` | ALL PASS (+17 new §11 checks), 3 thread configs |
+| TSan (`setarch -R`, 8 threads) | dag scheduler 0 races, exec engine 0 races |
+| `validate_algebra.sh` | 21 fixtures, 0 failures |
+| `validate_tdg_budget.sh` | ALL PASS |
+| `validate_composition.sh` | DONE (no MISMATCH) |
+| `GRAPH_FRONTIER_RELCHECK=1` | every candidate `[relcheck] OK`; kind/footprint consistency asserted |
+| `verify/check_graphs.sh` | cover gate 0 failures (graph never cleaner than the certificate); strictness deltas listed per fixture |

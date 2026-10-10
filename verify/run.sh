@@ -35,9 +35,12 @@ g(){ python3 -c "import json;print(json.load(open('$R/expected/golden.json'))['$
 # manifest being read by the enclosing `while read` loop.
 # The mtime check matters: 03_run.sh can fail *after* linking and still leave a
 # stale final_program, so a silent stale binary would otherwise be reported as
-# a wrong answer rather than a build failure.
+# a wrong answer rather than a build failure.  program.o is removed too: it
+# carries the generated code *and the prebuilt graph of one fixture*, so reusing
+# it across cases makes a case read another fixture's dataset (a fresh checkout
+# never sees this, but an interleaved direct compiler run leaves it behind).
 compile(){
-  rm -f "$C/final_program"
+  rm -f "$C/program.o" "$C/final_program"
   ( cd "$C" && GRAPH_FRONTIER_STATS=1 GRAPH_FILE="$1" ./03_run.sh >"$R/bin/build.log" 2>&1 </dev/null )
   [[ -f "$C/final_program" ]] || return 2
   return 0
@@ -49,7 +52,7 @@ compile(){
 # with the unrewritten program, which is what "no race, no changed answer"
 # means for a composition rule.
 compile_serial(){
-  rm -f "$C/final_program"
+  rm -f "$C/program.o" "$C/final_program"
   ( cd "$C" && GRAPH_FRONTIER_REWRITE_OFF=1 GRAPH_FILE="$1" ./03_run.sh >"$R/bin/build_serial.log" 2>&1 </dev/null )
   [[ -f "$C/final_program" ]] || return 2
   ( cd "$C" && ./final_program 2>/dev/null </dev/null | grep -v AutoTuner | tr '\n' ' ' | sed 's/ *$//' )
@@ -1124,6 +1127,26 @@ if [[ "${SGPL_GPU_VERIFY:-0}" == "1" ]]; then
     echo "$out" | grep -E 'PASS|SKIP|FAIL' | sed 's/^/  /'
     no "gpu/device-check" "$(grep -m1 'FAIL' <<<"$out" | cut -c1-96)"
   fi
+fi
+
+# ------------------------------------------------- §14.11 FAIL-CLOSED OVERFLOW
+# An overflowed relation set must be rejected, never truncated: with the
+# materialization bound lowered (SGPL_REL_CAP) a candidate whose relation set
+# exceeds it is refused as an *implementation* failure (never a new semantic
+# refusal) and the answer must stay identical to the unrewritten build.
+if ser=$(compile_serial "$R/cases/parallel/mixed_regions.graph") && \
+   SGPL_REL_CAP=2 compile "$R/cases/parallel/mixed_regions.graph"; then
+  bad=""
+  grep -q "impl_failure=1" "$R/bin/build.log" || bad="overflow did not fail closed"
+  grep -q "relation overflow" "$R/bin/build.log" || bad="$bad reason missing"
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "$ser" ]] || bad="$bad threads=$t got='$got' serial='$ser'"
+  done
+  [[ -z "$bad" ]] && ok "race/overflow-fail-closed (relation cap exceeded -> serial+impl, == serial)" \
+                  || no "race/overflow-fail-closed" "$bad"
+else
+  no "race/overflow-fail-closed" "build failed"
 fi
 
 echo

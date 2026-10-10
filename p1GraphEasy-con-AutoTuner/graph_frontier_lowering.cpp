@@ -2738,7 +2738,16 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
         return Mask;
     };
     auto WritesOf = [](const Footprint &F) { return footprintIsWriting(F); };
-    static const size_t MaxRelations = 4096;
+    /* The cap exists only as a materialization bound; SGPL_REL_CAP lowers it so
+     * the fail-closed overflow path is directly testable.  An overflowed set is
+     * rejected by the proof layer (selectSchedule: serial + implementation
+     * failure), never truncated. */
+    static const size_t MaxRelations = []
+    {
+        const char *Cap = getenv("SGPL_REL_CAP");
+        const int V = Cap ? atoi(Cap) : 0;
+        return V > 0 ? (size_t)V : (size_t)4096;
+    }();
     for (size_t i = 0; i < Items.size(); ++i)
     {
         const Footprint &A = *Items[i].F;

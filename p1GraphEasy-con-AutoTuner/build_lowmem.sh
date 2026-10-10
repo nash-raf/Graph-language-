@@ -23,6 +23,13 @@ SOURCES=(main.cpp IRGenVisitor.cpp MotifPattern.cpp MotifIRBuilder.cpp ASTBuilde
          generated/BaseLexer.cpp generated/BaseListener.cpp
          generated/BaseParser.cpp generated/BaseVisitor.cpp)
 OBJECTS=()
+# Optional Polly link libraries.  The compiler references no Polly symbol of its
+# own: a toolchain whose llvm-config already lists Polly (`--libs all`) links it
+# from there.  A toolchain that ships libPolly.a *and* a Polly-enabled LLVM
+# shared library double-registers Polly's command-line options and aborts at
+# startup ("Option 'polly-dependences-computeout' registered more than once"),
+# so the explicit list is an override: `POLLY_LIBS="" bash build_lowmem.sh`.
+POLLY_LIBS="${POLLY_LIBS:--lPolly -lPollyISL -lisl}"
 echo "=== compiling ${#SOURCES[@]} sources ==="
 for src in "${SOURCES[@]}"; do
   obj="$OBJ_DIR/$(echo "$src" | tr '/' '_' | sed 's/\.cpp$/.o/')"; OBJECTS+=("$obj")
@@ -41,7 +48,7 @@ for src in "${SOURCES[@]}"; do
 done
 echo "=== linking GraphProgram ==="
 g++ "${OBJECTS[@]}" $LLVM_LDFLAGS -Wl,--no-keep-memory -Wl,--reduce-memory-overheads \
-  -pthread -lantlr4-runtime -lPolly -lPollyISL -lisl $LLVM_LIBS $LLVM_SYSTEM_LIBS -o GraphProgram
+  -pthread -lantlr4-runtime $POLLY_LIBS $LLVM_LIBS $LLVM_SYSTEM_LIBS -o GraphProgram
 if [ ! -f GraphProgram ]; then echo ">>> GraphProgram MISSING: build failed"; exit 1; fi
 echo ">>> p1-AT GraphProgram build complete"
 

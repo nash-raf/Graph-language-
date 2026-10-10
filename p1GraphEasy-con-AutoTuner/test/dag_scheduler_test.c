@@ -71,6 +71,18 @@ static int32_t nested_probe_fn(void *state, int64_t node) {
   return 0;
 }
 
+/* §11.4 product cells: every (unit, partition) cell runs exactly once; the
+ * callback receives the packed instance `unit * partitions + partition`. */
+static _Atomic int g_cell_seen[16];
+static _Atomic int g_cell_count;
+static int32_t product_cell_fn(void *state, int64_t instance) {
+  (void)state;
+  if (instance >= 0 && instance < 16)
+    atomic_store(&g_cell_seen[instance], 1);
+  atomic_fetch_add(&g_cell_count, 1);
+  return 0;
+}
+
 static int32_t node_fn(void *state, int64_t node) {
   (void)state;
   if ((int)node == g_fail_on)
@@ -133,6 +145,9 @@ static void reset(void) {
   atomic_store(&g_light_granted, 0);
   g_nested_on = 0;
   g_nested_share = 0;
+  for (int i = 0; i < 16; ++i)
+    atomic_store(&g_cell_seen[i], 0);
+  atomic_store(&g_cell_count, 0);
 }
 
 int sgpl_gpu_engine_step_verdict(int64_t arcs, int64_t min_pairs) {
@@ -330,6 +345,154 @@ int main(void) {
     one[0].ctx = NULL;
     check("temporal null-ctx unit fails closed",
           sgpl_exec_dag_temporal_chain(one, 1, 2) == SGPL_DAG_ERR_NODE);
+  }
+
+  /* ── §11 proof-derived graph execution ────────────────────────────────
+   * §11.1: proof metadata on an edge (axis mask, relation kind, access kind,
+   * phase/round/partition projection) is accepted; a relation a transformation
+   * removed must never be scheduled; a unary obligation has no DAG; a mutex
+   * edge must be tagged as a realization order. */
+  {
+    sgpl_dag_relation_desc meta[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 1, 7, SGPL_DAG_REL_FLAG_SEMANTIC,
+         SGPL_DAG_AXIS_SPATIAL, SGPL_DAG_RELKIND_MEMORY, 0 /* RAW */, 0,
+         1, 2, 0, 0, 1},
+    };
+    sgpl_dag_template TM = {2, 1, meta, node_fn, NULL};
+    reset();
+    check("proof metadata accepted (axis/relation/phase/round/partition)",
+          autograph_execute_dag(&TM, NULL, 2) == SGPL_DAG_OK && g_order_n == 2);
+    sgpl_dag_relation_desc dis[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 1, 7, SGPL_DAG_REL_FLAG_SEMANTIC,
+         SGPL_DAG_AXIS_SPATIAL, SGPL_DAG_RELKIND_MEMORY, 0, 3 /* discharged */,
+         0, 0, 0, 0, 0},
+    };
+    sgpl_dag_template TD = {2, 1, dis, node_fn, NULL};
+    check("a discharged relation is never scheduled",
+          autograph_execute_dag(&TD, NULL, 2) == SGPL_DAG_ERR_INVALID);
+
+    sgpl_dag_relation_desc uni[1] = {
+        {SGPL_DAG_KIND_SELF, 0, 0, 0, 0, SGPL_DAG_REL_FLAG_REALIZATION,
+         SGPL_DAG_AXIS_SPATIAL, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+    sgpl_dag_template TU = {1, 1, uni, node_fn, NULL};
+    check("a unary obligation cannot be scheduled",
+          autograph_execute_dag(&TU, NULL, 2) == SGPL_DAG_ERR_INVALID);
+
+    sgpl_dag_relation_desc mx[1] = {
+        {SGPL_DAG_KIND_MUTEX, 0, 0, 1, 0, 0 /* no realization tag */,
+         SGPL_DAG_AXIS_SPATIAL, 0, 2 /* WAW */, 0, 0, 0, 0, 0, 0},
+    };
+    sgpl_dag_template TX = {2, 1, mx, node_fn, NULL};
+    check("mutex edge without a realization tag rejected",
+          autograph_execute_dag(&TX, NULL, 2) == SGPL_DAG_ERR_INVALID);
+    mx[0].flags = SGPL_DAG_REL_FLAG_REALIZATION;
+    reset();
+    check("mutex edge with a realization tag scheduled as an order",
+          autograph_execute_dag(&TX, NULL, 2) == SGPL_DAG_OK && g_order_n == 2);
+
+    sgpl_dag_relation_desc contra[2] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 1, 1, SGPL_DAG_REL_FLAG_SEMANTIC,
+         0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {SGPL_DAG_KIND_MUTEX, 0, 0, 1, 0, SGPL_DAG_REL_FLAG_REALIZATION,
+         0, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+    sgpl_dag_template TC2 = {2, 2, contra, node_fn, NULL};
+    check("duplicate contradictory edges rejected",
+          autograph_execute_dag(&TC2, NULL, 2) == SGPL_DAG_ERR_INVALID);
+
+    sgpl_dag_relation_desc badaxis[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 1, 1, SGPL_DAG_REL_FLAG_SEMANTIC,
+         0x8u /* unknown axis bit */, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+    sgpl_dag_template TA = {2, 1, badaxis, node_fn, NULL};
+    check("unknown axis bit rejected",
+          autograph_execute_dag(&TA, NULL, 2) == SGPL_DAG_ERR_INVALID);
+    reset();
+  }
+
+  /* §11.2: the spatial graph entry point validates its axis and shape before
+   * any dispatch (the partition body itself needs a real context and is
+   * exercised by the corpus). */
+  {
+    sgpl_exec_ctx bad;
+    sgpl_dag_relation_desc wrongaxis[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 1, 1, SGPL_DAG_REL_FLAG_SEMANTIC,
+         SGPL_DAG_AXIS_TEMPORAL, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+    memset(&bad, 0, sizeof(bad));
+    check("spatial graph rejects a temporal-axis edge",
+          sgpl_exec_dag_spatial_graph(&bad, 2, wrongaxis, 1, 2) ==
+              SGPL_DAG_ERR_INVALID);
+    check("spatial graph rejects zero partitions",
+          sgpl_exec_dag_spatial_graph(&bad, 0, NULL, 0, 2) ==
+              SGPL_DAG_ERR_INVALID);
+    check("spatial graph rejects a null relation array",
+          sgpl_exec_dag_spatial_graph(&bad, 2, NULL, 1, 2) ==
+              SGPL_DAG_ERR_INVALID);
+  }
+
+  /* §11.3: temporal units as a partial DAG (independent units overlap) */
+  {
+    sgpl_exec_ctx c1, c2;
+    sgpl_temporal_unit two[2];
+    char g1[64] = {0}, g2[64] = {0};
+    memset(&c1, 0, sizeof(c1));
+    memset(&c2, 0, sizeof(c2));
+    two[0].graph = g1; two[0].ctx = &c1;
+    two[1].graph = g2; two[1].ctx = &c2;
+    sgpl_dag_relation_desc carried[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 1, 0, 1, 1, SGPL_DAG_REL_FLAG_SEMANTIC,
+         SGPL_DAG_AXIS_TEMPORAL, SGPL_DAG_RELKIND_MEMORY, 2 /* WAW */, 0,
+         1, 1, 1, 0, 0},
+    };
+    check("temporal partial DAG with a round-carried edge runs",
+          sgpl_exec_dag_temporal_units(two, 2, carried, 1, 2) == SGPL_DAG_OK);
+    carried[0].axis_mask = SGPL_DAG_AXIS_SPATIAL;
+    check("temporal units reject a spatial-axis edge",
+          sgpl_exec_dag_temporal_units(two, 2, carried, 1, 2) ==
+              SGPL_DAG_ERR_INVALID);
+  }
+
+  /* §11.4: product execution over (unit x partition) */
+  {
+    sgpl_exec_ctx c1, c2;
+    sgpl_temporal_unit two[2];
+    char g1[64] = {0}, g2[64] = {0};
+    memset(&c1, 0, sizeof(c1));
+    memset(&c2, 0, sizeof(c2));
+    two[0].graph = g1; two[0].ctx = &c1;
+    two[1].graph = g2; two[1].ctx = &c2;
+    sgpl_dag_relation_desc sp[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 2, 5, SGPL_DAG_REL_FLAG_SEMANTIC,
+         SGPL_DAG_AXIS_SPATIAL, SGPL_DAG_RELKIND_MEMORY, 1 /* WAR */, 0,
+         1, 1, 0, 0, 2},
+    };
+    sgpl_dag_relation_desc tp[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 1, 0, 1, 1, SGPL_DAG_REL_FLAG_SEMANTIC,
+         SGPL_DAG_AXIS_TEMPORAL, SGPL_DAG_RELKIND_MEMORY, 2, 0, 1, 1, 1, 0, 0},
+    };
+    reset();
+    rc = sgpl_exec_dag_product(two, 2, 3, product_cell_fn, sp, 1, tp, 1, 4);
+    {
+      int all = 1;
+      for (i = 0; i < 6; ++i)
+        if (!atomic_load(&g_cell_seen[i]))
+          all = 0;
+      check("product runs every (unit, partition) cell exactly once",
+            rc == SGPL_DAG_OK && atomic_load(&g_cell_count) == 6 && all);
+    }
+    sgpl_dag_relation_desc oob[1] = {
+        {SGPL_DAG_KIND_PRECEDENCE, 0, 0, 5 /* >= partitions */, 5,
+         SGPL_DAG_REL_FLAG_SEMANTIC, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+    check("product rejects an out-of-range partition edge",
+          sgpl_exec_dag_product(two, 2, 3, product_cell_fn, oob, 1, NULL, 0, 4) ==
+              SGPL_DAG_ERR_INVALID);
+    check("product rejects a null cell callback",
+          sgpl_exec_dag_product(two, 2, 3, NULL, NULL, 0, NULL, 0, 4) ==
+              SGPL_DAG_ERR_INVALID);
+    reset();
   }
 
   printf("%s (%d failure%s)\n", failures ? "FAILURES" : "ALL PASS", failures,

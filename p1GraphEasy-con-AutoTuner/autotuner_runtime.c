@@ -4909,8 +4909,11 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
     return SGPL_DAG_ERR_INVALID;
   for (i = 0; i < T->relation_count; i++) {
     const sgpl_dag_relation_desc *E = &T->relations[i];
-    if (E->kind != SGPL_DAG_REL_PRECEDENCE)
+    if (E->kind != SGPL_DAG_KIND_PRECEDENCE && E->kind != SGPL_DAG_KIND_MUTEX &&
+        E->kind != SGPL_DAG_KIND_SELF)
       return SGPL_DAG_ERR_INVALID;
+    if (E->kind == SGPL_DAG_KIND_SELF)
+      return SGPL_DAG_ERR_INVALID; /* §11.1: a unary obligation has no DAG */
     if (E->source_node < 0 || E->source_node >= T->node_count ||
         E->sink_node < 0 || E->sink_node >= T->node_count)
       return SGPL_DAG_ERR_INVALID;
@@ -4920,6 +4923,28 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
       return SGPL_DAG_ERR_INVALID;
     if ((E->flags & SGPL_DAG_REL_FLAG_SEMANTIC) && E->witness_id == 0)
       return SGPL_DAG_ERR_INVALID; /* no semantic edge without a witness */
+    /* §9/§11.1: a relation removed by a transformation is not scheduled at
+     * all; receiving one means the proof was invalid. */
+    if (E->discharge_id != 0)
+      return SGPL_DAG_ERR_INVALID;
+    /* A mutual exclusion is realized by a deterministic order, so the edge
+     * must be tagged as such (never presented as semantic precedence). */
+    if (E->kind == SGPL_DAG_KIND_MUTEX &&
+        !(E->flags & SGPL_DAG_REL_FLAG_REALIZATION))
+      return SGPL_DAG_ERR_INVALID;
+    /* No duplicate contradictory edges: the same ordered pair twice with
+     * different kinds is a graph-construction error. */
+    for (int32_t j = 0; j < i; j++) {
+      const sgpl_dag_relation_desc *P = &T->relations[j];
+      if (P->source_node == E->source_node && P->sink_node == E->sink_node &&
+          P->kind != E->kind)
+        return SGPL_DAG_ERR_INVALID;
+    }
+    /* Axis consistency: a set mask must name a known proof graph; 0 means the
+     * descriptor predates the extension (accepted, all axes allowed). */
+    if (E->axis_mask & ~(SGPL_DAG_AXIS_SPATIAL | SGPL_DAG_AXIS_TEMPORAL |
+                         SGPL_DAG_AXIS_PRODUCT))
+      return SGPL_DAG_ERR_INVALID;
   }
 
   sgpl_dag_run *R = (sgpl_dag_run *)calloc(1, sizeof(*R));
@@ -5058,10 +5083,18 @@ int32_t sgpl_debug_last_dag_dispatch_width(void) {
   return atomic_load_explicit(&g_dag_last_dispatch_width, memory_order_relaxed);
 }
 
-int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
-                              int32_t worker_budget) {
+/* §11.2: the shared spatial dispatch.  The node wrapper is the existing
+ * partition body, so nothing about the round's lifecycle changes; only the
+ * partition fan-out goes through the ready-work scheduler, now optionally with
+ * proof-derived edges. */
+static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
+                                         const sgpl_dag_relation_desc *relations,
+                                         int32_t relation_count,
+                                         int32_t worker_budget) {
   sgpl_dag_template tmpl;
-  if (!ctx || partitions <= 0)
+  if (!ctx || partitions <= 0 || partitions > SGPL_DAG_MAX_NODES)
+    return SGPL_DAG_ERR_INVALID;
+  if (relation_count > 0 && !relations)
     return SGPL_DAG_ERR_INVALID;
   if (worker_budget <= 0)
     worker_budget = 1;
@@ -5078,8 +5111,8 @@ int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
   atomic_store_explicit(&g_dag_last_dispatch_width, worker_budget,
                         memory_order_relaxed);
   tmpl.node_count = partitions;
-  tmpl.relation_count = 0; /* V1: independent partitions */
-  tmpl.relations = NULL;
+  tmpl.relation_count = relation_count;
+  tmpl.relations = relation_count > 0 ? relations : NULL;
   tmpl.node_fn = sgpl_dag_partition_node;
   /* Section 15 work estimate: the partition's own pair count -- a measured
    * quantity, not the TDG cost model (which the pod measurements showed
@@ -5096,6 +5129,25 @@ int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
   return autograph_execute_dag(&tmpl, ctx, worker_budget);
 }
 
+int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
+                              int32_t worker_budget) {
+  return sgpl_dag_spatial_dispatch(ctx, partitions, NULL, 0, worker_budget);
+}
+
+int32_t sgpl_exec_dag_spatial_graph(sgpl_exec_ctx *ctx, int32_t partitions,
+                                    const sgpl_dag_relation_desc *relations,
+                                    int32_t relation_count,
+                                    int32_t worker_budget) {
+  int32_t i;
+  if (relation_count > 0 && !relations)
+    return SGPL_DAG_ERR_INVALID;
+  for (i = 0; i < relation_count; ++i)
+    if (!(relations[i].axis_mask & SGPL_DAG_AXIS_SPATIAL))
+      return SGPL_DAG_ERR_INVALID; /* wrong axis: fail closed */
+  return sgpl_dag_spatial_dispatch(ctx, partitions, relations, relation_count,
+                                   worker_budget);
+}
+
 /* Step 8: temporal unit wrappers.  The wrapper never re-implements a round:
  * it calls autograph_frontier_execute, which owns the whole lifecycle.  The
  * scheduler only orders wrappers (V1: a witness-backed chain). */
@@ -5108,11 +5160,32 @@ static int32_t sgpl_dag_temporal_node(void *state, int64_t instance) {
   return SGPL_DAG_OK;
 }
 
+int32_t sgpl_exec_dag_temporal_units(const sgpl_temporal_unit *units,
+                                     int32_t unit_count,
+                                     const sgpl_dag_relation_desc *relations,
+                                     int32_t relation_count,
+                                     int32_t worker_budget) {
+  sgpl_dag_template tmpl;
+  int32_t i;
+  if (!units || unit_count <= 0 || unit_count > SGPL_DAG_MAX_NODES)
+    return SGPL_DAG_ERR_INVALID;
+  if (relation_count > 0 && !relations)
+    return SGPL_DAG_ERR_INVALID;
+  for (i = 0; i < relation_count; ++i)
+    if (!(relations[i].axis_mask & SGPL_DAG_AXIS_TEMPORAL))
+      return SGPL_DAG_ERR_INVALID; /* wrong axis: fail closed */
+  tmpl.node_count = unit_count;
+  tmpl.relation_count = relation_count;
+  tmpl.relations = relation_count > 0 ? relations : NULL;
+  tmpl.node_fn = sgpl_dag_temporal_node;
+  tmpl.node_weights = NULL; /* units are whole rounds: no work-weight model */
+  return autograph_execute_dag(&tmpl, (void *)units, worker_budget);
+}
+
 int32_t sgpl_exec_dag_temporal_chain(const sgpl_temporal_unit *units,
                                      int32_t unit_count,
                                      int32_t worker_budget) {
   sgpl_dag_relation_desc *rels = NULL;
-  sgpl_dag_template tmpl;
   int32_t i, rc;
   if (!units || unit_count <= 0)
     return SGPL_DAG_ERR_INVALID;
@@ -5122,19 +5195,97 @@ int32_t sgpl_exec_dag_temporal_chain(const sgpl_temporal_unit *units,
     if (!rels)
       return SGPL_DAG_ERR_NOMEM;
     for (i = 0; i < unit_count - 1; ++i) {
-      rels[i].kind = SGPL_DAG_REL_PRECEDENCE;
+      rels[i].kind = SGPL_DAG_KIND_PRECEDENCE;
       rels[i].offset = 0;
       rels[i].source_node = i;
       rels[i].sink_node = i + 1;
       rels[i].witness_id = 1; /* round-carried temporal dependence */
       rels[i].flags = SGPL_DAG_REL_FLAG_SEMANTIC;
+      rels[i].axis_mask = SGPL_DAG_AXIS_TEMPORAL;
+      rels[i].relation_kind = SGPL_DAG_RELKIND_MEMORY;
+      rels[i].phase_from = rels[i].phase_to = -1;
+      rels[i].partition_from = rels[i].partition_to = -1;
     }
   }
-  tmpl.node_count = unit_count;
-  tmpl.relation_count = unit_count > 1 ? unit_count - 1 : 0;
-  tmpl.relations = rels;
-  tmpl.node_fn = sgpl_dag_temporal_node;
-  tmpl.node_weights = NULL; /* units are whole rounds: no work-weight model */
+  rc = sgpl_exec_dag_temporal_units(units, unit_count, rels,
+                                    unit_count > 1 ? unit_count - 1 : 0,
+                                    worker_budget);
+  free(rels);
+  return rc;
+}
+
+/* §11.4: product execution over (unit x partition).  The product graph is the
+ * conservative product of the two projections: a spatial relation applies
+ * inside every unit (same partition pair), a cross-round relation connects
+ * every partition of the source unit to the same partition of the sink unit.
+ * The caller's cell callback receives the packed instance
+ * `unit * partitions + partition` and must touch only the partition body --
+ * round-begin / snapshot / combine / round-end stay in the unit wrappers, so
+ * no lifecycle operation is duplicated. */
+int32_t sgpl_exec_dag_product(const sgpl_temporal_unit *units,
+                              int32_t unit_count, int32_t partitions,
+                              sgpl_dag_node_fn cell_fn,
+                              const sgpl_dag_relation_desc *spatial_relations,
+                              int32_t spatial_count,
+                              const sgpl_dag_relation_desc *temporal_relations,
+                              int32_t temporal_count,
+                              int32_t worker_budget) {
+  sgpl_dag_template tmpl;
+  sgpl_dag_relation_desc *rels = NULL;
+  int64_t nodes64;
+  int32_t nodes, u, p, i, n = 0, rc;
+  if (!units || !cell_fn || unit_count <= 0 || partitions <= 0)
+    return SGPL_DAG_ERR_INVALID;
+  if (spatial_count > 0 && !spatial_relations)
+    return SGPL_DAG_ERR_INVALID;
+  if (temporal_count > 0 && !temporal_relations)
+    return SGPL_DAG_ERR_INVALID;
+  nodes64 = (int64_t)unit_count * (int64_t)partitions;
+  if (nodes64 <= 0 || nodes64 > (int64_t)SGPL_DAG_MAX_NODES)
+    return SGPL_DAG_ERR_INVALID;
+  nodes = (int32_t)nodes64;
+  {
+    const int32_t total = spatial_count * unit_count + temporal_count * partitions;
+    if (total > 0) {
+      rels = (sgpl_dag_relation_desc *)calloc((size_t)total, sizeof(*rels));
+      if (!rels)
+        return SGPL_DAG_ERR_NOMEM;
+    }
+    for (u = 0; u < unit_count; ++u)
+      for (i = 0; i < spatial_count; ++i) {
+        const sgpl_dag_relation_desc *S = &spatial_relations[i];
+        if (S->source_node < 0 || S->source_node >= partitions ||
+            S->sink_node < 0 || S->sink_node >= partitions) {
+          free(rels);
+          return SGPL_DAG_ERR_INVALID;
+        }
+        rels[n] = *S;
+        rels[n].source_node = u * partitions + S->source_node;
+        rels[n].sink_node = u * partitions + S->sink_node;
+        rels[n].axis_mask |= SGPL_DAG_AXIS_PRODUCT;
+        ++n;
+      }
+    for (i = 0; i < temporal_count; ++i) {
+      const sgpl_dag_relation_desc *T = &temporal_relations[i];
+      if (T->source_node < 0 || T->source_node >= unit_count ||
+          T->sink_node < 0 || T->sink_node >= unit_count) {
+        free(rels);
+        return SGPL_DAG_ERR_INVALID;
+      }
+      for (p = 0; p < partitions; ++p) {
+        rels[n] = *T;
+        rels[n].source_node = T->source_node * partitions + p;
+        rels[n].sink_node = T->sink_node * partitions + p;
+        rels[n].axis_mask |= SGPL_DAG_AXIS_PRODUCT;
+        ++n;
+      }
+    }
+  }
+  tmpl.node_count = nodes;
+  tmpl.relation_count = n;
+  tmpl.relations = n > 0 ? rels : NULL;
+  tmpl.node_fn = cell_fn;
+  tmpl.node_weights = NULL;
   rc = autograph_execute_dag(&tmpl, (void *)units, worker_budget);
   free(rels);
   return rc;

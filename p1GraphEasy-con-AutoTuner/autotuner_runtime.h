@@ -607,13 +607,46 @@ void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers);
 #define SGPL_DAG_REL_FLAG_SEMANTIC 0x1u   /* carries an R1-R7 witness id */
 #define SGPL_DAG_REL_FLAG_REALIZATION 0x2u /* deterministic order only */
 
+/* §11.1 relation kinds.  PRECEDENCE is an executable dependence; MUTEX is a
+ * mutual exclusion realized by a deterministic order (R6: U-owned before
+ * V-owned) and must be tagged REALIZATION; SELF is a validation-only record of
+ * a unary obligation (a footprint no partition can own) — a template carrying
+ * one is rejected, because a surviving unary obligation means the axis has no
+ * realizable DAG at all. */
+#define SGPL_DAG_KIND_PRECEDENCE 0u
+#define SGPL_DAG_KIND_MUTEX 1u
+#define SGPL_DAG_KIND_SELF 2u
+
+/* §11.1 axis mask: which proof graph the edge came from. */
+#define SGPL_DAG_AXIS_SPATIAL 0x1u
+#define SGPL_DAG_AXIS_TEMPORAL 0x2u
+#define SGPL_DAG_AXIS_PRODUCT 0x4u
+
+/* Relation kind of the underlying access relation (diagnostics). */
+#define SGPL_DAG_RELKIND_MEMORY 0u
+#define SGPL_DAG_RELKIND_RESOURCE 1u
+
 typedef struct sgpl_dag_relation_desc {
-  uint32_t kind;       /* SGPL_DAG_REL_PRECEDENCE (V1) */
-  int64_t offset;      /* affine instance offset (V1: 0) */
+  uint32_t kind;       /* SGPL_DAG_KIND_* */
+  int64_t offset;      /* affine instance offset */
   int32_t source_node; /* predecessor */
   int32_t sink_node;   /* successor, released when the source completes */
   uint32_t witness_id; /* semantic edges: witness id, else 0 */
   uint32_t flags;      /* semantic / realization order tag */
+  /* §11.1 proof metadata.  Appended so a compiler-emitted array from before
+   * this extension stays layout-compatible for the fields above. */
+  uint32_t axis_mask;     /* SGPL_DAG_AXIS_*; 0 = unspecified (accepted for
+                           * descriptors built before this extension) */
+  uint32_t relation_kind; /* SGPL_DAG_RELKIND_* (memory vs resource) */
+  uint32_t access_kind;   /* 0 RAW, 1 WAR, 2 WAW */
+  uint32_t discharge_id;  /* transformation that removed it; 0 = none.  A
+                           * executable edge must be 0: a discharged relation
+                           * is removed from the graph, not scheduled. */
+  int32_t phase_from;     /* PhaseSegment projection (0..3), 0 = unknown */
+  int32_t phase_to;
+  int32_t round_offset;   /* 0 same round, +1 next round */
+  int32_t partition_from; /* partition-domain tag, 0 = unknown */
+  int32_t partition_to;
 } sgpl_dag_relation_desc;
 
 typedef struct sgpl_dag_run sgpl_dag_run;
@@ -649,6 +682,16 @@ int32_t autograph_execute_dag(const sgpl_dag_template *template_desc,
 int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
                               int32_t worker_budget);
 
+/* §11.2: the same spatial dispatch with a real proof-derived graph.  `relations`
+ * are the compiler's surviving spatial edges over partition indices (PRECEDENCE
+ * or REALIZATION-tagged MUTEX); independent components run concurrently and a
+ * precedence edge delays its sink until the source completed.  An invalid
+ * descriptor fails closed (no dispatch). */
+int32_t sgpl_exec_dag_spatial_graph(sgpl_exec_ctx *ctx, int32_t partitions,
+                                    const sgpl_dag_relation_desc *relations,
+                                    int32_t relation_count,
+                                    int32_t worker_budget);
+
 /* Step 8: temporal unit wrapper.  A temporal unit is one whole round of a
  * frontier nest (or one temporal stage of a multi-stage round); its wrapper
  * executes that unit's complete lifecycle through the existing
@@ -671,6 +714,34 @@ typedef struct sgpl_temporal_unit {
 int32_t sgpl_exec_dag_temporal_chain(const sgpl_temporal_unit *units,
                                      int32_t unit_count,
                                      int32_t worker_budget);
+
+/* §11.3: temporal units as a partial DAG instead of a chain.  `relations` are
+ * the surviving across-round edges over unit indices (PRECEDENCE for a carried
+ * dependence, REALIZATION for an order the realization imposes); units without
+ * an incoming edge start together, so independent temporal stages overlap.
+ * A unit whose graph/context is unusable fails the run closed. */
+int32_t sgpl_exec_dag_temporal_units(const sgpl_temporal_unit *units,
+                                     int32_t unit_count,
+                                     const sgpl_dag_relation_desc *relations,
+                                     int32_t relation_count,
+                                     int32_t worker_budget);
+
+/* §11.4: product execution over (temporal unit x spatial partition).  The
+ * product node index is `unit * partitions + partition`; each cell is
+ * dispatched through `cell_fn` (which receives that packed instance), spatial
+ * relations are applied inside every unit and temporal relations between
+ * units.  Callbacks order existing lifecycle units only; nothing is
+ * re-implemented here.  Lifecycle exactly-once: the caller keeps round-begin /
+ * snapshot / combine / round-end in the unit wrappers, so the product scheduler
+ * must be given cell callbacks that touch only the partition body. */
+int32_t sgpl_exec_dag_product(const sgpl_temporal_unit *units,
+                              int32_t unit_count, int32_t partitions,
+                              sgpl_dag_node_fn cell_fn,
+                              const sgpl_dag_relation_desc *spatial_relations,
+                              int32_t spatial_count,
+                              const sgpl_dag_relation_desc *temporal_relations,
+                              int32_t temporal_count,
+                              int32_t worker_budget);
 
 /* Debug introspection: effective width of the most recent DAG spatial
  * dispatch, after the nested-budget clamp.  Used by the nested-budget test

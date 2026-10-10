@@ -15,6 +15,10 @@ for fx in "$ROOT"/verify/cases/*/*.graph; do
   name="$(basename "$fx")"
   rm -f final_program program.o gpu_runtime.o kernels.ptx
   if ! FORCE_GPU=1 GRAPH_FILE="$fx" timeout 400 bash 03_run.sh > /tmp/gcd_build.log 2>&1; then
+    if [ -x final_program ] && grep -q "Killed" /tmp/gcd_build.log; then
+      echo "$name SIGKILL(rc=137: the program run was killed -- container memory limit)" >> "$REPORT"
+      continue
+    fi
     echo "$name BUILD-FAILED" >> "$REPORT"; continue
   fi
   [ -x final_program ] || { echo "$name BUILD-FAILED(no bin)" >> "$REPORT"; continue; }

@@ -1,0 +1,35 @@
+// R6, one axis only (spatial dirty, temporal clean): the pair phase writes the
+// same base in both ownership regions (A[u] in the U region, A[v] in the V
+// region), so the two dual-owner phases must be ordered, but nothing makes the
+// temporal axis dirty.
+//
+// Two-axis contract (spec section 17): the spatial witness sets R_S and must
+// not suppress the proven temporal independence.  The realization is the
+// staged dual owner -- every U-owned write happens-before every V-owned write
+// (a tagged RealizationOrder edge, never semantic precedence) -- while each
+// child keeps its own partition parallelism through the ready-work DAG
+// dispatch.  Before the gate split the whole nest was refused.  The answer
+// must equal the unrewritten build at every thread count.
+graph G {
+  edges: file "../verify/fixtures/mutual5.txt";
+};
+
+int n = numVertices(G);
+int A[n];
+
+for each vertex v in G {
+  A[v] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    A[u] = 1;
+    A[v] = 1;
+  }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + A[i]; i = i + 1; }
+print "sum";
+print s;

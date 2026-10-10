@@ -629,6 +629,10 @@ struct NeighborLoopInfo
 
     /* Two-axis theorem certificate: unresolved R1-R7 witnesses per axis. */
     AxisCertificate Cert;
+    /* The schedule selected from the certificate (set by the pass before the
+     * emission entry points; the emitters realize it and declare it to the
+     * runtime through autograph_exec_ctx_set_dag_axes). */
+    ScheduleChoice Schedule;
     /* Order-sensitive access relations (RAW/WAR/WAW), serial expression order. */
     SmallVector<AccessRelation, 16> AccessRelations;
     /* Witness-backed DAG templates (compiler side, diagnostics only). */
@@ -5444,7 +5448,11 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
         return Ch;
     }
     /* Spatial dirty, temporal clean: units may run concurrently, the spatial
-     * constraint must be preserved inside each unit. */
+     * constraint must be preserved inside each unit.  The V1 realization is the
+     * staged dual owner (all U-owned work before all V-owned work, a tagged
+     * RealizationOrder edge) with each child's internal partition parallelism
+     * intact; the template must be valid and every constraint edge must be a
+     * tagged realization order, never semantic precedence. */
     if (!Info.SpatialTemplate.Valid)
     {
         Ch.Reason = "implementation: spatial realization unrepresentable: " +
@@ -5452,11 +5460,16 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
         Ch.ImplementationFailure = true;
         return Ch;
     }
+    for (const SpatialEdgeTemplate &E : Info.SpatialTemplate.Edges)
+        if (!E.RealizationOrder)
+        {
+            Ch.Reason = "implementation: spatial constraint without a staged realization";
+            Ch.Emitted = false;
+            Ch.ImplementationFailure = true;
+            return Ch;
+        }
     Ch.Kind = ScheduleKind::TemporalDag;
-    Ch.Emitted = false; /* V1: no emitted dispatch for spatial constraints */
-    Ch.ImplementationFailure = true;
-    Ch.Reason = "theorem-licensed temporal-unit concurrency; V1 does not emit "
-                "the constrained spatial dispatch";
+    Ch.Reason = "spatial constraints staged (U before V); temporal axis clean";
     return Ch;
 }
 
@@ -5475,7 +5488,11 @@ static bool witnessesConsumed(const NeighborLoopInfo &Info,
         bool Consumed = false;
         if (Ch.Kind == ScheduleKind::TemporalDag)
             for (const SpatialEdgeTemplate &E : Info.SpatialTemplate.Edges)
-                if (E.WitnessId == W.Id)
+                /* A witness-derived constraint is realized as a tagged
+                 * RealizationOrder edge (semantic precedence is never claimed
+                 * for a mutual-exclusion witness), so consumption accepts it. */
+                if (E.WitnessId == W.Id ||
+                    (E.RealizationOrder && W.Rejection == RejectionId::R6))
                 {
                     Consumed = true;
                     break;
@@ -6300,6 +6317,20 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
         ConstantInt::get(I32, NOps), ConstantInt::get(I32, StepId)};
     Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
+    /* Declare the stage's schedule to the runtime: only a declared-concurrent
+     * spatial axis may take the ready-work DAG dispatch; a temporal axis that
+     * is held in order is declared -1 so nothing overlaps it. */
+    {
+        FunctionCallee SetAxes = Mod->getOrInsertFunction(
+            "autograph_exec_ctx_set_dag_axes",
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));
+        const ScheduleKind K = Info.Schedule.Kind;
+        const bool SpatialPar =
+            K == ScheduleKind::Nested || K == ScheduleKind::SpatialDag;
+        const bool TemporalPar = K == ScheduleKind::Nested;
+        EB.CreateCall(SetAxes, {ExecCtx, ConstantInt::get(I32, SpatialPar ? 1 : -1),
+                                ConstantInt::get(I32, TemporalPar ? 1 : -1)});
+    }
     if (!SnapOps.empty())
     {
         /* The round owner publishes the snapshots once, before traversal. */
@@ -6346,7 +6377,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
  * enclosing owner context carries the round lifecycle (snapshots and the
  * frontier envelope commit); the children are non-owning and share the round
  * resources. */
-static bool emitDualForkJoin(NeighborLoopInfo &Info)
+static bool emitDualForkJoin(NeighborLoopInfo &Info, bool Concurrent)
 {
     /* Per-source claims compose with dual ownership: the claim operations are
      * staged in the owner's source-begin phase (before either child runs) and
@@ -6530,10 +6561,28 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info)
     EB.CreateCall(Own, {CtxOwner, ConstantInt::get(I32, 1),
                         ConstantInt::get(I32, 1)});
 
-    FunctionCallee Fork = Mod->getOrInsertFunction(
-        "autograph_frontier_fork_join",
+    /* Declare the schedule to the runtime.  The children keep their internal
+     * partition parallelism (their spatial dispatch goes through the
+     * ready-work DAG dispatch); the cross-child order is the staged vs
+     * concurrent call itself, so the owner carries no declaration. */
+    FunctionCallee SetAxes = Mod->getOrInsertFunction(
+        "autograph_exec_ctx_set_dag_axes",
+        FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));
+    const ScheduleKind K = Info.Schedule.Kind;
+    const bool SpatialPar =
+        K == ScheduleKind::Nested || K == ScheduleKind::SpatialDag ||
+        K == ScheduleKind::TemporalDag;
+    const bool TemporalPar =
+        K == ScheduleKind::Nested || K == ScheduleKind::TemporalDag;
+    Value *ChildCtxs[2] = {CtxU, CtxV};
+    for (Value *C : ChildCtxs)
+        EB.CreateCall(SetAxes, {C, ConstantInt::get(I32, SpatialPar ? 1 : -1),
+                                ConstantInt::get(I32, TemporalPar ? 1 : -1)});
+
+    FunctionCallee Fj = Mod->getOrInsertFunction(
+        Concurrent ? "autograph_frontier_fork_join" : "autograph_frontier_staged",
         FunctionType::get(I32, {I8P, I8P, I8P, I8P}, false));
-    Value *NewSize = EB.CreateCall(Fork, {GraphArg, CtxOwner, CtxU, CtxV});
+    Value *NewSize = EB.CreateCall(Fj, {GraphArg, CtxOwner, CtxU, CtxV});
     if (WantEnvelope)
         commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
     FunctionCallee Destroy = Mod->getOrInsertFunction(
@@ -6557,7 +6606,10 @@ static bool emitExprInterp(NeighborLoopInfo &Info)
     ExprFacts F;
     deriveExprFacts(Info, F);
     if (F.IsDual)
-        return emitDualForkJoin(Info);
+        return emitDualForkJoin(
+            Info, /*Concurrent=*/Info.SpatialTemplate.Edges.empty());
+    if (Info.Schedule.Kind == ScheduleKind::TemporalDag)
+        return false; /* the staged realization requires the dual structure */
     return emitSingleStage(Info, F.IsRed, F.IsSourceRed, F.IsPriv, F.IsV);
 }
 
@@ -6732,6 +6784,8 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 Schedule.ImplementationFailure = true;
                 Schedule.Reason = ConsumeReason;
             }
+            /* The emission entry points read the schedule from Info. */
+            Info.Schedule = Schedule;
             EmissionSerialized =
                 Schedule.Kind == ScheduleKind::Serial || !Schedule.Emitted;
             if (getenv("GRAPH_FRONTIER_STATS"))

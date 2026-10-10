@@ -1,0 +1,29 @@
+// R3, spatial: unknown index provenance.  The pair-phase store index joins two
+// distinct non-bottom origins -- u (the source region) and v (the destination
+// region) -- and the region lattice maps exactly that join to Top (an origin it
+// cannot name).  R3 has no discharge: the template is unrepresentable, so the
+// nest must fall to the serial schedule with an explicit *implementation*
+// reason (impl_failure=1), never a new semantic refusal and never a silently
+// wrong parallel schedule.  The answer must equal the unrewritten build.
+graph G {
+  edges: file "../verify/fixtures/mutual5.txt";
+};
+
+int n = numVertices(G);
+int A[n];
+
+for each vertex v in G {
+  A[v] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    A[u + v] = 1;
+  }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + A[i]; i = i + 1; }
+print "asum";
+print s;

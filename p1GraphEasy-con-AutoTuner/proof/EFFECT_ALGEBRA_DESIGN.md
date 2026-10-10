@@ -646,15 +646,23 @@ and the admittance gate is no longer the conjunction `!(R_S ∨ R_T ∨ R8)`:
 - `R8` stays outside the lattice: it is the implementation full-serial guard.
 - Realizations: `¬R_S ∧ R_T` = spatial partitions concurrent with the temporal
   order carried by the round sequence (R4's writer→reader order is exactly the
-  round order); `R_S ∧ ¬R_T` = theorem-licensed temporal-unit concurrency whose
-  constrained spatial dispatch V1 does not emit (explicit implementation
-  failure); `R_S ∧ R_T` = no theorem-licensed parallel route; both clean =
-  nested/strongest single-axis shape.
+  round order); `R_S ∧ ¬R_T` = staged dual owner — U-owned work before V-owned
+  work as a tagged RealizationOrder edge, children internally partition-parallel
+  (the R6 same-base case); `R_S ∧ R_T` = no theorem-licensed parallel route;
+  both clean = nested/strongest single-axis shape.
 - A semantic DAG edge must carry a witness id (`SGPL_DAG_REL_FLAG_SEMANTIC`);
   a mutual-exclusion witness becomes a `RealizationOrder` edge, never semantic
   precedence.  `witnessesConsumed` enforces at compile time that every
   unresolved witness is consumed by the realization or the emission fails
   closed with the witness id.
+- Budget: a node's grant is the ready-set share with the work estimate as a
+  ceiling (`share = min(max(1, W/(active+ready)), W*w/sum_remaining_w)`), so an
+  estimate error can only under-grant; nested dispatches are clamped by the
+  caller's ledger.
+- The device boundary applies the same per-axis rule: the *spatial* declaration
+  gates the device step (ordered ⇒ refused, CPU fallback with identical
+  answers), the *temporal* axis never gates (a temporal witness must not
+  silently disable the device).
 - R6 is spatial-only (common-base DualOwner ownership conflict); cross-phase
   dependence remains an implementation-level fork/join legality check and never
   contributes to `R_T` on its own.

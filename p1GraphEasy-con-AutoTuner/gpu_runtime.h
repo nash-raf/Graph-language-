@@ -56,6 +56,13 @@ enum
 };
 
 int sgpl_gpu_engine_step_verdict(int64_t arcs, int64_t min_pairs);
+
+/* Two-axis contract at the device boundary: 1 = the stage's schedule licenses
+ * the device step (spatial axis concurrent or undeclared), 0 = refused because
+ * the spatial axis is held in order; the caller falls back to the CPU path.
+ * The temporal axis never gates (a temporal witness must not disable the
+ * device step). */
+int sgpl_gpu_step_schedule_ok(int32_t spatial, int32_t temporal);
 int sgpl_gpu_policy_verdict(int64_t trip, int32_t needs_doacross, int64_t doacross_dist,
                             int64_t min_trips, int64_t max_waves);
 

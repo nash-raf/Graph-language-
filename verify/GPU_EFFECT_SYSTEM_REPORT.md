@@ -534,3 +534,45 @@ harnesses: `verify/gpu_check.sh`, `verify/gpu_cross_mode_check.sh`,
 say the device realization can honour the verdict; every refusal is printed with
 its reason; anything else runs on the CPU, where the answer is identical by
 construction.
+
+## Two-axis contract at the device boundary (the schedule decides before the cost model)
+
+The device step is a realization of the same per-axis result the CPU stage
+realizes, so the compiled schedule is consulted first:
+`sgpl_gpu_step_schedule_ok(spatial, temporal)` (`gpu_runtime.c`) runs at **both**
+device decision sites in the runtime step runner (`autotuner_runtime.c`, the
+destination-owned and the source-owned step gates), ahead of
+`sgpl_gpu_engine_step_verdict` and of `gpup_step_try` / `gpup_step_v_try`.
+
+- `spatial = 1` (declared concurrent) — the device's internally parallel
+  dispatch is licensed.
+- `spatial = 0` (undeclared, legacy callers) — historical behavior kept.
+- `spatial = -1` (held in order by a witness-backed constraint) — the device
+  step is **refused** with the reason
+  `schedule: the spatial axis is held in order (theorem); the device dispatch
+  cannot preserve it`, and the stage runs the CPU path whose answers are
+  identical by construction (`sgpl_gpu_step_refuse` records it in the
+  `SGPL_GPU_DEBUG` trace).
+- The **temporal** axis never gates: a temporal witness must not silently
+  disable the device step — a device step is one whole round, and the round
+  order belongs to the caller, not to the device dispatch.  (A stage whose
+  temporal axis is ordered still runs its device-eligible work; the ordering is
+  realized outside the device.)
+
+The staged dual-owner case (`temporal-dag`, R6) is the live instance of the
+second rule: each child declares `spatial=1` (licensed ⇒ its partitions may go
+to the device) while the cross-child order is the staged call itself, so the
+witness never removes device work and the device never violates the witness.
+
+**Evidence:** `tdg_budget_test` T11 — five pure checks
+(`(1,1)→1`, `(-1,1)→0`, `(1,-1)→1`, `(-1,-1)→0`, `(0,0)→1`) run in all three
+configurations of `verify/validate_tdg_budget.sh`; the device-vs-CPU
+differentials (`gpu_device_diff.sh` per fixture at P=1/4/8, `gpu_corpus_diff.sh`
+over the corpus) pin that device-on and device-off answers are identical and
+that eligible fixtures still take device dispatches.
+
+**Budget inheritance:** the host-side dispatch of a device step (slices, the
+fallback, the write-back) goes through the same ledger clamp
+(`sgpl_current_thread_budget`) as the CPU path, so a device step inside a DAG
+node can never exceed the node's grant; the DAG-side weights and ready-set
+reservation are described in `EFFECT_SYSTEM.md` (§15).

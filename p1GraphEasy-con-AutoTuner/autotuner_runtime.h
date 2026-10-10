@@ -488,7 +488,21 @@ typedef struct sgpl_exec_ctx {
    * site: a bounded calibration of honest serial passes, then a single-site
    * level whose plan sets the dispatch width. */
   int32_t step_id;
+  /* Per-step schedule (theorem section 17), set by the compiler through
+   * autograph_exec_ctx_set_dag_axes: which axis this stage may run
+   * concurrently (1) and which is held in order (0).  The dispatch sites read
+   * it instead of a global env switch; SGPL_DAG_SPATIAL=0 stays a kill
+   * switch.  Legacy callers leave this 0 = no schedule declaration. */
+  int32_t dag_spatial;
+  int32_t dag_temporal;
 } sgpl_exec_ctx;
+
+/* Declare the stage's schedule (see the field comment above). */
+void autograph_exec_ctx_set_dag_axes(sgpl_exec_ctx *ctx, int32_t spatial,
+                                     int32_t temporal);
+/* Test/debug accessor: 0 = not set, 1 = concurrent, -1 = ordered. */
+int32_t sgpl_ctx_dag_spatial(const sgpl_exec_ctx *ctx);
+int32_t sgpl_ctx_dag_temporal(const sgpl_exec_ctx *ctx);
 
 /* Execute one stage: traverse the selected domain and dispatch the declared
  * lifecycle events to the operations.  Returns the next frontier size. */
@@ -513,6 +527,15 @@ int32_t autograph_frontier_activate(sgpl_exec_ctx *ctx, int32_t v);
  * allocator never blocks), at any depth. */
 int32_t autograph_frontier_fork_join(void *graph_ptr, sgpl_exec_ctx *owner,
                                      sgpl_exec_ctx *a, sgpl_exec_ctx *b);
+
+/* Staged (ordered) realization of the same two-child structure: the owner's
+ * round lifecycle and source coverage run exactly as in fork/join, but child
+ * `a` completes before child `b` starts.  This is the realization for a dual
+ * owner whose phases write the same base (R6): "all U before all V" is a sound
+ * superset of the required per-element order, so the children keep their
+ * internal parallelism while the cross-child order is preserved. */
+int32_t autograph_frontier_staged(void *graph_ptr, sgpl_exec_ctx *owner,
+                                  sgpl_exec_ctx *a, sgpl_exec_ctx *b);
 
 /* -- layout-free construction ABI for compiler-emitted expressions --------
  * The compiler builds operation descriptors and execution contexts through
@@ -602,6 +625,12 @@ typedef struct sgpl_dag_template {
   int32_t relation_count;
   const sgpl_dag_relation_desc *relations;
   sgpl_dag_node_fn node_fn;
+  /* Optional per-node work estimate (relative weights, e.g. per-partition pair
+   * counts).  NULL = uniform.  Must hold node_count entries when set.  The
+   * runtime uses it only as a CEILING on the node's nested-dispatch share,
+   * never to raise it, so a wrong estimate can only under-grant (plan
+   * section 15). */
+  const int32_t *node_weights;
 } sgpl_dag_template;
 
 /* Execute a template for one runtime instance set.  Returns SGPL_DAG_OK or a

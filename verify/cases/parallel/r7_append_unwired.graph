@@ -1,0 +1,22 @@
+// R7, spatial: frontier append without the wired envelope.  The pair phase
+// appends into a set (the roaring_bitmap_add path) but the loop is a plain
+// vertex-driven nest, so the envelope pointers the engine would need to commit
+// the round are not wired.  R7 has no discharge: unrepresentable, serial with
+// an explicit implementation reason.  The set content is still produced by the
+// serial fallback, so the answer must equal the unrewritten build.
+graph G {
+  edges: file "../verify/fixtures/mutual5.txt";
+};
+
+int n = numVertices(G);
+set next;
+
+next = {};
+for each vertex u in G {
+  for each neighbor v of u in G {
+    next.add(v);
+  }
+}
+
+print "nsize";
+print setSize(next);

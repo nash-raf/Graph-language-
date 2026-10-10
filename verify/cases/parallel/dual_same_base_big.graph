@@ -1,0 +1,33 @@
+// R6 at scale: the same-base U+V dual owner on g20k (320k arcs), so the
+// parallelism that the *clean* temporal axis keeps and the *ordered* spatial
+// axis must not lose is measurable (SGPL_DAG_DEBUG peak per unit).
+//
+// Expected certificate: R_S=1 R_T=0, #1 R6 base=A discharge=none,
+// schedule=temporal-dag emitted=1, class=dual-owner, spatial=ordered
+// temporal=parallel.  The realization is the staged dual owner: every U-owned
+// write before every V-owned write (one witness-derived RealizationOrder edge),
+// while each phase keeps its own partition parallelism (each child declares
+// spatial=1 and is dispatched through the ready-work scheduler).
+graph G {
+  edges: file "../verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int A[n];
+
+for each vertex v in G {
+  A[v] = 0;
+}
+
+for each vertex u in G {
+  for each neighbor v of u in G {
+    A[u] = 1;
+    A[v] = 1;
+  }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + A[i]; i = i + 1; }
+print "asum";
+print s;

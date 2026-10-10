@@ -391,6 +391,25 @@ int sgpl_gpu_engine_step_verdict(int64_t arcs, int64_t min_pairs)
     return SGPL_GPU_OFFLOAD;
 }
 
+/* Two-axis contract at the device boundary (pure, unit-tested by
+ * tdg_budget_test): a device step is a realization of the same per-axis
+ * certificate as the CPU stage, so the schedule declaration decides before the
+ * cost model does.  The device dispatch is internally parallel, so it requires
+ * the stage's *spatial* axis to be declared concurrent:
+ *   spatial = 1  declared concurrent -> licensed;
+ *   spatial = 0  undeclared (a caller with no certificate) -> legacy behavior;
+ *   spatial = -1 declared ordered (a witness-backed constraint) -> refused,
+ *                and the caller falls back to the CPU whose answers are
+ *                identical by construction.
+ * The temporal axis never gates: a temporal witness must not silently disable
+ * the device step (the step is one whole round; the round order is the
+ * caller's, not the device dispatch's). */
+int sgpl_gpu_step_schedule_ok(int32_t spatial, int32_t temporal)
+{
+    (void)temporal;
+    return spatial >= 0;
+}
+
 /* ── device engine step (stage 1) ─────────────────────────────────────
  * The CleanCut source-owned slices (AutoGraphMeta::src_pairs) are flat
  * [(u,v),(u,v),...] lists, one per partition, built by enumerating whatever

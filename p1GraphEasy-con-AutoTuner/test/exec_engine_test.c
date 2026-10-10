@@ -567,6 +567,10 @@ int sgpl_gpu_engine_step_verdict(int64_t arcs, int64_t min_pairs) {
   (void)arcs; (void)min_pairs;
   return 1; /* SGPL_GPU_SMALL_TRIPS: tests stay on the CPU path */
 }
+int sgpl_gpu_step_schedule_ok(int32_t spatial, int32_t temporal) {
+  (void)spatial; (void)temporal;
+  return 1; /* the schedule gate itself is exercised by tdg_budget_test T11 */
+}
 int gpup_step_try(const char *kernel_name, const int32_t *pairs, int64_t npairs) {
   (void)kernel_name; (void)pairs; (void)npairs;
   return 0;

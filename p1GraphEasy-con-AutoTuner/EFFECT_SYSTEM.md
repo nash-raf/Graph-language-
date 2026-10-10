@@ -1283,9 +1283,13 @@ the engine's lifecycle exactly where it was:
   marker `sgpl.frontier.nested.sequential` is reserved for R8 (the
   implementation full-serial guard) and for emit/analysis failure.
 
-Compat switches: `SGPL_DAG_SPATIAL=1` enables the spatial DAG dispatch
-(default OFF — the fallback is the pre-existing `parallel_for_runtime`
-dispatch), `SGPL_NO_TDG_ENGINE=1` disables the TDG engine steps, and
+Compat switches: the spatial DAG dispatch is schedule-driven — a stage whose
+compiled schedule declares its spatial axis concurrent
+(`autograph_exec_ctx_set_dag_axes`) goes through the ready-work DAG dispatch;
+every other stage keeps the `parallel_for_runtime` pool.  `SGPL_DAG_SPATIAL=0`
+is the kill switch (forced pool), `=1` forces the DAG dispatch for stages with
+no declaration.  `SGPL_DAG_DEBUG=1` traces per-run widths/peak concurrency,
+`SGPL_NO_TDG_ENGINE=1` disables the TDG engine steps, and
 `sgpl_debug_last_dag_dispatch_width()` reports the last effective DAG width
 (after the nested clamp) for tests.
 
@@ -1310,7 +1314,7 @@ old conjunction, and the first refusal keeps the historical reason string.
 |---|---|
 | `!R_S ∧ !R_T` | `nested` — engine partition dispatch + round sequence |
 | `!R_S ∧ R_T` | `spatial-dag` — partitions concurrent; the temporal order is preserved by the round sequence (V1 realizes R4: writer precedes reader across rounds) |
-| `R_S ∧ !R_T` | `temporal-dag` — theorem-licensed; V1 does *not* emit the constrained spatial dispatch and fails closed with that explicit implementation reason (never as a new R1-R7 refusal) |
+| `R_S ∧ !R_T` | `temporal-dag` — staged dual owner: every U-owned write happens-before every V-owned write through a tagged `RealizationOrder` edge, while each child's partitions run through the ready-work DAG dispatch (`autograph_frontier_staged`, `autotuner_runtime.c`) |
 | `R_S ∧ R_T` | `serial` — no theorem-licensed parallel route |
 | `R8` / unmodelable / failed emit | `serial` + `sgpl.frontier.impl.serial` (implementation failure, distinct from the theorem) |
 
@@ -1341,7 +1345,97 @@ witness `#1 R4 discharge=none`, `schedule=spatial-dag emitted=1`
 (`spatial=parallel temporal=ordered`), and equals the unrewritten build at
 1/4/8 threads.
 
-**Known implementation gaps (V1, explicit):** the temporal-dag realization
-(multi-unit emission with constrained spatial dispatch) is selected but not
-emitted; `SGPL_DAG_SPATIAL` remains the runtime switch for the spatial DAG
-dispatch (default OFF, the pool dispatch is the fallback).
+**All four realization cases are emitted.** `¬R_S ∧ R_T` → the engine shape
+with the round sequence as the temporal order; `R_S ∧ ¬R_T` → the staged dual
+owner (`autograph_frontier_staged`: U before V, children internally
+partition-parallel through the DAG dispatch); both clean → nested/strongest
+single-axis; `R_S ∧ R_T` / R8 / emit failure → serial with the reason, with the
+semantic vs implementation distinction carried by `impl_failure`.  Live
+regressions: `verify/cases/parallel/carried_read_state.graph` (R4) and
+`dual_same_base.graph` (R6, staged), both asserted in `verify/run.sh`.
+
+### Direction A and B, measured (and the two rules that make them live)
+
+The property "a witness on one axis must not cost the other axis its
+parallelism, while the witness's own order is preserved" is realized as:
+
+- **A declared schedule is authoritative at the first dispatch.**  An engine
+  step whose schedule licenses spatial concurrency dispatches through the
+  declared mechanism *even while its profile is not yet stable*
+  (`sgpl_exec_step_dispatch`'s not-ready branch): a one-shot nest would
+  otherwise run its only pass in the serial calibration and the guarantee would
+  be nominal.  The calibration sample is still recorded, scaled by the width
+  actually used (a conservative serial-equivalent upper bound, so a later plan
+  errs toward more width, never less);
+  `SGPL_TDG_CALIBRATE_DECLARED=1` restores the forced single-thread calibration
+  for measurement studies.
+- **Order-sensitivity is excluded by the certificate, not by hope.**  The
+  staged dual owner runs *all* U-owned work before *all* V-owned work, which
+  reproduces the serial per-element order only for order-insensitive updates.
+  A shape that would expose the difference (non-commuting read-modify-writes on
+  the shared base, `verify/cases/parallel/r6_order_sensitive.graph`) reads the
+  mutated base across regions and therefore carries R4 on top of R6:
+  `R_S ∧ R_T` routes it to a *semantic* serial (`impl_failure=0`), never to the
+  staged realization.  *Measured:* `carried_read_state` (direction A)
+  dispatches 16 partitions through the ready-work scheduler with **peak = 4**
+  and `SGPL_DAG_SPATIAL=0` still yields the same answer;
+  `dual_same_base_big` (direction B) shows **two** ordered unit runs
+  (`peak = 3`, two `[sgpl-dag]` lines in the staged order), and the
+  non-commuting probe stays serial with the answer equal to the unrewritten
+  build at 1/4/8.
+
+### Section 15: allocation policy
+
+The ready-work scheduler's grant for a node is
+`share = min(equal_share, weight_ceiling)` with `equal_share =
+max(1, W / (active + ready))` — the reservation covers the *ready* set, so a
+node popped while others wait cannot claim the whole run, and redistribution is
+automatic because the denominator is recomputed at every pop and every
+completion.  The optional per-node work estimate (`sgpl_dag_template.node_weights`,
+supplied by `sgpl_exec_dag_spatial` from the measured per-partition pair counts,
+validated by `sweep_certificates.sh`) is used as a **ceiling only**: a wrong
+estimate can under-grant, never over-grant.  The TDG cost model's mismatch
+(model light=7/heavy=7 vs measured light=1/heavy=13) is therefore bypassed on
+this path.  A dispatch made inside a node is clamped by the caller's ledger
+(`sgpl_current_thread_budget`), including `autograph_execute_dag` itself, so a
+nested run can never exceed the grant; denial degrades to a serial run on the
+current worker and never blocks.  `SGPL_DAG_DEBUG=1` prints
+`nodes/rels/budget/peak/max_share/grants=multi/serial/weighted/completed/rc`.
+Runtime evidence: `test/dag_scheduler_test.c` (21 checks, run by
+`test/run_exec_engine_tests.sh`) asserts the ready-set shares, the weight
+ceiling capping the light node to a serial grant, `[1, W]` bounds and the
+nested clamp.
+
+### Section 19: fixture inventory
+
+`verify/sweep_certificates.sh` compiles every fixture and records its full
+certificate (axis summary, every witness id/axis/base/relation/discharge, every
+schedule + reason, class) into `verify/bin/certificate_census.txt`;
+`verify/check_census.sh` is the inventory gate over that file: R1 (privatized),
+R2 (claim-staged, 9 instances), R3 (none → serial + `impl_failure=1`), R4
+(both `none` → `spatial-dag` and `privatization`), R6 (both `none` → staged
+`temporal-dag` and `privatization`), R7 (none → serial + `impl_failure=1`),
+every schedule kind and both one-axis splits must appear, and **R5 must appear
+zero times**: its endpoint-conflict predicate needs a pair-phase mutating write
+in the region opposite the shadow's write side, while the RS-eligibility rule
+requires the base's mutations to be single-region — unsatisfiable from the DSL,
+with the shadow case instead discharging the read through the snapshot
+(`shadow_snapshot.graph`).  If a DSL shape ever reaches R5 the gate fails and
+the fixture must be added.
+
+### The device boundary (the same contract on the GPU path)
+
+The device step is a realization of the same per-axis result, so the schedule
+decides before the cost model: `sgpl_gpu_step_schedule_ok(spatial, temporal)`
+is consulted at both device decision sites in the runtime step runner, ahead of
+`sgpl_gpu_engine_step_verdict`.  A stage whose **spatial** axis is held in
+order (`spatial = -1`) is refused the device dispatch — the device runs its own
+internally parallel blocks, which would realize concurrency the certificate
+does not license — and the refusal falls back to the CPU path, whose answers
+are identical by construction (`sgpl_gpu_step_refuse` records the reason).  The
+**temporal** axis never gates: a temporal witness must not silently disable the
+device step, because a device step is one whole round and the round order
+belongs to the caller.  Undeclared schedules (`0,0`, legacy callers) keep the
+historical device behavior.  Unit evidence: `tdg_budget_test` T11 (five checks,
+all configurations in `validate_tdg_budget.sh`); device-vs-CPU parity is the
+`verify/gpu_device_diff.sh` / `verify/gpu_corpus_diff.sh` differentials.

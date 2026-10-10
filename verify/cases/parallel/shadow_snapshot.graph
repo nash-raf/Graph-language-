@@ -1,0 +1,60 @@
+// Shadow snapshot discharges the cross-endpoint read (the R4-hiding case).
+// This is the dual_shadow shape (frontier-set-driven peel whose pair phase reads
+// the shadowed base alive[v] while the driver writes alive[u]) with a pair-phase
+// U-region write to the same base.
+//
+// The round-separation base is read across endpoints (alive[v], the destination
+// region) and mutated single-region (alive[u]) -> the shadow snapshot is the
+// discharge for the read, so no R4 witness survives; the per-source claim is
+// staged (R2 discharge=claim-staging) and the nest is admitted.  Answers must
+// equal the unrewritten build at every thread count.
+graph G {
+    edges: file "../verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int k = 10;
+int deg[n];
+int alive[n];
+set frontier;
+set next;
+
+for each vertex v in G {
+    deg[v] = 0;
+    alive[v] = 1;
+}
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        deg[u] = deg[u] + 1;
+    }
+}
+
+frontier = {};
+for each vertex v in G {
+    if (deg[v] < k) {
+        frontier.add(v);
+    }
+}
+
+while (setSize(frontier) > 0) {
+    next = {};
+    for each element u in frontier {
+        if (alive[u] == 1) {
+            alive[u] = 0;
+            for each neighbor v of u in G {
+                alive[u] = 0;      /* pair-phase U-region write to the shadow base */
+                if (alive[v] == 1) {
+                    next.add(v);
+                }
+            }
+        }
+    }
+    frontier = next;
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + alive[i]; i = i + 1; }
+print "alive_sum";
+print s;

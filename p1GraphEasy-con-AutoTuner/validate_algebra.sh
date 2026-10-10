@@ -53,7 +53,7 @@ for f in "${FIXTURES[@]}"; do
     echo "PASS $f"
   else
     echo "FAIL $f"
-    diff <(echo "$EXPECTED") <(echo "$ACTUAL") | head -12
+    diff <(echo "$EXPECTED") <(echo "$ACTUAL") | head -12 || true
     FAILURES=$((FAILURES + 1))
   fi
 done

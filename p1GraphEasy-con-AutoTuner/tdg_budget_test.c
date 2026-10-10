@@ -364,4 +364,29 @@ static void test_gpu_cost_model(void)
     v = sgpl_gpu_engine_step_verdict(0, 2000000);
     snprintf(buf, sizeof(buf), "arcs=0 min=2000000 verdict=%d", v);
     check("T10 empty step -> CPU", v == SGPL_GPU_SMALL_TRIPS, buf);
+
+    /* T11: the two-axis contract at the device boundary.  The schedule
+     * declaration decides before the cost model does: a stage whose spatial
+     * axis is held in order must not run an internally parallel device
+     * dispatch, while the temporal axis never gates (a temporal witness must
+     * not silently disable the device step). */
+    v = sgpl_gpu_step_schedule_ok(1, 1);
+    snprintf(buf, sizeof(buf), "spatial=1 temporal=1 ok=%d", v);
+    check("T11 declared-concurrent spatial -> device licensed", v == 1, buf);
+
+    v = sgpl_gpu_step_schedule_ok(-1, 1);
+    snprintf(buf, sizeof(buf), "spatial=-1 temporal=1 ok=%d", v);
+    check("T11 ordered spatial -> device refused", v == 0, buf);
+
+    v = sgpl_gpu_step_schedule_ok(1, -1);
+    snprintf(buf, sizeof(buf), "spatial=1 temporal=-1 ok=%d", v);
+    check("T11 temporal order never disables the device", v == 1, buf);
+
+    v = sgpl_gpu_step_schedule_ok(-1, -1);
+    snprintf(buf, sizeof(buf), "spatial=-1 temporal=-1 ok=%d", v);
+    check("T11 both axes held in order -> device refused", v == 0, buf);
+
+    v = sgpl_gpu_step_schedule_ok(0, 0);
+    snprintf(buf, sizeof(buf), "spatial=0 temporal=0 ok=%d", v);
+    check("T11 undeclared schedule -> legacy device path", v == 1, buf);
 }

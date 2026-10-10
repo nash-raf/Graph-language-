@@ -3307,9 +3307,23 @@ typedef struct {
   int32_t partitions;
 } SgplExecStepArg;
 
+/* The dispatch follows the stage's declared schedule (theorem section 17): a
+ * stage whose spatial axis is declared concurrent goes through the ready-work
+ * DAG dispatch; every other stage keeps the pool dispatch.  SGPL_DAG_SPATIAL=0
+ * is the kill switch (forced pool dispatch); =1 forces the DAG dispatch for
+ * stages that carry no declaration. */
+static int sgpl_dispatch_uses_dag(const sgpl_exec_ctx *ctx) {
+  const char *env = getenv("SGPL_DAG_SPATIAL");
+  if (env && env[0] == '0' && env[1] == '\0')
+    return 0; /* kill switch */
+  if (sgpl_ctx_dag_spatial(ctx) > 0)
+    return 1; /* declared concurrent by the compiler */
+  return env != NULL && env[0] == '1' && env[1] == '\0';
+}
+
 static void *sgpl_exec_step_task(void *opaque) {
   SgplExecStepArg *arg = (SgplExecStepArg *)opaque;
-  if (getenv("SGPL_DAG_SPATIAL"))
+  if (sgpl_dispatch_uses_dag(arg->ctx))
     sgpl_exec_dag_spatial(arg->ctx, arg->partitions, sgpl_configured_worker_count());
   else
     parallel_for_runtime(0, arg->partitions, 1, sgpl_exec_partition_body, arg->ctx,
@@ -3319,19 +3333,27 @@ static void *sgpl_exec_step_task(void *opaque) {
 
 /* Feed the stage's own measured pass time into the shared profile store.  The
  * sample is a serial-equivalent per-partition cost: calibration passes run
- * single-threaded, so the measurement is honest. */
+ * single-threaded, so the measurement is honest.  `scale` is the dispatch
+ * width the measurement was taken at: a *declared* stage dispatches before its
+ * profile is stable (see the not-ready branch of sgpl_exec_step_dispatch), and
+ * its parallel-observed elapsed is scaled back into a conservative
+ * serial-equivalent estimate (elapsed x width: an upper bound, so the planner
+ * later errs toward more width, never less). */
 static void sgpl_exec_step_record_sample(int32_t step_id, int32_t partitions,
-                                         uint64_t elapsed_ns) {
+                                         uint64_t elapsed_ns, int32_t scale) {
   sgpl_loop_profile_desc desc;
   if (step_id < 0 || partitions <= 0 || elapsed_ns == 0)
     return;
+  if (scale < 1)
+    scale = 1;
   memset(&desc, 0, sizeof(desc));
   desc.loop_id = step_id;
   desc.mode = SGPL_LOOP_DOALL;
   desc.runtime_kind = SGPL_RUNTIME_PLAIN;
   desc.env_size = 0;
   desc.debug_name = "engine-step";
-  sgpl_record_doall_serial_sample(&desc, 0, partitions, 1, elapsed_ns);
+  sgpl_record_doall_serial_sample(&desc, 0, partitions, 1,
+                                  elapsed_ns * (uint64_t)scale);
 }
 
 /* GPU runtime hooks: present only when the program links gpu_runtime (the
@@ -3446,6 +3468,18 @@ static int sgpl_gpu_step_try_device_v(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
     return 0;
   }
 
+  /* Two-axis contract at the device boundary: the certificate decides before
+   * the cost model does.  A stage whose schedule holds its spatial axis in
+   * order must not run an internally parallel device dispatch; the refusal
+   * falls back to the CPU path, whose answers are identical by construction. */
+  if (!sgpl_gpu_step_schedule_ok(sgpl_ctx_dag_spatial(ctx),
+                                 sgpl_ctx_dag_temporal(ctx))) {
+    sgpl_gpu_step_refuse(ctx->step_id,
+                         "schedule: the spatial axis is held in order (theorem); "
+                         "the device dispatch cannot preserve it");
+    return 0;
+  }
+
   /* Cost gate, the same policy as the source-owned path (a device step pays a
    * launch, a per-round membership upload and the pointee round trip). */
   {
@@ -3554,6 +3588,15 @@ static int sgpl_gpu_step_try_device(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
     sgpl_gpu_step_refuse(ctx->step_id, "per-source lifecycle ops are part of the CPU partition body");
     return 0;
   }
+  /* Two-axis contract at the device boundary: the certificate decides before
+   * the cost model does (see gpu_runtime.c:sgpl_gpu_step_schedule_ok). */
+  if (!sgpl_gpu_step_schedule_ok(sgpl_ctx_dag_spatial(ctx),
+                                 sgpl_ctx_dag_temporal(ctx))) {
+    sgpl_gpu_step_refuse(ctx->step_id,
+                         "schedule: the spatial axis is held in order (theorem); "
+                         "the device dispatch cannot preserve it");
+    return 0;
+  }
   /* Cost gate.  A device step pays a launch per partition plus the per-step
    * buffer copies (slices, run structure, pointee write-back), so a step that
    * is small in arcs loses to the CPU partitions -- measured on the fixtures
@@ -3595,7 +3638,7 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   }
 
   if (step_id < 0 || tdg_engine_disabled) {
-        if (getenv("SGPL_DAG_SPATIAL"))
+    if (sgpl_dispatch_uses_dag(ctx))
       sgpl_exec_dag_spatial(ctx, (int32_t)(partitions), sgpl_configured_worker_count());
     else
       parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
@@ -3618,12 +3661,49 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
 
   if (!sgpl_step_site_ready(step_id)) {
     uint64_t t0 = now_monotonic_ns();
+    /* Declared schedules are authoritative (spec section 17).  When the
+     * compiled schedule licenses spatial concurrency, the stage's first
+     * dispatch must realize it instead of being swallowed by the profiling
+     * ramp: a one-shot nest would otherwise run its only pass single-threaded
+     * and the "the other axis keeps its parallelism" guarantee would be
+     * nominal, not live.  The sample is recorded scaled by the width actually
+     * used (a conservative serial-equivalent upper bound), so the planner
+     * keeps its input without penalizing the declared dispatch.
+     * SGPL_TDG_CALIBRATE_DECLARED=1 restores the forced single-thread
+     * calibration pass for measurement studies. */
+    {
+      const char *force_cal = getenv("SGPL_TDG_CALIBRATE_DECLARED");
+      if (!(force_cal && *force_cal && strcmp(force_cal, "0") != 0) &&
+          sgpl_ctx_dag_spatial(ctx) > 0) {
+        int32_t width;
+        if (sgpl_dispatch_uses_dag(ctx))
+          sgpl_exec_dag_spatial(ctx, partitions, sgpl_configured_worker_count());
+        else
+          parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx,
+                               0, 0);
+        /* The width the dispatch ran at (the same clamps the dispatch applies:
+         * the configured count, the partition count and the ledger grant). */
+        width = sgpl_configured_worker_count();
+        if (width > partitions)
+          width = partitions;
+        {
+          int32_t avail = sgpl_current_thread_budget();
+          if (avail > 0 && width > avail)
+            width = avail;
+        }
+        if (width < 1)
+          width = 1;
+        sgpl_exec_step_record_sample(step_id, partitions,
+                                     now_monotonic_ns() - t0, width);
+        return;
+      }
+    }
     /* Bounded calibration: honest single-thread passes feed the same sampling
      * state machine the outlined loops use (its batch size, not ours). */
     sgpl_set_desired_threads(1, 1);
     parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
     sgpl_set_desired_threads(0, 0);
-    sgpl_exec_step_record_sample(step_id, partitions, now_monotonic_ns() - t0);
+    sgpl_exec_step_record_sample(step_id, partitions, now_monotonic_ns() - t0, 1);
     return;
   }
 
@@ -3814,6 +3894,63 @@ int32_t autograph_frontier_fork_join(void *graph_ptr, sgpl_exec_ctx *owner,
   if (owner->run_round_end)
     sgpl_exec_round_end_ops(owner);
   return owner->next_size;
+}
+
+/* Staged realization: identical lifecycle to fork/join (owner round begin /
+ * snapshot / source coverage / round end), children executed in order on the
+ * calling thread.  Used when the certificate requires an order between the two
+ * dual-owner phases (R6 same-base conflict): all U-owned work happens-before
+ * all V-owned work, which is a sound superset of the required per-element
+ * order, while each child keeps its own partition parallelism. */
+int32_t autograph_frontier_staged(void *graph_ptr, sgpl_exec_ctx *owner,
+                                  sgpl_exec_ctx *a, sgpl_exec_ctx *b) {
+  int32_t appended;
+  if (!owner || !a || !b)
+    return 0;
+  if (a->run_round_begin || a->run_round_end || b->run_round_begin ||
+      b->run_round_end)
+    abort(); /* staged children are non-owning round contexts */
+  a->graph = graph_ptr;
+  b->graph = graph_ptr;
+
+  if (owner->run_round_begin) {
+    sgpl_exec_round_begin_ops(owner);
+    sgpl_exec_snapshot_ops(owner);
+  }
+  if (sgpl_exec_has_cap(owner, SGPL_OP_SOURCE_BEGIN))
+    sgpl_exec_source_coverage(owner, /*begin=*/1);
+
+  (void)autograph_frontier_execute(graph_ptr, a);
+  (void)autograph_frontier_execute(graph_ptr, b);
+
+  if (sgpl_exec_has_cap(owner, SGPL_OP_SOURCE_END))
+    sgpl_exec_source_coverage(owner, /*begin=*/0);
+
+  appended = owner->append_head
+                 ? (int32_t)__atomic_load_n(owner->append_head, __ATOMIC_RELAXED)
+                 : 0;
+  owner->next_size = owner->initial_next_size + appended;
+
+  if (owner->run_round_end)
+    sgpl_exec_round_end_ops(owner);
+  return owner->next_size;
+}
+
+/* Per-step schedule declaration (theorem section 17). */
+void autograph_exec_ctx_set_dag_axes(sgpl_exec_ctx *ctx, int32_t spatial,
+                                     int32_t temporal) {
+  if (!ctx)
+    return;
+  ctx->dag_spatial = spatial;
+  ctx->dag_temporal = temporal;
+}
+
+int32_t sgpl_ctx_dag_spatial(const sgpl_exec_ctx *ctx) {
+  return ctx ? ctx->dag_spatial : 0;
+}
+
+int32_t sgpl_ctx_dag_temporal(const sgpl_exec_ctx *ctx) {
+  return ctx ? ctx->dag_temporal : 0;
 }
 
 /* -- layout-free construction ABI for compiler-emitted expressions ---------
@@ -4639,6 +4776,13 @@ struct sgpl_dag_run {
   int32_t active;
   int32_t completed_count;
   int32_t failed;
+  int32_t peak_active;
+  /* Section 15 accounting: grants handed out, the largest share, and the
+   * outstanding weight of the not-yet-completed nodes. */
+  int32_t grants_multi;
+  int32_t grants_serial;
+  int32_t max_share;
+  int64_t sum_weight;
 };
 
 static void dag_push(sgpl_dag_run *R, int32_t node) {
@@ -4654,21 +4798,44 @@ static int32_t dag_pop(sgpl_dag_run *R) {
   return node;
 }
 
-/* Step 9: the descendant budget a node runs with.  A node dispatched while
- * A nodes are active in a run with budget W may hand max(1, W/A) threads to
- * any nested dispatch it makes, so concurrent nodes share the run's budget
- * instead of each claiming the whole machine.  A chain (A == 1) keeps the
- * full budget, which is exact because the units are serial. */
-static int32_t dag_dispatch_budget(const sgpl_dag_run *R) {
-  int32_t active = R->active > 0 ? R->active : 1;
-  int32_t share = R->worker_budget / active;
-  return share > 0 ? share : 1;
+/* Step 9 + section 15: the descendant budget a node runs with.  The reservation
+ * covers the ready set as well as the active set -- a node popped while A nodes
+ * are active and n are ready must not claim W/1 threads and starve the ready
+ * ones.  An optional per-node weight caps the share by the node's estimated
+ * share of the *outstanding* work; the cap only ever lowers the equal share, so
+ * an estimate error under-grants at worst (never over-grants).  A chain
+ * (denominator 1) keeps the full budget, which is exact because its units are
+ * serial. */
+static int32_t dag_dispatch_budget(sgpl_dag_run *R, int32_t node) {
+  int32_t denom = R->active + R->ready_count;
+  int32_t share;
+  if (denom < 1)
+    denom = 1;
+  share = R->worker_budget / denom;
+  if (share < 1)
+    share = 1;
+  if (R->tmpl->node_weights && R->sum_weight > 0) {
+    int64_t w = R->tmpl->node_weights[node];
+    if (w > 0) {
+      int64_t cap = ((int64_t)R->worker_budget * w) / R->sum_weight;
+      if (cap < 1)
+        cap = 1;
+      if ((int64_t)share > cap)
+        share = (int32_t)cap;
+    }
+  }
+  return share;
 }
 
 /* Completion bookkeeping; caller holds the run lock. */
 static void dag_complete(sgpl_dag_run *R, int32_t node, int32_t rc) {
   const sgpl_dag_template *T = R->tmpl;
   R->active--;
+  if (T->node_weights) {
+    int32_t w = T->node_weights[node];
+    if (w > 0)
+      R->sum_weight -= w; /* the outstanding estimate shrinks as work retires */
+  }
   R->completed[node] = 1;
   R->completed_count++;
   if (rc != 0) {
@@ -4706,9 +4873,17 @@ static void *dag_worker(void *arg) {
     }
     int32_t node = dag_pop(R);
     R->active++;
-    /* The share is read under the run lock: R->active is mutated by every
-     * worker's dispatch and completion. */
-    int32_t share = dag_dispatch_budget(R);
+    if (R->active > R->peak_active)
+      R->peak_active = R->active;
+    /* The share is read under the run lock: R->active and R->ready_count are
+     * mutated by every worker's dispatch and completion. */
+    int32_t share = dag_dispatch_budget(R, node);
+    if (share > 1)
+      R->grants_multi++;
+    else
+      R->grants_serial++;
+    if (share > R->max_share)
+      R->max_share = share;
     pthread_mutex_unlock(&R->lock);
 
     int32_t rc;
@@ -4771,9 +4946,23 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
   for (i = 0; i < T->node_count; i++)
     if (R->remaining[i] == 0)
       dag_push(R, i);
+  if (T->node_weights)
+    for (i = 0; i < T->node_count; i++) {
+      int32_t w = T->node_weights[i];
+      if (w > 0)
+        R->sum_weight += w;
+    }
 
   if (worker_budget < 1)
     worker_budget = 1;
+  {
+    /* A nested dispatch may never claim more than the budget its calling node
+     * was granted (parallel_runtime ledger); denial degrades to the smaller
+     * width, it never blocks (plan section 15). */
+    int32_t avail = sgpl_current_thread_budget();
+    if (avail > 0 && worker_budget > avail)
+      worker_budget = avail;
+  }
   if (worker_budget > T->node_count)
     worker_budget = T->node_count;
   R->worker_budget = worker_budget;
@@ -4782,8 +4971,17 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
     while (!R->failed && R->ready_count > 0) {
       int32_t node = dag_pop(R);
       R->active++;
+      if (R->active > R->peak_active)
+        R->peak_active = R->active;
       int32_t rc;
-      sgpl_push_thread_budget(dag_dispatch_budget(R));
+      int32_t share = dag_dispatch_budget(R, node);
+      if (share > 1)
+        R->grants_multi++;
+      else
+        R->grants_serial++;
+      if (share > R->max_share)
+        R->max_share = share;
+      sgpl_push_thread_budget(share);
       rc = T->node_fn(state, (int64_t)node);
       sgpl_pop_thread_budget();
       dag_complete(R, node, rc);
@@ -4826,6 +5024,15 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
     result = SGPL_DAG_ERR_NODE;
   else if (R->completed_count != T->node_count)
     result = SGPL_DAG_ERR_CYCLE;
+
+  /* SGPL_DAG_DEBUG: widths, grants, the largest share and peak concurrency. */
+  if (getenv("SGPL_DAG_DEBUG"))
+    fprintf(stderr,
+            "[sgpl-dag] nodes=%d rels=%d budget=%d peak=%d max_share=%d "
+            "grants=%d/%d weighted=%d completed=%d rc=%d\n",
+            T->node_count, T->relation_count, R->worker_budget,
+            R->peak_active, R->max_share, R->grants_multi, R->grants_serial,
+            T->node_weights ? 1 : 0, R->completed_count, result);
 
   pthread_mutex_destroy(&R->lock);
   pthread_cond_destroy(&R->cv);
@@ -4874,6 +5081,18 @@ int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
   tmpl.relation_count = 0; /* V1: independent partitions */
   tmpl.relations = NULL;
   tmpl.node_fn = sgpl_dag_partition_node;
+  /* Section 15 work estimate: the partition's own pair count -- a measured
+   * quantity, not the TDG cost model (which the pod measurements showed
+   * mismatched).  It only caps the share; see dag_dispatch_budget. */
+  tmpl.node_weights = NULL;
+  {
+    const AutoGraphMeta *meta = find_meta(ctx->graph);
+    /* The estimate array is indexed by partition; only use it when its length
+     * matches this dispatch's node count (a step may carry a different
+     * partition count than the graph metadata). */
+    if (meta && meta->src_pair_count && meta->partition_count == partitions)
+      tmpl.node_weights = meta->src_pair_count;
+  }
   return autograph_execute_dag(&tmpl, ctx, worker_budget);
 }
 
@@ -4915,6 +5134,7 @@ int32_t sgpl_exec_dag_temporal_chain(const sgpl_temporal_unit *units,
   tmpl.relation_count = unit_count > 1 ? unit_count - 1 : 0;
   tmpl.relations = rels;
   tmpl.node_fn = sgpl_dag_temporal_node;
+  tmpl.node_weights = NULL; /* units are whole rounds: no work-weight model */
   rc = autograph_execute_dag(&tmpl, (void *)units, worker_budget);
   free(rels);
   return rc;

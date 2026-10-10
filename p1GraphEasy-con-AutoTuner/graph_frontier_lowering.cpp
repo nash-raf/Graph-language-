@@ -194,7 +194,17 @@ enum class Temporal : uint8_t
     Independent = 0,
     SameRoundRead,
     PreviousRoundRead,
-    Carried
+    Carried,
+    /* §4.2 relation-level extensions.  Effect::Temp keeps using the four
+     * legacy values; the additions appear only on AccessRelation::TemporalClass
+     * (WAR/WAW need a write-side and an ordered name the read projection never
+     * produced). */
+    SameRoundWrite,
+    SameRoundOrdered,
+    PreviousRoundWrite,
+    FixedOffset,
+    Affine,
+    Unknown
 };
 
 /* Occurrence scope κ: the iteration domain over which an effect is
@@ -232,6 +242,115 @@ static bool isProvRegion(Region R)
     return R != Region::G;
 }
 
+/* Iteration domains: AllVertices (u ∈ V), Frontier (u ∈ F_t), Neighbors (v ∈
+ * N(u)).  Declared before the footprint layer because struct Effect stores
+ * footprints by value. */
+enum class DomainKind : uint8_t
+{
+    AllVertices = 0,
+    Frontier,
+    Neighbors
+};
+
+/* The round's phase sequence: Preamble -> Pair -> Epilogue.  The only source
+ * of intra-round order (Par siblings inside one phase have none). */
+enum class PhaseSegment : uint8_t
+{
+    None = 0,
+    Preamble,
+    Pair,
+    Epilogue
+};
+
+/* How an access is performed.  Read/Write are plain memory accesses;
+ * AtomicWrite is a claim (atomicity orders, but never licenses reordering);
+ * PrivateWrite is an update to a partition-private copy. */
+enum class AccessMode : uint8_t
+{
+    Read = 0,
+    Write,
+    AtomicWrite,
+    PrivateWrite
+};
+
+/* ── §3.1 effect footprints ──────────────────────────────────────────────
+ * The footprint is the graph-construction unit: the relation layer (§3.2) and
+ * the owner resolver (§5) read modes, phases and resources from here, never
+ * from the effect kind alone.  A single effect owns one footprint per access
+ * mode it performs, so an RMW owns a Read and a Write (both the RAW and the
+ * WAW obligations of one effect become visible) and a claim owns a guard Read
+ * and an atomic Write. */
+enum : uint8_t
+{
+    FP_READ = 1u << 0,
+    FP_WRITE = 1u << 1,
+    FP_ATOMIC = 1u << 2,
+    FP_PRIVATE = 1u << 3
+};
+
+static bool footprintWrites(uint8_t M)
+{
+    return (M & (FP_WRITE | FP_ATOMIC | FP_PRIVATE)) != 0;
+}
+
+static AccessMode footprintPrimaryMode(uint8_t M)
+{
+    if (M & FP_ATOMIC)
+        return AccessMode::AtomicWrite;
+    if (M & FP_PRIVATE)
+        return AccessMode::PrivateWrite;
+    if (M & FP_WRITE)
+        return AccessMode::Write;
+    return AccessMode::Read;
+}
+
+/* Runtime resource classes (§3.1): the same SGPL_RES_* vocabulary the emitter
+ * already hands to sgpl_runtime_op.resources, lifted into the analysis so
+ * resource conflicts enter relation generation as first-class footprints.
+ * (Defined here because struct Effect stores footprints by value.) */
+struct ResourceAccess
+{
+    uint32_t Resource = 0;           /* SGPL_RES_* */
+    uint8_t Mode = SGPL_ACCESS_READ; /* SGPL_ACCESS_* */
+};
+
+/* One logical access of one effect (§3.1).  Base/Index describe the memory
+ * location; Resources are the runtime resources held while accessing. */
+struct Footprint
+{
+    const Value *Base = nullptr; /* base object (null: resource-only) */
+    Value *Index = nullptr;      /* logical index expression (null: scalar) */
+    Region Reg = Region::Bottom; /* provenance region of Index */
+    uint8_t Modes = 0;           /* FP_* bits */
+    OccurrenceScope Scope = OccurrenceScope::PerPair;
+    PhaseSegment Seg = PhaseSegment::None;
+    DomainKind RoundDomain = DomainKind::AllVertices;
+    ValueSource VSource = ValueSource::None;
+    Instruction *Origin = nullptr;
+    SmallVector<ResourceAccess, 2> Resources;
+};
+
+/* Does this footprint write?  A memory footprint's access is its own mode; a
+ * resource-only footprint's access is the resource access mode
+ * (SGPL_ACCESS_*).  The two must not be conflated: a private *resource*
+ * binding on a read footprint is not a memory write. */
+static bool footprintIsWriting(const Footprint &F)
+{
+    if (F.Base)
+        return footprintWrites(F.Modes);
+    for (const ResourceAccess &RA : F.Resources)
+        if (RA.Mode != SGPL_ACCESS_READ)
+            return true;
+    return false;
+}
+
+/* §5.3 owner check for one mutating footprint: an endpoint-region access is
+ * owned exactly when its index is an element of the owning domain (never a
+ * constant: a constant element is written by every iteration).  Resolved by a
+ * transformation whenever the footprint is a private copy, a recognized fold's
+ * partial, or staged claim state.  (Defined with the owner resolver below,
+ * where the loop info and the index identity are available.) */
+
 struct Effect
 {
     EffectKind Kind = EffectKind::R;
@@ -250,6 +369,10 @@ struct Effect
     Value *ClaimTransition = nullptr;
     Value *Index = nullptr;
     Instruction *Origin = nullptr;
+    /* §3.1: one footprint per access mode the effect performs (an RMW owns a
+     * Read and a Write).  Filled by buildFootprints() once σ, round separation
+     * and the privatization decision are final. */
+    SmallVector<Footprint, 2> Footprints;
 };
 
 static bool effectIsMutating(const Effect &E)
@@ -286,21 +409,6 @@ enum class EffNodeKind : uint8_t
     SeqDomain, /* sequential iteration domain */
     ParDomain, /* concurrent iteration domain (grammar-only) */
     Star       /* finite iteration (grammar-only) */
-};
-
-enum class DomainKind : uint8_t
-{
-    AllVertices = 0, /* u ∈ V */
-    Frontier,        /* u ∈ F_t */
-    Neighbors        /* v ∈ N(u) */
-};
-
-enum class PhaseSegment : uint8_t
-{
-    None = 0,
-    Preamble,
-    Pair,
-    Epilogue
 };
 
 struct EffNode
@@ -355,13 +463,6 @@ enum class ConstraintKind : uint8_t
     Precedence = 0,
     MutualExclusion
 };
-enum class AccessMode : uint8_t
-{
-    Read = 0,
-    Write,
-    AtomicWrite,
-    PrivateWrite
-};
 enum class DischargeKind : uint8_t
 {
     None = 0,
@@ -371,6 +472,28 @@ enum class DischargeKind : uint8_t
     OwnerComputes,
     Atomicity,
     AlgebraicFold
+};
+
+/* §5 owner classes.  Filled by the owner resolver; the relation layer keeps
+ * the field from §3.2 on so the projections are computed once per relation. */
+enum class OwnerClass : uint8_t
+{
+    UnknownOwner = 0,
+    ExactOwner,
+    SameOwner,
+    ProvedDisjointOwner,
+    CrossOwner,
+    MayCrossOwner,
+    NoOwner
+};
+
+/* §4.3 phase projection: whether the two accesses sit in one phase or are
+ * separated by the Preamble -> Pair -> Epilogue order. */
+enum class PhaseRelation : uint8_t
+{
+    SamePhase = 0,
+    PhaseBefore,
+    PhaseAcross
 };
 
 /* Symbolic relation over enclosing loop instances (V1 scaffold: the DAG
@@ -433,6 +556,24 @@ struct AccessRelation
     PhaseSegment SourceSegment = PhaseSegment::None;
     PhaseSegment SinkSegment = PhaseSegment::None;
     DischargeKind DischargedBy = DischargeKind::None;
+    /* §3.2 complete relation record: footprints, indices, scopes, phase/round
+     * projections, owner class, instance relation and the witness (if any) that
+     * licenses or diagnoses the edge. */
+    const Footprint *SourceFootprint = nullptr;
+    const Footprint *SinkFootprint = nullptr;
+    Value *SourceIndex = nullptr;
+    Value *SinkIndex = nullptr;
+    OccurrenceScope SourceScope = OccurrenceScope::PerPair;
+    OccurrenceScope SinkScope = OccurrenceScope::PerPair;
+    unsigned OriginalOrder = 0;
+    bool SourcedFromOrder = false;
+    uint32_t ResourceMask = 0;                      /* SGPL_RES_* (0: memory) */
+    InstanceRelation Relation;
+    Temporal TemporalClass = Temporal::Independent; /* §4.2 projection */
+    PhaseRelation PhaseRel = PhaseRelation::SamePhase;
+    int RoundOffset = 0;
+    OwnerClass Spatial = OwnerClass::UnknownOwner;  /* §5 projection */
+    uint32_t WitnessId = 0;
 };
 
 /* ── spatial/temporal DAG templates (compiler side, V1) ──────────────────
@@ -487,6 +628,141 @@ struct TemporalGraphTemplate
     SmallVector<TemporalEdgeTemplate, 8> Edges;
     bool Valid = false;
     std::string InvalidReason;
+};
+
+/* ── §4.3/§6 proof graphs ─────────────────────────────────────────────────
+ * Three graphs are built from the same complete relation list:
+ *   Phase   within-round phase occurrences (Preamble -> Pair -> Epilogue);
+ *   Round   the round sequence (a carried/previous-round relation is a
+ *           self-edge on the round node);
+ *   Spatial owner domains (U-owned, V-owned, scalar/global, data-derived).
+ * An edge is "surviving" when no recorded transformation removes it.  The
+ * axis verdicts use the crossing test rather than raw connectivity: an owner
+ * domain partitions internally, so the spatial axis is non-interfering exactly
+ * when no surviving relation may cross a partition, and the temporal axis
+ * exactly when no surviving relation crosses a round.  Components are reported
+ * (>= 2 nonempty components is sufficient for parallel execution, not
+ * necessary).  A surviving edge also records whether a realization exists for
+ * it (the R6 staged dual orders U before V; the round sequence realizes R4;
+ * claim staging realizes R2) or none does (R1/R3/R7, resource conflicts
+ * without their envelope) — the latter force serial execution. */
+enum class ProofNodeKind : uint8_t
+{
+    Phase = 0,
+    Round,
+    Partition
+};
+
+struct ProofNode
+{
+    uint32_t Id = 0;
+    ProofNodeKind Kind = ProofNodeKind::Phase;
+    Region Owned = Region::Bottom; /* partitions / scalar domains */
+    PhaseSegment Seg = PhaseSegment::None;
+    DomainKind Domain = DomainKind::AllVertices;
+};
+
+struct ProofEdge
+{
+    uint32_t From = 0, To = 0;
+    uint32_t Relation = 0; /* index into Info.AccessRelations */
+    ConstraintKind Constraint = ConstraintKind::Precedence;
+    DischargeKind DischargedBy = DischargeKind::None;
+    uint32_t WitnessId = 0;
+    Temporal TemporalClass = Temporal::Independent;
+    OwnerClass Spatial = OwnerClass::UnknownOwner;
+    bool Survives = false;        /* blocks a clean-axis claim */
+    bool CrossPartition = false;  /* may cross a partition boundary */
+    bool CrossRound = false;      /* crosses a round boundary */
+    bool Realizable = false;      /* a realization order exists for it */
+    bool Structural = false;      /* phase structure, not a conflict */
+};
+
+struct ProofGraph
+{
+    SmallVector<ProofNode, 8> Nodes;
+    SmallVector<ProofEdge, 24> Edges;
+    bool Valid = true;
+    std::string InvalidReason;
+    uint32_t Unresolved = 0;
+    uint32_t Crossing = 0;
+    uint32_t RealizableOnly = 0;
+    uint32_t Components = 0;
+    /* A mutating footprint no partition can own is an unresolved spatial
+     * statement even when it has no pair relation (the R1/R3 class). */
+    uint32_t UnaryUnresolved = 0;
+    std::string UnaryReason;
+};
+
+struct ProofGraphs
+{
+    ProofGraph Phase;
+    ProofGraph Round;
+    ProofGraph Spatial;
+};
+
+/* ── §7 transformations and §9 proof object ───────────────────────────────
+ * Every edge removal must point to a transformation record that names the
+ * mechanism, the relations it removes, the replacement edges it adds and the
+ * conditions it checked (the §7.1-§7.6 lists).  The proof object then carries
+ * the three-valued verdict: proven non-interference, proven interference, or
+ * inconclusive (overflow / invalid / cyclic) — and an inconclusive proof is
+ * never treated as non-interference. */
+enum class TransformationKind : uint8_t
+{
+    Privatization = 0,
+    OwnerComputes,
+    Snapshot,
+    ClaimStaging,
+    AlgebraicFold,
+    FrontierEnvelope
+};
+
+static const char *transformationName(TransformationKind K)
+{
+    switch (K)
+    {
+    case TransformationKind::OwnerComputes:
+        return "owner-computes";
+    case TransformationKind::Snapshot:
+        return "snapshot";
+    case TransformationKind::ClaimStaging:
+        return "claim-staging";
+    case TransformationKind::AlgebraicFold:
+        return "algebraic-fold";
+    case TransformationKind::FrontierEnvelope:
+        return "frontier-envelope";
+    default:
+        return "privatization";
+    }
+}
+
+struct Transformation
+{
+    TransformationKind Kind = TransformationKind::Privatization;
+    SmallVector<uint32_t, 8> Removes; /* relation indices */
+    SmallVector<std::pair<uint32_t, uint32_t>, 4> Adds; /* replacement edges */
+    std::string Conditions;
+    bool Valid = true;
+    std::string InvalidReason;
+};
+
+struct AxisProof
+{
+    size_t Relations = 0;
+    size_t Discharged = 0;
+    size_t Unresolved = 0;
+    SmallVector<Transformation, 8> Transformations;
+    bool NIS = false;
+    bool NIT = false;
+    bool Realizable = true;
+    bool Overflow = false;
+    bool Invalid = false;
+    bool Inconclusive = false;
+    std::string InvalidReason;
+    uint32_t ComponentsS = 0;
+    uint32_t ComponentsT = 0;
+    uint32_t UnaryUnresolved = 0;
 };
 
 struct AxisCertificate
@@ -635,6 +911,17 @@ struct NeighborLoopInfo
     ScheduleChoice Schedule;
     /* Order-sensitive access relations (RAW/WAR/WAW), serial expression order. */
     SmallVector<AccessRelation, 16> AccessRelations;
+    /* §3.1: round-scoped resource footprints (membership, snapshot
+     * publication, envelope, claim staging, private/partial bindings) that are
+     * not owned by a single effect; they enter relation generation as
+     * pseudo-footprints so resource conflicts share the proof layer. */
+    SmallVector<Footprint, 8> ResourceFootprints;
+    bool ProofInputsReady = false; /* finalizeProofInputs() ran */
+    bool RelationOverflow = false; /* §3.2: cap exceeded -> proof must reject */
+    /* §4.3/§6 proof graphs over the same complete relation list. */
+    ProofGraphs Graphs;
+    /* §7/§9: the transformation records and the three-valued proof verdict. */
+    AxisProof Proof;
     /* Witness-backed DAG templates (compiler side, diagnostics only). */
     SpatialGraphTemplate SpatialTemplate;
     TemporalGraphTemplate TemporalTemplate;
@@ -643,6 +930,9 @@ struct NeighborLoopInfo
 static void buildEffectExpr(NeighborLoopInfo &Info);
 static void deriveAllTemporal(NeighborLoopInfo &Info);
 static void deriveAccessRelations(NeighborLoopInfo &Info);
+static bool hasPerSourceClaim(const NeighborLoopInfo &Info);
+static bool hasPairPhaseClaim(const NeighborLoopInfo &Info);
+static bool envelopeWired(const NeighborLoopInfo &Info);
 
 /* Does this load read one element out of a data array (base = a loaded pointer
  * or a global array), as opposed to a scalar slot?  A graph data array element
@@ -1163,10 +1453,19 @@ static int temporalRank(Temporal T)
     {
     case Temporal::Carried:
         return 3;
+    case Temporal::FixedOffset:
+    case Temporal::Affine:
+        return 4;
     case Temporal::PreviousRoundRead:
+    case Temporal::PreviousRoundWrite:
         return 2;
-    case Temporal::SameRoundRead:
+    case Temporal::SameRoundOrdered:
         return 1;
+    case Temporal::SameRoundRead:
+    case Temporal::SameRoundWrite:
+        return 1;
+    case Temporal::Unknown:
+        return 5;
     default:
         return 0;
     }
@@ -1182,6 +1481,18 @@ static const char *temporalName(Temporal T)
         return "PreviousRoundRead";
     case Temporal::Carried:
         return "Carried";
+    case Temporal::SameRoundWrite:
+        return "SameRoundWrite";
+    case Temporal::SameRoundOrdered:
+        return "SameRoundOrdered";
+    case Temporal::PreviousRoundWrite:
+        return "PreviousRoundWrite";
+    case Temporal::FixedOffset:
+        return "FixedOffset";
+    case Temporal::Affine:
+        return "Affine";
+    case Temporal::Unknown:
+        return "Unknown";
     default:
         return "Independent";
     }
@@ -2260,59 +2571,337 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
         }
         Rd.Temp = Worst;
     }
-    deriveAccessRelations(Info);
+    /* §3.2: the complete relation set is built by finalizeProofInputs(), after
+     * σ (ValueSource), round separation and the privatization decision are
+     * final; deriving it here would see none of them. */
 }
 
-/* RAW/WAR/WAW layer: every ordered pair of effects on one base with at least
- * one mutation, in serial expression order (Preamble -> Pair -> Epilogue, tree
- * order inside a phase).  Discharge follows the existing mechanisms only:
- * snapshot-resolved reads discharge via Snapshot, a private-layout loop via
- * Privatization, a recognized U_oplus fold via AlgebraicFold; claims and
- * unrecognized mutations stay ordered (None).  Analysis/diagnostics only: no
- * verdict reads this yet. */
+/* §4.2 relation-level τ: which round and phase the two accesses belong to.
+ * The decisive condition stays the WRITE's phase and the round domain (the
+ * oracle-exact rule of relateReadWrite), extended to the WAR and WAW
+ * projections: a same-round pair is SameRoundRead/SameRoundWrite, a
+ * cross-endpoint pair-phase pair is carried to the next round
+ * (PreviousRoundRead/PreviousRoundWrite under a frontier domain, Carried
+ * otherwise), and a phase-separated pair stays inside the round as
+ * SameRoundOrdered.  Read-only pairs never reach this function. */
+static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDomain)
+{
+    const bool SrcWrites = R.Kind != AccessRelKind::WAR;
+    const Footprint *WFP = SrcWrites ? R.SourceFootprint : R.SinkFootprint;
+    const Footprint *RFP = R.Kind == AccessRelKind::WAR ? R.SourceFootprint
+                           : R.Kind == AccessRelKind::RAW ? R.SinkFootprint
+                                                          : nullptr;
+    if (R.SourceRegion == R.SinkRegion)
+        return R.Kind == AccessRelKind::WAW ? Temporal::SameRoundWrite
+                                            : Temporal::SameRoundRead;
+    if (RFP && WFP &&
+        ((RFP->Reg == Region::U && WFP->Reg == Region::V) ||
+         (RFP->Reg == Region::V && WFP->Reg == Region::U)))
+    {
+        if (WFP->Seg != PhaseSegment::Pair)
+            return R.Kind == AccessRelKind::WAW ? Temporal::SameRoundWrite
+                                                : Temporal::SameRoundRead;
+        if (RoundDomain == DomainKind::Frontier)
+            return R.Kind == AccessRelKind::WAW ? Temporal::PreviousRoundWrite
+                                                : Temporal::PreviousRoundRead;
+        return Temporal::Carried;
+    }
+    if (R.SourceSegment != R.SinkSegment)
+        return Temporal::SameRoundOrdered;
+    return Temporal::Independent;
+}
+
+/* §5 owner resolution, conservative base: region is provenance, not ownership,
+ * so this projection only claims what the regions themselves prove.  The
+ * CleanCut partition-map refinement (§5.2/§5.3) refines SameOwner /
+ * MayCrossOwner into ProvedDisjointOwner / CrossOwner; until it runs, an
+ * endpoint-to-endpoint cross-region pair is CrossOwner (two owner domains) and
+ * anything data-derived or global has no owner. */
+/* Canonical index identity: the endpoint slots are memory, so every use is a
+ * distinct load of the same alloca; two accesses indexed by the same endpoint
+ * slot are the same logical index.  (An SSA index compares identical directly;
+ * the U/V allocas are the two slot roles this pass knows.) */
+static const Value *indexIdentity(const NeighborLoopInfo &Info, Value *Idx)
+{
+    if (!Idx)
+        return nullptr;
+    if (auto *LI = dyn_cast<LoadInst>(Idx))
+    {
+        Value *P = LI->getPointerOperand();
+        if (Info.VAlloca && P == Info.VAlloca)
+            return Info.VAlloca;
+        if (Info.UAlloca && P == Info.UAlloca)
+            return Info.UAlloca;
+        if (isa<AllocaInst>(P))
+            return P;
+    }
+    return Idx;
+}
+
+/* §5.3 owner check for one mutating footprint: an endpoint-region access is
+ * owned exactly when its index is an element of the owning domain (never a
+ * constant: a constant element is written by every iteration).  Resolved by a
+ * transformation whenever the footprint is a private copy, a recognized fold's
+ * partial, or staged claim state. */
+static bool footprintHasOwner(const NeighborLoopInfo &Info, const Footprint &F)
+{
+    if (F.Modes & FP_PRIVATE)
+        return true; /* the private copy belongs to the partition */
+    for (const ResourceAccess &RA : F.Resources)
+        if (RA.Resource == SGPL_RES_PARTIAL || RA.Resource == SGPL_RES_CLAIM)
+            return true;
+    /* §7.6: a wired frontier envelope owns its append (F_t membership read,
+     * dest_seen claim, F_{t+1} append, append-head ordering).  Without the
+     * envelope the append has no owner — the R7 shape. */
+    for (const ResourceAccess &RA : F.Resources)
+        if (RA.Resource == SGPL_RES_NEXT_FRONTIER || RA.Resource == SGPL_RES_DEST_SEEN)
+            return Info.HasFrontierAppend && envelopeWired(Info);
+    if (F.Reg != Region::U && F.Reg != Region::V)
+        return false;
+    if (!F.Index)
+        return false;
+    return !isa<Constant>(indexIdentity(Info, F.Index));
+}
+
+static OwnerClass relateAccessSpatial(const NeighborLoopInfo &Info,
+                                      const AccessRelation &R)
+{
+    if (!R.Base)
+        return OwnerClass::NoOwner; /* resource relation: not partition-owned */
+    auto Endpoint = [](Region Rg) { return Rg == Region::U || Rg == Region::V; };
+    if (!Endpoint(R.SourceRegion) || !Endpoint(R.SinkRegion))
+        return (R.SourceRegion == Region::Top || R.SinkRegion == Region::Top)
+                   ? OwnerClass::UnknownOwner
+                   : OwnerClass::NoOwner;
+    if (R.SourceRegion == R.SinkRegion)
+    {
+        /* The same logical index in one region: both accesses live in the same
+         * iteration (ordered by the partition's sequential work) or in
+         * different iterations (disjoint elements) — no partition can be
+         * crossed.  A different index expression in the same region may collide
+         * across iterations (A[v] of iteration v+1 against A[v+1] of iteration
+         * v), so it stays a may-cross until an affine/range proof refines it. */
+        if (indexIdentity(Info, R.SourceIndex) &&
+            indexIdentity(Info, R.SourceIndex) == indexIdentity(Info, R.SinkIndex))
+            return OwnerClass::ExactOwner;
+        return OwnerClass::MayCrossOwner;
+    }
+    return OwnerClass::CrossOwner; /* opposite endpoint regions: two owners */
+}
+
+/* §3.2 complete RAW/WAR/WAW generation: every ordered footprint pair on an
+ * aliased base (or sharing a resource class) with at least one write.
+ * Footprint modes replace the read/write effect-kind test, so an RMW
+ * contributes both the RAW its write owes to later readers and the WAW its
+ * write owes to other writers, WAR pairs come from the read side, and resource
+ * conflicts enter the same layer.  Semantic order is not invented: a pair of
+ * Par siblings inside one phase has none (SourcedFromOrder=false and
+ * OriginalOrder=0) and must be resolved by disjointness or an explicit
+ * realization order, while phase-separated pairs and the internal read->write
+ * order of one RMW are ordered.  The old hard 64-relation cap is replaced by
+ * an explicit overflow state: an overflowed relation set is rejected by the
+ * proof layer, never silently truncated. */
 static void deriveAccessRelations(NeighborLoopInfo &Info)
 {
     Info.AccessRelations.clear();
-    SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
-    collectTreePrims(Info.Expr, Prims);
-    for (size_t i = 0; i < Prims.size(); ++i)
+    Info.RelationOverflow = false;
+
+    DenseMap<const Effect *, PhaseSegment> SegOf;
     {
-        const Effect *A = Prims[i].first;
-        if (!A || !A->Base)
-            continue;
-        for (size_t j = i + 1; j < Prims.size(); ++j)
+        SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+        collectTreePrims(Info.Expr, Prims);
+        for (const auto &P : Prims)
+            SegOf[P.first] = P.second;
+    }
+
+    struct Item
+    {
+        const Effect *E = nullptr;
+        const Footprint *F = nullptr;
+        unsigned Order = 0;
+    };
+    SmallVector<Item, 32> Items;
+    unsigned Order = 0;
+    for (const Effect &E : Info.Effects)
+        for (const Footprint &F : E.Footprints)
+            Items.push_back({&E, &F, ++Order});
+    for (const Footprint &F : Info.ResourceFootprints)
+        Items.push_back({nullptr, &F, ++Order});
+
+    auto SharedResources = [](const Footprint &A, const Footprint &B)
+    {
+        uint32_t Mask = 0;
+        for (const ResourceAccess &RA : A.Resources)
+            for (const ResourceAccess &RB : B.Resources)
+                if (RA.Resource == RB.Resource)
+                    Mask |= RA.Resource;
+        return Mask;
+    };
+    auto WritesOf = [](const Footprint &F) { return footprintIsWriting(F); };
+    static const size_t MaxRelations = 4096;
+    for (size_t i = 0; i < Items.size(); ++i)
+    {
+        const Footprint &A = *Items[i].F;
+        for (size_t j = i + 1; j < Items.size(); ++j)
         {
-            const Effect *B = Prims[j].first;
-            if (!B || B->Base != A->Base)
+            const Footprint &B = *Items[j].F;
+            const bool SameBase = A.Base && B.Base && A.Base == B.Base;
+            const uint32_t Shared = SharedResources(A, B);
+            if (!SameBase && !Shared)
                 continue;
-            const bool AMut = effectIsMutating(*A);
-            const bool BMut = effectIsMutating(*B);
-            if (!AMut && !BMut)
-                continue; /* read-read carries no order obligation */
+            if (!SameBase)
+            {
+                /* A loop-scoped resource footprint that repeats a *binding*
+                 * resource an effect already holds adds no information: the
+                 * effect's own holding is the statement, and pairing it with
+                 * itself would manufacture a conflict that does not exist.
+                 * Round-level state (membership, the frontier envelope) is never
+                 * a duplicate — the round holds it, the effect uses it — so
+                 * those pairs stay and carry the R7 conflict when the envelope
+                 * is unwired. */
+                const Footprint &Mem = A.Base ? A : B;
+                uint32_t Carried = 0;
+                for (const ResourceAccess &RA : Mem.Resources)
+                    Carried |= RA.Resource;
+                const uint32_t RoundLevel = SGPL_RES_MEMBERSHIP | SGPL_RES_DEST_SEEN |
+                                            SGPL_RES_NEXT_FRONTIER;
+                const uint32_t Bindings = Shared & ~RoundLevel;
+                if (Bindings != 0 && (Shared & ~Carried) == 0)
+                    continue; /* the effect's own holding is the statement */
+            }
+            const bool AW = WritesOf(A);
+            const bool BW = WritesOf(B);
+            if (!AW && !BW)
+                continue;
+            if (Info.AccessRelations.size() >= MaxRelations)
+            {
+                Info.RelationOverflow = true;
+                return;
+            }
             AccessRelation R;
-            R.Source = A;
-            R.Sink = B;
-            R.Base = A->Base;
-            R.SourceRegion = A->Reg;
-            R.SinkRegion = B->Reg;
-            R.SourceSegment = Prims[i].second;
-            R.SinkSegment = Prims[j].second;
-            if (AMut && BMut)
-                R.Kind = AccessRelKind::WAW;
-            else if (AMut)
-                R.Kind = AccessRelKind::RAW;
-            else
-                R.Kind = AccessRelKind::WAR;
-            const Effect *Reader = AMut ? B : A;
-            if (Reader->VSource == ValueSource::Snapshot)
+            R.Kind = AW && BW ? AccessRelKind::WAW
+                     : AW     ? AccessRelKind::RAW
+                              : AccessRelKind::WAR;
+            R.Source = Items[i].E;
+            R.Sink = Items[j].E;
+            R.SourceFootprint = &A;
+            R.SinkFootprint = &B;
+            R.Base = A.Base ? A.Base : B.Base;
+            R.SourceRegion = A.Reg;
+            R.SinkRegion = B.Reg;
+            R.SourceIndex = A.Index;
+            R.SinkIndex = B.Index;
+            R.SourceSegment = SegOf.lookup(Items[i].E);
+            R.SinkSegment = SegOf.lookup(Items[j].E);
+            R.SourceScope = A.Scope;
+            R.SinkScope = B.Scope;
+            R.ResourceMask = Shared;
+            const bool OrderedPair = Items[i].E != Items[j].E &&
+                                     R.SourceSegment != R.SinkSegment;
+            const bool InternalOrder = Items[i].E != nullptr &&
+                                       Items[i].E == Items[j].E;
+            if (OrderedPair || InternalOrder)
+            {
+                R.OriginalOrder = Items[j].Order;
+                R.SourcedFromOrder = true;
+            }
+            /* Discharge: only a mechanism that provably removes the edge.
+             * Snapshot resolves the cross-endpoint read; privatization removes
+             * a relation whose WRITE side is the private write (never every
+             * relation of a priv loop); a recognized fold removes the WAW of an
+             * associative partial update; claims are staged only through their
+             * explicit staging order (atomicity alone never permits
+             * reordering). */
+            const Footprint &WSide = AW ? A : B;
+            const Footprint &RSide = AW ? B : A;
+            const bool HasRead = AW != BW;
+            bool Fold = false;
+            for (const ResourceAccess &RA : WSide.Resources)
+                Fold |= (RA.Resource == SGPL_RES_PARTIAL);
+            if (HasRead && RSide.VSource == ValueSource::Snapshot)
                 R.DischargedBy = DischargeKind::Snapshot;
-            else if (Info.UsePrivLayout)
+            else if ((WSide.Modes & FP_PRIVATE) != 0)
                 R.DischargedBy = DischargeKind::Privatization;
-            else if ((AMut && A->Kind == EffectKind::Uop && A->Op != RedOp::None) ||
-                     (BMut && B->Kind == EffectKind::Uop && B->Op != RedOp::None))
-                R.DischargedBy = DischargeKind::AlgebraicFold;
-            if (Info.AccessRelations.size() < 64)
-                Info.AccessRelations.push_back(R);
+            else if ((R.ResourceMask & (SGPL_RES_MEMBERSHIP | SGPL_RES_DEST_SEEN |
+                                        SGPL_RES_NEXT_FRONTIER)) != 0)
+                /* §7.6: a wired envelope freezes F_t and appends into F_{t+1}
+                 * (the snapshot separation); without it the append/read
+                 * conflict stays unresolved — the R7 shape.  This applies to a
+                 * mixed memory+round-resource relation as well: the append's
+                 * own write is ordered by the envelope, not by atomicity. */
+                R.DischargedBy = (Info.HasFrontierAppend && envelopeWired(Info))
+                                     ? DischargeKind::Snapshot
+                                     : DischargeKind::None;
+            else if ((R.ResourceMask & SGPL_RES_SNAPSHOT) != 0)
+                R.DischargedBy = DischargeKind::Snapshot;
+            else if ((WSide.Modes & FP_ATOMIC) != 0)
+                R.DischargedBy = (R.Kind == AccessRelKind::WAW &&
+                                  hasPerSourceClaim(Info))
+                                     ? DischargeKind::ClaimStaging
+                                     : DischargeKind::None;
+            else if (Fold)
+            {
+                /* §7.5: a fold removes the WAW of an associative update only
+                 * when both writes are partial writes of the SAME recognized
+                 * operator and touch the same element (same owner).  Two
+                 * different operators on one base (the adversarial
+                 * `A[u]*=2; A[v]+=1` shape) are not a fold. */
+                const Footprint *OW = AW ? &B : &A;
+                bool OtherWrites = footprintWrites(OW->Modes);
+                bool OtherPartial = false;
+                for (const ResourceAccess &RA : OW->Resources)
+                    OtherPartial |= (RA.Resource == SGPL_RES_PARTIAL);
+                bool SameOp = true;
+                if (Items[i].E != Items[j].E)
+                {
+                    const RedOp OpA = Items[i].E ? Items[i].E->Op : RedOp::None;
+                    const RedOp OpB = Items[j].E ? Items[j].E->Op : RedOp::None;
+                    SameOp = OpA != RedOp::None && OpA == OpB;
+                }
+                const bool SameElement = R.Spatial == OwnerClass::ExactOwner ||
+                                         R.Spatial == OwnerClass::SameOwner ||
+                                         InternalOrder;
+                if (SameOp && SameElement && (!OtherWrites || OtherPartial))
+                    R.DischargedBy = DischargeKind::AlgebraicFold;
+            }
+            R.TemporalClass = relateAccessTemporal(R, Info.Expr.RoundDomain);
+            R.RoundOffset = (R.TemporalClass == Temporal::PreviousRoundRead ||
+                             R.TemporalClass == Temporal::PreviousRoundWrite ||
+                             R.TemporalClass == Temporal::Carried)
+                                ? 1
+                                : 0;
+            R.PhaseRel = R.SourceSegment == R.SinkSegment
+                             ? (R.RoundOffset ? PhaseRelation::PhaseAcross
+                                              : PhaseRelation::SamePhase)
+                             : PhaseRelation::PhaseBefore;
+            R.Spatial = relateAccessSpatial(Info, R);
+            R.Relation.K = R.RoundOffset ? InstanceRelation::FixedOffset
+                                         : InstanceRelation::SameInstance;
+            R.Relation.Offset = R.RoundOffset;
+            if (!R.Base)
+            {
+                /* §3.1 resource relation: the discharge is the mechanism that
+                 * separates the resource users, not any memory rule.  A wired
+                 * frontier envelope freezes F_t and appends into F_{t+1} — the
+                 * snapshot separation of §7.6; without it the append/read
+                 * conflict stays unresolved (the R7 shape). */
+                if (R.ResourceMask & (SGPL_RES_MEMBERSHIP | SGPL_RES_DEST_SEEN |
+                                      SGPL_RES_NEXT_FRONTIER))
+                    R.DischargedBy = envelopeWired(Info) && Info.HasFrontierAppend
+                                         ? DischargeKind::Snapshot
+                                         : DischargeKind::None;
+                else if (R.ResourceMask & SGPL_RES_CLAIM)
+                    R.DischargedBy = hasPerSourceClaim(Info)
+                                         ? DischargeKind::ClaimStaging
+                                         : DischargeKind::None;
+                else if (R.ResourceMask & SGPL_RES_PRIVATE)
+                    R.DischargedBy = DischargeKind::Privatization;
+                else if (R.ResourceMask & SGPL_RES_PARTIAL)
+                    R.DischargedBy = DischargeKind::AlgebraicFold;
+                else if (R.ResourceMask & SGPL_RES_SNAPSHOT)
+                    R.DischargedBy = DischargeKind::Snapshot;
+            }
+            Info.AccessRelations.push_back(R);
         }
     }
 }
@@ -4992,6 +5581,7 @@ static void buildTemplates(NeighborLoopInfo &Info)
 
     /* --- spatial: one node per owner region actually written in the pair
      * phase; partition counts are the runtime's decision (0 = all). */
+    uint32_t NodeU = 0, NodeV = 0;
     if (Cert.R8)
     {
         SG.Valid = false;
@@ -4999,7 +5589,7 @@ static void buildTemplates(NeighborLoopInfo &Info)
     }
     else
     {
-        uint32_t Next = 1, NodeU = 0, NodeV = 0;
+        uint32_t Next = 1;
         if (PairU)
         {
             SpatialNodeTemplate N;
@@ -5065,6 +5655,34 @@ static void buildTemplates(NeighborLoopInfo &Info)
             SG.Valid = false;
             SG.InvalidReason = Why;
             SG.Nodes.clear();
+        }
+    }
+
+    /* §12: the proof may be stricter than the witness list.  A surviving spatial
+     * edge whose realization is the staged dual (CrossOwner: U-owned work
+     * ordered before V-owned) must produce the same tagged RealizationOrder edge
+     * the witness path produces, or the emission would not realize it. */
+    if (SG.Valid && NodeU && NodeV)
+    {
+        bool SurvivingCross = false;
+        for (const ProofEdge &PE : Info.Graphs.Spatial.Edges)
+            if (!PE.Structural && PE.Survives && PE.Realizable &&
+                PE.Spatial == OwnerClass::CrossOwner)
+                SurvivingCross = true;
+        if (SurvivingCross)
+        {
+            bool Have = false;
+            for (const SpatialEdgeTemplate &E : SG.Edges)
+                Have |= (E.From == NodeU && E.To == NodeV && E.RealizationOrder);
+            if (!Have)
+            {
+                SpatialEdgeTemplate E;
+                E.From = NodeU;
+                E.To = NodeV;
+                E.WitnessId = 0; /* tagged realization order, not precedence */
+                E.RealizationOrder = true;
+                SG.Edges.push_back(E);
+            }
         }
     }
 
@@ -5413,24 +6031,51 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
 {
     ScheduleChoice Ch;
     AxisCertificate &C = Info.Cert;
+    const AxisProof &P = Info.Proof;
+    /* §9/§10: the proof object is the verdict.  It is never weaker than the
+     * certificate (soundness gate: every witness the certificate records must
+     * appear as a surviving graph edge) but it may be stricter — a candidate
+     * whose witness list is empty while the complete relation graph still has a
+     * surviving edge is not admitted as non-interfering.  An inconclusive
+     * (overflow, invalid, cyclic) or unrealizable proof fails closed here,
+     * before any schedule mapping. */
     if (C.R8)
     {
         Ch.Reason = "R8 guard: " + C.ImplementationReason;
         Ch.ImplementationFailure = true;
         return Ch;
     }
-    if (C.RS && C.RT)
+    if (P.Overflow || P.Invalid)
+    {
+        Ch.Reason = P.Overflow
+                        ? "implementation: relation overflow (the relation set "
+                          "was not materialized)"
+                        : "implementation: invalid proof: " + P.InvalidReason;
+        Ch.ImplementationFailure = true; /* serial is emitted (Emitted stays 1) */
+        return Ch;
+    }
+    if (!P.Realizable)
+    {
+        Ch.Reason = "implementation: surviving edge without a realization";
+        if (!Info.Graphs.Spatial.UnaryReason.empty())
+            Ch.Reason += " (" + Info.Graphs.Spatial.UnaryReason + ")";
+        Ch.ImplementationFailure = true; /* serial is emitted (Emitted stays 1) */
+        return Ch;
+    }
+    const bool RS = C.RS || !P.NIS;
+    const bool RT = C.RT || !P.NIT;
+    if (RS && RT)
     {
         Ch.Reason = "both axes refused (R_S and R_T): no theorem-licensed parallel route";
         return Ch;
     }
-    if (!C.RS && !C.RT)
+    if (!RS && !RT)
     {
         Ch.Kind = ScheduleKind::Nested;
         Ch.Reason = "both axes independent";
         return Ch;
     }
-    if (!C.RS && C.RT)
+    if (!RS && RT)
     {
         for (const InterferenceWitness &W : C.Temporal)
         {
@@ -5629,6 +6274,811 @@ static bool hasPairPhaseClaim(const NeighborLoopInfo &Info)
         if (E.Kind == EffectKind::Claim && E.Scope == OccurrenceScope::PerPair)
             return true;
     return false;
+}
+
+/* ── §3.1 footprints and §3.2 proof inputs ────────────────────────────────
+ * buildFootprints derives one footprint per access mode of every effect plus
+ * the round-scoped resource footprints.  It runs once, after σ (ValueSource),
+ * round separation and the privatization decision are final, and before any
+ * graph consumer reads the layer. */
+static void buildFootprints(NeighborLoopInfo &Info)
+{
+    DenseMap<const Effect *, PhaseSegment> SegOf;
+    {
+        SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
+        collectTreePrims(Info.Expr, Prims);
+        for (const auto &P : Prims)
+            SegOf[P.first] = P.second;
+    }
+
+    const bool Priv = Info.UsePrivLayout;
+    for (Effect &E : Info.Effects)
+    {
+        E.Footprints.clear();
+        if (!E.Base)
+            continue;
+        Footprint F;
+        F.Base = E.Base;
+        F.Index = E.Index;
+        F.Reg = E.Reg;
+        F.Scope = E.Scope;
+        F.Seg = SegOf.lookup(&E);
+        F.RoundDomain = Info.Expr.RoundDomain;
+        F.Origin = E.Origin;
+        auto MarkPriv = [&](Footprint &X)
+        {
+            X.Modes = FP_PRIVATE;
+            X.Resources.push_back({SGPL_RES_PRIVATE, SGPL_ACCESS_PRIVATE});
+        };
+        switch (E.Kind)
+        {
+        case EffectKind::R:
+            F.Modes = FP_READ;
+            F.VSource = E.VSource;
+            /* A snapshot-resolved read consumes the round's published
+             * snapshot; the publication itself is a loop-scoped footprint. */
+            if (E.VSource == ValueSource::Snapshot)
+                F.Resources.push_back({SGPL_RES_SNAPSHOT, SGPL_ACCESS_READ});
+            E.Footprints.push_back(F);
+            break;
+        case EffectKind::W:
+            if (Priv)
+                MarkPriv(F);
+            else
+                F.Modes = FP_WRITE;
+            E.Footprints.push_back(F);
+            break;
+        case EffectKind::Uf:
+        case EffectKind::Uop:
+        {
+            /* The old value is read from the location the new value is written
+             * to: two footprints, so one effect carries its own RAW/WAR pair
+             * and the WAW its write owes to other writers. */
+            Footprint Rd = F;
+            Rd.Modes = FP_READ;
+            Rd.VSource = ValueSource::Live;
+            if (E.Kind == EffectKind::Uop)
+                Rd.Resources.push_back({SGPL_RES_PARTIAL, SGPL_ACCESS_PRIVATE});
+            if (Priv)
+                Rd.Resources.push_back({SGPL_RES_PRIVATE, SGPL_ACCESS_PRIVATE});
+            E.Footprints.push_back(Rd);
+            if (Priv)
+                MarkPriv(F);
+            else
+            {
+                F.Modes = FP_WRITE;
+                if (E.Kind == EffectKind::Uop)
+                    F.Resources.push_back({SGPL_RES_PARTIAL, SGPL_ACCESS_PRIVATE});
+            }
+            E.Footprints.push_back(F);
+            break;
+        }
+        case EffectKind::Claim:
+        {
+            Footprint Rd = F;
+            Rd.Modes = FP_READ;
+            Rd.VSource = ValueSource::Live;
+            Rd.Resources.push_back({SGPL_RES_CLAIM, SGPL_ACCESS_ATOMIC_WRITE});
+            E.Footprints.push_back(Rd);
+            F.Modes = FP_ATOMIC;
+            F.Resources.push_back({SGPL_RES_CLAIM, SGPL_ACCESS_ATOMIC_WRITE});
+            E.Footprints.push_back(F);
+            break;
+        }
+        case EffectKind::Activate:
+            F.Modes = FP_ATOMIC;
+            F.Resources.push_back({SGPL_RES_NEXT_FRONTIER,
+                                   SGPL_ACCESS_ATOMIC_WRITE});
+            if (Info.HasFirstWins)
+                F.Resources.push_back({SGPL_RES_DEST_SEEN,
+                                       SGPL_ACCESS_ATOMIC_WRITE});
+            E.Footprints.push_back(F);
+            break;
+        }
+    }
+
+    /* Round-scoped resources: what the round holds as a whole (the emitter's
+     * sgpl_runtime_op.resources assignment is the same set). */
+    Info.ResourceFootprints.clear();
+    auto NoteRes = [&](uint32_t Res, uint8_t Mode)
+    {
+        for (const Footprint &F : Info.ResourceFootprints)
+            for (const ResourceAccess &RA : F.Resources)
+                if (RA.Resource == Res)
+                    return;
+        Footprint F;
+        F.Resources.push_back({Res, Mode});
+        Info.ResourceFootprints.push_back(F);
+    };
+    const bool WantEnvelope = Info.HasFrontierAppend && envelopeWired(Info);
+    bool IsRed = Info.ReducePtr != nullptr;
+    for (const Effect &E : Info.Effects)
+        IsRed |= (E.Kind == EffectKind::Uop && E.Op != RedOp::None);
+    if (Info.HasFrontierAppend)
+    {
+        /* The append/read conflict exists whether or not the envelope is
+         * wired; wiring decides only whether it is discharged (above). */
+        NoteRes(SGPL_RES_DEST_SEEN, SGPL_ACCESS_ATOMIC_WRITE);
+        NoteRes(SGPL_RES_NEXT_FRONTIER, SGPL_ACCESS_ATOMIC_WRITE);
+    }
+    if (Info.MembershipGated || WantEnvelope)
+        NoteRes(SGPL_RES_MEMBERSHIP, SGPL_ACCESS_READ);
+    if (!Info.RoundSepBases.empty())
+    {
+        NoteRes(SGPL_RES_SNAPSHOT, SGPL_ACCESS_WRITE);
+        NoteRes(SGPL_RES_SNAPSHOT, SGPL_ACCESS_READ);
+    }
+    if (IsRed)
+        NoteRes(SGPL_RES_PARTIAL, SGPL_ACCESS_PRIVATE);
+    if (Priv)
+        NoteRes(SGPL_RES_PRIVATE, SGPL_ACCESS_PRIVATE);
+    if (Info.HasFirstWins || hasPerSourceClaim(Info) || hasPairPhaseClaim(Info))
+        NoteRes(SGPL_RES_CLAIM, SGPL_ACCESS_ATOMIC_WRITE);
+}
+
+/* Link every relation to the certificate witness that licenses or diagnoses it
+ * (same base, same regions, same access modes).  A relation without a linked
+ * witness is not automatically unresolved: a discharged relation may have no
+ * witness.  The ID is what a graph edge points back to. */
+static void linkRelationWitnesses(NeighborLoopInfo &Info)
+{
+    auto ModeOf = [](const Footprint *F)
+    {
+        return footprintPrimaryMode(F ? F->Modes : (uint8_t)FP_READ);
+    };
+    for (AccessRelation &R : Info.AccessRelations)
+    {
+        /* A witness identifies the conflict, not a direction: a temporal
+         * witness states (read side, write side) while the relation's own
+         * direction is the serial-expression order, so the match is
+         * orientation-insensitive on (region, mode) pairs. */
+        auto Match = [&](const InterferenceWitness &W)
+        {
+            if (W.Base != R.Base)
+                return false;
+            const AccessMode SM = ModeOf(R.SourceFootprint);
+            const AccessMode KM = ModeOf(R.SinkFootprint);
+            const bool Forward = W.SourceRegion == R.SourceRegion &&
+                                 W.SinkRegion == R.SinkRegion &&
+                                 W.SourceAccess == SM && W.SinkAccess == KM;
+            const bool Reverse = W.SourceRegion == R.SinkRegion &&
+                                 W.SinkRegion == R.SourceRegion &&
+                                 W.SourceAccess == KM && W.SinkAccess == SM;
+            return Forward || Reverse;
+        };
+        uint32_t Id = 0;
+        for (const InterferenceWitness &W : Info.Cert.Spatial)
+            if (!Id && Match(W))
+                Id = W.Id;
+        for (const InterferenceWitness &W : Info.Cert.Temporal)
+            if (!Id && Match(W))
+                Id = W.Id;
+        R.WitnessId = Id;
+    }
+}
+
+static const char *ownerClassName(OwnerClass O)
+{
+    switch (O)
+    {
+    case OwnerClass::ExactOwner:
+        return "exact";
+    case OwnerClass::SameOwner:
+        return "same";
+    case OwnerClass::ProvedDisjointOwner:
+        return "disjoint";
+    case OwnerClass::CrossOwner:
+        return "cross";
+    case OwnerClass::MayCrossOwner:
+        return "may-cross";
+    case OwnerClass::NoOwner:
+        return "none";
+    default:
+        return "unknown";
+    }
+}
+
+/* §13 gate hook: with GRAPH_FRONTIER_RELCHECK=1 the footprint/relation layer
+ * self-checks and prints its census.  Every relation must carry both
+ * footprints and a writer-consistent kind; every RMW must own both of its
+ * footprints; an overflowed relation set is reported so the proof layer can
+ * reject it (it is never silently truncated). */
+static void proofRelationReport(const NeighborLoopInfo &Info)
+{
+    size_t FpRead = 0, FpWrite = 0, RMW = 0, Res = 0;
+    size_t RAW = 0, WAR = 0, WAW = 0, Linked = 0, Discharged = 0, Cross = 0;
+    for (const Effect &E : Info.Effects)
+    {
+        bool HasR = false, HasW = false;
+        for (const Footprint &F : E.Footprints)
+        {
+            HasR |= (F.Modes & FP_READ) != 0;
+            HasW |= footprintWrites(F.Modes);
+            if (F.Modes & FP_READ)
+                ++FpRead;
+            if (footprintWrites(F.Modes))
+                ++FpWrite;
+        }
+        if (HasR && HasW)
+            ++RMW;
+    }
+    for (const Footprint &F : Info.ResourceFootprints)
+        Res += F.Resources.size();
+    bool Ok = true;
+    for (const AccessRelation &R : Info.AccessRelations)
+    {
+        if (R.Kind == AccessRelKind::RAW)
+            ++RAW;
+        else if (R.Kind == AccessRelKind::WAR)
+            ++WAR;
+        else
+            ++WAW;
+        Linked += R.WitnessId ? 1 : 0;
+        Discharged += R.DischargedBy != DischargeKind::None ? 1 : 0;
+        Cross += R.Spatial == OwnerClass::CrossOwner ? 1 : 0;
+        const bool SW = R.SourceFootprint && footprintWrites(R.SourceFootprint->Modes);
+        const bool KW = R.SinkFootprint && footprintWrites(R.SinkFootprint->Modes);
+        bool Bad = false;
+        if (!R.SourceFootprint || !R.SinkFootprint)
+            Bad = true;
+        else if (R.Kind == AccessRelKind::RAW && !(SW && !KW))
+            Bad = true;
+        else if (R.Kind == AccessRelKind::WAR && !(!SW && KW))
+            Bad = true;
+        else if (R.Kind == AccessRelKind::WAW && !(SW && KW))
+            Bad = true;
+        if (Bad)
+        {
+            Ok = false;
+            fprintf(stderr, "[relcheck] ASSERT kind/footprint mismatch base=%s kind=%d\n",
+                    valueLabel(R.Base).c_str(), (int)R.Kind);
+        }
+        if (R.SourcedFromOrder && R.OriginalOrder == 0)
+        {
+            Ok = false;
+            fprintf(stderr, "[relcheck] ASSERT ordered relation without order\n");
+        }
+    }
+    fprintf(stderr,
+            "[relcheck] footprints=%zu read=%zu write=%zu rmw=%zu resources=%zu "
+            "relations=%zu raw=%zu war=%zu waw=%zu cross-owner=%zu linked=%zu "
+            "discharged=%zu overflow=%d\n",
+            Info.Effects.size() ? (FpRead + FpWrite) : 0, FpRead, FpWrite, RMW,
+            Res, Info.AccessRelations.size(), RAW, WAR, WAW, Cross, Linked,
+            Discharged, Info.RelationOverflow ? 1 : 0);
+    if (Info.RelationOverflow)
+        fprintf(stderr,
+                "[relcheck] OVERFLOW: relation cap exceeded -- the proof layer "
+                "must reject this candidate\n");
+    fprintf(stderr, "[relcheck] %s\n", Ok ? "OK" : "FAIL");
+}
+
+/* ── §4.3/§6 graph construction ─────────────────────────────────────────── */
+
+static uint32_t proofAddNode(ProofGraph &G, ProofNodeKind Kind, Region Owned,
+                             PhaseSegment Seg, DomainKind Dom)
+{
+    for (const ProofNode &N : G.Nodes)
+        if (N.Kind == Kind && N.Owned == Owned && N.Seg == Seg && N.Domain == Dom)
+            return N.Id;
+    ProofNode N;
+    N.Id = (uint32_t)G.Nodes.size() + 1;
+    N.Kind = Kind;
+    N.Owned = Owned;
+    N.Seg = Seg;
+    N.Domain = Dom;
+    G.Nodes.push_back(N);
+    return N.Id;
+}
+
+static uint32_t proofFind(std::vector<uint32_t> &Parent, uint32_t X)
+{
+    while (Parent[X] != X)
+    {
+        Parent[X] = Parent[Parent[X]];
+        X = Parent[X];
+    }
+    return X;
+}
+
+static uint32_t proofComponents(const ProofGraph &G)
+{
+    if (G.Nodes.empty())
+        return 0;
+    std::vector<uint32_t> Parent(G.Nodes.size() + 1);
+    for (uint32_t i = 0; i <= G.Nodes.size(); ++i)
+        Parent[i] = i;
+    for (const ProofEdge &E : G.Edges)
+        if (E.Survives && E.From && E.To)
+        {
+            uint32_t A = proofFind(Parent, E.From);
+            uint32_t B = proofFind(Parent, E.To);
+            if (A != B)
+                Parent[A] = B;
+        }
+    std::unordered_set<uint32_t> Roots;
+    for (const ProofNode &N : G.Nodes)
+        Roots.insert(proofFind(Parent, N.Id));
+    return (uint32_t)Roots.size();
+}
+
+/* A cycle in the surviving precedence projection fails the proof closed. */
+static bool proofHasCycle(const ProofGraph &G)
+{
+    const size_t N = G.Nodes.size();
+    if (!N)
+        return false;
+    std::vector<uint32_t> In(N + 1, 0);
+    std::vector<std::vector<uint32_t>> Out(N + 1);
+    for (const ProofEdge &E : G.Edges)
+    {
+        if (E.Structural || !E.Survives || !E.From || !E.To || E.From == E.To)
+            continue;
+        if (E.Constraint != ConstraintKind::Precedence)
+            continue;
+        Out[E.From].push_back(E.To);
+        ++In[E.To];
+    }
+    std::vector<uint32_t> Ready;
+    for (size_t i = 1; i <= N; ++i)
+        if (!In[i])
+            Ready.push_back((uint32_t)i);
+    size_t Seen = 0;
+    while (!Ready.empty())
+    {
+        const uint32_t X = Ready.back();
+        Ready.pop_back();
+        ++Seen;
+        for (uint32_t Y : Out[X])
+            if (--In[Y] == 0)
+                Ready.push_back(Y);
+    }
+    return Seen != N;
+}
+
+/* Earliest phase rank; used to orient a phase-separated relation. */
+static int phaseRank(PhaseSegment S)
+{
+    switch (S)
+    {
+    case PhaseSegment::Preamble:
+        return 0;
+    case PhaseSegment::Pair:
+        return 1;
+    case PhaseSegment::Epilogue:
+        return 2;
+    default:
+        return 3;
+    }
+}
+
+static void buildProofGraphs(NeighborLoopInfo &Info)
+{
+    Info.Graphs = ProofGraphs();
+    ProofGraph &Phase = Info.Graphs.Phase;
+    ProofGraph &Round = Info.Graphs.Round;
+    ProofGraph &Spatial = Info.Graphs.Spatial;
+
+    const uint32_t NP = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
+                                     PhaseSegment::Preamble, Info.Expr.RoundDomain);
+    const uint32_t NB = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
+                                     PhaseSegment::Pair, Info.Expr.RoundDomain);
+    const uint32_t NQ = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
+                                     PhaseSegment::Epilogue, Info.Expr.RoundDomain);
+    auto NoteStructural = [&](uint32_t From, uint32_t To)
+    {
+        ProofEdge E;
+        E.From = From;
+        E.To = To;
+        E.Structural = true;
+        Phase.Edges.push_back(E);
+    };
+    NoteStructural(NP, NB); /* P -> B */
+    NoteStructural(NB, NQ); /* B -> Q */
+
+    for (const Effect &E : Info.Effects)
+        for (const Footprint &F : E.Footprints)
+            if (F.Base)
+                proofAddNode(Spatial, ProofNodeKind::Partition, F.Reg,
+                             PhaseSegment::None, DomainKind::AllVertices);
+    proofAddNode(Round, ProofNodeKind::Round, Region::Bottom, PhaseSegment::None,
+                 Info.Expr.RoundDomain);
+
+    for (size_t i = 0; i < Info.AccessRelations.size(); ++i)
+    {
+        const AccessRelation &R = Info.AccessRelations[i];
+        const bool Discharged = R.DischargedBy != DischargeKind::None;
+        ProofEdge E;
+        E.Relation = (uint32_t)i;
+        E.Constraint = R.SourcedFromOrder ? ConstraintKind::Precedence
+                                          : ConstraintKind::MutualExclusion;
+        E.DischargedBy = R.DischargedBy;
+        E.WitnessId = R.WitnessId;
+        E.TemporalClass = R.TemporalClass;
+        E.Spatial = R.Spatial;
+        E.CrossRound = R.RoundOffset != 0 || R.TemporalClass == Temporal::Carried;
+        /* A cross-round relation orders the round sequence (temporal axis); it
+         * never blocks the spatial axis, because inside one round its two
+         * accesses are separated by the phase order.  The spatial crossing test
+         * therefore only sees same-round relations (R4 = the carried read is
+         * exactly the case the certificate routes to the temporal axis while
+         * the spatial axis stays parallel). */
+        E.CrossPartition = R.RoundOffset == 0 &&
+                           (R.Spatial == OwnerClass::CrossOwner ||
+                            R.Spatial == OwnerClass::MayCrossOwner ||
+                            R.Spatial == OwnerClass::UnknownOwner ||
+                            R.Spatial == OwnerClass::NoOwner);
+        /* Only a claim resource (the runtime claim op) orders a conflict of its
+         * own accord; an atomic append (R7's next-frontier resource) is ordered
+         * by its envelope, not by atomicity. */
+        bool ClaimOp = (R.ResourceMask & SGPL_RES_CLAIM) != 0;
+        if (R.SourceFootprint)
+            for (const ResourceAccess &RA : R.SourceFootprint->Resources)
+                ClaimOp |= RA.Resource == SGPL_RES_CLAIM;
+        if (R.SinkFootprint)
+            for (const ResourceAccess &RA : R.SinkFootprint->Resources)
+                ClaimOp |= RA.Resource == SGPL_RES_CLAIM;
+        /* A realization order exists for the R6 dual-owner conflict (the staged
+         * dual orders U-owned work before V-owned), for a cross-round relation
+         * (the round sequence realizes it) and for a claim (the runtime claim
+         * op orders it).  A data-derived, unknown-owner or unwired-resource
+         * conflict has none and forces serial execution. */
+        E.Realizable = !Discharged &&
+                       (R.Spatial == OwnerClass::CrossOwner || E.CrossRound ||
+                        ClaimOp);
+        E.Survives = !Discharged; /* per-graph masks are set on the copies */
+        if (R.SourceSegment != R.SinkSegment && !R.SourcedFromOrder &&
+            phaseRank(R.SourceSegment) > phaseRank(R.SinkSegment))
+        {
+            /* never observed: the tree order follows the phase order */
+            std::swap(E.From, E.To);
+        }
+        ProofEdge PE = E;
+        const uint32_t FS = proofAddNode(Phase, ProofNodeKind::Phase,
+                                         Region::Bottom, R.SourceSegment,
+                                         Info.Expr.RoundDomain);
+        const uint32_t TS = proofAddNode(Phase, ProofNodeKind::Phase,
+                                         Region::Bottom, R.SinkSegment,
+                                         Info.Expr.RoundDomain);
+        {
+            PE.From = FS;
+            PE.To = TS;
+            /* A within-phase relation is a real conflict inside that phase; only
+             * the P -> B -> Q phase-order edges above are Structural. */
+            PE.Survives = !Discharged;
+            Phase.Edges.push_back(PE);
+        }
+        ProofEdge RE = E;
+        RE.From = 1;
+        RE.To = 1;
+        RE.Survives = !Discharged && E.CrossRound;
+        Round.Edges.push_back(RE);
+        ProofEdge SE = E;
+        /* The endpoint nodes must exist even when a footprint has no Base (a
+         * resource relation) or a provenance region no effect wrote: an
+         * unrepresentable endpoint is a graph error, never a missing edge. */
+        SE.From = proofAddNode(Spatial, ProofNodeKind::Partition, R.SourceRegion,
+                               PhaseSegment::None, DomainKind::AllVertices);
+        SE.To = proofAddNode(Spatial, ProofNodeKind::Partition, R.SinkRegion,
+                             PhaseSegment::None, DomainKind::AllVertices);
+        SE.Survives = !Discharged && E.CrossPartition;
+        Spatial.Edges.push_back(SE);
+    }
+
+    /* Unary obligations: a mutating footprint with no owner (data-derived,
+     * unknown provenance, a constant element, an unrecognized scalar update) is
+     * unresolved even when no pair relation mentions it.  Every transformation
+     * that covers it — privatization, a recognized fold's partial, staged claim
+     * state — resolves it inside footprintHasOwner(). */
+    for (const Effect &E : Info.Effects)
+        for (const Footprint &F : E.Footprints)
+        {
+            if (!F.Base || !footprintIsWriting(F))
+                continue;
+            if (footprintHasOwner(Info, F))
+                continue;
+            ++Spatial.UnaryUnresolved;
+            if (Spatial.UnaryReason.empty())
+                Spatial.UnaryReason =
+                    std::string("mutating footprint with no owner: base=") +
+                    valueLabel(F.Base) + " region=" + regionName(F.Reg) +
+                    (F.Index ? "" : " (no index)");
+        }
+
+    auto Summarize = [](ProofGraph &G)
+    {
+        G.Unresolved = 0;
+        G.Crossing = 0;
+        G.RealizableOnly = 0;
+        for (const ProofEdge &E : G.Edges)
+        {
+            if (E.Structural)
+                continue;
+            if (E.Survives)
+            {
+                ++G.Unresolved;
+                if (E.CrossPartition)
+                    ++G.Crossing;
+            }
+            else if (E.Realizable)
+                ++G.RealizableOnly;
+        }
+        G.Components = proofComponents(G);
+        if (proofHasCycle(G))
+        {
+            G.Valid = false;
+            G.InvalidReason = "precedence cycle in the surviving projection";
+        }
+    };
+    Summarize(Phase);
+    Summarize(Round);
+    Summarize(Spatial);
+}
+
+/* The graph-derived axis verdict: a surviving crossing edge blocks the axis
+ * claim; an edge without a realization forces serial execution. */
+struct GraphAxisVerdict
+{
+    bool NIS = true;
+    bool NIT = true;
+    bool Realizable = true;
+    uint32_t SurvS = 0;
+    uint32_t SurvT = 0;
+    uint32_t NoReal = 0;
+};
+
+static GraphAxisVerdict graphAxisVerdict(const ProofGraphs &G)
+{
+    GraphAxisVerdict V;
+    if (G.Spatial.UnaryUnresolved)
+    {
+        V.NIS = false;
+        V.Realizable = false;
+        V.SurvS += G.Spatial.UnaryUnresolved;
+        V.NoReal += G.Spatial.UnaryUnresolved;
+    }
+    for (const ProofEdge &E : G.Spatial.Edges)
+        if (!E.Structural && E.Survives)
+        {
+            V.NIS = false;
+            ++V.SurvS;
+            if (!E.Realizable)
+            {
+                V.Realizable = false;
+                ++V.NoReal;
+            }
+        }
+    for (const ProofEdge &E : G.Round.Edges)
+        if (!E.Structural && E.Survives)
+        {
+            V.NIT = false;
+            ++V.SurvT;
+            if (!E.Realizable)
+            {
+                V.Realizable = false;
+                ++V.NoReal;
+            }
+        }
+    return V;
+}
+
+/* §7: group every discharged relation under the transformation that removes it
+ * and record the conditions the mechanism checked.  A relation without a
+ * discharge stays unresolved and is counted, never dropped. */
+static void buildTransformations(NeighborLoopInfo &Info, AxisProof &P)
+{
+    auto New = [&](TransformationKind K, const char *Conds)
+    {
+        P.Transformations.push_back(Transformation());
+        Transformation &T = P.Transformations.back();
+        T.Kind = K;
+        T.Conditions = Conds;
+        return &T;
+    };
+    Transformation *Priv = nullptr, *Snap = nullptr, *Env = nullptr;
+    Transformation *Stage = nullptr, *Fold = nullptr;
+    for (size_t i = 0; i < Info.AccessRelations.size(); ++i)
+    {
+        const AccessRelation &R = Info.AccessRelations[i];
+        ++P.Relations;
+        if (R.DischargedBy == DischargeKind::None)
+        {
+            ++P.Unresolved;
+            continue;
+        }
+        ++P.Discharged;
+        switch (R.DischargedBy)
+        {
+        case DischargeKind::Privatization:
+            if (!Priv)
+                Priv = New(TransformationKind::Privatization,
+                           "every privatized update recognized; operator identity known; "
+                           "fold-sound; no read observes an unmerged private value; "
+                           "deterministic combine");
+            Priv->Removes.push_back((uint32_t)i);
+            break;
+        case DischargeKind::Snapshot:
+        {
+            const bool Envelope =
+                (R.ResourceMask & (SGPL_RES_MEMBERSHIP | SGPL_RES_DEST_SEEN |
+                                   SGPL_RES_NEXT_FRONTIER)) != 0;
+            Transformation *&Slot = Envelope ? Env : Snap;
+            if (!Slot)
+                Slot = Envelope
+                           ? New(TransformationKind::FrontierEnvelope,
+                                 "F_t read membership; dest_seen claim; F_{t+1} append; "
+                                 "append-head ordering")
+                           : New(TransformationKind::Snapshot,
+                                 "designated cross-endpoint reads redirected; same-owner RMW "
+                                 "reads stay live; round-begin publication; "
+                                 "publication-to-reader ordering");
+            Slot->Removes.push_back((uint32_t)i);
+            break;
+        }
+        case DischargeKind::ClaimStaging:
+            if (!Stage)
+                Stage = New(TransformationKind::ClaimStaging,
+                            "occurrence scope preserved; per-source vs per-pair "
+                            "multiplicity; guard/transition semantics; serial priority order");
+            Stage->Removes.push_back((uint32_t)i);
+            break;
+        case DischargeKind::AlgebraicFold:
+            if (!Fold)
+                Fold = New(TransformationKind::AlgebraicFold,
+                           "operator associative and commutative under the language "
+                           "semantics; identity initialization valid; no intermediate "
+                           "observer; deterministic final combine");
+            Fold->Removes.push_back((uint32_t)i);
+            break;
+        default:
+            break; /* ordering mechanisms, not edge removals */
+        }
+    }
+    /* Owner-computes is the transformation that keeps owned writes edge-free:
+     * record it whenever the loop has an owner-resolved mutating footprint and
+     * register the partition-private write as its replacement edge. */
+    bool AnyOwned = false;
+    for (const Effect &E : Info.Effects)
+        for (const Footprint &F : E.Footprints)
+            if (F.Base && footprintIsWriting(F) &&
+                (F.Modes & FP_PRIVATE) == 0 && footprintHasOwner(Info, F))
+                AnyOwned = true;
+    if (AnyOwned)
+        New(TransformationKind::OwnerComputes,
+            "every destination has exactly one owner; index is the destination "
+            "endpoint; all readers/writers share the ownership contract");
+}
+
+/* §9: build the proof object.  Validation: every transformation must remove
+ * only discharged relations; an overflowed or invalid (cyclic) proof is
+ * inconclusive and is never treated as non-interference. */
+static void buildAxisProof(NeighborLoopInfo &Info)
+{
+    const GraphAxisVerdict V = graphAxisVerdict(Info.Graphs);
+    AxisProof &P = Info.Proof;
+    P = AxisProof();
+    P.NIS = V.NIS;
+    P.NIT = V.NIT;
+    P.Realizable = V.Realizable;
+    P.ComponentsS = Info.Graphs.Spatial.Components;
+    P.ComponentsT = Info.Graphs.Round.Components;
+    P.UnaryUnresolved = Info.Graphs.Spatial.UnaryUnresolved;
+    P.Overflow = Info.RelationOverflow;
+    if (!Info.Graphs.Spatial.Valid || !Info.Graphs.Phase.Valid ||
+        !Info.Graphs.Round.Valid)
+    {
+        P.Invalid = true;
+        P.InvalidReason = !Info.Graphs.Spatial.Valid
+                              ? Info.Graphs.Spatial.InvalidReason
+                              : (!Info.Graphs.Phase.Valid
+                                     ? Info.Graphs.Phase.InvalidReason
+                                     : Info.Graphs.Round.InvalidReason);
+    }
+    P.Inconclusive = P.Overflow || P.Invalid;
+    if (P.Inconclusive)
+    {
+        P.NIS = false;
+        P.NIT = false;
+        P.Realizable = false;
+    }
+    buildTransformations(Info, P);
+    for (const Transformation &T : P.Transformations)
+        for (uint32_t Rel : T.Removes)
+            if (Rel >= Info.AccessRelations.size() ||
+                Info.AccessRelations[Rel].DischargedBy == DischargeKind::None)
+            {
+                P.Invalid = true;
+                P.Inconclusive = true;
+                P.InvalidReason = "transformation removes an undis-charged relation";
+            }
+}
+
+/* §4.3/§6 validator: the graph verdict next to the witness certificate of the
+ * same candidate.  A disagreement is either a missing graph rule or a latent
+ * unsoundness of the witness shortcut and must be resolved, never silenced. */
+static void proofGraphReport(const NeighborLoopInfo &Info)
+{
+    const GraphAxisVerdict V = graphAxisVerdict(Info.Graphs);
+    const AxisCertificate &C = Info.Cert;
+    const bool AgreeS = (V.NIS == !C.RS);
+    const bool AgreeT = (V.NIT == !C.RT);
+    /* Soundness gate: a witness that fires is sound, so the graph must never be
+     * cleaner than the certificate.  The reverse direction (certificate clean,
+     * graph dirty) is the completeness delta this layer exists to expose. */
+    const bool CoverS = !C.RS || !V.NIS;
+    const bool CoverT = !C.RT || !V.NIT;
+    fprintf(stderr,
+            "[graphcheck] hdr=%s graph_NI_S=%d graph_NI_T=%d realizable=%d "
+            "unary=%u surv_s=%u surv_t=%u no_realization=%u cert_R_S=%d cert_R_T=%d "
+            "cert_R8=%d cover_S=%d cover_T=%d stricter_S=%d stricter_T=%d "
+            "agree_S=%d agree_T=%d phase(rel=%zu comp=%u) round(rel=%zu comp=%u) "
+            "spatial(nodes=%zu rel=%zu comp=%u cross=%u)\n",
+            Info.NeighborLoop && Info.NeighborLoop->getHeader()->hasName()
+                ? Info.NeighborLoop->getHeader()->getName().str().c_str()
+                : "<loop>",
+            V.NIS ? 1 : 0, V.NIT ? 1 : 0, V.Realizable ? 1 : 0,
+            Info.Graphs.Spatial.UnaryUnresolved, V.SurvS, V.SurvT, V.NoReal,
+            C.RS ? 1 : 0, C.RT ? 1 : 0, C.R8 ? 1 : 0, CoverS ? 1 : 0,
+            CoverT ? 1 : 0, (!C.RS && !V.NIS) ? 1 : 0, (!C.RT && !V.NIT) ? 1 : 0,
+            AgreeS ? 1 : 0, AgreeT ? 1 : 0,
+            Info.Graphs.Phase.Edges.size(), Info.Graphs.Phase.Components,
+            Info.Graphs.Round.Edges.size(), Info.Graphs.Round.Components,
+            Info.Graphs.Spatial.Nodes.size(), Info.Graphs.Spatial.Edges.size(),
+            Info.Graphs.Spatial.Components, Info.Graphs.Spatial.Crossing);
+    if (!Info.Graphs.Spatial.UnaryReason.empty())
+        fprintf(stderr, "[graphcheck]   unary: %s\n",
+                Info.Graphs.Spatial.UnaryReason.c_str());
+    for (const ProofEdge &E : Info.Graphs.Spatial.Edges)
+        if (E.Survives)
+        {
+            const AccessRelation &R = Info.AccessRelations[E.Relation];
+            fprintf(stderr,
+                    "[graphcheck]   edge rel=%u kind=%s base=%s src=%s sink=%s "
+                    "spatial=%s temporal=%s constraint=%s discharge=%s "
+                    "realizable=%d witness=%u\n",
+                    E.Relation,
+                    R.Kind == AccessRelKind::RAW ? "RAW"
+                    : R.Kind == AccessRelKind::WAR ? "WAR" : "WAW",
+                    valueLabel(R.Base).c_str(), regionName(R.SourceRegion),
+                    regionName(R.SinkRegion), ownerClassName(E.Spatial),
+                    temporalName(E.TemporalClass),
+                    E.Constraint == ConstraintKind::Precedence ? "precedence"
+                                                               : "mutex",
+                    dischargeName(E.DischargedBy), E.Realizable ? 1 : 0,
+                    E.WitnessId);
+        }
+    for (const ProofEdge &E : Info.Graphs.Round.Edges)
+        if (E.Survives)
+        {
+            const AccessRelation &R = Info.AccessRelations[E.Relation];
+            fprintf(stderr,
+                    "[graphcheck]   round-edge rel=%u kind=%s base=%s temporal=%s "
+                    "constraint=%s discharge=%s realizable=%d\n",
+                    E.Relation,
+                    R.Kind == AccessRelKind::RAW ? "RAW"
+                    : R.Kind == AccessRelKind::WAR ? "WAR" : "WAW",
+                    valueLabel(R.Base).c_str(), temporalName(E.TemporalClass),
+                    E.Constraint == ConstraintKind::Precedence ? "precedence"
+                                                               : "mutex",
+                    dischargeName(E.DischargedBy), E.Realizable ? 1 : 0);
+        }
+}
+
+/* §3.1 + §3.2 entry point: the proof inputs of one candidate.  Called once
+ * per admitted candidate, after the certificate exists and before any graph
+ * consumer (templates, schedule selection, emitters) reads the layer. */
+static void finalizeProofInputs(NeighborLoopInfo &Info)
+{
+    buildFootprints(Info);
+    deriveAccessRelations(Info);
+    linkRelationWitnesses(Info);
+    buildProofGraphs(Info);
+    buildAxisProof(Info);
+    Info.ProofInputsReady = true;
+    if (getenv("GRAPH_FRONTIER_RELCHECK"))
+        proofRelationReport(Info);
+    if (getenv("GRAPH_FRONTIER_GRAPHS"))
+        proofGraphReport(Info);
 }
 
 /* Single-stage realization: one execution context plus an ordered op array
@@ -6771,6 +8221,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         bool EmissionSerialized = false;
         if (IsIter)
         {
+            finalizeProofInputs(Info);
             buildTemplates(Info);
             Schedule = selectSchedule(Info);
             std::string ConsumeReason;

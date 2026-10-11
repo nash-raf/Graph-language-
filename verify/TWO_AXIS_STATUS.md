@@ -58,22 +58,29 @@ schedule → runtime descriptors`.
 
 | check | result |
 |---|---|
-| `verify/run.sh parallel` (local) | **65-67 PASS / 0 FAIL** (the single SKIP is the load-dependent scaling check, with its measured load number) |
-| `test/run_exec_engine_tests.sh` (local) | ALL PASS — exec engine 0 failures at 1/3/8 + dag scheduler **ALL PASS** incl. 17 new §11 checks |
+| `verify/run.sh parallel` (local) | **69 PASS / 0 FAIL** (includes the §14.11 overflow check and the §13 adversarial completeness check) |
+| `test/run_exec_engine_tests.sh` (local + pod) | ALL PASS — exec engine 0 failures at 1/3/8 + dag scheduler ALL PASS incl. 17 new §11 checks |
 | TSan (`setarch -R`, 8 threads) | dag scheduler **0 races**, exec engine **0 races** |
-| `validate_algebra.sh` | **21 fixtures, 0 failures** |
-| `validate_tdg_budget.sh` | ALL PASS (all three configs) |
-| `validate_composition.sh` | DONE, no MISMATCH |
-| `GRAPH_FRONTIER_RELCHECK=1` | every candidate `[relcheck] OK` (kind/footprint consistency, ordered relations carry an order) |
-| `verify/check_graphs.sh` | **cover gate 0 failures** over the parallel corpus (the graph is never cleaner than the witness certificate); strictness deltas listed per fixture (the R8-guarded min/max candidates) |
-| proof-driven schedule | suite unchanged at 67/0: the graph agrees with the certificate everywhere except the R8-guarded candidates, where the reason string is preserved |
+| `validate_algebra.sh` | **21 fixtures, 0 failures**; `validate_tdg_budget.sh` ALL PASS; `validate_composition.sh` DONE |
+| `verify/check_census.sh` | **PASS** over 161 fixtures (nested 60, spatial-dag 5, temporal-dag 3, serial 1, serial+impl 5; splits R_S=1 R_T=0 ×6, R_S=0 R_T=1 ×1) |
+| `verify/check_graphs.sh` | case corpus: 52 candidates, **cover_S 52/52, cover_T 52/52**; **3 strictness deltas** (`maycross_same_region` with no witness at all, plus the two R8-guarded `reduce_real_ops` min/max candidates) |
+| adversarial completeness | `maycross_same_region`: certificate `R_S=0 R_T=0`, graph connected (3 surviving `MayCrossOwner` edges) → **serial + impl_failure=1** ("surviving edge without a realization"), answers == unrewritten at 1/4 threads (local and pod) |
+| overflow fail-closed | `SGPL_REL_CAP=2` on `mixed_regions` → serial+impl with the overflow reason, answers == unrewritten (local and pod) |
+| pod suite | **64 PASS / 0 FAIL / 4 SKIP** (quota scaling 6 CPUs < nproc 48; three `SIGKILL(rc=137 — container memory limit)` cases: nested_step, marker_derived, derived_default) |
+| pod device diffs | `carried_read_state` / `shadow_snapshot`: P=1/4/8 identical (16 dispatches, 1 fallback each); `dual_same_base`: identical, 0 dispatches (staged path, by design); `maycross_same_region`: identical, **0 dispatches** (the proof-refused spatial axis denies the device step) |
+| pod corpus device diff | **85 rows, 0 DIFF** (79 identical), 6 attributed `SIGKILL(rc=137)` rows, **0 BUILD-FAILED** |
+| proof-driven schedule | suite unchanged where the graph agrees with the certificate; on the strictness deltas the realization becomes more conservative (serial+impl), never more parallel |
 
 ## Environment (measured; do not re-litigate)
 
 - Pod: cpu quota 5.1 CPUs (`nproc` 48), memory 31 GB, `/usr/bin/time` absent,
   RTX 2000 Ada 16 GB, LLVM 20.1.8 (apt.llvm.org) with NVPTX, antlr4 4.13.1
   under `/usr/local` (the distro's 4.10 is too old for the generated parser),
-  `libpolly-20-dev` + `libisl-dev` for the link line.
+  `libpolly-20-dev` + `libisl-dev` for the link line.  The pod's build uses
+  `POLLY_LIBS="" LLVM_CONFIG=/root/llvm-cfg` (static LLVM): its
+  `libLLVM-20.so` registers Polly's options internally, so linking the static
+  Polly archives as well aborts with "Option 'polly-dependences-computeout'
+  registered more than once".
 - Local: 4 cores, no quota, `/usr/local/llvm-20-polly-rtti`, antlr4 4.13.1.
 - Harness: run `03_run.sh` via `bash`; `validate_composition.sh` from the
   compiler dir; standalone tests link `autotuner_runtime.c + parallel_runtime.c

@@ -84,6 +84,11 @@ registered more than once".)
 | adversarial completeness (`maycross_same_region`) | serial == rewritten at 1 and 4 threads (`s 20248`), refusal emitted, certificate clean (`R_S=0 R_T=0`), strictness delta reported |
 
 <!--POD-DEVICE-->
+| device diff `carried_read_state` | P=1/4/8 **identical**, 16 device dispatches / 1 CPU fallback |
+| device diff `dual_same_base` | P=1/4/8 **identical**, 0 device dispatches (the staged path emits no kernel — by design) |
+| device diff `shadow_snapshot` | P=1/4/8 **identical**, 16 dispatches / 1 fallback |
+| device diff `maycross_same_region` | P=1/4/8 **identical**, **0 device dispatches** — the proof-refused spatial axis also denies the device step (`sgpl_gpu_step_schedule_ok`) |
+| `gpu_corpus_diff.sh` | **85 rows, 0 DIFF** (79 identical device-on == device-off), 6 rows `SIGKILL(rc=137: container memory limit)` (pagerank, dg_nbr_keyed, edge_write_v, edge_write_v5, edge_write_v_rev, nested_step — each attributed), **0 BUILD-FAILED** |
 
 ## Honest open items
 

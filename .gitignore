@@ -152,3 +152,6 @@ algo_validation/gen_graph
 algo_validation/*.prebit
 algo_validation/*.prefix2
 algo_validation/race_demo
+
+# sweep/emit temp logs (check_graphs.sh, sweep_certificates.sh)
+*.graph.err

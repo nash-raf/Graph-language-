@@ -6794,6 +6794,19 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
                     (F.Index ? "" : " (no index)");
         }
 
+    /* §7.6: an unwired frontier append is a unary obligation even when no
+     * append effect was recognized (the R7 class): the append state (F_{t+1}
+     * membership / dest_seen) has no owner without the envelope.  With the
+     * envelope wired the state belongs to the round, exactly as
+     * footprintHasOwner() resolves it for a recognized append. */
+    if (Info.HasFrontierAppend && !envelopeWired(Info))
+    {
+        ++Spatial.UnaryUnresolved;
+        if (Spatial.UnaryReason.empty())
+            Spatial.UnaryReason =
+                "frontier append without a wired envelope (the append state has no owner)";
+    }
+
     auto Summarize = [](ProofGraph &G)
     {
         G.Unresolved = 0;

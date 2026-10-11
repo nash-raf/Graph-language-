@@ -29,7 +29,29 @@ environment limits SKIP (with the number); never weaken fail-closed.
 - relcheck (8 fixtures): every candidate `[relcheck] OK`; per-loop census lines
   record footprints/read/write/rmw/resources/relations/raw/war/waw/cross-owner/
   linked/discharged/overflow.
-- suite: `verify/run.sh parallel` after §3.1+§3.2 → **67 PASS / 0 FAIL** local.
+- suite: `verify/run.sh parallel` after §3.1+§3.2 → 67 PASS / 0 FAIL; after
+  §3.1–§10 → 67 PASS / 0 FAIL; after §11 → 64 PASS / 0 FAIL / 1 load-dependent
+  SKIP; **after the harness fix + the overflow check → 68 PASS / 0 FAIL**
+  (includes `race/overflow-fail-closed`: `SGPL_REL_CAP=2` → serial+impl with the
+  overflow reason, answers == unrewritten).
+- harness fix (found by a stale-artifact investigation): `compile()` and
+  `compile_serial()` now remove `program.o` too.  `program.o` carries the
+  generated code *and one fixture's prebuilt graph*; reusing it across cases
+  makes a case read another fixture's dataset — which is exactly what produced a
+  burst of "build failed" checks and one wrong answer (`same_slot`) after an
+  interleaved direct compiler run.  With the fix every case builds its own.
+- engine tests: `test/run_exec_engine_tests.sh` ALL PASS (exec engine 0
+  failures at 1/3/8 + dag scheduler ALL PASS including 17 new §11 checks).
+- TSan (`setarch -R`, 8 threads): dag scheduler 0 races, exec engine 0 races.
+- pod toolchain (new pod `213.173.110.198:10574`): LLVM 20.1.8 from
+  apt.llvm.org (NVPTX present), `libpolly-20-dev` + `libisl-dev`, antlr4 4.13.1
+  copied into `/usr/local` because the distro's 4.10 lacks
+  `antlr4::internal::call_once` that the generated parser needs, `ldconfig`
+  entry for `/usr/local/lib`.  The compiler links *statically* against LLVM on
+  this pod (`LLVM_CONFIG=/root/llvm-cfg`, which prepends `--link-static`, and
+  `POLLY_LIBS=""`): the pod's `libLLVM-20.so` registers Polly's options
+  internally, so linking the static Polly archives as well aborts with
+  "Option 'polly-dependences-computeout' registered more than once".
 - graph validator (`verify/check_graphs.sh`, `GRAPH_FRONTIER_GRAPHS=1`): three
   real bugs found and fixed by the diff against the witness certificate —
   (1) a relation's round-crossing must not be counted on the spatial graph and

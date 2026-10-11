@@ -45,14 +45,23 @@ SKIP (with the number); nothing was weakened to make a check pass.
 
 | check | result |
 |---|---|
-| `verify/run.sh parallel` | 64–67 PASS / 0 FAIL; the one SKIP is load-dependent (`scaling/doall_scaling 4thr 1.52x, not asserted (load 4.30 > 4 cores)`) |
+| `verify/run.sh parallel` | **69 PASS / 0 FAIL** (includes `race/overflow-fail-closed` and `race/maycross_same_region`) |
 | `test/run_exec_engine_tests.sh` | exec engine 0 failures at 1/3/8; dag scheduler ALL PASS incl. 17 new §11 checks |
 | TSan (`setarch -R`, 8 threads) | dag scheduler 0 races; exec engine 0 races |
 | `validate_algebra.sh` | 21 fixtures, 0 failures |
 | `validate_tdg_budget.sh` | ALL PASS (three configs) |
 | `validate_composition.sh` | DONE, no MISMATCH / LINK FAIL |
-| `verify/check_graphs.sh` | cover gate 0 failures; strictness deltas listed (R8-guarded min/max candidates) |
+| `verify/check_census.sh` | **PASS** over 161 fixtures (nested 60, spatial-dag 5, temporal-dag 3, serial 1, serial+impl 5; axis splits R_S=1 R_T=0 ×6 and R_S=0 R_T=1 ×1) |
+| `verify/check_graphs.sh` (case corpus) | 52 candidates, **cover_S 52/52, cover_T 52/52** (the graph is never cleaner than the certificate); **3 strictness deltas**: `maycross_same_region` (no witness, graph connected) and the two R8-guarded `reduce_real_ops` min/max candidates |
 | `GRAPH_FRONTIER_RELCHECK=1` | `[relcheck] OK` for every candidate (kind/footprint consistency asserted) |
+
+The `maycross_same_region` fixture is the plan's section-13 adversarial case
+made permanent: two different index expressions on one base in one region
+(`A[v]` and `A[v+1]`), so two iterations may touch the same element while the
+certificate reports `R_S = R_T = 0`.  The proof layer classifies the pair
+`MayCrossOwner`, keeps the edges and realizes the nest as serial with an
+implementation refusal — the answer is identical to the unrewritten build at
+1 and 4 threads, and the strictness delta is reported.
 
 ## Pod evidence (`root@213.173.110.198 -p 10574`)
 
@@ -61,10 +70,20 @@ absent, RTX 2000 Ada 16 GB.  Toolchain brought up: LLVM 20.1.8 (apt.llvm.org,
 NVPTX present), antlr4 4.13.1 under `/usr/local` (the distro's 4.10 lacks the
 `antlr4::internal::call_once` the generated parser needs), `libpolly-20-dev` +
 `libisl-dev`, symlinks for the include/lib paths, `ldconfig` entry.
-Build: `LLVM_CONFIG=/usr/lib/llvm-20/bin/llvm-config bash build_lowmem.sh` →
-rc=0, 0 errors, `GraphProgram` 7.5 MB.
+Build: `POLLY_LIBS="" LLVM_CONFIG=/root/llvm-cfg bash build_lowmem.sh` → rc=0,
+0 errors.  (`/root/llvm-cfg` prepends `--link-static`: the pod's
+`libLLVM-20.so` registers Polly's options internally, so linking the static
+Polly archives as well aborts with "Option 'polly-dependences-computeout'
+registered more than once".)
 
-<!--POD-RESULTS-->
+| check | result |
+|---|---|
+| `verify/run.sh parallel` | **64 PASS / 0 FAIL / 4 SKIP** — SKIPs are measured: `scaling/doall_scaling` (quota 6 CPUs < nproc 48), `parallel/nested_step`, `race/marker_derived`, `race/derived_default` (final_program SIGKILLed rc=137 — container memory limit) |
+| `test/run_exec_engine_tests.sh` | exec engine 0 failures at 1/3/8; dag scheduler ALL PASS (incl. the 17 new §11 checks) |
+| overflow fail-closed (`SGPL_REL_CAP=2`, `mixed_regions`) | serial == unrewritten (`tot 340000`), `impl_failure=1`, "relation overflow" traced |
+| adversarial completeness (`maycross_same_region`) | serial == rewritten at 1 and 4 threads (`s 20248`), refusal emitted, certificate clean (`R_S=0 R_T=0`), strictness delta reported |
+
+<!--POD-DEVICE-->
 
 ## Honest open items
 

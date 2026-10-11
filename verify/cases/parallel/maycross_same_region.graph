@@ -1,0 +1,40 @@
+// Adversarial completeness case (plan section 13): no R1-R7 condition fires,
+// yet the complete relation graph stays connected.
+//
+// The pair phase writes A[v] and A[v+1] in the *same* region with two
+// different index expressions.  A[v] of the iteration whose neighbour is v+1
+// addresses the same element as A[v+1] of the iteration whose neighbour is v,
+// so two different iterations may touch one element -- without any data-derived
+// index, U/V dual ownership, claim or frontier append, i.e. while the witness
+// certificate reports R_S = R_T = 0.  The proof layer must classify the pair
+// MayCrossOwner, keep the edges, and realize the nest as serial with an
+// *implementation* refusal (there is no realization order for a may-cross
+// element conflict): "no witness remains => parallelize" is unsound in
+// principle and this fixture pins the correction.
+//
+// The answer must equal the unrewritten build at every thread count.
+graph G {
+    edges: file "../verify/fixtures/g20k.txt";
+};
+
+int n = numVertices(G);
+int A[n];
+
+for each vertex v in G {
+    A[v] = 0;
+}
+
+for each vertex u in G {
+    for each neighbor v of u in G {
+        A[v] = A[v] + 1;
+        if (v < n - 1) {
+            A[v + 1] = 0;
+        }
+    }
+}
+
+int s = 0;
+int i = 0;
+while (i < n) { s = s + A[i]; i = i + 1; }
+print "s";
+print s;

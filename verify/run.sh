@@ -1149,6 +1149,33 @@ else
   no "race/overflow-fail-closed" "build failed"
 fi
 
+# ------------------------------------------------- §13 ADVERSARIAL COMPLETENESS
+# No R1-R7 condition fires and yet the complete graph is connected: the pair
+# phase writes A[v] and A[v+1] in one region with two different index
+# expressions, so two iterations may touch the same element (MayCrossOwner).
+# The certificate reports R_S = R_T = 0; the proof layer must refuse anyway --
+# serial with an implementation refusal, never a parallel realization -- and the
+# answer must equal the unrewritten build.  This is the fixture that pins "no
+# witness remains => parallelize" as unsound in principle.
+if ser=$(compile_serial "$R/cases/parallel/maycross_same_region.graph") && \
+   GRAPH_FRONTIER_GRAPHS=1 compile "$R/cases/parallel/maycross_same_region.graph"; then
+  bad=""
+  grep -q "R_S=0 R_T=0" "$R/bin/build.log" || bad="certificate did not stay clean"
+  grep -q "schedule=serial emitted=1 impl_failure=1" "$R/bin/build.log" \
+    || bad="$bad not serial+impl_failure"
+  grep -q "surviving edge without a realization" "$R/bin/build.log" \
+    || bad="$bad proof reason missing"
+  grep -q "stricter_S=1" "$R/bin/build.log" || bad="$bad strictness delta not reported"
+  for t in 1 4; do
+    got=$(runt $t)
+    [[ "$got" == "$ser" ]] || bad="$bad threads=$t got='$got' serial='$ser'"
+  done
+  [[ -z "$bad" ]] && ok "race/maycross_same_region (no witness, graph connected -> serial+impl, == serial)" \
+                  || no "race/maycross_same_region" "$bad"
+else
+  no "race/maycross_same_region" "build failed"
+fi
+
 echo
 echo "======================================================"
 printf "  passed: %d   failed: %d" "$PASS" "$FAIL"

@@ -32,4 +32,6 @@ gcc -O2 -std=gnu11 -pthread -I"$ROOT" \
 echo "== dag scheduler =="
 timeout 180 env SGPL_NUM_THREADS=8 "$DAG_BIN"
 
+bash "$ROOT/test/run_worker_pool_tests.sh"
+
 echo "composable exec engine tests: PASS"

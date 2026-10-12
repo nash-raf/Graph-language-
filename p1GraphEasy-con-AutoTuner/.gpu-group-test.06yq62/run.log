@@ -1,0 +1,47 @@
+[gpu] buffer registered: base=0x35c42d60 bytes=4
+[gpu] buffer registered: base=0x35c4162c bytes=4
+[gpu] buffer registered: base=0x35c42df0 bytes=8
+[gpu] buffer registered: base=0x35c43090 bytes=4
+[gpu] buffer registered: base=0x35c416cc bytes=4
+[gpu] buffer registered: base=0x35c430b0 bytes=8
+[gpu] buffer registered: base=0x35c43350 bytes=4
+[gpu] buffer registered: base=0x35c4176c bytes=4
+[gpu] buffer registered: base=0x35c43370 bytes=8
+[gpu] buffer registered: base=0x35c43610 bytes=4
+[gpu] buffer registered: base=0x35c4180c bytes=4
+[gpu] buffer registered: base=0x35c43630 bytes=8
+[gpu] buffer registered: base=0x35c438d0 bytes=4
+[gpu] buffer registered: base=0x35c418ac bytes=4
+[gpu] buffer registered: base=0x35c438f0 bytes=8
+[gpu] buffer registered: base=0x35c43b90 bytes=4
+[gpu] buffer registered: base=0x35c4194c bytes=4
+[gpu] buffer registered: base=0x35c43bb0 bytes=8
+[gpu] buffer registered: base=0x35c43e50 bytes=4
+[gpu] buffer registered: base=0x35c419ec bytes=4
+[gpu] buffer registered: base=0x35c43e70 bytes=8
+[gpu] buffer registered: base=0x35c44110 bytes=4
+[gpu] buffer registered: base=0x35c41a8c bytes=4
+[gpu] buffer registered: base=0x35c44130 bytes=8
+[gpu] buffer registered: base=0x35c443d0 bytes=4
+[gpu] buffer registered: base=0x35c41b2c bytes=4
+[gpu] buffer registered: base=0x35c443f0 bytes=8
+[gpu] load_module: loaded from embedded
+[gpu-transfer] upload_bytes=46073 resident_bytes=201184
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-task] kernel=gpu_spatial_component_7 index=4294967296 status=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0
+[gpu-groups] groups=65 active_lanes=0 within_batch_overlap=0 parallel=0

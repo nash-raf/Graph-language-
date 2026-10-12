@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "autotuner_runtime.h"
+#include "../parallel_runtime.h"
 
 /* Linker stubs: this unit test never enters the roaring-backed motif paths
  * (the fake graph is unregistered, so the engine early-returns). */
@@ -124,6 +125,23 @@ static int32_t node_fn(void *state, int64_t node) {
   return 0;
 }
 
+typedef struct async_fixture {
+  int submitted[4], done[4], polls[4], active, peak, fail, errors;
+} async_fixture;
+static int32_t async_submit(void *opaque,int64_t node) {
+  async_fixture *s=opaque;s->submitted[node]++;
+  if(node>=2&&(!s->done[0]||!s->done[1]))s->errors++;
+  if(node==3) {s->done[node]=1;return 0;} /* synchronous host finalization */
+  if(++s->active>s->peak)s->peak=s->active;
+  return SGPL_DAG_PENDING;
+}
+static int32_t async_poll(void *opaque,int64_t node) {
+  async_fixture *s=opaque;
+  if(++s->polls[node]<(node==1?4:2))return SGPL_DAG_PENDING;
+  s->done[node]=1;s->active--;
+  return s->fail&&node==0?-1:0;
+}
+
 static int failures;
 static void check(const char *name, int ok) {
   printf("%s %s\n", ok ? "PASS" : "FAIL", name);
@@ -174,7 +192,26 @@ int gpup_step_v_try(const char *kernel_name, const void *layout_sig, int32_t npa
 /* GPU runtime hook stubs: these tests never take the device path. */
 const char *autograph_gpu_step_name_for(int32_t step_id) { (void)step_id; return NULL; }
 
+static int32_t temporal_fail_fn(void *state, int64_t node) {
+  (void)state;
+  atomic_fetch_add(&g_seen[node], 1);
+  return SGPL_DAG_ERR_NODE;
+}
+
 int main(void) {
+  reset();
+  check("temporal components accept an empty domain",
+        sgpl_exec_temporal_components(node_fn, NULL, 0, 4) == SGPL_DAG_OK && g_order_n == 0);
+  check("temporal components reject a missing callback",
+        sgpl_exec_temporal_components(NULL, NULL, 2, 4) == SGPL_DAG_ERR_INVALID);
+  check("temporal components execute each member once",
+        sgpl_exec_temporal_components(node_fn, NULL, 3, 1) == SGPL_DAG_OK &&
+        g_seen[0] == 1 && g_seen[1] == 1 && g_seen[2] == 1);
+  reset();
+  check("temporal component failure is returned without replay",
+        sgpl_exec_temporal_components(temporal_fail_fn, NULL, 3, 1) == SGPL_DAG_ERR_NODE &&
+        g_seen[0] + g_seen[1] + g_seen[2] == 1);
+  reset();
   sgpl_dag_relation_desc rels[3] = {
       {SGPL_DAG_REL_PRECEDENCE, 0, 0, 2, 1, SGPL_DAG_REL_FLAG_SEMANTIC},
       {SGPL_DAG_REL_PRECEDENCE, 0, 1, 2, 1, SGPL_DAG_REL_FLAG_SEMANTIC},
@@ -495,6 +532,30 @@ int main(void) {
     reset();
   }
 
+  {
+    sgpl_dag_relation_desc edges[3]={
+      {.source_node=0,.sink_node=2,.flags=SGPL_DAG_REL_FLAG_REALIZATION},
+      {.source_node=1,.sink_node=2,.flags=SGPL_DAG_REL_FLAG_REALIZATION},
+      {.source_node=2,.sink_node=3,.flags=SGPL_DAG_REL_FLAG_REALIZATION}};
+    int32_t weights[4]={1,1000,1,1};
+    sgpl_dag_template device={.node_count=4,.relation_count=3,.relations=edges,
+      .node_fn=node_fn,.node_weights=weights};
+    async_fixture s={0};sgpl_push_thread_budget(1);
+    check("async DAG overlaps independent work under a serial CPU grant",
+      autograph_execute_dag_async(&device,&s,async_submit,async_poll)==0&&s.peak==2&&
+      !s.errors&&s.done[3]&&sgpl_current_thread_budget()==1&&!sgpl_debug_reserved_threads());
+    for(int i=0;i<4;++i)check("async DAG submits each node once",s.submitted[i]==1);
+    sgpl_pop_thread_budget();
+    s=(async_fixture){.fail=1};
+    check("async failure cancels successors and joins submitted work",
+      autograph_execute_dag_async(&device,&s,async_submit,async_poll)==SGPL_DAG_ERR_NODE&&
+      !s.active&&s.done[0]&&s.done[1]&&!s.submitted[2]&&!s.submitted[3]);
+    reset();
+    check("validation checks topology without running callbacks",
+      autograph_validate_dag(&device)==0&&atomic_load(&g_order_n)==0);
+    edges[2].source_node=2;edges[2].sink_node=0;
+    check("validation rejects a cycle before execution",autograph_validate_dag(&device)==SGPL_DAG_ERR_CYCLE);
+  }
   printf("%s (%d failure%s)\n", failures ? "FAILURES" : "ALL PASS", failures,
          failures == 1 ? "" : "s");
   return failures ? 1 : 0;

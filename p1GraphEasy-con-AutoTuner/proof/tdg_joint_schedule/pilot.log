@@ -1,0 +1,62 @@
+In file included from tools/tdg_joint_probe.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+In file included from tools/tdg_joint_probe.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+In file included from tools/tdg_joint_probe.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+1/6 B=4 overflow-short
+2/6 B=4 streaming
+3/6 B=4 tiny
+4/6 B=4 overflow-all-long
+5/6 B=4 fits-mixed
+6/6 B=4 overflow-one-long
+B=4 fits-mixed: reference=2.478ms, current=2.616ms, joint=1.754ms; joint change=-29.2%
+B=4 overflow-short: joint=1.763ms, reference=1.678ms, current=2.076ms; joint change=+5.1%
+B=4 overflow-one-long: joint=8.415ms, current=9.298ms, reference=9.546ms; joint change=-11.9%
+B=4 overflow-all-long: joint=12.896ms, reference=17.103ms, current=16.039ms; joint change=-24.6%
+B=4 tiny: joint=0.223ms, reference=0.327ms, current=0.249ms; joint change=-31.9%
+B=4 streaming: current=1.722ms, reference=1.037ms, joint=0.631ms; joint change=-39.1%
+Geometric mean joint/reference=0.7678
+Cases improved=5/6; worst ratio=1.051

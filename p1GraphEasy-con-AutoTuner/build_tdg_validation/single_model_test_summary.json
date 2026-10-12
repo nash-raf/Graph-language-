@@ -1,0 +1,8 @@
+{
+  "active_model": "current ARS only; missing residency metadata uses DRAM rates",
+  "focused_suite": "PASS",
+  "layout_model_regressions": "PASS (4 tests)",
+  "metadata_equation_comparisons": "PASS (160 comparisons)",
+  "frontend_runtime": "PASS (1/20 rounds at 1/4 threads)",
+  "known_full_suite_failure": "rt_expr_firstwins reads dist[4] and dist[5] from a four-element array; reproduced with original cost model; fixture unchanged"
+}

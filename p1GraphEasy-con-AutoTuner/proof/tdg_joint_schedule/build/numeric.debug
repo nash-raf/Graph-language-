@@ -1,0 +1,4 @@
+[outliner] skip:not-versionable reason=empty-loop-body (fn=task_2 hdr=loadstoreloop88 depth=1)
+[outliner] skip:not-versionable reason=empty-loop-body (fn=task_3 hdr=loadstoreloop depth=1)
+[outliner] skip:not-versionable reason=empty-loop-body (fn=task_2 hdr=loadstoreloop88 depth=1)
+[outliner] skip:not-versionable reason=empty-loop-body (fn=task_3 hdr=loadstoreloop depth=1)

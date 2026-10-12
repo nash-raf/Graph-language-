@@ -1,0 +1,6 @@
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int input[n]; int out[n];
+for each vertex u in G { input[u] = u + 1; }
+for each vertex u in G { for each neighbor v of u in G { out[u] = input[u] + v; } }
+for each vertex u in G { print out[u]; }

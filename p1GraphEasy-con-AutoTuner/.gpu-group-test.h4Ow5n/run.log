@@ -1,0 +1,89 @@
+[gpu] buffer registered: base=0x7ffc5c23b730 bytes=260
+[gpu] pointee registered: b base=0x7ffc5c23b730 bytes=260
+[gpu] load_module: loaded from embedded
+[gpu-transfer] upload_bytes=27634 resident_bytes=0
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-transfer] upload_bytes=2494 resident_bytes=25140
+[gpu-task] kernel=gpu_spatial_component_6 index=0 status=0
+[gpu-groups] groups=64 active_lanes=64 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=20 predicted_ns=6026.085 measured_ns=30080259 predicted_ms=0.006026 measured_ms=30.080259
+[AutoTunerProfile] total kind=Traverse predicted_ns=6026.085 measured_ns=30080259 predicted_ms=0.006026 measured_ms=30.080259 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

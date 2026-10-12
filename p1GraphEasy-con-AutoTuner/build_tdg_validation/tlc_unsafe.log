@@ -1,0 +1,54 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 92 and seed 644515062200652761 with 1 worker on 12 cores with 1749MB heap and 64MB offheap memory [pid: 446] (Linux 6.6.87.2-microsoft-standard-WSL2 amd64, Ubuntu 21.0.12.1 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/TDGTaskSafety.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TDGTaskSafety
+Starting... (2026-10-08 09:02:30)
+Computing initial states...
+Computed 2 initial states...
+Computed 4 initial states...
+Computed 8 initial states...
+Computed 16 initial states...
+Computed 32 initial states...
+Computed 64 initial states...
+Computed 128 initial states...
+Computed 256 initial states...
+Computed 512 initial states...
+Computed 1024 initial states...
+Computed 2048 initial states...
+Finished computing initial states: 2916 distinct states generated at 2026-10-08 09:02:30.
+Error: Invariant Safety is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ actualBefore = (a :> {} @@ b :> {})
+/\ declaredBefore = (a :> {} @@ b :> {})
+/\ done = {}
+/\ opaque = {a}
+/\ summaryRead = (a :> {} @@ b :> {})
+/\ actualRead = (a :> {} @@ b :> {})
+/\ waiting = {a, b}
+/\ running = {}
+/\ summaryWrite = (a :> {} @@ b :> {})
+/\ actualWrite = (a :> {} @@ b :> {})
+
+State 2: <Next line 83, col 6 to line 83, col 38 of module TDGTaskSafety>
+/\ actualBefore = (a :> {} @@ b :> {})
+/\ declaredBefore = (a :> {} @@ b :> {})
+/\ done = {}
+/\ opaque = {a}
+/\ summaryRead = (a :> {} @@ b :> {})
+/\ actualRead = (a :> {} @@ b :> {})
+/\ waiting = {}
+/\ running = {a, b}
+/\ summaryWrite = (a :> {} @@ b :> {})
+/\ actualWrite = (a :> {} @@ b :> {})
+
+2926 states generated, 2926 distinct states found, 2915 states left on queue.
+The depth of the complete state graph search is 2.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 3).
+Finished in 00s at (2026-10-08 09:02:30)

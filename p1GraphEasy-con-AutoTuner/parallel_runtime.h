@@ -68,6 +68,17 @@ int32_t sgpl_current_worker_index(void);
  * stable, unique lane index, exactly as it would inside the worker pool. */
 void sgpl_set_current_worker_index(int32_t index);
 
+/* Reuse the process-wide loop worker pool. Infrastructure is prepared before
+ * any callback runs. Returns 0 on success, -1 on allocation failure, or -2 on
+ * worker/synchronization preparation failure. Calls from a pool worker execute
+ * once on that worker. Independent host callers serialize at the pool boundary.
+ * Each callback runs one worker's assigned work. Nested dispatch runs on the
+ * calling worker. Requested width is capped by the configured team and parent. */
+typedef void (*sgpl_pool_work_fn)(void *state, int32_t worker_index);
+int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
+                              int32_t worker_count);
+int32_t sgpl_is_worker_pool_thread(void);
+
 /* Debug introspection: current global budget reservations.  Used by the
  * fork/join resources-and-budget tests to verify the ledger is balanced. */
 int32_t sgpl_debug_reserved_threads(void);

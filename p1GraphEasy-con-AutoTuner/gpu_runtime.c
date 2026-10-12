@@ -1,6 +1,9 @@
 #define _GNU_SOURCE
 #include "gpu_runtime.h"
 #include "parallel_runtime.h"
+#include "autotuner_runtime.h"
+#include <limits.h>
+#include <stddef.h>
 
 #include <dlfcn.h>
 #include <pthread.h>
@@ -8,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // PTX text embedded in the executable by emitGpuKernels (see
 // "gpu_embedded_ptx" in parallel_loop_outline.cpp). Weak so this builds even
@@ -79,8 +83,9 @@ typedef struct
 
 static gpu_pointee_desc g_pointees[GPUP_MAX_POINTEES];
 static int g_num_pointees = 0;
+static pthread_mutex_t g_registry_lock = PTHREAD_MUTEX_INITIALIZER;
 
-void sgpl_gpu_register_pointee(const char *name, void *base, int64_t bytes)
+static void gpu_register_pointee_unlocked(const char *name, void *base, int64_t bytes)
 {
     if (!name || !name[0] || !base || bytes <= 0)
         return;
@@ -114,6 +119,11 @@ void sgpl_gpu_register_pointee(const char *name, void *base, int64_t bytes)
         fprintf(stderr, "[gpu] pointee registered: %s base=%p bytes=%lld\n", name, base,
                 (long long)bytes);
 }
+void sgpl_gpu_register_pointee(const char *name,void *base,int64_t bytes) {
+    pthread_mutex_lock(&g_registry_lock);
+    gpu_register_pointee_unlocked(name,base,bytes);
+    pthread_mutex_unlock(&g_registry_lock);
+}
 
 /* Value-keyed buffer registry: the generated code registers the sized objects
  * it hands to an env (see sgpl_gpu_register_buffer).  Fields the compiler could
@@ -130,7 +140,7 @@ typedef struct
 static gpu_buffer_desc g_buffers[GPUB_MAX_BUFFERS];
 static int g_num_buffers = 0;
 
-void sgpl_gpu_register_buffer(void *base, int64_t bytes)
+static void gpu_register_buffer_unlocked(void *base, int64_t bytes)
 {
     if (!base || bytes <= 0)
         return;
@@ -150,25 +160,41 @@ void sgpl_gpu_register_buffer(void *base, int64_t bytes)
     if (getenv("SGPL_GPU_DEBUG"))
         fprintf(stderr, "[gpu] buffer registered: base=%p bytes=%lld\n", base, (long long)bytes);
 }
+void sgpl_gpu_register_buffer(void *base,int64_t bytes) {
+    pthread_mutex_lock(&g_registry_lock);
+    gpu_register_buffer_unlocked(base,bytes);
+    pthread_mutex_unlock(&g_registry_lock);
+}
 
 static const gpu_buffer_desc *gpu_lookup_buffer(const void *base)
 {
-    if (!base)
-        return NULL;
-    for (int i = 0; i < g_num_buffers; ++i)
-        if (g_buffers[i].base == base)
-            return &g_buffers[i];
-    return NULL;
+    static _Thread_local gpu_buffer_desc copy;
+    int found=0;pthread_mutex_lock(&g_registry_lock);
+    for (int i = 0; base && i < g_num_buffers; ++i)
+        if (g_buffers[i].base == base) {copy=g_buffers[i];found=1;break;}
+    pthread_mutex_unlock(&g_registry_lock);return found?&copy:NULL;
 }
 
 static const gpu_pointee_desc *gpu_lookup_pointee(const char *name)
 {
-    if (!name)
-        return NULL;
+    static _Thread_local gpu_pointee_desc copy;
+    int found=0;pthread_mutex_lock(&g_registry_lock);
     for (int i = 0; i < g_num_pointees; ++i)
-        if (strncmp(g_pointees[i].name, name, sizeof(g_pointees[i].name) - 1) == 0)
-            return &g_pointees[i];
-    return NULL;
+        if (name && strncmp(g_pointees[i].name, name, sizeof(g_pointees[i].name) - 1) == 0) {copy=g_pointees[i];found=1;break;}
+    pthread_mutex_unlock(&g_registry_lock);return found?&copy:NULL;
+}
+static uint64_t gpu_known_extent(const void *pointer) {
+    uint64_t bytes=0;uintptr_t address=(uintptr_t)pointer;
+    pthread_mutex_lock(&g_registry_lock);
+    for(int i=0;i<g_num_buffers;++i) {
+        uintptr_t base=(uintptr_t)g_buffers[i].base;uint64_t size=g_buffers[i].bytes;
+        if(address>=base && address-base<size) {bytes=size-(address-base);break;}
+    }
+    for(int i=0;!bytes&&i<g_num_pointees;++i) {
+        uintptr_t base=(uintptr_t)g_pointees[i].base;uint64_t size=g_pointees[i].bytes;
+        if(address>=base && address-base<size) {bytes=size-(address-base);break;}
+    }
+    pthread_mutex_unlock(&g_registry_lock);return bytes;
 }
 
 static void *g_cuda_lib = NULL;
@@ -206,7 +232,7 @@ static cuDeviceGetAttributeFn p_cuDeviceGetAttribute = NULL;
         }                                                     \
     } while (0)
 
-static int load_cuda(void)
+static int load_cuda_unlocked(void)
 {
     if (g_cuda_loaded)
         return g_cuda_available;
@@ -263,6 +289,17 @@ static int load_cuda(void)
     return 1;
 }
 
+static pthread_mutex_t g_cuda_init_lock = PTHREAD_MUTEX_INITIALIZER;
+static int load_cuda(void)
+{
+    const char *fault=getenv("SGPL_GPU_FAIL");
+    if(fault&&!strcmp(fault,"driver")) return 0;
+    pthread_mutex_lock(&g_cuda_init_lock);
+    int available = load_cuda_unlocked();
+    pthread_mutex_unlock(&g_cuda_init_lock);
+    return available;
+}
+
 static char *read_ptx_file(size_t *len_out)
 {
     FILE *fp = fopen("kernels.ptx", "rb");
@@ -309,7 +346,7 @@ static char *read_ptx_file(size_t *len_out)
     return buf;
 }
 
-static CUmodule load_module(void)
+static CUmodule load_module_unlocked(void)
 {
     if (g_cached_module)
         return g_cached_module;
@@ -338,12 +375,13 @@ static CUmodule load_module(void)
     }
 
     CUmodule mod = NULL;
-    CUresult r = p_cuModuleLoadDataEx(&mod, ptx, 0, NULL, NULL);
+    char jit_error[8192]={0};int options[2]={5,6};void *values[2]={jit_error,(void*)(uintptr_t)sizeof(jit_error)};
+    CUresult r = p_cuModuleLoadDataEx(&mod, ptx, 2, options, values);
     free(file_ptx);
     if (r != CUDA_SUCCESS || !mod)
     {
         if (getenv("SGPL_GPU_DEBUG"))
-            fprintf(stderr, "[gpu] load_module: cuModuleLoadDataEx failed r=%d (%s)\n", (int)r, ptx_src);
+            fprintf(stderr, "[gpu] load_module: cuModuleLoadDataEx failed r=%d (%s): %s\n", (int)r, ptx_src,jit_error);
         return NULL;
     }
 
@@ -352,6 +390,16 @@ static CUmodule load_module(void)
 
     g_cached_module = mod;
     return mod;
+}
+
+static CUmodule load_module(void)
+{
+    const char *fault=getenv("SGPL_GPU_FAIL");
+    if(fault&&!strcmp(fault,"module")) return NULL;
+    pthread_mutex_lock(&g_cuda_init_lock);
+    CUmodule module = load_module_unlocked();
+    pthread_mutex_unlock(&g_cuda_init_lock);
+    return module;
 }
 
 /* ── device cost model ────────────────────────────────────────────────
@@ -504,9 +552,11 @@ static int g_num_stepp = 0;
 static int gpu_step_prepare_pointees(CUmodule mod)
 {
     int live = 0;
-    for (int i = 0; i < g_num_pointees; ++i)
+    gpu_pointee_desc registered[GPUP_MAX_POINTEES];int count;
+    pthread_mutex_lock(&g_registry_lock);count=g_num_pointees;memcpy(registered,g_pointees,count*sizeof(*registered));pthread_mutex_unlock(&g_registry_lock);
+    for (int i = 0; i < count; ++i)
     {
-        const gpu_pointee_desc *P = &g_pointees[i];
+        const gpu_pointee_desc *P = &registered[i];
         CUdeviceptr dptr = 0;
         size_t dsize = 0;
         if (p_cuModuleGetGlobal(&dptr, &dsize, mod, P->name) != CUDA_SUCCESS || !dptr ||
@@ -561,16 +611,16 @@ static int gpu_step_prepare_pointees(CUmodule mod)
             return 0;
         ++live;
     }
-    return live > 0 || g_num_pointees == 0;
+    return live > 0 || count == 0;
 }
 
-static void gpu_step_copy_back(void)
+static int gpu_step_copy_back(void)
 {
     for (int i = 0; i < g_num_stepp; ++i)
         if (g_step_pointees[i].dev && g_step_pointees[i].base)
         {
-            p_cuMemcpyDtoH(g_step_pointees[i].base, g_step_pointees[i].dev,
-                           (size_t)g_step_pointees[i].bytes);
+            if(p_cuMemcpyDtoH(g_step_pointees[i].base, g_step_pointees[i].dev,
+                           (size_t)g_step_pointees[i].bytes)!=CUDA_SUCCESS) return -1;
             if (getenv("SGPL_GPU_DEBUG"))
             {
                 const int32_t *h = (const int32_t *)g_step_pointees[i].base;
@@ -581,10 +631,11 @@ static void gpu_step_copy_back(void)
                     nz += (h[k] != 0);
                 }
                 fprintf(stderr, "[gpu] step copy-back %s: [%d %d %d %d] sum=%lld nonzero=%lld/%lld\n",
-                        g_step_pointees[i].name, h[0], h[1], h[2], h[3],
+                        g_step_pointees[i].name, n>0?h[0]:0, n>1?h[1]:0, n>2?h[2]:0, n>3?h[3]:0,
                         (long long)sum, (long long)nz, (long long)n);
             }
         }
+    return 0;
 }
 
 /* Run one partition's step on the device.  Returns 1 only when the kernel ran
@@ -628,7 +679,6 @@ void sgpl_gpu_prepare(void)
 /* --- M2: the temporal axis on a real stream ----------------------------- */
 static CUstream g_step_stream = NULL;
 static int g_step_stream_tried = 0;
-static int g_block_budget = -1;
 
 /* The temporal chain is launch-ordered; putting the launches on one explicit
  * non-blocking stream makes that ordering a stream ordering.  The default
@@ -660,36 +710,14 @@ static CUresult gpup_step_sync(void)
     return p_cuCtxSynchronize();
 }
 
-/* --- M3: the ledger share as a device block budget ---------------------- */
-static int gpup_block_budget(void)
-{
-    if (g_block_budget < 0)
-    {
-        const char *e = getenv("SGPL_GPU_BLOCK_BUDGET");
-        int v = e ? atoi(e) : 0;
-        if (v <= 0 && getenv("SGPL_GPU_BUDGET_FROM_LEDGER"))
-        {
-            extern int32_t sgpl_current_thread_budget(void) __attribute__((weak));
-            if (sgpl_current_thread_budget)
-                v = (int)sgpl_current_thread_budget();
-        }
-        g_block_budget = v > 0 ? v : 0;
-        if (getenv("SGPL_GPU_DEBUG") && g_block_budget)
-            fprintf(stderr, "[gpu] block budget (M3): %d blocks\n", g_block_budget);
-    }
-    return g_block_budget;
-}
-
-/* Explicit setter for the engine: pass the node's ledger share (threads) and
- * the device side turns it into a resident-block cap. */
+/* Compatibility entry point. Device launches have no resource-budget model. */
 void gpup_set_block_budget(int32_t blocks)
 {
-    g_block_budget = blocks > 0 ? blocks : 0;
-    if (getenv("SGPL_GPU_DEBUG"))
-        fprintf(stderr, "[gpu] block budget set (M3): %d blocks\n", g_block_budget);
+    (void)blocks;
 }
 
-int gpup_step_try(const char *name, const int32_t *pairs, int64_t npairs)
+static pthread_mutex_t g_legacy_step_lock = PTHREAD_MUTEX_INITIALIZER;
+static int gpup_step_try_unlocked(const char *name, const int32_t *pairs, int64_t npairs)
 {
     if (!name || !name[0] || !pairs || npairs <= 0)
         return 0;
@@ -793,8 +821,7 @@ int gpup_step_try(const char *name, const int32_t *pairs, int64_t npairs)
 
     void *env_arg = NULL; /* stage 1: the pair body takes no state or env */
     unsigned int block = 128;
-    unsigned int budget = (unsigned int)gpup_block_budget();
-    int64_t chunk_rows = budget ? (int64_t)budget * (int64_t)block : nrows;
+    int64_t chunk_rows = nrows;
     unsigned int grid_total = 0;
     CUresult lr = CUDA_SUCCESS;
     for (int64_t off = 0; off < nrows; off += chunk_rows)
@@ -814,19 +841,19 @@ int gpup_step_try(const char *name, const int32_t *pairs, int64_t npairs)
     if (lr != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
-            fprintf(stderr, "[gpu] engine step launch failed r=%d; CPU\n", (int)lr);
-        return 0;
+            fprintf(stderr, "[gpu] engine step launch failed r=%d; no replay\n", (int)lr);
+        return SGPL_GPU_ERR_EXEC;
     }
     if (gpup_step_sync() != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
-            fprintf(stderr, "[gpu] engine step sync failed (context poisoned); CPU\n");
-        return 0;
+            fprintf(stderr, "[gpu] engine step sync failed; no replay\n");
+        return SGPL_GPU_ERR_EXEC;
     }
-    gpu_step_copy_back();
+    if(gpu_step_copy_back()<0) return SGPL_GPU_ERR_EXEC;
     if (getenv("SGPL_GPU_DEBUG"))
-        fprintf(stderr, "[gpu] engine step ran on device: %s pairs=%lld rows=%lld grid=%u budget=%u\n",
-                name, (long long)npairs, (long long)nrows, grid_total, budget);
+        fprintf(stderr, "[gpu] engine step ran on device: %s pairs=%lld rows=%lld grid=%u\n",
+                name, (long long)npairs, (long long)nrows, grid_total);
     return 1;
 }
 
@@ -865,7 +892,7 @@ static int64_t g_v_arcs_cap = 0;
 static int64_t g_v_nrows = -1;
 
 
-int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
+static int gpup_step_v_try_unlocked(const char *name, const void *layout_sig, int32_t npart,
                     int64_t *const *rp, const int32_t *const *ci,
                     const int32_t *const *indir, const int64_t *row_counts,
                     const uint8_t *mem, int64_t nmem, const uint8_t **claimed_out)
@@ -1035,8 +1062,7 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
     CUdeviceptr mem_arg = (mem && nmem > 0) ? g_v_mem_dev : 0;
     void *env_arg = NULL;
     unsigned int block = 128;
-    unsigned int budget = (unsigned int)gpup_block_budget();
-    int64_t chunk_rows = budget ? (int64_t)budget * (int64_t)block : g_v_nrows;
+    int64_t chunk_rows = g_v_nrows;
     unsigned int grid_total = 0;
     CUresult lr = CUDA_SUCCESS;
     for (int64_t off = 0; off < g_v_nrows; off += chunk_rows)
@@ -1057,24 +1083,42 @@ int gpup_step_v_try(const char *name, const void *layout_sig, int32_t npart,
     if (lr != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
-            fprintf(stderr, "[gpu] activation step launch failed r=%d; CPU\n", (int)lr);
-        return 0;
+            fprintf(stderr, "[gpu] activation step launch failed r=%d; no replay\n", (int)lr);
+        return SGPL_GPU_ERR_EXEC;
     }
     if (gpup_step_sync() != CUDA_SUCCESS)
     {
         if (getenv("SGPL_GPU_DEBUG"))
-            fprintf(stderr, "[gpu] activation step sync failed (context poisoned); CPU\n");
-        return 0;
+            fprintf(stderr, "[gpu] activation step sync failed; no replay\n");
+        return SGPL_GPU_ERR_EXEC;
     }
     if (p_cuMemcpyDtoH(g_v_claim_host, g_v_claim_dev, (size_t)nmem) != CUDA_SUCCESS)
-        return 0;
-    gpu_step_copy_back();
+        return SGPL_GPU_ERR_EXEC;
+    if(gpu_step_copy_back()<0) return SGPL_GPU_ERR_EXEC;
     if (claimed_out)
         *claimed_out = g_v_claim_host;
     if (getenv("SGPL_GPU_DEBUG"))
-        fprintf(stderr, "[gpu] activation step ran on device: %s rows=%lld grid=%u budget=%u\n",
-                name, (long long)g_v_nrows, grid_total, budget);
+        fprintf(stderr, "[gpu] activation step ran on device: %s rows=%lld grid=%u\n",
+                name, (long long)g_v_nrows, grid_total);
     return 1;
+}
+
+int gpup_step_try(const char *name,const int32_t *pairs,int64_t npairs) {
+    pthread_mutex_lock(&g_legacy_step_lock);int rc=gpup_step_try_unlocked(name,pairs,npairs);
+    pthread_mutex_unlock(&g_legacy_step_lock);return rc;
+}
+int gpup_step_v_try(const char *name,const void *sig,int32_t parts,int64_t *const *rp,
+    const int32_t *const *ci,const int32_t *const *indir,const int64_t *rows,
+    const uint8_t *mem,int64_t nmem,const uint8_t **claimed) {
+    static _Thread_local uint8_t *owned_claims;
+    static _Thread_local size_t owned_capacity;
+    if(claimed && nmem>0 && (uint64_t)nmem>owned_capacity) {
+        void *copy=realloc(owned_claims,(size_t)nmem);if(!copy)return 0;
+        owned_claims=copy;owned_capacity=nmem;
+    }
+    pthread_mutex_lock(&g_legacy_step_lock);int rc=gpup_step_v_try_unlocked(name,sig,parts,rp,ci,indir,rows,mem,nmem,claimed);
+    if(rc==1 && claimed && *claimed && nmem>0) {memcpy(owned_claims,*claimed,(size_t)nmem);*claimed=owned_claims;}
+    pthread_mutex_unlock(&g_legacy_step_lock);return rc;
 }
 
 void gpu_parallel_for_runtime(
@@ -1162,18 +1206,22 @@ void gpu_parallel_for_runtime(
         return;
     }
 
+    /* Legacy kernels publish module globals. Serialize that compatibility
+     * path across upload, execution and download. New explicit frames do not. */
+    pthread_mutex_lock(&g_legacy_step_lock);
     size_t nfields = num_ptr_fields > 0 ? (size_t)num_ptr_fields : 1;
     size_t nglob = num_globals > 0 ? (size_t)num_globals : 1;
     CUdeviceptr *d_bufs = (CUdeviceptr *)calloc(nfields, sizeof(CUdeviceptr));
     CUdeviceptr *d_pointees = (CUdeviceptr *)calloc(nglob, sizeof(CUdeviceptr));
     int64_t *d_sizes = (int64_t *)calloc(nfields, sizeof(int64_t));
     void **host_ptrs = (void **)calloc(nfields, sizeof(void *));
-    if (!d_bufs || !d_sizes || !host_ptrs)
+    if (!d_bufs || !d_sizes || !host_ptrs || !d_pointees)
     {
         free(d_bufs);
         free(d_pointees);
         free(d_sizes);
         free(host_ptrs);
+        pthread_mutex_unlock(&g_legacy_step_lock);
         parallel_for_runtime(start, end, step, body, env, needs_doacross,
                              doacross_num_sync_ids);
         return;
@@ -1186,6 +1234,7 @@ void gpu_parallel_for_runtime(
         free(d_pointees);
         free(d_sizes);
         free(host_ptrs);
+        pthread_mutex_unlock(&g_legacy_step_lock);
         parallel_for_runtime(start, end, step, body, env, needs_doacross,
                              doacross_num_sync_ids);
         return;
@@ -1198,6 +1247,7 @@ void gpu_parallel_for_runtime(
         free(d_pointees);
         free(d_sizes);
         free(host_ptrs);
+        pthread_mutex_unlock(&g_legacy_step_lock);
         parallel_for_runtime(start, end, step, body, env, needs_doacross,
                              doacross_num_sync_ids);
         return;
@@ -1298,7 +1348,7 @@ void gpu_parallel_for_runtime(
         d_sizes[i] = size;
     }
 
-    int device_ran = 0;
+    int device_ran = 0, device_error = 0;
     if (setup_ok)
     {
         // Copy referenced global arrays host -> device. The device module owns
@@ -1397,7 +1447,7 @@ void gpu_parallel_for_runtime(
                     grid = max_blocks;
                 launch_r = p_cuLaunchCooperativeKernel(kfn, grid, 1, 1, block, 1, 1, 0, NULL, kparams, NULL);
                 if (launch_r != CUDA_SUCCESS && getenv("SGPL_GPU_DEBUG"))
-                    fprintf(stderr, "[gpu] cooperative launch failed r=%d; CPU fallback\n", (int)launch_r);
+                    fprintf(stderr, "[gpu] cooperative launch failed r=%d; execution error\n", (int)launch_r);
             }
         }
         else
@@ -1405,9 +1455,10 @@ void gpu_parallel_for_runtime(
             launch_r = p_cuLaunchKernel(kfn, grid, 1, 1, block, 1, 1, 0, NULL, kparams, NULL);
         }
 
+        if (setup_ok && launch_r != CUDA_SUCCESS) device_error=1;
         if (setup_ok && launch_r == CUDA_SUCCESS)
         {
-            p_cuCtxSynchronize();
+            if(p_cuCtxSynchronize()!=CUDA_SUCCESS) device_error=1;
             if (getenv("SGPL_GPU_DEBUG"))
             {
                 int null_fields = 0;
@@ -1424,11 +1475,11 @@ void gpu_parallel_for_runtime(
                         num_globals, npointee, needs_doacross ? " cooperative" : "",
                         (int)num_ptr_fields, null_fields, (long long)env_size);
             }
-            p_cuMemcpyDtoH(env, d_env, (size_t)env_size);
+            if(!device_error && p_cuMemcpyDtoH(env, d_env, (size_t)env_size)!=CUDA_SUCCESS) device_error=1;
             for (i = 0; i < num_ptr_fields; ++i)
             {
-                if (d_bufs[i] && d_sizes[i] > 0 && host_ptrs[i])
-                    p_cuMemcpyDtoH(host_ptrs[i], d_bufs[i], (size_t)d_sizes[i]);
+                if (!device_error && d_bufs[i] && d_sizes[i] > 0 && host_ptrs[i])
+                    if(p_cuMemcpyDtoH(host_ptrs[i], d_bufs[i], (size_t)d_sizes[i])!=CUDA_SUCCESS) device_error=1;
                 // Restore the original host pointer in the env struct (the whole
                 // struct was copied back and its pointer fields now hold device
                 // addresses).
@@ -1440,14 +1491,14 @@ void gpu_parallel_for_runtime(
                 if (d_pointees[i])
                 {
                     const gpu_pointee_desc *P = gpu_lookup_pointee(global_names[i]);
-                    if (P)
-                        p_cuMemcpyDtoH(P->base, d_pointees[i], (size_t)P->bytes);
+                    if (P && !device_error)
+                        if(p_cuMemcpyDtoH(P->base, d_pointees[i], (size_t)P->bytes)!=CUDA_SUCCESS) device_error=1;
                     continue;
                 }
                 CUdeviceptr dptr = 0;
                 size_t dsize = 0;
-                if (p_cuModuleGetGlobal(&dptr, &dsize, mod, global_names[i]) == CUDA_SUCCESS && dptr)
-                    p_cuMemcpyDtoH(global_ptrs[i], dptr, (size_t)global_sizes[i]);
+                if (!device_error && p_cuModuleGetGlobal(&dptr, &dsize, mod, global_names[i]) == CUDA_SUCCESS && dptr)
+                    if(p_cuMemcpyDtoH(global_ptrs[i], dptr, (size_t)global_sizes[i])!=CUDA_SUCCESS) device_error=1;
             }
             device_ran = 1;
         }
@@ -1464,7 +1515,12 @@ void gpu_parallel_for_runtime(
     free(d_sizes);
     free(host_ptrs);
     p_cuMemFree(d_env);
+    pthread_mutex_unlock(&g_legacy_step_lock);
 
+    if(device_error) {fprintf(stderr,"GPU execution failed; completed effects will not be replayed\n");exit(EXIT_FAILURE);}
     if (!device_ran)
         parallel_for_runtime(start, end, step, body, env, needs_doacross, doacross_num_sync_ids);
 }
+
+#include "gpu_residency.inc"
+#include "gpu_invocation.inc"

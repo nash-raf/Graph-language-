@@ -1,0 +1,21 @@
+graph G { directed: true; edges: file "test/gpu_group_parallel.edges"; };
+int n = numVertices(G);
+int out[9];
+int r = 0;
+int limit = 9;
+int acc = 0;
+while (r < limit) {
+  acc = 0;
+  r = r + 1;
+  for each vertex u in G {
+    for each neighbor v of u in G {
+      acc = acc + (v + 1);
+    }
+  }
+  out[r - 1] = acc + 100 * r;
+}
+int total = 0;
+int i = 0;
+while (i < limit) { total = total + out[i]; i = i + 1; }
+print total;
+print r;

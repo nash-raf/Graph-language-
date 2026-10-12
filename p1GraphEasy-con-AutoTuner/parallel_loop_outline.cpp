@@ -4015,6 +4015,14 @@ void emitGpuKernels(Module &M, StringRef PtxPath)
     GpuKernelsMD->eraseFromParent();
     for (Function *K : Kernels)
         K->eraseFromParent();
+    /* Dedicated device functions can contain PTX registers and timers.
+     * Remove their host copies even when the host IR is not optimized.
+     * Shared original CPU callbacks remain available for fallback. */
+    SmallVector<Function *,16> DeviceOnly;
+    for(Function &F:M) if(F.hasFnAttribute("sgpl.device.only")||
+        (F.hasLocalLinkage()&&F.getName().starts_with("sgpl.gpu."))) DeviceOnly.push_back(&F);
+    for(Function *F:DeviceOnly) F->dropAllReferences();
+    for(Function *F:DeviceOnly) F->eraseFromParent();
 
     InitializeAllTargetInfos();
     InitializeAllTargets();

@@ -3510,6 +3510,22 @@ namespace llvm
 
         llvm::nulls() << "✓ Found main function\n";
 
+        /* A managed dispatch owns its failure branches and frame publication.
+         * SCC extraction must not turn a conditional failure into an
+         * unconditional task. Ordinary loop outlining can still run later. */
+        for (BasicBlock &BB : *mainFunc)
+            for (Instruction &I : BB)
+                if (auto *Call = dyn_cast<CallBase>(&I))
+                    if (Function *Callee = Call->getCalledFunction()) {
+                        StringRef N = Callee->getName();
+                        if (N == "sgpl_exec_temporal_components" ||
+                            N == "sgpl_exec_temporal_gpu_components" ||
+                            N == "sgpl_exec_dag_round_spatial" ||
+                            N == "sgpl_exec_dag_round_spatial_gpu" ||
+                            N == "sgpl_exec_spatial_gpu")
+                            return;
+                    }
+
         // Create CodeExtractorAnalysisCache for the function
         CodeExtractorAnalysisCache CEAC(*mainFunc);
 

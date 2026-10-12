@@ -1,0 +1,861 @@
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=42 samples=0 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=42 span=42
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=234503.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=234503.00 refined_units=938
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=42 samples=0 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=42 span=42
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=198609.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=198609.00 refined_units=794
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=5 samples=0 source=static
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=5 effective_span=5 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=5 span=5
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=60.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=60.00 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=129 samples=0 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=129 span=129
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[tdg.init] logical_threads=8 physical_threads=6 allow_ht=0 ht_disallow=0 unit_cost_ns=250.00 alpha=0.42 min_gain=0.12 min_work_for_ht=64
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=1264325.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=1264325.00 refined_units=5057
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=129 samples=0 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=129 span=129
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=373950.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=373950.00 refined_units=1496
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=42 samples=0 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=42 span=42
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=19661.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=19661.00 refined_units=79
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=42 samples=1 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=42 span=42
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69232.00 old_samples=1 new_samples=2 old_ewma_ns=234503.00 new_ewma_ns=193185.25 refined_units=773
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=42 samples=1 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=42 span=42
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=109927.00 old_samples=1 new_samples=2 old_ewma_ns=198609.00 new_ewma_ns=176438.50 refined_units=706
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=5 samples=1 source=static
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=5 effective_span=5 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=5 span=5
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=50.00 old_samples=1 new_samples=2 old_ewma_ns=60.00 new_ewma_ns=57.50 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=129 samples=1 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=129 span=129
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=402720.00 old_samples=1 new_samples=2 old_ewma_ns=1264325.00 new_ewma_ns=1048923.75 refined_units=4196
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=129 samples=1 source=static
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=129 effective_span=129 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=129 span=129
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=328948.00 old_samples=1 new_samples=2 old_ewma_ns=373950.00 new_ewma_ns=362699.50 refined_units=1451
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=42 samples=1 source=static
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=42 effective_span=42 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=42 span=42
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=261.00 old_samples=1 new_samples=2 old_ewma_ns=19661.00 new_ewma_ns=14811.00 refined_units=59
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=672 samples=2 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=672 effective_span=672 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=672 span=672
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69243.00 old_samples=2 new_samples=3 old_ewma_ns=193185.25 new_ewma_ns=162199.69 refined_units=649
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=672 samples=2 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=672 effective_span=672 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=672 span=672
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69242.00 old_samples=2 new_samples=3 old_ewma_ns=176438.50 new_ewma_ns=149639.38 refined_units=599
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=2 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=40.00 old_samples=2 new_samples=3 old_ewma_ns=57.50 new_ewma_ns=53.12 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=2064 samples=2 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=2064 effective_span=2064 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2064 span=2064
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=402198.00 old_samples=2 new_samples=3 old_ewma_ns=1048923.75 new_ewma_ns=887242.31 refined_units=3549
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1451 samples=2 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1451 effective_span=1451 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=1451 span=1451
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=328728.00 old_samples=2 new_samples=3 old_ewma_ns=362699.50 new_ewma_ns=354206.62 refined_units=1417
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=59 samples=2 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=59 effective_span=59 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=59 span=59
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=200.00 old_samples=2 new_samples=3 old_ewma_ns=14811.00 new_ewma_ns=11158.25 refined_units=45
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=649 samples=3 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=649 effective_span=649 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=649 span=649
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69202.00 old_samples=3 new_samples=4 old_ewma_ns=162199.69 new_ewma_ns=138950.27 refined_units=556
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=599 samples=3 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=599 effective_span=599 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=599 span=599
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69203.00 old_samples=3 new_samples=4 old_ewma_ns=149639.38 new_ewma_ns=129530.28 refined_units=518
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=3 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=40.00 old_samples=3 new_samples=4 old_ewma_ns=53.12 new_ewma_ns=49.84 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=2064 samples=3 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=2064 effective_span=2064 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2064 span=2064
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=409353.00 old_samples=3 new_samples=4 old_ewma_ns=887242.31 new_ewma_ns=767769.98 refined_units=3071
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1417 samples=3 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1417 effective_span=1417 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=1417 span=1417
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=326553.00 old_samples=3 new_samples=4 old_ewma_ns=354206.62 new_ewma_ns=347293.22 refined_units=1389
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=45 samples=3 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=45 effective_span=45 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=45 span=45
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=211.00 old_samples=3 new_samples=4 old_ewma_ns=11158.25 new_ewma_ns=8421.44 refined_units=34
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=556 samples=4 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=556 effective_span=556 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=556 span=556
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=68742.00 old_samples=4 new_samples=5 old_ewma_ns=138950.27 new_ewma_ns=121398.20 refined_units=486
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=518 samples=4 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=518 effective_span=518 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=518 span=518
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=68772.00 old_samples=4 new_samples=5 old_ewma_ns=129530.28 new_ewma_ns=114340.71 refined_units=457
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=4 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=30.00 old_samples=4 new_samples=5 old_ewma_ns=49.84 new_ewma_ns=44.88 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=2064 samples=4 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=2064 effective_span=2064 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2064 span=2064
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=399554.00 old_samples=4 new_samples=5 old_ewma_ns=767769.98 new_ewma_ns=675715.99 refined_units=2703
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1389 samples=4 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1389 effective_span=1389 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=1389 span=1389
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=355864.00 old_samples=4 new_samples=5 old_ewma_ns=347293.22 new_ewma_ns=349435.91 refined_units=1398
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=34 samples=4 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=34 effective_span=34 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=34 span=34
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=210.00 old_samples=4 new_samples=5 old_ewma_ns=8421.44 new_ewma_ns=6368.58 refined_units=25
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=486 samples=5 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=486 effective_span=486 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=486 span=486
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=68742.00 old_samples=5 new_samples=6 old_ewma_ns=121398.20 new_ewma_ns=108234.15 refined_units=433
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=457 samples=5 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=457 effective_span=457 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=457 span=457
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=72580.00 old_samples=5 new_samples=6 old_ewma_ns=114340.71 new_ewma_ns=103900.53 refined_units=416
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=5 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=40.00 old_samples=5 new_samples=6 old_ewma_ns=44.88 new_ewma_ns=43.66 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=2064 samples=5 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=2064 effective_span=2064 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=2064 span=2064
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=312534.00 old_samples=5 new_samples=6 old_ewma_ns=675715.99 new_ewma_ns=584920.49 refined_units=2340
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1398 samples=5 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1398 effective_span=1398 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1398 span=1398
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=376626.00 old_samples=5 new_samples=6 old_ewma_ns=349435.91 new_ewma_ns=356233.44 refined_units=1425
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=25 samples=5 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=25 effective_span=25 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=25 span=25
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=531.00 old_samples=5 new_samples=6 old_ewma_ns=6368.58 new_ewma_ns=4909.18 refined_units=20
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=433 samples=6 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=433 effective_span=433 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=433 span=433
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69694.00 old_samples=6 new_samples=7 old_ewma_ns=108234.15 new_ewma_ns=98599.11 refined_units=394
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=416 samples=6 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=416 effective_span=416 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=416 span=416
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69684.00 old_samples=6 new_samples=7 old_ewma_ns=103900.53 new_ewma_ns=95346.40 refined_units=381
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=6 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=60.00 old_samples=6 new_samples=7 old_ewma_ns=43.66 new_ewma_ns=47.75 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=2064 samples=6 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=2064 effective_span=2064 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=2064 span=2064
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=314478.00 old_samples=6 new_samples=7 old_ewma_ns=584920.49 new_ewma_ns=517309.87 refined_units=2069
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1425 samples=6 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1425 effective_span=1425 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1425 span=1425
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=345973.00 old_samples=6 new_samples=7 old_ewma_ns=356233.44 new_ewma_ns=353668.33 refined_units=1415
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=6 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=240.00 old_samples=6 new_samples=7 old_ewma_ns=4909.18 new_ewma_ns=3741.89 refined_units=15
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=394 samples=7 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=394 effective_span=394 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=394 span=394
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69713.00 old_samples=7 new_samples=8 old_ewma_ns=98599.11 new_ewma_ns=91377.58 refined_units=366
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=381 samples=7 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=381 effective_span=381 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=381 span=381
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69694.00 old_samples=7 new_samples=8 old_ewma_ns=95346.40 new_ewma_ns=88933.30 refined_units=356
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=7 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=50.00 old_samples=7 new_samples=8 old_ewma_ns=47.75 new_ewma_ns=48.31 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=2064 samples=7 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=2064 effective_span=2064 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=2064 span=2064
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=314869.00 old_samples=7 new_samples=8 old_ewma_ns=517309.87 new_ewma_ns=466699.65 refined_units=1867
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1415 samples=7 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1415 effective_span=1415 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1415 span=1415
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=358860.00 old_samples=7 new_samples=8 old_ewma_ns=353668.33 new_ewma_ns=354966.24 refined_units=1420
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=7 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=391.00 old_samples=7 new_samples=8 old_ewma_ns=3741.89 new_ewma_ns=2904.17 refined_units=12
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=366 samples=8 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=366 effective_span=366 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=366 span=366
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69693.00 old_samples=8 new_samples=9 old_ewma_ns=91377.58 new_ewma_ns=85956.44 refined_units=344
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=356 samples=8 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=356 effective_span=356 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=356 span=356
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69724.00 old_samples=8 new_samples=9 old_ewma_ns=88933.30 new_ewma_ns=84130.97 refined_units=337
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=8 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=50.00 old_samples=8 new_samples=9 old_ewma_ns=48.31 new_ewma_ns=48.73 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1867 samples=8 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1867 effective_span=1867 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=1867 span=1867
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=345221.00 old_samples=8 new_samples=9 old_ewma_ns=466699.65 new_ewma_ns=436329.99 refined_units=1745
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1420 samples=8 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1420 effective_span=1420 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1420 span=1420
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=395946.00 old_samples=8 new_samples=9 old_ewma_ns=354966.24 new_ewma_ns=365211.18 refined_units=1461
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=8 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=290.00 old_samples=8 new_samples=9 old_ewma_ns=2904.17 new_ewma_ns=2250.62 refined_units=9
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=344 samples=9 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=344 effective_span=344 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=344 span=344
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=101850.00 old_samples=9 new_samples=10 old_ewma_ns=85956.44 new_ewma_ns=89929.83 refined_units=360
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=337 samples=9 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=337 effective_span=337 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=337 span=337
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=142203.00 old_samples=9 new_samples=10 old_ewma_ns=84130.97 new_ewma_ns=98648.98 refined_units=395
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=9 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=50.00 old_samples=9 new_samples=10 old_ewma_ns=48.73 new_ewma_ns=49.05 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1745 samples=9 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1745 effective_span=1745 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=1745 span=1745
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=405646.00 old_samples=9 new_samples=10 old_ewma_ns=436329.99 new_ewma_ns=428658.99 refined_units=1715
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1461 samples=9 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1461 effective_span=1461 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1461 span=1461
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=358300.00 old_samples=9 new_samples=10 old_ewma_ns=365211.18 new_ewma_ns=363483.39 refined_units=1454
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=9 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=831.00 old_samples=9 new_samples=10 old_ewma_ns=2250.62 new_ewma_ns=1895.72 refined_units=8
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=360 samples=10 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=360 effective_span=360 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=360 span=360
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=157595.00 old_samples=10 new_samples=11 old_ewma_ns=89929.83 new_ewma_ns=106846.12 refined_units=427
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=395 samples=10 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=395 effective_span=395 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=395 span=395
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=156352.00 old_samples=10 new_samples=11 old_ewma_ns=98648.98 new_ewma_ns=113074.74 refined_units=452
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=10 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=70.00 old_samples=10 new_samples=11 old_ewma_ns=49.05 new_ewma_ns=54.29 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1715 samples=10 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1715 effective_span=1715 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=1715 span=1715
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=355060.00 old_samples=10 new_samples=11 old_ewma_ns=428658.99 new_ewma_ns=410259.24 refined_units=1641
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1454 samples=10 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1454 effective_span=1454 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1454 span=1454
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=389905.00 old_samples=10 new_samples=11 old_ewma_ns=363483.39 new_ewma_ns=370088.79 refined_units=1480
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=10 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=411.00 old_samples=10 new_samples=11 old_ewma_ns=1895.72 new_ewma_ns=1524.54 refined_units=6
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=427 samples=11 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=427 effective_span=427 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=427 span=427
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=111610.00 old_samples=11 new_samples=12 old_ewma_ns=106846.12 new_ewma_ns=108037.09 refined_units=432
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=452 samples=11 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=452 effective_span=452 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=452 span=452
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=93744.00 old_samples=11 new_samples=12 old_ewma_ns=113074.74 new_ewma_ns=108242.05 refined_units=433
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=11 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=50.00 old_samples=11 new_samples=12 old_ewma_ns=54.29 new_ewma_ns=53.22 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1641 samples=11 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1641 effective_span=1641 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=1641 span=1641
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=365569.00 old_samples=11 new_samples=12 old_ewma_ns=410259.24 new_ewma_ns=399086.68 refined_units=1596
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1480 samples=11 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1480 effective_span=1480 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1480 span=1480
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=361124.00 old_samples=11 new_samples=12 old_ewma_ns=370088.79 new_ewma_ns=367847.59 refined_units=1471
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=11 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=511.00 old_samples=11 new_samples=12 old_ewma_ns=1524.54 new_ewma_ns=1271.15 refined_units=5
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=432 samples=12 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=432 effective_span=432 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=432 span=432
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=122493.00 old_samples=12 new_samples=13 old_ewma_ns=108037.09 new_ewma_ns=111651.07 refined_units=447
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=433 samples=12 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=433 effective_span=433 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=433 span=433
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69693.00 old_samples=12 new_samples=13 old_ewma_ns=108242.05 new_ewma_ns=98604.79 refined_units=394
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=12 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=40.00 old_samples=12 new_samples=13 old_ewma_ns=53.22 new_ewma_ns=49.91 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1596 samples=12 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1596 effective_span=1596 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=1596 span=1596
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=379996.00 old_samples=12 new_samples=13 old_ewma_ns=399086.68 new_ewma_ns=394314.01 refined_units=1577
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1471 samples=12 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1471 effective_span=1471 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1471 span=1471
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=341514.00 old_samples=12 new_samples=13 old_ewma_ns=367847.59 new_ewma_ns=361264.19 refined_units=1445
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=12 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=481.00 old_samples=12 new_samples=13 old_ewma_ns=1271.15 new_ewma_ns=1073.62 refined_units=4
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=3 static=42 effective=447 samples=13 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=447 effective_span=447 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=447 span=447
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=3 path=serial-budget-scope elapsed_ns=69714.00 old_samples=13 new_samples=14 old_ewma_ns=111651.07 new_ewma_ns=101166.80 refined_units=405
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=2 static=42 effective=394 samples=13 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=394 effective_span=394 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=394 span=394
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=2 path=serial-budget-scope elapsed_ns=69724.00 old_samples=13 new_samples=14 old_ewma_ns=98604.79 new_ewma_ns=91384.59 refined_units=366
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=11 static=5 effective=2 samples=13 source=profile
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=2 effective_span=2 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=2 span=2
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=51.00 old_samples=13 new_samples=14 old_ewma_ns=49.91 new_ewma_ns=50.18 refined_units=1
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=1 static=129 effective=1577 samples=13 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1577 effective_span=1577 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=221622.86 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=2 assigned_threads=7 consumed=7 c_ns=6.14 model_ns=221622.86 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=221622.86 dominant_loop=2 dominant_model_ns=221622.86 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=2 total_model_ns=221622.9 work=1577 span=1577
+[tdg.plan]   slot=0 loop_id=2 assigned_threads=7 c_rank_ns=6.142 model_ns=221622.9
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=2 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=2 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=2 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=1 path=serial-budget-scope elapsed_ns=337315.00 old_samples=13 new_samples=14 old_ewma_ns=394314.01 new_ewma_ns=380064.26 refined_units=1520
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=0 static=129 effective=1445 samples=13 source=profile
+[tdg.aggregate] compiler_work=129 compiler_span=129 effective_work=1445 effective_span=1445 tasks=1
+[tdg.opt-input] loop_budget=7 loop_sites=1 objective=level-resources solver=nlopt serial-consumes=0
+[tdg.opt-relaxed] status=4 objective_ns=211820.64 x0=7.0000 idle=0.0000
+[tdg.opt-rounded] total_consumed=7 idle=0 c0=7
+[tdg.opt-final] task_slot=0 loop_id=1 assigned_threads=7 consumed=7 c_ns=5.11 model_ns=211820.64 trip_count=65536
+[tdg.opt-summary] loop_budget=7 used=7 idle=0 total_model_ns=211820.64 dominant_loop=1 dominant_model_ns=211820.64 parallel_loops=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=1 budget=8 loop_budget=7 idle=0 dominant=1 total_model_ns=211820.6 work=1445 span=1445
+[tdg.plan]   slot=0 loop_id=1 assigned_threads=7 c_rank_ns=5.107 model_ns=211820.6
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[budget.loop-pool.reserve] task_slot=0 loop_id=1 requested=7 granted=7 remaining=0 budget=7
+[budget.loop] kind=plain task_slot=0 loop_id=1 requested=7 granted=7 trips=65536 reserved_now=8
+[budget.context] push id=1 max_threads=7 stack_depth=2
+[budget.loop-pool.release] task_slot=0 loop_id=1 released=7 remaining=7 budget=7
+[tdg.profile] idx=0 profile_id=0 path=serial-budget-scope elapsed_ns=338658.00 old_samples=13 new_samples=14 old_ewma_ns=361264.19 new_ewma_ns=355612.65 refined_units=1422
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8
+[budget.reserve] requested=8 granted=8 total=8 available_before=8 reserved_before=0 reserved_after=8
+[tdg.weight] idx=0 profile_id=7 static=42 effective=21 samples=13 source=profile
+[tdg.aggregate] compiler_work=42 compiler_span=42 effective_work=21 effective_span=21 tasks=1
+[tdg.univ] workers=1 tasks=1 level_budget=8 loop_budget=7 reason=one-worker-per-task
+[tdg.plan] level entries=0 budget=8 loop_budget=7 idle=7 dominant=-1 total_model_ns=0.0 work=21 span=21
+[budget.context] push id=0 max_threads=7 stack_depth=1
+[tdg.profile] idx=0 profile_id=7 path=serial-budget-scope elapsed_ns=311.00 old_samples=13 new_samples=14 old_ewma_ns=1073.62 new_ewma_ns=882.96 refined_units=4
+[budget.release] released=8 reserved_before=8 reserved_after=0 total=8 available_after=8

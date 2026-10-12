@@ -1,0 +1,33 @@
+graph G { directed: true; edges: file "test/gpu_group_parallel.edges"; };
+int n = numVertices(G);
+int source[n]; int dest[n]; int accumulated[n]; int indirect[n]; int index[n];
+int seen[n]; int claimed[n]; int acc = 0;
+for each vertex u in G { index[u] = u % 4; }
+for each vertex u in G {
+  source[u] = 3;
+  for each neighbor v of u in G { source[u] = source[u] + v + 1; }
+}
+for each vertex u in G { for each neighbor v of u in G { dest[v] = dest[v] + u + 1; } }
+for each vertex u in G {
+  acc = 0;
+  for each neighbor v of u in G { acc = acc + v + 1; }
+  accumulated[u] = acc;
+}
+for each vertex u in G { for each neighbor v of u in G { indirect[index[v]] = indirect[index[v]] + u + 1; } }
+for each vertex u in G {
+  if (seen[u] == 0) { seen[u] = 1; for each neighbor v of u in G { claimed[v] = claimed[v] + u + 1; } }
+}
+set frontier = {}; set next_frontier = {};
+int fill = 0;
+while (fill < n) { frontier.add(fill); fill = fill + 1; }
+for each element u in frontier { for each neighbor v of u in G { next_frontier.add(v); } }
+int rounds[9]; int r = 0; int round_acc = 0;
+while (r < 9) {
+  r = r + 1; round_acc = 0;
+  for each vertex u in G { for each neighbor v of u in G { round_acc = round_acc + v + 1; } }
+  rounds[r - 1] = round_acc + r;
+}
+for each vertex u in G { print source[u]; print dest[u]; print accumulated[u]; print indirect[u]; print claimed[u]; }
+print next_frontier.size(); print r;
+int q = 0;
+while (q < 9) { print rounds[q]; q = q + 1; }

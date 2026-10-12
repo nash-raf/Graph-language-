@@ -636,33 +636,66 @@ with a ready-work DAG scheduler whose edges are *witness-backed*:
 - The scheduler fails closed on invalid descriptors, self edges, cycles and
   node failure (new dispatch cancelled, active nodes awaited).
 
-## The scheduler contract is per-axis (gate split)
+## Current scheduler contract
 
-The pipeline is now `R1..R7 → (R_S,R_T) → (NI_S,NI_T) → (G_S,G_T) → schedule`,
-and the admittance gate is no longer the conjunction `!(R_S ∨ R_T ∨ R8)`:
+The compiler first consumes the complete-round proof and static spatial witness.
+When both runtime realizations exist, it emits `RoundSpatialDag` through one shared lifecycle DAG.
+No new interference proof is required. Setup and join edges only enforce execution order.
+Otherwise it tries round-only execution, then nonempty phases for one source.
+It then tries a static pair-work spatial partition realized through CleanCut.
+Serial execution follows when no accepted runtime realization is available.
 
-- `NI_S ⟺ ¬R_S`, `NI_T ⟺ ¬R_T`; a witness on one axis constrains only that
-  axis and cannot suppress proven parallelism on the other.
-- `R8` stays outside the lattice: it is the implementation full-serial guard.
-- Realizations: `¬R_S ∧ R_T` = spatial partitions concurrent with the temporal
-  order carried by the round sequence (R4's writer→reader order is exactly the
-  round order); `R_S ∧ ¬R_T` = staged dual owner — U-owned work before V-owned
-  work as a tagged RealizationOrder edge, children internally partition-parallel
-  (the R6 same-base case); `R_S ∧ R_T` = no theorem-licensed parallel route;
-  both clean = nested/strongest single-axis shape.
-- A semantic DAG edge must carry a witness id (`SGPL_DAG_REL_FLAG_SEMANTIC`);
-  a mutual-exclusion witness becomes a `RealizationOrder` edge, never semantic
-  precedence.  `witnessesConsumed` enforces at compile time that every
-  unresolved witness is consumed by the realization or the emission fails
-  closed with the witness id.
-- Budget: a node's grant is the ready-set share with the work estimate as a
-  ceiling (`share = min(max(1, W/(active+ready)), W*w/sum_remaining_w)`), so an
-  estimate error can only under-grant; nested dispatches are clamped by the
-  caller's ledger.
-- The device boundary applies the same per-axis rule: the *spatial* declaration
-  gates the device step (ordered ⇒ refused, CPU fallback with identical
-  answers), the *temporal* axis never gates (a temporal witness must not
-  silently disable the device).
-- R6 is spatial-only (common-base DualOwner ownership conflict); cross-phase
-  dependence remains an implementation-level fork/join legality check and never
-  contributes to `R_T` on its own.
+The spatial nodes are symbolic complete occurrences `w=(u,v,o)`.
+Access sites remain distinct inside `S(w)=(R(w),W(w))`.
+The compiler compares arbitrary distinct occurrences, including a site against itself.
+LLVM alias analysis and index conditions refine possible RAW, WAR, and WAW relations.
+Each validated transformation changes only its covered relations and adds its replacement obligations.
+
+A supported group key must contain every surviving dependency:
+
+\[
+\operatorname{Dep}_{S'}(w,w') \Rightarrow k(w)=k(w').
+\]
+
+The supported keys are occurrence identity, destination, and source.
+The proof is conditional on at least two occupied groups.
+The runtime only constructs and coarsens these groups. It does not prove conflict freedom.
+CleanCut must not split a dependent proof block across concurrent batches.
+Internal order remains serial. Accepted independent batches enter the existing spatial DAG dispatch with no cross-batch dependency edges.
+
+Failure of these sufficient witnesses normally means inconclusive analysis.
+An exact unconditional shared fixed-address write can prove that no non-trivial pair partition exists.
+Runtime unavailability remains separate from proof failure.
+A connected scheduling DAG is not a spatial independence certificate.
+
+R1–R7 are diagnostic obligations, not exhaustive predicates or global vetoes.
+Their obligations can be satisfied by local storage transformations or by containment inside a component.
+Legacy body fission retains its separate disjointness and runtime checks.
+It does not set the new pair-work independence verdict.
+
+See `EFFECT_SYSTEM.md`, section "Static spatial partitions and CleanCut execution", for transformation contracts, lifecycle limits, and validation scripts.
+The historical four-case rejection mapping above describes earlier implementations.
+It does not replace the current scope proofs or establish completeness.
+
+### Round/spatial runtime composition
+
+Each active round has a setup node, independent CleanCut batch nodes, and a finalization node.
+All nodes use the existing generic DAG scheduler and one window worker budget.
+Round frames own scratch, descriptors, snapshots, claims, partials, and append state.
+Batch tasks execute whole assigned partitions directly. They do not start child schedulers.
+Frames are reserved before window effects and released after its join.
+Contiguous round groups preserve member order across bounded windows.
+Failure cancels pending tasks and joins active tasks without replay.
+Unsupported outlining retains the original proofs and the round-only runtime.
+Phase composition is deferred.
+
+The combined emitter reserves frontier buffers in each round context.
+Setup fills membership after the original prefix. Finalization commits that context's
+joined frontier before the original suffix. Graph-owned scratch is not used.
+Variable-size scratch uses frame pointers and checked reservation from round indices,
+captures, scalar seeds, and branch-selected values. Setup and source-loop exit PHIs
+preserve their values through frame slots, including traversal bypasses.
+Reservation does not execute user effects or unsafe speculative instructions.
+The existing round proof still treats unmodeled bitmap calls as inconclusive.
+Frontier emitter tests supply a round certificate to test this runtime capability
+without changing that proof algorithm.

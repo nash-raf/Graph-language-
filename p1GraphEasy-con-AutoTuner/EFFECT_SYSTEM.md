@@ -1,5 +1,17 @@
 # Effect System Deep Dive — Region Lattice, Provenance, Effects, Algebraic Classification, Lowering, Runtime
 
+## GPU realization update
+
+Accepted spatial, round, source-phase, and combined schedules now have GPU realizations.
+They consume the same proofs and transformation contracts as their CPU realizations.
+The compiler lowers supported callbacks to NVPTX. Device capability remains separate from proof status.
+The existing DAG scheduler drives lifecycle callbacks, transfers, and device tasks.
+Device execution uses its asynchronous mode without CPU or device resource grants.
+CPU thread budgets apply to CPU execution. See `GPU_RUNTIME.md` for device submission and limits.
+Each invocation owns its mutable device state. Completed effects never run again through CPU fallback.
+See [GPU_RUNTIME.md](GPU_RUNTIME.md) for interfaces, transfer epochs, limits, and validation.
+The legacy device-step boundary described below remains available for older routes.
+
 > **Revision note (v7 refactor).** Line references were refreshed for the
 > structural-expression refactor: the region/provenance/effect/expression layer,
 > the temporal derivation, the interpretation, the definition index, and the
@@ -24,6 +36,404 @@ Companion documents:
 - `proof/CLEANCUT_PARALLEL_PROOF.md` — end-to-end scaling proof for pagerank.
 - `proof/algebra_golden_classify.txt` + `validate_algebra.sh` — locked classification
   verdicts and their regression harness.
+
+## Static spatial partitions and CleanCut execution
+
+The spatial proof is in `spatial_partition_proof.inc`.
+The compiler builds its inputs from the original LLVM instructions before any loop rewrite.
+Round schedules retain priority. When both existing proofs succeed, the compiler first tries round/spatial composition.
+The fallback order is Round, SourcePhase, spatial CleanCut, then serial execution.
+
+### Work units and relations
+
+A symbolic node is a complete pair occurrence `w=(u,v,o)`.
+The occurrence identity distinguishes duplicate edges and repeated executions.
+Its effect template is `S(w)=(R(w),W(w))`.
+Individual load and store sites remain distinct inside this template.
+Provenance helps resolve an index. It does not identify a graph node.
+Preamble and Epilogue are separate source lifecycle summaries.
+
+The relation builder compares every relevant access pair, including a write site against itself across distinct occurrences.
+It records RAW, WAR, and WAW conditions, access IDs, uncertainty, original order, and transformation history.
+Different SSA pointers need an LLVM alias proof before the compiler treats their storage as disjoint.
+Constant byte ranges and identical injective affine endpoint expressions can refine a collision condition.
+Truncations that lose endpoint bits and unresolved data-derived indices retain possible collisions.
+Unknown calls, observable ordering, carried SSA values without a frame, and relation overflow produce an inconclusive result.
+Guards and scalar accesses participate in the same analysis.
+
+No runtime topology is used to establish independence.
+The compiler tries these symbolic group keys:
+
+1. Pair occurrence: every distinct pair occurrence is independent.
+2. Destination: every surviving dependency implies `v=v'`.
+3. Source: every surviving dependency implies `u=u'`.
+
+For the selected key `k`, the obligation is:
+
+\[
+\forall w,w':\quad \operatorname{Dep}_{S'}(w,w')\Rightarrow k(w)=k(w').
+\]
+
+This establishes `Dep(S') ∩ Cross(P) = ∅` for the group family.
+Internal dependencies remain present and retain their original order.
+Sharing a source does not create an edge by itself.
+The compiler does not infer work components from connected instruction sites.
+If source and destination relations require unknown topology connectivity, the result remains inconclusive.
+These group families can be coarser than the actual connected components.
+
+`SpatialDecision` separates these outcomes:
+
+| Status | Meaning |
+|---|---|
+| `IndependentFamily` | All modeled surviving dependencies stay within a supported group key. |
+| `NoPartition` | An exact condition excludes every non-trivial pair partition. The implemented case is an unconditional shared fixed-address write. |
+| `Inconclusive` | Coverage, alias conditions, topology connectivity, or a supported witness is unresolved. |
+| `NotApplicable` | There is no pair effect template to partition. |
+
+An independent family has a conditional non-triviality requirement: at least two nonempty proof groups must exist.
+Unknown input cardinality does not establish this condition at compile time.
+The runtime records `spatial_occupied_groups` and `spatial_nontrivial` after actual traversal.
+Empty inputs and one occupied group do not produce a non-triviality claim.
+Proof status, runtime capability, and successful emission are separate fields.
+
+### Local transformation contracts
+
+The original relation set remains available in the proof report.
+Each contract records affected access sites, discharged relation IDs, premises, and replacement ordering.
+The compiler checks the resulting storage and value versions.
+A transformation is applied only by its selected runtime path.
+
+| Mechanism | Relation treatment |
+|---|---|
+| Snapshot | Redirect only designated reads to invocation-owned immutable storage. Remove covered RAW/WAR relations. Retain live WAW. |
+| Privatization and fold | Redirect only checked bases and scalar slots to private partials. Require a recognized operator, exact fold law, independent contribution, valid identity, and no live intermediate observer. |
+| Source accumulator frame | Narrow cross-source scalar collisions to `u=u'`. Retain each source's reset, ordered pair accumulation, consumption, and final scalar output. |
+| Source claim staging | For a checked single constant store-form claim, preserve one transition per source and capture its guard result. Keep claims in an ordered preparation envelope for destination traversal. |
+| Ownership | Contain dependencies within the selected source or destination group. Do not erase them. |
+| Atomic access | Atomicity does not establish non-interference. Logical conflicts and observable ordering remain obligations. |
+| Frontier envelope | Copy immutable membership and use invocation-owned destination claims and append lanes. Merge only after the join. A live bitmap observer has no discharge. |
+
+A delta fold cannot cover `x += x`, `c - x`, unsupported operators, or contributions that read evolving mutated storage.
+Float folds also require a valid machine-level identity.
+NaN-ignoring and ordered-comparison float folds lack this proof and remain serial.
+Snapshot reads can supply immutable contributions when their specific read contract applies.
+The emitted pair callback is checked for live accesses to privatized arrays and failed snapshot redirections.
+The fold contract treats each occurrence as an independent contribution.
+A batch executes their serial fold into its private partial instead of allocating one partial per occurrence.
+The checked fold law justifies this coarsening and the subsequent combination.
+R1–R7 remain diagnostics. They cannot override a complete pair partition and its checked runtime contracts.
+An unresolved diagnostic can be satisfied by containment inside a serial component.
+Containment does not mean that the dependency disappeared.
+
+### Runtime realization
+
+The schedule and runtime context store the proof key and the CleanCut grouping explicitly.
+Destination witnesses use destination-owned traversal.
+Source witnesses use source-owned traversal.
+Independent occurrence groups can be coarsened into either ownership layout.
+The compiler prefers destination ownership when the complete proof and lifecycle obligations permit it.
+A batch can contain several independent proof blocks. A dependent block cannot cross concurrent batches.
+
+CleanCut enumerates topology and constructs traversal batches for CSR, PCSR, BCSR, and SET layouts.
+It does not inspect conflict relations or discover interference components.
+The new schedule dispatches batches through the existing generic DAG scheduler with no cross-batch dependency edges.
+A destination schedule with source preparation adds one envelope node before the batches.
+The scheduler allocates its run state before this node executes claims or captures guards.
+These publication edges realize replacement obligations. They do not establish the partition proof.
+A connected precedence DAG is not an independence witness.
+Each complete pair body executes once per occurrence, including duplicate edges.
+Source and neighbor order remain unchanged among occurrences assigned to one batch.
+Flat layouts use a stable source grouping that retains native neighbor order.
+SET construction enumerates the live native iterator, including deleted-edge membership and extra edges.
+SET conversion preserves direction, duplicate occurrences, and isolated source vertices.
+Empty topologies retain the complete source range and its hooks.
+
+Source-owned execution visits the full source range in order, including zero-neighbor sources.
+Destination-owned source coverage is accepted only when the compiler validates the source effects and their movement.
+Captured source guards retain their short-circuit order.
+Unsupported claim payloads, nested claim control flow, source lifecycle storage, and array-frontier order have separate runtime failure reasons.
+Such a failure retains the original serial loop.
+
+Preparation allocates snapshots, private arrays, source gates, and frontier lanes before user effects begin.
+Snapshots and claim results use the invocation context rather than module-global publication.
+Every batch receives its own mutable partial state.
+All batches join before combinations, frontier publication, finalization, or storage release.
+Private frontier lanes preserve set membership. They do not establish an append-order contract.
+Source-owned batches use private deduplication state and remove cross-lane duplicates after the join.
+Destination-owned batches use disjoint destination ranges.
+Snapshot allocation uses the actual array extent, including arrays whose size differs from the vertex count.
+Worker budgets remain capped. One worker executes batches serially.
+Scheduler workers wait until persistent pool preparation succeeds.
+A worker creation failure returns an error before source preparation or pair effects.
+An execution error cancels pending work, joins active work, and returns failure without replay.
+Generated code reports a failure through `sgpl_exec_require_status`.
+
+New certified spatial schedules use the CPU.
+Existing device and disjoint body-fission routes retain their separate capability checks.
+They cannot establish the pair-work spatial verdict through legacy owner or rejection heuristics.
+The old provenance graphs are labeled `legacy-owner-graphcheck` and serve diagnostics and legacy staging only.
+
+### Validation
+
+- `test/run_spatial_static_tests.sh` checks LLVM alias behavior, access-site preservation, self-comparison, symbolic grouping, affine and truncated indices, D indices, and local snapshot discharge.
+- `test/run_spatial_tests.sh` compares generated programs with sequential references at one, two, and four workers. Snapshot cases use the existing frozen-read semantic reference.
+- `test/run_spatial_exec_tests.sh` checks all four layouts, duplicate occurrences, source hooks, batch order, actual overlap, group cardinality, private frontier merging, isolated snapshots, allocation failure, and cancellation without replay.
+- The executor, fork/join, snapshot, composition, reduction, round-separation, expression, and temporal suites check existing behavior and temporal priority.
+
+The theorem PDF remains unchanged.
+The compiler proves a sufficient family witness. It does not claim completeness for all possible partitions.
+
+---
+
+## Combined round and spatial execution
+
+`round_spatial_lowering.inc` consumes the existing round and spatial results.
+It adds no interference analysis, partition witness, or transformation admissibility rule.
+The proofs keep their original instruction and access-site identities.
+The selected call records temporal scope `Round`, the spatial witness, CleanCut ownership, and transformation contracts.
+The schedule name is `round-spatial-dag`.
+
+The compiler outlines round setup and finalization around the existing spatial traversal.
+SSA values that cross these boundaries enter an invocation frame.
+Accepted round scratch, scalar induction, source accumulator targets, and local fixed-size arrays also enter that frame.
+Variable-size arrays use pointers in the frame. Reservation computes their sizes from the round index, immutable captures, unambiguous scalar seeds, and branch-selected SSA values.
+It reserves these arrays before user effects and releases them after the window joins.
+Source-loop exit PHIs use frame slots. Skipped traversal paths preserve their own incoming values.
+Each active round receives a separate frame, context, operation descriptors, claims, snapshots, and partials.
+The compiler reserves separate frontier membership, claim, and merged append storage in each context.
+Setup fills membership after the original prefix. Finalization commits the joined result to that round's bitmap or array before the original suffix.
+These functions read immutable graph topology and never prepare or commit through graph-owned scratch.
+Helpers obtain the current frame through a task-local channel that restores its previous value after each callback.
+They do not publish snapshot pointers or private storage through module globals.
+
+The runtime API is `sgpl_exec_dag_round_spatial(plan, worker_budget)`.
+Its descriptor supplies captures, the finite domain, frame size, partition count, and reservation/setup/partition/finalization/release callbacks.
+Reservation allocates infrastructure without user effects.
+Snapshot reservation does not read live storage. Setup materializes the snapshot after the original round prefix.
+
+For each round, the shared DAG contains setup, independent batch nodes, and finalization.
+Setup precedes every batch. Every batch precedes finalization.
+A round with no batches has a direct setup-to-finalization edge.
+These edges enforce lifecycle order. They do not establish non-interference.
+Source hooks retain the existing source-owned or destination-owned realization.
+A skipped traversal still executes its applicable round prefix and suffix.
+Every complete pair occurrence executes once, including duplicates.
+
+The new path uses `autograph_execute_dag` with the shared persistent worker pool.
+Batch callbacks call the spatial partition operation directly with a descendant budget of one.
+They do not start nested dispatches, calibrate, replay, or rebuild graph layouts.
+CleanCut topology is prepared before concurrent execution and remains immutable during dispatch.
+Execution batches can coarsen contiguous ranges of whole CleanCut partitions.
+A dependent proof block remains inside one partition and therefore inside one execution batch.
+
+The runtime bounds batches by the partition count, worker budget, and DAG capacity.
+It bounds active round groups by the round count, worker budget, and remaining DAG capacity.
+Each group owns a contiguous range of rounds and visits its members in original order.
+A window executes at most one member from each group.
+The runtime joins a window before reusing its frames.
+This additional join is a scheduling choice, not a proof requirement.
+
+The runtime reserves each window before its first setup effect.
+Scheduler allocation and initial pool preparation also finish before setup starts.
+A failure cancels pending tasks, joins active tasks, and releases partially reserved frames.
+It does not replay completed rounds or choose another schedule after effects begin.
+Finalization runs only after that round's batches succeed.
+The enclosing induction value is published after successful execution.
+Zero rounds execute no callbacks. One worker executes the domain in original order.
+
+### Persistent workers for DAG execution
+
+`autograph_execute_dag` reuses the process-wide loop pool in `parallel_runtime.c`.
+The first parallel dispatch creates the configured team before any callback runs.
+Later dispatches retain those threads. Process shutdown joins and releases them.
+One-worker DAG execution runs on the caller and needs no pool.
+
+Each dispatch owns its counters, ready queue, completion state, and errors.
+Its return joins all active callbacks before releasing that state.
+Independent host callers serialize submissions at the shared pool boundary.
+The pool therefore runs at most the configured worker count, with each dispatch
+also capped by its requested budget and parent grant.
+
+A nested DAG call from a pool worker executes serially on that worker.
+Nested loop and TDG calls also receive a serial execution cap.
+They do not wait for the pool that contains the calling worker.
+Worker indices remain stable, including across nested calls.
+This restriction can reduce concurrency inside a callback. Outer DAG nodes
+continue to run concurrently within their existing proof and worker budget.
+
+Workers wait at a startup gate until the complete team and barriers exist.
+Partial creation failure joins every created worker and starts no user effects.
+A later independent invocation can retry preparation. Callback failure cancels
+pending nodes and drains active nodes without replay. A later dispatch can reuse
+the same pool after that failure.
+
+This change preserves proof selection, transformation contracts, and DAG edges.
+GPU launches use the same DAG bookkeeping through asynchronous submission.
+They do not allocate a host worker team or use CPU worker grants to limit device work.
+The implementation retains the legacy loop and fork/join APIs.
+
+`test/run_worker_pool_tests.sh` checks repeated dispatch, stable lane identities,
+concurrent callers, nested execution, worker limits, callback cancellation,
+cold allocation and thread failures, recovery, and shutdown joins.
+Small runtime cardinalities do not establish actual concurrency.
+
+Reservation cannot execute user effects or speculate instructions that can trap.
+An allocation extent that requires such instructions retains a realization diagnostic and the existing fallback.
+Frontier envelopes no longer cause a blanket combined-runtime refusal.
+Existing round proofs still keep dynamic frontier progression ordered. Unmodeled bitmap calls still make that proof inconclusive.
+The compiler checks these shapes before replacing the original round CFG.
+A combined realization failure retains both proof results and tries round-only execution.
+Phase composition remains outside this implementation. New combined schedules use the CPU.
+
+Validation:
+
+- `test/run_round_spatial_exec_tests.sh`: all native layouts, duplicate occurrences, source hooks, snapshot versions, private frontier state, bounded overlap, worker limits, empty domains, and failures without replay.
+- `test/run_round_spatial_tests.sh`: generated DSL programs, guarded traversal, round-only fallback, outputs, final induction, and instrumented overlap on both axes.
+- `test/run_round_spatial_lowering_tests.sh`: real LLVM proof consumption and generated source/destination ownership, snapshots, private arrays, source accumulators, variable allocation sizes, setup and exit PHIs, and guarded traversal outputs.
+  Frontier emitter fixtures consume supplied round certificates and existing checked spatial contracts. They check both ownership modes and the absence of graph-scratch calls.
+  These fixtures do not claim that the unchanged production round analysis proves bitmap calls.
+  A guarded division fixture checks fallback when reservation cannot safely evaluate its extent.
+
+## Temporal scopes and execution
+
+The temporal implementation is in `temporal_scope_lowering.inc`.
+`GraphFrontierLoweringPass` checks this implementation before it selects the existing spatial engine.
+The supplied theorem PDF is a separate source document.
+
+The decision order is:
+
+1. Analyze complete iterations of the enclosing round loop.
+2. If both proofs have compatible runtime realizations, select `RoundSpatialDag`.
+3. Otherwise, select round-only execution when available. Both round routes skip phase analysis.
+4. Otherwise, analyze the nonempty source phases and try `SourcePhase`.
+5. If neither temporal runtime is available, retain the existing spatial realization or execute the original program serially.
+
+`TemporalDecision` stores separate round and phase proofs.
+Each proof has a status, dependency relations, component membership, and a runtime capability result.
+The status can be independent, interfering, inconclusive, not applicable, or skipped.
+An inconclusive analysis does not establish interference.
+A proven partition with an unsupported CFG has a separate runtime diagnostic.
+Temporal interference requires both applicable scopes to establish that no non-trivial partition exists.
+
+### Complete rounds
+
+A round contains the complete source traversal and its surrounding setup and finalization.
+The analysis includes memory accesses, scalar progression, control flow, outputs, iterator state, and runtime calls.
+An isolated source traversal has no non-trivial round partition.
+
+The current enumerator supports signed 32-bit ascending domains with a stable bound and a unit increment.
+It recognizes both a memory counter and a PHI counter.
+The runtime reads the domain endpoints before dispatch.
+Known domains with fewer than two rounds proceed to the phase check.
+Runtime domains with fewer than two members execute without concurrent round work.
+Other progression, changing frontier domains, unsupported ranges, and unknown resources remain inconclusive.
+
+Alias analysis uses access sizes and actual allocation identities.
+An index that equals the round induction value plus a fixed offset can identify disjoint output cells.
+The proof checks the access extent against the cell stride.
+It also isolates iterator slots and scalar scratch that has a dominating reset and no observable later read.
+Allocations that occur inside a round and do not escape are local to that round.
+Other mutable accesses retain their dependencies.
+A folded self edge requires an unconditional relation at a fixed address.
+Relations that do not meet this condition retain separate symbolic round endpoints.
+
+The compiler outlines the complete original round CFG into a CPU callback.
+It prepares the graph view before dispatch.
+Each callback invocation has its own induction cell, iterator state, and accepted mutable scratch.
+The callback reads immutable topology through the original iterator API.
+It does not publish engine snapshots through module globals.
+An unmodeled snapshot, claim, frontier, or other runtime call prevents a round proof.
+Such a call does not receive an assumed discharge.
+
+The runtime divides an independent round domain into contiguous components.
+Each component executes its member rounds in their original order.
+After the join, the compiler restores the final induction value.
+An observable scalar output that lacks this realization prevents round concurrency.
+
+### Source phases
+
+The nodes are the nonempty Preamble, Pair, and Epilogue units for one source.
+The neighbor loop exit determines the epilogue boundary.
+The Pair unit includes iterator initialization and the complete neighbor traversal.
+The preamble includes source setup and source guards.
+Traversal state observed by another phase makes the Pair unit nonempty.
+
+Edges include these dependencies:
+
+- Memory RAW, WAR, and WAW conflicts, including scalar accumulator accesses.
+- Values passed from a load, claim, or allocation to another phase.
+- Guards that control another phase's effects.
+- Traversal arguments and observed iterator outputs.
+- Atomic claim state and claim results.
+- Shared or unknown runtime resources.
+
+The original phase sequence does not create an edge by itself.
+Internal conflicts do not reduce the component count.
+Each component executes its own phases in Preamble, Pair, Epilogue order.
+At least two nonempty components are required.
+Empty phases have no component membership.
+For each source, an effect-free query follows the component's actual control flow up to its first meaningful instruction.
+Iterator discovery in this query uses private storage.
+The query does not execute user effects or repeat claims.
+Only active components enter the dispatch table.
+The source frame records `None` when fewer than two components are active.
+This excludes a standalone Pair component for a zero-neighbor source.
+
+The compiler clones the original source CFG for each component.
+It removes effects from other components and bypasses their traversals.
+It removes empty guard branches and checks the emitted accesses again before accepting the runtime.
+This check prevents retained guard loads from introducing new shared accesses.
+Unsupported exits, escaping SSA outputs, or incomplete component isolation prevent emission.
+
+One source frame holds common inputs and the scalar accumulator when the accumulator has a plain slot.
+The frame preserves the accumulator's incoming value and copies its result back after the join.
+The original reset executes once in its component.
+Claims and their dependent work remain in the same ordered component.
+Preamble and Epilogue execute once per source.
+Pair work preserves neighbor order.
+Sources with zero neighbors still execute their source phases.
+Every component joins before the next source starts or the frame is reused.
+
+### Runtime and diagnostics
+
+`sgpl_exec_temporal_components` accepts a callback, state pointer, component count, and worker budget.
+It builds an edge-free template for the existing `autograph_execute_dag` scheduler.
+It does not introduce a second scheduler.
+The runtime limits the budget to the configured workers and the parent grant.
+One available worker executes the components serially.
+A failure cancels pending work, joins active work, and returns an error.
+Generated code reports the error without replaying completed effects.
+
+Schedule metadata names `Round`, `SourcePhase`, or `None` explicitly.
+Runtime contexts also have a `temporal_scope` field.
+Generated round and source frames record their active scope explicitly.
+A temporal flag does not select round execution.
+The existing whole-domain fork/join and staged routes are spatial compositions with ordered rounds.
+Their schedule names are `spatial-fork-join` and `spatial-staged`.
+New temporal schedules use the CPU.
+The existing spatial GPU routes retain their device capability checks.
+
+R1–R7 remain diagnostics and transformation obligations for the effect algebra and spatial engine.
+They are not the complete temporal decision.
+A failed round witness does not reject an independent source-phase component.
+Spatial ownership is not a premise for the source-phase runtime because sources and component interiors remain serial.
+The new temporal path proves the original CFG accesses directly.
+It retains dependencies unless disjoint access or isolated state justifies their removal.
+The spatial path retains its existing snapshot, privatization, claim, and frontier transformations.
+Its source lifecycle must have callbacks for every source effect that it removes.
+Per-source reductions seed their partials with the original reset value.
+
+`test/run_temporal_tests.sh` checks the four phase graph shapes, empty phases, source order, source claims, and round priority.
+It checks phase fallback after a proved round dependency and after a domain with one round.
+It checks that frontier progression remains ordered when round analysis is inconclusive.
+It compares generated programs with sequential references at one, two, and four workers.
+Bounded probes observe component overlap, source joins, and simultaneous round scans on the same graph.
+The DAG scheduler tests also check cancellation and execution without replay.
+
+The sections below record the legacy effect algebra and engine design.
+Their old provenance graphs and rejection equations do not define the current pair-work spatial verdict.
+Their historical temporal projections are diagnostic inputs for legacy spatial staging.
+The temporal decision and runtime described above determine temporal concurrency.
 
 ---
 
@@ -65,9 +475,9 @@ Runtime             autograph_build_clean_cut + autograph_frontier_execute
                      explicit activate / fork-join primitives)
 ```
 
-Since the R7 cutover there is no classification: `privLayout` + `summarizeEffects` +
-`supportedByAlgebra` is the semantic gate, and the recursive interpreter
-(`emitExprInterp`) is the sole emitter.  Strategy names survive only in this document
+For the spatial path, `privLayout` + `summarizeEffects` +
+`supportedByAlgebra` provide the algebraic gate. The spatial interpreter is
+`emitExprInterp`. Temporal scopes use the CFG callbacks described above. Strategy names survive in this document
 as derived descriptions; nothing named after a strategy determines control flow.
 `validate_totality.sh` locks the census (69 fixtures, 0 interpreter refusals).
 
@@ -1312,7 +1722,7 @@ old conjunction, and the first refusal keeps the historical reason string.
 
 | certificate state | realization |
 |---|---|
-| `!R_S ∧ !R_T` | `nested` — engine partition dispatch + round sequence |
+| `!R_S ∧ !R_T` | Historical owner-graph route. Current scope proofs determine schedule priority. |
 | `!R_S ∧ R_T` | `spatial-dag` — partitions concurrent; the temporal order is preserved by the round sequence (V1 realizes R4: writer precedes reader across rounds) |
 | `R_S ∧ !R_T` | `temporal-dag` — staged dual owner: every U-owned write happens-before every V-owned write through a tagged `RealizationOrder` edge, while each child's partitions run through the ready-work DAG dispatch (`autograph_frontier_staged`, `autotuner_runtime.c`) |
 | `R_S ∧ R_T` | `serial` — no theorem-licensed parallel route |
@@ -1345,7 +1755,7 @@ witness `#1 R4 discharge=none`, `schedule=spatial-dag emitted=1`
 (`spatial=parallel temporal=ordered`), and equals the unrewritten build at
 1/4/8 threads.
 
-**All four realization cases are emitted.** `¬R_S ∧ R_T` → the engine shape
+**Historical four-case mapping (superseded by scope and pair-family proofs).** `¬R_S ∧ R_T` → the engine shape
 with the round sequence as the temporal order; `R_S ∧ ¬R_T` → the staged dual
 owner (`autograph_frontier_staged`: U before V, children internally
 partition-parallel through the DAG dispatch); both clean → nested/strongest
@@ -1423,9 +1833,9 @@ with the shadow case instead discharging the read through the snapshot
 (`shadow_snapshot.graph`).  If a DSL shape ever reaches R5 the gate fails and
 the fixture must be added.
 
-### The device boundary (the same contract on the GPU path)
+### The legacy device-step boundary
 
-The device step is a realization of the same per-axis result, so the schedule
+The legacy device step is a realization of the same per-axis result, so the schedule
 decides before the cost model: `sgpl_gpu_step_schedule_ok(spatial, temporal)`
 is consulted at both device decision sites in the runtime step runner, ahead of
 `sgpl_gpu_engine_step_verdict`.  A stage whose **spatial** axis is held in
@@ -1442,7 +1852,7 @@ all configurations in `validate_tdg_budget.sh`); device-vs-CPU parity is the
 
 ## The two-axis proof layer (plan sections 3–11)
 
-The scheduler legality contract in section 17 (`R_S = R1∨R3∨R6∨R7`,
+The legacy diagnostic contract in section 17 (`R_S = R1∨R3∨R6∨R7`,
 `R_T = R2∨R4∨R5`) is *sound*: a witness that fires is real interference.  It is
 not *complete*: R1–R7 are **witness classes and transformations, never an
 assumed-exhaustive decision procedure**.  "No witness remains ⇒ parallelize" is

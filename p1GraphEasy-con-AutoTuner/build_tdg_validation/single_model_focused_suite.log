@@ -1,0 +1,930 @@
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/GraphProgram_tdg
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+PASS graph_comprehension_valid: memcpy expanded and output matches serial
+PASS graph_comprehension_test: memcpy expanded and output matches serial
+(* loading fingerprints in ".tlacache/TDGTaskSafetyProof.tlaps/fingerprints" *)
+(* created new ".tlacache/TDGTaskSafetyProof.tlaps/TDGTaskSafetyProof.thy" *)
+(* fingerprints written in ".tlacache/TDGTaskSafetyProof.tlaps/fingerprints" *)
+File "./test/pdg_tdg_verification/TDGTaskSafetyProof.tla", line 1, character 1 to line 55, character 77:
+[INFO]: All 22 obligations proved.
+(* loading fingerprints in ".tlacache/PDGEdgeCoverage.tlaps/fingerprints" *)
+(* created new ".tlacache/PDGEdgeCoverage.tlaps/PDGEdgeCoverage.thy" *)
+(* fingerprints written in ".tlacache/PDGEdgeCoverage.tlaps/fingerprints" *)
+File "./test/pdg_tdg_verification/PDGEdgeCoverage.tla", line 1, character 1 to line 54, character 77:
+[INFO]: All 1 obligation proved.
+11442 states generated, 10389 distinct states found, 0 states left on queue.
+PASS: TDG and PDG edge TLAPS proofs, exhaustive safe model, and unsafe-model counterexample
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+PASS tdg_graph_ordinary_independent output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=15 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=200 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_graph_ordinary_large output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=15 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=200 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_two_graph_same output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=312 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_two_graph_distinct output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=298 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_two_graph_distinct_large output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=298 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_two_graph_dependent output
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1 span=1 reason=budget-fallback
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=1 work=1 span=1 reason=budget-fallback
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=2 work=2 span=1 reason=budget-fallback
+[tdg.launch] decision=serial chosen_threads=0 launched_threads=0 tasks=2 work=2 span=1 reason=budget-fallback
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=0 tasks=2 work=2 span=1 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=0 tasks=2 work=2 span=1 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=1
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=5 work=30 span=10 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=5 max_active=1
+PASS tdg_graph_mutation_dependent output
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=168 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_output_consumed output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+PASS tdg_print_dependent output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=173 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=2
+PASS tdg_scalar_capture_dependent output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=25 span=15 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+PASS tdg_two_graph_large output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=312 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=312 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=98 span=48 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=75 span=36 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=59 span=28 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=2 planned_sites=2
+[tdg.loop-plan] task_slot=0 loop_id=1 assigned_threads=2 c_ns=127349.49 selection_model_ns=2121232.78
+[tdg.loop-plan] task_slot=1 loop_id=2 assigned_threads=1 c_ns=100124.51 selection_model_ns=3203984.47
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=48 span=22 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=2 planned_sites=2
+[tdg.loop-plan] task_slot=0 loop_id=1 assigned_threads=2 c_ns=127349.49 selection_model_ns=2121232.78
+[tdg.loop-plan] task_slot=1 loop_id=2 assigned_threads=1 c_ns=100124.51 selection_model_ns=3203984.47
+[tdg.overlap] tasks=2 max_active=2
+PASS checker rejects a conflicting level
+PASS checker rejects a transitive dependency
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_graph_ordinary_independent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_graph_ordinary_large.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_two_graph_same.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_two_graph_distinct.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_two_graph_distinct_large.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_two_graph_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_graph_mutation_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_output_consumed.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_print_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_scalar_capture_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_two_graph_large.parallel.compile.err: every emitted level satisfies its task summaries
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=125.711 measured_ns=20087 predicted_ms=0.000126 measured_ms=0.020087
+[AutoTunerProfile] total kind=Traverse predicted_ns=125.711 measured_ns=20087 predicted_ms=0.000126 measured_ms=0.020087 pure_kernel_ns=19877 pure_kernel_ms=0.019877
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_graph_ordinary_independent.singleton.compile.err: every emitted level satisfies its task summaries
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=125.711 measured_ns=25808 predicted_ms=0.000126 measured_ms=0.025808
+[AutoTunerProfile] region=1 kind=Traverse layout=CSR visits=1 predicted_ns=125.711 measured_ns=1913 predicted_ms=0.000126 measured_ms=0.001913
+[AutoTunerProfile] total kind=Traverse predicted_ns=251.422 measured_ns=27721 predicted_ms=0.000251 measured_ms=0.027721 pure_kernel_ns=27220 pure_kernel_ms=0.027220
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/build_tdg_validation/tdg_shared_tmp.Ob7Ei2/tdg_two_graph_same.singleton.compile.err: every emitted level satisfies its task summaries
+PASS shared levels, effect ordering, measured overlap, warmed widths, and fallbacks
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp: In lambda function:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:3924:41: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+ 3924 |         return GetElementPtrInst::Create(ET, Shad, Idx, "shadow_elem", InsertPt);
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/DebugProgramInstruction.h:55,
+                 from /usr/lib/llvm-20/include/llvm/IR/BasicBlock.h:23,
+                 from /usr/lib/llvm-20/include/llvm/IR/Function.h:27,
+                 from /usr/lib/llvm-20/include/llvm/IR/Module.h:25,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:28:
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp: In instantiation of ‘emitPairWorkFn(const NeighborLoopInfo&, PairPhase, bool, PairEnvKind)::<lambda(llvm::Value*, auto:38&&)> [with auto:38 = emitPairWorkFn(const NeighborLoopInfo&, PairPhase, bool, PairEnvKind)::<lambda(llvm::Value*, auto:38&&)>&]’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:4068:27:   required from here
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:3999:36: warning: ‘void llvm::Instruction::insertBefore(llvm::Instruction*)’ is deprecated: Use iterators as instruction positions [-Wdeprecated-declarations]
+ 3999 |                 Clone->insertBefore(T);
+      |                 ~~~~~~~~~~~~~~~~~~~^~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:215:8: note: declared here
+  215 |   void insertBefore(Instruction *InsertPos);
+      |        ^~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:3999:36: warning: ‘void llvm::Instruction::insertBefore(llvm::Instruction*)’ is deprecated: Use iterators as instruction positions [-Wdeprecated-declarations]
+ 3999 |                 Clone->insertBefore(T);
+      |                 ~~~~~~~~~~~~~~~~~~~^~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:215:8: note: declared here
+  215 |   void insertBefore(Instruction *InsertPos);
+      |        ^~~~~~~~~~~~
+PASS twenty_rounds: traversal counts=[20]
+PASS offset_stride: traversal counts=[8]
+PASS after_loop: traversal counts=[1]
+PASS zero_rounds: traversal counts=[]
+PASS dynamic_rounds: traversal counts=[1]
+PASS fork_join: traversal counts=[20]
+PASS edgemap: traversal counts=[20]
+PASS inserts_then_step: traversal counts=[1]
+PASS two_steps: traversal counts=[20, 20]
+PASS nested_rounds: traversal counts=[21]
+PASS effect_one: traversal counts=[1]
+PASS effect_twenty: traversal counts=[20]
+PASS native_twenty: traversal counts=[20]
+PASS different_repetitions: traversal counts=[7]
+ARS frequency regression tests: PASS
+test_calibrated_equations_in_actual_pass (__main__.LayoutModelTests.test_calibrated_equations_in_actual_pass) ... ok
+test_missing_metadata_uses_current_dram_rates (__main__.LayoutModelTests.test_missing_metadata_uses_current_dram_rates) ... ok
+test_python_preserves_current_metadata_equations (__main__.LayoutModelTests.test_python_preserves_current_metadata_equations) ... ok
+test_retired_python_modes_cannot_be_selected (__main__.LayoutModelTests.test_retired_python_modes_cannot_be_selected) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 6.520s
+
+OK
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+== threads=1 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=66914 pure_kernel_ms=0.066914
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   owner-u lifecycle partitions=1
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+== partitions=3 ==
+  ok   owner-u lifecycle partitions=3
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+== partitions=8 ==
+  ok   owner-u lifecycle partitions=7
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+exec engine test: 0 failures
+== threads=3 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=2328963 pure_kernel_ms=2.328963
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   owner-u lifecycle partitions=1
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+== partitions=3 ==
+  ok   owner-u lifecycle partitions=3
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+== partitions=8 ==
+  ok   owner-u lifecycle partitions=7
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+exec engine test: 0 failures
+== threads=8 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=8619295 pure_kernel_ms=8.619295
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   owner-u lifecycle partitions=1
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+== partitions=3 ==
+  ok   owner-u lifecycle partitions=3
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+== partitions=8 ==
+  ok   owner-u lifecycle partitions=7
+  ok   zero-pair source got begin+end with no pairs
+  ok   membership gate visits exactly {0,2}
+  ok   round_begin first
+  ok   round_end last
+  ok   combine per partition
+  ok   combine ascending partition order with correct slots
+  ok   round_begin < pairs < combine < round_end
+  ok   stage 2 starts after stage 1 finished (barrier)
+  ok   one round context across both stages
+  ok   no implicit activation (dest_seen/frontier untouched)
+  ok   owner-v enumerates every edge exactly once
+exec engine test: 0 failures
+composable exec engine tests: PASS
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+== threads=1 ==
+-- source coverage --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=236652 pure_kernel_ms=0.236652
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   all [p=1] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=1] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=1] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+== partitions=3 ==
+  ok   all [p=3] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=3] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=3] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+== partitions=8 ==
+  ok   all [p=8] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=8] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=8] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+owner-v source coverage test: 0 failures
+-- fork/join (incl. nested) --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=625266 pure_kernel_ms=0.625266
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+== partitions=3 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+== partitions=8 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+fork/join + budget test: 0 failures
+-- snapshot + source-state channel --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=32528 pure_kernel_ms=0.032528
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   snapshot op ran exactly once
+  ok   every pair observed the frozen snapshot
+  ok   pairs read the round-start snapshot, not the mutated live
+  ok   pairs observed the per-source claim channel
+  ok   source_state always matched the current source
+  ok   source_begin/source_end exactly once per source (zero-pair incl.)
+== partitions=8 ==
+  ok   snapshot op ran exactly once
+  ok   every pair observed the frozen snapshot
+  ok   pairs read the round-start snapshot, not the mutated live
+  ok   pairs observed the per-source claim channel
+  ok   source_state always matched the current source
+  ok   source_begin/source_end exactly once per source (zero-pair incl.)
+snapshot + source-state channel test: 0 failures
+== threads=3 ==
+-- source coverage --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=2834440 pure_kernel_ms=2.834440
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   all [p=1] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=1] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=1] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+== partitions=3 ==
+  ok   all [p=3] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=3] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=3] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+== partitions=8 ==
+  ok   all [p=8] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=8] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=8] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+owner-v source coverage test: 0 failures
+-- fork/join (incl. nested) --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=2501170 pure_kernel_ms=2.501170
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+== partitions=3 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+== partitions=8 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+fork/join + budget test: 0 failures
+-- snapshot + source-state channel --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=32341 pure_kernel_ms=0.032341
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   snapshot op ran exactly once
+  ok   every pair observed the frozen snapshot
+  ok   pairs read the round-start snapshot, not the mutated live
+  ok   pairs observed the per-source claim channel
+  ok   source_state always matched the current source
+  ok   source_begin/source_end exactly once per source (zero-pair incl.)
+== partitions=8 ==
+  ok   snapshot op ran exactly once
+  ok   every pair observed the frozen snapshot
+  ok   pairs read the round-start snapshot, not the mutated live
+  ok   pairs observed the per-source claim channel
+  ok   source_state always matched the current source
+  ok   source_begin/source_end exactly once per source (zero-pair incl.)
+snapshot + source-state channel test: 0 failures
+== threads=8 ==
+-- source coverage --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=11661489 pure_kernel_ms=11.661489
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   all [p=1] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=1] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=1] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+== partitions=3 ==
+  ok   all [p=3] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=3] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=3] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+== partitions=8 ==
+  ok   all [p=8] lifecycle exactly-once over 7 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   zero-pair {6} [p=8] lifecycle exactly-once over 1 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+  ok   gated {0,2} [p=8] lifecycle exactly-once over 2 sources
+  ok   deterministic ascending source_end order
+  ok   per-source accumulation consumed and reset
+owner-v source coverage test: 0 failures
+-- fork/join (incl. nested) --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=7987596 pure_kernel_ms=7.987596
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+== partitions=3 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+== partitions=8 ==
+  ok   owner ran round lifecycle exactly once
+  ok   both children executed their traversals
+  ok   concurrent activation unioned the frontier set
+  ok   dest_seen membership matches the activated set
+  ok   children ran under a fully reserved pool (no deadlock)
+  ok   worker budget ledger balanced
+  ok   nested: round lifecycle ran exactly once
+  ok   nested: outer children and inner subtree completed
+  ok   nested: inner activation unioned the frontier set
+  ok   nested: dest_seen matches the inner activated set
+  ok   nested: worker budget ledger balanced
+fork/join + budget test: 0 failures
+-- snapshot + source-state channel --
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=57965 pure_kernel_ms=0.057965
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+== partitions=1 ==
+  ok   snapshot op ran exactly once
+  ok   every pair observed the frozen snapshot
+  ok   pairs read the round-start snapshot, not the mutated live
+  ok   pairs observed the per-source claim channel
+  ok   source_state always matched the current source
+  ok   source_begin/source_end exactly once per source (zero-pair incl.)
+== partitions=8 ==
+  ok   snapshot op ran exactly once
+  ok   every pair observed the frozen snapshot
+  ok   pairs read the round-start snapshot, not the mutated live
+  ok   pairs observed the per-source claim channel
+  ok   source_state always matched the current source
+  ok   source_begin/source_end exactly once per source (zero-pair incl.)
+snapshot + source-state channel test: 0 failures
+composable exec R2 tests: PASS
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=431345 pure_kernel_ms=0.431345
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+frontier motif tests passed
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=445540 pure_kernel_ms=0.445540
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+frontier motif tests passed
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=517691 pure_kernel_ms=0.517691
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+frontier motif tests passed
+frontier motif test matrix: PASS
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=247563 pure_kernel_ms=0.247563
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+frontier owner-computes tests passed
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=232713 pure_kernel_ms=0.232713
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+frontier owner-computes tests passed
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=235750 pure_kernel_ms=0.235750
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+frontier owner-computes tests passed
+frontier owner-computes test matrix: PASS
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+== threads=1 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=17184 pure_kernel_ms=0.017184
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   op=add partitions=1  init=100 -> 136
+  ok   op=sub partitions=1  init=100 -> 64
+  ok   op=mul partitions=1  init=2 -> 0
+  ok   op=min partitions=1  init=2147483647 -> 0
+  ok   op=max partitions=1  init=-2147483648 -> 6
+  ok   op=and partitions=1  init=-1 -> 0
+  ok   op=or  partitions=1  init=0 -> 7
+  ok   op=xor partitions=1  init=0 -> 6
+  ok   op=add partitions=3  init=100 -> 136
+  ok   op=sub partitions=3  init=100 -> 64
+  ok   op=mul partitions=3  init=2 -> 0
+  ok   op=min partitions=3  init=2147483647 -> 0
+  ok   op=max partitions=3  init=-2147483648 -> 6
+  ok   op=and partitions=3  init=-1 -> 0
+  ok   op=or  partitions=3  init=0 -> 7
+  ok   op=xor partitions=3  init=0 -> 6
+  ok   op=add partitions=7  init=100 -> 136
+  ok   op=sub partitions=7  init=100 -> 64
+  ok   op=mul partitions=7  init=2 -> 0
+  ok   op=min partitions=7  init=2147483647 -> 0
+  ok   op=max partitions=7  init=-2147483648 -> 6
+  ok   op=and partitions=7  init=-1 -> 0
+  ok   op=or  partitions=7  init=0 -> 7
+  ok   op=xor partitions=7  init=0 -> 6
+red step matrix: 24 configs, 0 failures
+== threads=3 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1686248 pure_kernel_ms=1.686248
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   op=add partitions=1  init=100 -> 136
+  ok   op=sub partitions=1  init=100 -> 64
+  ok   op=mul partitions=1  init=2 -> 0
+  ok   op=min partitions=1  init=2147483647 -> 0
+  ok   op=max partitions=1  init=-2147483648 -> 6
+  ok   op=and partitions=1  init=-1 -> 0
+  ok   op=or  partitions=1  init=0 -> 7
+  ok   op=xor partitions=1  init=0 -> 6
+  ok   op=add partitions=3  init=100 -> 136
+  ok   op=sub partitions=3  init=100 -> 64
+  ok   op=mul partitions=3  init=2 -> 0
+  ok   op=min partitions=3  init=2147483647 -> 0
+  ok   op=max partitions=3  init=-2147483648 -> 6
+  ok   op=and partitions=3  init=-1 -> 0
+  ok   op=or  partitions=3  init=0 -> 7
+  ok   op=xor partitions=3  init=0 -> 6
+  ok   op=add partitions=7  init=100 -> 136
+  ok   op=sub partitions=7  init=100 -> 64
+  ok   op=mul partitions=7  init=2 -> 0
+  ok   op=min partitions=7  init=2147483647 -> 0
+  ok   op=max partitions=7  init=-2147483648 -> 6
+  ok   op=and partitions=7  init=-1 -> 0
+  ok   op=or  partitions=7  init=0 -> 7
+  ok   op=xor partitions=7  init=0 -> 6
+red step matrix: 24 configs, 0 failures
+== threads=8 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=2944505 pure_kernel_ms=2.944505
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   op=add partitions=1  init=100 -> 136
+  ok   op=sub partitions=1  init=100 -> 64
+  ok   op=mul partitions=1  init=2 -> 0
+  ok   op=min partitions=1  init=2147483647 -> 0
+  ok   op=max partitions=1  init=-2147483648 -> 6
+  ok   op=and partitions=1  init=-1 -> 0
+  ok   op=or  partitions=1  init=0 -> 7
+  ok   op=xor partitions=1  init=0 -> 6
+  ok   op=add partitions=3  init=100 -> 136
+  ok   op=sub partitions=3  init=100 -> 64
+  ok   op=mul partitions=3  init=2 -> 0
+  ok   op=min partitions=3  init=2147483647 -> 0
+  ok   op=max partitions=3  init=-2147483648 -> 6
+  ok   op=and partitions=3  init=-1 -> 0
+  ok   op=or  partitions=3  init=0 -> 7
+  ok   op=xor partitions=3  init=0 -> 6
+  ok   op=add partitions=7  init=100 -> 136
+  ok   op=sub partitions=7  init=100 -> 64
+  ok   op=mul partitions=7  init=2 -> 0
+  ok   op=min partitions=7  init=2147483647 -> 0
+  ok   op=max partitions=7  init=-2147483648 -> 6
+  ok   op=and partitions=7  init=-1 -> 0
+  ok   op=or  partitions=7  init=0 -> 7
+  ok   op=xor partitions=7  init=0 -> 6
+red step matrix: 24 configs, 0 failures
+frontier reduction step test matrix: PASS
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  173 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:173:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+== threads=1 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=158915 pure_kernel_ms=0.158915
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+shadow scratch + frozen-read owner step: 3 configs, 0 failures
+== threads=3 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=811974 pure_kernel_ms=0.811974
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+shadow scratch + frozen-read owner step: 3 configs, 0 failures
+== threads=8 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1055523 pure_kernel_ms=1.055523
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+shadow scratch + frozen-read owner step: 3 configs, 0 failures
+frontier round-separation (shadow) test matrix: PASS
+PASS PDG/TDG verification suite (--focused)

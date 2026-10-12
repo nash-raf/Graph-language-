@@ -1,0 +1,24 @@
+=== algebraic classification golden check ===
+PASS ultimate_pagerank
+PASS ultimate_kcore
+PASS ultimate_sssp
+PASS ultimate_cc
+PASS ultimate_bfs_parent
+PASS roundsep_sssp
+PASS roundsep_min
+PASS roundsep_add
+PASS reduce_sum
+PASS reduce_sub
+PASS reduce_mul
+PASS reduce_min
+PASS reduce_max
+PASS small_bfs
+PASS small_sssp
+PASS small_cc
+PASS small_kcore
+PASS dual_uv
+PASS mixed_same_array
+PASS cross_dep
+PASS test_2phase
+=== summary: 21 fixtures, 0 failures ===
+algebraic classification validation: PASS

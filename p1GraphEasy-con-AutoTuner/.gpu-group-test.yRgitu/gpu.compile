@@ -1,0 +1,20 @@
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=inconclusive group=None cleancut=None accesses=5 relations=9 remaining=9 removed=0 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=surviving relations require topology-dependent or unresolved grouping
+[temporal] scope=None rounds=interfering phases=inconclusive components=1 realized=0 verdict=inconclusive
+[temporal] complete rounds have a repeated dependency members=0,0,
+[temporal] source phase dependencies are incomplete members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=serial emitted=1 impl_failure=0 reason=surviving relations require topology-dependent or unresolved grouping
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=serial emitted=1 impl_failure=0 reason=surviving relations require topology-dependent or unresolved grouping
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=sequential  R(b,U):SameRoundRead ⊗ U_f(b,U)  temporal=SameRoundRead [refused: ]
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

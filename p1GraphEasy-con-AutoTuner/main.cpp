@@ -75,6 +75,8 @@ class GraphLangLexer : public BaseLexer
 #include "SemanticAnalyzer.h"
 
 #include <llvm/Analysis/AssumptionCache.h>
+#include <llvm/Analysis/ValueTracking.h>
+#include <llvm/IR/IntrinsicInst.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/ScalarEvolution.h>
 #include <llvm/Analysis/ScalarEvolutionExpressions.h>
@@ -662,6 +664,7 @@ struct PollyProbePass : public llvm::PassInfoMixin<PollyProbePass>
 // otherwise the outliner runs first and the O3/Polly pipeline runs at the
 // end of the optimization sequence.  GRAPH_OUTLINER_FIRST=1 forces the
 // outliner first; GRAPH_DISABLE_POLLY=1 skips Polly entirely.
+#include "gpu_host_coherence.inc"
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
     // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
@@ -1408,6 +1411,8 @@ int main(int argc, char **argv)
 
     if (usingGpuIR)
         emitGpuKernels(*M, "kernels.ptx");
+    if (usingGpuIR)
+        instrumentGpuHostCoherence(*M);
 
     // Dump the final module (after GPU kernel emission so embedded PTX payloads
     // are included) when an IR output path was requested.

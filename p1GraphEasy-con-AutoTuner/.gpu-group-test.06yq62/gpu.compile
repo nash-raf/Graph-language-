@@ -1,0 +1,21 @@
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=PairOccurrence cleancut=Destination accesses=3 relations=3 remaining=0 removed=3 nontrivial=occupied-groups>=2 runtime=1 realized=0 reason=every surviving relation stays within the symbolic group
+[round-spatial-runtime] realized group=PairOccurrence cleancut=Destination
+[temporal] scope=Round rounds=independent phases=skipped components=2 realized=1 verdict=independent
+[temporal] finite round domain has isolated scratch and disjoint outputs members=0,1,
+[temporal] round concurrency has priority members=
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=1 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=round-spatial-dag emitted=1 impl_failure=0 reason=existing round and spatial proofs realized through one lifecycle DAG
+[gpu] effects sgpl.round.spatial.reserve hdr=red_fill_cond.parallel: space=Independent doacross_dist=0
+[gpu] env field 0 ptr origin=call[inst:call] stored=[inst:call] resolved=[inst:call] stripped=other
+[gpu] env field 1 ptr origin=alloca[alloca:.loc] stored=[alloca:.loc] resolved=[alloca:.loc] stripped=alloca
+[gpu] buffer registration emitted for .loc
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

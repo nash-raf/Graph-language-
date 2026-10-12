@@ -6,7 +6,7 @@
  * path: the compiler classifies the loop by its *write pattern against the
  * walked edge's endpoints* and lowers it to an owner-computes CleanCut step
  * (destination home partitions; one worker per partition — race-free for any
- * per-pair work by construction), or conservatively marks it sequential.
+ * supported symbolic partition family), or conservatively marks it sequential.
  *
  * Shapes handled (all currently use the forward out-edge iterator, i.e.
  * push: src = driver axis, dst = walked neighbor):
@@ -36,6 +36,13 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/MemoryLocation.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/IR/CFG.h"
 #include "parallel_loop_outline.h" // nextParallelSiteId(): shared id space
 #include "llvm/Support/raw_ostream.h"
@@ -52,6 +59,7 @@
 #include <cstring>
 
 #include "autotuner_runtime.h"
+#include "gpu_runtime.h"
 
 #include "graph_frontier_lowering.h"
 
@@ -433,16 +441,9 @@ struct EffectExpr
     SmallVector<const Effect *, 4> Epilogue;
 };
 
-/* ── two-axis theorem certificate (R1-R7) ────────────────────────
- * The scheduler legality contract is the completed theorem
- *     R_S = R1 v R3 v R6 v R7        (spatial refusals)
- *     R_T = R2 v R4 v R5             (temporal refusals)
- *     NI_S = !R_S, NI_T = !R_T       (independence on each axis)
- * A witness proves interference on exactly one axis; an unresolved witness on
- * one axis must not suppress proven parallelism on the other.  R8 and every
- * realization failure are implementation guards outside this lattice.  This
- * layer is diagnostic for now: the admittance gate and all emission paths are
- * unchanged; graph templates will consume the certificate. */
+/* R1-R7 diagnose dependencies and transformation obligations. Their union
+ * is not an exhaustive test for spatial or temporal non-interference. The
+ * selected scope proof and its verified runtime determine schedule legality. */
 enum class WitnessAxis : uint8_t
 {
     Spatial = 0,
@@ -471,7 +472,9 @@ enum class DischargeKind : uint8_t
     ClaimStaging,
     OwnerComputes,
     Atomicity,
-    AlgebraicFold
+    AlgebraicFold,
+    FrontierPrivatization,
+    SourceFrame
 };
 
 /* §5 owner classes.  Filled by the owner resolver; the relation layer keeps
@@ -755,6 +758,7 @@ struct AxisProof
     SmallVector<Transformation, 8> Transformations;
     bool NIS = false;
     bool NIT = false;
+    bool RoundProjectionClean = false; /* legacy spatial staging diagnostic */
     bool Realizable = true;
     bool Overflow = false;
     bool Invalid = false;
@@ -788,8 +792,11 @@ enum class ScheduleKind : uint8_t
 {
     Serial = 0,
     SpatialDag,
-    TemporalDag,
-    Nested
+    SpatialStaged,
+    SpatialForkJoin,
+    RoundDag,
+    RoundSpatialDag,
+    SourcePhaseDag
 };
 struct ScheduleChoice
 {
@@ -800,8 +807,109 @@ struct ScheduleChoice
 };
 static const char *scheduleName(ScheduleKind K);
 
+enum class TemporalScope : uint8_t { None, Round, SourcePhase };
+enum class TemporalProofStatus : uint8_t
+{
+    NotApplicable, Skipped, Independent, Interfering, Inconclusive
+};
+struct TemporalDependency
+{
+    unsigned From = 0, To = 0;
+    std::string Basis;
+    bool Uncertain = false;
+    bool UniformAcrossRounds = false;
+};
+struct TemporalScopeProof
+{
+    TemporalProofStatus Status = TemporalProofStatus::NotApplicable;
+    SmallVector<TemporalDependency, 16> Relations;
+    SmallVector<unsigned, 4> Members;
+    unsigned Components = 0;
+    std::string Reason;
+    bool RuntimeRealizable = false;
+    std::string RuntimeReason;
+    SmallVector<std::pair<Instruction *, bool>, 32> Meaningful;
+};
+struct TemporalDecision
+{
+    TemporalScope Scope = TemporalScope::None;
+    TemporalScopeProof Rounds, Phases;
+    bool Realized = false;
+};
+
+
+/* Spatial nodes denote quantified work occurrences, never provenance classes.
+ * Access sites remain separate inside Pair(u,v,o). Lifecycle families have
+ * their own once-per-source scope and coverage obligations. */
+enum class SpatialProofStatus : uint8_t {
+    NotApplicable, IndependentFamily, NoPartition, Inconclusive
+};
+enum class SpatialGroup : uint8_t { None, PairOccurrence, Destination, Source };
+struct SpatialIndex {
+    Region Axis = Region::Top;
+    int64_t Scale = 0, Offset = 0;
+    unsigned Bits = 0;
+    bool Injective = false;
+};
+struct SpatialAccess {
+    Instruction *Origin = nullptr;
+    Value *Pointer = nullptr;
+    const Value *Base = nullptr;
+    SpatialIndex Index;
+    unsigned Site = 0, Family = 0;
+    bool Write = false, Uncertain = false;
+    int Snapshot = -1;
+    bool Private = false, SourceLocal = false, FixedOffset = false;
+    int64_t ByteOffset = 0;
+    uint32_t Resource = 0;
+    PhaseSegment Phase = PhaseSegment::Pair;
+    uint64_t Bytes = 0;
+    std::string Layout, Guard;
+};
+struct SpatialRelation {
+    unsigned From = 0, To = 0;
+    AccessRelKind Kind = AccessRelKind::RAW;
+    Region ContainedBy = Region::Top;
+    bool Uncertain = false, Survives = true;
+    DischargeKind RemovedBy = DischargeKind::None;
+    std::string Condition, OriginalCondition, RemovedCondition, OriginalOrder;
+};
+struct SpatialContract {
+    DischargeKind Kind = DischargeKind::None;
+    SmallVector<unsigned, 8> Sites, Removes;
+    std::string Premises, Replacement;
+};
+struct SpatialDecision {
+    SpatialProofStatus Status = SpatialProofStatus::NotApplicable;
+    SpatialGroup Group = SpatialGroup::None;
+    SpatialGroup CleanCutGroup = SpatialGroup::None;
+    SmallVector<SpatialAccess, 32> Accesses;
+    SmallVector<SpatialRelation, 32> Relations;
+    SmallVector<SpatialContract, 4> Contracts;
+    SmallVector<std::pair<Value *, bool>, 4> SourceGates;
+    bool CoverageComplete = false;
+    bool SourceValid = false, DestinationValid = false;
+    bool RuntimeRealizable = false, Realized = false, Overflow = false;
+    unsigned MinimumOccupiedGroups = 2;
+    std::string Reason, RuntimeReason;
+};
+
+struct SpatialStageParts {
+    BasicBlock *Reserve = nullptr;
+    Value *Context = nullptr, *PartCount = nullptr;
+    Value *PrivateRecords = nullptr, *PrivateParts = nullptr;
+    SmallVector<std::tuple<unsigned, Value *, Value *, uint64_t>, 4> Snapshots;
+    Function *GpuPartition = nullptr;
+};
 struct NeighborLoopInfo
 {
+    SpatialStageParts *CombinedStage = nullptr;
+    DenseMap<const Value *, unsigned> *CombinedFields = nullptr;
+    StructType *CombinedFrame = nullptr;
+    SmallPtrSet<const Value *, 16> *CombinedPrivate = nullptr;
+    SmallPtrSet<const Value *, 16> *CombinedIndirectPrivate = nullptr;
+    SpatialDecision SpatialResult;
+    TemporalDecision TemporalResult;
     Loop *NeighborLoop = nullptr;
     Loop *DriverLoop = nullptr;
     CallInst *InitCall = nullptr;   /* autograph_neighbor_iter_init(...) */
@@ -852,6 +960,7 @@ struct NeighborLoopInfo
      * scalar accumulator once per source (`arr[u] = acc`) after resetting it,
      * so the reduction is per source, not per loop. */
     StoreInst *AccConsumeStore = nullptr; /* the `arr[u] = acc` store */
+    StoreInst *AccResetStore = nullptr; /* original per-source seed */
     bool AccResetSeen = false;            /* `acc = <invariant>` in the preamble */
 
     /* In-place: an array both read and written on an endpoint region — a
@@ -909,6 +1018,7 @@ struct NeighborLoopInfo
      * emission entry points; the emitters realize it and declare it to the
      * runtime through autograph_exec_ctx_set_dag_axes). */
     ScheduleChoice Schedule;
+    std::string RoundSpatialRuntimeReason; /* composition capability, separate from proofs */
     /* Order-sensitive access relations (RAW/WAR/WAW), serial expression order. */
     SmallVector<AccessRelation, 16> AccessRelations;
     /* §3.1: round-scoped resource footprints (membership, snapshot
@@ -927,10 +1037,14 @@ struct NeighborLoopInfo
     TemporalGraphTemplate TemporalTemplate;
 };
 
+static PhaseSegment sourcePhaseFor(const NeighborLoopInfo &Info,
+                                  const Instruction *I);
+
 static void buildEffectExpr(NeighborLoopInfo &Info);
 static void deriveAllTemporal(NeighborLoopInfo &Info);
 static void deriveAccessRelations(NeighborLoopInfo &Info);
 static bool hasPerSourceClaim(const NeighborLoopInfo &Info);
+static bool gpuBackendSelected(Module *M);
 static bool hasPairPhaseClaim(const NeighborLoopInfo &Info);
 static bool envelopeWired(const NeighborLoopInfo &Info);
 
@@ -942,6 +1056,10 @@ static bool isArrayElementLoad(const LoadInst *LI)
 {
     return LI && isa<GetElementPtrInst>(LI->getPointerOperand());
 }
+
+namespace { static const char *spatialGroupName(SpatialGroup); }
+static Function *emitSpatialSourceGate(const NeighborLoopInfo &Info, Module *Mod,
+                                        LLVMContext &Ctx);
 
 /* ── provenance domain ──────────────────────────────────────────
  * Forward dataflow of Region over SSA.  mem2reg has already run before this
@@ -1061,7 +1179,7 @@ static bool sameAddressValue(Value *A, Value *B, unsigned Depth)
 {
     if (A == B)
         return true;
-    if (!A || !B || Depth > 6 || A->getType() != B->getType())
+    if (!A || !B || Depth > 16 || A->getType() != B->getType())
         return false;
     if (auto *LA = dyn_cast<LoadInst>(A))
         if (auto *LB = dyn_cast<LoadInst>(B))
@@ -2136,6 +2254,8 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                                                   Info.ReducePtr))
                 {
                     Info.AccResetSeen = true;
+                    if (sourcePhaseFor(Info, SI) == PhaseSegment::Preamble)
+                        Info.AccResetStore = SI;
                 }
             }
             if (auto *SI = dyn_cast<StoreInst>(&I))
@@ -2329,17 +2449,16 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             /* Cross-endpoint reads on the base: every load whose index origin
              * differs from the write region.  Same-region RMW reads (the
              * accumulator) stay live. */
-            for (BasicBlock *BB : L->blocks())
+            for (BasicBlock *BB : Info.DriverLoop->blocks())
                 for (Instruction &I : *BB)
                     if (auto *LI = dyn_cast<LoadInst>(&I))
-                        if (auto *GEP =
-                                dyn_cast<GetElementPtrInst>(LI->getPointerOperand()))
-                            if (canonicalArrayBase(GEP) == Base)
-                            {
+                        if (auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand()))
+                            if (canonicalArrayBase(GEP) == Base) {
                                 Value *IX = primaryIndex(GEP);
                                 Region R = IX ? Prov.regionOf(IX) : Region::Bottom;
-                                if (R != WReg)
-                                    RS.CrossReads.insert(LI);
+                                if (!L->contains(BB) && IX && ProvU.regionOf(IX) == Region::U)
+                                    R = Region::U;
+                                if (R != WReg) RS.CrossReads.insert(LI);
                             }
             Info.RoundSepBases.push_back(RS);
         }
@@ -2463,6 +2582,29 @@ static void collectTreePrims(const EffectExpr &X,
     flattenTree(X, X.Root, Out);
 }
 
+/* The neighbor loop exit determines Q. The iterator init belongs to B.
+ * Source setup before that init belongs to P, including source guards. */
+static PhaseSegment sourcePhaseFor(const NeighborLoopInfo &Info,
+                                  const Instruction *I)
+{
+    if (!I) return PhaseSegment::None;
+    if (Info.NeighborLoop->contains(I) || I == Info.InitCall)
+        return PhaseSegment::Pair;
+    SmallVector<BasicBlock *, 16> Work;
+    Info.NeighborLoop->getExitBlocks(Work);
+    SmallPtrSet<BasicBlock *, 32> Seen;
+    while (!Work.empty())
+    {
+        BasicBlock *BB = Work.pop_back_val();
+        if (BB == Info.DriverLoop->getHeader() ||
+            !Info.DriverLoop->contains(BB) || !Seen.insert(BB).second)
+            continue;
+        if (BB == I->getParent()) return PhaseSegment::Epilogue;
+        for (BasicBlock *S : successors(BB)) Work.push_back(S);
+    }
+    return PhaseSegment::Preamble;
+}
+
 static void buildEffectExpr(NeighborLoopInfo &Info)
 {
     EffectExpr &X = Info.Expr;
@@ -2481,7 +2623,7 @@ static void buildEffectExpr(NeighborLoopInfo &Info)
     {
         if (E.Scope == OccurrenceScope::PerSource)
         {
-            if (Info.AccConsumeStore && E.Origin == Info.AccConsumeStore)
+            if (sourcePhaseFor(Info, E.Origin) == PhaseSegment::Epilogue)
                 X.Epilogue.push_back(&E);
             else
                 X.Preamble.push_back(&E);
@@ -3157,13 +3299,17 @@ static bool foldSound(RedOp Op, Type *ElemTy)
         return false;
     switch (Op)
     {
-    case RedOp::FMinNum:
-    case RedOp::FMaxNum:
     case RedOp::FMinProp:
     case RedOp::FMaxProp:
+        return true; /* IEEE minimum/maximum, including NaN and signed zero. */
+    case RedOp::FMinNum:
+    case RedOp::FMaxNum:
     case RedOp::Min:
     case RedOp::Max:
-        return true; /* idempotent and commutative: fold == serial */
+        /* The emitted infinity identity is not neutral for minnum/maxnum
+         * when the live initial value and every contribution are NaN.
+         * Ordered comparison updates also need an explicit no-NaN premise. */
+        return false;
     default:
         return false; /* float +/* : re-associates, so refuse */
     }
@@ -3204,12 +3350,36 @@ static bool loadFeedsOnlyUpdates(LoadInst *LI, const Value *Base, Loop *Nest,
             if (const auto *SI = dyn_cast<StoreInst>(UI))
             {
                 const auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
-                if (!GEP || canonicalArrayBase(GEP) != Base)
+                if ((GEP ? canonicalArrayBase(GEP) : SI->getPointerOperand()->stripPointerCasts()) != Base)
                     return false;
                 if (!ShadowResolved &&
                     !sameArraySlot(const_cast<Value *>(SI->getPointerOperand()),
                                    LI->getPointerOperand()))
                     return false;
+                ReachedStore = true;
+                continue;
+            }
+            if (auto *Branch = dyn_cast<BranchInst>(UI)) {
+                auto *Compare = dyn_cast<ICmpInst>(I);
+                bool Covered = false;
+                if (Compare && Branch->isConditional())
+                    for (unsigned Side = 0; Side < 2; ++Side) {
+                        BasicBlock *Then = Branch->getSuccessor(Side);
+                        auto *Exit = dyn_cast<BranchInst>(Then->getTerminator());
+                        if (!Exit || !Exit->isUnconditional() ||
+                            Exit->getSuccessor(0) != Branch->getSuccessor(1-Side)) continue;
+                        unsigned Updates = 0;
+                        bool OnlyUpdate = true;
+                        for (Instruction &Effect : *Then) {
+                            if (auto *Store = dyn_cast<StoreInst>(&Effect)) {
+                                ++Updates;
+                                OnlyUpdate &= sameArraySlot(Store->getPointerOperand(), LI->getPointerOperand()) &&
+                                    detectConditionalMinMax(Store, Store->getPointerOperand()) != RedOp::None;
+                            } else if (Effect.mayHaveSideEffects() && !Effect.isTerminator()) OnlyUpdate = false;
+                        }
+                        Covered |= Updates == 1 && OnlyUpdate;
+                    }
+                if (!Covered) return false;
                 ReachedStore = true;
                 continue;
             }
@@ -3283,6 +3453,57 @@ static const char *PrivReason = "";
  * per-source/ordered semantics on the live array).  Activation is orthogonal:
  * it touches the dest envelope, never the privatized bases. */
 
+/* A fold contribution must not observe the evolving accumulator. Merely
+ * reaching an update store does not prove this (x += x is not a delta fold). */
+static bool pureFoldUpdate(StoreInst *Store, const NeighborLoopInfo &Info)
+{
+    Value *Pointer = Store->getPointerOperand(), *Stored = Store->getValueOperand();
+    auto Old = [&](Value *V) {
+        auto *L = dyn_cast<LoadInst>(V);
+        return L && sameArraySlot(L->getPointerOperand(), Pointer);
+    };
+    SmallVector<Value *, 4> Contributions;
+    if (auto *B = dyn_cast<BinaryOperator>(Stored)) {
+        bool Left = Old(B->getOperand(0)), Right = Old(B->getOperand(1));
+        if (B->hasNoSignedWrap() || B->hasNoUnsignedWrap()) return false;
+        if (Left == Right) return false;
+        if ((B->getOpcode() == Instruction::Sub || B->getOpcode() == Instruction::FSub) && !Left)
+            return false;
+        Contributions.push_back(B->getOperand(Left ? 1 : 0));
+    } else if (auto *Call = dyn_cast<IntrinsicInst>(Stored)) {
+        if (Call->arg_size() != 2) return false;
+        bool Left = Old(Call->getArgOperand(0)), Right = Old(Call->getArgOperand(1));
+        if (Left == Right) return false;
+        Contributions.push_back(Call->getArgOperand(Left ? 1 : 0));
+    } else if (auto *Select = dyn_cast<SelectInst>(Stored)) {
+        bool Left = Old(Select->getTrueValue()), Right = Old(Select->getFalseValue());
+        if (Left == Right || detectScalarRedOp(Stored, Pointer) == RedOp::None) return false;
+        Contributions.push_back(Left ? Select->getFalseValue() : Select->getTrueValue());
+    } else {
+        if (detectConditionalMinMax(Store, Pointer) == RedOp::None) return false;
+        Contributions.push_back(Stored);
+    }
+    SmallPtrSet<Value *, 32> Seen;
+    while (!Contributions.empty()) {
+        Value *V = Contributions.pop_back_val();
+        if (!Seen.insert(V).second) continue;
+        if (auto *L = dyn_cast<LoadInst>(V)) {
+            bool Frozen = false;
+            for (const auto &Snapshot : Info.RoundSepBases) Frozen |= Snapshot.CrossReads.count(L);
+            if (Frozen) continue;
+            auto *G = dyn_cast<GetElementPtrInst>(L->getPointerOperand());
+            const Value *Base = G ? canonicalArrayBase(G) : L->getPointerOperand()->stripPointerCasts();
+            for (const auto &E : Info.Effects)
+                if (E.Kind != EffectKind::R && E.Kind != EffectKind::Activate && E.Base == Base) return false;
+        }
+        if (auto *I = dyn_cast<Instruction>(V)) {
+            if (isa<CallBase>(I) && !isa<IntrinsicInst>(I)) return false;
+            for (Value *Operand : I->operands()) Contributions.push_back(Operand);
+        }
+    }
+    return true;
+}
+
 static bool privLayout(NeighborLoopInfo &Info)
 {
     Loop *L = Info.NeighborLoop;
@@ -3318,13 +3539,21 @@ static bool privLayout(NeighborLoopInfo &Info)
             return false;
         }
         if (E.Reg != Region::G && E.Reg != Region::U && E.Reg != Region::V &&
-            E.Reg != Region::D)
+            E.Reg != Region::D && E.Reg != Region::Bottom)
         {
             PrivReason = "unknown index provenance";
             return false;
         }
     }
 
+    for (const Effect &E : Info.Effects) if (E.Kind == EffectKind::Uop) {
+        auto *Store = dyn_cast_or_null<StoreInst>(E.Origin);
+        if (!Store || !pureFoldUpdate(Store, Info)) {
+            PrivReason = "fold contribution observes evolving storage or has no checked old operand";
+            Info.Slots.clear(); Info.PrivArrays.clear();
+            return false;
+        }
+    }
     /* 3. One operator per location; scalars become slots. */
     for (const Effect &E : Info.Effects)
     {
@@ -3354,6 +3583,15 @@ static bool privLayout(NeighborLoopInfo &Info)
         }
     }
 
+    for (const auto &Slot : Info.Slots)
+        for (BasicBlock *BB : Nest->blocks()) for (Instruction &I : *BB)
+            if (auto *Load = dyn_cast<LoadInst>(&I))
+                if (Load->getPointerOperand()->stripPointerCasts() == Slot.Ptr &&
+                    !loadFeedsOnlyUpdates(Load, Slot.Ptr, Nest, false)) {
+                    PrivReason = "scalar fold has an intermediate observer";
+                    Info.Slots.clear(); Info.PrivArrays.clear();
+                    return false;
+                }
     /* 4/5. Arrays: one operator per base, update-only uses, order-independent
      * operator for the element type. */
     SmallVector<const Value *, 4> Bases;
@@ -4249,7 +4487,7 @@ static void emitRoundSepShadow(
 static SmallVector<Function *, 2>
 buildClaimState(IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod,
                 LLVMContext &Ctx, Type *I8P, Type *I32, Type *I64,
-                Value *GraphArg)
+                Value *GraphArg, Value **FrameClaims = nullptr)
 {
     SmallVector<Function *, 2> CBs;
     SmallVector<const Effect *, 2> Claims = perSourceClaims(Info);
@@ -4262,11 +4500,16 @@ buildClaimState(IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod,
     EB.CreateMemSet(ClaimRes, ConstantInt::get(Type::getInt8Ty(Ctx), 0),
                     EB.CreateMul(NElems, ConstantInt::get(I64, 4)),
                     MaybeAlign(4));
-    GlobalVariable *ClaimG = cast<GlobalVariable>(
-        Mod->getOrInsertGlobal(claimGlobalName(Info), I8P));
-    ClaimG->setLinkage(GlobalValue::InternalLinkage);
-    ClaimG->setInitializer(ConstantPointerNull::get(cast<PointerType>(I8P)));
-    EB.CreateStore(EB.CreateBitCast(ClaimRes, I8P), ClaimG);
+    const bool LocalClaims = Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+                             Info.Schedule.Kind == ScheduleKind::SpatialDag;
+    if (FrameClaims) *FrameClaims = EB.CreateBitCast(ClaimRes, I8P);
+    GlobalVariable *ClaimG = nullptr;
+    if (!LocalClaims) {
+        ClaimG = cast<GlobalVariable>(Mod->getOrInsertGlobal(claimGlobalName(Info), I8P));
+        ClaimG->setLinkage(GlobalValue::InternalLinkage);
+        ClaimG->setInitializer(ConstantPointerNull::get(cast<PointerType>(I8P)));
+        EB.CreateStore(EB.CreateBitCast(ClaimRes, I8P), ClaimG);
+    }
 
     FunctionType *CTy = FunctionType::get(Type::getVoidTy(Ctx),
                                           {I8P, I8P, I32}, false);
@@ -4279,7 +4522,12 @@ buildClaimState(IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod,
         BasicBlock *Ent = BasicBlock::Create(Ctx, "entry", CB);
         IRBuilder<> CBI(Ent);
         Value *U = CB->getArg(2);
-        Value *Arr = CBI.CreateLoad(I8P, ClaimG, "claim_arr");
+        Value *Arr;
+        if (LocalClaims) {
+            FunctionCallee Get = Mod->getOrInsertFunction("autograph_exec_ctx_claims",
+                FunctionType::get(I8P, {I8P}, false));
+            Arr = CBI.CreateCall(Get, {CB->getArg(1)}, "claim_arr");
+        } else Arr = CBI.CreateLoad(I8P, ClaimG, "claim_arr");
         Value *ArrI32 = CBI.CreateBitCast(Arr, PointerType::get(I32, 0));
         Value *BasePtr = ptrFromSlot(CBI, const_cast<Value *>(Claim->Base), I8P);
         Value *BaseT = CBI.CreateBitCast(BasePtr, PointerType::get(ClaimET, 0));
@@ -4339,8 +4587,9 @@ static const Value *privBaseStillShared(const Function *WF,
         if (A.Ptr)
             Bases.insert(A.Ptr);
     }
-    if (Bases.empty())
-        return nullptr;
+    for (const auto &S : Info.Slots) if (S.Ptr) Bases.insert(S.Ptr);
+    if (Info.ReducePtr) Bases.insert(Info.ReducePtr);
+    if (Bases.empty()) return nullptr;
 
     for (const BasicBlock &BB : *WF)
         for (const Instruction &I : BB)
@@ -4481,9 +4730,17 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
     for (unsigned si = 0; si < Info.RoundSepBases.size(); ++si)
     {
         const auto &RS = Info.RoundSepBases[si];
-        GlobalVariable *SlotG = cast<GlobalVariable>(
-            Mod->getOrInsertGlobal(shadowGlobalName(Info, si), I8P));
-        Value *ShadP = WB.CreateLoad(I8P, SlotG, "shadow_ptr");
+        GlobalVariable *SlotG = nullptr;
+        if (!(Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+              Info.Schedule.Kind == ScheduleKind::SpatialDag))
+            SlotG = cast<GlobalVariable>(Mod->getOrInsertGlobal(shadowGlobalName(Info, si), I8P));
+        Value *ShadP;
+        if (Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+            Info.Schedule.Kind == ScheduleKind::SpatialDag) {
+            FunctionCallee Get = Mod->getOrInsertFunction("autograph_exec_ctx_snapshot",
+                FunctionType::get(I8P, {I8P, I32}, false));
+            ShadP = WB.CreateCall(Get, {WF->getArg(1), ConstantInt::get(I32, si)}, "shadow_ptr");
+        } else ShadP = WB.CreateLoad(I8P, SlotG, "shadow_ptr");
         ShadowPtrForBase[RS.Base] = ShadP;
         ShadowTyForBase[RS.Base] = RS.ElemTy;
     }
@@ -4502,6 +4759,15 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
 
     /* Recursive value cloner. */
     ValueToValueMapTy Map;
+    if (Info.CombinedFields) {
+        Value *Frame = WB.CreateCall(Mod->getOrInsertFunction("sgpl_round_spatial_current_frame",
+            FunctionType::get(I8P, false)));
+        for (const auto &Field : *Info.CombinedFields) {
+            Value *Address = WB.CreateStructGEP(Info.CombinedFrame, Frame, Field.second);
+            Type *Ty = Info.CombinedFrame->getElementType(Field.second);
+            Map[Field.first] = (Info.CombinedPrivate->count(Field.first) && !Info.CombinedIndirectPrivate->count(Field.first)) ? Address : WB.CreateLoad(Ty, Address);
+        }
+    }
     Map[U32] = ArgU;
     Map[U64] = U64Src;
     Map[Info.VAlloca] = VSlot;
@@ -4954,6 +5220,7 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
         }
     }
     WB.SetInsertPoint(EntryBB);
+    Value *SourceGate = nullptr; /* source gate is captured by the source-begin operation */
     /* Per-source first-wins claims: each claim runs once per source in a
      * SOURCE_BEGIN operation and publishes its outcome in the per-source
      * state array S[u][j].  Only claims whose guard dominates the loop gate
@@ -4967,9 +5234,16 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
                 AnyGate = true;
         if (AnyGate)
         {
-            GlobalVariable *ClaimG = cast<GlobalVariable>(
-                Mod->getOrInsertGlobal(claimGlobalName(Info), I8P));
-            Value *Arr = WB.CreateLoad(I8P, ClaimG, "claim_res");
+            Value *Arr;
+            if (Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+                Info.Schedule.Kind == ScheduleKind::SpatialDag) {
+                FunctionCallee Get = Mod->getOrInsertFunction("autograph_exec_ctx_claims",
+                    FunctionType::get(I8P, {I8P}, false));
+                Arr = WB.CreateCall(Get, {WF->getArg(1)}, "claim_res");
+            } else {
+                GlobalVariable *ClaimG = cast<GlobalVariable>(Mod->getOrInsertGlobal(claimGlobalName(Info), I8P));
+                Arr = WB.CreateLoad(I8P, ClaimG, "claim_res");
+            }
             Value *ArrI32 = WB.CreateBitCast(Arr, PointerType::get(I32, 0));
             const unsigned K = (unsigned)Claims.size();
             Value *Won = nullptr;
@@ -4985,12 +5259,50 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
                 Value *One = WB.CreateICmpNE(Res, ConstantInt::get(I32, 0));
                 Won = Won ? WB.CreateAnd(Won, One) : One;
             }
+            if (SourceGate) Won = WB.CreateAnd(Won, SourceGate);
             WB.CreateCondBr(Won, FirstClone, RetStub);
-        }
-        else
-            WB.CreateBr(FirstClone);
+        } else if (SourceGate) WB.CreateCondBr(SourceGate, FirstClone, RetStub);
+        else WB.CreateBr(FirstClone);
     }
 
+    if (Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+        Info.Schedule.Kind == ScheduleKind::SpatialDag) {
+        for (const LoadInst *Old : ShadowReadLoads) {
+            auto *Copy = dyn_cast_or_null<LoadInst>(Map.lookup(Old));
+            auto *G = dyn_cast<GetElementPtrInst>(Old->getPointerOperand());
+            Value *Snapshot = G ? ShadowPtrForBase.lookup(canonicalArrayBase(G)) : nullptr;
+            if (!Copy && !Info.NeighborLoop->contains(Old)) continue;
+            if (!Copy || !Snapshot || getUnderlyingObject(Copy->getPointerOperand()) != Snapshot)
+                return nullptr;
+        }
+        WF->addFnAttr("sgpl.spatial.callback");
+        WF->addFnAttr("sgpl.spatial.runtime.group",
+            Info.SpatialResult.CleanCutGroup == SpatialGroup::Destination ? "Destination" : "Source");
+    }
+    /* Carry the accepted private-fold contract into device emission. This
+     * identifies storage updates, not a new fold or independence proof. */
+    if(Phase==PairPhase::All&&(Info.UsePrivLayout||(Info.ReducePtr&&!Info.AccConsumeStore))) {
+        auto PrivateOp=[&](Value *P)->RedOp {
+            if(!Info.UsePrivLayout&&Info.ReducePtr&&sameArraySlot(P,Info.ReducePtr)) return Info.ReduceOp;
+            for(const auto &S:Info.Slots) if(S.Ptr&&sameArraySlot(P,const_cast<Value*>(S.Ptr))) return S.Op;
+            if(auto *G=dyn_cast<GetElementPtrInst>(P))
+                for(const auto &A:Info.PrivArrays) if(canonicalArrayBase(G)==A.Base) return A.Op;
+            return RedOp::None;
+        };
+        for(BasicBlock *BB:BodyBlocks) for(Instruction &I:*BB) {
+            if(auto *L=dyn_cast<LoadInst>(&I)) if(PrivateOp(L->getPointerOperand())!=RedOp::None)
+                if(auto *Copy=dyn_cast_or_null<LoadInst>(Map.lookup(L))) Copy->setMetadata("sgpl.gpu.private.load",MDNode::get(Ctx,{}));
+            auto *S=dyn_cast<StoreInst>(&I);if(!S) continue;
+            RedOp Op=PrivateOp(S->getPointerOperand());if(Op==RedOp::None) continue;
+            Value *Stored=S->getValueOperand(),*Contribution=Stored;
+            auto Old=[&](Value *V){auto *L=dyn_cast<LoadInst>(V);return L&&sameArraySlot(L->getPointerOperand(),S->getPointerOperand());};
+            if(auto *Binary=dyn_cast<BinaryOperator>(Stored)) Contribution=Binary->getOperand(Old(Binary->getOperand(0))?1:0);
+            else if(auto *Call=dyn_cast<IntrinsicInst>(Stored)) Contribution=Call->getArgOperand(Old(Call->getArgOperand(0))?1:0);
+            else if(auto *Select=dyn_cast<SelectInst>(Stored)) Contribution=Old(Select->getTrueValue())?Select->getFalseValue():Select->getTrueValue();
+            auto *Copy=dyn_cast_or_null<StoreInst>(Map.lookup(S));
+            if(Copy) Copy->setMetadata("sgpl.gpu.private.fold",MDNode::get(Ctx,{ConstantAsMetadata::get(ConstantInt::get(I32,(int)Op))}));
+        }
+    }
     /* Drop the address computations the rewrites left unused: a GEP re-based on
      * a private copy (or a load re-pointed at a shadow) no longer consumes the
      * base-slot load that was cloned for it.  The backend folds those loads
@@ -5027,7 +5339,8 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
      * which answers exactly like the unrewritten program.
      * SGPL_FRONTIER_STRICT=1 turns the refusal into an abort so a test run
      * cannot mistake a silently sequential loop for a passing rewrite. */
-    if (Phase == PairPhase::All && Info.UsePrivLayout)
+    if (Phase == PairPhase::All && (Info.UsePrivLayout ||
+        (Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily && Info.ReducePtr)))
         if (const Value *Shared = privBaseStillShared(WF, Info))
         {
             errs() << "[graph-frontier] POSTCONDITION FAILURE on "
@@ -5063,6 +5376,15 @@ static Value *clonePreambleValue(Value *V, IRBuilder<> &B,
     }
     if (Map.count(V))
         return Map[V];
+    if (Info.CombinedFields && Info.CombinedFields->count(V)) {
+        Type *Ptr = PointerType::get(B.getContext(), 0);
+        Value *Frame = B.CreateCall(B.GetInsertBlock()->getModule()->getOrInsertFunction(
+            "sgpl_round_spatial_current_frame", FunctionType::get(Ptr, false)));
+        unsigned Field = Info.CombinedFields->lookup(V);
+        Value *Address = B.CreateStructGEP(Info.CombinedFrame, Frame, Field);
+        return Map[V] = (Info.CombinedPrivate->count(V) && !Info.CombinedIndirectPrivate->count(V)) ? Address
+            : B.CreateLoad(Info.CombinedFrame->getElementType(Field), Address);
+    }
     if (isa<Constant>(V) || isa<Argument>(V))
         return V;
     if (Loop *DL = Info.DriverLoop)
@@ -5156,6 +5478,27 @@ static Function *buildSourceFinishHook(const NeighborLoopInfo &Info, Module *Mod
     FBi.CreateStore(identityFor(Info.ReduceOp, ElemTy), PartArg, false);
     FBi.CreateRetVoid();
     return Finish;
+}
+
+static Function *buildSourceResetHook(const NeighborLoopInfo &Info, Module *Mod,
+                                      LLVMContext &Ctx, Type *ElemTy)
+{
+    if (!Info.AccResetStore) return nullptr;
+    Function *Reset = Function::Create(FunctionType::get(Type::getVoidTy(Ctx),
+                         {Type::getInt32Ty(Ctx), PointerType::get(Ctx, 0)}, false),
+                         GlobalValue::InternalLinkage, "sgpl_source_reset", Mod);
+    IRBuilder<> B(BasicBlock::Create(Ctx, "entry", Reset));
+    SmallDenseMap<Value *, Value *> Map;
+    bool Ok = true;
+    Value *Seed = clonePreambleValue(Info.AccResetStore->getValueOperand(), B, Info,
+                       Reset->getArg(0), identityFor(Info.ReduceOp, ElemTy), Map, Ok, 0);
+    if (!Ok || !Seed || Seed->getType() != ElemTy)
+    {
+        Reset->eraseFromParent(); return nullptr;
+    }
+    B.CreateStore(Seed, Reset->getArg(1));
+    B.CreateRetVoid();
+    return Reset;
 }
 
 /* Composition R3 setup shared by the legacy privatized step and the direct
@@ -5324,7 +5667,7 @@ static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
     if (!S.WF)
         return false;
 
-    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    BasicBlock *Pre = (Info.CombinedStage ? Info.CombinedStage->Reserve : Info.DriverLoop->getLoopPreheader());
     if (!Pre || !Pre->getTerminator())
         return false;
     IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
@@ -5335,7 +5678,10 @@ static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
             S.GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
         "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    S.PartCount = EB.CreateCall(BuildCC, {S.GraphArg, ConstantInt::get(I32, 0)});
+    S.PartCount = Info.CombinedStage ? EB.CreateCall(Mod->getOrInsertFunction(
+        "autograph_clean_cut_partition_count", FunctionType::get(I32, {I8P}, false)), {S.GraphArg})
+        : EB.CreateCall(BuildCC, {S.GraphArg, gpuBackendSelected(Mod) ?
+            static_cast<Value *>(EB.CreateCall(Mod->getOrInsertFunction("autograph_gpu_clean_cut_partitions",FunctionType::get(I32,false)))) : ConstantInt::get(I32, 0)});
 
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
@@ -5359,7 +5705,8 @@ static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
     }
 
     FunctionCallee Bind = Mod->getOrInsertFunction(
-        "autograph_priv_bind",
+        Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+        Info.Schedule.Kind == ScheduleKind::SpatialDag ? "autograph_priv_bind_instance" : "autograph_priv_bind",
         FunctionType::get(I32, {I8P, I8P, I64, I64, I64, I64, I64, I32}, false));
     for (unsigned j = 0; j < NA; ++j)
     {
@@ -5377,12 +5724,18 @@ static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
             IdentBits = 0;
         else
             return false;
-        EB.CreateCall(Bind, {S.GraphArg, EB.CreateBitCast(S.Rec, I8P),
+        Value *BindStatus = EB.CreateCall(Bind, {S.GraphArg, EB.CreateBitCast(S.Rec, I8P),
                              ConstantInt::get(I64, (int64_t)RecSize),
                              ConstantInt::get(I64, 8 * (int64_t)(NS + j)), Elems,
                              ConstantInt::get(I64, (int64_t)ESz),
                              ConstantInt::get(I64, (int64_t)IdentBits),
                              ConstantInt::get(I32, (int32_t)j)});
+        if (Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+            Info.Schedule.Kind == ScheduleKind::SpatialDag) {
+            FunctionCallee Require = Mod->getOrInsertFunction("sgpl_exec_require_status",
+                FunctionType::get(Type::getVoidTy(Ctx), {I32}, false));
+            EB.CreateCall(Require, {BindStatus});
+        }
     }
 
     /* Targets descriptor: [slot ptrs][array ptrs][array element counts]. */
@@ -5494,6 +5847,8 @@ static const char *dischargeName(DischargeKind D)
     case DischargeKind::OwnerComputes: return "owner-computes";
     case DischargeKind::Atomicity: return "atomicity";
     case DischargeKind::AlgebraicFold: return "algebraic-fold";
+    case DischargeKind::FrontierPrivatization: return "frontier-privatization";
+    case DischargeKind::SourceFrame: return "source-frame";
     }
     return "?";
 }
@@ -5530,7 +5885,7 @@ static void printAxisCertificate(const NeighborLoopInfo &Info, bool Supported,
                                        ? "none"
                                        : ("realization:" + SemReason));
     fprintf(stderr,
-            "[frontier-cert] hdr=%s R_S=%d R_T=%d NI_S=%d NI_T=%d spatial=%zu temporal=%zu impl_guard=%s\n",
+            "[frontier-cert] hdr=%s R_S=%d R_T=%d NI_S=%d NI_T=%d spatial_nontrivial=occupied-groups>=2 spatial=%zu temporal=%zu impl_guard=%s\n",
             HdrName.c_str(), Cert.RS ? 1 : 0, Cert.RT ? 1 : 0, Cert.NIS ? 1 : 0,
             Cert.NIT ? 1 : 0, Cert.Spatial.size(), Cert.Temporal.size(), Guard.c_str());
     fprintf(stderr,
@@ -5981,7 +6336,15 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
     {
         if (Info.AccConsumeStore)
         {
-            if (!(Info.AccResetSeen && Info.ReduceOp != RedOp::None &&
+            DominatorTree SourceDT(*Info.DriverLoop->getHeader()->getParent());
+            bool SeedValid = Info.AccResetStore && SourceDT.dominates(Info.AccResetStore, Info.InitCall);
+            BasicBlock *SourcePre = Info.DriverLoop->getLoopPreheader();
+            bool OutsideRead = !SourcePre;
+            for (User *U : Info.ReducePtr->users()) if (auto *Load = dyn_cast<LoadInst>(U))
+                if (!Info.DriverLoop->contains(Load) &&
+                    (!SourcePre || !SourceDT.dominates(Load, SourcePre->getTerminator())))
+                    OutsideRead = true;
+            if (!(SeedValid && !OutsideRead && Info.ReduceOp != RedOp::None &&
                   !Info.HasDataWrite && !S.MutV && !S.MutTop &&
                   !S.HasCarriedOnMut && !S.HasUnrecognizedG &&
                   !Info.HasFrontierAppend && !hasPerSourceClaim(Info) &&
@@ -6014,33 +6377,39 @@ static const char *scheduleName(ScheduleKind K)
     {
     case ScheduleKind::SpatialDag:
         return "spatial-dag";
-    case ScheduleKind::TemporalDag:
-        return "temporal-dag";
-    case ScheduleKind::Nested:
-        return "nested";
+    case ScheduleKind::SpatialStaged:
+        return "spatial-staged";
+    case ScheduleKind::SpatialForkJoin:
+        return "spatial-fork-join";
+    case ScheduleKind::RoundDag: return "round-dag";
+    case ScheduleKind::RoundSpatialDag: return "round-spatial-dag";
+    case ScheduleKind::SourcePhaseDag: return "source-phase-dag";
     default:
         return "serial";
     }
 }
 
-/* Map the certificate to the realization the emitted program uses (theorem
- * section 17).  A witness on one axis never suppresses the other axis:
- *   - both axes independent -> nested (strongest proven single-axis shape);
- *   - temporal dirty only   -> spatial partitions run concurrently; the
- *                              temporal order is preserved by the round
- *                              sequence (only R4's writer->reader order is
- *                              exactly the round order in V1);
- *   - spatial dirty only    -> theorem-licensed temporal-unit concurrency;
- *                              V1 builds the constrained spatial template but
- *                              does not emit its realization -> explicit
- *                              implementation failure (Emitted = false);
- *   - both axes refused     -> no theorem-licensed parallel route (serial);
- *   - R8                    -> implementation full-serial guard. */
+/* Select the non-temporal fallback. Round/spatial composition and round-only
+ * emission run first, followed by the existing source-phase route. This entry
+ * consumes the accepted spatial witness or a separately justified legacy path. */
 static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
 {
     ScheduleChoice Ch;
     AxisCertificate &C = Info.Cert;
     const AxisProof &P = Info.Proof;
+    const auto &Spatial = Info.SpatialResult;
+    if (Spatial.Status == SpatialProofStatus::IndependentFamily) {
+        if (Spatial.RuntimeRealizable) {
+            Ch.Kind = ScheduleKind::SpatialDag;
+            Ch.Reason = "static pair-work partition family realized by CleanCut";
+        } else {
+            Ch.ImplementationFailure = true;
+            Ch.Reason = Spatial.RuntimeReason;
+        }
+        return Ch;
+    }
+    /* Legacy body fission has a separate justification. It must not license
+     * a whole-pair partition when the symbolic spatial proof is inconclusive. */
     /* §9/§10: the proof object is the verdict.  It is never weaker than the
      * certificate (soundness gate: every witness the certificate records must
      * appear as a surviving graph edge) but it may be stricter — a candidate
@@ -6071,8 +6440,22 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
         Ch.ImplementationFailure = true; /* serial is emitted (Emitted stays 1) */
         return Ch;
     }
-    const bool RS = C.RS || !P.NIS;
-    const bool RT = C.RT || !P.NIT;
+    bool PairU = false, PairV = false;
+    pairPhaseWriteRegions(Info, PairU, PairV);
+    EffectSummary LegacySummary;
+    summarizeEffects(Info, LegacySummary);
+    bool DisjointFission = Spatial.CoverageComplete && !crossPhaseDataDep(
+        Info, LegacySummary.BaseU, LegacySummary.BaseV);
+    for (const Value *Base : LegacySummary.BaseU)
+        DisjointFission &= !LegacySummary.BaseV.count(Base);
+    for (const auto &Relation : Spatial.Relations)
+        if (Relation.Survives && Relation.ContainedBy == Region::Top) DisjointFission = false;
+    if (!(DisjointFission && PairU && PairV && !Info.UsePrivLayout && !Info.ReducePtr)) {
+        Ch.Reason = Spatial.Reason.empty() ? "no static spatial partition proof" : Spatial.Reason;
+        return Ch;
+    }
+    const bool RS = C.RS || Info.Graphs.Spatial.Unresolved != 0 || Info.Graphs.Spatial.UnaryUnresolved != 0;
+    const bool RT = C.RT || !P.RoundProjectionClean;
     if (RS && RT)
     {
         Ch.Reason = "both axes refused (R_S and R_T): no theorem-licensed parallel route";
@@ -6080,8 +6463,8 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
     }
     if (!RS && !RT)
     {
-        Ch.Kind = ScheduleKind::Nested;
-        Ch.Reason = "both axes independent";
+        Ch.Kind = ScheduleKind::SpatialForkJoin;
+        Ch.Reason = "legacy disjoint-body fission; pair partition proof remains inconclusive";
         return Ch;
     }
     if (!RS && RT)
@@ -6122,8 +6505,8 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
             Ch.ImplementationFailure = true;
             return Ch;
         }
-    Ch.Kind = ScheduleKind::TemporalDag;
-    Ch.Reason = "spatial constraints staged (U before V); temporal axis clean";
+    Ch.Kind = ScheduleKind::SpatialStaged;
+    Ch.Reason = "spatial constraints staged (U before V); rounds remain ordered";
     return Ch;
 }
 
@@ -6135,12 +6518,19 @@ static bool witnessesConsumed(const NeighborLoopInfo &Info,
                               const ScheduleChoice &Ch, std::string &Why)
 {
     const AxisCertificate &C = Info.Cert;
+    if (Ch.Kind == ScheduleKind::SpatialDag &&
+        Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+        Info.SpatialResult.RuntimeRealizable) {
+        /* Relations cover every modeled occurrence. A diagnostic is consumed
+         * by containment or its access-specific contract, never by its label. */
+        return true;
+    }
     for (const InterferenceWitness &W : C.Spatial)
     {
         if (W.DischargedBy != DischargeKind::None)
             continue;
         bool Consumed = false;
-        if (Ch.Kind == ScheduleKind::TemporalDag)
+        if (Ch.Kind == ScheduleKind::SpatialStaged)
             for (const SpatialEdgeTemplate &E : Info.SpatialTemplate.Edges)
                 /* A witness-derived constraint is realized as a tagged
                  * RealizationOrder edge (semantic precedence is never claimed
@@ -6165,7 +6555,7 @@ static bool witnessesConsumed(const NeighborLoopInfo &Info,
         bool Consumed = false;
         if (Ch.Kind == ScheduleKind::SpatialDag && W.Rejection == RejectionId::R4)
             Consumed = true; /* round-order proof */
-        if (Ch.Kind == ScheduleKind::TemporalDag)
+        if (Ch.Kind == ScheduleKind::SpatialStaged)
             for (const TemporalEdgeTemplate &E : Info.TemporalTemplate.Edges)
                 if (E.WitnessId == W.Id)
                 {
@@ -6668,22 +7058,23 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
     ProofGraph &Round = Info.Graphs.Round;
     ProofGraph &Spatial = Info.Graphs.Spatial;
 
-    const uint32_t NP = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
-                                     PhaseSegment::Preamble, Info.Expr.RoundDomain);
-    const uint32_t NB = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
-                                     PhaseSegment::Pair, Info.Expr.RoundDomain);
-    const uint32_t NQ = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
-                                     PhaseSegment::Epilogue, Info.Expr.RoundDomain);
-    auto NoteStructural = [&](uint32_t From, uint32_t To)
-    {
-        ProofEdge E;
-        E.From = From;
-        E.To = To;
-        E.Structural = true;
-        Phase.Edges.push_back(E);
-    };
-    NoteStructural(NP, NB); /* P -> B */
-    NoteStructural(NB, NQ); /* B -> Q */
+    /* The source-local instruction proof supplies the phase projection.
+     * Empty phases and the original sequence do not create graph edges. */
+    uint32_t PhaseNodes[3] = {};
+    const auto &PhaseProof = Info.TemporalResult.Phases;
+    for (unsigned P = 0; P < PhaseProof.Members.size(); ++P)
+        if (PhaseProof.Members[P] != ~0u)
+            PhaseNodes[P] = proofAddNode(Phase, ProofNodeKind::Phase, Region::Bottom,
+                                      PhaseSegment(P + 1), Info.Expr.RoundDomain);
+    for (const auto &D : PhaseProof.Relations)
+        if (PhaseNodes[D.From] && PhaseNodes[D.To])
+        {
+            ProofEdge E;
+            E.From = PhaseNodes[D.From]; E.To = PhaseNodes[D.To];
+            E.Survives = true; E.Realizable = true;
+            E.Constraint = ConstraintKind::MutualExclusion;
+            Phase.Edges.push_back(E);
+        }
 
     for (const Effect &E : Info.Effects)
         for (const Footprint &F : E.Footprints)
@@ -6741,21 +7132,6 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         {
             /* never observed: the tree order follows the phase order */
             std::swap(E.From, E.To);
-        }
-        ProofEdge PE = E;
-        const uint32_t FS = proofAddNode(Phase, ProofNodeKind::Phase,
-                                         Region::Bottom, R.SourceSegment,
-                                         Info.Expr.RoundDomain);
-        const uint32_t TS = proofAddNode(Phase, ProofNodeKind::Phase,
-                                         Region::Bottom, R.SinkSegment,
-                                         Info.Expr.RoundDomain);
-        {
-            PE.From = FS;
-            PE.To = TS;
-            /* A within-phase relation is a real conflict inside that phase; only
-             * the P -> B -> Q phase-order edges above are Structural. */
-            PE.Survives = !Discharged;
-            Phase.Edges.push_back(PE);
         }
         ProofEdge RE = E;
         RE.From = 1;
@@ -6833,6 +7209,7 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         }
     };
     Summarize(Phase);
+    Phase.Components = PhaseProof.Components;
     Summarize(Round);
     Summarize(Spatial);
 }
@@ -6979,11 +7356,17 @@ static void buildAxisProof(NeighborLoopInfo &Info)
     const GraphAxisVerdict V = graphAxisVerdict(Info.Graphs);
     AxisProof &P = Info.Proof;
     P = AxisProof();
-    P.NIS = V.NIS;
-    P.NIT = V.NIT;
-    P.Realizable = V.Realizable;
+    P.NIS = Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily;
+    P.RoundProjectionClean = V.NIT;
+    P.NIT = Info.TemporalResult.Realized && Info.TemporalResult.Scope != TemporalScope::None;
+    Info.Cert.NIT = P.NIT;
+    Info.Cert.NIS = P.NIS; /* conditional family proof, not an exhaustive rejection complement */
+    P.Realizable = V.Realizable || Info.SpatialResult.RuntimeRealizable || Info.TemporalResult.Realized;
     P.ComponentsS = Info.Graphs.Spatial.Components;
-    P.ComponentsT = Info.Graphs.Round.Components;
+    P.ComponentsT = Info.TemporalResult.Scope == TemporalScope::Round
+                        ? Info.TemporalResult.Rounds.Components
+                        : Info.TemporalResult.Scope == TemporalScope::SourcePhase
+                              ? Info.TemporalResult.Phases.Components : 0;
     P.UnaryUnresolved = Info.Graphs.Spatial.UnaryUnresolved;
     P.Overflow = Info.RelationOverflow;
     if (!Info.Graphs.Spatial.Valid || !Info.Graphs.Phase.Valid ||
@@ -7000,8 +7383,9 @@ static void buildAxisProof(NeighborLoopInfo &Info)
     if (P.Inconclusive)
     {
         P.NIS = false;
-        P.NIT = false;
-        P.Realizable = false;
+        /* These limits belong to the spatial algebra and its staging graph.
+         * The separate temporal CFG proof has its own dependency coverage. */
+        P.Realizable = P.NIT;
     }
     buildTransformations(Info, P);
     for (const Transformation &T : P.Transformations)
@@ -7022,23 +7406,23 @@ static void proofGraphReport(const NeighborLoopInfo &Info)
 {
     const GraphAxisVerdict V = graphAxisVerdict(Info.Graphs);
     const AxisCertificate &C = Info.Cert;
-    const bool AgreeS = (V.NIS == !C.RS);
+    const bool AgreeS = false; /* rejection predicates are not an exhaustive spatial proof */
     const bool AgreeT = (V.NIT == !C.RT);
     /* Soundness gate: a witness that fires is sound, so the graph must never be
      * cleaner than the certificate.  The reverse direction (certificate clean,
      * graph dirty) is the completeness delta this layer exists to expose. */
-    const bool CoverS = !C.RS || !V.NIS;
+    const bool CoverS = true; /* diagnostic containment belongs to the pair proof */
     const bool CoverT = !C.RT || !V.NIT;
     fprintf(stderr,
-            "[graphcheck] hdr=%s graph_NI_S=%d graph_NI_T=%d realizable=%d "
+            "[legacy-owner-graphcheck] hdr=%s graph_NI_S=%d graph_NI_T=%d staging_round_clean=%d realizable=%d "
             "unary=%u surv_s=%u surv_t=%u no_realization=%u cert_R_S=%d cert_R_T=%d "
-            "cert_R8=%d cover_S=%d cover_T=%d stricter_S=%d stricter_T=%d "
-            "agree_S=%d agree_T=%d phase(rel=%zu comp=%u) round(rel=%zu comp=%u) "
+            "cert_R8=%d cover_S=%d staging_cover_T=%d stricter_S=%d staging_stricter_T=%d "
+            "agree_S=%d staging_agree_T=%d phase(rel=%zu comp=%u) staging_round(rel=%zu comp=%u) "
             "spatial(nodes=%zu rel=%zu comp=%u cross=%u)\n",
             Info.NeighborLoop && Info.NeighborLoop->getHeader()->hasName()
                 ? Info.NeighborLoop->getHeader()->getName().str().c_str()
                 : "<loop>",
-            V.NIS ? 1 : 0, V.NIT ? 1 : 0, V.Realizable ? 1 : 0,
+            V.NIS ? 1 : 0, Info.Proof.NIT ? 1 : 0, V.NIT ? 1 : 0, Info.Proof.Realizable ? 1 : 0,
             Info.Graphs.Spatial.UnaryUnresolved, V.SurvS, V.SurvT, V.NoReal,
             C.RS ? 1 : 0, C.RT ? 1 : 0, C.R8 ? 1 : 0, CoverS ? 1 : 0,
             CoverT ? 1 : 0, (!C.RS && !V.NIS) ? 1 : 0, (!C.RT && !V.NIT) ? 1 : 0,
@@ -7048,14 +7432,14 @@ static void proofGraphReport(const NeighborLoopInfo &Info)
             Info.Graphs.Spatial.Nodes.size(), Info.Graphs.Spatial.Edges.size(),
             Info.Graphs.Spatial.Components, Info.Graphs.Spatial.Crossing);
     if (!Info.Graphs.Spatial.UnaryReason.empty())
-        fprintf(stderr, "[graphcheck]   unary: %s\n",
+        fprintf(stderr, "[legacy-owner-graphcheck]   unary: %s\n",
                 Info.Graphs.Spatial.UnaryReason.c_str());
     for (const ProofEdge &E : Info.Graphs.Spatial.Edges)
         if (E.Survives)
         {
             const AccessRelation &R = Info.AccessRelations[E.Relation];
             fprintf(stderr,
-                    "[graphcheck]   edge rel=%u kind=%s base=%s src=%s sink=%s "
+                    "[legacy-owner-graphcheck]   edge rel=%u kind=%s base=%s src=%s sink=%s "
                     "spatial=%s temporal=%s constraint=%s discharge=%s "
                     "realizable=%d witness=%u\n",
                     E.Relation,
@@ -7074,7 +7458,7 @@ static void proofGraphReport(const NeighborLoopInfo &Info)
         {
             const AccessRelation &R = Info.AccessRelations[E.Relation];
             fprintf(stderr,
-                    "[graphcheck]   round-edge rel=%u kind=%s base=%s temporal=%s "
+                    "[legacy-owner-graphcheck]   round-edge rel=%u kind=%s base=%s temporal=%s "
                     "constraint=%s discharge=%s realizable=%d\n",
                     E.Relation,
                     R.Kind == AccessRelKind::RAW ? "RAW"
@@ -7091,6 +7475,7 @@ static void proofGraphReport(const NeighborLoopInfo &Info)
  * consumer (templates, schedule selection, emitters) reads the layer. */
 static void finalizeProofInputs(NeighborLoopInfo &Info)
 {
+    if (Info.ProofInputsReady) return;
     buildFootprints(Info);
     deriveAccessRelations(Info);
     linkRelationWitnesses(Info);
@@ -7502,6 +7887,8 @@ static Function *emitGpuEngineStepV(Function &F, Module *Mod, LLVMContext &Ctx,
     return K;
 }
 
+#include "gpu_callback_lowering.inc"
+
 static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
                             bool IsSourceRed, bool IsPriv, bool IsV)
 {
@@ -7524,7 +7911,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
     if (Info.UsePrivLayout && !IsPriv)
         return false;
 
-    Function *F = Info.NeighborLoop->getHeader()->getParent();
+    Function *F = Info.CombinedStage ? Info.CombinedStage->Reserve->getParent() : Info.NeighborLoop->getHeader()->getParent();
     LLVMContext &Ctx = F->getContext();
     Module *Mod = F->getParent();
     Type *I32 = Type::getInt32Ty(Ctx);
@@ -7532,11 +7919,14 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
     Type *I8P = PointerType::get(Ctx, 0);
     Value *Null = ConstantPointerNull::get(cast<PointerType>(I8P));
 
-    BasicBlock *Pre = Info.DriverLoop->getLoopPreheader();
+    BasicBlock *Pre = Info.CombinedStage ? Info.CombinedStage->Reserve : Info.DriverLoop->getLoopPreheader();
     if (!Pre || !Pre->getTerminator())
         return false;
     IRBuilder<> EB(Pre, Pre->getFirstInsertionPt());
     EB.SetInsertPoint(Pre->getTerminator());
+    const bool ScopedSpatial = Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+                               Info.Schedule.Kind == ScheduleKind::SpatialDag;
+    Value *SavedStack = (ScopedSpatial && !Info.CombinedStage) ? EB.CreateIntrinsic(Intrinsic::stacksave, {I8P}, {}) : nullptr;
 
     Value *GraphArg = Info.GraphPtr;
     if (auto *GL = dyn_cast<LoadInst>(Info.GraphPtr))
@@ -7544,14 +7934,19 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
             GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
         "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    Value *PartCount = EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+    Value *PartCount = Info.CombinedStage ? EB.CreateCall(Mod->getOrInsertFunction(
+        "autograph_clean_cut_partition_count", FunctionType::get(I32, {I8P}, false)), {GraphArg})
+        : EB.CreateCall(BuildCC, {GraphArg, gpuBackendSelected(Mod) ?
+            static_cast<Value *>(EB.CreateCall(Mod->getOrInsertFunction("autograph_gpu_clean_cut_partitions",FunctionType::get(I32,false)))) : ConstantInt::get(I32, 0)});
 
     /* Round-separation (composition A): snapshot the in-place bases for this
      * round; the pair work fn reads the frozen snapshot through the published
      * global.  Emitted in the same preheader as the context construction; the
      * copy itself is a Snapshot operation (R7). */
     SmallVector<std::pair<Function *, GlobalVariable *>, 4> SnapOps;
-    emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg, SnapOps);
+    const bool NewSpatial = Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+                            Info.Schedule.Kind == ScheduleKind::SpatialDag;
+    if (!NewSpatial) emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg, SnapOps);
 
     FunctionCallee PartStateFn = Mod->getOrInsertFunction(
         "autograph_exec_partition_state", FunctionType::get(I8P, {I8P}, false));
@@ -7561,8 +7956,9 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
      * the activation primitive claims dest_seen / appends to next_frontier. */
     const bool WantFt = Info.MembershipGated || WantEnvelope;
     FrontierEnv Env;
-    if (WantFt)
+    if (WantFt && !Info.CombinedStage)
         fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
+    else if (WantFt) { Env.Membership = Null; Env.SeenArg = Null; Env.NextArg = Null; }
     Value *HeadSlot = Null;
     if (WantEnvelope)
     {
@@ -7573,8 +7969,9 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
 
     /* Per-source first-wins claims: staged as SOURCE_BEGIN operations with a
      * per-source state array S[u][j] published for the pair guards. */
+    Value *FrameClaims = nullptr;
     SmallVector<Function *, 2> ClaimCBs =
-        buildClaimState(EB, Info, Mod, Ctx, I8P, I32, I64, GraphArg);
+        buildClaimState(EB, Info, Mod, Ctx, I8P, I32, I64, GraphArg, &FrameClaims);
 
     const bool UsePartEnv = IsRed || IsSourceRed || IsPriv;
     const PairEnvKind EnvKind =
@@ -7585,11 +7982,13 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
      * pair work function itself is the runtime pair callback. */
     Function *WF = nullptr;
     Function *FinishHook = nullptr;
+    Function *ResetHook = nullptr;
     Function *Combiner = nullptr;
     Function *PreambleFn = nullptr;
     Value *OpState = Null;
     Value *PartBase = Null;
     Value *PartStride = ConstantInt::get(I64, 0);
+    Value *OwnedPrivRec = nullptr, *OwnedPrivParts = nullptr;
     if (IsPriv)
     {
         PrivSetup PS;
@@ -7599,6 +7998,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         PreambleFn = PS.PreambleFn;
         Combiner = PS.Combiner;
         PartBase = EB.CreateBitCast(PS.Rec, I8P);
+        OwnedPrivRec = PS.Rec; OwnedPrivParts = PS.PartCount;
         PartStride = ConstantInt::get(
             I64, (int64_t)(8 * (Info.Slots.size() + Info.PrivArrays.size())));
         OpState = EB.CreateBitCast(PS.Tgts, I8P);
@@ -7620,11 +8020,19 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
             PartStride = ConstantInt::get(
                 I64, (int64_t)((ElemTy->getPrimitiveSizeInBits() + 7) / 8));
             OpState = EB.CreateBitCast(Info.ReducePtr, I8P);
+            if(gpuBackendSelected(Mod)) {
+                auto Register=Mod->getOrInsertFunction("sgpl_gpu_register_buffer",
+                    FunctionType::get(Type::getVoidTy(Ctx),{I8P,I64},false));
+                EB.CreateCall(Register,{OpState,EB.getInt64(Mod->getDataLayout().getTypeAllocSize(ElemTy))});
+            }
             if (IsRed)
                 Combiner = emitRedCombiner(Ctx, Mod, Info.ReduceOp, ElemTy);
             else
+            {
                 FinishHook = buildSourceFinishHook(Info, Mod, Ctx, ElemTy);
-            if ((IsRed && !Combiner) || (IsSourceRed && !FinishHook))
+                ResetHook = buildSourceResetHook(Info, Mod, Ctx, ElemTy);
+            }
+            if ((IsRed && !Combiner) || (IsSourceRed && (!FinishHook || !ResetHook)))
                 return false;
         }
     }
@@ -7656,15 +8064,21 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
      * OWNER_V, where the coverage pass drives source_begin from the shared
      * context and binds no partition record at all. */
     Function *SrcBeginCB = nullptr;
-    if (PreambleFn)
+    if (PreambleFn || ResetHook)
     {
         FunctionType *SBTy =
             FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P, I32}, false);
         SrcBeginCB = Function::Create(SBTy, GlobalValue::InternalLinkage,
                                       "sgpl_rt_source_begin", Mod);
         IRBuilder<> B(BasicBlock::Create(Ctx, "entry", SrcBeginCB));
-        B.CreateCall(PreambleFn, {Null, SrcBeginCB->getArg(1),
-                                  SrcBeginCB->getArg(2), ConstantInt::get(I32, -1)});
+        if (PreambleFn)
+            B.CreateCall(PreambleFn, {Null, SrcBeginCB->getArg(1),
+                                      SrcBeginCB->getArg(2), ConstantInt::get(I32, -1)});
+        if (ResetHook)
+        {
+            Value *Part = B.CreateCall(PartStateFn, {SrcBeginCB->getArg(1)});
+            B.CreateCall(ResetHook, {SrcBeginCB->getArg(2), Part});
+        }
         B.CreateRetVoid();
     }
 
@@ -7679,7 +8093,32 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
                                     "sgpl_rt_source_end", Mod);
         IRBuilder<> B(BasicBlock::Create(Ctx, "entry", SrcEndCB));
         Value *Part = B.CreateCall(PartStateFn, {SrcEndCB->getArg(1)});
+        Value *FinalAcc = nullptr;
+        Type *AccTy = nullptr;
+        if (NewSpatial && Info.ReducePtr) {
+            for (User *U : Info.ReducePtr->users())
+                if (auto *Load = dyn_cast<LoadInst>(U)) AccTy = Load->getType();
+            if (AccTy) FinalAcc = B.CreateLoad(AccTy, Part, "source.final.acc");
+        }
         B.CreateCall(FinishHook, {SrcEndCB->getArg(2), Part});
+        if (FinalAcc) {
+            FunctionCallee Last = Mod->getOrInsertFunction("autograph_exec_ctx_last_source",
+                FunctionType::get(I32, {I8P}, false));
+            Value *IsLast = B.CreateICmpEQ(SrcEndCB->getArg(2), B.CreateCall(Last, {SrcEndCB->getArg(1)}));
+            BasicBlock *Publish = BasicBlock::Create(Ctx, "last.source.output", SrcEndCB);
+            BasicBlock *Done = BasicBlock::Create(Ctx, "done", SrcEndCB);
+            B.CreateCondBr(IsLast, Publish, Done);
+            IRBuilder<> PublishBuilder(Publish);
+            FunctionCallee State = Mod->getOrInsertFunction("autograph_exec_op_state",
+                FunctionType::get(I8P, {I8P}, false));
+            /* Source lifecycle callbacks receive the operation descriptor.
+             * Its state is the live scalar target. Never overwrite descriptor
+             * capabilities while other batches still use the same operation. */
+            Value *Target = PublishBuilder.CreateCall(State, {SrcEndCB->getArg(0)});
+            PublishBuilder.CreateStore(FinalAcc, Target);
+            PublishBuilder.CreateBr(Done);
+            B.SetInsertPoint(Done);
+        }
         B.CreateRetVoid();
     }
 
@@ -7716,6 +8155,13 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         PreambleOp = MakeOp(SGPL_OP_SOURCE_BEGIN, Null, nullptr, nullptr,
                             SrcBeginCB, nullptr, nullptr,
                             {ResPrivate});
+    Value *GateOp = nullptr;
+    if (NewSpatial && !Info.SpatialResult.SourceGates.empty()) {
+        Function *Gate = emitSpatialSourceGate(Info, Mod, Ctx);
+        if (!Gate) return false;
+        GateOp = MakeOp(SGPL_OP_SOURCE_BEGIN, Null, nullptr, nullptr,
+                        Gate, nullptr, nullptr, {});
+    }
     SmallVector<Value *, 2> ClaimOps;
     for (Function *CB : ClaimCBs)
         ClaimOps.push_back(MakeOp(SGPL_OP_SOURCE_BEGIN, Null, nullptr, nullptr,
@@ -7746,7 +8192,14 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
 
     const unsigned NOps = (PreambleOp ? 1u : 0u) +
                           (unsigned)ClaimOps.size() +
-                          (unsigned)SnapOps.size() + 1u;
+                          (unsigned)SnapOps.size() + (GateOp ? 1u : 0u) + 1u;
+    SmallVector<std::pair<unsigned,Function *>,8> GpuBegins,GpuEnds;
+    unsigned GpuOpIndex=0;
+    for(Function *CB:ClaimCBs) GpuBegins.emplace_back(GpuOpIndex++,CB);
+    if(PreambleOp) GpuBegins.emplace_back(GpuOpIndex++,SrcBeginCB);
+    if(GateOp) {auto *Call=cast<CallInst>(GateOp);GpuBegins.emplace_back(GpuOpIndex++,cast<Function>(Call->getArgOperand(4)));}
+    GpuOpIndex+=SnapOps.size();
+    if(SrcEndCB) GpuEnds.emplace_back(GpuOpIndex,SrcEndCB);
     AllocaInst *OpsSlot =
         EB.CreateAlloca(I8P, ConstantInt::get(I32, NOps), "rt_ops");
     unsigned Oi = 0;
@@ -7756,6 +8209,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
     if (PreambleOp)
         EB.CreateStore(PreambleOp, EB.CreateGEP(I8P, OpsSlot,
                                                 ConstantInt::get(I32, Oi++)));
+    if (GateOp) EB.CreateStore(GateOp, EB.CreateGEP(I8P, OpsSlot, ConstantInt::get(I32, Oi++)));
     for (auto &S : SnapOps)
         EB.CreateStore(
             MakeOp(SGPL_OP_SNAPSHOT, S.second, nullptr, nullptr, nullptr,
@@ -7767,7 +8221,11 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
 
     /* Traversal mechanism: source-owned slices for source-owned, source
      * reduction and privatized loops, destination-owned rows otherwise. */
-    const int32_t Traversal = IsRed || IsV ? 1 : 0;
+    const bool PairPartition = Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+                               Info.Schedule.Kind == ScheduleKind::SpatialDag;
+    const int32_t Traversal = PairPartition
+        ? (Info.SpatialResult.CleanCutGroup == SpatialGroup::Destination ? 1 : 0)
+        : (IsRed || IsV ? 1 : 0);
     /* TDG site id for this stage: allocated from the shared space so the
      * runtime can plan the step (calibration + single-site level) exactly like
      * an outlined loop.  -1 would disable the TDG path entirely. */
@@ -7789,6 +8247,17 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
         ConstantInt::get(I32, NOps), ConstantInt::get(I32, StepId)};
     Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
+    if(gpuBackendSelected(Mod)) {
+        SmallVector<Constant *,8> Sizes;
+        for(const auto &Slot:Info.Slots) Sizes.push_back(EB.getInt64(Mod->getDataLayout().getTypeAllocSize(Slot.ElemTy)));
+        for(const auto &Array:Info.PrivArrays) Sizes.push_back(EB.getInt64(Mod->getDataLayout().getTypeAllocSize(Array.ElemTy)));
+        auto *ST=ArrayType::get(I64,Sizes.size());
+        auto *SG=new GlobalVariable(*Mod,ST,true,GlobalValue::PrivateLinkage,ConstantArray::get(ST,Sizes),"sgpl.gpu.private.sizes");
+        Value *ClaimBytes=EB.getInt64(0);
+        if(FrameClaims) ClaimBytes=EB.CreateMul(EB.CreateLoad(I64,GraphArg),EB.getInt64(4*perSourceClaims(Info).size()));
+        auto Storage=Mod->getOrInsertFunction("autograph_exec_ctx_gpu_storage",FunctionType::get(Type::getVoidTy(Ctx),{I8P,I32,I32,I8P,I8P,I64},false));
+        EB.CreateCall(Storage,{ExecCtx,EB.getInt32(Info.Slots.size()),EB.getInt32(Info.PrivArrays.size()),IsPriv?OpState:Null,SG,ClaimBytes});
+    }
     /* Declare the stage's schedule to the runtime: only a declared-concurrent
      * spatial axis may take the ready-work DAG dispatch; a temporal axis that
      * is held in order is declared -1 so nothing overlaps it. */
@@ -7798,10 +8267,49 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
             FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));
         const ScheduleKind K = Info.Schedule.Kind;
         const bool SpatialPar =
-            K == ScheduleKind::Nested || K == ScheduleKind::SpatialDag;
-        const bool TemporalPar = K == ScheduleKind::Nested;
+            K == ScheduleKind::SpatialForkJoin || K == ScheduleKind::SpatialDag;
+        const bool TemporalPar = Info.CombinedStage != nullptr;
         EB.CreateCall(SetAxes, {ExecCtx, ConstantInt::get(I32, SpatialPar ? 1 : -1),
                                 ConstantInt::get(I32, TemporalPar ? 1 : -1)});
+    }
+    if (PairPartition) {
+        FunctionCallee Prepare = Mod->getOrInsertFunction(
+            "autograph_exec_ctx_prepare_spatial",
+            FunctionType::get(I32, {I8P, I32, I32, I32}, false));
+        FunctionCallee Require = Mod->getOrInsertFunction(
+            "sgpl_exec_require_status", FunctionType::get(Type::getVoidTy(Ctx), {I32}, false));
+        if (Info.CombinedStage && WantFt)
+            EB.CreateCall(Require, {EB.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_reserve_frontier",
+                FunctionType::get(I32, {I8P, I32, I32}, false)), {ExecCtx, EB.getInt32(1), EB.getInt32(WantEnvelope)})});
+        EB.CreateCall(Require, {EB.CreateCall(Prepare, {ExecCtx,
+            ConstantInt::get(I32, (int)Info.SpatialResult.Group),
+            ConstantInt::get(I32, (int)Info.SpatialResult.CleanCutGroup),
+            ConstantInt::get(I32, WantEnvelope ? 1 : 0)})});
+        if (FrameClaims) {
+            FunctionCallee BindClaims = Mod->getOrInsertFunction("autograph_exec_ctx_set_claims",
+                FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P}, false));
+            EB.CreateCall(BindClaims, {ExecCtx, FrameClaims});
+        }
+        FunctionCallee Bind = Mod->getOrInsertFunction("autograph_exec_ctx_bind_snapshot_range",
+            FunctionType::get(I32, {I8P, I32, I8P, I64, I64}, false));
+        for (unsigned N = 0; N < Info.RoundSepBases.size(); ++N) {
+            const auto &S = Info.RoundSepBases[N];
+            Value *Base = ptrFromSlot(EB, const_cast<Value *>(S.Base), I8P);
+            Type *Element = nullptr;
+            Value *Count = nullptr, *Storage = nullptr;
+            if (!arrayBaseInfo(S.Base, Element, Count, Storage))
+                report_fatal_error("accepted spatial snapshot lacks an allocation extent");
+            Count = EB.CreateZExtOrTrunc(Count, I64);
+            uint64_t Bytes = S.ElemTy->getPrimitiveSizeInBits() / 8;
+            if (Info.CombinedStage) {
+                auto Reserve = Mod->getOrInsertFunction("autograph_exec_ctx_reserve_snapshot",
+                    FunctionType::get(I32, {I8P, I32, I64, I64}, false));
+                EB.CreateCall(Require, {EB.CreateCall(Reserve, {ExecCtx, ConstantInt::get(I32, N), Count,
+                    ConstantInt::get(I64, Bytes)})});
+                Info.CombinedStage->Snapshots.emplace_back(N, Base, Count, Bytes);
+            } else EB.CreateCall(Require, {EB.CreateCall(Bind, {ExecCtx, ConstantInt::get(I32, N), Base, Count,
+                ConstantInt::get(I64, Bytes)})});
+        }
     }
     if (!SnapOps.empty())
     {
@@ -7813,10 +8321,45 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
                             ConstantInt::get(I32, 0)});
     }
 
+    if (Info.CombinedStage) {
+        EB.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_set_temporal_scope",
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32}, false)), {ExecCtx, ConstantInt::get(I32, 1)});
+        Info.CombinedStage->Context = ExecCtx;
+        Info.CombinedStage->PartCount = PartCount;
+        Info.CombinedStage->PrivateRecords = OwnedPrivRec;
+        Info.CombinedStage->PrivateParts = OwnedPrivParts;
+        if(gpuBackendSelected(Mod)) Info.CombinedStage->GpuPartition=gpuSpatialComponent(Mod,WF,GpuBegins,GpuEnds,GpuOpIndex,0);
+        return true;
+    }
+
+    /* Full proof-block device traversal, including source hooks. */
+    Value *GpuSpatialSize=nullptr;
+    if(PairPartition && gpuBackendSelected(Mod)) {
+        Function *Root=gpuSpatialComponent(Mod,WF,GpuBegins,GpuEnds,GpuOpIndex,0);
+        GpuCallback Device=buildGpuCallback(Root,8);
+        if(Device.Kernel) {
+            emitGpuStepPointeeRegs(Mod,Ctx,Root);
+            auto *FieldTy=StructType::get(Ctx,{I64,I64,I32});SmallVector<Constant *,16> Fields,Globals;
+            Fields.push_back(ConstantStruct::get(FieldTy,{EB.getInt64(0),EB.getInt64(sizeof(sgpl_exec_ctx)),EB.getInt32(3)}));
+            for(unsigned N=0;N<Device.Globals.size();++N) {
+                auto *G=Device.Globals[N];Globals.push_back(G);
+                unsigned Kind=G->getValueType()->isPointerTy()?2:0;
+                if(is_contained(Device.ReadOnlyGlobals,G)) Kind|=SGPL_GPU_FIELD_READ_ONLY;
+                Fields.push_back(ConstantStruct::get(FieldTy,{EB.getInt64(8+N*8),EB.getInt64(Mod->getDataLayout().getTypeAllocSize(G->getValueType())),EB.getInt32(Kind)}));
+            }
+            auto *FT=ArrayType::get(FieldTy,Fields.size()),*GT=ArrayType::get(I8P,Globals.size());
+            auto *FD=new GlobalVariable(*Mod,FT,true,GlobalValue::PrivateLinkage,ConstantArray::get(FT,Fields),"sgpl.gpu.spatial.fields");
+            auto *GD=new GlobalVariable(*Mod,GT,true,GlobalValue::PrivateLinkage,ConstantArray::get(GT,Globals),"sgpl.gpu.spatial.globals");
+            auto Fn=Mod->getOrInsertFunction("sgpl_exec_spatial_gpu",FunctionType::get(I32,{I8P,I8P,I8P,I32,I8P,I32,I32},false));
+            Value *Budget=EB.getInt32(0); /* GPU submission uses no CPU grants. */
+            GpuSpatialSize=EB.CreateCall(Fn,{ExecCtx,gpuCString(Mod,Device.Kernel->getName(),"gpu.spatial.name"),FD,EB.getInt32(Fields.size()),GD,EB.getInt32(Globals.size()),Budget});
+        } else if(getenv("SGPL_GPU_DEBUG")) errs()<<"[gpu-capability] Spatial: "<<Device.Reason<<"; CPU\n";
+    }
+
     /* Device engine step: emitted before the first round so the runtime can
      * run the step on the device instead of the CPU partitions. */
-    Function *Ksr = emitGpuEngineStep(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"), StepId);
-    Function *Kv = emitGpuEngineStepV(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"),
+    Function *Ksr = GpuSpatialSize?nullptr:emitGpuEngineStep(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"), StepId);
+    Function *Kv = GpuSpatialSize?nullptr:emitGpuEngineStepV(*F, Mod, Ctx, EB, Info, WF, WF ? WF->getName() : StringRef("nosg"),
                        StepId, IsSimple, IsV);
     if (getenv("SGPL_GPU_EMIT_DEBUG"))
         errs() << "[gpu-emit] step " << StepId << " tag=" << (WF ? WF->getName() : StringRef("nosg"))
@@ -7831,15 +8374,36 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
 
     FunctionCallee Exec = Mod->getOrInsertFunction(
         "autograph_frontier_execute", FunctionType::get(I32, {I8P, I8P}, false));
-    Value *NewSize = EB.CreateCall(Exec, {GraphArg, ExecCtx});
+    Value *NewSize = GpuSpatialSize?GpuSpatialSize:EB.CreateCall(Exec, {GraphArg, ExecCtx});
+    if (PairPartition) {
+        FunctionCallee Require = Mod->getOrInsertFunction(
+            "sgpl_exec_require_status", FunctionType::get(Type::getVoidTy(Ctx), {I32}, false));
+        EB.CreateCall(Require, {NewSize});
+    }
     if (WantEnvelope)
         commitEnvelope(EB, Info, Mod, I8P, Ctx, GraphArg, NewSize);
     FunctionCallee Destroy = Mod->getOrInsertFunction(
         "autograph_exec_ctx_destroy",
         FunctionType::get(Type::getVoidTy(Ctx), {I8P}, false));
     EB.CreateCall(Destroy, {ExecCtx});
+    if (PairPartition && OwnedPrivRec) {
+        FunctionCallee Release = Mod->getOrInsertFunction("autograph_priv_release_instance",
+            FunctionType::get(Type::getVoidTy(Ctx), {I8P, I64, I32}, false));
+        for (unsigned N = 0; N < Info.PrivArrays.size(); ++N)
+            EB.CreateCall(Release, {OwnedPrivRec,
+                ConstantInt::get(I64, 8 * (Info.Slots.size() + N)), OwnedPrivParts});
+    }
 
+    if (SavedStack) EB.CreateIntrinsic(Intrinsic::stackrestore, {I8P}, {SavedStack});
     deactivateDriver(Info);
+    if (PairPartition) {
+        Info.SpatialResult.Realized = true;
+        MDNode *Group = MDNode::get(Ctx, {MDString::get(Ctx, "sgpl.spatial.group"),
+            MDString::get(Ctx, spatialGroupName(Info.SpatialResult.Group)),
+            MDString::get(Ctx, spatialGroupName(Info.SpatialResult.CleanCutGroup)),
+            MDString::get(Ctx, "occupied-groups>=2")});
+        cast<Instruction>(NewSize)->setMetadata("sgpl.spatial.group", Group);
+    }
     return true;
 }
 
@@ -7891,7 +8455,8 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info, bool Concurrent)
             GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
         "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
-    EB.CreateCall(BuildCC, {GraphArg, ConstantInt::get(I32, 0)});
+    EB.CreateCall(BuildCC, {GraphArg, gpuBackendSelected(Mod) ?
+        static_cast<Value *>(EB.CreateCall(Mod->getOrInsertFunction("autograph_gpu_clean_cut_partitions",FunctionType::get(I32,false)))) : ConstantInt::get(I32, 0)});
 
     SmallVector<std::pair<Function *, GlobalVariable *>, 4> SnapOps;
     emitRoundSepShadow(EB, Info, Mod, I8P, I64, Ctx, GraphArg, SnapOps);
@@ -8042,10 +8607,9 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info, bool Concurrent)
         FunctionType::get(Type::getVoidTy(Ctx), {I8P, I32, I32}, false));
     const ScheduleKind K = Info.Schedule.Kind;
     const bool SpatialPar =
-        K == ScheduleKind::Nested || K == ScheduleKind::SpatialDag ||
-        K == ScheduleKind::TemporalDag;
-    const bool TemporalPar =
-        K == ScheduleKind::Nested || K == ScheduleKind::TemporalDag;
+        K == ScheduleKind::SpatialForkJoin || K == ScheduleKind::SpatialDag ||
+        K == ScheduleKind::SpatialStaged;
+    const bool TemporalPar = false; /* whole-domain spatial composition */
     Value *ChildCtxs[2] = {CtxU, CtxV};
     for (Value *C : ChildCtxs)
         EB.CreateCall(SetAxes, {C, ConstantInt::get(I32, SpatialPar ? 1 : -1),
@@ -8077,10 +8641,14 @@ static bool emitExprInterp(NeighborLoopInfo &Info)
         return false; /* unsupported claim staging */
     ExprFacts F;
     deriveExprFacts(Info, F);
+    if (Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+        Info.Schedule.Kind == ScheduleKind::SpatialDag)
+        return emitSingleStage(Info, F.IsRed, F.IsSourceRed, F.IsPriv,
+                              Info.SpatialResult.CleanCutGroup == SpatialGroup::Destination);
     if (F.IsDual)
         return emitDualForkJoin(
             Info, /*Concurrent=*/Info.SpatialTemplate.Edges.empty());
-    if (Info.Schedule.Kind == ScheduleKind::TemporalDag)
+    if (Info.Schedule.Kind == ScheduleKind::SpatialStaged)
         return false; /* the staged realization requires the dual structure */
     return emitSingleStage(Info, F.IsRed, F.IsSourceRed, F.IsPriv, F.IsV);
 }
@@ -8203,10 +8771,13 @@ static bool provesModelable(Loop *L, std::string &reason)
     return true;
 }
 
+#include "temporal_scope_lowering.inc"
+#include "spatial_partition_proof.inc"
+
 PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                                                  FunctionAnalysisManager &FAM)
 {
-    if (F.isDeclaration() || F.begin() == F.end())
+    if (F.isDeclaration() || F.begin() == F.end() || (F.hasFnAttribute("sgpl.temporal.callback") || F.hasFnAttribute("sgpl.spatial.callback")))
         return PreservedAnalyses::all();
     unsigned detected = 0;
     /* CleanCut lowering is ON by default: graph loops are always lowered to
@@ -8215,8 +8786,15 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
      * the unconditional sequential marking). */
     const bool RewriteMode = getenv("GRAPH_FRONTIER_REWRITE_OFF") == nullptr;
     auto &LI = FAM.getResult<LoopAnalysis>(F);
+    auto &AA = FAM.getResult<AAManager>(F);
+    auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    SmallPtrSet<Loop *, 16> TemporalOwned;
     for (Loop *L : LI.getLoopsInPreorder())
     {
+        bool AlreadyOwned = false;
+        for (Loop *P = L; P; P = P->getParentLoop())
+            AlreadyOwned |= TemporalOwned.count(P);
+        if (AlreadyOwned) continue;
         NeighborLoopInfo Info;
         /* A loop is a graph-construct loop if it has the iterator shape OR any
          * write whose subscript is load-derived from a graph data array. */
@@ -8230,6 +8808,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
          * semantic admissibility gate; the recursive interpreter derives the
          * realization structurally from the effect expression. */
         const bool PrivProvable = IsIter && privLayout(Info);
+        if (!PrivProvable) { Info.Slots.clear(); Info.PrivArrays.clear(); }
         const bool Priv = PrivProvable && privLayoutNeeded(Info);
         if (Priv)
             Info.UsePrivLayout = true;
@@ -8239,6 +8818,35 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         std::string SemReason;
         const bool Supported =
             IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
+        if (IsIter) {
+            proveSpatialPartition(Info, AA, DT);
+            finalizeProofInputs(Info);
+            spatialPrint(Info);
+        }
+        if (IsIter && lowerTemporalScopes(Info, AA, DT, RewriteMode))
+        {
+            Info.Cert.R8 = false; /* the selected CFG runtime has been verified */
+            Info.Cert.ImplementationReason.clear();
+            finalizeProofInputs(Info);
+            Info.Proof.NIT = Info.Cert.NIT = true;
+            Info.Proof.ComponentsT = Info.TemporalResult.Scope == TemporalScope::Round
+                ? Info.TemporalResult.Rounds.Components : Info.TemporalResult.Phases.Components;
+            Info.Schedule.Kind = Info.SpatialResult.Realized && Info.TemporalResult.Scope == TemporalScope::Round
+                                   ? ScheduleKind::RoundSpatialDag
+                                   : Info.TemporalResult.Scope == TemporalScope::Round
+                                   ? ScheduleKind::RoundDag : ScheduleKind::SourcePhaseDag;
+            Info.Schedule.Reason = Info.Schedule.Kind == ScheduleKind::RoundSpatialDag
+                ? "existing round and spatial proofs realized through one lifecycle DAG"
+                : "original order within each independent temporal component";
+            printAxisCertificate(Info, Supported, SemReason, Info.Schedule);
+            TemporalOwned.insert(Info.TemporalResult.Scope == TemporalScope::Round
+                                     ? Info.DriverLoop->getParentLoop() : Info.DriverLoop);
+            if (verifyModule(*F.getParent(), &errs()))
+                report_fatal_error("invalid temporal realization");
+            DT.recalculate(F);
+            ++detected;
+            continue;
+        }
         ScheduleChoice Schedule;
         bool EmissionSerialized = false;
         if (IsIter)
@@ -8246,6 +8854,14 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             finalizeProofInputs(Info);
             buildTemplates(Info);
             Schedule = selectSchedule(Info);
+            if (!legacySourceLifecycleAvailable(Info))
+            {
+                Schedule.Kind = ScheduleKind::Serial;
+                Schedule.ImplementationFailure = true;
+                Schedule.Reason = "spatial runtime cannot preserve the complete source lifecycle";
+                Info.Cert.R8 = true;
+                Info.Cert.ImplementationReason = Schedule.Reason;
+            }
             std::string ConsumeReason;
             if (Schedule.Kind != ScheduleKind::Serial && Schedule.Emitted &&
                 !witnessesConsumed(Info, Schedule, ConsumeReason))
@@ -8390,6 +9006,9 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 ++detected;
                 if (Emitted)
                 {
+                    if (Info.SpatialResult.Realized && verifyModule(*F.getParent(), &errs()))
+                        report_fatal_error("invalid spatial realization");
+                    spatialPrint(Info);
                     /* The region is DAG-owned: the step's parallelism is
                      * realized inside the engine, and every part of the round
                      * nest (residual beta-init / swap / driver loops) is left
@@ -8399,26 +9018,27 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                         std::string Axes, SVal = "serial", TVal = "serial";
                         switch (Schedule.Kind)
                         {
-                        case ScheduleKind::Nested:
-                            Axes = "spatial+temporal";
+                        case ScheduleKind::SpatialForkJoin:
+                            Axes = "spatial";
                             SVal = "parallel";
-                            TVal = "parallel";
+                            TVal = "ordered";
                             break;
                         case ScheduleKind::SpatialDag:
                             Axes = "spatial";
                             SVal = "parallel";
                             TVal = "ordered";
                             break;
-                        case ScheduleKind::TemporalDag:
-                            Axes = "temporal";
-                            SVal = "ordered";
-                            TVal = "parallel";
+                        case ScheduleKind::SpatialStaged:
+                            Axes = "spatial";
+                            SVal = "parallel";
+                            TVal = "ordered";
                             break;
                         default:
                             Axes = "spatial";
                             break;
                         }
                         markDagOwned(L, Axes, SVal, TVal);
+                        markTemporalScope(L, "None");
                         if (getenv("GRAPH_FRONTIER_STATS"))
                             errs() << "[graph-frontier]   dag-owned: hdr="
                                    << L->getHeader()->getName()

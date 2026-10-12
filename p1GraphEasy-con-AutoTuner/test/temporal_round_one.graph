@@ -1,0 +1,29 @@
+graph G { directed: true; edges: file "rtest_small.txt"; };
+int n = numVertices(G);
+int out[8];
+int p[8];
+int q[8];
+int r = 0;
+int limit = 1;
+int acc = 0;
+while (r < limit) {
+  out[r] = 10;
+  p[r] = 0;
+  q[r] = 0;
+  r = r + 1;
+  for each vertex u in G {
+    acc = 0;
+    p[r - 1] = p[r - 1] + 1;
+    for each neighbor v of u in G {
+      acc = acc + v + 1;
+      out[r - 1] = out[r - 1] + acc;
+    }
+    q[r - 1] = q[r - 1] + 1;
+  }
+  q[r - 1] = q[r - 1] + 100;
+}
+int total = 0;
+int i = 0;
+while (i < limit) { total = total + out[i] + p[i] + q[i]; i = i + 1; }
+print total;
+print r;

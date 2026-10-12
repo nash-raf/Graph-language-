@@ -1,0 +1,13 @@
+prefix=/tmp/isabelle-makarius/download15518165771212847242/90c0dbb2514e/target
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+bindir=${exec_prefix}/bin
+
+Name: Poly/ML
+Description: Poly/ML run-time and main program libraries
+URL: http://www.polyml.org/
+Version: 5.9.1
+Requires:
+Libs: -L${libdir} -lpolyml -lpolymain -lpthread -lgmp -lm -ldl -lstdc++ 
+Cflags: -I${includedir}

@@ -1,0 +1,38 @@
+1/27 B=4 overflow-short
+2/27 B=8 tiny
+3/27 B=8 overflow-one-long
+4/27 B=8 tiny
+5/27 B=4 tiny
+6/27 B=4 overflow-one-long
+7/27 B=8 overflow-short
+8/27 B=8 overflow-one-long
+9/27 B=4 tiny
+10/27 B=2 overflow-one-long
+11/27 B=4 tiny
+12/27 B=2 overflow-short
+13/27 B=8 overflow-one-long
+14/27 B=4 overflow-short
+15/27 B=8 overflow-short
+16/27 B=2 overflow-one-long
+17/27 B=4 overflow-one-long
+18/27 B=8 overflow-short
+19/27 B=8 tiny
+20/27 B=2 tiny
+21/27 B=2 overflow-short
+22/27 B=2 tiny
+23/27 B=2 overflow-one-long
+24/27 B=2 tiny
+25/27 B=4 overflow-one-long
+26/27 B=2 overflow-short
+27/27 B=4 overflow-short
+B=2 overflow-short: previous=3.658ms, joint=3.865ms, reference=3.827ms; joint change=+1.0%
+B=2 overflow-one-long: joint=6.691ms, previous=6.954ms, reference=11.193ms; joint change=-40.2%
+B=2 tiny: previous=0.103ms, reference=0.148ms, joint=0.040ms; joint change=-73.2%
+B=4 overflow-short: reference=1.492ms, joint=1.735ms, previous=1.566ms; joint change=+16.3%
+B=4 overflow-one-long: previous=6.851ms, joint=6.764ms, reference=8.275ms; joint change=-18.3%
+B=4 tiny: previous=0.127ms, joint=0.043ms, reference=0.209ms; joint change=-79.7%
+B=8 overflow-short: joint=1.177ms, reference=1.253ms, previous=1.092ms; joint change=-6.1%
+B=8 overflow-one-long: previous=7.477ms, reference=7.635ms, joint=7.510ms; joint change=-1.6%
+B=8 tiny: reference=0.420ms, previous=0.185ms, joint=0.046ms; joint change=-89.0%
+Geometric mean joint/reference=0.5281
+Cases improved=7/9; worst ratio=1.163

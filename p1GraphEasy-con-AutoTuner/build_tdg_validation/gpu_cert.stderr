@@ -1,0 +1,151 @@
+[tdg.task] id=0 kind=1 graph=0 opaque=0 accesses=4 blocks=2
+[tdg.access] task=0 mode=R graph=0 object=global:left
+[tdg.access] task=0 mode=W graph=0 object=alloca:main:left.data
+[tdg.access] task=0 mode=R graph=0 object=global:right
+[tdg.access] task=0 mode=W graph=0 object=alloca:main:right.data
+[tdg.task] id=1 kind=1 graph=0 opaque=1 accesses=1 blocks=2
+[tdg.access] task=1 mode=R graph=0 object=
+[tdg.task] id=2 kind=1 graph=0 opaque=1 accesses=1 blocks=2
+[tdg.access] task=2 mode=R graph=0 object=
+[tdg.task] id=3 kind=0 graph=0 opaque=0 accesses=0 blocks=0
+[tdg.task] id=4 kind=0 graph=0 opaque=0 accesses=0 blocks=0
+[tdg.task] id=5 kind=0 graph=0 opaque=0 accesses=0 blocks=0
+[tdg.task] id=6 kind=0 graph=0 opaque=1 accesses=7 blocks=1
+[tdg.access] task=6 mode=R graph=1 object=call:main:graph_ptr
+[tdg.access] task=6 mode=R graph=1 object=call:main:graph_ptr
+[tdg.access] task=6 mode=R graph=1 object=call:main:graph_ptr
+[tdg.access] task=6 mode=W graph=0 object=alloca:main:left.data
+[tdg.access] task=6 mode=W graph=0 object=global:left
+[tdg.access] task=6 mode=W graph=0 object=alloca:main:right.data
+[tdg.access] task=6 mode=W graph=0 object=global:right
+[tdg.task] id=7 kind=0 graph=0 opaque=0 accesses=4 blocks=1
+[tdg.access] task=7 mode=R graph=0 object=global:left
+[tdg.access] task=7 mode=R graph=0 object=alloca:main:left.data
+[tdg.access] task=7 mode=R graph=0 object=global:left
+[tdg.access] task=7 mode=W graph=0 object=alloca:main:left.data
+[tdg.task] id=8 kind=0 graph=0 opaque=1 accesses=0 blocks=1
+[tdg.task] id=9 kind=0 graph=0 opaque=0 accesses=3 blocks=1
+[tdg.access] task=9 mode=R graph=0 object=
+[tdg.access] task=9 mode=R graph=0 object=
+[tdg.access] task=9 mode=R graph=0 object=
+[tdg.task] id=10 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=11 kind=0 graph=0 opaque=0 accesses=4 blocks=1
+[tdg.access] task=11 mode=R graph=0 object=global:right
+[tdg.access] task=11 mode=R graph=0 object=alloca:main:right.data
+[tdg.access] task=11 mode=R graph=0 object=global:right
+[tdg.access] task=11 mode=W graph=0 object=alloca:main:right.data
+[tdg.task] id=12 kind=0 graph=0 opaque=1 accesses=1 blocks=1
+[tdg.access] task=12 mode=W graph=0 object=alloca:main:rt_ops
+[tdg.task] id=13 kind=0 graph=0 opaque=1 accesses=0 blocks=1
+[tdg.task] id=14 kind=0 graph=0 opaque=1 accesses=1 blocks=1
+[tdg.access] task=14 mode=W graph=0 object=alloca:main:rt_ops57
+[tdg.task] id=15 kind=0 graph=0 opaque=0 accesses=3 blocks=1
+[tdg.access] task=15 mode=R graph=0 object=
+[tdg.access] task=15 mode=R graph=0 object=
+[tdg.access] task=15 mode=R graph=0 object=
+[tdg.task] id=16 kind=0 graph=0 opaque=1 accesses=4 blocks=1
+[tdg.access] task=16 mode=R graph=0 object=global:left
+[tdg.access] task=16 mode=R graph=0 object=alloca:main:left.data
+[tdg.access] task=16 mode=R graph=0 object=global:right
+[tdg.access] task=16 mode=R graph=0 object=alloca:main:right.data
+[tdg.task] id=17 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=18 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=19 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=20 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=21 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=22 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=23 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=24 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=25 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=26 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=27 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=28 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=29 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=30 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.edge] from=6 to=0 type=RAW
+[tdg.edge] from=6 to=12 type=MEM_BARRIER_AFTER_MEM_BARRIER_BEFORE
+[tdg.edge] from=6 to=29 type=MEM_BARRIER_AFTER
+[tdg.edge] from=6 to=14 type=MEM_BARRIER_AFTER_MEM_BARRIER_BEFORE
+[tdg.edge] from=6 to=30 type=MEM_BARRIER_AFTER
+[tdg.edge] from=6 to=16 type=MEM_BARRIER_AFTER
+[tdg.edge] from=0 to=12 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=12 to=29 type=MEM_BARRIER_AFTER
+[tdg.edge] from=12 to=14 type=MEM_BARRIER_AFTER_MEM_BARRIER_BEFORE
+[tdg.edge] from=12 to=30 type=MEM_BARRIER_AFTER
+[tdg.edge] from=12 to=16 type=MEM_BARRIER_AFTER
+[tdg.edge] from=0 to=14 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=29 to=14 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=14 to=30 type=MEM_BARRIER_AFTER
+[tdg.edge] from=14 to=16 type=MEM_BARRIER_AFTER
+[tdg.edge] from=0 to=16 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=29 to=16 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=30 to=16 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=8 to=9 type=RAW
+[tdg.edge] from=9 to=1 type=RAW_CALL_ARG_MEM_BARRIER_BEFORE
+[tdg.edge] from=8 to=21 type=CTRL_BRANCH
+[tdg.edge] from=8 to=23 type=CTRL_BRANCH
+[tdg.edge] from=21 to=9 type=CTRL_DEP
+[tdg.edge] from=21 to=1 type=CTRL_DEP
+[tdg.edge] from=8 to=1 type=MEM_BARRIER_AFTER
+[tdg.edge] from=8 to=19 type=MEM_BARRIER_AFTER
+[tdg.edge] from=13 to=15 type=RAW
+[tdg.edge] from=15 to=2 type=RAW_CALL_ARG_MEM_BARRIER_BEFORE
+[tdg.edge] from=13 to=24 type=CTRL_BRANCH
+[tdg.edge] from=13 to=26 type=CTRL_BRANCH
+[tdg.edge] from=24 to=15 type=CTRL_DEP
+[tdg.edge] from=24 to=2 type=CTRL_DEP
+[tdg.edge] from=13 to=2 type=MEM_BARRIER_AFTER
+[tdg.edge] from=13 to=22 type=MEM_BARRIER_AFTER
+[tdg.extract] task=0 graph=0 result=success function=task_0
+[tdg.extract] task=1 graph=0 result=success function=task_1
+[tdg.extract] task=2 graph=0 result=success function=task_2
+[tdg.extract] task=6 graph=0 result=failed
+[tdg.extract] task=7 graph=0 result=success function=task_7
+[tdg.extract] task=8 graph=0 result=success function=task_8
+[tdg.extract] task=9 graph=0 result=success function=task_9
+[tdg.extract] task=10 graph=0 result=success function=task_10
+[tdg.extract] task=11 graph=0 result=success function=task_11
+[tdg.extract] task=12 graph=0 result=failed
+[tdg.extract] task=13 graph=0 result=success function=task_13
+[tdg.extract] task=14 graph=0 result=failed
+[tdg.extract] task=15 graph=0 result=success function=task_15
+[tdg.extract] task=16 graph=0 result=success function=task_16
+[tdg.extract] task=27 graph=0 result=success function=task_27
+[tdg.extract] task=29 graph=0 result=success function=task_29
+[tdg.extract] task=30 graph=0 result=success function=task_30
+[pdg-tdg] extracted=14/31 tasks levels=7
+[tdg.level] index=0 tasks=3,4,5,6,7,8,10,11,13,17,18,20,25,27,28,
+[tdg.level] index=1 tasks=0,19,21,22,23,24,26,
+[tdg.level] index=2 tasks=9,12,15,
+[tdg.level] index=3 tasks=1,2,29,
+[tdg.level] index=4 tasks=14,
+[tdg.level] index=5 tasks=30,
+[tdg.level] index=6 tasks=16,
+[pdg-tdg] groups=4
+[tdg.group] level=1 included=1
+[tdg.group.task] level=1 task=0 graph=0
+[tdg.emitted] level=1 count=1
+[tdg.emitted.task] level=1 task=0
+[tdg.group] level=3 included=1
+[tdg.group.task] level=3 task=29 graph=0
+[tdg.emitted] level=3 count=1
+[tdg.emitted.task] level=3 task=29
+[tdg.group] level=5 included=1
+[tdg.group.task] level=5 task=30 graph=0
+[tdg.emitted] level=5 count=1
+[tdg.emitted.task] level=5 task=30
+[tdg.group] level=6 included=1
+[tdg.group.task] level=6 task=16 graph=0
+[tdg.emitted] level=6 count=1
+[tdg.emitted.task] level=6 task=16
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+[gpu] Could not open 'kernels.ptx' for writing: Invalid argument

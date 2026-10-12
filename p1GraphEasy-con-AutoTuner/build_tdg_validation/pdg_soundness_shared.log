@@ -1,0 +1,117 @@
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+PASS tdg_graph_ordinary_independent output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=15 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=200 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=1
+PASS tdg_graph_ordinary_large output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=15 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=200 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_two_graph_same output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=312 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=1
+PASS tdg_two_graph_distinct output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=298 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=1
+PASS tdg_two_graph_distinct_large output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=298 span=149 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+PASS tdg_two_graph_dependent output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=5 work=30 span=10 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=5 max_active=1
+PASS tdg_graph_mutation_dependent output
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=168 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=1
+PASS tdg_output_consumed output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+PASS tdg_print_dependent output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=173 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+PASS tdg_scalar_capture_dependent output
+[tdg.launch] decision=parallel chosen_threads=3 launched_threads=3 loop_threads=1 tasks=3 work=25 span=15 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=3 max_active=1
+PASS tdg_two_graph_large output
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=312 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=20 span=5 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=312 span=163 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=8 span=2 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=8 span=2 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=8 span=2 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=1 planned_sites=2
+[tdg.loop-plan] task_slot=1 loop_id=2 assigned_threads=2 c_ns=102510.31 selection_model_ns=1675009.91
+[tdg.loop-plan] task_slot=0 loop_id=1 assigned_threads=1 c_ns=85115.48 selection_model_ns=2723695.34
+[tdg.overlap] tasks=2 max_active=2
+[tdg.launch] decision=parallel chosen_threads=4 launched_threads=4 loop_threads=0 tasks=4 work=8 span=2 reserved=4 dominant_loop=-1 planned_sites=0
+[tdg.overlap] tasks=4 max_active=1
+[tdg.launch] decision=parallel chosen_threads=2 launched_threads=2 loop_threads=2 tasks=2 work=4992 span=2608 reserved=4 dominant_loop=1 planned_sites=2
+[tdg.loop-plan] task_slot=1 loop_id=2 assigned_threads=2 c_ns=102510.31 selection_model_ns=1675009.91
+[tdg.loop-plan] task_slot=0 loop_id=1 assigned_threads=1 c_ns=85115.48 selection_model_ns=2723695.34
+[tdg.overlap] tasks=2 max_active=2
+PASS checker rejects a conflicting level
+PASS checker rejects a transitive dependency
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_graph_ordinary_independent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_graph_ordinary_large.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_two_graph_same.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_two_graph_distinct.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_two_graph_distinct_large.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_two_graph_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_graph_mutation_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_output_consumed.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_print_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_scalar_capture_dependent.parallel.compile.err: every emitted level satisfies its task summaries
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_two_graph_large.parallel.compile.err: every emitted level satisfies its task summaries
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=125.711 measured_ns=18931 predicted_ms=0.000126 measured_ms=0.018931
+[AutoTunerProfile] total kind=Traverse predicted_ns=125.711 measured_ns=18931 predicted_ms=0.000126 measured_ms=0.018931 pure_kernel_ns=18648 pure_kernel_ms=0.018648
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_graph_ordinary_independent.default.compile.err: every emitted level satisfies its task summaries
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=125.711 measured_ns=14584 predicted_ms=0.000126 measured_ms=0.014584
+[AutoTunerProfile] region=1 kind=Traverse layout=CSR visits=1 predicted_ns=125.711 measured_ns=1656 predicted_ms=0.000126 measured_ms=0.001656
+[AutoTunerProfile] total kind=Traverse predicted_ns=251.422 measured_ns=16240 predicted_ms=0.000251 measured_ms=0.016240 pure_kernel_ns=15816 pure_kernel_ms=0.015816
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS /tmp/tmp.x2VNUcp1Eo/tdg_two_graph_same.default.compile.err: every emitted level satisfies its task summaries
+PASS shared levels, effect ordering, measured overlap, warmed widths, and fallbacks

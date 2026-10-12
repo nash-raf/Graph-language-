@@ -40,7 +40,7 @@ for src in "${SOURCES[@]}"; do
   stale=0
   [[ -f "$obj" ]] || stale=1
   if [[ "$stale" == 0 ]]; then
-    for hdr in *.h; do [[ "$hdr" -nt "$obj" ]] && { stale=1; break; }; done
+    for hdr in *.h *.inc; do [[ "$hdr" -nt "$obj" ]] && { stale=1; break; }; done
   fi
   [[ "$src" -nt "$obj" ]] && stale=1
   if [[ "$stale" == 0 ]]; then echo "  skip: $src"; continue; fi

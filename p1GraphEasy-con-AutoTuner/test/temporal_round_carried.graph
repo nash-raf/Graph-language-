@@ -1,0 +1,23 @@
+graph G { directed: true; edges: file "rtest_small.txt"; };
+int n = numVertices(G);
+int data[n];
+int acc = 0;
+int q = 0;
+int roundEffect = 0;
+int r = 0;
+while (r < 3) {
+  roundEffect = roundEffect + 1;
+  r = r + 1;
+  for each vertex u in G {
+    acc = 0;
+    for each neighbor v of u in G {
+      acc = acc + v + 1;
+      data[u] = data[u] + acc;
+    }
+    q = q + 1;
+  }
+}
+int total = q + roundEffect;
+for each vertex u in G { total = total + data[u]; }
+print total;
+print r;

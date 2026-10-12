@@ -1,0 +1,9 @@
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int out[n];
+set frontier = {0,1,2,3,4,5,6}; set next_frontier = {};
+for each element u in frontier { for each neighbor v of u in G {
+  out[u] = out[u] + v + 1; next_frontier.add(v);
+} }
+for each vertex u in G { print out[u]; }
+print next_frontier.size();

@@ -1,0 +1,97 @@
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Source cleancut=Source accesses=7 relations=7 remaining=7 removed=0 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=every surviving relation stays within the symbolic group
+[spatial-runtime] CleanCut callbacks cannot preserve the complete source lifecycle
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phases have no non-trivial partition members=0,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=spatial runtime cannot preserve the complete source lifecycle
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=R8:spatial runtime cannot preserve the complete source lifecycle
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=spatial runtime cannot preserve the complete source lifecycle
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=foreach.cond24 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=sequential  R(source,U):SameRoundRead ⊗ U_f(source,U) ⊗ W(source,U)  temporal=SameRoundRead [refused: ]
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Destination cleancut=Destination accesses=5 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=1 realized=0 reason=every surviving relation stays within the symbolic group
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phases have no non-trivial partition members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert] hdr=foreach_nbr.cond60 R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier]   modelable=1
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Destination cleancut=Destination accesses=5 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=1 realized=1 reason=every surviving relation stays within the symbolic group
+[graph-frontier]   dag-owned: hdr=foreach_nbr.cond60 axes=spatial spatial=parallel temporal=ordered
+[graph-frontier] candidate: main driver=foreach.cond48 inner=foreach_nbr.cond60 kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(dest,V):SameRoundRead ⊗ U_f(dest,V)  temporal=SameRoundRead
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Source cleancut=Source accesses=7 relations=12 remaining=12 removed=0 nontrivial=occupied-groups>=2 runtime=1 realized=0 reason=every surviving relation stays within the symbolic group
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phases have no non-trivial partition members=0,0,0,
+[frontier-cert] tmpl spatial valid=0 nodes=0 edges=0 reason=source-reduction realization | temporal valid=0 units=0 edges=0 reason=source-reduction realization
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert] hdr=foreach_nbr.cond90 R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=R8:source-reduction realization
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier]   modelable=1
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Source cleancut=Source accesses=7 relations=12 remaining=12 removed=0 nontrivial=occupied-groups>=2 runtime=1 realized=1 reason=every surviving relation stays within the symbolic group
+[graph-frontier]   dag-owned: hdr=foreach_nbr.cond90 axes=spatial spatial=parallel temporal=ordered
+[graph-frontier] candidate: main driver=foreach.cond78 inner=foreach_nbr.cond90 kind=2 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=source-red  U_f(acc,G) ⊗ W(accumulated,U)  temporal=Independent
+[graph-frontier] candidate: main driver=<none> inner=foreach.cond107 kind=0 red=0 sep=0 data=1 fw=0 env=0 shadow=0 class=sequential  
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=inconclusive group=None cleancut=None accesses=9 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=surviving relations require topology-dependent or unresolved grouping
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phases have no non-trivial partition members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=0 nodes=0 edges=0 reason=spatial witness R1 has no partition representation | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=implementation: surviving edge without a realization (mutating footprint with no owner: base=indirect region=D)
+[frontier-cert] hdr=foreach_nbr.cond119 R_S=1 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=1 temporal=0 impl_guard=realization:data-derived write without a privatization proof
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=implementation: surviving edge without a realization (mutating footprint with no owner: base=indirect region=D)
+[frontier-cert]   #1 R1 spatial base=- src=D.W sink=D.W relation=1 discharge=none reason=data-derived write without a privatization proof
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=foreach.cond107 inner=foreach_nbr.cond119 kind=4 red=0 sep=0 data=1 fw=0 env=0 shadow=0 class=sequential  U_f(indirect,D)  temporal=Independent [refused: implementation: surviving edge without a realization (mutating footprint with no owner: base=indirect region=D)]
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Destination cleancut=Destination accesses=9 relations=6 remaining=3 removed=3 nontrivial=occupied-groups>=2 runtime=1 realized=0 reason=every surviving relation stays within the symbolic group
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phases have no non-trivial partition members=0,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert] hdr=foreach_nbr.cond158 R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=1 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert]   #1 R2 temporal base=- src=_.W sink=_.W relation=1 discharge=claim-staging reason=per-source claim (occurrence preservation)
+[graph-frontier]   modelable=1
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Destination cleancut=Destination accesses=9 relations=6 remaining=3 removed=3 nontrivial=occupied-groups>=2 runtime=1 realized=1 reason=every surviving relation stays within the symbolic group
+[graph-frontier]   dag-owned: hdr=foreach_nbr.cond158 axes=spatial spatial=parallel temporal=ordered
+[graph-frontier] candidate: main driver=foreach.cond142 inner=foreach_nbr.cond158 kind=3 red=0 sep=1 data=0 fw=1 env=0 shadow=0 class=dest-owner  R(claimed,V):SameRoundRead ⊗ U_f(claimed,V) ⊗ R(seen,U):SameRoundRead ⊗ Claim(seen,U)  temporal=SameRoundRead
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=PairOccurrence cleancut=Destination accesses=4 relations=2 remaining=0 removed=2 nontrivial=occupied-groups>=2 runtime=1 realized=0 reason=every surviving relation stays within the symbolic group
+[temporal] scope=None rounds=not-applicable phases=inconclusive components=1 realized=0 verdict=inconclusive
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phase dependencies are incomplete members=0,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert] hdr=foreach_nbr.cond184 R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier]   modelable=1
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=PairOccurrence cleancut=Destination accesses=4 relations=2 remaining=0 removed=2 nontrivial=occupied-groups>=2 runtime=1 realized=1 reason=every surviving relation stays within the symbolic group
+[graph-frontier]   dag-owned: hdr=foreach_nbr.cond184 axes=spatial spatial=parallel temporal=ordered
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond184 kind=0 red=0 sep=0 data=0 fw=0 env=1 shadow=0 class=source-owner  Activate(next_frontier,V)  temporal=Independent
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=no-partition group=None cleancut=None accesses=3 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=unconditional shared write connects every pair occurrence
+[temporal] scope=None rounds=interfering phases=interfering components=1 realized=0 verdict=interfering
+[temporal] complete rounds have a repeated dependency members=0,0,
+[temporal] source phases have no non-trivial partition members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=0 nodes=0 edges=0 reason=reduction realization | temporal valid=0 units=0 edges=0 reason=reduction realization
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=R8 guard: reduction realization
+[frontier-cert] hdr=foreach_nbr.cond214 R_S=0 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=R8:reduction realization
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=R8 guard: reduction realization
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=foreach.cond202 inner=foreach_nbr.cond214 kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U_f(acc,G)  temporal=Independent [refused: reduction conditions not met]
+[gpu] effects main hdr=red_fill_cond.parallel: space=Independent doacross_dist=0
+[gpu] env field 0 ptr origin=alloca[alloca:red_partials] stored=[alloca:red_partials] resolved=[alloca:red_partials] stripped=alloca
+[gpu] env field 1 ptr origin=alloca[alloca:.loc] stored=[alloca:.loc] resolved=[alloca:.loc] stripped=alloca
+[gpu] buffer registration emitted for red_partials
+[gpu] buffer registration emitted for .loc
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

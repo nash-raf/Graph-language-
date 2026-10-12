@@ -1,0 +1,13 @@
+graph G { directed: true; edges: file "rtest_small.txt"; };
+int n = numVertices(G);
+int p[n];
+int b[n];
+int q[n];
+for each vertex u in G {
+  p[u] = p[u] + 1;
+  for each neighbor v of u in G { b[u] = b[u] + v; }
+  q[u] = b[u];
+}
+int total = 0;
+for each vertex u in G { total = total + p[u] + q[u]; }
+print total;

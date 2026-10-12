@@ -351,6 +351,10 @@ void sgpl_pop_thread_budget(void)
 
 static int32_t sgpl_thread_budget_cap(void)
 {
+    /* A persistent worker cannot wait for its own pool or create a second
+     * team. Nested loop/TDG execution makes progress on the current worker. */
+    if (sgpl_is_worker_pool_thread())
+        return 1;
     int32_t cap = sgpl_runtime_thread_count();
     int32_t requested = sgpl_current_thread_budget();
 
@@ -561,12 +565,16 @@ static _Thread_local int32_t g_tls_worker_index = 0;
 
 static pthread_barrier_t g_sgpl_thread_pool_barrier;
 static pthread_mutex_t g_sgpl_thread_pool_run_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_once_t g_sgpl_thread_pool_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t g_sgpl_thread_pool_start_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_sgpl_thread_pool_start_cv = PTHREAD_COND_INITIALIZER;
+static int g_sgpl_thread_pool_start = 0;
 static pthread_t *g_sgpl_thread_pool_threads = NULL;
 static int g_sgpl_thread_pool_size = 0;
 static atomic_int g_sgpl_thread_pool_shutdown = 0;
 static workers_args_t *g_sgpl_thread_pool_job_args = NULL;
 static int g_sgpl_thread_pool_job_nthreads = 0;
+static sgpl_pool_work_fn g_sgpl_thread_pool_job_fn = NULL;
+static void *g_sgpl_thread_pool_job_state = NULL;
 
 typedef struct
 {
@@ -852,7 +860,7 @@ static int sgpl_runtime_thread_count(void)
     if (online_threads <= 0)
         online_threads = 1;
 
-    atomic_store_explicit(&cached_nthreads, online_threads, memory_order_relaxed);
+    int chosen_threads = online_threads;
     {
         const char *requested = getenv("SGPL_NUM_THREADS");
         if (!requested || requested[0] == '\0')
@@ -866,10 +874,14 @@ static int sgpl_runtime_thread_count(void)
             {
                 if (parsed > online_threads)
                     parsed = online_threads;
-                atomic_store_explicit(&cached_nthreads, (int)parsed, memory_order_relaxed);
+                chosen_threads = (int)parsed;
             }
         }
     }
+    /* Publish only the final configured value. Concurrent first callers must
+     * never observe the machine width before the environment cap is applied. */
+    int expected = 0;
+    atomic_compare_exchange_strong(&cached_nthreads, &expected, chosen_threads);
     return atomic_load_explicit(&cached_nthreads, memory_order_relaxed);
 }
 
@@ -886,6 +898,11 @@ int32_t sgpl_current_worker_index(void)
 void sgpl_set_current_worker_index(int32_t index)
 {
     g_tls_worker_index = index;
+}
+
+int32_t sgpl_is_worker_pool_thread(void)
+{
+    return g_tls_is_pool_worker;
 }
 
 static int64_t sgpl_compute_trip_count(int64_t start, int64_t end, int64_t step)
@@ -1309,15 +1326,30 @@ static void *sgpl_thread_pool_worker_entry(void *arg)
 {
     int tid = (int)(intptr_t)arg;
 
+    /* A partially created team cannot enter a barrier that requires the full
+     * team. Keep workers here until all infrastructure exists, or abort. */
+    pthread_mutex_lock(&g_sgpl_thread_pool_start_lock);
+    while (g_sgpl_thread_pool_start == 0)
+        pthread_cond_wait(&g_sgpl_thread_pool_start_cv, &g_sgpl_thread_pool_start_lock);
+    int start = g_sgpl_thread_pool_start;
+    pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
+    if (start < 0)
+        return NULL;
+
     g_tls_is_pool_worker = 1;
+    g_tls_worker_index = tid;
     for (;;)
     {
         pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
         if (atomic_load(&g_sgpl_thread_pool_shutdown))
             break;
 
-        if (tid < g_sgpl_thread_pool_job_nthreads && g_sgpl_thread_pool_job_args)
-            worker_main(&g_sgpl_thread_pool_job_args[tid]);
+        if (tid < g_sgpl_thread_pool_job_nthreads) {
+            if (g_sgpl_thread_pool_job_fn)
+                g_sgpl_thread_pool_job_fn(g_sgpl_thread_pool_job_state, tid);
+            else if (g_sgpl_thread_pool_job_args)
+                worker_main(&g_sgpl_thread_pool_job_args[tid]);
+        }
 
         pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
     }
@@ -1325,52 +1357,106 @@ static void *sgpl_thread_pool_worker_entry(void *arg)
     return NULL;
 }
 
-static void sgpl_thread_pool_init_once(void)
+static void sgpl_thread_pool_shutdown_at_exit(void)
 {
-    int i = 0;
-
-    sgpl_tdg_init_runtime_config();
-    g_sgpl_thread_pool_size = sgpl_runtime_thread_count();
-    if (g_sgpl_thread_pool_size <= 0)
-        g_sgpl_thread_pool_size = 1;
-
-    if (pthread_barrier_init(&g_sgpl_thread_pool_barrier, NULL, (unsigned)(g_sgpl_thread_pool_size + 1)) != 0)
-    {
-        fprintf(stderr, "Runtime Error: failed to init thread pool barrier\n");
+    pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
+    if (g_sgpl_thread_pool_size > 0) {
+        atomic_store(&g_sgpl_thread_pool_shutdown, 1);
+        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        for (int i = 0; i < g_sgpl_thread_pool_size; ++i)
+            pthread_join(g_sgpl_thread_pool_threads[i], NULL);
+        free(g_sgpl_thread_pool_threads);
+        g_sgpl_thread_pool_threads = NULL;
         g_sgpl_thread_pool_size = 0;
-        return;
-    }
-
-    g_sgpl_thread_pool_threads = (pthread_t *)calloc((size_t)g_sgpl_thread_pool_size, sizeof(pthread_t));
-    if (!g_sgpl_thread_pool_threads)
-    {
-        fprintf(stderr, "Runtime Error: failed to allocate thread pool workers\n");
         pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
-        g_sgpl_thread_pool_size = 0;
-        return;
     }
-
-    for (i = 0; i < g_sgpl_thread_pool_size; ++i)
-    {
-        if (pthread_create(&g_sgpl_thread_pool_threads[i], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
-        {
-            fprintf(stderr, "Runtime Error: failed to create thread pool worker %d\n", i);
-            atomic_store(&g_sgpl_thread_pool_shutdown, 1);
-            g_sgpl_thread_pool_size = i;
-            break;
-        }
-    }
+    pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
 }
 
-static void sgpl_thread_pool_ensure_init(void)
+/* Caller holds the run lock. A failed reservation has no user effects and
+ * leaves no workers behind. A later invocation can retry preparation. */
+static int sgpl_thread_pool_init_locked(void)
 {
-    pthread_once(&g_sgpl_thread_pool_once, sgpl_thread_pool_init_once);
+    if (g_sgpl_thread_pool_size > 0)
+        return 0;
+    if (atomic_load(&g_sgpl_thread_pool_shutdown))
+        return -2;
+    sgpl_tdg_init_runtime_config();
+    int size = sgpl_runtime_thread_count();
+    g_sgpl_thread_pool_threads = (pthread_t *)calloc((size_t)size, sizeof(pthread_t));
+    if (!g_sgpl_thread_pool_threads)
+        return -1;
+
+    pthread_mutex_lock(&g_sgpl_thread_pool_start_lock);
+    g_sgpl_thread_pool_start = 0;
+    pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
+    int i, rc = -2;
+    for (i = 0; i < size; ++i) {
+        if (pthread_create(&g_sgpl_thread_pool_threads[i], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
+            break;
+    }
+    int barrier_ready = 0;
+    if (i == size && pthread_barrier_init(&g_sgpl_thread_pool_barrier, NULL,
+                                         (unsigned)(size + 1)) == 0) {
+        barrier_ready = 1;
+        if (atexit(sgpl_thread_pool_shutdown_at_exit) == 0)
+            rc = 0;
+    }
+    pthread_mutex_lock(&g_sgpl_thread_pool_start_lock);
+    g_sgpl_thread_pool_start = rc == 0 ? 1 : -1;
+    pthread_cond_broadcast(&g_sgpl_thread_pool_start_cv);
+    pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
+    if (rc != 0) {
+        for (int j = 0; j < i; ++j)
+            pthread_join(g_sgpl_thread_pool_threads[j], NULL);
+        if (barrier_ready)
+            pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
+        free(g_sgpl_thread_pool_threads);
+        g_sgpl_thread_pool_threads = NULL;
+        return rc;
+    }
+    g_sgpl_thread_pool_size = size;
+    return 0;
 }
 
 static int sgpl_thread_pool_available(void)
 {
-    sgpl_thread_pool_ensure_init();
-    return g_sgpl_thread_pool_size > 0 && !atomic_load(&g_sgpl_thread_pool_shutdown);
+    if (g_tls_is_pool_worker)
+        return 0;
+    pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
+    int ready = sgpl_thread_pool_init_locked() == 0;
+    pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
+    return ready;
+}
+
+int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
+                              int32_t worker_count)
+{
+    if (!work || worker_count <= 0)
+        return -2;
+    int32_t parent = sgpl_current_thread_budget();
+    if (parent > 0 && worker_count > parent)
+        worker_count = parent;
+    if (g_tls_is_pool_worker || worker_count == 1) {
+        work(state, sgpl_current_worker_index());
+        return 0;
+    }
+    pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
+    int rc = sgpl_thread_pool_init_locked();
+    if (rc == 0) {
+        if (worker_count > g_sgpl_thread_pool_size)
+            worker_count = g_sgpl_thread_pool_size;
+        g_sgpl_thread_pool_job_fn = work;
+        g_sgpl_thread_pool_job_state = state;
+        g_sgpl_thread_pool_job_nthreads = worker_count;
+        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        g_sgpl_thread_pool_job_fn = NULL;
+        g_sgpl_thread_pool_job_state = NULL;
+        g_sgpl_thread_pool_job_nthreads = 0;
+    }
+    pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
+    return rc;
 }
 
 static void sgpl_thread_pool_run(workers_args_t *args, int nthreads)
@@ -1378,10 +1464,9 @@ static void sgpl_thread_pool_run(workers_args_t *args, int nthreads)
     if (!args || nthreads <= 0)
         return;
 
+    pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
     if (nthreads > g_sgpl_thread_pool_size)
         nthreads = g_sgpl_thread_pool_size;
-
-    pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
     g_sgpl_thread_pool_job_args = args;
     g_sgpl_thread_pool_job_nthreads = nthreads;
     pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
@@ -2367,6 +2452,8 @@ static int32_t sgpl_forced_width_for_loop_id(int32_t loop_id)
 
 static int32_t sgpl_loop_effective_decision_threads_for_loop_id(int32_t loop_id)
 {
+    if (g_tls_is_pool_worker)
+        return 1;
     int32_t threads = sgpl_runtime_thread_count();
     int32_t forced = sgpl_forced_width_for_loop_id(loop_id);
     if (forced > 0)
@@ -2494,6 +2581,8 @@ static void sgpl_loop_pool_destroy(sgpl_level_loop_pool *pool)
 
 static int32_t sgpl_loop_pool_try_acquire(int32_t loop_id, int32_t requested)
 {
+    if (g_tls_is_pool_worker)
+        return 1;
     sgpl_level_loop_pool *pool = g_tls_active_loop_pool;
     int32_t task_slot = g_tls_current_tdg_task_slot;
     int32_t granted = 1;
@@ -5678,7 +5767,7 @@ void parallel_for_runtime(int64_t start,
         int force_parallel = force_doall_parallel_enabled() ||
                              (needs_doacross && force_doacross_parallel_enabled());
         int borrowed = 0;
-        if (granted_threads <= 1 && force_parallel)
+        if (granted_threads <= 1 && force_parallel && !g_tls_is_pool_worker)
         {
             // Parent TDG task often reserves the whole machine; nested outlined
             // loops then see granted=1. Force path borrows hardware threads
@@ -5806,7 +5895,7 @@ void parallel_for_runtime_ex(int64_t start,
         int force_parallel = force_doall_parallel_enabled() ||
                              (needs_doacross && force_doacross_parallel_enabled());
         int borrowed = 0;
-        if (granted_threads <= 1 && force_parallel)
+        if (granted_threads <= 1 && force_parallel && !g_tls_is_pool_worker)
         {
             granted_threads = sgpl_runtime_thread_count();
             borrowed = 1;

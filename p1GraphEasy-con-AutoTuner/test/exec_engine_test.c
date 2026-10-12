@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "../autotuner_runtime.h"
+#include "../parallel_runtime.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -587,9 +588,9 @@ int gpup_step_v_try(const char *kernel_name, const void *layout_sig, int32_t npa
 /* GPU runtime hook stubs: these tests never take the device path. */
 const char *autograph_gpu_step_name_for(int32_t step_id) { (void)step_id; return NULL; }
 
-/* Step 9: nested scheduling shares the run's budget.  A temporal chain run
- * with budget 2 gives each unit (a chain keeps the full share) at most 2
- * threads for its own spatial dispatch; step_id = -1 selects the fallback
+/* Nested dispatch on a persistent worker uses that worker serially. A
+ * temporal chain with budget 2 cannot acquire another team for its spatial
+ * dispatch; step_id = -1 selects the fallback
  * dispatch path where the env-gated DAG spatial dispatch lives, independent
  * of the TDG sampler. */
 static void test_temporal_nested_budget(const ExecTestGraph *g,
@@ -628,9 +629,7 @@ static void test_temporal_nested_budget(const ExecTestGraph *g,
     int32_t parts = partitions;
     if (parts > (int32_t)g->n)
       parts = (int32_t)g->n;
-    expected = configured < 2 ? configured : 2;
-    if (expected > parts)
-      expected = parts;
+    expected = 1;
     if (parts < 1)
       parts = 1;
     partitions = parts; /* baseline expectation below uses the same clamp */
@@ -639,7 +638,7 @@ static void test_temporal_nested_budget(const ExecTestGraph *g,
     printf("  [dbg] nested width=%d expected=%d configured=%d partitions=%d\n",
            width, expected, configured, partitions);
   check(width == expected,
-        "nested: unit dispatch clamped to the run's budget share");
+        "nested: unit dispatch uses the calling worker serially");
   check(count_kind(200, EV_PAIR) == (int)g->m &&
             count_kind(201, EV_PAIR) == (int)g->m,
         "nested: both units enumerated every edge once");

@@ -3620,6 +3620,8 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
                 llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(arrAlloca->getType())),
                 decl->name);
             Builder.CreateStore(arrAlloca, global);
+            arrAlloca->setMetadata("sgpl.language.array",llvm::MDNode::get(Module.getContext(),{}));
+            global->setMetadata("sgpl.language.array",llvm::MDNode::get(Module.getContext(),{}));
             storage = global;
         }
         NamedValues[decl->name] = storage;
@@ -3664,6 +3666,8 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
                     llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(ptrTy)),
                     decl->name);
                 Builder.CreateStore(dataAlloca, global);
+                dataAlloca->setMetadata("sgpl.language.array",llvm::MDNode::get(Module.getContext(),{}));
+                global->setMetadata("sgpl.language.array",llvm::MDNode::get(Module.getContext(),{}));
                 storage = global;
             }
 
@@ -3745,6 +3749,7 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
                 llvm::GlobalValue::InternalLinkage,
                 llvm::ConstantAggregateZero::get(arrTy),
                 decl->name);
+            global->setMetadata("sgpl.language.array",llvm::MDNode::get(Module.getContext(),{}));
             storage = global;
             if (decl->initializer && decl->initializer->type == ASTNodeType::ArrayLiteral)
             {

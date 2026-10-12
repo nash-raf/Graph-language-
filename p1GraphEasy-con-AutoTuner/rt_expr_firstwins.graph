@@ -31,9 +31,4 @@ while (setSize(frontier) > 0) {
   frontier = next_frontier;
 }
 
-print dist[0];
-print dist[1];
-print dist[2];
-print dist[3];
-print dist[4];
-print dist[5];
+for each vertex v in G { print dist[v]; }

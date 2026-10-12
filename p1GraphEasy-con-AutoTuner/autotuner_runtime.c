@@ -19,6 +19,7 @@
 #include <time.h>
 
 #include "autotuner_runtime.h"
+#include <stddef.h>
 #include "parallel_runtime.h"
 
 /* Forward declaring external Roaring C API we need */
@@ -334,9 +335,10 @@ static int ensure_extra_capacity(AutoGraphMeta *meta, int64_t need_count) {
     new_cap *= 2;
   int32_t *new_pairs =
       (int32_t *)realloc(meta->extra_edge_pairs, (size_t)(2 * new_cap) * sizeof(int32_t));
+  if (!new_pairs) return 0;
+  meta->extra_edge_pairs = new_pairs;
   uint8_t *new_live = (uint8_t *)realloc(meta->extra_edge_live, (size_t)new_cap * sizeof(uint8_t));
-  if (!new_pairs || !new_live)
-    return 0;
+  if (!new_live) return 0;
   if (new_cap > meta->extra_edge_capacity) {
     memset(new_live + meta->extra_edge_capacity, 0,
            (size_t)(new_cap - meta->extra_edge_capacity) * sizeof(uint8_t));
@@ -385,13 +387,17 @@ static uint64_t hash_u64(uint64_t x) {
 }
 
 static EdgeHashMap *edge_hash_create(int64_t expected) {
+  if (expected < 0 || expected > INT32_MAX/4) return NULL;
   EdgeHashMap *m = (EdgeHashMap *)malloc(sizeof(EdgeHashMap));
+  if (!m) return NULL;
   m->capacity = next_pow2_at_least((int)(expected * 2 + 1));
   m->table = (EdgeHashEntry *)calloc((size_t)m->capacity, sizeof(EdgeHashEntry));
+  if (!m->table) { free(m); return NULL; }
   return m;
 }
 
 static void edge_hash_insert(EdgeHashMap *m, int32_t u, int32_t v, int64_t value) {
+  if (!m || !m->table) return;
   uint64_t k = edge_key(u, v);
   uint64_t idx = hash_u64(k) & (uint64_t)(m->capacity - 1);
   while (m->table[idx].occupied) {
@@ -516,7 +522,7 @@ static void refresh_graph_counts_from_canonical(AutoGraphMeta *meta) {
   char *base = (char *)meta->graph_ptr;
   int64_t nn = canonical_node_span(meta);
   int64_t undirected = canonical_edge_count_cached(meta);
-  int64_t directed = undirected * 2;
+  int64_t directed = *((const int32_t *)(base + 40)) ? undirected : undirected * 2;
   *((int64_t *)(base + 0)) = nn;
   *((int64_t *)(base + 8)) = directed;
   meta->csr_n = nn;
@@ -548,6 +554,7 @@ static void build_csr_from_meta(AutoGraphMeta *meta, int64_t *out_n, int64_t **o
 
   int64_t *rp = (int64_t *)calloc((size_t)(dense_n + 1), sizeof(int64_t));
   int64_t edge_count = 0;
+  int directed = *((const int32_t *)((const char *)meta->graph_ptr + 40)) != 0;
 
   for (int64_t e = 0; e < meta->static_pair_count; e++) {
     if (!roaring_bitmap_contains(eb, (uint32_t)e))
@@ -556,8 +563,8 @@ static void build_csr_from_meta(AutoGraphMeta *meta, int64_t *out_n, int64_t **o
     int32_t v = pairs[e].v;
     if (u >= 0 && v >= 0 && (int64_t)u < dense_n && (int64_t)v < dense_n) {
       rp[(int64_t)u + 1]++;
-      rp[(int64_t)v + 1]++;
-      edge_count += 2;
+      if (!directed) rp[(int64_t)v + 1]++;
+      edge_count += directed ? 1 : 2;
     }
   }
   for (int64_t i = 0; i < meta->extra_edge_count; i++) {
@@ -567,8 +574,8 @@ static void build_csr_from_meta(AutoGraphMeta *meta, int64_t *out_n, int64_t **o
     int32_t v = meta->extra_edge_pairs[2 * i + 1];
     if (u >= 0 && v >= 0 && (int64_t)u < dense_n && (int64_t)v < dense_n) {
       rp[(int64_t)u + 1]++;
-      rp[(int64_t)v + 1]++;
-      edge_count += 2;
+      if (!directed) rp[(int64_t)v + 1]++;
+      edge_count += directed ? 1 : 2;
     }
   }
   for (int64_t u = 1; u <= dense_n; u++)
@@ -585,7 +592,7 @@ static void build_csr_from_meta(AutoGraphMeta *meta, int64_t *out_n, int64_t **o
     int32_t v = pairs[e].v;
     if (u >= 0 && v >= 0 && (int64_t)u < dense_n && (int64_t)v < dense_n) {
       ci[next[u]++] = v;
-      ci[next[v]++] = u;
+      if (!directed) ci[next[v]++] = u;
     }
   }
   for (int64_t i = 0; i < meta->extra_edge_count; i++) {
@@ -595,7 +602,7 @@ static void build_csr_from_meta(AutoGraphMeta *meta, int64_t *out_n, int64_t **o
     int32_t v = meta->extra_edge_pairs[2 * i + 1];
     if (u >= 0 && v >= 0 && (int64_t)u < dense_n && (int64_t)v < dense_n) {
       ci[next[u]++] = v;
-      ci[next[v]++] = u;
+      if (!directed) ci[next[v]++] = u;
     }
   }
 
@@ -685,57 +692,61 @@ void rebuild_sets_from_csr(int64_t n, int64_t pair_count, int64_t m, const int64
 
 /* Rebuild bitmaps + extra_edge_pairs from CSR. Used when transitioning to SET
  * from CSR/PCSR so we can skip canonical sync during mutations. */
-static void rebuild_sets_from_csr_meta(AutoGraphMeta *meta, const int64_t *csr_rp,
+static int rebuild_sets_from_csr_meta(AutoGraphMeta *meta, const int64_t *csr_rp,
                                        const int32_t *csr_ci, int64_t n, int64_t m) {
   (void)m;
   RoaringBitmap *nb = (RoaringBitmap *)meta->nodes_bitmap;
   RoaringBitmap *eb = (RoaringBitmap *)meta->edges_bitmap;
   EdgePair *pairs = (EdgePair *)meta->edge_pairs_table;
 
+  /* Allocate every occurrence-map buffer before changing live membership. */
+  int directed = *((const int32_t *)((const char *)meta->graph_ptr + 40)) != 0;
+  if (meta->static_pair_count < 0 || (uint64_t)meta->static_pair_count > SIZE_MAX/sizeof(int64_t) ||
+      m < 0 || (uint64_t)m > SIZE_MAX/2/sizeof(int32_t)) return 0;
+  EdgeHashMap *ht = edge_hash_create(meta->static_pair_count + 16);
+  int64_t *next_id = malloc((size_t)(meta->static_pair_count ? meta->static_pair_count : 1)*sizeof(int64_t));
+  if (!ht || !next_id || !ensure_extra_capacity(meta,m)) {
+    edge_hash_destroy(ht); free(next_id); return 0;
+  }
   roaring_bitmap_clear(nb);
   roaring_bitmap_clear(eb);
-  for (int64_t i = 0; i < meta->extra_edge_capacity; i++)
-    meta->extra_edge_live[i] = 0;
+  for (int64_t i = 0; i < meta->extra_edge_capacity; i++) meta->extra_edge_live[i] = 0;
   meta->extra_edge_count = 0;
   reset_extra_edge_hash(meta);
-
-  EdgeHashMap *ht = edge_hash_create(meta->static_pair_count + 16);
-  for (int64_t e = 0; e < meta->static_pair_count; e++)
-    edge_hash_insert(ht, pairs[e].u, pairs[e].v, e);
-
+  for (int64_t e = meta->static_pair_count; e-- > 0;) {
+    next_id[e] = edge_hash_find(ht,pairs[e].u,pairs[e].v);
+    edge_hash_insert(ht,pairs[e].u,pairs[e].v,e);
+  }
   for (int64_t u = 0; u < n; u++) {
-    int64_t start = csr_rp[u];
-    int64_t end = csr_rp[u + 1];
-    if (end > start)
-      roaring_bitmap_add(nb, (uint32_t)u);
-
-    for (int64_t j = start; j < end; j++) {
+    int64_t start = csr_rp[u], end = csr_rp[u+1], self_ordinal = 0;
+    roaring_bitmap_add(nb,(uint32_t)u); /* retain isolated source vertices */
+    for (int64_t j = start; j < end; ++j) {
       int32_t v = csr_ci[j];
-      roaring_bitmap_add(nb, (uint32_t)v);
-      if ((int64_t)u > (int64_t)v)
-        continue;
-      int64_t eid = edge_hash_find(ht, (int32_t)u, v);
+      if (!directed && (u > v || (u == v && (self_ordinal++ & 1)))) continue;
+      roaring_bitmap_add(nb,(uint32_t)v);
+      int64_t head = edge_hash_find(ht,(int32_t)u,v), eid = head, previous = -1;
+      while (eid >= 0 && directed && (pairs[eid].u != u || pairs[eid].v != v)) {
+        previous = eid; eid = next_id[eid];
+      }
       if (eid >= 0) {
-        roaring_bitmap_add(eb, (uint32_t)eid);
-      } else {
-        int64_t ex = canonical_pair_find_extra(meta, (int32_t)u, v);
-        if (ex >= 0) {
-          meta->extra_edge_live[ex] = 1;
-        } else if (ensure_extra_capacity(meta, meta->extra_edge_count + 1)) {
-          int64_t at = meta->extra_edge_count++;
-          meta->extra_edge_pairs[2 * at] = (int32_t)u;
-          meta->extra_edge_pairs[2 * at + 1] = v;
-          meta->extra_edge_live[at] = 1;
-          EdgeHashMap *eh = get_or_create_extra_edge_hash(meta);
-          if (eh)
-            edge_hash_insert(eh, (int32_t)u, v, at);
-        }
+        roaring_bitmap_add(eb,(uint32_t)eid);
+        if (previous < 0) edge_hash_insert(ht,(int32_t)u,v,next_id[eid]);
+        else next_id[previous] = next_id[eid];
+      } else if (ensure_extra_capacity(meta,meta->extra_edge_count+1)) {
+        int64_t at = meta->extra_edge_count++;
+        meta->extra_edge_pairs[2*at] = (int32_t)u;
+        meta->extra_edge_pairs[2*at+1] = v;
+        meta->extra_edge_live[at] = 1;
+        EdgeHashMap *eh = get_or_create_extra_edge_hash(meta);
+        if (eh) edge_hash_insert(eh,(int32_t)u,v,at);
       }
     }
   }
+  free(next_id);
   edge_hash_destroy(ht);
   meta->canonical_dirty = 0;
   refresh_graph_counts_from_canonical(meta);
+  return 1;
   /* fprintf(stderr, "[AutoTuner] CSR->SET rebuilt (meta): n=%ld m=%ld extra=%ld\n",
           (long)n, (long)m, (long)meta->extra_edge_count); */
 }
@@ -808,24 +819,28 @@ void autograph_ensure_layout_set(void *graph_ptr) {
                         meta->pcsr_col_idx, &rp, &ci, &mm);
     nn = meta->csr_n;
     free_rp_ci = 1;
-    free(meta->pcsr_row_ptr);
-    meta->pcsr_row_ptr = NULL;
-    free(meta->pcsr_col_idx);
-    meta->pcsr_col_idx = NULL;
+
   } else if (meta->current_layout == LAYOUT_BCSR) {
     convert_bcsr_to_csr(meta->csr_n, meta->bcsr_nblocks, meta->bcsr_block_size,
                         meta->bcsr_brow_ptr, meta->bcsr_bcol_idx, &rp, &ci, &mm);
     nn = meta->csr_n;
     free_rp_ci = 1;
-    free(meta->bcsr_brow_ptr);
-    meta->bcsr_brow_ptr = NULL;
-    free(meta->bcsr_bcol_idx);
-    meta->bcsr_bcol_idx = NULL;
+
   }
 
-  if (rp && ci) {
-    meta->live_edge_count = -1;  /* invalidate; rebuild will rewrite bitmap */
-    rebuild_sets_from_csr_meta(meta, rp, ci, nn, mm);
+  if (rp && (ci || mm == 0)) {
+    if (!rebuild_sets_from_csr_meta(meta,rp,ci,nn,mm)) {
+      if (free_rp_ci && meta->current_layout != LAYOUT_CSR) { free(rp); free(ci); }
+      return; /* original native layout and membership remain valid */
+    }
+    meta->live_edge_count = -1;
+  }
+  if (meta->current_layout == LAYOUT_PCSR) {
+    free(meta->pcsr_row_ptr); meta->pcsr_row_ptr = NULL;
+    free(meta->pcsr_col_idx); meta->pcsr_col_idx = NULL;
+  } else if (meta->current_layout == LAYOUT_BCSR) {
+    free(meta->bcsr_brow_ptr); meta->bcsr_brow_ptr = NULL;
+    free(meta->bcsr_bcol_idx); meta->bcsr_bcol_idx = NULL;
   }
   if (free_rp_ci && rp) free(rp);
   if (free_rp_ci && ci) free(ci);
@@ -1752,6 +1767,14 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
   }
   case LAYOUT_SET:
   default: {
+    /* A self-loop has two incident occurrences in an undirected CSR.
+     * Preserve the second occurrence when the canonical edge is enumerated. */
+    if (iter->state == 2 || iter->state == 3) {
+      int extra = iter->state == 3;
+      iter->state = extra ? 1 : 0;
+      *out_v = (int32_t)iter->u;
+      return 1;
+    }
     /* Phase 0: static edge pairs */
     if (iter->state == 0) {
       RoaringBitmap *eb = (RoaringBitmap *)meta->edges_bitmap;
@@ -1767,8 +1790,10 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
             continue;
           if (pairs[e].u == (int32_t)iter->u) {
             *out_v = pairs[e].v;
+            if (pairs[e].u == pairs[e].v && !*((const int32_t *)((const char *)meta->graph_ptr+40))) iter->state = 2;
             return 1;
-          } else if (pairs[e].v == (int32_t)iter->u) {
+          } else if (!*((const int32_t *)((const char *)meta->graph_ptr + 40)) &&
+                     pairs[e].v == (int32_t)iter->u) {
             *out_v = pairs[e].u;
             return 1;
           }
@@ -1792,8 +1817,10 @@ int autograph_neighbor_iter_next(AutoNeighborIter *iter, int32_t *out_v) {
       int32_t ev = meta->extra_edge_pairs[2 * i + 1];
       if (eu == (int32_t)iter->u) {
         *out_v = ev;
+        if (eu == ev && !*((const int32_t *)((const char *)meta->graph_ptr+40))) iter->state = 3;
         return 1;
-      } else if (ev == (int32_t)iter->u) {
+      } else if (!*((const int32_t *)((const char *)meta->graph_ptr + 40)) &&
+                 ev == (int32_t)iter->u) {
         *out_v = eu;
         return 1;
       }
@@ -1922,6 +1949,43 @@ int32_t autograph_priv_bind(void *graph_ptr, void *rec_base, int64_t rec_stride,
         mine;
   }
   return (int32_t)meta->partition_count;
+}
+
+/* The spatial certificate binds storage to this invocation, not graph-global
+ * scratch. The record owns the allocation until the joined combine completes. */
+int32_t autograph_priv_bind_instance(void *graph, void *records, int64_t stride,
+                                     int64_t offset, int64_t elements,
+                                     int64_t element_bytes, int64_t identity,
+                                     int32_t slot) {
+  (void)slot;
+  AutoGraphMeta *meta = find_meta(graph);
+  if (!meta || elements < 0 || (element_bytes != 4 && element_bytes != 8) ||
+      stride <= 0 || offset < 0 || offset > stride - (int64_t)sizeof(void *))
+    return SGPL_DAG_ERR_INVALID;
+  int32_t parts = meta->partition_count;
+  if (!parts) return 0;
+  if (!records || parts < 0 || (uint64_t)elements > SIZE_MAX / (uint64_t)element_bytes)
+    return SGPL_DAG_ERR_INVALID;
+  size_t bytes = (size_t)elements * (size_t)element_bytes;
+  if (bytes > SIZE_MAX / (size_t)parts) return SGPL_DAG_ERR_INVALID;
+  uint8_t *data = malloc(bytes ? bytes * (size_t)parts : 1);
+  if (!data) return SGPL_DAG_ERR_NOMEM;
+  for (int32_t part = 0; part < parts; ++part) {
+    uint8_t *mine = data + (size_t)part * bytes;
+    for (int64_t i = 0; i < elements; ++i) {
+      if (element_bytes == 4) ((uint32_t *)mine)[i] = (uint32_t)identity;
+      else ((uint64_t *)mine)[i] = (uint64_t)identity;
+    }
+    memcpy((uint8_t *)records + (int64_t)part * stride + offset, &mine, sizeof(mine));
+  }
+  return parts;
+}
+void autograph_priv_release_instance(void *records, int64_t offset, int32_t partitions) {
+  if (records && partitions > 0) {
+    void *data;
+    memcpy(&data, (uint8_t *)records + offset, sizeof(data));
+    free(data);
+  }
 }
 
 int32_t autograph_prepare_frontier_array(void *graph_ptr,
@@ -2615,8 +2679,7 @@ static int cc_arcs_init(AutoGraphMeta *meta, void *graph_ptr, CcArcs *A) {
       for (int64_t j = meta->pcsr_row_ptr[u]; j < meta->pcsr_row_ptr[u + 1]; ++j)
         if (meta->pcsr_col_idx[j] != -1)
           count++;
-    if (count == 0)
-      return 0;
+    if (count == 0) return 1;
     A->arc_u = (int32_t *)malloc((size_t)count * sizeof(int32_t));
     A->arc_v = (int32_t *)malloc((size_t)count * sizeof(int32_t));
     if (!A->arc_u || !A->arc_v) {
@@ -2646,8 +2709,7 @@ static int cc_arcs_init(AutoGraphMeta *meta, void *graph_ptr, CcArcs *A) {
     int64_t count = 0;
     for (int32_t b = 0; b < nb; ++b)
       count += (int64_t)(meta->bcsr_brow_ptr[b + 1] - meta->bcsr_brow_ptr[b]) / 2;
-    if (count == 0)
-      return 0;
+    if (count == 0) return 1;
     A->arc_u = (int32_t *)malloc((size_t)count * sizeof(int32_t));
     A->arc_v = (int32_t *)malloc((size_t)count * sizeof(int32_t));
     if (!A->arc_u || !A->arc_v) {
@@ -2669,44 +2731,42 @@ static int cc_arcs_init(AutoGraphMeta *meta, void *graph_ptr, CcArcs *A) {
     return 1;
   }
 
-  if (meta->csr_row_ptr && meta->csr_col_idx) {
+  if (meta->csr_row_ptr && (meta->csr_col_idx || meta->csr_m == 0)) {
     A->csr_rp = meta->csr_row_ptr;
     A->csr_ci = meta->csr_col_idx;
     return 1;
   }
 
-  /* SET: static base pairs, raw order, undirected pairs expanded. */
+  /* SET uses the same live occurrence stream as serial neighbor traversal.
+   * Deleted static edges and invocation-independent extra edges participate.
+   * Enumeration does not inspect conflicts or establish independence. */
   {
-    int32_t *pairs = graph_get_edge_pairs(graph_ptr);
-    int64_t num = graph_get_num_edge_pairs(graph_ptr);
-    if (!pairs || num <= 0)
-      return 0;
-    int directed = (meta->csr_m > 0 && meta->csr_m == num) ? 1 : 0;
-    int64_t arcs = directed ? num : 2 * num;
-    A->arc_u = (int32_t *)malloc((size_t)arcs * sizeof(int32_t));
-    A->arc_v = (int32_t *)malloc((size_t)arcs * sizeof(int32_t));
-    if (!A->arc_u || !A->arc_v) {
-      cc_arcs_free(A);
-      return 0;
-    }
-    int64_t w = 0;
-    if (directed) {
-      for (int64_t i = 0; i < num; ++i) {
-        A->arc_u[w] = pairs[2 * i];
-        A->arc_v[w] = pairs[2 * i + 1];
-        w++;
-      }
-    } else {
-      for (int64_t i = 0; i < num; ++i) {
-        A->arc_u[w] = pairs[2 * i];
-        A->arc_v[w] = pairs[2 * i + 1];
-        w++;
-        A->arc_u[w] = pairs[2 * i + 1];
-        A->arc_v[w] = pairs[2 * i];
-        w++;
+    int64_t count = 0;
+    AutoNeighborIter cursor;
+    int32_t v;
+    for (int64_t u = 0; u < n; ++u) {
+      autograph_neighbor_iter_init(graph_ptr,u,&cursor);
+      while (autograph_neighbor_iter_next(&cursor,&v)) {
+        if (count == INT64_MAX) return 0;
+        ++count;
       }
     }
-    A->arc_count = arcs;
+    if (!count) return 1;
+    if ((uint64_t)count > SIZE_MAX/sizeof(int32_t)) return 0;
+    A->arc_u = malloc((size_t)count*sizeof(int32_t));
+    A->arc_v = malloc((size_t)count*sizeof(int32_t));
+    if (!A->arc_u || !A->arc_v) { cc_arcs_free(A); return 0; }
+    int64_t at = 0;
+    for (int64_t u = 0; u < n; ++u) {
+      autograph_neighbor_iter_init(graph_ptr,u,&cursor);
+      while (autograph_neighbor_iter_next(&cursor,&v)) {
+        if (at >= count) { cc_arcs_free(A); return 0; }
+        A->arc_u[at] = (int32_t)u;
+        A->arc_v[at++] = v;
+      }
+    }
+    if (at != count) { cc_arcs_free(A); return 0; }
+    A->arc_count = count;
     return 1;
   }
 }
@@ -2731,6 +2791,7 @@ static int cc_arc_next(CcArcIter *it) {
     it->e++;
     return 1;
   }
+  if (!A->csr_rp) return 0; /* Valid empty flat enumeration. */
   while (it->row < A->n) {
     if (it->j < A->csr_rp[it->row + 1]) {
       it->u = (int32_t)it->row;
@@ -2742,6 +2803,31 @@ static int cc_arc_next(CcArcIter *it) {
     it->j = A->csr_rp[it->row];
   }
   return 0;
+}
+
+/* Flat native layouts can store different source rows in arbitrary order.
+ * Stable source grouping preserves each row's native neighbor order, including
+ * repeated edges. It establishes traversal order, never conflict freedom. */
+static int cc_arcs_order_sources(CcArcs *A) {
+  if (!A->arc_u || A->arc_count < 2) return 1;
+  int64_t *positions = calloc((size_t)A->n + 1, sizeof(int64_t));
+  int32_t *u = malloc((size_t)A->arc_count*sizeof(int32_t));
+  int32_t *v = malloc((size_t)A->arc_count*sizeof(int32_t));
+  if (!positions || !u || !v) { free(positions); free(u); free(v); return 0; }
+  for (int64_t e = 0; e < A->arc_count; ++e) {
+    if (A->arc_u[e] < 0 || A->arc_u[e] >= A->n || A->arc_v[e] < 0 || A->arc_v[e] >= A->n) {
+      free(positions); free(u); free(v); return 0;
+    }
+    ++positions[A->arc_u[e]+1];
+  }
+  for (int64_t row = 1; row <= A->n; ++row) positions[row] += positions[row-1];
+  for (int64_t e = 0; e < A->arc_count; ++e) {
+    int64_t at = positions[A->arc_u[e]]++;
+    u[at] = A->arc_u[e]; v[at] = A->arc_v[e];
+  }
+  free(positions); free(A->arc_u); free(A->arc_v);
+  A->arc_u = u; A->arc_v = v;
+  return 1;
 }
 
 static int32_t autograph_build_clean_cut_inner(void *graph_ptr, int32_t partitions) {
@@ -2763,10 +2849,10 @@ static int32_t autograph_build_clean_cut_inner(void *graph_ptr, int32_t partitio
     return 0;
   }
 
-  int32_t workers = sgpl_configured_worker_count();
-  if (workers < 1)
-    workers = 1;
+  if (!cc_arcs_order_sources(&arcs)) { cc_arcs_free(&arcs); return 0; }
   if (partitions <= 0) {
+    int32_t workers = sgpl_configured_worker_count();
+    if (workers < 1) workers = 1;
     const char *env = getenv("SGPL_CLEANCUT_PARTITIONS");
     partitions = env ? (int32_t)strtol(env, NULL, 10) : workers * 4;
     if (partitions < workers)
@@ -2827,8 +2913,8 @@ static int32_t autograph_build_clean_cut_inner(void *graph_ptr, int32_t partitio
 
   for (int32_t p = 0; p < partitions; ++p) {
     rp[p] = (int64_t *)calloc((size_t)(row_counts[p] + 1), sizeof(int64_t));
-    indir[p] = (int32_t *)calloc((size_t)row_counts[p], sizeof(int32_t));
-    ci[p] = (int32_t *)calloc((size_t)edge_counts[p], sizeof(int32_t));
+    indir[p] = (int32_t *)calloc((size_t)(row_counts[p] ? row_counts[p] : 1), sizeof(int32_t));
+    ci[p] = (int32_t *)calloc((size_t)(edge_counts[p] ? edge_counts[p] : 1), sizeof(int32_t));
     if (!rp[p] || !indir[p] || !ci[p])
       goto fail;
   }
@@ -2894,7 +2980,7 @@ static int32_t autograph_build_clean_cut_inner(void *graph_ptr, int32_t partitio
     }
   }
   for (int32_t p = 0; p < partitions; ++p) {
-    sci[p] = (int32_t *)calloc((size_t)(2 * src_row_count[p]), sizeof(int32_t));
+    sci[p] = (int32_t *)calloc((size_t)(src_row_count[p] ? 2 * src_row_count[p] : 1), sizeof(int32_t));
     if (!sci[p])
       goto fail;
   }
@@ -3035,9 +3121,13 @@ static void sgpl_exec_validate(const sgpl_exec_ctx *ctx) {
 #endif
 }
 
+static int sgpl_exec_failed(const sgpl_exec_ctx *ctx) {
+  return ctx->execution_error && __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) < 0;
+}
+
 static void sgpl_exec_round_begin_ops(sgpl_exec_ctx *ctx) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_ROUND_BEGIN) && op->round_begin)
       op->round_begin(op, ctx);
@@ -3048,7 +3138,7 @@ static void sgpl_exec_round_begin_ops(sgpl_exec_ctx *ctx) {
  * traversal, so every cross-read in the round observes the frozen snapshot. */
 static void sgpl_exec_snapshot_ops(sgpl_exec_ctx *ctx) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_SNAPSHOT) && op->snapshot)
       op->snapshot(op, ctx);
@@ -3057,7 +3147,7 @@ static void sgpl_exec_snapshot_ops(sgpl_exec_ctx *ctx) {
 
 static void sgpl_exec_round_end_ops(sgpl_exec_ctx *ctx) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_ROUND_END) && op->round_end)
       op->round_end(op, ctx);
@@ -3066,7 +3156,7 @@ static void sgpl_exec_round_end_ops(sgpl_exec_ctx *ctx) {
 
 static void sgpl_exec_partition_begin_ops(sgpl_exec_ctx *ctx, int32_t p) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_PARTITION_BEGIN) && op->partition_begin)
       op->partition_begin(op, ctx, p);
@@ -3075,7 +3165,7 @@ static void sgpl_exec_partition_begin_ops(sgpl_exec_ctx *ctx, int32_t p) {
 
 static void sgpl_exec_partition_end_ops(sgpl_exec_ctx *ctx, int32_t p) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_PARTITION_END) && op->partition_end)
       op->partition_end(op, ctx, p);
@@ -3084,7 +3174,7 @@ static void sgpl_exec_partition_end_ops(sgpl_exec_ctx *ctx, int32_t p) {
 
 static void sgpl_exec_source_begin_ops(sgpl_exec_ctx *ctx, int32_t u) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_SOURCE_BEGIN) && op->source_begin)
       op->source_begin(op, ctx, u);
@@ -3093,7 +3183,7 @@ static void sgpl_exec_source_begin_ops(sgpl_exec_ctx *ctx, int32_t u) {
 
 static void sgpl_exec_source_end_ops(sgpl_exec_ctx *ctx, int32_t u) {
   uint32_t i;
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_SOURCE_END) && op->source_end)
       op->source_end(op, ctx, u);
@@ -3109,7 +3199,7 @@ static void sgpl_exec_pair_ops(sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
       op->pair(op->state, ctx, u, v);
     return;
   }
-  for (i = 0; i < ctx->op_count; ++i) {
+  for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
     sgpl_runtime_op *op = &ctx->ops[i];
     if ((op->capabilities & SGPL_OP_PAIR) && op->pair)
       op->pair(op->state, ctx, u, v);
@@ -3128,6 +3218,11 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
   sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
   AutoGraphMeta *meta = find_meta(ctx->graph);
   int32_t p = (int32_t)index;
+  local.spatial_partition = p;
+  if (local.spatial_lane_seen && meta)
+    local.dest_seen = local.spatial_lane_seen + (int64_t)p * meta->csr_n;
+  if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0)
+    return;
   /* Hoist the single pair operation's callback and state: compiler-emitted
    * contexts carry exactly one pair op, and holding them in locals keeps the
    * per-pair path at one indirect call with no descriptor reloads. */
@@ -3147,6 +3242,14 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
   }
 #define SGPL_EXEC_EMIT_PAIR(U, V)                                             \
   do {                                                                        \
+    if (local.execution_error &&                                              \
+        __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0)          \
+      return;                                                                 \
+    if (local.spatial_group == SGPL_SPATIAL_PAIR_OCCURRENCE)                   \
+      __atomic_fetch_add(&ctx->spatial_occupied_groups, 1, __ATOMIC_RELAXED);   \
+    else if (local.spatial_groups_seen)                                       \
+      local.spatial_groups_seen[local.spatial_group == SGPL_SPATIAL_SOURCE    \
+          ? (U) : (V)] = 1;                                                  \
     if (PairFn)                                                               \
       PairFn(PairState, &local, (U), (V));                                    \
     else                                                                      \
@@ -3162,8 +3265,33 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
       int32_t u = indir[r];
       if (local.membership && !local.membership[u])
         continue;
+      if (local.spatial_source_gate && !local.spatial_source_gate[u]) continue;
       for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
         SGPL_EXEC_EMIT_PAIR(u, ci[j]);
+    }
+  } else if (local.spatial_group != SGPL_SPATIAL_NONE) {
+    /* Visit the complete source range in original order. Empty rows must not
+     * move after later nonempty rows when source lifecycle is observable. */
+    int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+    int64_t count = meta->src_pair_count ? meta->src_pair_count[p] : 0, e = 0;
+    int32_t lo = (int32_t)meta->partition_start[p];
+    int32_t hi = (int32_t)meta->partition_start[p + 1];
+    for (int32_t u = lo; u < hi; ++u) {
+      if (local.membership && !local.membership[u]) continue;
+      if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0) return;
+      local.source_state = NULL;
+      if (local.spatial_group == SGPL_SPATIAL_SOURCE && local.spatial_groups_seen &&
+          sgpl_exec_has_cap(&local, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END))
+        local.spatial_groups_seen[u] = 1;
+      sgpl_exec_source_begin_ops(&local, u);
+      while (e < count && pairs[2*e] < u) ++e;
+      while (e < count && pairs[2*e] == u) {
+        if (!local.spatial_source_gate || local.spatial_source_gate[u])
+          SGPL_EXEC_EMIT_PAIR(u, pairs[2*e+1]);
+        ++e;
+      }
+      if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0) return;
+      sgpl_exec_source_end_ops(&local, u);
     }
   } else {
     int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
@@ -3182,7 +3310,8 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
         sgpl_exec_source_begin_ops(&local, u);
         pending = u;
       }
-      SGPL_EXEC_EMIT_PAIR(u, v);
+      if (!local.spatial_source_gate || local.spatial_source_gate[u])
+        SGPL_EXEC_EMIT_PAIR(u, v);
     }
     if (pending >= 0)
       sgpl_exec_source_end_ops(&local, pending);
@@ -3272,9 +3401,24 @@ static void sgpl_exec_source_coverage(sgpl_exec_ctx *ctx, int begin) {
   AutoGraphMeta *meta = find_meta(ctx->graph);
   SgplCoverageJob job;
   int32_t p;
-  if (!meta || meta->csr_n <= 0 || meta->partition_count <= 0 ||
-      !meta->partition_start || !autograph_coverage_bufs_ensure(meta))
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
+    if (!meta) {
+      __atomic_store_n(ctx->execution_error, SGPL_DAG_ERR_INVALID, __ATOMIC_RELEASE);
+      return;
+    }
+    /* The captured membership is invocation-owned. Source preparation stays
+     * ordered and needs no shared metadata scratch or late allocation. */
+    for (int64_t u = 0; u < meta->csr_n && !sgpl_exec_failed(ctx); ++u) {
+      if (ctx->membership && !ctx->membership[u]) continue;
+      if (begin) {
+        ctx->source_state = NULL;
+        sgpl_exec_source_begin_ops(ctx, (int32_t)u);
+      } else sgpl_exec_source_end_ops(ctx, (int32_t)u);
+    }
     return;
+  }
+  if (!meta || meta->csr_n <= 0 || meta->partition_count <= 0 ||
+      !meta->partition_start || !autograph_coverage_bufs_ensure(meta)) return;
   job.ctx = ctx;
   job.members = meta->scratch_coverage_members;
   job.counts = meta->scratch_coverage_counts;
@@ -3505,11 +3649,12 @@ static int sgpl_gpu_step_try_device_v(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
    * source mapping does not reproduce the row kernel's gate, and a wrong
    * kernel must not be reachable even behind an env.  See
    * verify/GPU_GRAPH_SYSTEMS_REVIEW.md. */
-  if (!gpup_step_v_try(name, meta->push_rp[0], meta->partition_count,
+  int gpu_status=gpup_step_v_try(name, meta->push_rp[0], meta->partition_count,
                        meta->push_rp, (const int32_t *const *)meta->push_ci,
                        (const int32_t *const *)meta->push_indir,
-                       meta->push_row_count, ctx->membership, nv, &claimed))
-    return 0;
+                       meta->push_row_count, ctx->membership, nv, &claimed);
+  if(gpu_status<0) {ctx->execution_status=gpu_status;return 1;}
+  if(!gpu_status) return 0;
 
   /* The CPU's activate() sets dest_seen[v] and appends v under the atomic head;
    * the device marked exactly the transitions, so reproduce both here. */
@@ -3620,8 +3765,12 @@ static int sgpl_gpu_step_try_device(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   }
 
   for (p = 0; p < meta->partition_count; ++p) {
-    if (!gpup_step_try(name, meta->src_pairs[p], meta->src_pair_count[p]))
+    int gpu_status=gpup_step_try(name, meta->src_pairs[p], meta->src_pair_count[p]);
+    if(gpu_status<0) {ctx->execution_status=gpu_status;return 1;}
+    if(!gpu_status) {
+      if(p>0) {ctx->execution_status=SGPL_GPU_ERR_EXEC;return 1;}
       return 0;
+    }
   }
   return 1;
 }
@@ -3631,6 +3780,12 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   int32_t partitions = (int32_t)meta->partition_count;
   static int tdg_engine_disabled = -1;
 
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
+    int32_t budget = sgpl_configured_worker_count();
+    if (!sgpl_dispatch_uses_dag(ctx)) budget = 1;
+    ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
+    return;
+  }
   if (tdg_engine_disabled < 0) {
     const char *v = getenv("SGPL_NO_TDG_ENGINE");
     tdg_engine_disabled =
@@ -3729,16 +3884,28 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   }
 }
 
-int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
+int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
+  void *graph_ptr = ctx ? ctx->graph : NULL;
   AutoGraphMeta *meta = find_meta(graph_ptr);
-  int64_t start_ns;
-  int32_t p;
-  uint32_t i;
-  int cov_begin, cov_end;
+  int cov_begin;
 
   if (!ctx)
     return 0;
   ctx->graph = graph_ptr;
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
+    ctx->execution_status = 0;
+    ctx->spatial_occupied_groups = 0;
+    ctx->spatial_nontrivial = 0;
+    if (ctx->spatial_groups_seen && meta) memset(ctx->spatial_groups_seen, 0, (size_t)meta->csr_n);
+    ctx->execution_error = &ctx->execution_status;
+    if (ctx->spatial_frontier_lanes && meta)
+      for (int32_t lane = 0; lane < meta->partition_count; ++lane)
+        ((AutoFrontierLane *)ctx->spatial_frontier_lanes)[lane].size = 0;
+    if (ctx->spatial_lane_seen && meta)
+      for (int32_t lane = 0; lane < meta->partition_count; ++lane)
+        memcpy(ctx->spatial_lane_seen + (int64_t)lane*meta->csr_n, ctx->spatial_seen,
+               (size_t)meta->csr_n*sizeof(int32_t));
+  }
   if (!meta || meta->partition_count <= 0 || !ctx->ops)
     return ctx->initial_next_size;
   if (ctx->traversal_kind != SGPL_TRAVERSE_OWNER_U &&
@@ -3753,31 +3920,37 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
    * never runs the end scan at all. */
   cov_begin = ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
               sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_BEGIN);
-  cov_end = ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
-            sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_END);
 
-  start_ns = now_monotonic_ns();
 
   if (ctx->run_round_begin) {
     sgpl_exec_round_begin_ops(ctx);
+    if (ctx->execution_status < 0) return ctx->execution_status;
     sgpl_exec_snapshot_ops(ctx);
+    if (ctx->execution_status < 0) return ctx->execution_status;
   }
 
-  if (cov_begin)
-    sgpl_exec_source_coverage(ctx, /*begin=*/1);
-
-  sgpl_exec_step_dispatch(ctx, meta);
-
-  if (getenv("SGPL_GPU_DEBUG")) {
-    int64_t total_pairs = 0;
-    for (p = 0; p < meta->partition_count; ++p)
-      total_pairs += meta->src_pair_count ? meta->src_pair_count[p] : 0;
-    fprintf(stderr, "[step] partitions=%d total_src_pairs=%lld step=%d\n",
-            (int)meta->partition_count, (long long)total_pairs, (int)ctx->step_id);
+  if (cov_begin) {
+    if (ctx->spatial_group != SGPL_SPATIAL_NONE) ctx->spatial_coverage_pending = 1;
+    else sgpl_exec_source_coverage(ctx, /*begin=*/1);
   }
+  if (ctx->execution_status < 0) return ctx->execution_status;
 
+  return SGPL_DAG_OK;
+}
+
+extern void sgpl_gpu_report_spatial(sgpl_exec_ctx *) __attribute__((weak));
+int32_t sgpl_exec_spatial_finish(sgpl_exec_ctx *ctx) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!ctx) return SGPL_DAG_ERR_INVALID;
+  if (!meta || meta->partition_count <= 0 || !ctx->ops) return ctx->initial_next_size;
+  if(sgpl_gpu_report_spatial) sgpl_gpu_report_spatial(ctx);
+  int32_t p;
+  uint32_t i;
+  int cov_end = ctx->traversal_kind == SGPL_TRAVERSE_OWNER_V &&
+                sgpl_exec_has_cap(ctx, SGPL_OP_SOURCE_END);
   if (cov_end)
     sgpl_exec_source_coverage(ctx, /*begin=*/0);
+  if (ctx->execution_status < 0) return ctx->execution_status;
 
   /* Deterministic combine: partition partials fold in ascending partition
    * order (associativity is the law; permutation invariance is never assumed).
@@ -3788,14 +3961,53 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
           (ctx->partition_base && ctx->partition_stride > 0)
               ? (char *)ctx->partition_base + (int64_t)p * ctx->partition_stride
               : ctx->partition_base;
-      for (i = 0; i < ctx->op_count; ++i) {
+      for (i = 0; i < ctx->op_count && !sgpl_exec_failed(ctx); ++i) {
         sgpl_runtime_op *op = &ctx->ops[i];
         if ((op->capabilities & SGPL_OP_COMBINE) && op->combine)
           op->combine(op->state, ctx);
+        if (ctx->execution_status < 0) return ctx->execution_status;
       }
     }
   }
 
+  if (ctx->spatial_groups_seen)
+    for (int64_t u = 0; u < meta->csr_n; ++u) ctx->spatial_occupied_groups += ctx->spatial_groups_seen[u] != 0;
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
+    ctx->spatial_nontrivial = ctx->spatial_occupied_groups >= 2;
+    if (getenv("SGPL_CLEANCUT_DEBUG"))
+      fprintf(stderr, "[spatial-runtime] group=%d occupied=%llu nontrivial=%d\n", ctx->spatial_group,
+          (unsigned long long)ctx->spatial_occupied_groups, ctx->spatial_nontrivial);
+  }
+  if (ctx->spatial_frontier_lanes) {
+    AutoFrontierLane *lanes = (AutoFrontierLane *)ctx->spatial_frontier_lanes;
+    int64_t *offsets = ctx->spatial_frontier_offsets;
+    if (ctx->spatial_lane_seen) {
+      for (p = 0; p < meta->partition_count; ++p) {
+        int64_t kept = 0;
+        for (int64_t i = 0; i < lanes[p].size; ++i) {
+          int32_t v = lanes[p].data[i];
+          if (!ctx->spatial_seen[v]) {
+            ctx->spatial_seen[v] = 1;
+            lanes[p].data[kept++] = v;
+          }
+        }
+        lanes[p].size = kept;
+      }
+    }
+    offsets[0] = ctx->initial_next_size;
+    for (p = 0; p < meta->partition_count; ++p) {
+      if (offsets[p] > meta->csr_n - lanes[p].size) {
+        ctx->execution_status = SGPL_DAG_ERR_INVALID;
+        return ctx->execution_status;
+      }
+      offsets[p + 1] = offsets[p] + lanes[p].size;
+    }
+    AutoFrontierMergeEnv merge = {lanes, offsets, ctx->next_frontier};
+    for (p = 0; p < meta->partition_count; ++p)
+      autograph_frontier_merge_lane(p, &merge);
+    if (ctx->append_head)
+      *ctx->append_head = (int32_t)(offsets[meta->partition_count] - ctx->initial_next_size);
+  }
   ctx->next_size = ctx->initial_next_size +
                    (ctx->append_head
                         ? (int32_t)__atomic_load_n(ctx->append_head, __ATOMIC_RELAXED)
@@ -3803,9 +4015,151 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
 
   if (ctx->run_round_end)
     sgpl_exec_round_end_ops(ctx);
+  if (ctx->execution_status < 0) return ctx->execution_status;
 
-  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
   return ctx->next_size;
+}
+
+int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!ctx || !meta || partition < 0 || partition >= meta->partition_count)
+    return SGPL_DAG_ERR_INVALID;
+  if (sgpl_exec_failed(ctx)) return ctx->execution_status;
+  sgpl_exec_partition_body(partition, ctx);
+  return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
+}
+int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+  AutoGraphMeta *m=ctx?find_meta(ctx->graph):NULL;
+  if(!m||m->partition_count<1||m->csr_n<0) return SGPL_DAG_ERR_INVALID;
+  if(ctx->gpu_record_offsets) return ctx->gpu_group_offsets&&ctx->gpu_partition_groups?0:SGPL_DAG_ERR_NOMEM;
+  int begins=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN),ends=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END);
+  int64_t records=0;
+  for(int p=0;p<m->partition_count;++p) {
+    int64_t pairs=ctx->traversal_kind==SGPL_TRAVERSE_OWNER_U?m->src_pair_count[p]:m->push_rp[p][m->push_row_count[p]];
+    if(pairs<0||records>INT64_MAX-pairs) return SGPL_DAG_ERR_INVALID;
+    records+=pairs;
+  }
+  if(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_U) {
+    if((begins+ends)&&m->csr_n>(INT64_MAX-records)/(begins+ends)) return SGPL_DAG_ERR_INVALID;
+    records+=(begins+ends)*m->csr_n;
+  }
+  if((uint64_t)records>SIZE_MAX/(3*sizeof(int32_t))) return SGPL_DAG_ERR_INVALID;
+  ctx->gpu_records=malloc(records?records*3*sizeof(int32_t):sizeof(int32_t));
+  ctx->gpu_record_offsets=calloc((size_t)m->partition_count+1,sizeof(int64_t));
+  if(!ctx->gpu_records||!ctx->gpu_record_offsets) {
+    free(ctx->gpu_records);free(ctx->gpu_record_offsets);ctx->gpu_records=NULL;ctx->gpu_record_offsets=NULL;return SGPL_DAG_ERR_NOMEM;
+  }
+  int64_t out=0;
+#define GPU_RECORD(U,V,K) do {ctx->gpu_records[3*out]=(U);ctx->gpu_records[3*out+1]=(V);ctx->gpu_records[3*out+2]=(K);++out;} while(0)
+  for(int p=0;p<m->partition_count;++p) {
+    ctx->gpu_record_offsets[p]=out;
+    if(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V) {
+      for(int64_t row=0;row<m->push_row_count[p];++row)
+        for(int64_t e=m->push_rp[p][row];e<m->push_rp[p][row+1];++e) GPU_RECORD(m->push_indir[p][row],m->push_ci[p][e],0);
+    } else {
+      int64_t e=0;
+      for(int64_t u=m->partition_start[p];u<m->partition_start[p+1];++u) {
+        if(begins) GPU_RECORD((int32_t)u,-1,1);
+        while(e<m->src_pair_count[p]&&m->src_pairs[p][2*e]<u) ++e;
+        while(e<m->src_pair_count[p]&&m->src_pairs[p][2*e]==u) {
+          GPU_RECORD((int32_t)u,m->src_pairs[p][2*e+1],0);++e;
+        }
+        if(ends) GPU_RECORD((int32_t)u,-1,2);
+      }
+    }
+  }
+#undef GPU_RECORD
+  ctx->gpu_record_offsets[m->partition_count]=out;ctx->gpu_record_count=out;
+  ctx->gpu_partition_count=m->partition_count;ctx->gpu_vertex_count=m->csr_n;
+  /* A CleanCut owner is a proved block, or a coarsening of independent
+   * occurrences. This is layout construction, not conflict discovery. */
+  ctx->gpu_local_partials=ctx->partition_base && !ctx->gpu_private_targets &&
+      ctx->traversal_kind==SGPL_TRAVERSE_OWNER_U && ctx->partition_stride>0 && ctx->partition_stride<=512 &&
+      sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END) && !sgpl_exec_has_cap(ctx,SGPL_OP_COMBINE);
+  ctx->gpu_parallel_groups=ctx->spatial_group!=SGPL_SPATIAL_NONE &&
+      (!ctx->partition_base||ctx->gpu_local_partials||
+       (ctx->gpu_parallel_fold&&!sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END)));
+  int occurrences=ctx->spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE &&
+      (ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V||(!begins&&!ends));
+  if(occurrences&&(uint64_t)records>UINT32_MAX) return SGPL_DAG_ERR_INVALID;
+  ctx->gpu_group_offsets=calloc((size_t)(occurrences?records:m->csr_n)+1,sizeof(int64_t));
+  ctx->gpu_partition_groups=calloc((size_t)m->partition_count+1,sizeof(int64_t));
+  if(occurrences) {
+    if(!ctx->gpu_group_offsets||!ctx->gpu_partition_groups) return SGPL_DAG_ERR_NOMEM;
+    for(int64_t i=0;i<=records;++i) ctx->gpu_group_offsets[i]=i;
+    for(int p=0;p<=m->partition_count;++p) ctx->gpu_partition_groups[p]=ctx->gpu_record_offsets[p];
+    ctx->gpu_group_count=records;
+    if(getenv("SGPL_GPU_GROUP_TRACE")&&records) {
+      if((uint64_t)records>SIZE_MAX/24) return SGPL_DAG_ERR_NOMEM;
+      ctx->gpu_group_times=calloc((size_t)records,24);if(!ctx->gpu_group_times) return SGPL_DAG_ERR_NOMEM;
+    }
+    return 0;
+  }
+  int64_t *counts=calloc((size_t)m->csr_n+1,sizeof(int64_t));
+  int64_t *positions=calloc((size_t)m->csr_n+1,sizeof(int64_t));
+  int32_t *ordered=malloc(records?records*3*sizeof(int32_t):sizeof(int32_t));
+  if(!ctx->gpu_group_offsets||!ctx->gpu_partition_groups||!counts||!positions||!ordered) {
+    free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;
+  }
+  int64_t group=0,at=0;
+  for(int p=0;p<m->partition_count;++p) {
+    ctx->gpu_partition_groups[p]=group;
+    int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1];
+    memset(counts,0,((size_t)m->csr_n+1)*sizeof(int64_t));
+    for(int64_t i=first;i<last;++i) {
+      int32_t key=ctx->gpu_records[3*i+(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V)];
+      if(key<0||key>=m->csr_n) {free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_INVALID;}
+      ++counts[key];
+    }
+    for(int64_t key=0;key<m->csr_n;++key) if(counts[key]) {
+      ctx->gpu_group_offsets[group++]=at;positions[key]=at;at+=counts[key];
+    }
+    for(int64_t i=first;i<last;++i) {
+      int32_t key=ctx->gpu_records[3*i+(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V)];
+      int64_t target=positions[key]++;
+      memcpy(ordered+3*target,ctx->gpu_records+3*i,3*sizeof(int32_t));
+    }
+  }
+  ctx->gpu_group_offsets[group]=at;ctx->gpu_partition_groups[m->partition_count]=group;
+  ctx->gpu_group_count=group;
+  if(getenv("SGPL_GPU_GROUP_TRACE") && group && (uint64_t)group<=SIZE_MAX/24) {
+    ctx->gpu_group_times=calloc((size_t)group,24);
+    if(!ctx->gpu_group_times) {free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;}
+  }
+  /* Private partials and frontier lanes still have one ordered writer per
+   * partition. Keep their original record sequence in that storage path. */
+  if(ctx->gpu_parallel_groups) {free(ctx->gpu_records);ctx->gpu_records=ordered;}
+  else free(ordered);
+  free(counts);free(positions);return 0;
+}
+int32_t sgpl_exec_spatial_publish(sgpl_exec_ctx *ctx) {
+  if (!ctx) return SGPL_DAG_ERR_INVALID;
+  if (ctx->spatial_coverage_pending) sgpl_exec_source_coverage(ctx, 1);
+  ctx->spatial_coverage_pending = 0;
+  return ctx->execution_status;
+}
+int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
+  if (!ctx) return 0;
+  ctx->graph = graph_ptr;
+  int64_t start_ns = now_monotonic_ns();
+  int32_t status = sgpl_exec_spatial_begin(ctx);
+  if (status < 0) return status;
+  AutoGraphMeta *meta = find_meta(graph_ptr);
+  if (!meta || meta->partition_count <= 0 || !ctx->ops) return ctx->initial_next_size;
+  sgpl_exec_step_dispatch(ctx, meta);
+  if (ctx->execution_status < 0) return ctx->execution_status;
+  status = sgpl_exec_spatial_finish(ctx);
+  autograph_profile_record_kernel_ns(0, now_monotonic_ns() - start_ns);
+  return status;
+}
+extern int32_t sgpl_gpu_spatial_execute(sgpl_exec_ctx *,const char *,const void *,uint32_t,
+    void *const *,uint32_t,int32_t) __attribute__((weak));
+extern void sgpl_gpu_host_barrier(void) __attribute__((weak));
+int32_t sgpl_exec_spatial_gpu(sgpl_exec_ctx *ctx,const char *kernel,const void *fields,uint32_t count,
+    void *const *globals,uint32_t nglobals,int32_t budget) {
+  int rc=sgpl_gpu_spatial_execute?sgpl_gpu_spatial_execute(ctx,kernel,fields,count,globals,nglobals,budget):1;
+  if(rc==1) {if(sgpl_gpu_host_barrier) sgpl_gpu_host_barrier();return autograph_frontier_execute(ctx->graph,ctx);}
+  return rc==0?ctx->next_size:rc;
 }
 
 /* Activation: the A+ operation's pair callback.  Claim dest_seen[v] (0 -> 1,
@@ -3815,12 +4169,25 @@ int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx) {
 int32_t autograph_frontier_activate(sgpl_exec_ctx *ctx, int32_t v) {
   int32_t expected = 0;
   int32_t head;
-  if (!ctx || !ctx->dest_seen || v < 0)
-    return 0;
+  if (!ctx || !ctx->dest_seen || v < 0) return 0;
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
+    AutoGraphMeta *meta = find_meta(ctx->graph);
+    if (!meta || v >= meta->csr_n) {
+      if (ctx->execution_error) __atomic_store_n(ctx->execution_error, SGPL_DAG_ERR_INVALID, __ATOMIC_RELEASE);
+      return 0;
+    }
+  }
   if (!__atomic_compare_exchange_n(&ctx->dest_seen[v], &expected, 1, 0,
                                    __ATOMIC_RELAXED, __ATOMIC_RELAXED))
     return 0;
-  if (ctx->next_frontier && ctx->append_head) {
+  if (ctx->spatial_frontier_lanes) {
+    AutoFrontierLane *lane = &((AutoFrontierLane *)ctx->spatial_frontier_lanes)[ctx->spatial_partition];
+    if (lane->size >= lane->capacity) {
+      if (ctx->execution_error) __atomic_store_n(ctx->execution_error, SGPL_DAG_ERR_INVALID, __ATOMIC_RELEASE);
+      return 0;
+    }
+    lane->data[lane->size++] = v;
+  } else if (ctx->next_frontier && ctx->append_head) {
     head = __atomic_fetch_add(ctx->append_head, 1, __ATOMIC_RELAXED);
     ctx->next_frontier[ctx->initial_next_size + head] = v;
   }
@@ -3874,7 +4241,8 @@ int32_t autograph_frontier_fork_join(void *graph_ptr, sgpl_exec_ctx *owner,
   job.graph = graph_ptr;
   job.ctx = b;
   job.rc = 0;
-  if (pthread_create(&th, NULL, sgpl_fork_join_child, &job) == 0)
+  if (!sgpl_is_worker_pool_thread() &&
+      pthread_create(&th, NULL, sgpl_fork_join_child, &job) == 0)
     have_thread = 1;
 
   (void)autograph_frontier_execute(graph_ptr, a);
@@ -4034,8 +4402,10 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
     int32_t initial_next_size, int32_t *append_head, void *partition_base,
     int64_t partition_stride, sgpl_runtime_op **ops, uint32_t op_count,
     int32_t step_id) {
-  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)calloc(1, sizeof(*ctx));
   uint32_t i;
+  if (op_count && !ops) return NULL;
+  for (i = 0; i < op_count; ++i) if (!ops[i]) return NULL;
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)calloc(1, sizeof(*ctx));
   if (!ctx)
     return NULL;
   ctx->graph = graph;
@@ -4049,6 +4419,7 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
   ctx->partition_base = partition_base;
   ctx->partition_stride = partition_stride;
   ctx->step_id = step_id;
+  ctx->temporal_scope = SGPL_TEMPORAL_NONE;
   if (op_count) {
     ctx->ops = (sgpl_runtime_op *)calloc(op_count, sizeof(*ctx->ops));
     if (!ctx->ops) {
@@ -4056,8 +4427,6 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
       return NULL;
     }
     for (i = 0; i < op_count; ++i) {
-      if (!ops || !ops[i])
-        continue;
       ctx->ops[i] = *ops[i];
       free(ops[i]);
     }
@@ -4070,9 +4439,262 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
   if (!ctx)
     return;
   free(ctx->ops);
+  free(ctx->gpu_records);
+  free(ctx->gpu_record_offsets);
+  free(ctx->gpu_group_offsets);
+  free(ctx->gpu_partition_groups);
+  free(ctx->gpu_group_times);
+  free(ctx->round_membership);
+  free(ctx->round_dest_seen);
+  free(ctx->round_next_frontier);
+  for (int32_t s = 0; s < ctx->spatial_snapshot_count; ++s) free(ctx->spatial_snapshots[s]);
+  free(ctx->spatial_snapshots);
+  free(ctx->spatial_snapshot_bytes);
+  free(ctx->spatial_frontier_lanes);
+  free(ctx->spatial_frontier_storage);
+  free(ctx->spatial_frontier_offsets);
+  free(ctx->spatial_membership);
+  free(ctx->spatial_source_gate);
+  free(ctx->spatial_groups_seen);
+  free(ctx->spatial_seen);
+  free(ctx->spatial_lane_seen);
   free(ctx);
 }
 
+int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
+                                          int32_t runtime_group,
+                                          int32_t private_frontier) {
+  if (!ctx || group < SGPL_SPATIAL_PAIR_OCCURRENCE || group > SGPL_SPATIAL_SOURCE ||
+      (runtime_group != SGPL_SPATIAL_SOURCE && runtime_group != SGPL_SPATIAL_DESTINATION) ||
+      (group != SGPL_SPATIAL_PAIR_OCCURRENCE && group != runtime_group) ||
+      (ctx->traversal_kind == SGPL_TRAVERSE_OWNER_U) != (runtime_group == SGPL_SPATIAL_SOURCE))
+    return SGPL_DAG_ERR_INVALID;
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  if (!meta || meta->csr_n < 0 || meta->csr_n > INT32_MAX) return SGPL_DAG_ERR_INVALID;
+  int64_t n = meta->csr_n;
+  int32_t count = meta->partition_count;
+  if (n && count <= 0) return SGPL_DAG_ERR_NOMEM;
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE) return SGPL_DAG_ERR_INVALID;
+  if (n) {
+    ctx->spatial_source_gate = malloc((size_t)n);
+    if (!ctx->spatial_source_gate) return SGPL_DAG_ERR_NOMEM;
+    memset(ctx->spatial_source_gate, 1, (size_t)n);
+    if (group != SGPL_SPATIAL_PAIR_OCCURRENCE) {
+      ctx->spatial_groups_seen = calloc((size_t)n, 1);
+      if (!ctx->spatial_groups_seen) return SGPL_DAG_ERR_NOMEM;
+    }
+  }
+  if (ctx->membership && n) {
+    ctx->spatial_membership = (uint8_t *)malloc((size_t)n);
+    if (!ctx->spatial_membership) return SGPL_DAG_ERR_NOMEM;
+    memcpy(ctx->spatial_membership, ctx->membership, (size_t)n);
+    ctx->membership = ctx->spatial_membership;
+  }
+  if (private_frontier && n) {
+    if (!ctx->dest_seen || !ctx->next_frontier || !ctx->append_head || count <= 0 ||
+        ctx->initial_next_size < 0 || ctx->initial_next_size > n)
+      return SGPL_DAG_ERR_INVALID;
+    int source_owned = runtime_group == SGPL_SPATIAL_SOURCE;
+    int64_t slots = 0;
+    for (int32_t p = 0; p < count; ++p) {
+      int64_t capacity = source_owned ? meta->src_pair_count[p] :
+          ((int64_t)(p+1)*n+count-1)/count - ((int64_t)p*n+count-1)/count;
+      if (capacity > n) capacity = n;
+      if (capacity < 0 || slots > INT64_MAX-capacity) return SGPL_DAG_ERR_INVALID;
+      slots += capacity;
+    }
+    if ((uint64_t)slots > SIZE_MAX/sizeof(int32_t) ||
+        (source_owned && (uint64_t)n > SIZE_MAX/sizeof(int32_t)/(uint64_t)count))
+      return SGPL_DAG_ERR_NOMEM;
+    ctx->spatial_seen = malloc((size_t)n * sizeof(int32_t));
+    ctx->spatial_frontier_storage = malloc((size_t)(slots ? slots : 1) * sizeof(int32_t));
+    ctx->spatial_frontier_lanes = calloc((size_t)count, sizeof(AutoFrontierLane));
+    ctx->spatial_frontier_offsets = calloc((size_t)count + 1, sizeof(int64_t));
+    if (source_owned) ctx->spatial_lane_seen = malloc((size_t)n * (size_t)count * sizeof(int32_t));
+    if (!ctx->spatial_seen || !ctx->spatial_frontier_storage || !ctx->spatial_frontier_lanes ||
+        !ctx->spatial_frontier_offsets || (source_owned && !ctx->spatial_lane_seen))
+      return SGPL_DAG_ERR_NOMEM;
+    memcpy(ctx->spatial_seen, ctx->dest_seen, (size_t)n * sizeof(int32_t));
+    ctx->dest_seen = ctx->spatial_seen;
+    AutoFrontierLane *lanes = ctx->spatial_frontier_lanes;
+    int64_t offset = 0;
+    for (int32_t p = 0; p < count; ++p) {
+      int64_t capacity = source_owned ? meta->src_pair_count[p] :
+          ((int64_t)(p+1)*n+count-1)/count - ((int64_t)p*n+count-1)/count;
+      if (capacity > n) capacity = n;
+      lanes[p].data = ctx->spatial_frontier_storage + offset;
+      lanes[p].capacity = capacity;
+      offset += capacity;
+      if (source_owned)
+        memcpy(ctx->spatial_lane_seen + (int64_t)p*n, ctx->spatial_seen, (size_t)n*sizeof(int32_t));
+    }
+  }
+  ctx->spatial_group = group;
+  ctx->spatial_runtime_group = runtime_group;
+  ctx->execution_error = &ctx->execution_status;
+  return 0;
+}
+
+/* Each concurrent round owns membership, claims and merged append storage.
+ * Only immutable topology and CleanCut layout are read from the graph. */
+int32_t autograph_exec_ctx_reserve_frontier(sgpl_exec_ctx *ctx, int32_t membership,
+                                           int32_t append) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta || meta->csr_n < 0 || meta->csr_n > INT32_MAX ||
+      ctx->spatial_group != SGPL_SPATIAL_NONE || ctx->round_membership ||
+      ctx->round_dest_seen || ctx->round_next_frontier) return SGPL_DAG_ERR_INVALID;
+  size_t n = meta->csr_n ? (size_t)meta->csr_n : 1;
+  if (membership) {
+    ctx->round_membership = calloc(n, 1);
+    if (!ctx->round_membership) return SGPL_DAG_ERR_NOMEM;
+    ctx->membership = ctx->round_membership;
+  }
+  if (append) {
+    if (!ctx->append_head || n > SIZE_MAX / sizeof(int32_t)) return SGPL_DAG_ERR_INVALID;
+    ctx->round_dest_seen = calloc(n, sizeof(int32_t));
+    ctx->round_next_frontier = calloc(n, sizeof(int32_t));
+    if (!ctx->round_dest_seen || !ctx->round_next_frontier) return SGPL_DAG_ERR_NOMEM;
+    ctx->dest_seen = ctx->round_dest_seen;
+    ctx->next_frontier = ctx->round_next_frontier;
+  }
+  return SGPL_DAG_OK;
+}
+static int32_t sgpl_frontier_materialization_begin(sgpl_exec_ctx *ctx) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta || ctx->spatial_group == SGPL_SPATIAL_NONE) return SGPL_DAG_ERR_INVALID;
+  if (ctx->round_membership) memset((void *)ctx->membership, 0, (size_t)meta->csr_n);
+  if (ctx->round_dest_seen) {
+    memset(ctx->dest_seen, 0, (size_t)meta->csr_n * sizeof(int32_t));
+    *ctx->append_head = 0;
+    ctx->initial_next_size = 0;
+  }
+  return SGPL_DAG_OK;
+}
+int32_t autograph_exec_ctx_materialize_frontier_array(sgpl_exec_ctx *ctx,
+                                                       const int32_t *vertices, int32_t count) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta || count < 0 || (count && !vertices) ||
+      (count && !ctx->round_membership)) return SGPL_DAG_ERR_INVALID;
+  int32_t status = sgpl_frontier_materialization_begin(ctx);
+  if (status) return status;
+  for (int32_t i = 0; i < count; ++i) {
+    if (vertices[i] < 0 || vertices[i] >= meta->csr_n) return SGPL_DAG_ERR_INVALID;
+    ((uint8_t *)ctx->membership)[vertices[i]] = 1;
+  }
+  return SGPL_DAG_OK;
+}
+int32_t autograph_exec_ctx_materialize_frontier_bitmap(sgpl_exec_ctx *ctx, const void *bitmap) {
+  if (!bitmap || !ctx || !ctx->round_membership) return SGPL_DAG_ERR_INVALID;
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  int32_t status = sgpl_frontier_materialization_begin(ctx);
+  if (status) return status;
+  const RoaringBitmap *bm = bitmap;
+  uint64_t count = roaring_bitmap_get_cardinality(bm);
+  for (uint64_t i = 0; i < count; ++i) {
+    uint32_t vertex = roaring_bitmap_get_at_index(bm, (uint32_t)i);
+    if (vertex >= (uint64_t)meta->csr_n) return SGPL_DAG_ERR_INVALID;
+    ((uint8_t *)ctx->membership)[vertex] = 1;
+  }
+  return SGPL_DAG_OK;
+}
+int32_t autograph_exec_ctx_commit_frontier_array(sgpl_exec_ctx *ctx, int32_t *vertices,
+                                                 int32_t count) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta || !ctx->round_next_frontier || count < 0 || count > meta->csr_n ||
+      (count && !vertices)) return SGPL_DAG_ERR_INVALID;
+  if (count) memcpy(vertices, ctx->next_frontier, (size_t)count * sizeof(int32_t));
+  return SGPL_DAG_OK;
+}
+int32_t autograph_exec_ctx_commit_frontier_bitmap(sgpl_exec_ctx *ctx, void *bitmap,
+                                                  int32_t count) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta || !ctx->round_next_frontier || !bitmap || count < 0 || count > meta->csr_n)
+    return SGPL_DAG_ERR_INVALID;
+  RoaringBitmap *bm = bitmap;
+  roaring_bitmap_clear(bm);
+  for (int32_t i = 0; i < count; ++i) roaring_bitmap_add(bm, (uint32_t)ctx->next_frontier[i]);
+  return SGPL_DAG_OK;
+}
+
+int32_t autograph_exec_ctx_bind_snapshot(sgpl_exec_ctx *ctx, int32_t slot,
+                                         const void *base, int64_t elem_bytes) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta) return SGPL_DAG_ERR_INVALID;
+  return autograph_exec_ctx_bind_snapshot_range(ctx, slot, base, meta->csr_n, elem_bytes);
+}
+
+int32_t autograph_exec_ctx_reserve_snapshot(sgpl_exec_ctx *ctx, int32_t slot,
+                                            int64_t count, int64_t elem_bytes) {
+  if (!ctx || slot < 0 || slot == INT32_MAX || count < 0 || elem_bytes <= 0 ||
+      count > INT64_MAX / elem_bytes || (uint64_t)(count * elem_bytes) > SIZE_MAX)
+    return SGPL_DAG_ERR_INVALID;
+  if (slot >= ctx->spatial_snapshot_count) {
+    size_t n = (size_t)slot + 1;
+    void **table = calloc(n, sizeof(*table));
+    int64_t *sizes = calloc(n, sizeof(*sizes));
+    if (!table || !sizes) { free(table); free(sizes); return SGPL_DAG_ERR_NOMEM; }
+    for (int32_t i = 0; i < ctx->spatial_snapshot_count; ++i) {
+      table[i] = ctx->spatial_snapshots[i]; sizes[i] = ctx->spatial_snapshot_bytes[i];
+    }
+    free(ctx->spatial_snapshots); free(ctx->spatial_snapshot_bytes);
+    ctx->spatial_snapshots = table; ctx->spatial_snapshot_bytes = sizes;
+    ctx->spatial_snapshot_count = slot + 1;
+  }
+  int64_t bytes = count * elem_bytes;
+  void *copy = malloc(bytes ? (size_t)bytes : 1);
+  if (!copy) return SGPL_DAG_ERR_NOMEM;
+  free(ctx->spatial_snapshots[slot]);
+  ctx->spatial_snapshots[slot] = copy; ctx->spatial_snapshot_bytes[slot] = bytes;
+  return SGPL_DAG_OK;
+}
+int32_t autograph_exec_ctx_materialize_snapshot(sgpl_exec_ctx *ctx, int32_t slot,
+                                                const void *base, int64_t bytes) {
+  if (!ctx || slot < 0 || slot >= ctx->spatial_snapshot_count || bytes < 0 ||
+      ctx->spatial_snapshot_bytes[slot] != bytes || !ctx->spatial_snapshots[slot] ||
+      (bytes && !base)) return SGPL_DAG_ERR_INVALID;
+  if (bytes) memcpy(ctx->spatial_snapshots[slot], base, (size_t)bytes);
+  return SGPL_DAG_OK;
+}
+int32_t autograph_exec_ctx_bind_snapshot_range(sgpl_exec_ctx *ctx, int32_t slot,
+                                              const void *base, int64_t count,
+                                              int64_t elem_bytes) {
+  if (count && !base) return SGPL_DAG_ERR_INVALID;
+  int32_t status = autograph_exec_ctx_reserve_snapshot(ctx, slot, count, elem_bytes);
+  return status < 0 ? status : autograph_exec_ctx_materialize_snapshot(ctx, slot, base, count * elem_bytes);
+}
+
+void *autograph_exec_ctx_snapshot(sgpl_exec_ctx *ctx, int32_t slot) {
+  return ctx && slot >= 0 && slot < ctx->spatial_snapshot_count ? ctx->spatial_snapshots[slot] : NULL;
+}
+void autograph_exec_ctx_set_claims(sgpl_exec_ctx *ctx, void *claims) {
+  if (ctx) ctx->spatial_claims = claims;
+}
+void *autograph_exec_ctx_claims(sgpl_exec_ctx *ctx) { return ctx ? ctx->spatial_claims : NULL; }
+void autograph_exec_ctx_gpu_storage(sgpl_exec_ctx *ctx, uint32_t scalars, uint32_t arrays,
+                                   void *targets, const uint64_t *sizes, uint64_t claim_bytes) {
+  if (!ctx) return;
+  ctx->gpu_private_scalars=scalars; ctx->gpu_private_arrays=arrays;
+  ctx->gpu_private_targets=targets; ctx->gpu_private_element_bytes=sizes;
+  ctx->gpu_claim_bytes=claim_bytes;
+}
+void autograph_exec_ctx_set_source_gate(sgpl_exec_ctx *ctx, int32_t source, int32_t allowed) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (meta && source >= 0 && source < meta->csr_n && ctx->spatial_source_gate)
+    ctx->spatial_source_gate[source] = allowed != 0;
+}
+int32_t autograph_exec_ctx_last_source(const sgpl_exec_ctx *ctx) {
+  AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
+  if (!meta) return -1;
+  for (int64_t u = meta->csr_n; u > 0; --u)
+    if (!ctx->membership || ctx->membership[u - 1]) return (int32_t)(u - 1);
+  return -1;
+}
+void sgpl_exec_require_status(int32_t status) {
+  if (status < 0) {
+    fprintf(stderr, "spatial execution failed: %d (completed effects are not replayed)\n", status);
+    abort();
+  }
+}
 
 typedef struct {
   AutoGraphMeta *meta;
@@ -4621,7 +5243,11 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
     meta->nodes_bitmap = nodes_bmp;
     meta->edges_bitmap = edges_bmp;
     meta->edge_pairs_table = edge_pairs_table;
-    meta->static_pair_count = (m > 1) ? (m / 2) : m;
+    /* Some older callers pass twice the logical edge count even for a
+     * directed graph. Native CSR size is the graph ABI's actual arc count. */
+    int64_t native_m = *((const int64_t *)((const char *)graph_ptr + 8));
+    meta->static_pair_count = *((const int32_t *)((const char *)graph_ptr + 40)) ? native_m :
+        (native_m > 1 ? native_m / 2 : native_m);
     meta->extra_edge_count = 0;
     meta->extra_edge_capacity = 0;
     free(meta->extra_edge_pairs);
@@ -4629,7 +5255,7 @@ void autograph_init(void *graph_ptr, int64_t n, int64_t m,
     meta->extra_edge_pairs = NULL;
     meta->extra_edge_live = NULL;
     meta->csr_n = n;
-    meta->csr_m = m;
+    meta->csr_m = native_m;
     meta->live_edge_count = meta->static_pair_count;  /* all static edges initially live */
 
     char *base = (char *)graph_ptr;
@@ -4761,6 +5387,15 @@ void autograph_set_class_tiers_csr(void *graph_ptr, const double *tiers) {
  * ready ring, workers bounded by the caller's budget, cycle detection by
  * completed-count accounting after the ready set drains. */
 #define SGPL_DAG_MAX_NODES 65536
+extern int32_t sgpl_gpu_execute_plan(const sgpl_gpu_plan *) __attribute__((weak));
+int32_t sgpl_exec_dag_gpu(const sgpl_gpu_plan *p,sgpl_dag_node_fn cpu_node,void *state) {
+  if(!p||!cpu_node) return SGPL_DAG_ERR_INVALID;
+  int rc=sgpl_gpu_execute_plan?sgpl_gpu_execute_plan(p):SGPL_GPU_UNAVAILABLE;
+  if(rc!=SGPL_GPU_UNAVAILABLE) return rc;
+  if(sgpl_gpu_host_barrier) sgpl_gpu_host_barrier();
+  sgpl_dag_template t={0};t.node_count=p->task_count;t.relations=p->relations;t.relation_count=p->relation_count;t.node_fn=cpu_node;
+  return p->task_count?autograph_execute_dag(&t,state,p->worker_budget):0;
+}
 
 struct sgpl_dag_run {
   const sgpl_dag_template *tmpl;
@@ -4852,24 +5487,18 @@ static void dag_complete(sgpl_dag_run *R, int32_t node, int32_t rc) {
   pthread_cond_broadcast(&R->cv);
 }
 
-typedef struct {
-  sgpl_dag_run *run;
-  int32_t index;
-} sgpl_dag_worker_arg;
-
-static void *dag_worker(void *arg) {
-  sgpl_dag_worker_arg *wa = (sgpl_dag_worker_arg *)arg;
-  sgpl_dag_run *R = wa->run;
+static void dag_worker(void *arg, int32_t index) {
+  sgpl_dag_run *R = (sgpl_dag_run *)arg;
   /* Partition code reads the worker index for lane assignment; the
    * scheduler's threads must present one exactly like the pool does. */
-  sgpl_set_current_worker_index(wa->index);
+  sgpl_set_current_worker_index(index);
   for (;;) {
     pthread_mutex_lock(&R->lock);
     while (R->ready_count == 0 && !R->failed && R->active > 0)
       pthread_cond_wait(&R->cv, &R->lock);
     if (R->failed || R->ready_count == 0) {
       pthread_mutex_unlock(&R->lock);
-      return NULL;
+      return;
     }
     int32_t node = dag_pop(R);
     R->active++;
@@ -4897,10 +5526,10 @@ static void *dag_worker(void *arg) {
   }
 }
 
-int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
-                              int32_t worker_budget) {
-  int32_t i, w, result = SGPL_DAG_OK;
-  pthread_t *tids = NULL;
+static int32_t dag_prepare_run(const sgpl_dag_template *T, void *state,
+                               sgpl_dag_run **out) {
+  int32_t i;
+  *out = NULL;
 
   if (!T || !T->node_fn || T->node_count <= 0 ||
       T->node_count > SGPL_DAG_MAX_NODES || T->relation_count < 0)
@@ -4978,7 +5607,86 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
         R->sum_weight += w;
     }
 
+  *out = R;
+  return SGPL_DAG_OK;
+}
+
+static void dag_release_run(sgpl_dag_run *R) {
+  pthread_mutex_destroy(&R->lock);
+  pthread_cond_destroy(&R->cv);
+  free(R->remaining);
+  free(R->completed);
+  free(R->ready);
+  free(R);
+}
+
+int32_t autograph_validate_dag(const sgpl_dag_template *T) {
+  sgpl_dag_run *R;
+  int32_t rc = dag_prepare_run(T, NULL, &R);
+  if (rc) return rc;
+  while (R->ready_count) {
+    int32_t node = dag_pop(R);
+    R->active++;
+    dag_complete(R, node, 0);
+  }
+  rc = R->completed_count == T->node_count ? SGPL_DAG_OK : SGPL_DAG_ERR_CYCLE;
+  dag_release_run(R);
+  return rc;
+}
+
+int32_t autograph_execute_dag_async(const sgpl_dag_template *T, void *state,
+    sgpl_dag_node_fn submit, sgpl_dag_node_fn poll) {
+  if (!submit || !poll) return SGPL_DAG_ERR_INVALID;
+  sgpl_dag_run *R;
+  int32_t rc = dag_prepare_run(T, state, &R);
+  if (rc) return rc;
+  /* No pool, budget model, or descendant grants. Pending nodes retain their
+   * identity until device completion releases the existing dependency edges. */
+  while ((!R->failed && R->ready_count) || R->active) {
+    while (!R->failed && R->ready_count) {
+      int32_t node = dag_pop(R);
+      R->active++;
+      if (R->active > R->peak_active) R->peak_active = R->active;
+      int32_t status = submit(state, node);
+      if (status == SGPL_DAG_PENDING) R->completed[node] = 2;
+      else dag_complete(R, node, status);
+    }
+    int progress = 0;
+    for (int32_t node = 0; node < R->node_count; ++node)
+      if (R->completed[node] == 2) {
+        int32_t status = poll(state, node);
+        if (status != SGPL_DAG_PENDING) {
+          dag_complete(R, node, status);
+          progress = 1;
+        }
+      }
+    if (R->active && !progress && (R->failed || !R->ready_count)) {
+      struct timespec pause = {0, 100000};
+      nanosleep(&pause, NULL);
+    }
+  }
+  rc = R->failed ? SGPL_DAG_ERR_NODE :
+      R->completed_count == T->node_count ? SGPL_DAG_OK : SGPL_DAG_ERR_CYCLE;
+  if (getenv("SGPL_DAG_DEBUG"))
+    fprintf(stderr,"[sgpl-dag-async] nodes=%d rels=%d peak_pending=%d completed=%d rc=%d\n",
+        T->node_count,T->relation_count,R->peak_active,R->completed_count,rc);
+  dag_release_run(R);
+  return rc;
+}
+
+int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
+                              int32_t worker_budget) {
+  sgpl_dag_run *R;
+  int32_t result = dag_prepare_run(T, state, &R);
+  if (result) return result;
+
   if (worker_budget < 1)
+    worker_budget = 1;
+  if (worker_budget > sgpl_configured_worker_count())
+    worker_budget = sgpl_configured_worker_count();
+  /* Re-entering the pool would wait for the calling worker. Preserve nested
+   * progress on that worker, with its current lane and a serial child grant. */
+  if (sgpl_is_worker_pool_thread())
     worker_budget = 1;
   {
     /* A nested dispatch may never claim more than the budget its calling node
@@ -5012,42 +5720,17 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
       dag_complete(R, node, rc);
     }
   } else {
-    tids = (pthread_t *)calloc((size_t)worker_budget, sizeof(pthread_t));
-    if (!tids) {
-      pthread_mutex_destroy(&R->lock);
-      pthread_cond_destroy(&R->cv);
-      free(R->remaining);
-      free(R->completed);
-      free(R->ready);
-      free(R);
-      return SGPL_DAG_ERR_NOMEM;
-    }
-    sgpl_dag_worker_arg *wargs =
-        (sgpl_dag_worker_arg *)calloc((size_t)worker_budget, sizeof(*wargs));
-    if (!wargs) {
-      free(tids);
-      pthread_mutex_destroy(&R->lock);
-      pthread_cond_destroy(&R->cv);
-      free(R->remaining);
-      free(R->completed);
-      free(R->ready);
-      free(R);
-      return SGPL_DAG_ERR_NOMEM;
-    }
-    for (w = 0; w < worker_budget; w++) {
-      wargs[w].run = R;
-      wargs[w].index = w;
-      pthread_create(&tids[w], NULL, dag_worker, &wargs[w]);
-    }
-    for (w = 0; w < worker_budget; w++)
-      pthread_join(tids[w], NULL);
-    free(wargs);
-    free(tids);
+    /* The loop runtime owns one persistent process-wide team. Submission
+     * joins this run's callbacks, without destroying that team. Preparation
+     * failure starts no callbacks and must propagate without schedule replay. */
+    int pool_rc = sgpl_run_on_worker_pool(dag_worker, R, worker_budget);
+    if (pool_rc != 0)
+      result = pool_rc == -1 ? SGPL_DAG_ERR_NOMEM : SGPL_DAG_ERR_NODE;
   }
 
   if (R->failed)
     result = SGPL_DAG_ERR_NODE;
-  else if (R->completed_count != T->node_count)
+  else if (result == SGPL_DAG_OK && R->completed_count != T->node_count)
     result = SGPL_DAG_ERR_CYCLE;
 
   /* SGPL_DAG_DEBUG: widths, grants, the largest share and peak concurrency. */
@@ -5059,12 +5742,7 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
             R->peak_active, R->max_share, R->grants_multi, R->grants_serial,
             T->node_weights ? 1 : 0, R->completed_count, result);
 
-  pthread_mutex_destroy(&R->lock);
-  pthread_cond_destroy(&R->cv);
-  free(R->remaining);
-  free(R->completed);
-  free(R->ready);
-  free(R);
+  dag_release_run(R);
   return result;
 }
 
@@ -5073,8 +5751,14 @@ int32_t autograph_execute_dag(const sgpl_dag_template *T, void *state,
  * coverage/end) is untouched; only the partition fan-out goes through the
  * ready-work scheduler. */
 static int32_t sgpl_dag_partition_node(void *state, int64_t instance) {
-  sgpl_exec_partition_body(instance, state);
-  return 0;
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)state;
+  if (ctx->execution_error && __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) < 0)
+    return __atomic_load_n(ctx->execution_error, __ATOMIC_RELAXED);
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE && meta && instance == meta->partition_count)
+    sgpl_exec_source_coverage(ctx, /*begin=*/1);
+  else sgpl_exec_partition_body(instance, state);
+  return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
 }
 
 static _Atomic int32_t g_dag_last_dispatch_width = 0;
@@ -5097,6 +5781,10 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
   if (relation_count > 0 && !relations)
     return SGPL_DAG_ERR_INVALID;
   if (worker_budget <= 0)
+    worker_budget = 1;
+  if (worker_budget > sgpl_configured_worker_count())
+    worker_budget = sgpl_configured_worker_count();
+  if (sgpl_is_worker_pool_thread())
     worker_budget = 1;
   {
     /* Step 9: a dispatch made inside a scheduler node is capped by the run's
@@ -5123,10 +5811,27 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
     /* The estimate array is indexed by partition; only use it when its length
      * matches this dispatch's node count (a step may carry a different
      * partition count than the graph metadata). */
-    if (meta && meta->src_pair_count && meta->partition_count == partitions)
-      tmpl.node_weights = meta->src_pair_count;
+    (void)meta; /* i64 pair counts cannot be passed as the i32 weight ABI. */
   }
-  return autograph_execute_dag(&tmpl, ctx, worker_budget);
+  sgpl_dag_relation_desc *publication = NULL;
+  if (ctx->spatial_coverage_pending) {
+    if (relation_count || partitions >= SGPL_DAG_MAX_NODES) return SGPL_DAG_ERR_INVALID;
+    publication = calloc((size_t)partitions, sizeof(*publication));
+    if (!publication) return SGPL_DAG_ERR_NOMEM;
+    for (int32_t p = 0; p < partitions; ++p) {
+      publication[p].source_node = partitions;
+      publication[p].sink_node = p;
+      publication[p].axis_mask = SGPL_DAG_AXIS_SPATIAL;
+      publication[p].flags = SGPL_DAG_REL_FLAG_REALIZATION;
+    }
+    tmpl.node_count = partitions + 1;
+    tmpl.relation_count = partitions;
+    tmpl.relations = publication;
+  }
+  int32_t status = autograph_execute_dag(&tmpl, ctx, worker_budget);
+  free(publication);
+  ctx->spatial_coverage_pending = 0;
+  return status;
 }
 
 int32_t sgpl_exec_dag_spatial(sgpl_exec_ctx *ctx, int32_t partitions,
@@ -5148,9 +5853,101 @@ int32_t sgpl_exec_dag_spatial_graph(sgpl_exec_ctx *ctx, int32_t partitions,
                                    worker_budget);
 }
 
-/* Step 8: temporal unit wrappers.  The wrapper never re-implements a round:
- * it calls autograph_frontier_execute, which owns the whole lifecycle.  The
- * scheduler only orders wrappers (V1: a witness-backed chain). */
+/* Complete round and source-phase callbacks share the existing DAG scheduler. */
+int32_t sgpl_temporal_worker_budget(void) {
+  if (sgpl_is_worker_pool_thread()) return 1;
+  int32_t configured = sgpl_configured_worker_count();
+  int32_t parent = sgpl_current_thread_budget();
+  if (configured < 1) configured = 1;
+  if (configured > SGPL_DAG_MAX_NODES) configured = SGPL_DAG_MAX_NODES;
+  if (parent > 0 && configured > parent) configured = parent;
+  return configured;
+}
+
+void autograph_exec_ctx_set_temporal_scope(sgpl_exec_ctx *ctx,
+                                           sgpl_temporal_scope scope) {
+  if (ctx) ctx->temporal_scope = scope;
+}
+
+int32_t sgpl_temporal_prepare_graph(void *graph) {
+  AutoGraphMeta *meta = find_meta(graph);
+  if (!meta) return SGPL_DAG_ERR_NODE;
+  /* Constructors and serial layout conversion prepare these immutable views.
+   * Concurrent callbacks use iterators, with no shared scratch publication. */
+  switch (meta->current_layout) {
+    case LAYOUT_CSR: return meta->csr_row_ptr ? SGPL_DAG_OK : SGPL_DAG_ERR_NODE;
+    case LAYOUT_PCSR: return meta->pcsr_row_ptr ? SGPL_DAG_OK : SGPL_DAG_ERR_NODE;
+    case LAYOUT_BCSR: return meta->bcsr_brow_ptr ? SGPL_DAG_OK : SGPL_DAG_ERR_NODE;
+    case LAYOUT_SET: return SGPL_DAG_OK;
+    default: return SGPL_DAG_ERR_NODE;
+  }
+}
+
+int32_t sgpl_exec_temporal_components(sgpl_dag_node_fn component_fn,
+                                     void *state, int32_t component_count,
+                                     int32_t worker_budget) {
+  sgpl_dag_template tmpl;
+  if (!component_fn || component_count < 0)
+    return SGPL_DAG_ERR_INVALID;
+  if (component_count == 0) return SGPL_DAG_OK;
+  int32_t available = sgpl_temporal_worker_budget();
+  if (worker_budget > available) worker_budget = available;
+  memset(&tmpl, 0, sizeof(tmpl));
+  tmpl.node_count = component_count;
+  tmpl.node_fn = component_fn;
+  return autograph_execute_dag(&tmpl, state, worker_budget);
+}
+
+extern int32_t sgpl_gpu_callback_execute_scope(const char *,void *,uint64_t,const sgpl_gpu_field *,uint32_t,int32_t,int32_t,uint32_t,uint32_t) __attribute__((weak));
+int32_t sgpl_exec_temporal_gpu_components(sgpl_dag_node_fn fn,void *state,
+    int32_t count,int32_t budget,const char *kernel,uint64_t bytes,const void *fields,uint32_t nfields,uint32_t scope) {
+  if (count==0) return 0;
+  int rc=sgpl_gpu_callback_execute_scope?sgpl_gpu_callback_execute_scope(kernel,state,bytes,fields,nfields,count,budget,
+      scope==SGPL_TEMPORAL_ROUND?SGPL_GPU_ROUND:SGPL_GPU_SOURCE_PHASE,scope):1;
+  if(rc==1) {if(sgpl_gpu_host_barrier) sgpl_gpu_host_barrier();return sgpl_exec_temporal_components(fn,state,count,
+      budget>0?budget:sgpl_temporal_worker_budget());}
+  return rc;
+}
+/* Export an immutable, invocation-owned view. This never runs in a task. */
+int32_t sgpl_gpu_export_graph(void *graph, void *out) {
+  struct gpu_graph_view { int64_t n,m;int64_t *rows;int32_t *columns; } *v=out;
+  AutoGraphMeta *meta=find_meta(graph);
+  if(!meta||!v||meta->csr_n<0||meta->csr_n>INT32_MAX||
+     (uint64_t)meta->csr_n>SIZE_MAX/8-1) return -1;
+  memset(v,0,sizeof(*v));
+  v->n=meta->csr_n;v->rows=calloc((size_t)v->n+1,8);if(!v->rows)return -1;
+  /* Preserve the accepted iterator's order, gaps and duplicate occurrences
+   * for every current layout. This is topology enumeration, not analysis. */
+  for(int64_t u=0;u<v->n;++u) {
+    AutoNeighborIter iter;int32_t destination;
+    autograph_neighbor_iter_init(graph,u,&iter);
+    while(autograph_neighbor_iter_next(&iter,&destination)) {
+      if(destination<0||destination>=v->n||v->m==INT64_MAX) goto failed;
+      ++v->m;
+    }
+    v->rows[u+1]=v->m;
+  }
+  if((uint64_t)v->m>SIZE_MAX/4) goto failed;
+  v->columns=v->m?malloc((size_t)v->m*4):NULL;if(v->m&&!v->columns)goto failed;
+  for(int64_t u=0;u<v->n;++u) {
+    AutoNeighborIter iter;int32_t destination;int64_t position=v->rows[u];
+    autograph_neighbor_iter_init(graph,u,&iter);
+    while(autograph_neighbor_iter_next(&iter,&destination)) {
+      if(position>=v->rows[u+1])goto failed;
+      v->columns[position++]=destination;
+    }
+    if(position!=v->rows[u+1])goto failed;
+  }
+  return 0;
+failed: free(v->rows);free(v->columns);memset(v,0,sizeof(*v));return -1;
+}
+
+void sgpl_temporal_dispatch_failed(int32_t status) {
+  fprintf(stderr, "temporal dispatch failed: %d\n", status);
+  exit(EXIT_FAILURE);
+}
+
+/* Legacy frontier-unit wrappers preserve their existing ordered lifecycle. */
 static int32_t sgpl_dag_temporal_node(void *state, int64_t instance) {
   const sgpl_temporal_unit *unit =
       &((const sgpl_temporal_unit *)state)[instance];
@@ -5289,4 +6086,150 @@ int32_t sgpl_exec_dag_product(const sgpl_temporal_unit *units,
   rc = autograph_execute_dag(&tmpl, (void *)units, worker_budget);
   free(rels);
   return rc;
+}
+
+/* Windowed round/spatial composition. All cells use the generic scheduler.
+ * Infrastructure allocation precedes setup. No cell starts a child scheduler. */
+static _Thread_local void *sgpl_round_frame_current;
+void *sgpl_round_spatial_current_frame(void) { return sgpl_round_frame_current; }
+int32_t sgpl_round_spatial_host_call(sgpl_round_work_fn fn,void *frame,int64_t index) {
+  void *previous=sgpl_round_frame_current;sgpl_round_frame_current=frame;sgpl_push_thread_budget(1);
+  int32_t status=fn(frame,index);sgpl_pop_thread_budget();sgpl_round_frame_current=previous;return status;
+}
+extern int32_t sgpl_gpu_round_spatial_execute(const sgpl_round_spatial_plan *,int32_t,const char *,uint64_t,
+    const void *,uint32_t,void *const *,uint32_t) __attribute__((weak));
+int32_t sgpl_exec_dag_round_spatial_gpu(const sgpl_round_spatial_plan *p,int32_t budget,
+    const char *kernel,uint64_t bytes,const void *fields,uint32_t count,void *const *globals,uint32_t nglobals) {
+  int rc=sgpl_gpu_round_spatial_execute?sgpl_gpu_round_spatial_execute(p,budget,kernel,bytes,fields,count,globals,nglobals):1;
+  if(rc==1) {if(sgpl_gpu_host_barrier) sgpl_gpu_host_barrier();return sgpl_exec_dag_round_spatial(p,budget>0?budget:sgpl_temporal_worker_budget());}
+  return rc;
+}
+void *sgpl_round_spatial_alloc(uint64_t count, uint64_t stride) {
+  if (!stride || count > SIZE_MAX / stride) return NULL;
+  void *storage=calloc(count ? (size_t)count : 1, (size_t)stride);
+  extern void sgpl_gpu_register_buffer(void *,int64_t) __attribute__((weak));
+  uint64_t bytes=(count?count:1)*stride;
+  if(storage && bytes<=INT64_MAX && sgpl_gpu_register_buffer) sgpl_gpu_register_buffer(storage,bytes);
+  return storage;
+}
+int32_t autograph_clean_cut_partition_count(void *graph) {
+  AutoGraphMeta *meta = find_meta(graph);
+  return meta ? meta->partition_count : 0;
+}
+int32_t autograph_gpu_clean_cut_partitions(void) {
+  const char *value = getenv("SGPL_CLEANCUT_PARTITIONS");
+  if (value) {
+    char *end = NULL;
+    long count = strtol(value, &end, 10);
+    if (end != value && !*end && count > 0 && count <= INT32_MAX)
+      return (int32_t)count;
+  }
+  /* Supported descriptor geometry, not a CPU-derived resource or launch quota. */
+  return 64;
+}
+typedef struct sgpl_round_spatial_run {
+  const sgpl_round_spatial_plan *plan;
+  unsigned char *frames;
+  int64_t *rounds;
+  int32_t batches;
+} sgpl_round_spatial_run;
+static int32_t sgpl_round_spatial_node(void *opaque, int64_t node) {
+  sgpl_round_spatial_run *run = opaque;
+  const sgpl_round_spatial_plan *p = run->plan;
+  int32_t width = run->batches + 2;
+  int32_t r = (int32_t)(node / width), stage = (int32_t)(node % width);
+  void *frame = run->frames + (size_t)r * p->frame_bytes;
+  int32_t status = 0;
+  void *parent_frame = sgpl_round_frame_current;
+  sgpl_round_frame_current = frame;
+  sgpl_push_thread_budget(1);
+  if (stage == 0) status = p->setup(frame, run->rounds[r]);
+  else if (stage == width - 1) status = p->finalize(frame, run->rounds[r]);
+  else {
+    int32_t id = stage - 1;
+    int32_t q = p->partitions / run->batches, rem = p->partitions % run->batches;
+    int32_t first = id * q + (id < rem ? id : rem);
+    int32_t count = q + (id < rem);
+    for (int32_t i = 0; i < count && status == 0; ++i)
+      status = p->partition(frame, first + i);
+  }
+  sgpl_pop_thread_budget();
+  sgpl_round_frame_current = parent_frame;
+  return status;
+}
+int32_t sgpl_exec_dag_round_spatial(const sgpl_round_spatial_plan *p,
+                                    int32_t worker_budget) {
+  if (!p || p->round_count < 0 || p->partitions < 0 || !p->frame_bytes ||
+      p->frame_bytes > SIZE_MAX || !p->reserve || !p->setup || !p->finalize ||
+      !p->release || (p->partitions && !p->partition) ||
+      (p->round_count && p->first_round > INT64_MAX - (p->round_count - 1)))
+    return SGPL_DAG_ERR_INVALID;
+  if (!p->round_count) return SGPL_DAG_OK;
+  int32_t budget = sgpl_temporal_worker_budget();
+  if (worker_budget < 1) worker_budget = 1;
+  if (budget > worker_budget) budget = worker_budget;
+  int32_t batches = p->partitions;
+  if (batches > budget) batches = budget;
+  if (batches > SGPL_DAG_MAX_NODES - 2) batches = SGPL_DAG_MAX_NODES - 2;
+  int32_t groups = SGPL_DAG_MAX_NODES / (batches + 2);
+  if (groups > budget) groups = budget;
+  if ((int64_t)groups > p->round_count) groups = (int32_t)p->round_count;
+  /* max_align_t stride gives every opaque frame the allocator's alignment. */
+  const uint64_t alignment = _Alignof(max_align_t);
+  if (p->frame_bytes > SIZE_MAX - alignment + 1) return SGPL_DAG_ERR_INVALID;
+  sgpl_round_spatial_plan aligned = *p;
+  aligned.frame_bytes = (p->frame_bytes + alignment - 1) / alignment * alignment;
+  if (aligned.frame_bytes > SIZE_MAX / (size_t)groups) return SGPL_DAG_ERR_INVALID;
+  unsigned char *frames = calloc((size_t)groups, (size_t)aligned.frame_bytes);
+  int64_t *rounds = calloc((size_t)groups, sizeof(*rounds));
+  size_t max_edges = (size_t)groups * (batches ? (size_t)batches * 2 : 1);
+  sgpl_dag_relation_desc *edges = calloc(max_edges, sizeof(*edges));
+  if (!frames || !rounds || !edges) {
+    free(frames); free(rounds); free(edges); return SGPL_DAG_ERR_NOMEM;
+  }
+  int64_t q = p->round_count / groups, rem = p->round_count % groups;
+  int32_t status = 0;
+  for (int64_t member = 0; member < q + (rem != 0) && status == 0; ++member) {
+    int32_t live = 0, reserved = 0;
+    memset(frames, 0, (size_t)groups * aligned.frame_bytes);
+    for (int32_t g = 0; g < groups; ++g) {
+      if (member >= q + (g < rem)) continue;
+      rounds[live++] = p->first_round + (int64_t)g * q + (g < rem ? g : rem) + member;
+    }
+    for (int32_t r = 0; r < live; ++r) {
+      ++reserved; /* release also covers a partially reserved frame */
+      void *parent_frame = sgpl_round_frame_current;
+      sgpl_round_frame_current = frames + (size_t)r * aligned.frame_bytes;
+      status = p->reserve(p->shared, sgpl_round_frame_current, rounds[r]);
+      sgpl_round_frame_current = parent_frame;
+      if (status) break;
+    }
+    if (!status) {
+      int32_t edge_count = 0, width = batches + 2;
+      memset(edges, 0, max_edges * sizeof(*edges));
+      for (int32_t r = 0; r < live; ++r) {
+        int32_t base = r * width;
+        for (int32_t b = 0; b < (batches ? batches : 1); ++b) {
+          sgpl_dag_relation_desc *e = &edges[edge_count++];
+          e->source_node = base; e->sink_node = base + (batches ? b + 1 : 1);
+          e->kind = SGPL_DAG_KIND_PRECEDENCE; e->flags = SGPL_DAG_REL_FLAG_REALIZATION;
+          e->axis_mask = SGPL_DAG_AXIS_PRODUCT;
+          if (batches) {
+            e = &edges[edge_count++];
+            e->source_node = base + b + 1; e->sink_node = base + width - 1;
+            e->kind = SGPL_DAG_KIND_PRECEDENCE; e->flags = SGPL_DAG_REL_FLAG_REALIZATION;
+            e->axis_mask = SGPL_DAG_AXIS_PRODUCT;
+          }
+        }
+      }
+      sgpl_round_spatial_run run = {&aligned, frames, rounds, batches};
+      sgpl_dag_template graph = {0};
+      graph.node_count = live * width; graph.relation_count = edge_count;
+      graph.relations = edges; graph.node_fn = sgpl_round_spatial_node;
+      status = autograph_execute_dag(&graph, &run, budget);
+    }
+    for (int32_t r = 0; r < reserved; ++r) p->release(frames + (size_t)r * aligned.frame_bytes);
+  }
+  free(frames); free(rounds); free(edges);
+  return status;
 }

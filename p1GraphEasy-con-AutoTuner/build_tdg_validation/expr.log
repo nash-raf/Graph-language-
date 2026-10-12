@@ -1,0 +1,169 @@
+=== [0/2] runtime objects ===
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+=== [1/2] partition-count determinism ===
+PASS rt_expr_pagerank (p1=2
+0.3245614007527 p8=2
+0.3245614007527)
+PASS rt_expr_source_red (p1=324 p8=324)
+PASS rt_expr_priv_multi (p1=324
+18 p8=324
+18)
+PASS rt_expr_firstwins (p1=0
+1
+1
+2
+1
+1 p8=0
+1
+1
+2
+1
+1)
+PASS rt_expr_kcore (p1=0
+1
+0
+1
+0
+0
+0
+0 p8=0
+1
+0
+1
+0
+0
+0
+0)
+PASS rt_expr_dual_claim (p1=1
+1
+1
+1
+2
+1
+2
+1
+0
+0
+0
+0 p8=1
+1
+1
+1
+2
+1
+2
+1
+0
+0
+0
+0)
+PASS rt_expr_reduce_activate (p1=8 p8=8)
+PASS rt_expr_priv_activate (p1=8
+6 p8=8
+6)
+PASS reduce_sum (p1=424 p8=424)
+PASS reduce_sub (p1=676 p8=676)
+PASS reduce_mul (p1=1185788899 p8=1185788899)
+PASS reduce_min (p1=1 p8=1)
+PASS reduce_max (p1=35 p8=35)
+PASS small_sssp (p1=0
+7
+5
+18 p8=0
+7
+5
+18)
+PASS small_cc (p1=0
+0
+0
+0 p8=0
+0
+0
+0)
+PASS roundsep_min (p1=0
+1
+1
+1
+2
+3
+6
+4
+7
+6 p8=0
+1
+1
+1
+2
+3
+6
+4
+7
+6)
+PASS roundsep_add (p1=1
+1
+2
+3
+2
+3
+1
+2
+2
+3 p8=1
+1
+2
+3
+2
+3
+1
+2
+2
+3)
+PASS cross_dep (p1=1
+1
+1
+1 p8=1
+1
+1
+1)
+PASS dual_uv (p1=1
+1
+1
+1
+2
+1
+2
+1 p8=1
+1
+1
+1
+2
+1
+2
+1)
+PASS mixed_same_array (p1=1
+1
+1
+1 p8=1
+1
+1
+1)
+=== [2/2] summary ===
+direct expression execution acceptance: PASS

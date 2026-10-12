@@ -455,6 +455,14 @@ typedef struct sgpl_runtime_op {
   void (*combine)(void *state, struct sgpl_exec_ctx *);
 } sgpl_runtime_op;
 
+/* A static witness selects grouping. CleanCut only materializes this rule. */
+enum sgpl_spatial_group {
+  SGPL_SPATIAL_NONE = 0,
+  SGPL_SPATIAL_PAIR_OCCURRENCE = 1,
+  SGPL_SPATIAL_DESTINATION = 2,
+  SGPL_SPATIAL_SOURCE = 3
+};
+
 /* Flat execution context for one stage.  Round resources (membership,
  * dest_seen, next_frontier, append head, round state) are shared by all stages
  * of one round; the compiler owns their lifetime. */
@@ -495,7 +503,75 @@ typedef struct sgpl_exec_ctx {
    * switch.  Legacy callers leave this 0 = no schedule declaration. */
   int32_t dag_spatial;
   int32_t dag_temporal;
+  int32_t temporal_scope; /* sgpl_temporal_scope. A flag does not select scope. */
+  int32_t spatial_group; /* sgpl_spatial_group: static proof witness */
+  int32_t spatial_runtime_group; /* CleanCut coarsening of the witness */
+  int32_t spatial_partition; /* worker-local batch id */
+  uint64_t spatial_occupied_groups;
+  int32_t spatial_nontrivial; /* set only after counting actual work */
+  int32_t spatial_coverage_pending; /* source preparation node before batches */
+  uint8_t *spatial_groups_seen; /* endpoint groups; each has one batch owner */
+  int32_t execution_status;
+  int32_t *execution_error; /* shared cancellation/failure slot */
+  void *spatial_frontier_lanes; /* invocation-owned AutoFrontierLane[] */
+  int32_t *spatial_frontier_storage;
+  int64_t *spatial_frontier_offsets;
+  uint8_t *spatial_membership;
+  uint8_t *spatial_source_gate;
+  int32_t *spatial_seen;
+  int32_t *spatial_lane_seen; /* source-owned frontier deduplication per batch */
+  void **spatial_snapshots;
+  int64_t *spatial_snapshot_bytes;
+  int32_t spatial_snapshot_count;
+  uint8_t *round_membership; /* reserved before setup, filled by this round */
+  int32_t *round_dest_seen;
+  int32_t *round_next_frontier;
+  void *spatial_claims; /* borrowed source-frame storage */
+  /* Immutable execution records. Built before dispatch, owned by this context. */
+  int32_t *gpu_records; /* triples: source, destination, lifecycle kind */
+  int64_t *gpu_record_offsets;
+  int64_t gpu_record_count;
+  int32_t gpu_partition_count;
+  int64_t gpu_vertex_count;
+  uint32_t gpu_private_scalars, gpu_private_arrays;
+  void *gpu_private_targets;
+  const uint64_t *gpu_private_element_bytes;
+  uint64_t gpu_claim_bytes;
+  /* Whole proof groups, in stable occurrence order within each group. */
+  int64_t *gpu_group_offsets;
+  int64_t *gpu_partition_groups;
+  int64_t gpu_group_count;
+  int32_t gpu_parallel_groups;
+  uint64_t *gpu_group_times; /* optional: begin, end, lane for each proof group */
+  int32_t gpu_local_partials; /* source accumulator storage belongs to a lane */
+  int32_t gpu_parallel_fold; /* device updates honor the accepted private fold */
 } sgpl_exec_ctx;
+int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx);
+void autograph_exec_ctx_gpu_storage(sgpl_exec_ctx *, uint32_t, uint32_t,
+                                   void *, const uint64_t *, uint64_t);
+
+/* Prepare all invocation-owned state before user effects. These functions
+ * return negative scheduler error codes. Execution never replays effects. */
+int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
+                                          int32_t runtime_group,
+                                          int32_t private_frontier);
+int32_t autograph_exec_ctx_bind_snapshot(sgpl_exec_ctx *ctx, int32_t slot,
+                                         const void *base, int64_t elem_bytes);
+int32_t autograph_exec_ctx_bind_snapshot_range(sgpl_exec_ctx *ctx, int32_t slot,
+                                               const void *base, int64_t count,
+                                               int64_t elem_bytes);
+void *autograph_exec_ctx_snapshot(sgpl_exec_ctx *ctx, int32_t slot);
+void autograph_exec_ctx_set_claims(sgpl_exec_ctx *ctx, void *claims);
+void *autograph_exec_ctx_claims(sgpl_exec_ctx *ctx);
+void autograph_exec_ctx_set_source_gate(sgpl_exec_ctx *ctx, int32_t source, int32_t allowed);
+void sgpl_exec_require_status(int32_t status);
+int32_t autograph_exec_ctx_last_source(const sgpl_exec_ctx *ctx);
+int32_t autograph_priv_bind_instance(void *graph, void *records, int64_t stride,
+                                     int64_t offset, int64_t elements,
+                                     int64_t element_bytes, int64_t identity,
+                                     int32_t slot);
+void autograph_priv_release_instance(void *records, int64_t offset,
+                                      int32_t partitions);
 
 /* Declare the stage's schedule (see the field comment above). */
 void autograph_exec_ctx_set_dag_axes(sgpl_exec_ctx *ctx, int32_t spatial,
@@ -507,6 +583,8 @@ int32_t sgpl_ctx_dag_temporal(const sgpl_exec_ctx *ctx);
 /* Execute one stage: traverse the selected domain and dispatch the declared
  * lifecycle events to the operations.  Returns the next frontier size. */
 int32_t autograph_frontier_execute(void *graph_ptr, sgpl_exec_ctx *ctx);
+int32_t sgpl_exec_spatial_gpu(sgpl_exec_ctx *,const char *,const void *,uint32_t,
+                             void *const *,uint32_t,int32_t);
 
 /* Activation primitive: claim `dest_seen[v]` (0 -> 1, atomic) and, on the
  * transition, append v to next_frontier under the atomic head.  Returns 1 when
@@ -673,6 +751,46 @@ int32_t autograph_execute_dag(const sgpl_dag_template *template_desc,
                               void *state,
                               int32_t worker_budget);
 
+/* Device work uses the same ready queue and dependency bookkeeping without
+ * worker grants. Submit/poll return 0 for completion, 1 for pending work, or
+ * a negative failure. Failure cancels new submissions and drains pending work.
+ * Callbacks run on the caller. Poll must join failed work before returning. */
+#define SGPL_DAG_PENDING 1
+int32_t autograph_validate_dag(const sgpl_dag_template *template_desc);
+int32_t autograph_execute_dag_async(const sgpl_dag_template *template_desc,
+    void *state, sgpl_dag_node_fn submit, sgpl_dag_node_fn poll);
+/* GPU traversal geometry is independent of CPU worker grants. */
+int32_t autograph_gpu_clean_cut_partitions(void);
+struct sgpl_gpu_plan;
+/* The same node identities and relations must describe both realizations. */
+int32_t sgpl_exec_dag_gpu(const struct sgpl_gpu_plan *device,
+    sgpl_dag_node_fn cpu_node,void *cpu_state);
+
+typedef enum sgpl_temporal_scope {
+  SGPL_TEMPORAL_NONE = 0,
+  SGPL_TEMPORAL_ROUND = 1,
+  SGPL_TEMPORAL_SOURCE_PHASE = 2
+} sgpl_temporal_scope;
+void autograph_exec_ctx_set_temporal_scope(sgpl_exec_ctx *ctx,
+                                           sgpl_temporal_scope scope);
+
+/* Each callback executes one independent component in its original order.
+ * This call joins all callbacks before it returns. A failure cancels pending
+ * callbacks and joins active callbacks. The caller must not replay effects. */
+int32_t sgpl_exec_temporal_components(sgpl_dag_node_fn component_fn,
+                                     void *state, int32_t component_count,
+                                     int32_t worker_budget);
+int32_t sgpl_exec_temporal_gpu_components(sgpl_dag_node_fn component_fn,
+    void *state, int32_t component_count, int32_t worker_budget,
+    const char *kernel, uint64_t frame_bytes, const void *fields, uint32_t field_count,
+    uint32_t temporal_scope);
+/* Compiler dispatch uses the configured budget, including a parent grant. */
+int32_t sgpl_temporal_worker_budget(void);
+/* Graph construction must finish before concurrent callbacks read topology. */
+int32_t sgpl_temporal_prepare_graph(void *graph);
+/* Report a generated dispatch failure without replaying completed effects. */
+void sgpl_temporal_dispatch_failed(int32_t status);
+
 /* Step 7 (runtime half): run a frontier round's spatial partitions through
  * the ready-work DAG scheduler.  V1 template: one node per partition, no
  * relation edges (partitions independent); the compiler-side spatial template
@@ -742,6 +860,54 @@ int32_t sgpl_exec_dag_product(const sgpl_temporal_unit *units,
                               const sgpl_dag_relation_desc *temporal_relations,
                               int32_t temporal_count,
                               int32_t worker_budget);
+
+/* Complete round lifecycle on one shared DAG. reserve performs no user
+ * effects. release accepts partially reserved frames and runs after all tasks
+ * join, including failure. Setup/finalize return zero or a negative status. */
+typedef int32_t (*sgpl_round_prepare_fn)(void *shared, void *frame, int64_t round);
+typedef int32_t (*sgpl_round_work_fn)(void *frame, int64_t index);
+typedef void (*sgpl_round_release_fn)(void *frame);
+typedef struct sgpl_round_spatial_plan {
+  void *shared;
+  int64_t first_round;
+  int64_t round_count;
+  uint64_t frame_bytes;
+  int32_t partitions;
+  sgpl_round_prepare_fn reserve;
+  sgpl_round_work_fn setup;
+  sgpl_round_work_fn partition;
+  sgpl_round_work_fn finalize;
+  sgpl_round_release_fn release;
+} sgpl_round_spatial_plan;
+int32_t sgpl_exec_dag_round_spatial(const sgpl_round_spatial_plan *plan,
+                                    int32_t worker_budget);
+int32_t sgpl_exec_dag_round_spatial_gpu(const sgpl_round_spatial_plan *,int32_t,
+    const char *,uint64_t,const void *,uint32_t,void *const *,uint32_t);
+int32_t sgpl_round_spatial_host_call(sgpl_round_work_fn,void *,int64_t);
+void *sgpl_round_spatial_current_frame(void);
+void *sgpl_round_spatial_alloc(uint64_t count, uint64_t stride);
+int32_t autograph_clean_cut_partition_count(void *graph);
+int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx);
+int32_t sgpl_exec_spatial_publish(sgpl_exec_ctx *ctx);
+int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition);
+int32_t sgpl_exec_spatial_finish(sgpl_exec_ctx *ctx);
+/* Invocation-owned frontier infrastructure. Materialization and commit never
+ * access graph scratch. Call reserve before prepare_spatial, then materialize
+ * after round setup and before spatial_begin. */
+int32_t autograph_exec_ctx_reserve_frontier(sgpl_exec_ctx *ctx, int32_t membership,
+                                           int32_t append);
+int32_t autograph_exec_ctx_materialize_frontier_array(sgpl_exec_ctx *ctx,
+                                                       const int32_t *vertices, int32_t count);
+int32_t autograph_exec_ctx_materialize_frontier_bitmap(sgpl_exec_ctx *ctx, const void *bitmap);
+int32_t autograph_exec_ctx_commit_frontier_array(sgpl_exec_ctx *ctx, int32_t *vertices,
+                                                 int32_t count);
+int32_t autograph_exec_ctx_commit_frontier_bitmap(sgpl_exec_ctx *ctx, void *bitmap,
+                                                  int32_t count);
+/* Reservation does not read the live version. Materialization occurs at setup. */
+int32_t autograph_exec_ctx_reserve_snapshot(sgpl_exec_ctx *ctx, int32_t slot,
+                                            int64_t count, int64_t elem_bytes);
+int32_t autograph_exec_ctx_materialize_snapshot(sgpl_exec_ctx *ctx, int32_t slot,
+                                                const void *base, int64_t bytes);
 
 /* Debug introspection: effective width of the most recent DAG spatial
  * dispatch, after the nested-budget clamp.  Used by the nested-budget test

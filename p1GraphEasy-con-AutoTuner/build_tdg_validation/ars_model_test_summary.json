@@ -1,0 +1,16 @@
+{
+  "dedicated_checks": "PASS: PDG expansion, formal proofs/models, shared graph levels, autotuner frequency, executor engine/R2, frontier motif/owner pull/reduction/shadow",
+  "frontend_runtime": "PASS: 1/20 rounds at 1/4 threads",
+  "broader_checks": {
+    "algebra": "PASS (21 fixtures)",
+    "totality": "PASS (72 fixtures)",
+    "rt_expr": "FAIL: rt_expr_firstwins; reproduced with original HEAD cost model",
+    "reduction": "PASS",
+    "roundsep": "PASS",
+    "composition": "PASS",
+    "tdg_budget": "PASS using a temporary LF-normalized copy; original CRLF script fails in bash",
+    "argmem_inventory": "PASS (272 fixtures, zero failures; one post-dump timeout note)"
+  },
+  "firstwins_diagnosis": "undirected_small.txt has vertices 0..3; fixture allocates dist[numVertices(G)] but prints dist[4] and dist[5]",
+  "working_tree": "only AutoTunerPass.cpp and cost_model.py changed; generated kernels.ptx restored"
+}

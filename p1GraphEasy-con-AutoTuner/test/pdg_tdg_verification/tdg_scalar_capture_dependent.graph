@@ -1,0 +1,21 @@
+graph G { edges: file "test/shared_edgelist.txt"; };
+int n = numVertices(G);
+int result[n];
+int bias = 3;
+int init = 0;
+int j = 0;
+while (init < n) {
+  result[init] = 0;
+  init = init + 1;
+}
+for each vertex u in G {
+  for each neighbor v of u in G {
+    result[u] = result[u] + bias;
+  }
+}
+while (j < n) {
+  bias = bias + 1;
+  j = j + 1;
+}
+print result[0];
+print bias;

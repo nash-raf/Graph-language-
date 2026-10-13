@@ -1,0 +1,47 @@
+// equal substantial compute. Each loop writes a separate allocation.
+int nl = 65536;
+int nr = 65536;
+int left[nl];
+int right[nr];
+int i = 0;
+int j = 0;
+while (i < nl) {
+  left[i] = (i * 17 + 3) % 1009;
+  left[i] = (left[i] * 21 + 8) % 1011;
+  left[i] = (left[i] * 23 + 9) % 1013;
+  left[i] = (left[i] * 25 + 10) % 1015;
+  left[i] = (left[i] * 27 + 11) % 1017;
+  left[i] = (left[i] * 29 + 12) % 1019;
+  left[i] = (left[i] * 31 + 13) % 1021;
+  left[i] = (left[i] * 33 + 14) % 1023;
+  left[i] = (left[i] * 35 + 15) % 1025;
+  left[i] = (left[i] * 37 + 16) % 1027;
+  left[i] = (left[i] * 39 + 17) % 1029;
+  left[i] = (left[i] * 41 + 18) % 1031;
+  left[i] = (left[i] * 43 + 19) % 1033;
+  left[i] = (left[i] * 45 + 20) % 1035;
+  left[i] = (left[i] * 47 + 21) % 1037;
+  left[i] = (left[i] * 49 + 22) % 1039;
+  i = i + 1;
+}
+while (j < nr) {
+  right[j] = (j * 31 + 5) % 1013;
+  right[j] = (right[j] * 21 + 8) % 1011;
+  right[j] = (right[j] * 23 + 9) % 1013;
+  right[j] = (right[j] * 25 + 10) % 1015;
+  right[j] = (right[j] * 27 + 11) % 1017;
+  right[j] = (right[j] * 29 + 12) % 1019;
+  right[j] = (right[j] * 31 + 13) % 1021;
+  right[j] = (right[j] * 33 + 14) % 1023;
+  right[j] = (right[j] * 35 + 15) % 1025;
+  right[j] = (right[j] * 37 + 16) % 1027;
+  right[j] = (right[j] * 39 + 17) % 1029;
+  right[j] = (right[j] * 41 + 18) % 1031;
+  right[j] = (right[j] * 43 + 19) % 1033;
+  right[j] = (right[j] * 45 + 20) % 1035;
+  right[j] = (right[j] * 47 + 21) % 1037;
+  right[j] = (right[j] * 49 + 22) % 1039;
+  j = j + 1;
+}
+print left[65535];
+print right[65535];

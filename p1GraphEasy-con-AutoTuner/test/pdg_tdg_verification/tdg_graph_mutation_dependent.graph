@@ -1,0 +1,15 @@
+graph G { edges: file "test/shared_edgelist.txt"; };
+int n = numVertices(G);
+int value[n];
+int init = 0;
+while (init < n) {
+  value[init] = 0;
+  init = init + 1;
+}
+add 0->2 to G;
+for each vertex u in G {
+  for each neighbor v of u in G {
+    value[u] = value[u] + 1;
+  }
+}
+print value[0];

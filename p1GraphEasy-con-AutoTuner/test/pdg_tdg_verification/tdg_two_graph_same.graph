@@ -1,0 +1,22 @@
+graph G { edges: file "test/shared_edgelist.txt"; };
+int n = numVertices(G);
+int left[n];
+int right[n];
+int init = 0;
+while (init < n) {
+  left[init] = 0;
+  right[init] = 0;
+  init = init + 1;
+}
+for each vertex u in G {
+  for each neighbor v of u in G {
+    left[u] = left[u] + 1;
+  }
+}
+for each vertex u in G {
+  for each neighbor v of u in G {
+    right[u] = right[u] + 2;
+  }
+}
+print left[0];
+print right[0];

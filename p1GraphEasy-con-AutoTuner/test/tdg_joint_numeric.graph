@@ -1,0 +1,21 @@
+int n = 65536;
+int left[n];
+int right[n];
+int i = 0;
+int j = 0;
+while (i < n) {
+  left[i] = (i * 17 + 3) % 1009;
+  left[i] = (left[i] * 19 + 7) % 1013;
+  left[i] = (left[i] * 23 + 11) % 1019;
+  left[i] = (left[i] * 29 + 13) % 1021;
+  i = i + 1;
+}
+while (j < n) {
+  right[j] = (j * 31 + 5) % 1013;
+  right[j] = (right[j] * 37 + 17) % 1019;
+  right[j] = (right[j] * 41 + 19) % 1021;
+  right[j] = (right[j] * 43 + 23) % 1031;
+  j = j + 1;
+}
+print left[65535];
+print right[65535];

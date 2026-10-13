@@ -131,6 +131,8 @@ condition:
 	| edge 'in' graphID		# EdgeCheck
 	| graphID '.' 'hasNode' '(' expr ')'			# HasNodeCheck
 	| graphID '.' 'hasEdge' '(' expr ',' expr ')'	# HasEdgeCheck
+	| 'hasNode' '(' graphID ',' expr ')'			# HasNodeCall
+	| 'hasEdge' '(' graphID ',' expr ',' expr ')'	# HasEdgeCall
 	| expr					# ExprCondition;
 
 //graphcondition

@@ -492,6 +492,13 @@ antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
         return ASTNodePtr(std::make_shared<SetContainsExprNode>(
             SetTargetKind::GraphNodes, hn->graphID()->getText(), val));
     }
+    if (auto hnc = dynamic_cast<Ctx::HasNodeCallContext *>(ctx))
+    {
+        // G.hasNode(x)  ==  x in G.nodes  (the backend already lowers set membership)
+        ASTNodePtr val = safe_any_cast<ASTNodePtr>(visitExpr(hnc->expr()));
+        return ASTNodePtr(std::make_shared<SetContainsExprNode>(
+            SetTargetKind::GraphNodes, hnc->graphID()->getText(), val));
+    }
     if (auto he = dynamic_cast<Ctx::HasEdgeCheckContext *>(ctx))
     {
         // G.hasEdge(u, v): lowered by IRGen as the "hasEdge" builtin (runtime pair lookup)
@@ -499,6 +506,15 @@ antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
         args.push_back(std::make_shared<VariableNode>(he->graphID()->getText()));
         args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(he->expr(0))));
         args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(he->expr(1))));
+        return ASTNodePtr(std::make_shared<FunctionCallNode>("hasEdge", args));
+    }
+    if (auto hec = dynamic_cast<Ctx::HasEdgeCallContext *>(ctx))
+    {
+        // G.hasEdge(u, v): lowered by IRGen as the "hasEdge" builtin (runtime pair lookup)
+        std::vector<ASTNodePtr> args;
+        args.push_back(std::make_shared<VariableNode>(hec->graphID()->getText()));
+        args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(hec->expr(0))));
+        args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(hec->expr(1))));
         return ASTNodePtr(std::make_shared<FunctionCallNode>("hasEdge", args));
     }
     if (auto e = dynamic_cast<Ctx::ExprConditionContext *>(ctx))
@@ -1758,6 +1774,24 @@ antlrcpp::Any ASTBuilder::visitHasNodeCheck(BaseParser::HasNodeCheckContext *ctx
 }
 
 antlrcpp::Any ASTBuilder::visitHasEdgeCheck(BaseParser::HasEdgeCheckContext *ctx)
+{
+    std::vector<ASTNodePtr> args;
+    args.push_back(std::make_shared<VariableNode>(ctx->graphID()->getText()));
+    args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(0))));
+    args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(1))));
+    return ASTNodePtr(std::make_shared<FunctionCallNode>("hasEdge", args));
+}
+
+// Row 8 (call spellings): `hasNode(G, x)` / `hasEdge(G, u, v)` build exactly the
+// same AST as the member forms, so both spellings stay interchangeable.
+antlrcpp::Any ASTBuilder::visitHasNodeCall(BaseParser::HasNodeCallContext *ctx)
+{
+    ASTNodePtr val = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
+    return ASTNodePtr(std::make_shared<SetContainsExprNode>(
+        SetTargetKind::GraphNodes, ctx->graphID()->getText(), val));
+}
+
+antlrcpp::Any ASTBuilder::visitHasEdgeCall(BaseParser::HasEdgeCallContext *ctx)
 {
     std::vector<ASTNodePtr> args;
     args.push_back(std::make_shared<VariableNode>(ctx->graphID()->getText()));

@@ -44,6 +44,8 @@ public:
     // hasEdge lowers through a runtime pair lookup (FunctionCallNode "hasEdge").
     antlrcpp::Any visitHasNodeCheck(BaseParser::HasNodeCheckContext *ctx) override;
     antlrcpp::Any visitHasEdgeCheck(BaseParser::HasEdgeCheckContext *ctx) override;
+    antlrcpp::Any visitHasNodeCall(BaseParser::HasNodeCallContext *ctx) override;
+    antlrcpp::Any visitHasEdgeCall(BaseParser::HasEdgeCallContext *ctx) override;
     antlrcpp::Any visitMotifSearchDecl(BaseParser::MotifSearchDeclContext *ctx) override;
 
     antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext *ctx) override;

@@ -1,5 +1,14 @@
 # Compositional Motif Matching for Frontier Graph Programs
 
+## Legacy frontier engine selection
+
+The frontier engine described here is disabled by default in the compiler.
+Default source loops emit ordinary IR for the spatial and temporal effect system.
+`GRAPH_FRONTIER_REWRITE_OFF=1` explicitly restores the AST frontier recognizer
+and its `autograph_edgemap` dispatch for comparison.
+The inverted gate was corrected on 2026-10-12.
+The gate regression is `test/frontier_gate_test.py`.
+
 This document describes the methodology behind SGPL’s compositional EdgeMap / VertexMap lowering: first as a theoretical design, then as it is realized in the compiler and runtime. The goal is to explain *what we are trying to recognize*, *why those pieces are the right building blocks*, *how composition is defined*, and *what happens once a composition explains a region of intermediate representation*.
 
 ---

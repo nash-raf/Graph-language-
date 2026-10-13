@@ -3672,6 +3672,20 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             }
 
             NamedValues[decl->name] = storage;
+            // Storage capacity travels with a dynamic array's pointer. The
+            // frontier storage pass consumes this metadata before outlining.
+            llvm::Value *capacity = nullptr;
+            if (EmittingTopLevel)
+                capacity = new llvm::GlobalVariable(Module, Builder.getInt64Ty(), false,
+                    llvm::GlobalValue::InternalLinkage, Builder.getInt64(0),
+                    decl->name + ".capacity");
+            else
+                capacity = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(),
+                    decl->name + ".capacity", Builder.getInt64Ty());
+            Builder.CreateStore(Builder.CreateSExt(sizeVal, Builder.getInt64Ty()), capacity);
+            auto *capacityMD = llvm::MDNode::get(Context, llvm::ValueAsMetadata::get(capacity));
+            if (auto *global = llvm::dyn_cast<llvm::GlobalObject>(storage))
+                global->setMetadata("sgpl.array.capacity", capacityMD);
             if (isRealArray)
                 IndirectRealArrays.insert(decl->name);
             else
@@ -4027,7 +4041,7 @@ void IRGenVisitor::visitWhile(WhileStmtNode *ws)
      * autograph_neighbor_iter_* IR and are picked up and parallelized by the
      * CleanCut effect algebra instead.  GRAPH_FRONTIER_REWRITE_OFF=1 restores
      * the motif dispatch for benchmarking. */
-    if (!getenv("GRAPH_FRONTIER_REWRITE_OFF"))
+    if (getenv("GRAPH_FRONTIER_REWRITE_OFF"))
         if (auto edgeMap = analyzeFrontierEdgeMap(ws))
         {
             emitEdgeMap(*edgeMap);
@@ -7462,4 +7476,18 @@ void IRGenVisitor::visitSwapStmt(SwapStmtNode *node)
     llvm::Value *ptrB = Builder.CreateLoad(ptrTy, itB->second, node->name2 + ".swap");
     Builder.CreateStore(ptrB, itA->second);
     Builder.CreateStore(ptrA, itB->second);
+    auto getCapacity = [](llvm::Value *slot) -> llvm::Value * {
+        llvm::MDNode *md = nullptr;
+        if (auto *g = llvm::dyn_cast<llvm::GlobalObject>(slot)) md = g->getMetadata("sgpl.array.capacity");
+        else if (auto *i = llvm::dyn_cast<llvm::Instruction>(slot)) md = i->getMetadata("sgpl.array.capacity");
+        auto *v = md && md->getNumOperands() ? llvm::dyn_cast<llvm::ValueAsMetadata>(md->getOperand(0)) : nullptr;
+        return v ? v->getValue() : nullptr;
+    };
+    if (auto *a = getCapacity(itA->second))
+        if (auto *b = getCapacity(itB->second)) {
+            auto *ca = Builder.CreateLoad(Builder.getInt64Ty(), a);
+            auto *cb = Builder.CreateLoad(Builder.getInt64Ty(), b);
+            Builder.CreateStore(cb, a);
+            Builder.CreateStore(ca, b);
+        }
 }

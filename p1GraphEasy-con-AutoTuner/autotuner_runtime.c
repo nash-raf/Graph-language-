@@ -3213,6 +3213,9 @@ static void sgpl_exec_pair_ops(sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
  * dispatches pairs: source lifecycle under OWNER_V is driven by the complete
  * source-domain coverage passes (see sgpl_exec_source_coverage), because a
  * source's arcs are split across destination partitions. */
+#include "frontier_buffer_runtime.inc"
+#include "array_frontier_runtime.inc"
+
 static void sgpl_exec_partition_body(int64_t index, void *opaque) {
   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
   sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
@@ -3256,7 +3259,18 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
       sgpl_exec_pair_ops(&local, (U), (V));                                   \
   } while (0)
 
-  if (local.traversal_kind == SGPL_TRAVERSE_OWNER_V) {
+  if (local.array_append_sites) {
+    for(int64_t i=ctx->gpu_record_offsets[p];i<ctx->gpu_record_offsets[p+1];++i) {
+      int32_t u=ctx->gpu_records[3*i],v=ctx->gpu_records[3*i+1],kind=ctx->gpu_records[3*i+2];
+      local.array_source_ordinal=ctx->gpu_record_sources[i];
+      local.array_work_ordinal=ctx->gpu_record_work[i];local.array_append_seq=0;
+      if(kind==1) {local.source_state=NULL;sgpl_exec_source_begin_ops(&local,u);}
+      else if(kind==2)sgpl_exec_source_end_ops(&local,u);
+      else if(!local.spatial_source_gate||local.spatial_source_gate[local.array_source_ordinal])
+        SGPL_EXEC_EMIT_PAIR(u,v);
+      if(sgpl_exec_failed(&local))return;
+    }
+  } else if (local.traversal_kind == SGPL_TRAVERSE_OWNER_V) {
     int64_t rows = meta->push_row_count ? meta->push_row_count[p] : 0;
     int64_t *rp = meta->push_rp ? meta->push_rp[p] : NULL;
     int32_t *ci = meta->push_ci ? meta->push_ci[p] : NULL;
@@ -3408,6 +3422,14 @@ static void sgpl_exec_source_coverage(sgpl_exec_ctx *ctx, int begin) {
     }
     /* The captured membership is invocation-owned. Source preparation stays
      * ordered and needs no shared metadata scratch or late allocation. */
+    if(ctx->array_append_sites) {
+      for(int64_t i=0;i<ctx->array_source_count&&!sgpl_exec_failed(ctx);++i) {
+        ctx->array_source_ordinal=i;ctx->source_state=NULL;
+        if(begin)sgpl_exec_source_begin_ops(ctx,ctx->array_sources[i]);
+        else sgpl_exec_source_end_ops(ctx,ctx->array_sources[i]);
+      }
+      return;
+    }
     for (int64_t u = 0; u < meta->csr_n && !sgpl_exec_failed(ctx); ++u) {
       if (ctx->membership && !ctx->membership[u]) continue;
       if (begin) {
@@ -3894,6 +3916,8 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
   ctx->graph = graph_ptr;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
     ctx->execution_status = 0;
+    if(ctx->array_append_log)
+      memset(ctx->array_append_log,0,(size_t)ctx->array_work_count*ctx->array_append_sites*8);
     ctx->spatial_occupied_groups = 0;
     ctx->spatial_nontrivial = 0;
     if (ctx->spatial_groups_seen && meta) memset(ctx->spatial_groups_seen, 0, (size_t)meta->csr_n);
@@ -3978,6 +4002,9 @@ int32_t sgpl_exec_spatial_finish(sgpl_exec_ctx *ctx) {
       fprintf(stderr, "[spatial-runtime] group=%d occupied=%llu nontrivial=%d\n", ctx->spatial_group,
           (unsigned long long)ctx->spatial_occupied_groups, ctx->spatial_nontrivial);
   }
+  if(ctx->array_append_sites) {
+    int rc=sgpl_array_compact(ctx);if(rc<0)return rc;
+  }
   if (ctx->spatial_frontier_lanes) {
     AutoFrontierLane *lanes = (AutoFrontierLane *)ctx->spatial_frontier_lanes;
     int64_t *offsets = ctx->spatial_frontier_offsets;
@@ -4034,6 +4061,10 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   if(ctx->gpu_record_offsets) return ctx->gpu_group_offsets&&ctx->gpu_partition_groups?0:SGPL_DAG_ERR_NOMEM;
   int begins=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN),ends=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END);
   int64_t records=0;
+  if(ctx->array_append_sites) {
+    int rc=sgpl_array_records(ctx,m,begins,ends);if(rc<0)return rc;
+    records=ctx->gpu_record_count;goto records_ready;
+  }
   for(int p=0;p<m->partition_count;++p) {
     int64_t pairs=ctx->traversal_kind==SGPL_TRAVERSE_OWNER_U?m->src_pair_count[p]:m->push_rp[p][m->push_row_count[p]];
     if(pairs<0||records>INT64_MAX-pairs) return SGPL_DAG_ERR_INVALID;
@@ -4070,6 +4101,7 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   }
 #undef GPU_RECORD
   ctx->gpu_record_offsets[m->partition_count]=out;ctx->gpu_record_count=out;
+records_ready:
   ctx->gpu_partition_count=m->partition_count;ctx->gpu_vertex_count=m->csr_n;
   /* A CleanCut owner is a proved block, or a coarsening of independent
    * occurrences. This is layout construction, not conflict discovery. */
@@ -4101,6 +4133,11 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   if(!ctx->gpu_group_offsets||!ctx->gpu_partition_groups||!counts||!positions||!ordered) {
     free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;
   }
+  int64_t *ordered_sources=ctx->array_append_sites?malloc((size_t)(records?records:1)*8):NULL;
+  int64_t *ordered_work=ctx->array_append_sites?malloc((size_t)(records?records:1)*8):NULL;
+  if(ctx->array_append_sites&&(!ordered_sources||!ordered_work)) {
+    free(ordered_sources);free(ordered_work);free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;
+  }
   int64_t group=0,at=0;
   for(int p=0;p<m->partition_count;++p) {
     ctx->gpu_partition_groups[p]=group;
@@ -4118,6 +4155,7 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
       int32_t key=ctx->gpu_records[3*i+(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V)];
       int64_t target=positions[key]++;
       memcpy(ordered+3*target,ctx->gpu_records+3*i,3*sizeof(int32_t));
+      if(ordered_sources){ordered_sources[target]=ctx->gpu_record_sources[i];ordered_work[target]=ctx->gpu_record_work[i];}
     }
   }
   ctx->gpu_group_offsets[group]=at;ctx->gpu_partition_groups[m->partition_count]=group;
@@ -4128,8 +4166,11 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   }
   /* Private partials and frontier lanes still have one ordered writer per
    * partition. Keep their original record sequence in that storage path. */
-  if(ctx->gpu_parallel_groups) {free(ctx->gpu_records);ctx->gpu_records=ordered;}
-  else free(ordered);
+  if(ctx->gpu_parallel_groups) {
+    free(ctx->gpu_records);ctx->gpu_records=ordered;
+    if(ordered_sources){free(ctx->gpu_record_sources);free(ctx->gpu_record_work);
+      ctx->gpu_record_sources=ordered_sources;ctx->gpu_record_work=ordered_work;}
+  } else {free(ordered);free(ordered_sources);free(ordered_work);}
   free(counts);free(positions);return 0;
 }
 int32_t sgpl_exec_spatial_publish(sgpl_exec_ctx *ctx) {
@@ -4169,7 +4210,17 @@ int32_t sgpl_exec_spatial_gpu(sgpl_exec_ctx *ctx,const char *kernel,const void *
 int32_t autograph_frontier_activate(sgpl_exec_ctx *ctx, int32_t v) {
   int32_t expected = 0;
   int32_t head;
-  if (!ctx || !ctx->dest_seen || v < 0) return 0;
+  if (!ctx || v < 0) return 0;
+  if(ctx->array_append_sites) {
+    if(ctx->array_work_ordinal<0||ctx->array_work_ordinal>=ctx->array_work_count||
+        ctx->array_append_seq>=ctx->array_append_sites) {
+      if(ctx->execution_error)__atomic_store_n(ctx->execution_error,SGPL_DAG_ERR_INVALID,__ATOMIC_RELEASE);
+      return 0;
+    }
+    int64_t at=ctx->array_work_ordinal*ctx->array_append_sites+ctx->array_append_seq++;
+    ctx->array_append_log[2*at+1]=v;ctx->array_append_log[2*at]=1;return 1;
+  }
+  if(!ctx->dest_seen)return 0;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
     AutoGraphMeta *meta = find_meta(ctx->graph);
     if (!meta || v >= meta->csr_n) {
@@ -4440,6 +4491,7 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
     return;
   free(ctx->ops);
   free(ctx->gpu_records);
+  free(ctx->gpu_record_sources);free(ctx->gpu_record_work);free(ctx->array_append_log);
   free(ctx->gpu_record_offsets);
   free(ctx->gpu_group_offsets);
   free(ctx->gpu_partition_groups);
@@ -4476,9 +4528,9 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
   if (n && count <= 0) return SGPL_DAG_ERR_NOMEM;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) return SGPL_DAG_ERR_INVALID;
   if (n) {
-    ctx->spatial_source_gate = malloc((size_t)n);
+    ctx->spatial_source_gate = malloc((size_t)(ctx->array_append_sites?ctx->array_source_count+1:n));
     if (!ctx->spatial_source_gate) return SGPL_DAG_ERR_NOMEM;
-    memset(ctx->spatial_source_gate, 1, (size_t)n);
+    memset(ctx->spatial_source_gate, 1, (size_t)(ctx->array_append_sites?ctx->array_source_count+1:n));
     if (group != SGPL_SPATIAL_PAIR_OCCURRENCE) {
       ctx->spatial_groups_seen = calloc((size_t)n, 1);
       if (!ctx->spatial_groups_seen) return SGPL_DAG_ERR_NOMEM;
@@ -4490,7 +4542,7 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
     memcpy(ctx->spatial_membership, ctx->membership, (size_t)n);
     ctx->membership = ctx->spatial_membership;
   }
-  if (private_frontier && n) {
+  if (private_frontier && n && !ctx->array_append_sites) {
     if (!ctx->dest_seen || !ctx->next_frontier || !ctx->append_head || count <= 0 ||
         ctx->initial_next_size < 0 || ctx->initial_next_size > n)
       return SGPL_DAG_ERR_INVALID;
@@ -4532,6 +4584,7 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
   ctx->spatial_group = group;
   ctx->spatial_runtime_group = runtime_group;
   ctx->execution_error = &ctx->execution_status;
+  if(ctx->array_append_sites)return sgpl_gpu_prepare_spatial_records(ctx);
   return 0;
 }
 
@@ -4679,8 +4732,10 @@ void autograph_exec_ctx_gpu_storage(sgpl_exec_ctx *ctx, uint32_t scalars, uint32
 }
 void autograph_exec_ctx_set_source_gate(sgpl_exec_ctx *ctx, int32_t source, int32_t allowed) {
   AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;
-  if (meta && source >= 0 && source < meta->csr_n && ctx->spatial_source_gate)
-    ctx->spatial_source_gate[source] = allowed != 0;
+  int64_t index=ctx&&ctx->array_append_sites?ctx->array_source_ordinal:source;
+  int64_t count=ctx&&ctx->array_append_sites?ctx->array_source_count:(meta?meta->csr_n:0);
+  if (meta && index >= 0 && index < count && ctx->spatial_source_gate)
+    ctx->spatial_source_gate[index] = allowed != 0;
 }
 int32_t autograph_exec_ctx_last_source(const sgpl_exec_ctx *ctx) {
   AutoGraphMeta *meta = ctx ? find_meta(ctx->graph) : NULL;

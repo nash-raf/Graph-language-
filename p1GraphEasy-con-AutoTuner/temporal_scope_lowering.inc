@@ -53,9 +53,87 @@ static const Value *temporalObject(Value *P) {
     return O;
 }
 
+/* Finite allocation families survive pointer-slot swaps. This does not infer
+ * separation from SSA names. Every publication and pointer-slot escape is
+ * checked, including the compiler-owned fresh-allocation growth helpers. */
+static bool temporalAllocationFamilies(const Value *P, SmallPtrSetImpl<const Value *> &Objects,
+                                       SmallPtrSetImpl<const Value *> &Slots, unsigned Depth=0) {
+    if(!P||Depth>32)return false;
+    const Value *O=getUnderlyingObject(P);
+    auto *Load=dyn_cast<LoadInst>(O);
+    if(!Load) {
+        auto *Call=dyn_cast<CallBase>(O);const Function *F=Call?Call->getCalledFunction():nullptr;
+        if(!isIdentifiedObject(O)&&!(F&&(F->getName()=="load_graph_from_file"||F->getName()=="load_weighted_graph_from_file")))return false;
+        Objects.insert(O);return true;
+    }
+    const Value *Slot=getUnderlyingObject(Load->getPointerOperand());
+    if(!Slots.insert(Slot).second)return true;
+    bool Published=false;
+    for(const User *U:Slot->users()) {
+        if(auto *S=dyn_cast<StoreInst>(U)) {
+            if(S->getPointerOperand()->stripPointerCasts()!=Slot)return false;
+            if(!temporalAllocationFamilies(S->getValueOperand(),Objects,Slots,Depth+1))return false;
+            Published=true;
+        } else if(auto *C=dyn_cast<CallBase>(U)) {
+            const Function *F=C->getCalledFunction();
+            if(!F||!C->getMetadata("sgpl.frontier.infrastructure")||
+               (F->getName()!="sgpl_frontier_ensure_i32"&&F->getName()!="sgpl_frontier_reserve_i32"))return false;
+        } else if(!isa<LoadInst>(U))return false;
+    }
+    return Published;
+}
+static bool temporalSwapSeparated(const Value *A,const Value *B,const Loop *Unit) {
+    auto *LA=dyn_cast<LoadInst>(getUnderlyingObject(A));auto *LB=dyn_cast<LoadInst>(getUnderlyingObject(B));
+    if(!LA||!LB)return false;
+    const Value *SA=getUnderlyingObject(LA->getPointerOperand()),*SB=getUnderlyingObject(LB->getPointerOperand());
+    if(SA==SB||!Unit)return false;
+    const Value *Initial[2]={nullptr,nullptr};
+    const StoreInst *Publication[2]={nullptr,nullptr};
+    DominatorTree DT(*const_cast<Function *>(LA->getFunction()));
+    for(unsigned k=0;k<2;k++) {
+        const Value *Self=k?SB:SA,*Other=k?SA:SB;
+        for(const User *U:Self->users()) {
+            if(auto *S=dyn_cast<StoreInst>(U)) {
+                if(S->getPointerOperand()->stripPointerCasts()!=Self)return false;
+                if(Unit->contains(S))return false;
+                const Value *V=getUnderlyingObject(S->getValueOperand());
+                if(isa<AllocaInst>(V)) {
+                    if(Initial[k])return false;
+                    Initial[k]=V;Publication[k]=S;continue;
+                }
+                auto *Load=dyn_cast<LoadInst>(V);
+                if(!Load||getUnderlyingObject(Load->getPointerOperand())!=Other)return false;
+                const Instruction *Adjacent[2]={S->getPrevNode(),S->getNextNode()};bool Paired=false;
+                for(const Instruction *I:Adjacent)if(auto *T=dyn_cast_or_null<StoreInst>(I)) {
+                    auto *Back=dyn_cast<LoadInst>(getUnderlyingObject(T->getValueOperand()));
+                    const Instruction *First=S->comesBefore(T)?S:T;
+                    Paired|=T->getPointerOperand()->stripPointerCasts()==Other&&Back&&
+                        getUnderlyingObject(Back->getPointerOperand())==Self&&
+                        Back->getParent()==First->getParent()&&Load->getParent()==First->getParent()&&
+                        Back->comesBefore(First)&&Load->comesBefore(First);
+                }
+                if(!Paired)return false;
+            } else if(auto *C=dyn_cast<CallBase>(U)) {
+                const Function *F=C->getCalledFunction();
+                if(!F||!C->getMetadata("sgpl.frontier.infrastructure")||
+                   (F->getName()!="sgpl_frontier_ensure_i32"&&F->getName()!="sgpl_frontier_reserve_i32"))return false;
+            } else if(!isa<LoadInst>(U))return false;
+        }
+    }
+    if(!Initial[0]||!Initial[1]||Initial[0]==Initial[1])return false;
+    for(unsigned k=0;k<2;++k)for(const User *U:(k?SB:SA)->users())
+        if(auto *I=dyn_cast<Instruction>(U))if(I!=Publication[k]&&!DT.dominates(Publication[k],I))return false;
+    return true;
+}
 static bool temporalMayAlias(const TemporalAccess &A, const TemporalAccess &B,
-                             AAResults &AA, bool &Uncertain) {
+                             AAResults &AA, bool &Uncertain,const Loop *SpatialUnit=nullptr) {
     if (!A.Pointer || !B.Pointer) { Uncertain = true; return true; }
+    SmallPtrSet<const Value *,8> FA,FB,SA,SB;
+    if(temporalAllocationFamilies(A.Pointer,FA,SA)&&temporalAllocationFamilies(B.Pointer,FB,SB)&&!FA.empty()&&!FB.empty()) {
+        bool Disjoint=true;for(const Value *V:FA)Disjoint&=!FB.count(V);
+        if(Disjoint)return false;
+        if(SpatialUnit&&temporalSwapSeparated(A.Pointer,B.Pointer,SpatialUnit))return false;
+    }
     const Value *OA = temporalObject(A.Pointer), *OB = temporalObject(B.Pointer);
     auto Identified = [](const Value *V) {
         if (isIdentifiedObject(V)) return true;

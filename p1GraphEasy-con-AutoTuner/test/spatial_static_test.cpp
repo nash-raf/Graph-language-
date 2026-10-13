@@ -58,7 +58,69 @@ static SpatialDecision proof(StringRef body, bool noalias = false, bool snapshot
     proveSpatialPartition(Info, AA, DT);
     return Info.SpatialResult; // Only scalar fields and relation records are inspected.
 }
+static void swap_alias_tests() {
+    LLVMContext C;SMDiagnostic Error;
+    auto M=parseAssemblyString(R"(
+define void @swap_work() {
+entry:
+ %a=alloca [8 x i32]
+ %b=alloca [8 x i32]
+ %as=alloca ptr
+ %bs=alloca ptr
+ store ptr %a,ptr %as
+ store ptr %b,ptr %bs
+ br label %round
+round:
+ %r=phi i32 [0,%entry],[%rn,%round_latch]
+ br label %driver
+driver:
+ %u=phi i32 [0,%round],[%un,%latch]
+ %p=load ptr,ptr %as
+ %q=load ptr,ptr %bs
+ %ap=getelementptr i32,ptr %p,i32 %u
+ %bp=getelementptr i32,ptr %q,i32 %u
+ store i32 %r,ptr %bp
+ %value=load i32,ptr %ap
+ br label %latch
+latch:
+ %un=add i32 %u,1
+ %more=icmp slt i32 %un,8
+ br i1 %more,label %driver,label %round_latch
+round_latch:
+ %old_a=load ptr,ptr %as
+ %old_b=load ptr,ptr %bs
+ store ptr %old_b,ptr %as
+ store ptr %old_a,ptr %bs
+ %rn=add i32 %r,1
+ %again=icmp slt i32 %rn,3
+ br i1 %again,label %round,label %exit
+exit:
+ ret void
+})",Error,C);
+    check(bool(M),"swap alias fixture parses");if(!M)return;
+    Function &F=*M->getFunction("swap_work");DominatorTree DT(F);LoopInfo LI(DT);
+    Value *A=nullptr,*B=nullptr;BasicBlock *Driver=nullptr;
+    for(BasicBlock &BB:F)for(Instruction &I:BB) {
+        if(I.getName()=="ap"){A=&I;Driver=&BB;}if(I.getName()=="bp")B=&I;
+    }
+    Loop *Unit=LI.getLoopFor(Driver);
+    NeighborLoopInfo Occurrence;
+    Occurrence.DriverLoop=Unit;Occurrence.FrontierArrayPtr=F.getEntryBlock().getFirstNonPHI();
+    for(Instruction &I:*Driver)if(I.getName()=="value")Occurrence.UVal=&I;
+    check(spatialIndex(&*Driver->phis().begin(),Occurrence).Axis==Region::Top,
+          "array-frontier ordinals are not source vertex identities");
+    check(spatialIndex(Occurrence.UVal,Occurrence).Axis==Region::U,
+          "actual source values retain source ownership");
+    check(temporalSwapSeparated(A,B,Unit),"reciprocal swaps retain distinct arrays inside one traversal");
+    check(!temporalSwapSeparated(A,B,Unit->getParentLoop()),"swap identity cannot prove separation across rounds");
+    IRBuilder<> W(F.back().getTerminator());
+    Value *Slot=nullptr,*Allocation=nullptr;
+    for(Instruction &I:F.getEntryBlock()){if(I.getName()=="as")Slot=&I;if(I.getName()=="a")Allocation=&I;}
+    W.CreateStore(Allocation,Slot);
+    check(!temporalSwapSeparated(A,B,Unit),"republishing an initial allocation rejects the swap invariant");
+}
 int main() {
+    swap_alias_tests();
     LLVMContext Types;
     check(!foldSound(RedOp::FMinNum,Type::getDoubleTy(Types)) &&
           !foldSound(RedOp::FMaxNum,Type::getDoubleTy(Types)) &&

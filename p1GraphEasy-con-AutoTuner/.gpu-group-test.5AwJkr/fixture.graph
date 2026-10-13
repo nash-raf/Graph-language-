@@ -1,0 +1,11 @@
+graph G { directed: true; edges: file "test/gpu_group_parallel.edges"; };
+int n = numVertices(G);
+int a[n]; int b[n];
+int r = 0;
+while (r < 20) {
+  for each vertex u in G { for each neighbor v of u in G { b[u] = b[u] + v + 1; } }
+  swap(a,b);
+  r = r + 1;
+}
+for each vertex u in G { print a[u]; print b[u]; }
+print r;

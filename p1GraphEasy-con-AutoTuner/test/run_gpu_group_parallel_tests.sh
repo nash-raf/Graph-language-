@@ -51,10 +51,11 @@ mv program.o "$TMP/reference.o"
 g++ -fopenmp -no-pie "$TMP/reference.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt -o "$TMP/reference"
 SGPL_NUM_THREADS=1 "$TMP/reference" >"$TMP/reference.out" 2>"$TMP/reference.log"
 FORCE_GPU=1 FORCE_CPU=0 GRAPH_FRONTIER_STATS=1 ./GraphProgram "$TMP/fixture.graph" >"$TMP/gpu.compile" 2>&1
-grep -q 'status=inconclusive' "$TMP/gpu.compile"
+grep -q 'status=independent-family group=Source.*runtime=1 realized=1' "$TMP/gpu.compile"
+grep -q 'rounds=interfering' "$TMP/gpu.compile"
 mv program.o "$TMP/gpu.o"
 g++ -fopenmp -no-pie "$TMP/gpu.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt -o "$TMP/gpu"
 SGPL_NUM_THREADS=4 SGPL_GPU_MIN_TRIPS=0 SGPL_GPU_DEBUG=1 "$TMP/gpu" >"$TMP/output" 2>"$TMP/run.log"
 cmp "$TMP/reference.out" "$TMP/output"
-! grep -q '\[gpu-task\]' "$TMP/run.log"
-echo 'PASS inconclusive swap proof retains correct CPU execution without a device override'
+grep -q '\[gpu-task\]' "$TMP/run.log"
+echo 'PASS allocation-aware swap proof executes spatial GPU work while dependent rounds remain ordered'

@@ -315,20 +315,23 @@ static int gpu_context_buffers(sgpl_exec_ctx *c,uint32_t target,sgpl_gpu_buffer 
     if(!sgpl_gpu_prepare_spatial_records||sgpl_gpu_prepare_spatial_records(c)<0||c->spatial_snapshot_count>64) return -1;
     uint64_t n=c->gpu_vertex_count,p=c->gpu_partition_count;
     if(p>64||c->op_count>64) return -1;
-    if(c->dest_seen && !c->spatial_frontier_lanes) return -1;
+    if(c->dest_seen && !c->spatial_frontier_lanes && !c->array_append_sites) return -1;
     if(n>SIZE_MAX/4 || (n && p>SIZE_MAX/(n*4))) return -1;
 #define GPU_CTX(F,BYTES) do {if(gpu_pointer_buffer(b,nb,r,nr,target,offsetof(sgpl_exec_ctx,F),(BYTES))<0) return -1;}while(0)
     GPU_CTX(gpu_records,c->gpu_record_count?c->gpu_record_count*12:4);
     GPU_CTX(gpu_record_offsets,(p+1)*8);
+    GPU_CTX(gpu_record_sources,c->gpu_record_count?c->gpu_record_count*8:8);
+    GPU_CTX(gpu_record_work,c->gpu_record_count?c->gpu_record_count*8:8);
+    GPU_CTX(array_append_log,c->array_append_sites?(c->array_work_count?c->array_work_count:1)*c->array_append_sites*8:0);
     GPU_CTX(gpu_group_offsets,(c->gpu_group_count+1)*8);
     GPU_CTX(gpu_partition_groups,(p+1)*8);
     GPU_CTX(gpu_group_times,c->gpu_group_count*24);
     /* These are immutable layout inputs, never device outputs. */
     for(uint32_t i=0;i<*nb;++i) if(b[i].host==c->gpu_records||b[i].host==c->gpu_record_offsets||
-        b[i].host==c->gpu_group_offsets||b[i].host==c->gpu_partition_groups) b[i].flags=SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT;
+        b[i].host==c->gpu_record_sources||b[i].host==c->gpu_record_work||b[i].host==c->gpu_group_offsets||b[i].host==c->gpu_partition_groups) b[i].flags=SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT;
     GPU_CTX(membership,n);GPU_CTX(dest_seen,n*4);GPU_CTX(next_frontier,n*4);
     GPU_CTX(append_head,4);GPU_CTX(partition_base,p*c->partition_stride);
-    GPU_CTX(spatial_source_gate,n);GPU_CTX(spatial_lane_seen,n*p*4);GPU_CTX(spatial_groups_seen,n);
+    GPU_CTX(spatial_source_gate,c->array_append_sites?c->array_source_count+1:n);GPU_CTX(spatial_lane_seen,n*p*4);GPU_CTX(spatial_groups_seen,n);
     GPU_CTX(execution_error,4);GPU_CTX(spatial_snapshots,c->spatial_snapshot_count*8);
     GPU_CTX(spatial_claims,c->gpu_claim_bytes);
     if(c->gpu_private_targets) {

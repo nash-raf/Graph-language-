@@ -1885,12 +1885,30 @@ siblings inside a phase have **no** order), resource mask, instance relation,
 temporal class, owner class, witness id, discharge.  The old hard 64-relation
 cap is replaced by `RelationOverflow`, which the proof layer rejects.
 
-**§4 Temporal.**  `relateAccessTemporal` extends the oracle-exact
-`relateReadWrite` rule to the WAR/WAW projections
-(`SameRoundWrite`, `SameRoundOrdered`, `PreviousRoundWrite`, `FixedOffset`,
-`Affine`, `Unknown`) and both scopes are materialized: the within-round phase
-graph (`Preamble → Pair → Epilogue`) and the across-round graph (a carried or
-previous-round relation is a self-edge on the round node).
+**§4 Temporal.** `relateAccessTemporal` retains the legacy RAW/WAR read
+projection. WAW uses round information instead of a read-footprint pointer.
+When an enclosing loop can repeat the traversal, WAW has class `Unknown`.
+Matching provenance and phase order do not establish separation across rounds.
+A lone write site also has a self-site relation between repeated occurrences.
+Unknown relations retain unknown instance and phase metadata. Their zero offset
+is an unset offset, not a same-round proof. The legacy round graph keeps two
+symbolic endpoints for these relations. It does not infer a uniform self-edge.
+Unknown round separation also cannot erase a spatial crossing relation.
+
+Without an enclosing loop, WAW has class `SameRoundWrite` or
+`SameRoundOrdered`. `PreviousRoundWrite` requires an established round offset.
+This classifier does not infer that offset from endpoint labels. Existing
+transformation discharges remain attached to their specific relations in the
+spatial projection. They cannot discharge an unknown round relation. A spatial
+private buffer, claim frame, or snapshot does not establish isolation between
+rounds. The complete round analysis must check that storage lifetime.
+
+The complete CFG analyses `proveRounds` and `proveSourcePhases` supply the
+current temporal scheduling verdict. They check WAW, aliases, private storage,
+round indices, and phase dependencies independently of this legacy projection.
+An unknown legacy WAW relation cannot authorize concurrent rounds. A successful
+complete round proof can still authorize execution with isolated storage or
+disjoint round outputs. Run `test/run_temporal_waw_tests.sh` for this coverage.
 
 **§5 Ownership.**  `footprintHasOwner`/`relateAccessSpatial` classify every
 access as `ExactOwner` (same canonical index — the endpoint slots are memory,
@@ -1910,13 +1928,14 @@ removed only by a proof of disjointness, ownership, privatization,
 snapshotting, occurrence-preserving staging, or a valid algebraic/commutative
 transformation.  Atomicity alone never discharges anything.
 
-**§6/§9 The proof object.**  `AxisProof` carries all relations, all discharged
-and unresolved edges, the transformations, the components, the overflow/cycle
-status and the axis verdicts.  `NIS`/`NIT` are **false** whenever an edge
-survives, whenever a *unary* obligation survives (a mutating footprint no
-partition can own — the R1/R3 class, which needs no pair relation), and
-whenever the proof is inconclusive (overflow, invalid, cyclic): an inconclusive
-proof is never treated as non-interference.
+**§6/§9 The proof object.** `AxisProof` carries relations, transformation
+records, components, and analysis limits. `NIS` consumes the symbolic spatial
+family result. `NIT` consumes the realized complete temporal scope result.
+`RoundProjectionClean` describes the legacy staging graph separately. An
+unknown WAW relation makes that projection unclean. It does not override a
+successful complete round proof. Relation overflow and invalid legacy graphs
+block legacy staging. The complete temporal analysis has its own coverage
+checks. Inconclusive analysis never establishes independence.
 
 **§10 Schedule.**  `selectSchedule` consumes the proof: R8 keeps its
 implementation guard and reason; an inconclusive or unrealizable proof fails
@@ -1954,3 +1973,11 @@ runtime orders existing lifecycle units only; it never re-implements a round,
 snapshot, combine or claim.  Open item: the emitted programs still declare
 their schedule through `autograph_exec_ctx_set_dag_axes` instead of passing the
 compiler's descriptor array to these entry points.
+
+## Ordered array-frontier storage and proofs
+
+See `FRONTIER_STORAGE_AND_PROOFS.md` for compiler capacity bounds, checked growth,
+allocation-aware aliases, occurrence-private appends, and source claim frames.
+These mechanisms permit static destination partitions for the array-frontier
+loops in BFS, CC, SSSP, and k-core peeling. Remaining property dependencies stay
+within their groups. Temporal independence is evaluated separately.

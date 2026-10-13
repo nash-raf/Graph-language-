@@ -1,0 +1,29 @@
+GraphProgram: /usr/lib/llvm-20/include/llvm/Support/Casting.h:662: decltype(auto) llvm::dyn_cast(From*) [with To = CastInst; From = Value]: Assertion `detail::isPresent(Val) && "dyn_cast on a non-existent value"' failed.
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+Stack dump:
+0.	Program arguments: ./GraphProgram /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/.gpu-group-test.ZyepLI/fixture.graph
+1.	Running pass "function(ArrayFrontierStoragePass)" on module "my_module"
+2.	Running pass "ArrayFrontierStoragePass" on function "main"
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.20.1 0x000072d56de2bc7f llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 63
+1  libLLVM.so.20.1 0x000072d56de29989 llvm::sys::RunSignalHandlers() + 89
+2  libLLVM.so.20.1 0x000072d56de2c390
+3  libc.so.6       0x000072d56c645330
+4  libc.so.6       0x000072d56c69ec0c pthread_kill + 284
+5  libc.so.6       0x000072d56c64527e gsignal + 30
+6  libc.so.6       0x000072d56c6288ff abort + 223
+7  libc.so.6       0x000072d56c62881b
+8  libc.so.6       0x000072d56c63b517
+9  GraphProgram    0x00005c4b2c0f2a16
+10 GraphProgram    0x00005c4b2c14e0e4
+11 GraphProgram    0x00005c4b2c078715
+12 libLLVM.so.20.1 0x000072d56dfc47c5 llvm::PassManager<llvm::Function, llvm::AnalysisManager<llvm::Function>>::run(llvm::Function&, llvm::AnalysisManager<llvm::Function>&) + 405
+13 GraphProgram    0x00005c4b2c0788b5
+14 libLLVM.so.20.1 0x000072d56dfc89fd llvm::ModuleToFunctionPassAdaptor::run(llvm::Module&, llvm::AnalysisManager<llvm::Module>&) + 333
+15 GraphProgram    0x00005c4b2c0789b5
+16 libLLVM.so.20.1 0x000072d56dfc33e5 llvm::PassManager<llvm::Module, llvm::AnalysisManager<llvm::Module>>::run(llvm::Module&, llvm::AnalysisManager<llvm::Module>&) + 533
+17 GraphProgram    0x00005c4b2c075696
+18 GraphProgram    0x00005c4b2c070a1b
+19 libc.so.6       0x000072d56c62a1ca
+20 libc.so.6       0x000072d56c62a28b __libc_start_main + 139
+21 GraphProgram    0x00005c4b2c072ea5

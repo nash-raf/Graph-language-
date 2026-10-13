@@ -1,5 +1,10 @@
 # GPU execution for proved schedules
 
+Ordered array-frontier storage, occurrence records, private append logs, and
+their device relocation are described in `FRONTIER_STORAGE_AND_PROOFS.md`.
+Array outputs preserve order and duplicates after the device join. They do not
+use the bitmap frontier's deduplication mechanism.
+
 ## Selection
 
 The compiler uses the existing spatial and temporal results. Device lowering adds no independence proof.
@@ -9,6 +14,12 @@ Phase and spatial composition remains outside this implementation.
 Select the GPU backend with `--gpu` or `FORCE_GPU=1 FORCE_CPU=0`.
 Device capability is a separate check. Unsupported calls, missing allocation extents, or unavailable CUDA infrastructure select the CPU realization before effects.
 An inconclusive proof cannot select a concurrent GPU schedule.
+
+The AST frontier motif engine is disabled by default. Ordinary neighbor-loop
+IR reaches the spatial and temporal analyses before device lowering.
+`GRAPH_FRONTIER_REWRITE_OFF=1` explicitly selects the legacy motif path for
+comparison. That path uses `autograph_edgemap` and its CPU helpers.
+`test/frontier_gate_test.py` checks both modes for BFS, CC, k-core, and SSSP.
 
 The runtime uses the existing GPU cost function.
 `SGPL_GPU_MIN_TRIPS` controls the work threshold. Its default is 4096.

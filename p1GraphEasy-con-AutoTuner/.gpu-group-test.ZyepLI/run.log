@@ -1,0 +1,22 @@
+[gpu] buffer registered: base=0x7fff85f5bde0 bytes=260
+[gpu] pointee registered: index base=0x7fff85f5bde0 bytes=260
+[gpu] buffer registered: base=0x7fff85f5bcd0 bytes=260
+[gpu] load_module: loaded from embedded
+[gpu-transfer] upload_bytes=93637 resident_bytes=72
+[gpu-task] kernel=gpu_spatial_component_f_6 index=0 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=1 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=2 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=3 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=4 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=5 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=6 status=0
+[gpu-task] kernel=gpu_spatial_component_f_6 index=7 status=0
+[gpu-groups] groups=2049 active_lanes=288 within_batch_overlap=1 parallel=1
+[gpu-resident] host-read bytes=260
+[gpu-resident] host-read bytes=260
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=66 predicted_ns=8034.780 measured_ns=202253556 predicted_ms=0.008035 measured_ms=202.253556
+[AutoTunerProfile] total kind=Traverse predicted_ns=8034.780 measured_ns=202253556 predicted_ms=0.008035 measured_ms=202.253556 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

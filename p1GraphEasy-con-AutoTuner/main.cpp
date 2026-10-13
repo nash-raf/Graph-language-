@@ -665,12 +665,21 @@ struct PollyProbePass : public llvm::PassInfoMixin<PollyProbePass>
 // end of the optimization sequence.  GRAPH_OUTLINER_FIRST=1 forces the
 // outliner first; GRAPH_DISABLE_POLLY=1 skips Polly entirely.
 #include "gpu_host_coherence.inc"
+static void prepareFrontierStorage(llvm::Module &M) {
+        LoopAnalysisManager LAM; FunctionAnalysisManager FAM;
+        CGSCCAnalysisManager CGAM; ModuleAnalysisManager MAM;
+        PassBuilder PB; PB.registerModuleAnalyses(MAM); PB.registerFunctionAnalyses(FAM);
+        PB.registerCGSCCAnalyses(CGAM); PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM,FAM,CGAM,MAM);
+        FunctionPassManager FPM; FPM.addPass(ArrayFrontierStoragePass());
+        ModulePassManager MPM; MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+        MPM.run(M,MAM);
+}
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
-    // GRAPH_DISABLE_PDG=1 skips PDG + loop outliner so benchmarks can measure
-    // a true serial / Polly-only baseline against DOALL/DOACROSS outlining.
-    if (isTruthyEnv("GRAPH_DISABLE_PDG"))
-        return;
+    // Storage safety also applies to the unoutlined sequential reference.
+    prepareFrontierStorage(M);
+    if (isTruthyEnv("GRAPH_DISABLE_PDG")) return;
 
     // Run autotuner on user IR before PDG/outlining (which moves calls into
     // separate task functions) and before linking runtime IR modules.
@@ -1153,6 +1162,10 @@ int main(int argc, char **argv)
         MPM.run(*M, MAM);
     }
 
+
+    // Install append guards before O3 can unroll an original source loop.
+    // A second storage pass can add a bound after later canonicalization.
+    prepareFrontierStorage(*M);
 
     // Polly profitability probe: when Polly is enabled and the caller has not
     // forced an order, run Polly's SCoP DETECTION (analysis only, no codegen)

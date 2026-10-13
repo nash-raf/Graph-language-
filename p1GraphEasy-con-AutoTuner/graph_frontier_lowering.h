@@ -15,4 +15,8 @@ struct GraphFrontierLoweringPass
                                 llvm::FunctionAnalysisManager &FAM);
 };
 
+struct ArrayFrontierStoragePass : public llvm::PassInfoMixin<ArrayFrontierStoragePass> {
+    llvm::PreservedAnalyses run(llvm::Function &, llvm::FunctionAnalysisManager &);
+};
+
 #endif // GRAPH_FRONTIER_LOWERING_H

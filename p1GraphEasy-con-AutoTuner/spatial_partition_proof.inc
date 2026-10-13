@@ -125,6 +125,10 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
     P = SpatialDecision();
     P.Status = SpatialProofStatus::Inconclusive;
     bool Complete = true, HavePair = false, GatesModelled = true;
+    SmallVector<StoreInst *,4> ArraySites;
+    Info.OrderedArrayFrontier = checkedArrayAppend(Info,&ArraySites) &&
+        llvm::all_of(ArraySites,[](StoreInst *S){return S->getMetadata("sgpl.frontier.checked")!=nullptr;});
+    Info.ArrayAppendSites = Info.OrderedArrayFrontier ? ArraySites.size() : 0;
     auto Refuse = [&](StringRef Why) {
         Complete = false;
         if (P.Reason.empty()) P.Reason = Why.str();
@@ -193,14 +197,15 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
         return V == Info.UAlloca || V == Info.VAlloca;
     };
     for (BasicBlock *BB : Info.DriverLoop->blocks()) for (Instruction &I : *BB) {
-        if (temporalInstrumentation(I)) continue;
+        if (temporalInstrumentation(I) || frontierInfrastructure(I)) continue;
         if (auto *Phi = dyn_cast<PHINode>(&I)) {
             if (Phi != driverIndVar(Info.DriverLoop)) Refuse("carried SSA value has no pair-occurrence frame");
         }
         if (auto *L = dyn_cast<LoadInst>(&I)) {
             if (Structural(L->getPointerOperand())) continue;
             if (L->isVolatile() || L->isAtomic()) Refuse("observable ordered load");
-            Add(L, L->getPointerOperand(), false, Size(L->getType()));
+            Add(L, L->getPointerOperand(), false, Size(L->getType()),
+                Info.OrderedArrayFrontier && L->getPointerOperand()==Info.AppendCountPtr ? SGPL_RES_NEXT_FRONTIER : 0);
         } else if (auto *S = dyn_cast<StoreInst>(&I)) {
             if (Structural(S->getPointerOperand())) {
                 if (Info.NeighborLoop->contains(S)) Refuse("pair work changes an endpoint binding");
@@ -227,7 +232,10 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
             if (S->isVolatile() || S->isAtomic()) Refuse("observable ordered store");
             /* The array-frontier envelope rewrites append positions too, but
              * their order is not proved by the current set-frontier contract. */
-            Add(S, S->getPointerOperand(), true, Size(S->getValueOperand()->getType()));
+            bool Append = Info.OrderedArrayFrontier &&
+                (S->getPointerOperand()==Info.AppendCountPtr || llvm::is_contained(ArraySites,S));
+            Add(S, S->getPointerOperand(), true, Size(S->getValueOperand()->getType()),
+                Append ? SGPL_RES_NEXT_FRONTIER : 0);
         } else if (auto *C = dyn_cast<AtomicCmpXchgInst>(&I)) {
             Add(C, C->getPointerOperand(), false, Size(C->getCompareOperand()->getType()));
             Add(C, C->getPointerOperand(), true, Size(C->getCompareOperand()->getType()));
@@ -304,7 +312,8 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
      * their old value is used solely by the checked guard. Nested claims
      * require a control-flow frame which this realization does not provide. */
     auto Claims = perSourceClaims(Info);
-    bool ClaimStaged = !Claims.empty() && Claims.size() == 1 && !Info.FrontierArrayPtr;
+    bool ClaimStaged = !Claims.empty() && Claims.size() == 1 &&
+        (!Info.FrontierArrayPtr || Info.OrderedArrayFrontier);
     SmallVector<unsigned, 4> ClaimSites;
     if (ClaimStaged) {
         const Effect *Claim = Claims.front();
@@ -312,6 +321,7 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
         auto *Guard = Store ? guardICmpForStore(Store) : nullptr;
         ClaimStaged &= Store && Guard && sourcePhaseFor(Info, Store) == PhaseSegment::Preamble;
         for (const auto &A : P.Accesses) if (A.Base == Claim->Base && !A.Layout.empty()) {
+            if(!A.Write && A.Phase==PhaseSegment::Pair && A.Snapshot>=0) continue;
             if (A.Phase != PhaseSegment::Preamble || A.Index.Axis != Region::U ||
                 !A.Index.Injective || A.Index.Scale != 1 || A.Index.Offset != 0) ClaimStaged = false;
             if (A.Write) ClaimStaged &= A.Origin == Store;
@@ -343,8 +353,12 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
                 Found->Premises = "source reset seed; ordered complete row; once-only consume; last source output";
                 Found->Replacement = "source-frame-init -> source-pairs-in-order -> source-consume -> join";
             } else {
-                Found->Premises = "set-frontier envelope; unobserved add result; private deduplication/append lanes; no live membership observer";
-                Found->Replacement = "membership/seen-init -> pair-work -> join -> lane-merge -> frontier-progress";
+                Found->Premises = Info.OrderedArrayFrontier
+                    ? "checked array append sites; counter has no intermediate observer; private occurrence slots; duplicates and order retained"
+                    : "set-frontier envelope; unobserved add result; private deduplication/append lanes; no live membership observer";
+                Found->Replacement = Info.OrderedArrayFrontier
+                    ? "symbolic-capacity-reserve -> private-occurrence-init -> pair-work -> join -> ordered-compaction -> frontier-progress"
+                    : "membership/seen-init -> pair-work -> join -> lane-merge -> frontier-progress";
             }
         }
         Found->Removes.push_back(Relation);
@@ -371,7 +385,7 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
                 };
                 TA.Pointer = BasePointer(A); TB.Pointer = BasePointer(B);
                 TA.Origin = nullptr; TB.Origin = nullptr;
-                if (!temporalMayAlias(TA, TB, AA, Uncertain)) return;
+                if (!temporalMayAlias(TA, TB, AA, Uncertain,Info.DriverLoop)) return;
             }
         }
         if (!A.Resource && A.Base == B.Base && A.FixedOffset && B.FixedOffset &&
@@ -413,7 +427,7 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
                    llvm::is_contained(ClaimSites, BID)) {
             R.Survives = false; R.RemovedBy = DischargeKind::ClaimStaging;
         } else if ((A.Resource == SGPL_RES_NEXT_FRONTIER || A.Resource == SGPL_RES_DEST_SEEN) &&
-                   A.Write && B.Write) {
+                   ((A.Write && B.Write) || (Info.OrderedArrayFrontier && A.Resource==SGPL_RES_NEXT_FRONTIER))) {
             R.Survives = false; R.RemovedBy = DischargeKind::FrontierPrivatization;
         }
         if (!R.Survives) R.RemovedCondition = "all covered collisions after storage/version replacement";
@@ -476,6 +490,8 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
     P.CleanCutGroup = Destination ? SpatialGroup::Destination : SpatialGroup::Source;
     P.Reason = "every surviving relation stays within the symbolic group";
     P.RuntimeRealizable = legacySourceLifecycleAvailable(Info);
+    if(Info.OrderedArrayFrontier) P.RuntimeRealizable=P.RuntimeRealizable && !Info.AccConsumeStore &&
+        !Info.AccResetStore && !Info.ReducePtr && Info.DriverLoop->getLoopPreheader();
     auto *Phi = dyn_cast_or_null<PHINode>(driverIndVar(Info.DriverLoop));
     auto *Header = dyn_cast<BranchInst>(Info.DriverLoop->getHeader()->getTerminator());
     auto *Compare = Header ? dyn_cast<ICmpInst>(Header->getCondition()) : nullptr;
@@ -527,6 +543,7 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
         }
         Domain = Zero && Increment && EndpointIdentity && (RankSource ? SetBound : GraphBound);
     }
+    if(Info.OrderedArrayFrontier) Domain=arraySourceDomain(Info);
     if (!Domain) {
         P.RuntimeRealizable = false;
         P.RuntimeReason = "source domain has no complete ascending CleanCut coverage proof";
@@ -591,7 +608,7 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
             P.RuntimeReason = "snapshot allocation extent is unavailable before dispatch";
         }
     }
-    if (Info.FrontierArrayPtr) {
+    if (Info.FrontierArrayPtr && !Info.OrderedArrayFrontier) {
         P.RuntimeRealizable = false;
         P.RuntimeReason = "array source order and multiplicity have no CleanCut coverage proof";
     }
@@ -643,7 +660,13 @@ static Function *emitSpatialSourceGate(const NeighborLoopInfo &Info, Module *Mod
         if (!Original || !Original->getType()->isIntegerTy()) return;
         Map[Original] = B.CreateZExtOrTrunc(U, Original->getType());
     };
-    Seed(Info.UVal); Seed(driverIndVar(Info.DriverLoop));
+    Seed(Info.UVal);
+    Value *Ordinal=U;
+    if(Info.OrderedArrayFrontier) {
+        Ordinal=B.CreateTrunc(B.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_occurrence",
+            FunctionType::get(B.getInt64Ty(),{Ptr},false)),{Runtime}),I32);
+        if(Value *IV=driverIndVar(Info.DriverLoop))Map[IV]=B.CreateZExtOrTrunc(Ordinal,IV->getType());
+    } else Seed(driverIndVar(Info.DriverLoop));
     for (Value *V = Info.UVal; V && isa<CastInst>(V);) {
         V = cast<CastInst>(V)->getOperand(0); Seed(V);
     }
@@ -729,7 +752,7 @@ static Function *emitSpatialSourceGate(const NeighborLoopInfo &Info, Module *Mod
             FunctionType::get(Ptr, {Ptr}, false));
         Value *Array = B.CreateCall(Get, {Runtime});
         for (unsigned I = 0; I < Claims.size(); ++I) if (claimGatesLoop(Info, Claims[I])) {
-            Value *Index = B.CreateAdd(B.CreateMul(U, B.getInt32(Claims.size())), B.getInt32(I));
+            Value *Index = B.CreateAdd(B.CreateMul(Ordinal, B.getInt32(Claims.size())), B.getInt32(I));
             Value *Won = B.CreateLoad(I32, B.CreateGEP(I32, Array, Index));
             BasicBlock *Next = BasicBlock::Create(Ctx, "claim.passed", Fn);
             B.CreateCondBr(B.CreateICmpNE(Won, B.getInt32(0)), Next, Denied);

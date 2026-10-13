@@ -496,7 +496,8 @@ enum class PhaseRelation : uint8_t
 {
     SamePhase = 0,
     PhaseBefore,
-    PhaseAcross
+    PhaseAcross,
+    Unknown
 };
 
 /* Symbolic relation over enclosing loop instances (V1 scaffold: the DAG
@@ -676,7 +677,7 @@ struct ProofEdge
     OwnerClass Spatial = OwnerClass::UnknownOwner;
     bool Survives = false;        /* blocks a clean-axis claim */
     bool CrossPartition = false;  /* may cross a partition boundary */
-    bool CrossRound = false;      /* crosses a round boundary */
+    bool CrossRound = false;      /* crosses or may cross a round boundary */
     bool Realizable = false;      /* a realization order exists for it */
     bool Structural = false;      /* phase structure, not a conflict */
 };
@@ -994,6 +995,8 @@ struct NeighborLoopInfo
      * counter is not a reduction; the append is chained through the runtime
      * frontier envelope (dest_seen/next_frontier) — see emit's frontier path. */
     bool HasFrontierAppend = false;
+    bool OrderedArrayFrontier = false; /* checked occurrence-preserving append contract */
+    unsigned ArrayAppendSites = 0;
     Value *AppendArrayPtr = nullptr;  /* base slot of next_frontier */
     Value *AppendCountPtr = nullptr;  /* scalar slot of next_size */
     Value *FrontierArrayPtr = nullptr;/* base slot of frontier (driver source) */
@@ -1058,6 +1061,7 @@ static bool isArrayElementLoad(const LoadInst *LI)
 }
 
 namespace { static const char *spatialGroupName(SpatialGroup); }
+static Value *frontierCapacitySlot(Value *Slot);
 static Function *emitSpatialSourceGate(const NeighborLoopInfo &Info, Module *Mod,
                                         LLVMContext &Ctx);
 
@@ -2718,34 +2722,34 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
      * final; deriving it here would see none of them. */
 }
 
-/* §4.2 relation-level τ: which round and phase the two accesses belong to.
- * The decisive condition stays the WRITE's phase and the round domain (the
- * oracle-exact rule of relateReadWrite), extended to the WAR and WAW
- * projections: a same-round pair is SameRoundRead/SameRoundWrite, a
- * cross-endpoint pair-phase pair is carried to the next round
- * (PreviousRoundRead/PreviousRoundWrite under a frontier domain, Carried
- * otherwise), and a phase-separated pair stays inside the round as
- * SameRoundOrdered.  Read-only pairs never reach this function. */
-static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDomain)
+/* RAW/WAR retain the legacy read projection. WAW has no read endpoint.
+ * Neither matching provenance nor different phases proves separation across
+ * repeated rounds. Without a complete round proof, retain an unknown relation.
+ * A traversal with no enclosing loop has only same-round write relations.
+ * PreviousRoundWrite requires an established offset, not an endpoint heuristic. */
+static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDomain,
+                                     bool MayRepeatRounds)
 {
+    if (R.Kind == AccessRelKind::WAW) {
+        if (MayRepeatRounds) return Temporal::Unknown;
+        return R.SourceSegment != R.SinkSegment ? Temporal::SameRoundOrdered
+                                                : Temporal::SameRoundWrite;
+    }
     const bool SrcWrites = R.Kind != AccessRelKind::WAR;
     const Footprint *WFP = SrcWrites ? R.SourceFootprint : R.SinkFootprint;
     const Footprint *RFP = R.Kind == AccessRelKind::WAR ? R.SourceFootprint
                            : R.Kind == AccessRelKind::RAW ? R.SinkFootprint
                                                           : nullptr;
     if (R.SourceRegion == R.SinkRegion)
-        return R.Kind == AccessRelKind::WAW ? Temporal::SameRoundWrite
-                                            : Temporal::SameRoundRead;
+        return Temporal::SameRoundRead;
     if (RFP && WFP &&
         ((RFP->Reg == Region::U && WFP->Reg == Region::V) ||
          (RFP->Reg == Region::V && WFP->Reg == Region::U)))
     {
         if (WFP->Seg != PhaseSegment::Pair)
-            return R.Kind == AccessRelKind::WAW ? Temporal::SameRoundWrite
-                                                : Temporal::SameRoundRead;
+            return Temporal::SameRoundRead;
         if (RoundDomain == DomainKind::Frontier)
-            return R.Kind == AccessRelKind::WAW ? Temporal::PreviousRoundWrite
-                                                : Temporal::PreviousRoundRead;
+            return Temporal::PreviousRoundRead;
         return Temporal::Carried;
     }
     if (R.SourceSegment != R.SinkSegment)
@@ -2890,11 +2894,15 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
         const int V = Cap ? atoi(Cap) : 0;
         return V > 0 ? (size_t)V : (size_t)4096;
     }();
+    const bool MayRepeatRounds = !Info.DriverLoop || Info.DriverLoop->getParentLoop();
     for (size_t i = 0; i < Items.size(); ++i)
     {
         const Footprint &A = *Items[i].F;
-        for (size_t j = i + 1; j < Items.size(); ++j)
+        for (size_t j = i; j < Items.size(); ++j)
         {
+            /* One write site can conflict with itself in another round.
+             * This is not instruction order within a single occurrence. */
+            if (i == j && (!MayRepeatRounds || !WritesOf(A))) continue;
             const Footprint &B = *Items[j].F;
             const bool SameBase = A.Base && B.Base && A.Base == B.Base;
             const uint32_t Shared = SharedResources(A, B);
@@ -2949,7 +2957,7 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
             R.ResourceMask = Shared;
             const bool OrderedPair = Items[i].E != Items[j].E &&
                                      R.SourceSegment != R.SinkSegment;
-            const bool InternalOrder = Items[i].E != nullptr &&
+            const bool InternalOrder = i != j && Items[i].E != nullptr &&
                                        Items[i].E == Items[j].E;
             if (OrderedPair || InternalOrder)
             {
@@ -3015,18 +3023,20 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
                 if (SameOp && SameElement && (!OtherWrites || OtherPartial))
                     R.DischargedBy = DischargeKind::AlgebraicFold;
             }
-            R.TemporalClass = relateAccessTemporal(R, Info.Expr.RoundDomain);
+            R.TemporalClass = relateAccessTemporal(R, Info.Expr.RoundDomain, MayRepeatRounds);
             R.RoundOffset = (R.TemporalClass == Temporal::PreviousRoundRead ||
                              R.TemporalClass == Temporal::PreviousRoundWrite ||
                              R.TemporalClass == Temporal::Carried)
                                 ? 1
                                 : 0;
-            R.PhaseRel = R.SourceSegment == R.SinkSegment
+            R.PhaseRel = R.TemporalClass == Temporal::Unknown ? PhaseRelation::Unknown
+                         : R.SourceSegment == R.SinkSegment
                              ? (R.RoundOffset ? PhaseRelation::PhaseAcross
                                               : PhaseRelation::SamePhase)
                              : PhaseRelation::PhaseBefore;
             R.Spatial = relateAccessSpatial(Info, R);
-            R.Relation.K = R.RoundOffset ? InstanceRelation::FixedOffset
+            R.Relation.K = R.TemporalClass == Temporal::Unknown ? InstanceRelation::Unknown
+                         : R.RoundOffset ? InstanceRelation::FixedOffset
                                          : InstanceRelation::SameInstance;
             R.Relation.Offset = R.RoundOffset;
             if (!R.Base)
@@ -3720,7 +3730,8 @@ static bool isOwnedEndpointIndex(Value *Index, Region Owned,
     Value *USrc = Info.UVal;
     while (USrc && isa<CastInst>(USrc))
         USrc = cast<CastInst>(USrc)->getOperand(0);
-    Value *Seeds[3] = {driverIndVar(Info.DriverLoop), USrc, Info.UVal};
+    /* An array-frontier induction value is a source ordinal, not a vertex. */
+    Value *Seeds[3] = {Info.FrontierArrayPtr ? nullptr : driverIndVar(Info.DriverLoop), USrc, Info.UVal};
     for (Value *S : Seeds)
         if (S && sameAddressValue(I, Peel(S), 0))
             return true;
@@ -4381,6 +4392,19 @@ static void commitEnvelope(IRBuilder<> &EB, const NeighborLoopInfo &Info,
 
 static void deactivateDriver(const NeighborLoopInfo &Info)
 {
+    if(Info.OrderedArrayFrontier) {
+        auto *IV=dyn_cast_or_null<PHINode>(driverIndVar(Info.DriverLoop));
+        if(IV) {
+            SmallVector<Instruction *,8> Outputs;
+            for(User *U:IV->users())if(auto *I=dyn_cast<Instruction>(U))
+                if(!Info.DriverLoop->contains(I))Outputs.push_back(I);
+            if(!Outputs.empty()) {
+                IRBuilder<> B(Info.DriverLoop->getLoopPreheader()->getTerminator());
+                Value *Final=B.CreateIntCast(B.CreateLoad(B.getInt32Ty(),Info.FrontierSizePtr),IV->getType(),true);
+                for(Instruction *I:Outputs)I->replaceUsesOfWith(IV,Final);
+            }
+        }
+    }
     BasicBlock *Header = Info.DriverLoop->getHeader();
     if (Header)
         if (auto *HB = dyn_cast<BranchInst>(Header->getTerminator()))
@@ -4493,7 +4517,7 @@ buildClaimState(IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod,
     SmallVector<const Effect *, 2> Claims = perSourceClaims(Info);
     if (Claims.empty())
         return CBs;
-    Value *N = EB.CreateLoad(I64, GraphArg, "graph_n");
+    Value *N = Info.OrderedArrayFrontier?EB.CreateZExt(EB.CreateLoad(I32,Info.FrontierSizePtr),I64):EB.CreateLoad(I64, GraphArg, "graph_n");
     const unsigned K = (unsigned)Claims.size();
     Value *NElems = EB.CreateMul(N, ConstantInt::get(I64, (int64_t)K));
     AllocaInst *ClaimRes = EB.CreateAlloca(I32, NElems, "claim_result");
@@ -4542,8 +4566,10 @@ buildClaimState(IRBuilder<> &EB, const NeighborLoopInfo &Info, Module *Mod,
         TBI.CreateStore(const_cast<Value *>(Claim->ClaimTransition), EP);
         TBI.CreateBr(Cont);
         IRBuilder<> KBI(Cont);
+        Value *Ordinal=Info.OrderedArrayFrontier?KBI.CreateTrunc(KBI.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_occurrence",
+            FunctionType::get(I64,{I8P},false)),{CB->getArg(1)}),I32):U;
         Value *Idx = KBI.CreateAdd(
-            KBI.CreateMul(U, ConstantInt::get(I32, (int32_t)K)),
+            KBI.CreateMul(Ordinal, ConstantInt::get(I32, (int32_t)K)),
             ConstantInt::get(I32, (int32_t)j), "claim_slot");
         KBI.CreateStore(KBI.CreateZExt(Won, I32),
                         KBI.CreateGEP(I32, ArrI32, Idx));
@@ -4774,7 +4800,8 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
     if (Info.UAlloca)
         Map[Info.UAlloca] = USlot;
     if (Value *IndVar = driverIndVar(Info.DriverLoop))
-        Map[IndVar] = U64Src;
+        Map[IndVar] = Info.OrderedArrayFrontier?WB.CreateIntCast(WB.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_occurrence",
+            FunctionType::get(I64,{I8P},false)),{WF->getArg(1)}),IndVar->getType(),false):WB.CreateIntCast(U64Src,IndVar->getType(),false);
     if (Phase == PairPhase::All && Info.ReducePtr)
         Map[Info.ReducePtr] = RedPartial;
 
@@ -4919,6 +4946,7 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
     {
         if (!UseEnvelope)
             return false;
+        if(I.getMetadata("sgpl.frontier.append.guard")) return true;
         if (auto *CI = dyn_cast<CallInst>(&I))
             if (Function *CF = CI->getCalledFunction())
                 if (CF->getName() == "roaring_bitmap_add")
@@ -5108,7 +5136,7 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
             {
                 if (I.isTerminator())
                     break;
-                if (!isAppendElide(I))
+                if (!isAppendElide(I) || I.getMetadata("sgpl.frontier.append.guard"))
                     continue;
                 Value *Vtx = nullptr;
                 if (auto *CI = dyn_cast<CallInst>(&I))
@@ -5246,13 +5274,15 @@ static Function *emitPairWorkFn(const NeighborLoopInfo &Info, PairPhase Phase,
             }
             Value *ArrI32 = WB.CreateBitCast(Arr, PointerType::get(I32, 0));
             const unsigned K = (unsigned)Claims.size();
+            Value *Ordinal=Info.OrderedArrayFrontier?WB.CreateTrunc(WB.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_occurrence",
+                FunctionType::get(I64,{I8P},false)),{WF->getArg(1)}),I32):ArgU;
             Value *Won = nullptr;
             for (unsigned j = 0; j < K; ++j)
             {
                 if (!claimGatesLoop(Info, Claims[j]))
                     continue;
                 Value *Idx = WB.CreateAdd(
-                    WB.CreateMul(ArgU, ConstantInt::get(I32, (int32_t)K)),
+                    WB.CreateMul(Ordinal, ConstantInt::get(I32, (int32_t)K)),
                     ConstantInt::get(I32, (int32_t)j), "claim_slot");
                 Value *Res = WB.CreateLoad(I32, WB.CreateGEP(I32, ArrI32, Idx),
                                            "claim_won");
@@ -7096,8 +7126,11 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         E.WitnessId = R.WitnessId;
         E.TemporalClass = R.TemporalClass;
         E.Spatial = R.Spatial;
-        E.CrossRound = R.RoundOffset != 0 || R.TemporalClass == Temporal::Carried;
-        /* A cross-round relation orders the round sequence (temporal axis); it
+        const bool UnknownRound = R.TemporalClass == Temporal::Unknown;
+        E.CrossRound = UnknownRound || R.RoundOffset != 0 || R.TemporalClass == Temporal::Carried;
+        /* An unknown relation remains in both projections when ownership can
+         * cross. A zero offset does not establish a same-round relation.
+         * A known cross-round relation orders the round sequence (temporal axis); it
          * never blocks the spatial axis, because inside one round its two
          * accesses are separated by the phase order.  The spatial crossing test
          * therefore only sees same-round relations (R4 = the carried read is
@@ -7124,7 +7157,7 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
          * op orders it).  A data-derived, unknown-owner or unwired-resource
          * conflict has none and forces serial execution. */
         E.Realizable = !Discharged &&
-                       (R.Spatial == OwnerClass::CrossOwner || E.CrossRound ||
+                       (R.Spatial == OwnerClass::CrossOwner || (!UnknownRound && E.CrossRound) ||
                         ClaimOp);
         E.Survives = !Discharged; /* per-graph masks are set on the copies */
         if (R.SourceSegment != R.SinkSegment && !R.SourcedFromOrder &&
@@ -7136,7 +7169,21 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         ProofEdge RE = E;
         RE.From = 1;
         RE.To = 1;
-        RE.Survives = !Discharged && E.CrossRound;
+        if (UnknownRound) {
+            /* Unknown offsets do not establish a uniform folded self-edge.
+             * Keep two distinct symbolic round endpoints instead. */
+            if (Round.Nodes.size() == 1) {
+                ProofNode Other = Round.Nodes.front();
+                Other.Id = 2;
+                Round.Nodes.push_back(Other);
+            }
+            RE.To = 2;
+            RE.Realizable = false;
+        }
+        /* A legacy spatial discharge does not establish its lifetime across
+         * rounds. Only the complete round proof can resolve this uncertainty. */
+        RE.Survives = UnknownRound || (!Discharged && E.CrossRound);
+        if (UnknownRound) RE.DischargedBy = DischargeKind::None;
         Round.Edges.push_back(RE);
         ProofEdge SE = E;
         /* The endpoint nodes must exist even when a footprint has no Base (a
@@ -8243,7 +8290,8 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         WantFt ? Env.Membership : Null /* membership */,
         WantEnvelope ? Env.SeenArg : Null /* dest_seen */,
         WantEnvelope ? Env.NextArg : Null /* next_frontier */,
-        ConstantInt::get(I32, 0) /* initial_next_size: appends start at 0 */,
+        Info.OrderedArrayFrontier ? static_cast<Value *>(EB.CreateLoad(I32,Info.AppendCountPtr)) :
+            ConstantInt::get(I32, 0) /* set frontiers start at 0 */,
         HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
         ConstantInt::get(I32, NOps), ConstantInt::get(I32, StepId)};
     Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
@@ -8254,7 +8302,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         auto *ST=ArrayType::get(I64,Sizes.size());
         auto *SG=new GlobalVariable(*Mod,ST,true,GlobalValue::PrivateLinkage,ConstantArray::get(ST,Sizes),"sgpl.gpu.private.sizes");
         Value *ClaimBytes=EB.getInt64(0);
-        if(FrameClaims) ClaimBytes=EB.CreateMul(EB.CreateLoad(I64,GraphArg),EB.getInt64(4*perSourceClaims(Info).size()));
+        if(FrameClaims) ClaimBytes=EB.CreateMul(Info.OrderedArrayFrontier?EB.CreateZExt(EB.CreateLoad(I32,Info.FrontierSizePtr),I64):EB.CreateLoad(I64,GraphArg),EB.getInt64(4*perSourceClaims(Info).size()));
         auto Storage=Mod->getOrInsertFunction("autograph_exec_ctx_gpu_storage",FunctionType::get(Type::getVoidTy(Ctx),{I8P,I32,I32,I8P,I8P,I64},false));
         EB.CreateCall(Storage,{ExecCtx,EB.getInt32(Info.Slots.size()),EB.getInt32(Info.PrivArrays.size()),IsPriv?OpState:Null,SG,ClaimBytes});
     }
@@ -8281,6 +8329,12 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         if (Info.CombinedStage && WantFt)
             EB.CreateCall(Require, {EB.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_reserve_frontier",
                 FunctionType::get(I32, {I8P, I32, I32}, false)), {ExecCtx, EB.getInt32(1), EB.getInt32(WantEnvelope)})});
+        if(Info.OrderedArrayFrontier) {
+            auto BindArray=Mod->getOrInsertFunction("autograph_exec_ctx_bind_array_frontier",
+                FunctionType::get(I32,{I8P,I8P,I32,I8P,I8P,I32},false));
+            EB.CreateCall(Require,{EB.CreateCall(BindArray,{ExecCtx,EB.CreateLoad(I8P,Info.FrontierArrayPtr),
+                EB.CreateLoad(I32,Info.FrontierSizePtr),Info.AppendArrayPtr,frontierCapacitySlot(Info.AppendArrayPtr),EB.getInt32(Info.ArrayAppendSites)})});
+        }
         EB.CreateCall(Require, {EB.CreateCall(Prepare, {ExecCtx,
             ConstantInt::get(I32, (int)Info.SpatialResult.Group),
             ConstantInt::get(I32, (int)Info.SpatialResult.CleanCutGroup),
@@ -8747,6 +8801,7 @@ static bool provesModelable(Loop *L, std::string &reason)
             /* 3. Calls must be runtime helpers whose effects the rewrite
              * models.  Anything indirect or unrecognised is opaque: it could
              * touch any state the engine partitions, so refuse. */
+            if(I.getMetadata("sgpl.frontier.infrastructure")) continue;
             const auto *CI = dyn_cast<CallInst>(&I);
             if (!CI)
                 continue;
@@ -8771,6 +8826,7 @@ static bool provesModelable(Loop *L, std::string &reason)
     return true;
 }
 
+#include "frontier_storage_lowering.inc"
 #include "temporal_scope_lowering.inc"
 #include "spatial_partition_proof.inc"
 
@@ -8788,6 +8844,19 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
     auto &LI = FAM.getResult<LoopAnalysis>(F);
     auto &AA = FAM.getResult<AAManager>(F);
     auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    /* Freeze every candidate before emission creates device capture tables or
+     * changes sibling loops. Backend infrastructure is not a proof input. */
+    struct FrozenSpatial { SpatialDecision Result; bool Array; unsigned Sites; };
+    DenseMap<Loop *,FrozenSpatial> OriginalSpatial;
+    for(Loop *L:LI.getLoopsInPreorder()) {
+        NeighborLoopInfo Original;
+        if(!analyzeNeighborLoop(L,Original))continue;
+        bool Private=privLayout(Original);
+        if(!Private){Original.Slots.clear();Original.PrivArrays.clear();}
+        Original.UsePrivLayout=Private&&privLayoutNeeded(Original);
+        proveSpatialPartition(Original,AA,DT);
+        OriginalSpatial[L]={Original.SpatialResult,Original.OrderedArrayFrontier,Original.ArrayAppendSites};
+    }
     SmallPtrSet<Loop *, 16> TemporalOwned;
     for (Loop *L : LI.getLoopsInPreorder())
     {
@@ -8819,7 +8888,11 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         const bool Supported =
             IsIter && supportedByAlgebra(Info, S, Priv, SemReason);
         if (IsIter) {
-            proveSpatialPartition(Info, AA, DT);
+            auto Frozen=OriginalSpatial.find(L);
+            if(Frozen==OriginalSpatial.end())report_fatal_error("missing original spatial proof input");
+            Info.SpatialResult=Frozen->second.Result;
+            Info.OrderedArrayFrontier=Frozen->second.Array;
+            Info.ArrayAppendSites=Frozen->second.Sites;
             finalizeProofInputs(Info);
             spatialPrint(Info);
         }
@@ -8854,7 +8927,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             finalizeProofInputs(Info);
             buildTemplates(Info);
             Schedule = selectSchedule(Info);
-            if (!legacySourceLifecycleAvailable(Info))
+            if (!legacySourceLifecycleAvailable(Info) && !Info.SpatialResult.RuntimeRealizable)
             {
                 Schedule.Kind = ScheduleKind::Serial;
                 Schedule.ImplementationFailure = true;

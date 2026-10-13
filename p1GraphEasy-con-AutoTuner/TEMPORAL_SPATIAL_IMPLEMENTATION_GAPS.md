@@ -10,6 +10,44 @@ This record covers the gaps discussed after implementation of combined round and
 It also records the remaining combined-emission guards and related scope limits visible in the current code.
 It is not a complete audit of the compiler.
 
+## Frontier motif gate correction and benchmark coverage
+
+The AST frontier dispatch gate in `IRGenVisitor::visitWhile` was inverted.
+It selected `autograph_edgemap` when `GRAPH_FRONTIER_REWRITE_OFF` was absent.
+The corrected default emits ordinary loop IR for the effect system.
+Setting `GRAPH_FRONTIER_REWRITE_OFF=1` restores the legacy comparison path.
+The gate regression checks both modes for BFS, CC, k-core, and SSSP.
+
+Production compilation of the supplied algorithm sources reaches spatial and
+temporal analysis. A later compiler storage and proof fix now accepts destination
+partitions for the main BFS, CC, SSSP, and k-core peeling loops. It validates
+allocation families, reciprocal pointer swaps within a traversal, ordered
+array-frontier privatization, and source claim frames. Degree counting and
+PageRank contributions retain their accepted schedules. These results use
+ordinary production analysis, with no proof override.
+
+The new benchmark record is
+`D:\sgpl\graptor-comparison-20261012\effect-system-rerun-20261012`.
+It includes fresh CPU, GPU-selected, sequential, and Graptor runs.
+Earlier frontier benchmarks selected the legacy motif path.
+
+The supplied CC program had insufficient frontier capacity on the
+biological and Facebook datasets. Its arrays contain `n` entries, but an
+iteration can append a destination repeatedly. Plain sequential execution
+fails the same independent references. An isolated copy with larger buffers
+passes and records peak next-frontier sizes greater than `n`.
+The historical benchmark retains the supplied sources and marks those results
+invalid. The compiler now prepares capacity from the traversal bound and keeps
+checked growth with copying as a fallback. The new validation record is
+`D:\sgpl\graptor-comparison-20261012\frontier-storage-proof-20261012`.
+See `FRONTIER_STORAGE_AND_PROOFS.md` for the capacity and transformation contracts.
+The supplied algorithm sources are unchanged.
+
+BFS, CC, and k-core have device paths for these accepted partitions. SSSP's
+`graph_get_edge_weight` call remains a device capability limit; its accepted
+spatial schedule selects CPU execution before effects. Bitmap round analysis,
+unsupported combined outlining, and other deferred limits below remain.
+
 The combined schedule is `RoundSpatialDag`, reported as `round-spatial-dag`.
 It consumes the existing round proof and spatial partition witness.
 Its CPU runtime executes round setup, independent CleanCut batches, and round finalization through one shared DAG.

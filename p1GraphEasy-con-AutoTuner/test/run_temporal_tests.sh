@@ -13,11 +13,11 @@ g++ -O2 -c graph_runtime.cpp -o "$TMP/graph_runtime.o"
 gcc -O2 -std=gnu11 -pthread -iquote . -c test/temporal_generated_probe.c -o "$TMP/probe.o"
 OBJECTS=("$TMP"/*.o)
 fixtures=(temporal_independent temporal_pb_q temporal_p_bq temporal_connected
-          temporal_empty temporal_source_order temporal_claim temporal_rounds temporal_round_one temporal_guarded temporal_round_carried)
-expected=('414' '666' '360' '954' '1' $'324\n36\n0' '396' $'4192\n8' $'524\n1' '234' $'1137\n3')
+          temporal_empty temporal_source_order temporal_claim temporal_rounds temporal_round_one temporal_guarded temporal_round_carried temporal_round_waw)
+expected=('414' '666' '360' '954' '1' $'324\n36\n0' '396' $'4192\n8' $'524\n1' '234' $'1137\n3' $'36\n3')
 for i in "${!fixtures[@]}"; do
   fixture="${fixtures[i]}"
-  FORCE_CPU=1 GRAPH_FRONTIER_STATS=1 SGPL_WITNESS_DUMP=1 SGPL_FRONTIER_STRICT=1 \
+  FORCE_CPU=1 GRAPH_FRONTIER_STATS=1 GRAPH_FRONTIER_GRAPHS=1 SGPL_WITNESS_DUMP=1 SGPL_FRONTIER_STRICT=1 \
     ./GraphProgram "test/$fixture.graph" > "$TMP/$fixture.compile" 2>&1
   mv program.o "$TMP/$fixture.o"
   g++ -fopenmp -no-pie "$TMP/$fixture.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt \
@@ -50,6 +50,10 @@ for i in "${!fixtures[@]}"; do
     temporal_round_carried)
       grep -q 'scope=SourcePhase rounds=interfering phases=independent' "$TMP/$fixture.compile"
       EXTRA=(SGPL_TEST_DISPATCHES=108) ;;
+    temporal_round_waw)
+      grep -Eq 'scope=None rounds=(interfering|inconclusive)' "$TMP/$fixture.compile"
+      ! grep -q 'scope=Round' "$TMP/$fixture.compile"
+      grep -q 'temporal=Unknown' "$TMP/$fixture.compile" ;;
     temporal_p_bq)
       grep -q 'separate components members=0,1,1,' "$TMP/$fixture.compile"
       EXTRA=(SGPL_TEST_DISPATCHES=36) ;;

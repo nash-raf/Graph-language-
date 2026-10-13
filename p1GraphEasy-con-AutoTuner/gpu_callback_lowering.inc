@@ -58,6 +58,13 @@ static Function *gpuSpatialComponent(Module *M,Function *Pair,
     Value *At=B.CreateMul(Index,B.getInt64(3));Value *U=B.CreateLoad(I32,B.CreateGEP(I32,Records,At));
     Value *V=B.CreateLoad(I32,B.CreateGEP(I32,Records,B.CreateAdd(At,B.getInt64(1))));
     Value *Kind=B.CreateLoad(I32,B.CreateGEP(I32,Records,B.CreateAdd(At,B.getInt64(2))));
+    BasicBlock *OrdinalRead=BasicBlock::Create(C,"array.occurrence",F),*OrdinalDone=BasicBlock::Create(C,"occurrence.done",F);
+    B.CreateCondBr(B.CreateICmpNE(Load(I32,offsetof(sgpl_exec_ctx,array_append_sites)),B.getInt32(0)),OrdinalRead,OrdinalDone);
+    B.SetInsertPoint(OrdinalRead);
+    B.CreateStore(B.CreateLoad(I64,B.CreateGEP(I64,Load(Ptr,offsetof(sgpl_exec_ctx,gpu_record_sources)),Index)),gpuByteAddress(B,Local,offsetof(sgpl_exec_ctx,array_source_ordinal)));
+    B.CreateStore(B.CreateLoad(I64,B.CreateGEP(I64,Load(Ptr,offsetof(sgpl_exec_ctx,gpu_record_work)),Index)),gpuByteAddress(B,Local,offsetof(sgpl_exec_ctx,array_work_ordinal)));
+    B.CreateStore(B.getInt32(0),gpuByteAddress(B,Local,offsetof(sgpl_exec_ctx,array_append_seq)));
+    B.CreateBr(OrdinalDone);B.SetInsertPoint(OrdinalDone);
     Value *Membership=Load(Ptr,offsetof(sgpl_exec_ctx,membership));
     BasicBlock *Gate=BasicBlock::Create(C,"membership",F);
     B.CreateCondBr(B.CreateICmpEQ(Membership,ConstantPointerNull::get(cast<PointerType>(Ptr))),Dispatch,Gate);
@@ -69,7 +76,7 @@ static Function *gpuSpatialComponent(Module *M,Function *Pair,
     B.SetInsertPoint(PairBlock);
     Value *SourceGate=Load(Ptr,offsetof(sgpl_exec_ctx,spatial_source_gate));BasicBlock *GateRead=BasicBlock::Create(C,"source.gate",F),*Execute=BasicBlock::Create(C,"execute",F);
     B.CreateCondBr(B.CreateICmpEQ(SourceGate,ConstantPointerNull::get(cast<PointerType>(Ptr))),Execute,GateRead);
-    B.SetInsertPoint(GateRead);B.CreateCondBr(B.CreateICmpNE(B.CreateLoad(B.getInt8Ty(),B.CreateGEP(B.getInt8Ty(),SourceGate,U)),B.getInt8(0)),Execute,Next);
+    B.SetInsertPoint(GateRead);B.CreateCondBr(B.CreateICmpNE(B.CreateLoad(B.getInt8Ty(),B.CreateGEP(B.getInt8Ty(),SourceGate,B.CreateSelect(B.CreateICmpNE(Load(I32,offsetof(sgpl_exec_ctx,array_append_sites)),B.getInt32(0)),Load(I64,offsetof(sgpl_exec_ctx,array_source_ordinal)),B.CreateZExt(U,I64)))),B.getInt8(0)),Execute,Next);
     B.SetInsertPoint(Execute);
     Value *Group=Load(I32,offsetof(sgpl_exec_ctx,spatial_group));
     BasicBlock *CountPair=BasicBlock::Create(C,"count.pair",F),*MarkGroup=BasicBlock::Create(C,"mark.group",F),*Invoke=BasicBlock::Create(C,"invoke",F);
@@ -165,7 +172,7 @@ static GpuCallback buildGpuCallback(Function *Root,uint64_t FrameBytes) {
                         F->getName()!="sgpl_round_spatial_current_frame"&&F->getName()!="autograph_exec_partition_state"&&
                         F->getName()!="autograph_exec_op_state"&&F->getName()!="autograph_exec_ctx_snapshot"&&
                         F->getName()!="autograph_exec_ctx_claims"&&F->getName()!="autograph_exec_ctx_set_source_gate"&&
-                        F->getName()!="autograph_frontier_activate"&&F->getName()!="autograph_exec_ctx_last_source")
+                        F->getName()!="autograph_frontier_activate"&&F->getName()!="autograph_exec_ctx_occurrence"&&F->getName()!="autograph_exec_ctx_last_source")
                     Result.Reason=("unsupported device call: "+F->getName()).str();
             }
             else if(isa<InvokeInst>(I)||isa<CallBrInst>(I)) Result.Reason="unsupported device call control flow";
@@ -240,6 +247,9 @@ static GpuCallback buildGpuCallback(Function *Root,uint64_t FrameBytes) {
                 uint64_t Offset=F->getName()=="autograph_exec_partition_state"?offsetof(sgpl_exec_ctx,partition_state):
                     F->getName()=="autograph_exec_op_state"?offsetof(sgpl_runtime_op,state):offsetof(sgpl_exec_ctx,spatial_claims);
                 Value *P=B.CreateLoad(Ptr,gpuByteAddress(B,Call->getArgOperand(0),Offset));Call->replaceAllUsesWith(P);Call->eraseFromParent();
+            } else if(F && F->getName()=="autograph_exec_ctx_occurrence") {
+                Value *Ordinal=B.CreateLoad(B.getInt64Ty(),gpuByteAddress(B,Call->getArgOperand(0),offsetof(sgpl_exec_ctx,array_source_ordinal)));
+                Call->replaceAllUsesWith(Ordinal);Call->eraseFromParent();
             } else if(F && F->getName()=="autograph_exec_ctx_last_source") {
                 Value *Ctx=Call->getArgOperand(0);
                 Value *N=B.CreateLoad(B.getInt64Ty(),gpuByteAddress(B,Ctx,offsetof(sgpl_exec_ctx,gpu_vertex_count)));
@@ -263,14 +273,31 @@ static GpuCallback buildGpuCallback(Function *Root,uint64_t FrameBytes) {
                 Value *P=B.CreateLoad(Ptr,B.CreateGEP(Ptr,Table,Call->getArgOperand(1)));Call->replaceAllUsesWith(P);Call->eraseFromParent();
             } else if(F && F->getName()=="autograph_exec_ctx_set_source_gate") {
                 Value *Gate=B.CreateLoad(Ptr,gpuByteAddress(B,Call->getArgOperand(0),offsetof(sgpl_exec_ctx,spatial_source_gate)));
-                B.CreateStore(B.CreateZExt(B.CreateICmpNE(Call->getArgOperand(2),B.getInt32(0)),B.getInt8Ty()),B.CreateGEP(B.getInt8Ty(),Gate,Call->getArgOperand(1)));Call->eraseFromParent();
+                B.CreateStore(B.CreateZExt(B.CreateICmpNE(Call->getArgOperand(2),B.getInt32(0)),B.getInt8Ty()),B.CreateGEP(B.getInt8Ty(),Gate,B.CreateSelect(B.CreateICmpNE(B.CreateLoad(B.getInt32Ty(),gpuByteAddress(B,Call->getArgOperand(0),offsetof(sgpl_exec_ctx,array_append_sites))),B.getInt32(0)),B.CreateLoad(B.getInt64Ty(),gpuByteAddress(B,Call->getArgOperand(0),offsetof(sgpl_exec_ctx,array_source_ordinal))),B.CreateZExt(Call->getArgOperand(1),B.getInt64Ty()))));Call->eraseFromParent();
             } else if(F && F->getName()=="autograph_frontier_activate") {
                 Value *Ctx=Call->getArgOperand(0),*V=Call->getArgOperand(1);
+                BasicBlock *Before=Call->getParent(),*Done=Before->splitBasicBlock(Call,"activate.join");
+                Before->getTerminator()->eraseFromParent();B.SetInsertPoint(Before);
+                BasicBlock *Ordered=BasicBlock::Create(C,"array.append",D,Done),*Legacy=BasicBlock::Create(C,"set.append",D,Done);
+                Value *Sites=B.CreateLoad(B.getInt32Ty(),gpuByteAddress(B,Ctx,offsetof(sgpl_exec_ctx,array_append_sites)));
+                B.CreateCondBr(B.CreateICmpNE(Sites,B.getInt32(0)),Ordered,Legacy);
+                IRBuilder<> A(Ordered);
+                Value *SeqPtr=gpuByteAddress(A,Ctx,offsetof(sgpl_exec_ctx,array_append_seq));
+                Value *Seq=A.CreateLoad(A.getInt32Ty(),SeqPtr),*Work=A.CreateLoad(A.getInt64Ty(),gpuByteAddress(A,Ctx,offsetof(sgpl_exec_ctx,array_work_ordinal)));
+                Value *Count=A.CreateLoad(A.getInt64Ty(),gpuByteAddress(A,Ctx,offsetof(sgpl_exec_ctx,array_work_count)));
+                BasicBlock *ArrayWrite=BasicBlock::Create(C,"array.write",D,Done),*ArrayError=BasicBlock::Create(C,"array.overflow",D,Done);
+                A.CreateCondBr(A.CreateAnd(A.CreateICmpULT(Seq,Sites),A.CreateICmpULT(Work,Count)),ArrayWrite,ArrayError);
+                IRBuilder<> AW(ArrayWrite);Value *Log=AW.CreateLoad(Ptr,gpuByteAddress(AW,Ctx,offsetof(sgpl_exec_ctx,array_append_log)));
+                Value *At=AW.CreateMul(AW.CreateAdd(AW.CreateMul(Work,AW.CreateZExt(Sites,AW.getInt64Ty())),AW.CreateZExt(Seq,AW.getInt64Ty())),AW.getInt64(2));
+                AW.CreateStore(V,AW.CreateGEP(AW.getInt32Ty(),Log,AW.CreateAdd(At,AW.getInt64(1))));
+                AW.CreateStore(AW.getInt32(1),AW.CreateGEP(AW.getInt32Ty(),Log,At));AW.CreateStore(AW.CreateAdd(Seq,AW.getInt32(1)),SeqPtr);AW.CreateBr(Done);
+                IRBuilder<> AE(ArrayError);Value *ArrayFailure=AE.CreateLoad(Ptr,gpuByteAddress(AE,Ctx,offsetof(sgpl_exec_ctx,execution_error)));
+                auto *AS=AE.CreateStore(AE.getInt32(SGPL_DAG_ERR_INVALID),ArrayFailure);AS->setAtomic(AtomicOrdering::Monotonic);AS->setAlignment(Align(4));AE.CreateBr(Done);
+                B.SetInsertPoint(Legacy);
                 Value *Seen=B.CreateLoad(Ptr,gpuByteAddress(B,Ctx,offsetof(sgpl_exec_ctx,dest_seen)));
                 Value *Cell=B.CreateGEP(B.getInt32Ty(),Seen,V);
                 Value *Claim=B.CreateAtomicCmpXchg(Cell,B.getInt32(0),B.getInt32(1),MaybeAlign(4),AtomicOrdering::Monotonic,AtomicOrdering::Monotonic);
                 Value *Old=B.CreateExtractValue(Claim,0);
-                BasicBlock *Before=Call->getParent(),*Done=Before->splitBasicBlock(Call,"activate.join");Before->getTerminator()->eraseFromParent();B.SetInsertPoint(Before);
                 BasicBlock *Append=BasicBlock::Create(C,"activate.append",D,Done);B.CreateCondBr(B.CreateICmpEQ(Old,B.getInt32(0)),Append,Done);
                 IRBuilder<> AB(Append);
                 Value *Lanes=AB.CreateLoad(Ptr,gpuByteAddress(AB,Ctx,offsetof(sgpl_exec_ctx,spatial_frontier_lanes)));
@@ -284,7 +311,8 @@ static GpuCallback buildGpuCallback(Function *Root,uint64_t FrameBytes) {
                 IRBuilder<> OB(Overflow);OB.CreateStore(OB.getInt32(SGPL_DAG_ERR_INVALID),gpuByteAddress(OB,Ctx,offsetof(sgpl_exec_ctx,execution_status)));
                 Value *Error=OB.CreateLoad(Ptr,gpuByteAddress(OB,Ctx,offsetof(sgpl_exec_ctx,execution_error)));
                 auto *Store=OB.CreateStore(OB.getInt32(SGPL_DAG_ERR_INVALID),Error);Store->setAtomic(AtomicOrdering::Monotonic);Store->setAlignment(Align(4));OB.CreateBr(Done);
-                PHINode *Won=PHINode::Create(Call->getType(),3,"won",&*Done->begin());Won->addIncoming(ConstantInt::get(Call->getType(),0),Before);Won->addIncoming(ConstantInt::get(Call->getType(),1),Write);Won->addIncoming(ConstantInt::get(Call->getType(),0),Overflow);
+                PHINode *Won=PHINode::Create(Call->getType(),5,"won",&*Done->begin());Won->addIncoming(ConstantInt::get(Call->getType(),0),Legacy);
+                Won->addIncoming(ConstantInt::get(Call->getType(),1),ArrayWrite);Won->addIncoming(ConstantInt::get(Call->getType(),0),ArrayError);Won->addIncoming(ConstantInt::get(Call->getType(),1),Write);Won->addIncoming(ConstantInt::get(Call->getType(),0),Overflow);
                 Call->replaceAllUsesWith(Won);Call->eraseFromParent();
             } else if(F && F->getName()=="autograph_neighbor_iter_init") {
                 Value *Graph=Call->getArgOperand(0),*U=B.CreateSExtOrTrunc(Call->getArgOperand(1),B.getInt64Ty());

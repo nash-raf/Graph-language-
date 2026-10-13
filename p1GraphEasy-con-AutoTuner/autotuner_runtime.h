@@ -545,8 +545,26 @@ typedef struct sgpl_exec_ctx {
   uint64_t *gpu_group_times; /* optional: begin, end, lane for each proof group */
   int32_t gpu_local_partials; /* source accumulator storage belongs to a lane */
   int32_t gpu_parallel_fold; /* device updates honor the accepted private fold */
+  /* Ordered array frontiers retain each source and pair occurrence. */
+  const int32_t *array_sources;
+  int64_t array_source_count;
+  int32_t **array_output_slot;
+  int64_t *array_output_capacity;
+  int32_t array_append_sites;
+  int32_t array_append_seq;
+  int64_t array_source_ordinal, array_work_ordinal;
+  int64_t array_work_count;
+  int32_t *array_append_log; /* validity, payload per occurrence and site */
+  int64_t *gpu_record_sources, *gpu_record_work;
 } sgpl_exec_ctx;
+int32_t autograph_exec_ctx_bind_array_frontier(sgpl_exec_ctx *,const int32_t *,int32_t,
+                                               int32_t **,int64_t *,int32_t);
+int64_t autograph_exec_ctx_occurrence(sgpl_exec_ctx *);
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx);
+int32_t sgpl_frontier_ensure_i32(int32_t **slot, int64_t *capacity, int64_t index);
+int32_t sgpl_frontier_reserve_i32(void *graph, const int32_t *input, int32_t count,
+                                 int32_t **slot, int64_t *capacity, int32_t sites,int32_t prefix);
+void sgpl_frontier_release_buffers(void);
 void autograph_exec_ctx_gpu_storage(sgpl_exec_ctx *, uint32_t, uint32_t,
                                    void *, const uint64_t *, uint64_t);
 

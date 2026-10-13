@@ -1,0 +1,9 @@
+// U-before-V fission changes the answer when the two constants differ.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int A[n];
+for u in G.nodes { A[u] = 7; }
+for u in G.nodes { for v in G.neighbors(u) { A[u] = 1; A[v] = 2; } }
+int s = 0;
+for u in G.nodes { s = s + A[u]; }
+print s;

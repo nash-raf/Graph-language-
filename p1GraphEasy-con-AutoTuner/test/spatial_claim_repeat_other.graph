@@ -1,0 +1,23 @@
+// A different pair value is not a redundant source claim and must be refused.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int alive[n];
+set frontier;
+set next;
+for u in G.nodes { alive[u] = 1; frontier.add(u); }
+while (setSize(frontier) > 0) {
+    next = {};
+    for each element u in frontier {
+        if (alive[u] == 1) {
+            alive[u] = 0;
+            for v in G.neighbors(u) {
+                alive[u] = 7;
+                if (alive[v] == 1) { next.add(v); }
+            }
+        }
+    }
+    frontier = next;
+}
+int s = 0;
+for u in G.nodes { s = s + alive[u]; }
+print s;

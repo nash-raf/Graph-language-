@@ -1,0 +1,34 @@
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:184:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  184 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:184:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+PASS membership_call_aliases (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS spatial_equal_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS spatial_different_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS spatial_subset_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS spatial_claim_repeat (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS spatial_claim_repeat_other (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS nested_step (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS mutual_deg (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS reduce_plus_write (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS priv_reduce_write_big (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS carried_read_state (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS dual_same_base (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS shadow_snapshot (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+PASS reduce_real_ops (classification, serial equality, threads:partitions=1:1,4:3,8:8)
+parallel claims regression tests: PASS

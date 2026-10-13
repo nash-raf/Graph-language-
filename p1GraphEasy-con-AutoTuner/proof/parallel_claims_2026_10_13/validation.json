@@ -1,0 +1,24 @@
+{
+  "document": "C:/Users/kazis/Downloads/message(6).txt",
+  "baseline_commit": "b95fbd1",
+  "claims": {
+    "nested_step": {"confirmed": true, "fix": "Proved spatial steps now collect TDG samples and enter planning; serial decisions also report their chosen width."},
+    "mutual_deg": {"confirmed": true, "fix": "Restore hasEdge/hasNode function-call aliases and handle keyword callees, including degree, without dereferencing a missing ID token."},
+    "doall_legacy_headers": {"confirmed": false, "finding": "Both mentioned fixtures already use member-style loop headers."},
+    "reduce_plus_write_and_priv_reduce_write_big": {"confirmed": true, "fix": "Print candidate records on successful temporal routes; report the actual source-phase-dag realization and retain serial-equality checks."},
+    "carried_read_state": {"confirmed": false, "finding": "Axis fields were present. A verified snapshot discharges the carried read, so unresolved flags are R_S=0 R_T=0. Correct the stale assertion and pin the snapshot and real spatial concurrency."},
+    "dual_same_base": {"confirmed": true, "fix": "Realize staged U/V owners only for a proved complete vertex domain and identical integer constant stores, with no observers. Different values and subset traversals remain refused."},
+    "shadow_snapshot": {"confirmed": true, "finding": "The inspected CPU build actually refused the source claim because its constant store was repeated in the pair phase.", "fix": "Accept checked redundant same-source constant stores while retaining their spatial dependencies; require the current spatial DAG realization instead of an obsolete nested schedule label."},
+    "reduce_real_ops": {"confirmed": false, "finding": "Ordered partition combining is deterministic but is not a proof of serial floating-point rounding. The current exact-fold policy deliberately rejects general FAdd. This fixture can support a future bound-specific proof; no such optimization is introduced here. Correct the assertion and explanatory comment."}
+  },
+  "verification": {
+    "full_parallel_corpus": {"backend": "FORCE_CPU=1", "passed": 69, "failed": 0, "log": "parallel-corpus.log"},
+    "targeted_regressions": {"passed": 14, "thread_partition_configs": ["1:1", "4:3", "8:8"], "log": "regressions.log"},
+    "spatial_compiler": {"passed": 28, "log": "spatial-compiler.log"},
+    "temporal_compiler": {"passed": 14, "log": "temporal-compiler.log"},
+    "worker_pool": {"workers": [1, 2, 4, 8], "failures": 0, "log": "worker-pool.log"},
+    "spatial_runtime": {"workers": [1, 2, 4], "failures": 0, "log": "spatial-runtime.log"},
+    "reduction_runtime": {"workers": [1, 3, 8], "configs_per_worker_count": 24, "failures": 0, "log": "reduction-runtime.log"},
+    "auto_backend_partial": {"completed": false, "finding": "A default-backend speedup assertion failed and a traversal took about two minutes while producing the correct answer. The complete corpus was rerun with the CPU backend, where the speedup assertion passed at 2.55x.", "log": "parallel-auto-partial.log"}
+  }
+}

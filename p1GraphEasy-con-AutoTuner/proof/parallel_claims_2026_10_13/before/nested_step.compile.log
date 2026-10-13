@@ -1,0 +1,204 @@
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Destination cleancut=Destination accesses=3 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=1 realized=0 reason=every surviving relation stays within the symbolic group
+[spatial-access] site=0 family=1 mode=R base=G axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=1 family=0 mode=R base=arr axis=V scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-access] site=2 family=0 mode=W base=arr axis=V scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-relation] id=0 sites=1,2 kind=WAR original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=1 sites=2,1 kind=RAW original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=2 sites=2,2 kind=WAW original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[temporal] scope=None rounds=inconclusive phases=interfering components=1 realized=0 verdict=inconclusive
+[temporal] complete round dependencies are incomplete members=0,0,
+[temporal-relation] 0->1 basis=round-RAW uncertain=1 uniform=0
+[temporal-relation] 0->1 basis=round-WAW uncertain=1 uniform=0
+[temporal-relation] 0->1 basis=round-RAW uncertain=1 uniform=0
+[temporal-relation] 0->1 basis=round-WAW uncertain=1 uniform=0
+[temporal-relation] 0->1 basis=round-RAW uncertain=1 uniform=0
+[temporal-relation] 0->1 basis=round-WAW uncertain=1 uniform=0
+[temporal] source phases have no non-trivial partition members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[frontier-cert]   rel WAR base=arr src=V.B sink=V.B discharge=none
+[frontier-cert]   rel WAR base=arr src=V.B sink=V.B discharge=algebraic-fold
+[frontier-cert]   rel WAW base=arr src=V.B sink=V.B discharge=none
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond
+[witness] writekind=1 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=1 priv=0
+[witness] slots=0 privarrays=1 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=R op= base=arr reg=V scope=2 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=arr reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Destination cleancut=Destination accesses=3 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=1 realized=1 reason=every surviving relation stays within the symbolic group
+[spatial-access] site=0 family=1 mode=R base=G axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=1 family=0 mode=R base=arr axis=V scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-access] site=2 family=0 mode=W base=arr axis=V scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-relation] id=0 sites=1,2 kind=WAR original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=1 sites=2,1 kind=RAW original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=2 sites=2,2 kind=WAW original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[graph-frontier]   dag-owned: hdr=foreach_nbr.cond axes=spatial spatial=parallel temporal=ordered
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(arr,V):SameRoundRead ⊗ U+(arr,V)  temporal=SameRoundRead  expr:  pre=ε  pair=R(arr,V)⊕U+(arr,V)  epi=ε  gated=0
+[graph-frontier] detected=1
+[loop-classify] fn=main hdr=loopcond16 depth=1 phi-carry detected on non-induction phi
+[loop-classify] fn=main hdr=loopcond16 depth=1 classification=SEQUENTIAL hasProvenCarriedDep=0 hasUnschedulableCarriedDep=0 hasUnknownAttributedDep=0 hasProofOfNoCarriedDeps=1 phiCarry=1 scalarDoAcrossPhi=0
+[loop-classify] fn=main hdr=loopcond depth=1 call barrier: stateful call llvm.stacksave.p0
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=loopcond depth=1 dag-owned region (left to the DAG scheduler): axes=spatial
+[loop-classify] fn=main hdr=loopcond depth=1 classification=SEQUENTIAL hasProvenCarriedDep=0 hasUnschedulableCarriedDep=0 hasUnknownAttributedDep=1 hasProofOfNoCarriedDeps=0 phiCarry=0 scalarDoAcrossPhi=0
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

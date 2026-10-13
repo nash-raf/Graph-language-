@@ -1,0 +1,48 @@
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:184:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  184 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:184:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+PASS spatial_destination (proof, reference, workers=1,2,4)
+PASS spatial_source (proof, reference, workers=1,2,4)
+PASS spatial_sites (proof, reference, workers=1,2,4)
+PASS spatial_affine (proof, reference, workers=1,2,4)
+PASS spatial_offset_conflict (proof, reference, workers=1,2,4)
+PASS spatial_snapshot (proof, reference, workers=1,2,4)
+PASS spatial_d_private (proof, reference, workers=1,2,4)
+PASS spatial_d_unresolved (proof, reference, workers=1,2,4)
+PASS spatial_source_acc (proof, reference, workers=1,2,4)
+PASS spatial_source_acc_large (proof, reference, workers=1,2,4)
+PASS spatial_mutable_guard (proof, reference, workers=1,2,4)
+PASS spatial_global_write (proof, reference, workers=1,2,4)
+PASS spatial_global_fold (proof, reference, workers=1,2,4)
+PASS spatial_scalar_slots (proof, reference, workers=1,2,4)
+PASS spatial_scalar_slots_three (proof, reference, workers=1,2,4)
+PASS spatial_scalar_observer (proof, reference, workers=1,2,4)
+PASS spatial_two_reduce_slots (proof, reference, workers=1,2,4)
+PASS spatial_priv_two_slots_big (proof, reference, workers=1,2,4)
+PASS spatial_mixed (proof, reference, workers=1,2,4)
+PASS spatial_old_value_twice (proof, reference, workers=1,2,4)
+PASS spatial_observer (proof, reference, workers=1,2,4)
+PASS spatial_unsupported (proof, reference, workers=1,2,4)
+PASS spatial_short_guard (proof, reference, workers=1,2,4)
+PASS spatial_claim_destination (proof, reference, workers=1,2,4)
+PASS spatial_claim_payload (proof, reference, workers=1,2,4)
+PASS spatial_frontier_observer (proof, reference, workers=1,2,4)
+PASS spatial_source_frontier (proof, reference, workers=1,2,4)
+PASS spatial_snapshot_extent (proof, reference, workers=1,2,4)
+spatial compiler and runtime tests: PASS

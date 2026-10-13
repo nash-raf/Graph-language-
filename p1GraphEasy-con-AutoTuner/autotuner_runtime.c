@@ -3487,13 +3487,22 @@ static int sgpl_dispatch_uses_dag(const sgpl_exec_ctx *ctx) {
   return env != NULL && env[0] == '1' && env[1] == '\0';
 }
 
+/* A proved spatial context needs the DAG lifecycle even at width one (source
+ * coverage, gates and error propagation). TDG planning must not replace that
+ * execution mechanism with the legacy partition-only loop. */
+static void sgpl_exec_step_dispatch_body(sgpl_exec_ctx *ctx, int32_t partitions,
+                                        int32_t budget) {
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE || sgpl_dispatch_uses_dag(ctx)) {
+    if (!sgpl_dispatch_uses_dag(ctx)) budget = 1;
+    ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
+  }
+  else
+    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+}
+
 static void *sgpl_exec_step_task(void *opaque) {
   SgplExecStepArg *arg = (SgplExecStepArg *)opaque;
-  if (sgpl_dispatch_uses_dag(arg->ctx))
-    sgpl_exec_dag_spatial(arg->ctx, arg->partitions, sgpl_configured_worker_count());
-  else
-    parallel_for_runtime(0, arg->partitions, 1, sgpl_exec_partition_body, arg->ctx,
-                         0, 0);
+  sgpl_exec_step_dispatch_body(arg->ctx, arg->partitions, sgpl_configured_worker_count());
   return NULL;
 }
 
@@ -3802,12 +3811,6 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   int32_t partitions = (int32_t)meta->partition_count;
   static int tdg_engine_disabled = -1;
 
-  if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
-    int32_t budget = sgpl_configured_worker_count();
-    if (!sgpl_dispatch_uses_dag(ctx)) budget = 1;
-    ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
-    return;
-  }
   if (tdg_engine_disabled < 0) {
     const char *v = getenv("SGPL_NO_TDG_ENGINE");
     tdg_engine_disabled =
@@ -3815,10 +3818,7 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
   }
 
   if (step_id < 0 || tdg_engine_disabled) {
-    if (sgpl_dispatch_uses_dag(ctx))
-      sgpl_exec_dag_spatial(ctx, (int32_t)(partitions), sgpl_configured_worker_count());
-    else
-      parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+    sgpl_exec_step_dispatch_body(ctx, partitions, sgpl_configured_worker_count());
     return;
   }
 
@@ -3830,7 +3830,9 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
    * slices.  Only full-domain steps qualify (no membership restriction) and
    * only when nothing has to fold afterwards; any failure falls through to the
    * CPU dispatch below, whose answers are identical by construction. */
-  if (sgpl_gpu_step_try_device(ctx, meta)) {
+  /* Proved spatial contexts keep their dedicated CPU/GPU realization. This
+   * legacy device hook cannot replace their gate and source-coverage DAG. */
+  if (ctx->spatial_group == SGPL_SPATIAL_NONE && sgpl_gpu_step_try_device(ctx, meta)) {
     return;
   }
 
@@ -3853,11 +3855,7 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
       if (!(force_cal && *force_cal && strcmp(force_cal, "0") != 0) &&
           sgpl_ctx_dag_spatial(ctx) > 0) {
         int32_t width;
-        if (sgpl_dispatch_uses_dag(ctx))
-          sgpl_exec_dag_spatial(ctx, partitions, sgpl_configured_worker_count());
-        else
-          parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx,
-                               0, 0);
+        sgpl_exec_step_dispatch_body(ctx, partitions, sgpl_configured_worker_count());
         /* The width the dispatch ran at (the same clamps the dispatch applies:
          * the configured count, the partition count and the ledger grant). */
         width = sgpl_configured_worker_count();
@@ -3878,7 +3876,7 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
     /* Bounded calibration: honest single-thread passes feed the same sampling
      * state machine the outlined loops use (its batch size, not ours). */
     sgpl_set_desired_threads(1, 1);
-    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+    sgpl_exec_step_dispatch_body(ctx, partitions, 1);
     sgpl_set_desired_threads(0, 0);
     sgpl_exec_step_record_sample(step_id, partitions, now_monotonic_ns() - t0, 1);
     return;

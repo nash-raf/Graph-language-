@@ -1062,6 +1062,8 @@ static bool isArrayElementLoad(const LoadInst *LI)
 }
 
 namespace { static const char *spatialGroupName(SpatialGroup); }
+namespace { static bool legacySourceLifecycleAvailable(const NeighborLoopInfo &Info); }
+namespace { static bool spatialAllVerticesDomain(const NeighborLoopInfo &Info); }
 static Value *frontierCapacitySlot(Value *Slot);
 static Function *emitSpatialSourceGate(const NeighborLoopInfo &Info, Module *Mod,
                                         LLVMContext &Ctx);
@@ -6434,6 +6436,37 @@ static const char *scheduleName(ScheduleKind K)
 /* Select the non-temporal fallback. Round/spatial composition and round-only
  * emission run first, followed by the existing source-phase route. This entry
  * consumes the accepted spatial witness or a separately justified legacy path. */
+/* Whole-domain U/V fission may change the original per-pair write order.
+ * Same-base stores commute only under an explicit value proof. Here every
+ * observable effect is an exact endpoint store of the same integer constant;
+ * either stage therefore leaves every touched element at that constant.
+ * Different values, RMWs and observers must keep the original order. */
+static bool sameValueDualWrites(const NeighborLoopInfo &Info)
+{
+    if (Info.ReducePtr || Info.UsePrivLayout || Info.MembershipGated ||
+        !Info.RoundSepBases.empty() || !legacySourceLifecycleAvailable(Info) ||
+        !spatialAllVerticesDomain(Info))
+        return false;
+    const Value *Base = nullptr;
+    const ConstantInt *Value = nullptr;
+    bool U = false, V = false;
+    for (const Effect &E : Info.Effects)
+    {
+        auto *Store = dyn_cast_or_null<StoreInst>(E.Origin);
+        auto *Constant = Store ? dyn_cast<ConstantInt>(Store->getValueOperand()) : nullptr;
+        if (E.Kind != EffectKind::W || !E.Base || !Store || !Constant ||
+            Store->isVolatile() || Store->isAtomic() ||
+            sourcePhaseFor(Info, Store) != PhaseSegment::Pair ||
+            (E.Reg != Region::U && E.Reg != Region::V) ||
+            !isOwnedEndpointIndex(E.Index, E.Reg, Info))
+            return false;
+        if (Base && (Base != E.Base || Value != Constant)) return false;
+        Base = E.Base; Value = Constant;
+        U |= E.Reg == Region::U; V |= E.Reg == Region::V;
+    }
+    return U && V;
+}
+
 static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
 {
     ScheduleChoice Ch;
@@ -6484,6 +6517,13 @@ static ScheduleChoice selectSchedule(NeighborLoopInfo &Info)
     }
     bool PairU = false, PairV = false;
     pairPhaseWriteRegions(Info, PairU, PairV);
+    if (Spatial.CoverageComplete && sameValueDualWrites(Info) &&
+        Info.SpatialTemplate.Valid && !Info.SpatialTemplate.Edges.empty())
+    {
+        Ch.Kind = ScheduleKind::SpatialStaged;
+        Ch.Reason = "equal constant endpoint stores commute; staged U then V with private owners";
+        return Ch;
+    }
     EffectSummary LegacySummary;
     summarizeEffects(Info, LegacySummary);
     bool DisjointFission = Spatial.CoverageComplete && !crossPhaseDataDep(
@@ -8845,6 +8885,33 @@ static bool provesModelable(Loop *L, std::string &reason)
 #include "temporal_scope_lowering.inc"
 #include "spatial_partition_proof.inc"
 
+/* Every successful route must report its candidate, including the temporal
+ * routes that return before the ordinary spatial emitter. The class names the
+ * realization actually emitted, rather than an obsolete preferred shape. */
+static void printFrontierCandidate(Function &F, Loop *L,
+                                   const NeighborLoopInfo &Info, bool IsIter,
+                                   const char *ClassName, StringRef Refusal = {})
+{
+    if (!getenv("GRAPH_FRONTIER_STATS")) return;
+    errs() << "[graph-frontier] candidate: " << F.getName()
+           << " driver=" << (IsIter ? Info.DriverLoop->getHeader()->getName() : StringRef("<none>"))
+           << " inner=" << L->getHeader()->getName()
+           << " kind=" << (int)Info.WriteKind
+           << " red=" << (Info.ReducePtr ? 1 : 0)
+           << " sep=" << (Info.NeedsRoundSep ? 1 : 0)
+           << " data=" << ((IsIter ? Info.HasDataWrite : loopHasGraphDataWrite(L)) ? 1 : 0)
+           << " fw=" << (Info.HasFirstWins ? 1 : 0)
+           << " env=" << (Info.HasFrontierAppend ? 1 : 0)
+           << " shadow=" << Info.RoundSepBases.size()
+           << " class=" << ClassName << "  ";
+    if (IsIter) {
+        printEffects(Info);
+        if (getenv("GRAPH_FRONTIER_VERBOSE")) printEffectExpr(Info);
+    }
+    if (!Refusal.empty()) errs() << " [refused: " << Refusal << "]";
+    errs() << "\n";
+}
+
 PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                                                  FunctionAnalysisManager &FAM)
 {
@@ -8927,6 +8994,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 ? "existing round and spatial proofs realized through one lifecycle DAG"
                 : "original order within each independent temporal component";
             printAxisCertificate(Info, Supported, SemReason, Info.Schedule);
+            printFrontierCandidate(F, L, Info, true, scheduleName(Info.Schedule.Kind));
             TemporalOwned.insert(Info.TemporalResult.Scope == TemporalScope::Round
                                      ? Info.DriverLoop->getParentLoop() : Info.DriverLoop);
             if (verifyModule(*F.getParent(), &errs()))
@@ -8989,36 +9057,11 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         };
         auto emitCandidateLine = [&]()
         {
-            if (!getenv("GRAPH_FRONTIER_STATS"))
-                return;
-            errs() << "[graph-frontier] candidate: " << F.getName();
-            if (IsIter)
-                errs() << " driver=" << Info.DriverLoop->getHeader()->getName();
-            else
-                errs() << " driver=<none>";
-            errs() << " inner=" << L->getHeader()->getName()
-                   << " kind=" << (int)Info.WriteKind
-                   << " red=" << (Info.ReducePtr ? 1 : 0)
-                   << " sep=" << (Info.NeedsRoundSep ? 1 : 0)
-                   << " data=" << (HasData ? 1 : 0)
-                   << " fw=" << (Info.HasFirstWins ? 1 : 0)
-                   << " env=" << (Info.HasFrontierAppend ? 1 : 0)
-                   << " shadow=" << Info.RoundSepBases.size()
-                   << " class=" << ClassName
-                   << "  ";
-            if (IsIter)
-            {
-                printEffects(Info);
-                if (getenv("GRAPH_FRONTIER_VERBOSE"))
-                    printEffectExpr(Info);
-            }
+            StringRef Refusal;
             if (IsIter && EmissionSerialized)
-                errs() << " [refused: "
-                       << ((Schedule.ImplementationFailure && !Info.Cert.R8)
-                               ? Schedule.Reason
-                               : SemReason)
-                       << "]";
-            errs() << "\n";
+                Refusal = (Schedule.ImplementationFailure && !Info.Cert.R8)
+                              ? Schedule.Reason : SemReason;
+            printFrontierCandidate(F, L, Info, IsIter, ClassName, Refusal);
         };
         claimClassName();
         if (IsIter && getenv("SGPL_WITNESS_DUMP"))

@@ -263,7 +263,7 @@ static int run_one(const RedTestGraph *g, enum Op op, int32_t partitions,
   sgpl_runtime_op *ops[1] = {desc};
   sgpl_exec_ctx *ctx = autograph_exec_ctx_create(
       (void *)g, SGPL_TRAVERSE_OWNER_V, 0, NULL, NULL, NULL, 0, NULL,
-      partials, sizeof(int32_t), ops, 1);
+      partials, sizeof(int32_t), ops, 1, -1);
   if (!ctx) {
     free(partials);
     return 0;

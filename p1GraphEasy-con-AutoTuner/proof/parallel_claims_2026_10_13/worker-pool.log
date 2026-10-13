@@ -1,0 +1,117 @@
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:184:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  184 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:184:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+== persistent pool: workers=1 ==
+PASS one worker runs without creating threads
+PASS shutdown joins every persistent worker
+== persistent pool: workers=2 ==
+PASS one worker runs without creating threads
+PASS first parallel dispatch prepares one configured team
+PASS 250 DAG dispatches reuse threads and execute every node once
+PASS worker threads retain stable lane identities
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent callers share the configured worker limit
+PASS root loop and DAG execution share the same persistent threads
+PASS nested DAG and loop dispatches complete without a second team
+PASS nested child and loop execute every member once
+PASS nested child and loop execute every member once
+PASS nested child and loop execute every member once
+PASS failed run cancels successors without replay
+PASS pool accepts a fresh run after callback failure
+PASS parent grant limits a dispatch and remains balanced
+PASS caller budget and worker ledger are restored
+persistent worker pool: 0 failures
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+== persistent pool: workers=4 ==
+PASS one worker runs without creating threads
+PASS first parallel dispatch prepares one configured team
+PASS 250 DAG dispatches reuse threads and execute every node once
+PASS worker threads retain stable lane identities
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent callers share the configured worker limit
+PASS root loop and DAG execution share the same persistent threads
+PASS nested DAG and loop dispatches complete without a second team
+PASS nested child and loop execute every member once
+PASS nested child and loop execute every member once
+PASS nested child and loop execute every member once
+PASS failed run cancels successors without replay
+PASS pool accepts a fresh run after callback failure
+PASS parent grant limits a dispatch and remains balanced
+PASS caller budget and worker ledger are restored
+persistent worker pool: 0 failures
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+== persistent pool: workers=8 ==
+PASS one worker runs without creating threads
+PASS first parallel dispatch prepares one configured team
+PASS 250 DAG dispatches reuse threads and execute every node once
+PASS worker threads retain stable lane identities
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent caller retains its state and exact node counts
+PASS concurrent callers share the configured worker limit
+PASS root loop and DAG execution share the same persistent threads
+PASS nested DAG and loop dispatches complete without a second team
+PASS nested child and loop execute every member once
+PASS nested child and loop execute every member once
+PASS nested child and loop execute every member once
+PASS failed run cancels successors without replay
+PASS pool accepts a fresh run after callback failure
+PASS parent grant limits a dispatch and remains balanced
+PASS caller budget and worker ledger are restored
+persistent worker pool: 0 failures
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker
+PASS cold pool failure starts no user effects
+PASS partial pool creation joins all created workers
+PASS later dispatch can reserve after a preparation failure
+PASS shutdown joins every persistent worker

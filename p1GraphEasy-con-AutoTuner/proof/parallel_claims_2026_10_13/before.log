@@ -1,0 +1,65 @@
+CASE nested_step
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=dest-owner  R(arr,V):SameRoundRead ⊗ U+(arr,V)  temporal=SameRoundRead  expr:  pre=ε  pair=R(arr,V)⊕U+(arr,V)  epi=ε  gated=0
+PASS serial equality nested_step threads:partitions=1:1
+PASS serial equality nested_step threads:partitions=4:3
+PASS serial equality nested_step threads:partitions=8:8
+CASE mutual_deg
+BUILD FAILED mutual_deg
+line 10:12 extraneous input 'hasEdge' expecting {'(', '{', 'degree', 'INF', 'timer', '!', 'TRUE', 'FALSE', '-', ID, INT, REAL}
+line 10:21 no viable alternative at input '(G,'
+line 15:0 extraneous input '}' expecting {<EOF>, ';', 'swap', 'directed', 'weighted', 'if', 'motifs', 'graphs', 'degree', 'for', 'while', 'query', 'show', 'fn', 'vertex', 'edge', 'int', 'real', 'bool', 'string', 'draw', 'sleep', 'print', 'graph', 'set', ID}
+Syntax error: failed to parse '/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/../verify/cases/parallel/mutual_deg.graph'
+CASE reduce_plus_write
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=1 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=source-phase-dag emitted=1 impl_failure=0 reason=original order within each independent temporal component
+PASS serial equality reduce_plus_write threads:partitions=1:1
+PASS serial equality reduce_plus_write threads:partitions=4:3
+PASS serial equality reduce_plus_write threads:partitions=8:8
+CASE priv_reduce_write_big
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=1 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=source-phase-dag emitted=1 impl_failure=0 reason=original order within each independent temporal component
+PASS serial equality priv_reduce_write_big threads:partitions=1:1
+PASS serial equality priv_reduce_write_big threads:partitions=4:3
+PASS serial equality priv_reduce_write_big threads:partitions=8:8
+CASE carried_read_state
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier] candidate: main driver=foreach.cond9 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  expr:  pre=ε  pair=R(deg,U)⊕U+(deg,U)  epi=ε  gated=0
+[frontier-cert] hdr=foreach_nbr.cond47 R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier] candidate: main driver=foreach.cond31 inner=foreach_nbr.cond47 kind=1 red=0 sep=1 data=0 fw=0 env=0 shadow=1 class=dest-owner  R(deg,V):SameRoundRead ⊗ U-(deg,V) ⊗ R(deg,U):Carried  temporal=Carried  expr:  pre=R(deg,U)  pair=R(deg,V)⊕U-(deg,V)  epi=ε  gated=0
+PASS serial equality carried_read_state threads:partitions=1:1
+PASS serial equality carried_read_state threads:partitions=4:3
+PASS serial equality carried_read_state threads:partitions=8:8
+CASE dual_same_base
+[frontier-cert] hdr=foreach_nbr.cond R_S=1 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=1 temporal=0 impl_guard=realization:same-base or cross-phase U+V without privatization
+[frontier-cert] schedule=serial emitted=1 impl_failure=0 reason=surviving relations require topology-dependent or unresolved grouping
+[graph-frontier] candidate: main driver=foreach.cond9 inner=foreach_nbr.cond kind=3 red=0 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  W(A,U) ⊗ W(A,V)  temporal=Independent  expr:  pre=ε  pair=W(A,U)⊕W(A,V)  epi=ε  gated=0 [refused: same-base or cross-phase U+V without privatization]
+PASS serial equality dual_same_base threads:partitions=1:1
+PASS serial equality dual_same_base threads:partitions=4:3
+PASS serial equality dual_same_base threads:partitions=8:8
+CASE shadow_snapshot
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=source-owner  R(deg,U):SameRoundRead ⊗ U+(deg,U)  temporal=SameRoundRead  expr:  pre=ε  pair=R(deg,U)⊕U+(deg,U)  epi=ε  gated=0
+[frontier-cert] hdr=foreach_nbr.cond64 R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=1 impl_guard=none
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=source claim has no checked once-only result and guard frame
+[graph-frontier] candidate: main driver=foreach_set.cond inner=foreach_nbr.cond64 kind=2 red=0 sep=1 data=0 fw=1 env=1 shadow=1 class=sequential  W(alive,U) ⊗ R(alive,V):SameRoundRead ⊗ Activate(next,V) ⊗ R(alive,U):SameRoundRead ⊗ Claim(alive,U)  temporal=SameRoundRead  expr:  pre=R(alive,U)⊕Claim(alive,U)  pair=W(alive,U)⊕R(alive,V)⊕Activate(next,V)  epi=ε  gated=1 [refused: source claim has no checked once-only result and guard frame]
+PASS serial equality shadow_snapshot threads:partitions=1:1
+PASS serial equality shadow_snapshot threads:partitions=4:3
+PASS serial equality shadow_snapshot threads:partitions=8:8
+CASE reduce_real_ops
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=serial emitted=1 impl_failure=0 reason=unconditional shared write connects every pair occurrence
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U+(rsum,G)  temporal=Independent  expr:  pre=ε  pair=U+(rsum,G)  epi=ε  gated=0 [refused: ]
+[frontier-cert] hdr=foreach_nbr.cond24 R_S=0 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=R8:reduction realization
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=R8 guard: reduction realization
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond24 kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U_f(rmn,G)  temporal=Independent  expr:  pre=ε  pair=U_f(rmn,G)  epi=ε  gated=0 [refused: reduction conditions not met]
+[frontier-cert] hdr=foreach_nbr.cond49 R_S=0 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=R8:reduction realization
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=R8 guard: reduction realization
+[graph-frontier] candidate: main driver=foreach.cond37 inner=foreach_nbr.cond49 kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U_f(rmx,G)  temporal=Independent  expr:  pre=ε  pair=U_f(rmx,G)  epi=ε  gated=0 [refused: reduction conditions not met]
+PASS serial equality reduce_real_ops threads:partitions=1:1
+PASS serial equality reduce_real_ops threads:partitions=4:3
+PASS serial equality reduce_real_ops threads:partitions=8:8

@@ -3647,19 +3647,20 @@ static int32_t sgpl_choose_tdg_threads_with_loop_budget(int64_t work_units,
                                                      min_gain,
                                                      &single_site_reason);
 
+        if (tdg_debug_enabled())
+        {
+            fprintf(stderr,
+                    "[tdg.single-site] chosen_workers=1 site_threads=%d loop_id=%d level_budget=%d reason=%s\n",
+                    site_threads > 0 ? site_threads : 1,
+                    best_plan.dominant_loop_id,
+                    level_budget_threads,
+                    single_site_reason ? single_site_reason : "serial-single-task");
+        }
         if (site_threads > 1)
         {
             /* One level worker runs the task; the task's site draws the rest. */
             selected_threads = 1;
             decision_reason = single_site_reason;
-            if (tdg_debug_enabled())
-            {
-                fprintf(stderr,
-                        "[tdg.single-site] chosen_workers=1 site_threads=%d loop_id=%d level_budget=%d\n",
-                        site_threads,
-                        best_plan.dominant_loop_id,
-                        level_budget_threads);
-            }
             goto tdg_finalize;
         }
 

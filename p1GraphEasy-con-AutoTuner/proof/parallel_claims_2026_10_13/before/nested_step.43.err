@@ -1,0 +1,97 @@
+[tdg.init] logical_threads=4 physical_threads=4 allow_ht=0 ht_disallow=0 unit_cost_ns=250.00 alpha=0.42 min_gain=0.12 min_work_for_ht=64
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=4 rels=0 budget=4 peak=4 max_share=1 grants=0/4 weighted=0 completed=4 rc=0
+[tdg.weight] idx=0 profile_id=11 static=5 effective=5 samples=0 source=static
+[tdg.aggregate] compiler_work=5 compiler_span=5 effective_work=5 effective_span=5 tasks=1
+[tdg.univ] input work=5 span=5 tasks=1 level_budget=4 loop_sites=0
+[tdg.univ] decision=serial final_threads=1 reason=serial-single-task gain=0.000000 work=5 span=5 tasks=1 level_budget=4 loop_budget=0 dominant_loop=0 enabled_loops=0 idle_threads=0 loop_model_ns=0.00
+[tdg.plan] level entries=0 budget=4 loop_budget=0 idle=0 dominant=0 total_model_ns=0.0 work=5 span=5
+[budget.reserve] requested=4 granted=4 total=4 available_before=4 reserved_before=0 reserved_after=4
+[budget.context] push id=0 max_threads=3 stack_depth=1
+[tdg.profile] idx=0 profile_id=11 path=serial-budget-scope elapsed_ns=41.00 old_samples=0 new_samples=1 old_ewma_ns=0.00 new_ewma_ns=41.00 refined_units=1
+[budget.release] released=4 reserved_before=4 reserved_after=0 total=4 available_after=4
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=16 predicted_ns=167.614 measured_ns=2354785 predicted_ms=0.000168 measured_ms=2.354785
+[AutoTunerProfile] region=1 kind=Traverse layout=CSR visits=16 predicted_ns=167.614 measured_ns=17069903 predicted_ms=0.000168 measured_ms=17.069903
+[AutoTunerProfile] total kind=Traverse predicted_ns=335.229 measured_ns=19424688 predicted_ms=0.000335 measured_ms=19.424688 pure_kernel_ns=17064683 pure_kernel_ms=17.064683
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

@@ -1,0 +1,11 @@
+// Function and member spellings must build equivalent membership expressions.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+print hasEdge(G, 0, 1);
+if (G.hasEdge(0, 1)) { print 1; } else { print 0; }
+print hasEdge(G, 1, 0);
+if (G.hasEdge(1, 0)) { print 1; } else { print 0; }
+print hasNode(G, 2);
+if (G.hasNode(2)) { print 1; } else { print 0; }
+print hasNode(G, 99);
+if (G.hasNode(99)) { print 1; } else { print 0; }
+print degree(G, 0);

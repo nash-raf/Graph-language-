@@ -1,0 +1,4 @@
+line 10:12 extraneous input 'hasEdge' expecting {'(', '{', 'degree', 'INF', 'timer', '!', 'TRUE', 'FALSE', '-', ID, INT, REAL}
+line 10:21 no viable alternative at input '(G,'
+line 15:0 extraneous input '}' expecting {<EOF>, ';', 'swap', 'directed', 'weighted', 'if', 'motifs', 'graphs', 'degree', 'for', 'while', 'query', 'show', 'fn', 'vertex', 'edge', 'int', 'real', 'bool', 'string', 'draw', 'sleep', 'print', 'graph', 'set', ID}
+Syntax error: failed to parse '/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/../verify/cases/parallel/mutual_deg.graph'

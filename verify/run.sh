@@ -466,7 +466,7 @@ fi
 # the source's out-degree without it).
 if ser=$(compile_serial "$R/cases/parallel/reduce_plus_write.graph") && \
    compile "$R/cases/parallel/reduce_plus_write.graph"; then
-  expect_class reduce_plus_write privatized
+  expect_class reduce_plus_write source-phase-dag
   exp="acc $arcs w0 1"
   bad=""
   for cfg in $PRIV_CFGS; do
@@ -486,7 +486,7 @@ fi
 # phase (or one folded into the pair loop) cannot produce both numbers.
 if ser=$(compile_serial "$R/cases/parallel/priv_reduce_write_big.graph") && \
    compile "$R/cases/parallel/priv_reduce_write_big.graph"; then
-  expect_class priv_reduce_write_big privatized 'red=1'
+  expect_class priv_reduce_write_big source-phase-dag 'red=1'
   exp="acc $arcs wsum 20000"
   bad=""
   for cfg in $PRIV_CFGS; do
@@ -531,10 +531,10 @@ else
   no "race/dual_shadow" "build failed"
 fi
 
-# Two-axis C1 (temporal dirty, spatial clean): the carried-read peel must be
-# realized with the spatial axis concurrent and the temporal order preserved by
-# the round sequence.  The structural assertions pin the property itself
-# (R_S/R_T split, schedule, DAG axes metadata) and the answer must equal the
+# The carried-read peel has a verified snapshot discharge. Its unresolved
+# witness flags are clear; the spatial axis stays concurrent and the invocation
+# sequence stays ordered. Pin the snapshot, schedule and DAG axes metadata,
+# and require the answer to equal the
 # unrewritten build at 1/4/8 threads -- a temporal witness may no longer force
 # the whole nest sequential.
 if ser=$(compile_serial "$R/cases/parallel/carried_read_state.graph") && \
@@ -543,8 +543,12 @@ if ser=$(compile_serial "$R/cases/parallel/carried_read_state.graph") && \
   bad=""
   grep -q "schedule=spatial-dag" "$R/bin/build.log" \
     || bad="no schedule=spatial-dag in the certificate"
-  grep -q "R_S=0 R_T=1" "$R/bin/build.log" \
-    || bad="$bad R_S/R_T split missing"
+  # This fixture's carried preamble read is covered by the verified snapshot,
+  # so there is no unresolved R4 witness. Pin that discharge and both axes.
+  grep -q "R_S=0 R_T=0" "$R/bin/build.log" \
+    || bad="$bad resolved R_S/R_T split missing"
+  grep -q 'candidate:.*shadow=1.*class=dest-owner.*temporal=Carried' "$R/bin/build.log" \
+    || bad="$bad carried read snapshot missing"
   grep -q "spatial=parallel temporal=ordered" "$R/bin/build.log" \
     || bad="$bad DAG axes metadata missing"
   for t in 1 4 8; do
@@ -567,13 +571,13 @@ if ser=$(compile_serial "$R/cases/parallel/carried_read_state.graph") && \
   dagconc=$( ( cd "$C" && SGPL_DAG_DEBUG=1 SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 \
                ./final_program 2>&1 >/dev/null </dev/null ) | grep -c "\[sgpl-dag\].*peak=[2-9]" )
   [[ "$dagconc" -ge 1 ]] || bad="$bad declared spatial dispatch did not run concurrently (dag lines with peak>=2: $dagconc)"
-  [[ -z "$bad" ]] && ok "race/carried_read_state (temporal dirty, spatial concurrent, == serial)" \
+  [[ -z "$bad" ]] && ok "race/carried_read_state (snapshot, spatial concurrent, == serial)" \
                   || no "race/carried_read_state" "$bad"
 else
   no "race/carried_read_state" "build failed"
 fi
 
-# Two-axis C2 (spatial dirty, temporal clean): the same-base dual owner must be
+# Equal constant same-base writes: the dual owner must be
 # realized staged -- every U-owned write before every V-owned write -- instead
 # of the former whole-nest refusal, with each child's internal partition
 # parallelism intact and the answer equal to the unrewritten build.
@@ -581,11 +585,11 @@ if ser=$(compile_serial "$R/cases/parallel/dual_same_base.graph") && \
    compile "$R/cases/parallel/dual_same_base.graph"; then
   expect_class dual_same_base dual-owner
   bad=""
-  grep -q "schedule=temporal-dag emitted=1" "$R/bin/build.log" \
-    || bad="no emitted temporal-dag schedule"
+  grep -q "schedule=spatial-staged emitted=1" "$R/bin/build.log" \
+    || bad="no emitted spatial-staged schedule"
   grep -q "R_S=1 R_T=0" "$R/bin/build.log" \
     || bad="$bad R_S/R_T split missing"
-  grep -q "spatial=ordered temporal=parallel" "$R/bin/build.log" \
+  grep -q "spatial=parallel temporal=ordered" "$R/bin/build.log" \
     || bad="$bad DAG axes metadata missing"
   for t in 1 4 8; do
     got=$(runt $t)
@@ -638,7 +642,7 @@ if ser=$(compile_serial "$R/cases/parallel/shadow_snapshot.graph") && \
   grep -q "#1 R2 temporal" "$R/bin/build.log" || bad="R2 claim witness missing"
   grep -q "discharge=claim-staging" "$R/bin/build.log" || bad="$bad claim not staged"
   grep -q "R4 temporal" "$R/bin/build.log" && bad="$bad spurious R4 under the shadow snapshot"
-  grep -q "schedule=nested emitted=1" "$R/bin/build.log" || bad="$bad not emitted nested"
+  grep -q "schedule=spatial-dag emitted=1" "$R/bin/build.log" || bad="$bad no emitted spatial DAG"
   for t in 1 4; do
     got=$(runt $t)
     [[ "$got" == "$ser" ]] || bad="$bad threads=$t got='$got' serial='$ser'"
@@ -803,13 +807,12 @@ else
   no "race/reduce_int_ops" "build failed"
 fi
 if compile "$R/cases/parallel/reduce_real_ops.graph"; then
-  # The float sum parallelizes; the raw `select(fcmp)` min/max do not, by
-  # design: a select-min is not reorder-invariant once a NaN or a signed zero is
-  # in the stream, so folding partition partials with it cannot reproduce the
-  # serial left-to-right fold.  (llvm.minnum/maxnum would be recognized; the
-  # DSL's min()/max() builtins emit the select form.)  Both refusals are pinned
-  # here so a future reordering-unsafe recognition turns this red.
-  expect_class reduce_real_ops reduction 'rsum'
+  # The current exact-fold proof refuses general float addition and raw
+  # select/fcmp min/max. Select-min is order-sensitive with NaN or signed zero.
+  # Pin all three refusals until an appropriate value-domain proof is available.
+  # A fixed combine order is deterministic, but does not prove serial float
+  # rounding. The current fold proof has no bound witness for this exact count.
+  expect_class reduce_real_ops sequential 'rsum'
   expect_class reduce_real_ops sequential 'rmn'
   expect_class reduce_real_ops sequential 'rmx'
   # Reals print in %g form, so these exact integers come out without a decimal

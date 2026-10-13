@@ -1,0 +1,34 @@
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:184:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  184 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:184:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+PASS temporal_independent (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_pb_q (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_p_bq (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_connected (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_empty (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_source_order (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_claim (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_rounds (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_round_one (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_guarded (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_round_carried (sequential equivalence, counts, workers=1,2,4)
+PASS temporal_round_waw (sequential equivalence, counts, workers=1,2,4)
+PASS rt_expr_firstwins (frontier progression remains ordered and inconclusive)
+PASS roundsep_sssp (frontier progression remains ordered and inconclusive)
+temporal compiler and runtime tests: PASS

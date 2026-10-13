@@ -4,9 +4,10 @@
 // must reproduce the *same* operation as the body -- a min/max that mixes
 // minnum with a select flips on NaN and signed zeros.
 //
-// Assertions: the nest is classified `reduction`, the answer matches an
-// independent Python computation, and 1-thread == 4-thread bit-for-bit (the
-// partition count is fixed by the tuner, so an ordered combine is exact).
+// Assertions: the nests remain sequential under the current exact-fold proof,
+// the answer matches an independent Python computation, and outputs agree at
+// 1 and 4 threads. This +1.0 count is exact on this fixture, but a fixed combine
+// order alone does not prove serial rounding for general floating additions.
 graph G {
   edges: file "../verify/fixtures/g20k.txt";
 };

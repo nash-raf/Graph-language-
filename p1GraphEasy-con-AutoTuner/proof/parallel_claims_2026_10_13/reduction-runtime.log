@@ -1,0 +1,109 @@
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:184:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  184 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:184:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+== threads=1 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=69883 pure_kernel_ms=0.069883
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   op=add partitions=1  init=100 -> 136
+  ok   op=sub partitions=1  init=100 -> 64
+  ok   op=mul partitions=1  init=2 -> 0
+  ok   op=min partitions=1  init=2147483647 -> 0
+  ok   op=max partitions=1  init=-2147483648 -> 6
+  ok   op=and partitions=1  init=-1 -> 0
+  ok   op=or  partitions=1  init=0 -> 7
+  ok   op=xor partitions=1  init=0 -> 6
+  ok   op=add partitions=3  init=100 -> 136
+  ok   op=sub partitions=3  init=100 -> 64
+  ok   op=mul partitions=3  init=2 -> 0
+  ok   op=min partitions=3  init=2147483647 -> 0
+  ok   op=max partitions=3  init=-2147483648 -> 6
+  ok   op=and partitions=3  init=-1 -> 0
+  ok   op=or  partitions=3  init=0 -> 7
+  ok   op=xor partitions=3  init=0 -> 6
+  ok   op=add partitions=7  init=100 -> 136
+  ok   op=sub partitions=7  init=100 -> 64
+  ok   op=mul partitions=7  init=2 -> 0
+  ok   op=min partitions=7  init=2147483647 -> 0
+  ok   op=max partitions=7  init=-2147483648 -> 6
+  ok   op=and partitions=7  init=-1 -> 0
+  ok   op=or  partitions=7  init=0 -> 7
+  ok   op=xor partitions=7  init=0 -> 6
+red step matrix: 24 configs, 0 failures
+== threads=3 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1847185 pure_kernel_ms=1.847185
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   op=add partitions=1  init=100 -> 136
+  ok   op=sub partitions=1  init=100 -> 64
+  ok   op=mul partitions=1  init=2 -> 0
+  ok   op=min partitions=1  init=2147483647 -> 0
+  ok   op=max partitions=1  init=-2147483648 -> 6
+  ok   op=and partitions=1  init=-1 -> 0
+  ok   op=or  partitions=1  init=0 -> 7
+  ok   op=xor partitions=1  init=0 -> 6
+  ok   op=add partitions=3  init=100 -> 136
+  ok   op=sub partitions=3  init=100 -> 64
+  ok   op=mul partitions=3  init=2 -> 0
+  ok   op=min partitions=3  init=2147483647 -> 0
+  ok   op=max partitions=3  init=-2147483648 -> 6
+  ok   op=and partitions=3  init=-1 -> 0
+  ok   op=or  partitions=3  init=0 -> 7
+  ok   op=xor partitions=3  init=0 -> 6
+  ok   op=add partitions=7  init=100 -> 136
+  ok   op=sub partitions=7  init=100 -> 64
+  ok   op=mul partitions=7  init=2 -> 0
+  ok   op=min partitions=7  init=2147483647 -> 0
+  ok   op=max partitions=7  init=-2147483648 -> 6
+  ok   op=and partitions=7  init=-1 -> 0
+  ok   op=or  partitions=7  init=0 -> 7
+  ok   op=xor partitions=7  init=0 -> 6
+red step matrix: 24 configs, 0 failures
+== threads=8 ==
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=3765663 pure_kernel_ms=3.765663
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   op=add partitions=1  init=100 -> 136
+  ok   op=sub partitions=1  init=100 -> 64
+  ok   op=mul partitions=1  init=2 -> 0
+  ok   op=min partitions=1  init=2147483647 -> 0
+  ok   op=max partitions=1  init=-2147483648 -> 6
+  ok   op=and partitions=1  init=-1 -> 0
+  ok   op=or  partitions=1  init=0 -> 7
+  ok   op=xor partitions=1  init=0 -> 6
+  ok   op=add partitions=3  init=100 -> 136
+  ok   op=sub partitions=3  init=100 -> 64
+  ok   op=mul partitions=3  init=2 -> 0
+  ok   op=min partitions=3  init=2147483647 -> 0
+  ok   op=max partitions=3  init=-2147483648 -> 6
+  ok   op=and partitions=3  init=-1 -> 0
+  ok   op=or  partitions=3  init=0 -> 7
+  ok   op=xor partitions=3  init=0 -> 6
+  ok   op=add partitions=7  init=100 -> 136
+  ok   op=sub partitions=7  init=100 -> 64
+  ok   op=mul partitions=7  init=2 -> 0
+  ok   op=min partitions=7  init=2147483647 -> 0
+  ok   op=max partitions=7  init=-2147483648 -> 6
+  ok   op=and partitions=7  init=-1 -> 0
+  ok   op=or  partitions=7  init=0 -> 7
+  ok   op=xor partitions=7  init=0 -> 6
+red step matrix: 24 configs, 0 failures
+frontier reduction step test matrix: PASS

@@ -1,0 +1,29 @@
+=== 3. PARALLELISM & RACES ===
+  [32mPASS[0m  race/bfs_level 1thr==4thr
+  [32mPASS[0m  determinism/bfs_level
+  [32mPASS[0m  race/cc 1thr==4thr
+  [32mPASS[0m  determinism/cc
+  [32mPASS[0m  race/kcore 1thr==4thr
+  [32mPASS[0m  determinism/kcore
+  [32mPASS[0m  race/pagerank 1thr==4thr
+  [32mPASS[0m  determinism/pagerank
+  [32mPASS[0m  race/sssp 1thr==4thr
+  [32mPASS[0m  determinism/sssp
+  [32mPASS[0m  race/doall_scaling 1thr==4thr
+  [31mFAIL[0m  scaling/doall_scaling    4thr only 0.47x of 1thr (0.29s -> 0.62s); expected >=1.2x
+  [32mPASS[0m  race/nested_gather (nested neighbour loop)
+  [32mPASS[0m  race/nested_gather_default (refusal keeps driver)
+  [32mPASS[0m  parallel/nested_step (outer refused, step TDG-planned, 1thr==4thr)
+  [32mPASS[0m  parallel/gpu_compute (compute DOALL, offload-target shape)
+  [32mPASS[0m  parallel/gpu_compute_local (compute DOALL, offload-target shape)
+  [32mPASS[0m  class/int_gather (source-red for /red=1/, 1 loop(s))
+  [32mPASS[0m  race/int_gather (scalar accumulator gather)
+  [32mPASS[0m  class/mutual_deg (sequential for /red=1/, 1 loop(s))
+  [32mPASS[0m  race/mutual_deg (scalar accumulator gather)
+  [32mPASS[0m  race/same_slot (same-address accumulator)
+  [32mPASS[0m  class/roundsep (privatized for /shadow=[1-9]/, 1 loop(s))
+  [32mPASS[0m  race/roundsep (in-place shadow, ditto across p1/p3/p4)
+  [32mPASS[0m  class/mixed_regions (privatized, 1 loop(s))
+  [32mPASS[0m  priv/mixed_regions (tot 340000, == serial)
+  [32mPASS[0m  priv/mixed_regions IR (pair body writes the private copy, not @arr)
+  [32mPASS[0m  class/reduce_plus_write (source-phase-dag, 1 loop(s))

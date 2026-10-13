@@ -79,6 +79,34 @@ static bool spatialPrivateBase(const NeighborLoopInfo &Info, const Value *Base) 
     return false;
 }
 
+/* Whole-domain fission must dispatch exactly the original ascending vertex
+ * domain. An arbitrary loop bound or source list does not justify the existing
+ * all-vertices owner runtime, even when its body stores commute. */
+static bool spatialAllVerticesDomain(const NeighborLoopInfo &Info) {
+    if (Info.FrontierArrayPtr || Info.MembershipGated) return false;
+    auto *Phi = dyn_cast_or_null<PHINode>(driverIndVar(Info.DriverLoop));
+    auto *Header = dyn_cast<BranchInst>(Info.DriverLoop->getHeader()->getTerminator());
+    auto *Compare = Header && Header->isConditional() ? dyn_cast<ICmpInst>(Header->getCondition()) : nullptr;
+    if (!Phi || Phi->getNumIncomingValues() != 2 || !Compare ||
+        (Compare->getPredicate() != ICmpInst::ICMP_SLT && Compare->getPredicate() != ICmpInst::ICMP_ULT) ||
+        Compare->getOperand(0) != Phi) return false;
+    bool Zero = false, Increment = false;
+    for (Value *V : Phi->incoming_values()) {
+        if (auto *C = dyn_cast<ConstantInt>(V)) Zero |= C->isZero();
+        if (auto *Add = dyn_cast<BinaryOperator>(V))
+            if (Add->getOpcode() == Instruction::Add && Add->getOperand(0) == Phi)
+                if (auto *C = dyn_cast<ConstantInt>(Add->getOperand(1))) Increment |= C->isOne();
+    }
+    auto *Load = dyn_cast<LoadInst>(Compare->getOperand(1));
+    auto *G = Load ? dyn_cast<GetElementPtrInst>(Load->getPointerOperand()) : nullptr;
+    Value *Endpoint = Info.UVal;
+    while (auto *Cast = dyn_cast_or_null<CastInst>(Endpoint)) Endpoint = Cast->getOperand(0);
+    return Zero && Increment && Endpoint == Phi && G &&
+        llvm::all_of(G->indices(), [](const Use &U) {
+            auto *C = dyn_cast<ConstantInt>(U.get()); return C && C->isZero();
+        }) && sameAddressValue(G->getPointerOperand(), Info.GraphPtr, 0);
+}
+
 static void spatialPrint(const NeighborLoopInfo &Info) {
     if (!getenv("GRAPH_FRONTIER_STATS") && !getenv("SGPL_WITNESS_DUMP")) return;
     const auto &P = Info.SpatialResult;
@@ -326,6 +354,18 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
         ClaimStaged &= Store && Guard && sourcePhaseFor(Info, Store) == PhaseSegment::Preamble;
         for (const auto &A : P.Accesses) if (A.Base == Claim->Base && !A.Layout.empty()) {
             if(!A.Write && A.Phase==PhaseSegment::Pair && A.Snapshot>=0) continue;
+            /* A pair may repeat its source's successful constant claim. It
+             * does not change the already-staged value, and source ownership
+             * keeps these writes on the claiming source's worker. Retain its
+             * spatial dependencies; it is not another claim-result site. */
+            if (A.Write && A.Phase == PhaseSegment::Pair && Store &&
+                A.Index.Axis == Region::U && A.Index.Injective &&
+                A.Index.Scale == 1 && A.Index.Offset == 0)
+                if (auto *Repeat = dyn_cast<StoreInst>(A.Origin))
+                    if (!Repeat->isVolatile() && !Repeat->isAtomic() &&
+                        isa<ConstantInt>(Store->getValueOperand()) &&
+                        Repeat->getValueOperand() == Store->getValueOperand())
+                        continue;
             if (A.Phase != PhaseSegment::Preamble || A.Index.Axis != Region::U ||
                 !A.Index.Injective || A.Index.Scale != 1 || A.Index.Offset != 0) ClaimStaged = false;
             if (A.Write) ClaimStaged &= A.Origin == Store;

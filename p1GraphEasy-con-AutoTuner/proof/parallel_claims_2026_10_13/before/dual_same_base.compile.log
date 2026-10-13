@@ -1,0 +1,58 @@
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=inconclusive group=None cleancut=None accesses=5 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=surviving relations require topology-dependent or unresolved grouping
+[spatial-access] site=0 family=1 mode=R base=G axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body10
+[spatial-access] site=1 family=0 mode=R base=A axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-access] site=2 family=0 mode=W base=A axis=U scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-access] site=3 family=0 mode=R base=A axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-access] site=4 family=0 mode=W base=A axis=V scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach_nbr.body
+[spatial-relation] id=0 sites=2,2 kind=WAW original=u=u' removed-condition= condition=u=u' contained=U uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=1 sites=2,4 kind=WAW original=may overlap for distinct (u,v,o),(u',v',o') removed-condition= condition=may overlap for distinct (u,v,o),(u',v',o') contained=Top uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=2 sites=4,4 kind=WAW original=v=v' removed-condition= condition=v=v' contained=V uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phases have no non-trivial partition members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=2 edges=1 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=serial emitted=1 impl_failure=0 reason=surviving relations require topology-dependent or unresolved grouping
+[frontier-cert] hdr=foreach_nbr.cond R_S=1 R_T=0 NI_S=0 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=1 temporal=0 impl_guard=realization:same-base or cross-phase U+V without privatization
+[frontier-cert] schedule=serial emitted=1 impl_failure=0 reason=surviving relations require topology-dependent or unresolved grouping
+[frontier-cert]   #1 R6 spatial base=A src=U.W sink=V.W relation=1 discharge=none reason=same-base U+V dual ownership conflict
+[frontier-cert]   rel WAW base=A src=U.B sink=V.B discharge=none
+[witness] iter=1 driver=foreach.cond9 inner=foreach_nbr.cond
+[witness] writekind=3 hasdata=0 redptr=_ redop= firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=0
+[witness] slots=0 privarrays=0 roundsep=0 driverustores=0 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=W op= base=A reg=U scope=2 temp=Independent
+[witness] eff kind=W op= base=A reg=V scope=2 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=foreach.cond9 inner=foreach_nbr.cond kind=3 red=0 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  W(A,U) ⊗ W(A,V)  temporal=Independent  expr:  pre=ε  pair=W(A,U)⊕W(A,V)  epi=ε  gated=0 [refused: same-base or cross-phase U+V without privatization]
+[graph-frontier] detected=1
+[loop-classify] fn=main hdr=loopcond depth=1 phi-carry detected on non-induction phi
+[loop-classify] fn=main hdr=loopcond depth=1 classification=SEQUENTIAL hasProvenCarriedDep=0 hasUnschedulableCarriedDep=0 hasUnknownAttributedDep=0 hasProofOfNoCarriedDeps=1 phiCarry=1 scalarDoAcrossPhi=0
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 call barrier: stateful call autograph_neighbor_iter_init
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 carrier=UNKNOWN earliest_unknown_prefix=1 attributed to current loop
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 carrier=UNKNOWN earliest_unknown_prefix=1 attributed to current loop
+[loop-classify] fn=main hdr=foreach.cond9 depth=1 classification=SEQUENTIAL hasProvenCarriedDep=0 hasUnschedulableCarriedDep=0 hasUnknownAttributedDep=1 hasProofOfNoCarriedDeps=0 phiCarry=0 scalarDoAcrossPhi=0
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 call barrier: stateful call autograph_neighbor_iter_next
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 carrier=UNKNOWN earliest_unknown_prefix=2 attributed to current loop
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 carrier=UNKNOWN earliest_unknown_prefix=2 attributed to current loop
+[loop-classify] fn=main hdr=foreach_nbr.cond depth=2 classification=SEQUENTIAL hasProvenCarriedDep=0 hasUnschedulableCarriedDep=0 hasUnknownAttributedDep=1 hasProofOfNoCarriedDeps=0 phiCarry=0 scalarDoAcrossPhi=0
+[loop-classify] fn=main hdr=foreach.cond depth=1 confused dependence -> treated as unknown carrier
+[loop-classify] fn=main hdr=foreach.cond depth=1 classification=SEQUENTIAL hasProvenCarriedDep=0 hasUnschedulableCarriedDep=0 hasUnknownAttributedDep=1 hasProofOfNoCarriedDeps=0 phiCarry=0 scalarDoAcrossPhi=0
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

@@ -1,0 +1,28 @@
+[tdg.init] logical_threads=8 physical_threads=6 allow_ht=0 ht_disallow=0 unit_cost_ns=250.00 alpha=0.42 min_gain=0.12 min_work_for_ht=64
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=8 rels=0 budget=8 peak=8 max_share=1 grants=0/8 weighted=0 completed=8 rc=0
+[budget.context] push id=0 max_threads=8 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=9 rels=8 budget=8 peak=8 max_share=8 grants=1/8 weighted=0 completed=9 rc=0
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=20001 predicted_ns=2343960.000 measured_ns=14408197 predicted_ms=2.343960 measured_ms=14.408197
+[AutoTunerProfile] region=1 kind=Traverse layout=CSR visits=1 predicted_ns=2343960.000 measured_ns=3621450 predicted_ms=2.343960 measured_ms=3.621450
+[AutoTunerProfile] region=2 kind=Traverse layout=CSR visits=1 predicted_ns=2343960.000 measured_ns=2378486 predicted_ms=2.343960 measured_ms=2.378486
+[AutoTunerProfile] total kind=Traverse predicted_ns=7031880.000 measured_ns=20408133 predicted_ms=7.031880 measured_ms=20.408133 pure_kernel_ns=5998197 pure_kernel_ms=5.998197
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

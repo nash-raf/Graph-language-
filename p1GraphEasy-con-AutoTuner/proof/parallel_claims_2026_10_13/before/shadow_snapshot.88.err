@@ -1,0 +1,19 @@
+[tdg.init] logical_threads=8 physical_threads=6 allow_ht=0 ht_disallow=0 unit_cost_ns=250.00 alpha=0.42 min_gain=0.12 min_work_for_ht=64
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[budget.context] push id=0 max_threads=1 stack_depth=1
+[sgpl-dag] nodes=8 rels=0 budget=8 peak=8 max_share=1 grants=0/8 weighted=0 completed=8 rc=0
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=20001 predicted_ns=1953192.824 measured_ns=14058509 predicted_ms=1.953193 measured_ms=14.058509
+[AutoTunerProfile] region=1 kind=Query layout=CSR visits=6 predicted_ns=0.000 measured_ns=489045 predicted_ms=0.000000 measured_ms=0.489045
+[AutoTunerProfile] region=2 kind=Traverse layout=CSR visits=340000 predicted_ns=546816.824 measured_ns=6758965 predicted_ms=0.546817 measured_ms=6.758965
+[AutoTunerProfile] region=3 kind=Traverse layout=CSR visits=1 predicted_ns=2343960.000 measured_ns=3387468 predicted_ms=2.343960 measured_ms=3.387468
+[AutoTunerProfile] total kind=Traverse predicted_ns=4843969.648 measured_ns=24204942 predicted_ms=4.843970 measured_ms=24.204942 pure_kernel_ns=9451627 pure_kernel_ms=9.451627
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=489045 predicted_ms=0.000000 measured_ms=0.489045 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

@@ -9,7 +9,9 @@
 // (a tagged RealizationOrder edge, never semantic precedence) -- while each
 // child keeps its own partition parallelism through the ready-work DAG
 // dispatch.  Before the gate split the whole nest was refused.  The answer
-// must equal the unrewritten build at every thread count.
+// must equal the unrewritten build at every thread count. The equal constant
+// stores here commute; different values or intermediate observers require a
+// separate proof and must not use this staged realization.
 graph G {
   edges: file "../verify/fixtures/mutual5.txt";
 };

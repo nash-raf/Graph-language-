@@ -942,7 +942,8 @@ antlrcpp::Any ASTBuilder::visitPrintExpr(BaseParser::PrintExprContext *ctx)
 
 antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx)
 {
-    std::string callee = ctx->ID()->getText();
+    // Builtins also have keyword tokens; they do not populate ID().
+    std::string callee = ctx->getStart()->getText();
 
     // collect arguments
     std::vector<ASTNodePtr> args;
@@ -953,6 +954,19 @@ antlrcpp::Any ASTBuilder::visitFunctionCall(BaseParser::FunctionCallContext *ctx
             args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(exprCtx)));
         }
     }
+
+    if (callee == "hasNode")
+    {
+        if (args.size() != 2)
+            throw std::runtime_error("hasNode requires a graph and a vertex");
+        auto graph = std::dynamic_pointer_cast<VariableNode>(args[0]);
+        if (!graph)
+            throw std::runtime_error("hasNode first argument must be a graph name");
+        return ASTNodePtr(std::make_shared<SetContainsExprNode>(
+            SetTargetKind::GraphNodes, graph->name, args[1]));
+    }
+    if (callee == "hasEdge" && args.size() != 3)
+        throw std::runtime_error("hasEdge requires a graph and two vertices");
 
     return ASTNodePtr{
         std::make_shared<FunctionCallNode>(callee, std::move(args))};

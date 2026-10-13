@@ -1,0 +1,74 @@
+=== 3. PARALLELISM & RACES ===
+  [32mPASS[0m  race/bfs_level 1thr==4thr
+  [32mPASS[0m  determinism/bfs_level
+  [32mPASS[0m  race/cc 1thr==4thr
+  [32mPASS[0m  determinism/cc
+  [32mPASS[0m  race/kcore 1thr==4thr
+  [32mPASS[0m  determinism/kcore
+  [32mPASS[0m  race/pagerank 1thr==4thr
+  [32mPASS[0m  determinism/pagerank
+  [32mPASS[0m  race/sssp 1thr==4thr
+  [32mPASS[0m  determinism/sssp
+  [32mPASS[0m  race/doall_scaling 1thr==4thr
+  [32mPASS[0m  scaling/doall_scaling 4thr faster (2.55x)
+  [32mPASS[0m  race/nested_gather (nested neighbour loop)
+  [32mPASS[0m  race/nested_gather_default (refusal keeps driver)
+  [32mPASS[0m  parallel/nested_step (outer refused, step TDG-planned, 1thr==4thr)
+  [32mPASS[0m  parallel/gpu_compute (compute DOALL, offload-target shape)
+  [32mPASS[0m  parallel/gpu_compute_local (compute DOALL, offload-target shape)
+  [32mPASS[0m  class/int_gather (source-red for /red=1/, 1 loop(s))
+  [32mPASS[0m  race/int_gather (scalar accumulator gather)
+  [32mPASS[0m  class/mutual_deg (sequential for /red=1/, 1 loop(s))
+  [32mPASS[0m  race/mutual_deg (scalar accumulator gather)
+  [32mPASS[0m  race/same_slot (same-address accumulator)
+  [32mPASS[0m  class/roundsep (privatized for /shadow=[1-9]/, 1 loop(s))
+  [32mPASS[0m  race/roundsep (in-place shadow, ditto across p1/p3/p4)
+  [32mPASS[0m  class/mixed_regions (privatized, 1 loop(s))
+  [32mPASS[0m  priv/mixed_regions (tot 340000, == serial)
+  [32mPASS[0m  priv/mixed_regions IR (pair body writes the private copy, not @arr)
+  [32mPASS[0m  class/reduce_plus_write (source-phase-dag, 1 loop(s))
+  [32mPASS[0m  priv/reduce_plus_write (acc 160000 w0 1, == serial)
+  [32mPASS[0m  class/priv_reduce_write_big (source-phase-dag for /red=1/, 1 loop(s))
+  [32mPASS[0m  priv/reduce_write_big (acc 160000 wsum 20000, == serial)
+  [32mPASS[0m  race/dual_shadow (10-core = 18959 at 1/2/4/8 threads)
+  [32mPASS[0m  class/carried_read_state (dest-owner for /temporal=Carried/, 1 loop(s))
+  [32mPASS[0m  race/carried_read_state (snapshot, spatial concurrent, == serial)
+  [32mPASS[0m  class/dual_same_base (dual-owner, 1 loop(s))
+  [32mPASS[0m  race/dual_same_base (spatial ordered, staged U->V, == serial)
+  [32mPASS[0m  race/r3_unknown_provenance (R3 unrepresentable -> serial+impl_failure, == serial)
+  [32mPASS[0m  race/r7_append_unwired (R7 unrepresentable -> serial+impl_failure, == serial)
+  [32mPASS[0m  race/shadow_snapshot (snapshot discharges the read; claim staged)
+  [32mPASS[0m  race/r6_order_sensitive (non-commuting same base -> semantic serial, == serial)
+  [32mPASS[0m  class/claim_driver (sequential, 1 loop(s))
+  [32mPASS[0m  race/claim_driver (driver claim refused, guard semantics kept)
+  [32mPASS[0m  class/two_reduce_slots (privatized, 1 loop(s))
+  [32mPASS[0m  priv/two_reduce_slots (two partials, == serial)
+  [32mPASS[0m  class/data_index_write (privatized for /driver=foreach\..*data=1/, 1 loop(s))
+  [32mPASS[0m  priv/data_index_write (data-valued subscript privatized)
+  [32mPASS[0m  class/priv_two_slots_big (privatized for /red=1/, 1 loop(s))
+  [32mPASS[0m  priv/two_slots_big (a 160000 b 2068247825, == serial)
+  [32mPASS[0m  class/priv_data_index_big (privatized for /driver=foreach\..*data=1/, 1 loop(s))
+  [32mPASS[0m  priv/data_index_big (cntsum 160000 cnt1 1335, == serial)
+  [32mPASS[0m  class/reduce_int_ops (reduction for /red=1/, 7 loop(s))
+  [32mPASS[0m  race/reduce_int_ops (7 int reductions vs python)
+  [32mPASS[0m  class/reduce_real_ops (sequential for /rsum/, 1 loop(s))
+  [32mPASS[0m  class/reduce_real_ops (sequential for /rmn/, 1 loop(s))
+  [32mPASS[0m  class/reduce_real_ops (sequential for /rmx/, 1 loop(s))
+  [32mPASS[0m  race/reduce_real_ops (3 real reductions vs python)
+  [32mPASS[0m  class/int_gather (source-red for /red=1/, 1 loop(s))
+  [32mPASS[0m  parallel/int_gather_source_red (P10: per-source partials)
+  [32mPASS[0m  parallel/array_doall (DSL globals promoted, proof=1)
+  [32mPASS[0m  race/doacross_scan (wait/post protocol, 1thr==4thr)
+  [32mPASS[0m  race/nested_while (while between vertex and neighbour loop)
+  [32mPASS[0m  parallel/call_barrier (stateful call refuses the certificate)
+  [32mPASS[0m  race/marker_derived (derived verdicts, 1thr==4thr)
+  [32mPASS[0m  race/derived_default (verdicts derived, no marker veto)
+  [32mPASS[0m  race/derived_scatter (iterator barrier + unknown carrier, 1thr==4thr)
+  [32mPASS[0m  parallel/nested_while2 (acc0 76)
+  [32mPASS[0m  parallel/foreach_scan (last 19999)
+  [32mPASS[0m  race/overflow-fail-closed (relation cap exceeded -> serial+impl, == serial)
+  [32mPASS[0m  race/maycross_same_region (no witness, graph connected -> serial+impl, == serial)
+
+======================================================
+  passed: 69   failed: 0
+======================================================

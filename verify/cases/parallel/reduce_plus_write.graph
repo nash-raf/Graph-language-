@@ -3,7 +3,8 @@
 //
 // The reduction class may only own the loop when the body's other effects are
 // compatible; a per-vertex write next to the accumulator must not be silently
-// merged into the reduction step.  The safe verdict is sequential, and the
+// merged into the reduction step. The source-phase DAG preserves the preamble
+// and pair phases in each independent component, and the
 // answers must be identical at every thread count.  Expected values with the
 // g20k fixture read as directed (m=160000 arcs): acc counts the traversed arcs
 // exactly once, and w[0] is incremented by the outer loop alone.

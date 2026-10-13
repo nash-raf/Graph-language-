@@ -281,7 +281,7 @@ drawBoolLiteral: TRUE | FALSE | 'true' | 'false';
 // cannot match ID.  Without this alternative the degree() builtin -- which
 // IRGen already implements as an O(1) row_ptr[v+1]-row_ptr[v] -- is
 // unreachable from the surface syntax.
-functionCall: (ID | 'degree') '(' argumentList? ')';
+functionCall: (ID | 'degree' | 'hasEdge' | 'hasNode') '(' argumentList? ')';
 argumentList: expr (',' expr)*;
 
 // Sleep statement

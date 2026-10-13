@@ -1,0 +1,13 @@
+// Equal values do not justify expanding a subset traversal to every vertex.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int A[n];
+for v in G.nodes { A[v] = 7; }
+int u = 0;
+while (u < 3) {
+    for v in G.neighbors(u) { A[u] = 1; A[v] = 1; }
+    u = u + 1;
+}
+int s = 0;
+for v in G.nodes { s = s + A[v]; }
+print s;

@@ -1,0 +1,15 @@
+// Three private slots with distinct operators and non-identity initial values.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int count = 7;
+int low = 100;
+int high = -1;
+for u in G.nodes {
+    for v in G.neighbors(u) {
+        count = count + 1;
+        low = min(low, v);
+        high = max(high, v);
+    }
+}
+print count;
+print low;
+print high;

@@ -1,9 +1,8 @@
-// Two scalar accumulators in one neighbour body.  The reduction engine maps a
-// *single* ReducePtr to a per-partition partial; the second slot has no
-// partition storage, so under the rewrite every partition would write the same
-// global (lost updates).  The nest must be refused (sequential) and the answer
-// must match the serial build -- `b` is the discriminating value (20 serial,
-// ~20/partitions if the second slot were emitted).
+// Two scalar accumulators in one neighbour body. R3 gives each slot its own
+// per-partition partial and combines the partials after the workers join.
+// The nest must be classified privatized and match the serial build:
+// a = 10, b = 20. Both slots must be private in the spatial proof; the legacy
+// single-ReducePtr layout cannot safely execute the second slot in parallel.
 graph G {
   edges: file "../verify/fixtures/tiny.txt";
 };

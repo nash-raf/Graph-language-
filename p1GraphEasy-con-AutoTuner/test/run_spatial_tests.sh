@@ -11,16 +11,20 @@ g++ -O2 -mavx2 -march=native -fopenmp -c roaring_bitmap.cpp -o "$TMP/roaring_bit
 g++ -O2 -fopenmp -c graph_loader_runtime.cpp -o "$TMP/graph_loader_runtime.o"
 g++ -O2 -c graph_runtime.cpp -o "$TMP/graph_runtime.o"
 OBJECTS=("$TMP"/*.o)
-fixtures=(destination source sites affine offset_conflict snapshot d_private d_unresolved source_acc source_acc_large mutable_guard global_write global_fold mixed old_value_twice observer unsupported short_guard claim_destination claim_payload frontier_observer source_frontier snapshot_extent)
+fixtures=(destination source sites affine offset_conflict snapshot d_private d_unresolved source_acc source_acc_large mutable_guard global_write global_fold scalar_slots scalar_slots_three scalar_observer two_reduce_slots priv_two_slots_big mixed old_value_twice observer unsupported short_guard claim_destination claim_payload frontier_observer source_frontier snapshot_extent)
 for name in "${fixtures[@]}"; do
+  graph="test/spatial_$name.graph"
+  case "$name" in
+    two_reduce_slots|priv_two_slots_big) graph="$ROOT/../verify/cases/parallel/$name.graph" ;;
+  esac
   FORCE_CPU=1 GRAPH_FRONTIER_STATS=1 SGPL_WITNESS_DUMP=1 SGPL_FRONTIER_STRICT=1 \
-    ./GraphProgram "test/spatial_$name.graph" >"$TMP/$name.compile" 2>&1 || { cat "$TMP/$name.compile"; exit 1; }
+    ./GraphProgram "$graph" >"$TMP/$name.compile" 2>&1 || { cat "$TMP/$name.compile"; exit 1; }
   mv program.o "$TMP/$name.o"
   g++ -fopenmp -no-pie "$TMP/$name.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt -o "$TMP/$name"
-  ref="$name"
-  [[ "$name" == snapshot ]] && ref=snapshot_ref
-  [[ "$name" == snapshot_extent ]] && ref=snapshot_extent_ref
-  FORCE_CPU=1 GRAPH_FRONTIER_REWRITE_OFF=1 ./GraphProgram "test/spatial_$ref.graph" >"$TMP/reference.compile" 2>&1
+  ref="$graph"
+  [[ "$name" == snapshot ]] && ref=test/spatial_snapshot_ref.graph
+  [[ "$name" == snapshot_extent ]] && ref=test/spatial_snapshot_extent_ref.graph
+  FORCE_CPU=1 GRAPH_FRONTIER_REWRITE_OFF=1 ./GraphProgram "$ref" >"$TMP/reference.compile" 2>&1
   mv program.o "$TMP/reference.o"
   g++ -fopenmp -no-pie "$TMP/reference.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt -o "$TMP/reference"
   reference="$(SGPL_NUM_THREADS=1 "$TMP/reference" 2>"$TMP/reference.log")"
@@ -29,9 +33,9 @@ for name in "${fixtures[@]}"; do
       grep -q 'status=independent-family group=Destination.*runtime=1 realized=1' "$TMP/$name.compile" ;;
     source|sites|affine|source_acc|source_acc_large|short_guard|source_frontier)
       grep -q 'status=independent-family group=Source.*runtime=1 realized=1' "$TMP/$name.compile" ;;
-    d_private|global_fold)
+    d_private|global_fold|scalar_slots|scalar_slots_three|two_reduce_slots|priv_two_slots_big)
       grep -q 'status=independent-family group=PairOccurrence.*runtime=1 realized=1' "$TMP/$name.compile" ;;
-    global_write|old_value_twice|observer|unsupported)
+    global_write|old_value_twice|observer|scalar_observer|unsupported)
       grep -q 'status=no-partition' "$TMP/$name.compile"
       ! grep -q 'realized=1' "$TMP/$name.compile" ;;
     mutable_guard)
@@ -39,6 +43,19 @@ for name in "${fixtures[@]}"; do
     *)
       grep -q 'status=inconclusive group=None' "$TMP/$name.compile"
       ! grep -q 'realized=1' "$TMP/$name.compile" ;;
+  esac
+  case "$name" in
+    scalar_slots|scalar_slots_three|two_reduce_slots|priv_two_slots_big)
+      grep -q 'class=privatized' "$TMP/$name.compile"
+      ! grep -q 'survives=1' "$TMP/$name.compile"
+      case "$name" in
+        scalar_slots) expected=$'14\n28' ;;
+        scalar_slots_three) expected=$'14\n1\n6' ;;
+        two_reduce_slots) expected=$'a\n10\nb\n20' ;;
+        priv_two_slots_big) expected=$'a\n160000\nb\n2068247825' ;;
+      esac
+      [[ "$reference" == "$expected" ]] || { echo "FAIL $name independent expected value"; exit 1; }
+      ;;
   esac
   if [[ "$name" == snapshot ]]; then
     grep -q 'kind=WAW.*survives=1 removed-by=none' "$TMP/$name.compile"
@@ -49,6 +66,14 @@ for name in "${fixtures[@]}"; do
     output="$(timeout 30 env SGPL_CLEANCUT_PARTITIONS=3 SGPL_NUM_THREADS="$workers" "$TMP/$name" 2>"$TMP/run.log")"
     [[ "$output" == "$reference" ]] || { echo "FAIL $name workers=$workers"; printf '%s\n' "$output" "$reference"; exit 1; }
   done
+  case "$name" in
+    scalar_slots|scalar_slots_three|two_reduce_slots|priv_two_slots_big)
+      for cfg in 1:1 4:4 8:8; do
+        output="$(timeout 30 env SGPL_CLEANCUT_PARTITIONS="${cfg#*:}" SGPL_NUM_THREADS="${cfg%:*}" "$TMP/$name" 2>"$TMP/run.log")"
+        [[ "$output" == "$reference" ]] || { echo "FAIL $name threads:partitions=$cfg"; exit 1; }
+      done
+      ;;
+  esac
   if [[ "$name" == source_acc_large ]]; then
     for trial in $(seq 1 24); do
       output="$(timeout 30 env SGPL_CLEANCUT_PARTITIONS=8 SGPL_NUM_THREADS=8 "$TMP/$name" 2>"$TMP/run.log")"

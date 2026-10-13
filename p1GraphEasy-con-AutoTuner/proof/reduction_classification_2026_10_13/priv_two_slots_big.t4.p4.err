@@ -1,0 +1,6 @@
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=20001 predicted_ns=937584.000 measured_ns=2478444 predicted_ms=0.937584 measured_ms=2.478444
+[AutoTunerProfile] total kind=Traverse predicted_ns=937584.000 measured_ns=2478444 predicted_ms=0.937584 measured_ms=2.478444 pure_kernel_ns=1531434 pure_kernel_ms=1.531434
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

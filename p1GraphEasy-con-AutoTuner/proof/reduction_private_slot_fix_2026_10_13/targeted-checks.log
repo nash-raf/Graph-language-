@@ -1,0 +1,70 @@
+Compiling two_reduce_slots (default pipeline)
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=privatized  U+(a,G) ⊗ U+(b,G)  temporal=Independent  expr:  pre=ε  pair=U+(a,G)⊕U+(b,G)  epi=ε  gated=0
+  threads=1 partitions=1
+a
+10
+b
+20
+  threads=4 partitions=4
+a
+10
+b
+20
+  threads=4 partitions=3
+a
+10
+b
+20
+Compiling two_reduce_slots (serial reference)
+Compiling priv_two_slots_big (default pipeline)
+[graph-frontier]   schedule=spatial-dag emitted=1 impl_failure=0 reason=static pair-work partition family realized by CleanCut
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=privatized  U+(a,G) ⊗ U+(b,G)  temporal=Independent  expr:  pre=ε  pair=U+(a,G)⊕U+(b,G)  epi=ε  gated=0
+  threads=1 partitions=1
+a
+160000
+b
+2068247825
+  threads=4 partitions=4
+a
+160000
+b
+2068247825
+  threads=4 partitions=3
+a
+160000
+b
+2068247825
+Compiling priv_two_slots_big (serial reference)
+Compiling reduce_real_ops (default pipeline)
+[graph-frontier]   schedule=serial emitted=1 impl_failure=0 reason=unconditional shared write connects every pair occurrence
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U+(rsum,G)  temporal=Independent  expr:  pre=ε  pair=U+(rsum,G)  epi=ε  gated=0 [refused: ]
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=R8 guard: reduction realization
+[graph-frontier] candidate: main driver=foreach.cond12 inner=foreach_nbr.cond24 kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U_f(rmn,G)  temporal=Independent  expr:  pre=ε  pair=U_f(rmn,G)  epi=ε  gated=0 [refused: reduction conditions not met]
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=R8 guard: reduction realization
+[graph-frontier] candidate: main driver=foreach.cond37 inner=foreach_nbr.cond49 kind=0 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U_f(rmx,G)  temporal=Independent  expr:  pre=ε  pair=U_f(rmx,G)  epi=ε  gated=0 [refused: reduction conditions not met]
+  threads=1 partitions=1
+rsum
+320000
+rmn
+0
+rmx
+19999
+  threads=4 partitions=4
+rsum
+320000
+rmn
+0
+rmx
+19999
+  threads=4 partitions=3
+rsum
+320000
+rmn
+0
+rmx
+19999
+Compiling reduce_real_ops (serial reference)
+PASS two_reduce_slots: all thread/partition configurations match serial and independent expected values
+PASS priv_two_slots_big: all thread/partition configurations match serial and independent expected values
+PASS reduce_real_ops: all thread/partition configurations match serial and independent expected values

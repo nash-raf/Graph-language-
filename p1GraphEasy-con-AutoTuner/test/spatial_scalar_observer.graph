@@ -1,0 +1,16 @@
+// An intermediate accumulator value escapes, so R3 must not privatize it.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int out[n];
+int a = 7;
+int b = 11;
+for u in G.nodes {
+    for v in G.neighbors(u) {
+        a = a + 1;
+        b = b + v;
+        out[u] = a;
+    }
+}
+print a;
+print b;
+for u in G.nodes { print out[u]; }

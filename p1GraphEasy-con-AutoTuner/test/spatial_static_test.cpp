@@ -8,14 +8,16 @@ static int failures;
 static void check(bool value, const char *message) {
     if (!value) { std::cerr << "FAIL " << message << "\n"; ++failures; }
 }
-static SpatialDecision proof(StringRef body, bool noalias = false, bool snapshot = false) {
+static SpatialDecision proof(StringRef body, bool noalias = false, bool snapshot = false,
+                             bool privatize = false) {
     LLVMContext C;
     std::string IR = "target datalayout = \"e-p:64:64-i64:64-n8:16:32:64-S128\"\n"
         "declare void @autograph_neighbor_iter_init(ptr, i64, ptr)\n"
         "declare i32 @autograph_neighbor_iter_next(ptr, ptr)\n"
         "define void @work(ptr %graph, ptr " + std::string(noalias ? "noalias " : "") +
         "%a, ptr " + std::string(noalias ? "noalias " : "") + "%b, i32 %n) {\n"
-        "entry:\n %iter = alloca [64 x i8]\n %vslot = alloca i32\n br label %driver\n"
+        "entry:\n %iter = alloca [64 x i8]\n %vslot = alloca i32\n"
+        " %accum_a = alloca i32\n %accum_b = alloca i32\n %accum_c = alloca i32\n br label %driver\n"
         "driver:\n %u = phi i32 [0, %entry], [%unext, %driver_latch]\n"
         " %test = icmp slt i32 %u, %n\n br i1 %test, label %source, label %exit\n"
         "source:\n %u64 = zext i32 %u to i64\n"
@@ -54,6 +56,11 @@ static SpatialDecision proof(StringRef body, bool noalias = false, bool snapshot
         for (BasicBlock &B : F) for (Instruction &I : B)
             if (I.getName() == "left") S.CrossReads.insert(cast<LoadInst>(&I));
         Info.RoundSepBases.push_back(std::move(S));
+    }
+    if (privatize) {
+        bool Private = privLayout(Info);
+        if (!Private) { Info.Slots.clear(); Info.PrivArrays.clear(); }
+        Info.UsePrivLayout = Private && privLayoutNeeded(Info);
     }
     proveSpatialPartition(Info, AA, DT);
     return Info.SpatialResult; // Only scalar fields and relation records are inspected.
@@ -160,6 +167,28 @@ int main() {
     check(data.Status == SpatialProofStatus::Inconclusive, "data-derived indices retain possible collisions");
     auto constant = proof("%p = getelementptr i32, ptr %a, i32 0\n store i32 %v, ptr %p");
     check(constant.Status == SpatialProofStatus::NoPartition, "unconditional fixed-address write proves complete connection");
+    const char *twoSlots = "%x = load i32, ptr %accum_a\n %xn = add i32 %x, 1\n store i32 %xn, ptr %accum_a\n"
+        " %y = load i32, ptr %accum_b\n %yn = add i32 %y, %v\n store i32 %yn, ptr %accum_b";
+    auto privateScalars = proof(twoSlots, false, false, true);
+    check(privateScalars.Status == SpatialProofStatus::IndependentFamily &&
+          privateScalars.Group == SpatialGroup::PairOccurrence,
+          "two scalar slots have a pair partition after R3 storage replacement");
+    unsigned privateAccesses = 0;
+    for (const auto &A : privateScalars.Accesses) privateAccesses += A.Private;
+    check(privateAccesses == 4, "both loads and stores of every scalar slot are private");
+    for (const auto &R : privateScalars.Relations)
+        check(!R.Survives && R.RemovedBy == DischargeKind::Privatization,
+              "R3 discharges RAW, WAR and WAW for both scalar slots");
+    auto threeSlots = proof(std::string(twoSlots) +
+        "\n %z = load i32, ptr %accum_c\n %zn = xor i32 %z, %v\n store i32 %zn, ptr %accum_c",
+        false, false, true);
+    check(threeSlots.Status == SpatialProofStatus::IndependentFamily,
+          "private-slot proof covers more than two slots and distinct fold operators");
+    auto observedScalar = proof(std::string(twoSlots) +
+        "\n %p = getelementptr i32, ptr %a, i32 %u\n store i32 %xn, ptr %p",
+        false, false, true);
+    check(observedScalar.Status != SpatialProofStatus::IndependentFamily,
+          "an observed intermediate scalar cannot acquire a private-slot proof");
     std::cout << "static spatial proof: " << failures << " failures\n";
     return failures != 0;
 }

@@ -1,0 +1,29 @@
+{
+  "two_reduce_slots": {
+    "expected": "a 10 b 20",
+    "outputs": {
+      "serial": "a 10 b 20",
+      "t1.p1": "a 10 b 20",
+      "t4.p4": "a 10 b 20",
+      "t4.p3": "a 10 b 20"
+    }
+  },
+  "priv_two_slots_big": {
+    "expected": "a 160000 b 2068247825",
+    "outputs": {
+      "serial": "a 160000 b 2068247825",
+      "t1.p1": "a 160000 b 2068247825",
+      "t4.p4": "a 160000 b 2068247825",
+      "t4.p3": "a 160000 b 2068247825"
+    }
+  },
+  "reduce_real_ops": {
+    "expected": "rsum 320000 rmn 0 rmx 19999",
+    "outputs": {
+      "serial": "rsum 320000 rmn 0 rmx 19999",
+      "t1.p1": "rsum 320000 rmn 0 rmx 19999",
+      "t4.p4": "rsum 320000 rmn 0 rmx 19999",
+      "t4.p3": "rsum 320000 rmn 0 rmx 19999"
+    }
+  }
+}

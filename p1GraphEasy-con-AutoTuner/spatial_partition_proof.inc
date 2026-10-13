@@ -177,7 +177,11 @@ static void proveSpatialPartition(NeighborLoopInfo &Info, AAResults &AA,
                     !roundSepEndpointConflict(Info)) A.Snapshot = N;
             }
         A.Private = A.Phase == PhaseSegment::Pair && !A.Layout.empty() && spatialPrivateBase(Info, A.Base);
-        if (!Info.AccConsumeStore && A.Phase == PhaseSegment::Pair && A.Base == Info.ReducePtr)
+        /* R3 redirects every proven scalar slot, not just ReducePtr. Scalars
+         * have no GEP layout, so mark their accesses through the checked slot
+         * list. Without the record layout only ReducePtr has private storage. */
+        if (!Info.AccConsumeStore && A.Phase == PhaseSegment::Pair &&
+            (Info.UsePrivLayout || A.Base == Info.ReducePtr))
             for (const auto &Slot : Info.Slots)
                 if (Slot.Ptr == A.Base && foldSound(Slot.Op, Slot.ElemTy)) A.Private = true;
         /* A source accumulator has source-local lifetime, not a global fold.

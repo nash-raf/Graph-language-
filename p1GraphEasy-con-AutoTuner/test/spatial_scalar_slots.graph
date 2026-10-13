@@ -1,0 +1,12 @@
+// Both scalars must be private; preserve each nonzero initial value once.
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int a = 7;
+int b = 11;
+for u in G.nodes {
+    for v in G.neighbors(u) {
+        a = a + 1;
+        b = b + v;
+    }
+}
+print a;
+print b;

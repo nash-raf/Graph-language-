@@ -1,0 +1,23 @@
+{
+  "source": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed",
+  "revision": "Post-integration runtime | exhaustive allocation sweep",
+  "metrics": {
+    "dynamic": {
+      "settings": 7,
+      "mean_slowdown_percent": 62.408156557483885,
+      "sum_time_slowdown_percent": 66.45488479121624,
+      "within_10_percent": 3
+    },
+    "ordinary-first": {
+      "settings": 7,
+      "mean_slowdown_percent": 110.47217047791563,
+      "sum_time_slowdown_percent": 101.8571694894975,
+      "within_10_percent": 0
+    }
+  },
+  "aggregation": "Median of per-process medians; fastest forced configuration across policy labels.",
+  "source_sha256": {
+    "raw.csv": "c633fbcb3a0001c2a3ee1a9585e142c1b7e56900d57f1b20e6b92c3319d836c2",
+    "summary.csv": "6ab003128fc83838d35f0bb179919845c53285d01b4ce18de7b91673ad67b8b0"
+  }
+}

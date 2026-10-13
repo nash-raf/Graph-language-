@@ -1,0 +1,11 @@
+build/
+*.log
+*.o
+*.bin
+*.bc
+*.ll
+*.compile
+*.compile.err
+*.out
+*.err
+*~

@@ -1,0 +1,146 @@
+[
+  {
+    "threads": 0,
+    "model": "Previous",
+    "settings": 90,
+    "median_ape": 19.345871703241436,
+    "mean_ape": 20.184614002486462,
+    "within_20": 46,
+    "worst_ape": 68.382073803247
+  },
+  {
+    "threads": 0,
+    "model": "Per-worker work",
+    "settings": 90,
+    "median_ape": 14.46787327903749,
+    "mean_ape": 14.734705529600157,
+    "within_20": 60,
+    "worst_ape": 34.19810932950382
+  },
+  {
+    "threads": 2,
+    "model": "Previous",
+    "settings": 13,
+    "median_ape": 7.387004410906406,
+    "mean_ape": 8.918699468391893,
+    "within_20": 12,
+    "worst_ape": 22.859160868298655
+  },
+  {
+    "threads": 2,
+    "model": "Per-worker work",
+    "settings": 13,
+    "median_ape": 21.064318739000075,
+    "mean_ape": 17.55884203345873,
+    "within_20": 6,
+    "worst_ape": 34.19810932950382
+  },
+  {
+    "threads": 3,
+    "model": "Previous",
+    "settings": 13,
+    "median_ape": 10.970101981766312,
+    "mean_ape": 11.504493331309563,
+    "within_20": 11,
+    "worst_ape": 29.655858611138996
+  },
+  {
+    "threads": 3,
+    "model": "Per-worker work",
+    "settings": 13,
+    "median_ape": 14.554663131439938,
+    "mean_ape": 14.400827502086745,
+    "within_20": 8,
+    "worst_ape": 28.814706195242845
+  },
+  {
+    "threads": 4,
+    "model": "Previous",
+    "settings": 13,
+    "median_ape": 24.6860240417768,
+    "mean_ape": 21.58274586886688,
+    "within_20": 4,
+    "worst_ape": 33.52544836456066
+  },
+  {
+    "threads": 4,
+    "model": "Per-worker work",
+    "settings": 13,
+    "median_ape": 9.287693083822834,
+    "mean_ape": 12.887961215701154,
+    "within_20": 11,
+    "worst_ape": 27.41170177154586
+  },
+  {
+    "threads": 5,
+    "model": "Previous",
+    "settings": 13,
+    "median_ape": 23.990851008359936,
+    "mean_ape": 21.56188459178815,
+    "within_20": 6,
+    "worst_ape": 34.886101171316874
+  },
+  {
+    "threads": 5,
+    "model": "Per-worker work",
+    "settings": 13,
+    "median_ape": 11.338027271915474,
+    "mean_ape": 14.50088309314058,
+    "within_20": 8,
+    "worst_ape": 27.106172719680632
+  },
+  {
+    "threads": 6,
+    "model": "Previous",
+    "settings": 12,
+    "median_ape": 22.354813153961206,
+    "mean_ape": 21.775094395304343,
+    "within_20": 5,
+    "worst_ape": 37.97037929353726
+  },
+  {
+    "threads": 6,
+    "model": "Per-worker work",
+    "settings": 12,
+    "median_ape": 11.310441227467471,
+    "mean_ape": 14.890705801088949,
+    "within_20": 8,
+    "worst_ape": 30.185161436488617
+  },
+  {
+    "threads": 7,
+    "model": "Previous",
+    "settings": 13,
+    "median_ape": 22.730586047769606,
+    "mean_ape": 25.40208278830567,
+    "within_20": 4,
+    "worst_ape": 48.787332903705895
+  },
+  {
+    "threads": 7,
+    "model": "Per-worker work",
+    "settings": 13,
+    "median_ape": 9.420524117027828,
+    "mean_ape": 10.843239300708655,
+    "within_20": 11,
+    "worst_ape": 25.83677833022724
+  },
+  {
+    "threads": 8,
+    "model": "Previous",
+    "settings": 13,
+    "median_ape": 33.69387305213627,
+    "mean_ape": 30.669642219040107,
+    "within_20": 4,
+    "worst_ape": 68.382073803247
+  },
+  {
+    "threads": 8,
+    "model": "Per-worker work",
+    "settings": 13,
+    "median_ape": 18.4238940154825,
+    "mean_ape": 18.07247978190004,
+    "within_20": 8,
+    "worst_ape": 32.00047266005146
+  }
+]

@@ -1,0 +1,2 @@
+PASS: independent simulator agrees on all 48 selected schedules; evaluation bound respected.
+Exhaustive small-instance allocation/order regret: median=0.00%, max=17.00%.

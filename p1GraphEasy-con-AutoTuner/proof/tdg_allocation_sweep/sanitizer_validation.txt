@@ -1,0 +1,3 @@
+PASS: ASan/UBSan test adapter and runtime, both policies, all B4 schedules.
+SGPL-generated objects and SDK objects are not sanitizer-instrumented.
+Leak detection disabled: existing generated dispatch environments and persistent runtime pools outlive calls.

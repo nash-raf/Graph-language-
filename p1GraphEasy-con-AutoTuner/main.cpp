@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 
 #include "antlr4-runtime.h"
 #include "BaseLexer.h"
@@ -38,6 +39,9 @@ class GraphLangLexer : public BaseLexer
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/DenseSet.h>
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/CommandLine.h>
 
@@ -52,6 +56,8 @@ class GraphLangLexer : public BaseLexer
 #include <llvm/Transforms/IPO/GlobalOpt.h>
 #include <llvm/Transforms/Utils/LoopSimplify.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
+#include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/TargetParser/Host.h>
 
@@ -86,6 +92,87 @@ class GraphLangLexer : public BaseLexer
 using namespace antlr4;
 using namespace llvm;
 
+static void refreshTDGLoopSites(Module &M)
+{
+    SmallVector<StoreInst *, 16> Counts;
+    for (Function &F : M)
+        for (BasicBlock &BB : F)
+            for (Instruction &I : BB)
+                if (auto *Store = dyn_cast<StoreInst>(&I))
+                    if (Store->getMetadata("sgpl.tdg.loop_fields"))
+                        Counts.push_back(Store);
+    for (StoreInst *Count : Counts)
+    {
+        MDNode *Tag = Count->getMetadata("sgpl.tdg.loop_fields");
+        auto *RootValue = dyn_cast<ValueAsMetadata>(Tag->getOperand(0));
+        auto *Root = RootValue ? dyn_cast<Function>(RootValue->getValue()) : nullptr;
+        auto *CountField = dyn_cast<GetElementPtrInst>(Count->getPointerOperand());
+        auto *TaskTy = CountField ? dyn_cast<StructType>(CountField->getSourceElementType()) : nullptr;
+        if (!Root || !TaskTy)
+            continue;
+        StoreInst *Ids = nullptr;
+        for (Instruction *Next = Count->getNextNode(); Next; Next = Next->getNextNode())
+            if (auto *Store = dyn_cast<StoreInst>(Next))
+                if (auto *Field = dyn_cast<GetElementPtrInst>(Store->getPointerOperand()))
+                    if (Field->getSourceElementType() == TaskTy &&
+                        Field->getPointerOperand() == CountField->getPointerOperand())
+                        if (auto *Index = dyn_cast<ConstantInt>(Field->getOperand(Field->getNumOperands()-1)))
+                            if (Index->getZExtValue() == 5)
+                            {
+                                Ids = Store;
+                                break;
+                            }
+        if (!Ids)
+            continue;
+        DenseSet<Function *> Visited;
+        DenseSet<int32_t> Sites;
+        std::function<void(Function *)> Inspect = [&](Function *F) {
+            if (!F || F->isDeclaration() || !Visited.insert(F).second)
+                return;
+            for (BasicBlock &BB : *F)
+                for (Instruction &I : BB)
+                    if (auto *Call = dyn_cast<CallBase>(&I))
+                    {
+                        Function *Callee = Call->getCalledFunction();
+                        if (!Callee)
+                            continue;
+                        StringRef Name = Callee->getName();
+                        if ((Name == "sgpl_should_parallelize_doall" ||
+                             Name == "sgpl_should_parallelize_doacross") && Call->arg_size())
+                            if (auto *Desc = dyn_cast<GlobalVariable>(Call->getArgOperand(0)->stripPointerCasts()))
+                                if (Desc->hasInitializer())
+                                    if (auto *Fields = dyn_cast<ConstantStruct>(Desc->getInitializer()))
+                                        if (auto *Id = dyn_cast<ConstantInt>(Fields->getOperand(0)))
+                                            Sites.insert((int32_t)Id->getSExtValue());
+                        if (Name == "autograph_exec_ctx_create" && Call->arg_size() > 12)
+                            if (auto *Id = dyn_cast<ConstantInt>(Call->getArgOperand(12)))
+                                if (Id->getSExtValue() >= 0)
+                                    Sites.insert((int32_t)Id->getSExtValue());
+                        Inspect(Callee);
+                    }
+        };
+        Inspect(Root);
+        Count->setMetadata("sgpl.tdg.loop_fields", nullptr);
+        // Preserve already registered engine-only lists when no ordinary site
+        // was added. Both policies receive identical final metadata.
+        auto *OldCount = dyn_cast<ConstantInt>(Count->getValueOperand());
+        if (Sites.empty() || (OldCount && OldCount->getZExtValue() == Sites.size()))
+            continue;
+        SmallVector<int32_t, 8> Ordered(Sites.begin(), Sites.end());
+        llvm::sort(Ordered);
+        SmallVector<Constant *, 8> Values;
+        for (int32_t Site : Ordered)
+            Values.push_back(ConstantInt::get(Type::getInt32Ty(M.getContext()), Site));
+        ArrayType *Ty = ArrayType::get(Type::getInt32Ty(M.getContext()), Values.size());
+        auto *List = new GlobalVariable(M, Ty, true, GlobalValue::PrivateLinkage,
+            ConstantArray::get(Ty, Values), Twine("sgpl.tdg.loop_ids.") + Root->getName());
+        List->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+        IRBuilder<> B(Count);
+        Count->setOperand(0, B.getInt32((int32_t)Values.size()));
+        Ids->setOperand(0, B.CreateInBoundsGEP(Ty, List, {B.getInt32(0),B.getInt32(0)}));
+    }
+}
+
 // Not cl::Required: the Polly flag parse deliberately passes only flags, so a
 // required positional would abort before the filename is recovered from argv.
 static cl::opt<std::string> InputFilename(
@@ -98,6 +185,12 @@ static cl::opt<std::string> IRBackendOption(
     cl::desc("IR backend to select: auto|cpu|gpu"),
     cl::value_desc("auto|cpu|gpu"),
     cl::init("auto"));
+
+// Dynamic scheduling is the production default. Legacy dynamic names are aliases.
+static cl::opt<std::string> TDGSchedulerOption(
+    "tdg-scheduler",
+    cl::desc("TDG scheduler: dynamic (default); current/joint-experimental are aliases"),
+    cl::init("dynamic"));
 
 static cl::opt<bool> GpuFlag(
     "gpu",
@@ -675,6 +768,90 @@ static void prepareFrontierStorage(llvm::Module &M) {
         ModulePassManager MPM; MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
         MPM.run(M,MAM);
 }
+
+/* A lowered CleanCut stage is emitted in a former loop preheader.  Split its
+ * setup and executor into a two-block single-entry region so CodeExtractor
+ * can outline the complete graph task (it rejects a one-block region).  The
+ * graph loop's residual, deactivated traversal remains outside this region. */
+static void prepareCleanCutTaskRegions(llvm::Module &M)
+{
+    for (llvm::Function &F : M)
+    {
+        if (F.isDeclaration())
+            continue;
+        llvm::SmallVector<llvm::CallInst *, 8> Executors;
+        for (llvm::BasicBlock &BB : F)
+            for (llvm::Instruction &I : BB)
+                if (auto *CI = llvm::dyn_cast<llvm::CallInst>(&I))
+                    if (CI->getMetadata("sgpl.frontier.task.effects"))
+                        if (llvm::Function *Callee = CI->getCalledFunction())
+                            if (Callee->getName() == "autograph_frontier_execute" ||
+                                Callee->getName() == "autograph_frontier_fork_join")
+                                Executors.push_back(CI);
+        for (llvm::CallInst *Exec : Executors)
+        {
+            llvm::BasicBlock *BB = Exec->getParent();
+            llvm::CallInst *Build = nullptr;
+            for (llvm::Instruction &I : *BB)
+            {
+                if (&I == Exec)
+                    break;
+                if (auto *CI = llvm::dyn_cast<llvm::CallInst>(&I))
+                    if (llvm::Function *Callee = CI->getCalledFunction())
+                        if (Callee->getName() == "autograph_build_clean_cut")
+                            Build = CI;
+            }
+            if (!Build)
+                continue;
+            llvm::FunctionCallee Pin = M.getOrInsertFunction(
+                "autograph_pin_clean_cut", Build->getFunctionType());
+            llvm::FunctionCallee Unpin = M.getOrInsertFunction(
+                "autograph_unpin_clean_cut",
+                llvm::FunctionType::get(llvm::Type::getVoidTy(M.getContext()),
+                                        false));
+            Build->setCalledFunction(Pin);
+            llvm::IRBuilder<>(Exec->getNextNode()).CreateCall(Unpin);
+            llvm::BasicBlock *Stage = BB->splitBasicBlock(Build, "sgpl.graph.stage");
+            Stage->splitBasicBlock(Exec, "sgpl.graph.exec");
+        }
+    }
+}
+
+/* Expose memory intrinsic reads and writes to the PDG.  An argument-memory-only
+ * attribute narrows a call's footprint, but does not prove that it is
+ * independent of another access through the same pointer.  LLVM's lowering
+ * preserves the intrinsic semantics, including volatile accesses. */
+static void expandArgumentMemoryIntrinsicsForPDG(llvm::Module &M)
+{
+    llvm::SmallVector<llvm::MemSetInst *, 16> Memsets;
+    llvm::SmallVector<llvm::MemCpyInst *, 16> Memcpys;
+    llvm::SmallVector<llvm::MemMoveInst *, 16> Memmoves;
+    for (llvm::Function &F : M)
+        if (!F.isDeclaration())
+            for (llvm::BasicBlock &BB : F)
+                for (llvm::Instruction &I : BB)
+                    if (auto *MS = llvm::dyn_cast<llvm::MemSetInst>(&I))
+                        Memsets.push_back(MS);
+                    else if (auto *MC = llvm::dyn_cast<llvm::MemCpyInst>(&I))
+                        Memcpys.push_back(MC);
+                    else if (auto *MM = llvm::dyn_cast<llvm::MemMoveInst>(&I))
+                        Memmoves.push_back(MM);
+    llvm::TargetTransformInfo TTI(M.getDataLayout());
+    for (llvm::MemSetInst *MS : Memsets)
+    {
+        llvm::expandMemSetAsLoop(MS);
+        MS->eraseFromParent();
+    }
+    for (llvm::MemCpyInst *MC : Memcpys)
+    {
+        llvm::expandMemCpyAsLoop(MC, TTI);
+        MC->eraseFromParent();
+    }
+    for (llvm::MemMoveInst *MM : Memmoves)
+        if (llvm::expandMemMoveAsLoop(MM, TTI))
+            MM->eraseFromParent();
+}
+
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
     // Storage safety also applies to the unoutlined sequential reference.
@@ -763,8 +940,12 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         // SGPL_NO_PDG_CANON=1 restores the old behaviour for A/B testing.
         if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PRE_PDG"))
             dumpModuleBitcode(M, dumpPath);
+        expandArgumentMemoryIntrinsicsForPDG(M);
         if (!::getenv("SGPL_NO_PDG_CANON"))
             canonicalizeLoopsForAnalysis(M);
+        prepareCleanCutTaskRegions(M);
+        if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_PDG_INPUT"))
+            dumpModuleBitcode(M, dumpPath);
         dependencyGraph pdg = runPDGOnModule(M);
         // errs() << "✓ Built PDG with " << pdg.nodes.size() << " vertices and "
 
@@ -998,6 +1179,7 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 
         // optional: you can still call your helper which creates its own managers
         runLoopOutlinerOnModule(M);
+        refreshTDGLoopSites(M);
 
         // Build function-level cleanup pipeline
         FunctionPassManager FPM;
@@ -1050,6 +1232,13 @@ int main(int argc, char **argv)
         setUpPollyPipeline(argc, argv, PollyPB, PollyPBStorage);
     if (!PollyTM)
         return 1;
+
+    if (TDGSchedulerOption != "dynamic" && TDGSchedulerOption != "current" &&
+        TDGSchedulerOption != "joint-experimental")
+    {
+        errs() << "Unknown --tdg-scheduler value: " << TDGSchedulerOption << "\n";
+        return 1;
+    }
 
     std::string backendSelectionReason;
     const std::string activeIRBackend = resolveBackend(backendSelectionReason);
@@ -1426,6 +1615,25 @@ int main(int argc, char **argv)
         emitGpuKernels(*M, "kernels.ptx");
     if (usingGpuIR)
         instrumentGpuHostCoherence(*M);
+
+    {
+        Function *Normal = M->getFunction("sgpl_run_tdg_level");
+        if (Normal)
+        {
+            FunctionCallee Fifo = M->getOrInsertFunction("sgpl_run_tdg_level_fifo", Normal->getFunctionType());
+            for (Function &F : *M)
+                for (BasicBlock &BB : F)
+                    for (Instruction &I : BB)
+                        if (auto *Call = dyn_cast<CallBase>(&I))
+                            if (Call->getCalledFunction() == Normal)
+                            {
+                                // Unknown graph/GPU scaling still belongs to
+                                // Phase B. Use one bounded queue for these levels.
+                                if (usingGpuIR || Call->getMetadata("sgpl.tdg.has_graph"))
+                                    Call->setCalledFunction(Fifo);
+                            }
+        }
+    }
 
     // Dump the final module (after GPU kernel emission so embedded PTX payloads
     // are included) when an IR output path was requested.

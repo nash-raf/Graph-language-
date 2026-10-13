@@ -131,13 +131,14 @@ reads must resolve against the previous round's snapshot.
 - **Enabled by default** (no env gate): every graph loop is lowered or marked
   sequential. `GRAPH_FRONTIER_REWRITE_OFF=1` restores the old pipeline
   (graph loops then still get the unconditional sequential marking).
-- **AutoTuner dual annotation**: the AutoTuner pass (`AutoTunerPass.cpp`)
-  annotates both IR versions — the (dead) loop regions keep their events, and
-  each CleanCut step call gets a paired Traverse region (same graph, same
-  `totalOps` prediction) with `profile_region_enter` before and
-  `profile_region_exit` immediately after the call, so predicted-vs-measured
-  and layout decisions cover the executed kernel. Layout conversions are safe
-  for CleanCut graphs because the partitions are layout-agnostic (3.1/3.2).
+- **AutoTuner execution counts**: each CleanCut executor call is one Traverse
+  operation with its own region and enclosing-loop repetition estimate. Lowering
+  removes the deactivated driver's traversal annotation to avoid double counting.
+  Fixed/nested rounds use trip metadata or constant ScalarEvolution counts;
+  dynamic rounds retain a one-visit estimate for each unknown loop. Profiling
+  brackets the executor call, excluding partition construction. Layout changes
+  anchored to execution still occur after the build in this emitted path; the
+  frequency fix does not change conversion placement or traversal cost equations.
 
 ### 3.7 Envelope (frontier semantics) — active
 Frontier-set loops (the motif shapes) flow through the effect system:

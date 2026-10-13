@@ -1,0 +1,21 @@
+{
+  "purpose": "Frozen current ordinary-first reference before joint allocation/scheduling work; main.cpp is compiler-wiring context, not an alternate production entry point.",
+  "created_utc": "2026-10-08T16:03:24.873716+00:00",
+  "head": "42c3f38c3a5dcc826698d26777f21c8f28b2a196",
+  "snapshot_sha256": {
+    "parallel_runtime.c": "69971365bdc804d4b8ae9d95fef492c6d9bdb88f916fc5cc06b204fdf092da62",
+    "parallel_runtime.h": "41dc1d00f733b317f4988cfa2edae96d79defb6b231abcb36fed75e9981ef73a",
+    "tdg_budget_test.c": "f131f8a8157721ac474b8e6e5a13b6d07313d447c07f696bbc4240f41acf03f5",
+    "tools/tdg_level_design_probe.c": "779d94737ce26692e7b735170cab5307ffce9e5403a968f7593e64d09a0a3aeb",
+    "main.cpp": "d1ecc1c6c8cfae41bc857409e35b8d5bdd40ae80e450ddf71a8455a7fed0a2e4"
+  },
+  "context_sha256": {
+    "pdg.cpp": "fd94b19a14bfe5b53f80e8e1b55a84df17ae29dffb276068338d602b98eac8ef",
+    "pdg.h": "9e2e385f25945a98375f2b55e28e6cabfe9b46fc12416d5298a28931ee195355",
+    "parallel_loop_outline.cpp": "c3c4f7f61b8f05b3d02d8a61f68233d993ecab610a0a7da8b292b148afac6da6",
+    "graph_frontier_lowering.cpp": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45",
+    "gpu_runtime.h": "107b3a7a5bc24492e170e9aa7522e313558b8eead3d5e7886de0bb06fb480578",
+    "roaring_bitmap.h": "80a0a420920f3d50b58bad636c373ae286149544d184b6a01402ffd33a15990e",
+    "test/run_tdg_shared_graph_levels.sh": "2e79fbc143122b8af6ffb2e268147e9fde69fe44b20a6d26ed97f14e213a77bf"
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "cases": [
+    {
+      "name": "mixed_short_ordinary",
+      "ordinary": [
+        64,
+        64,
+        64
+      ],
+      "n": [
+        8192,
+        8192
+      ],
+      "depth": [
+        8,
+        8
+      ],
+      "budgets": [
+        4
+      ],
+      "purpose": "three very short tasks; ordinary-first overload at B2/B4",
+      "total_tasks": 5,
+      "orders": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          1,
+          3,
+          4
+        ],
+        [
+          0,
+          2,
+          3,
+          1,
+          4
+        ],
+        [
+          0,
+          2,
+          3,
+          4,
+          1
+        ],
+        [
+          1,
+          0,
+          2,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          0,
+          3,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          0,
+          4
+        ],
+        [
+          1,
+          2,
+          3,
+          4,
+          0
+        ],
+        [
+          2,
+          0,
+          1,
+          3,
+          4
+        ],
+        [
+          2,
+          0,
+          3,
+          1,
+          4
+        ],
+        [
+          2,
+          0,
+          3,
+          4,
+          1
+        ],
+        [
+          2,
+          1,
+          0,
+          3,
+          4
+        ],
+        [
+          2,
+          1,
+          3,
+          0,
+          4
+        ],
+        [
+          2,
+          1,
+          3,
+          4,
+          0
+        ],
+        [
+          2,
+          3,
+          0,
+          1,
+          4
+        ],
+        [
+          2,
+          3,
+          0,
+          4,
+          1
+        ],
+        [
+          2,
+          3,
+          1,
+          0,
+          4
+        ],
+        [
+          2,
+          3,
+          1,
+          4,
+          0
+        ],
+        [
+          2,
+          3,
+          4,
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4,
+          1,
+          0
+        ]
+      ]
+    }
+  ],
+  "arguments": {
+    "out": "proof/tdg_allocation_sweep_mixed_smoke",
+    "append_to": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep",
+    "cases": [
+      "mixed_short_ordinary"
+    ],
+    "budgets": [
+      4
+    ],
+    "repeats": 3,
+    "samples": 3,
+    "seed": 90219,
+    "timeout": 900,
+    "no_append": true,
+    "check_only": false,
+    "analyze_only": false
+  },
+  "protected_sha256": {
+    "parallel_runtime.c": "e82046decd31642de9b1a425914b6ccfc1b901b3719a015cc914d6ee90f67f87",
+    "parallel_runtime.h": "ffa93e0f192c6785dd6824c9fdbe326fc67e26636b5bd7c5b53f678efce1bed0",
+    "experimental/tdg_joint_schedule.inc": "70f142236f9caf90f26e955d9a5584dbb2a49801b9d2bfcdf1c4eee38637d80e",
+    "experimental/tdg_joint_trace.inc": "c096b46da0cd91715dff299353df8ca6187c81fa6a673949c2e483d7555a0c7b",
+    "main.cpp": "0efb988bf3a63a82c31f02123e7c2424b8e37b0cc7094e09155d780c2bb36838",
+    "pdg.cpp": "e6f143eb355e09088b932d4a2fa5a28a47d1ad51d8fe086cb65668a68642fc0a",
+    "parallel_loop_outline.cpp": "c3c4f7f61b8f05b3d02d8a61f68233d993ecab610a0a7da8b292b148afac6da6",
+    "autotuner_runtime.c": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "AutoTunerPass.cpp": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "graph_frontier_lowering.cpp": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45"
+  },
+  "generated": [
+    {
+      "case": "mixed_short_ordinary",
+      "source_sha256": "c510394bf588efd0368e03afa0c3b3432976769e23112637383b71c8b84e40a3",
+      "object_sha256": "5d5bfe7bcafdeaf5e90986afbe9028538a054b29c1e577456af0ccdcf4f90867",
+      "ir_sha256": "5e4231ff538c956a7ca262d168f5434205aab99e94c010eae2197c40a73074e5",
+      "loop_callbacks": [
+        "task_2",
+        "task_1"
+      ],
+      "compiler_level_counts": [
+        [
+          "0",
+          "1"
+        ],
+        [
+          "2",
+          "1"
+        ],
+        [
+          "3",
+          "1"
+        ],
+        [
+          "4",
+          "1"
+        ],
+        [
+          "5",
+          "1"
+        ],
+        [
+          "6",
+          "1"
+        ]
+      ],
+      "adapter": "two separate levels combined for runtime validation"
+    }
+  ],
+  "build_directory": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep_mixed_smoke/build",
+  "oracle_shared_between_policies": true,
+  "ordinary_static_work_units": 18,
+  "scope": "Synthetic runtime level of actual SGPL loop callbacks and serial SGPL function invocations; compiler level grouping is not validated.",
+  "exhaustive": "All loop widths, canonical priority orders, parent counts, backfill options of existing executors; identical ordinary task labels deduplicated.",
+  "started_utc": "2026-10-09T04:55:13Z",
+  "physical_timed_samples": 13005
+}

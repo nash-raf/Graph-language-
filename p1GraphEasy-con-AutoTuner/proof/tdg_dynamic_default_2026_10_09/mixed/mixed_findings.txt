@@ -1,0 +1,78 @@
+Mixed SGPL level validation. Both policies use exactly the same measured oracle.
+Physical timed samples: 213084; CSV references: 426042 (shared forced rows appear twice).
+3 fresh-process repeats, 3 timed samples/configuration; min over many configurations is optimistic.
+Synthetic runtime levels of real SGPL bodies; compiler level grouping and graph-loop scaling are not validated.
+All protected production model/compiler/autotuner source hashes verified unchanged.
+
+{
+  "all mixed": {
+    "settings": 7,
+    "dynamic_wins": 6,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.8246171548535302,
+    "ordinary-first": {
+      "mean_gap_percent": 110.47217047791563,
+      "total_time_gap_percent": 101.8571694894975,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 3
+    },
+    "dynamic": {
+      "mean_gap_percent": 62.408156557483885,
+      "total_time_gap_percent": 66.45488479121624,
+      "within_10_percent": 3,
+      "allocation_within_10_percent": 3
+    }
+  },
+  "overloaded": {
+    "settings": 4,
+    "dynamic_wins": 4,
+    "ordinary_first_wins": 0,
+    "total_time_dynamic_over_ordinary": 0.7334299738244472,
+    "ordinary-first": {
+      "mean_gap_percent": 106.53789576124075,
+      "total_time_gap_percent": 93.49919115106972,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 2
+    },
+    "dynamic": {
+      "mean_gap_percent": 39.6047266241287,
+      "total_time_gap_percent": 41.91810670098079,
+      "within_10_percent": 2,
+      "allocation_within_10_percent": 2
+    }
+  },
+  "not overloaded": {
+    "settings": 3,
+    "dynamic_wins": 2,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.9593962489725771,
+    "ordinary-first": {
+      "mean_gap_percent": 115.71787010014876,
+      "total_time_gap_percent": 115.62311838153651,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 1
+    },
+    "dynamic": {
+      "mean_gap_percent": 92.81272980195746,
+      "total_time_gap_percent": 106.8680109670161,
+      "within_10_percent": 1,
+      "allocation_within_10_percent": 1
+    }
+  }
+}
+
+Dynamic wins 6/7 settings; 17.5% less summed native time.
+Allocations within 10% under their best tested schedule: ordinary-first 3/7; dynamic 3/7.
+When policies select the same widths, runtime differences include ordering, parent count, dispatch and planning.
+Dynamic allocation failures (>10% slower width pair): mixed_compute B4, mixed_compute B6, mixed_loop_skew B4, mixed_loop_skew B6
+Long serial tasks test the assumption that ordinary work always finishes sooner than loop work.
+
+Six-thread compute: dynamic/ordinary=1.053; dynamic/best=2.259; ordinary/best=2.144.
+
+mixed_compute               B4 O=3 overload=1 ordinary=1.619649ms dynamic=1.356194ms best=0.907861ms dynamic/ordinary=0.837 best-config=1:3:3:14:1
+mixed_compute               B6 O=3 overload=0 ordinary=1.416677ms dynamic=1.492235ms best=0.660671ms dynamic/ordinary=1.053 best-config=1:5:5:7:1
+mixed_loop_skew             B4 O=3 overload=1 ordinary=0.690294ms dynamic=0.520582ms best=0.269122ms dynamic/ordinary=0.754 best-config=1:3:1:15:1
+mixed_loop_skew             B6 O=3 overload=0 ordinary=0.619290ms dynamic=0.528462ms best=0.216124ms dynamic/ordinary=0.853 best-config=1:5:1:17:1
+mixed_one_long_ordinary     B4 O=3 overload=1 ordinary=0.684638ms dynamic=0.435852ms best=0.399613ms dynamic/ordinary=0.637 best-config=1:1:1:19:2
+mixed_short_ordinary        B4 O=3 overload=1 ordinary=0.467046ms dynamic=0.226233ms best=0.212366ms dynamic/ordinary=0.484 best-config=1:3:1:8:1
+mixed_short_ordinary        B6 O=3 overload=0 ordinary=0.306058ms dynamic=0.226233ms best=0.209371ms dynamic/ordinary=0.739 best-config=1:5:1:23:1

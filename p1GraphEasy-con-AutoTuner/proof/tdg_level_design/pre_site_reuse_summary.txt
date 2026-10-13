@@ -1,0 +1,25 @@
+Median of process medians; each process warms 3 levels then measures 11.
+P=2 fits-mixed: old=6.199ms, fixed=6.302ms, phased_sum=6.234ms, new=6.386ms; phased vs fixed=-1.3% speed change
+P=2 fits-loops: old=31.530ms, fixed=31.496ms, phased_sum=31.697ms, new=31.684ms; phased vs fixed=-0.6% speed change
+P=2 overflow-one-short: old=6.204ms, fixed=6.760ms, phased_sum=6.512ms, new=6.452ms; phased vs fixed=+4.8% speed change
+P=2 overflow-two-short: old=31.630ms, fixed=33.604ms, phased_sum=31.758ms, new=31.774ms; phased vs fixed=+5.8% speed change
+P=2 overflow-two-ordinary-first: old=31.575ms, fixed=31.485ms, phased_sum=31.758ms, new=31.957ms; phased vs fixed=-1.5% speed change
+P=2 overflow-one-long: old=24.951ms, fixed=24.747ms, phased_sum=25.140ms, new=24.846ms; phased vs fixed=-0.4% speed change
+P=2 overflow-many-loops: old=3.300ms, fixed=3.258ms, phased_sum=3.421ms, new=3.340ms; phased vs fixed=-2.4% speed change
+P=2 tiny-overflow: old=0.034ms, fixed=0.112ms, phased_sum=0.132ms, new=0.128ms; phased vs fixed=-12.8% speed change
+P=4 fits-mixed: old=2.292ms, fixed=3.452ms, phased_sum=3.461ms, new=3.801ms; phased vs fixed=-9.2% speed change
+P=4 fits-loops: old=13.354ms, fixed=16.254ms, phased_sum=16.271ms, new=16.330ms; phased vs fixed=-0.5% speed change
+P=4 overflow-one-short: old=6.274ms, fixed=6.314ms, phased_sum=2.532ms, new=2.467ms; phased vs fixed=+155.9% speed change
+P=4 overflow-two-short: old=31.801ms, fixed=31.410ms, phased_sum=16.453ms, new=16.353ms; phased vs fixed=+92.1% speed change
+P=4 overflow-two-ordinary-first: old=31.605ms, fixed=31.674ms, phased_sum=16.671ms, new=16.639ms; phased vs fixed=+90.4% speed change
+P=4 overflow-one-long: old=19.845ms, fixed=19.529ms, phased_sum=21.598ms, new=21.746ms; phased vs fixed=-10.2% speed change
+P=4 overflow-many-loops: old=5.986ms, fixed=3.918ms, phased_sum=4.034ms, new=4.245ms; phased vs fixed=-7.7% speed change
+P=4 tiny-overflow: old=0.204ms, fixed=0.177ms, phased_sum=0.204ms, new=0.219ms; phased vs fixed=-19.3% speed change
+P=8 fits-mixed: old=1.482ms, fixed=1.738ms, phased_sum=1.722ms, new=1.765ms; phased vs fixed=-1.6% speed change
+P=8 fits-loops: old=10.698ms, fixed=12.377ms, phased_sum=11.835ms, new=8.741ms; phased vs fixed=+41.6% speed change
+P=8 overflow-one-short: old=1.796ms, fixed=6.422ms, phased_sum=1.902ms, new=1.897ms; phased vs fixed=+238.5% speed change
+P=8 overflow-two-short: old=11.328ms, fixed=31.433ms, phased_sum=12.405ms, new=9.293ms; phased vs fixed=+238.2% speed change
+P=8 overflow-two-ordinary-first: old=11.158ms, fixed=34.337ms, phased_sum=12.347ms, new=8.581ms; phased vs fixed=+300.1% speed change
+P=8 overflow-one-long: old=30.931ms, fixed=21.461ms, phased_sum=23.182ms, new=23.323ms; phased vs fixed=-8.0% speed change
+P=8 overflow-many-loops: old=12.351ms, fixed=4.978ms, phased_sum=5.416ms, new=5.165ms; phased vs fixed=-3.6% speed change
+P=8 tiny-overflow: old=0.351ms, fixed=0.390ms, phased_sum=0.390ms, new=0.447ms; phased vs fixed=-12.8% speed change

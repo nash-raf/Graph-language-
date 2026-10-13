@@ -1,0 +1,54 @@
+{
+  "classification": {
+    "ordinary-first": {
+      "within 10%": 0,
+      "10\u201325% slower": 1,
+      ">25% slower": 0
+    },
+    "dynamic": {
+      "within 10%": 0,
+      "10\u201325% slower": 1,
+      ">25% slower": 0
+    }
+  },
+  "summary": [
+    {
+      "case": "short",
+      "budget": 4,
+      "policy": "dynamic",
+      "allocations": 9,
+      "schedules": 27,
+      "model_actual_left": 1,
+      "model_actual_right": 1,
+      "modal_selection_fraction": 1.0,
+      "requested_allocations": "1,1",
+      "best_config": "1:1:1:0:1",
+      "best_ms": 0.042318,
+      "model_ms": 0.046637,
+      "model_over_best_ratio": 1.1025816823490473,
+      "ratio_bootstrap_low": 0.7302687172553659,
+      "ratio_bootstrap_high": 1.2770215983742144,
+      "fallback_fraction": 0.0,
+      "verdict": "10\u201325% slower"
+    },
+    {
+      "case": "short",
+      "budget": 4,
+      "policy": "ordinary-first",
+      "allocations": 3,
+      "schedules": 3,
+      "model_actual_left": 1,
+      "model_actual_right": 1,
+      "modal_selection_fraction": 1.0,
+      "requested_allocations": "1,1",
+      "best_config": "0:1:1:0:2",
+      "best_ms": 0.152454,
+      "model_ms": 0.179114,
+      "model_over_best_ratio": 1.2254400908574674,
+      "ratio_bootstrap_low": 0.9814793056749386,
+      "ratio_bootstrap_high": 1.2922980046440238,
+      "fallback_fraction": 1.0,
+      "verdict": "10\u201325% slower"
+    }
+  ]
+}

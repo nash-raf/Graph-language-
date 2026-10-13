@@ -1,0 +1,7 @@
+STALL run=1 state=0x5980114fde20 window=4096
+lane=0 phase=2 iteration=4419 dependency=4416 slot=320 actual_slot=320 maximum_posted=4416 last_lane_post=4413
+lane=1 phase=4 iteration=8194 dependency=8191 slot=4095 actual_slot=8191 maximum_posted=8191 last_lane_post=8194
+lane=2 phase=4 iteration=8195 dependency=8192 slot=0 actual_slot=8192 maximum_posted=8192 last_lane_post=8195
+lane=3 phase=2 iteration=4422 dependency=4419 slot=323 actual_slot=323 maximum_posted=323 last_lane_post=4416
+lane=4 phase=4 iteration=8191 dependency=8188 slot=4092 actual_slot=8188 maximum_posted=8188 last_lane_post=8191
+lane=5 phase=4 iteration=8192 dependency=8189 slot=4093 actual_slot=8189 maximum_posted=8189 last_lane_post=8192

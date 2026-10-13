@@ -1,0 +1,43 @@
+DOACROSS parallel cost-model validation
+Prediction is the exact helper in the frozen runtime; sources unchanged during the run.
+Model: per-lane synchronization; width-specific batch profiles.
+Direct C recurrences with actual wait/post dependencies and production profiling, not SGPL compiler integration.
+Three fresh processes and seven held-out parallel timings per completed setting in the default run.
+Both forecasts are frozen before held-out timing; seeded and learned forecasts share actual timings.
+Signed error = 100*(predicted/measured-1); aggregate errors weight each completed setting equally.
+
+Synchronization input       Valid  Failed  Median absolute error  Mean absolute error  Within 20%
+learned-sync                   90       1                19.35%               20.18%    46/90
+seeded-sync                    90       1                85.63%              103.25%    10/90
+
+Learned sync costs, by worker width:
+Workers  Valid  Median absolute error  Mean absolute error  Within 20%
+      2     13                 7.39%                8.92%    12/13
+      3     13                10.97%               11.50%    11/13
+      4     13                24.69%               21.58%     4/13
+      5     13                23.99%               21.56%     6/13
+      6     12                22.35%               21.78%     5/12
+      7     13                22.73%               25.40%     4/13
+      8     13                33.69%               30.67%     4/13
+
+Largest learned-cost errors:
+Case                         P  Predicted ms  Measured ms  Signed error
+large_arrays                  8      33.7112      20.0206      +68.38%
+long_many_chains              8       7.0871       4.2631      +66.24%
+large_arrays                  7      38.5430      25.9047      +48.79%
+long_many_chains              7       7.7432       5.3415      +44.96%
+uneven                        8       1.5258       1.0790      +41.40%
+short_many_chains             7       1.3477       0.9681      +39.22%
+
+Failed configurations (excluded from accuracy metrics; see failures.csv and traces):
+uneven, workers=6, N=8193, distance=3
+
+Remaining error concentrates in many-chain workloads at larger widths.
+The N*c_dep approximation still treats all dependent work as serial, even when chains overlap.
+The profiling change also changes measured execution overhead, so historical equation-only
+ablations do not predict these fresh errors exactly. No machine-specific constants were fitted.
+A timeout is a runtime correctness failure, not a prediction error; failed settings are excluded.
+
+Reproduce timings and tables: python3 test/doacross_cost_validation/run.py
+Regenerate tables: python3 test/doacross_cost_validation/run.py --render-only
+Protocol and scope: test/doacross_cost_validation/README.txt

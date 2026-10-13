@@ -1,0 +1,19 @@
+case,budget,policy,left,right,median_ns,median_ms,min_process_median_ns,max_process_median_ns,best_backend,best_order,best_parents,model_selection_fraction,empirical_best,planner_assignment_fraction
+mixed_short_ordinary,4,dynamic,1,1,240387,0.240387,240338,244786,joint,"ordinary1,ordinary2,left,ordinary3,right; backfill=1",1,1.0,0,1.0
+mixed_short_ordinary,4,dynamic,1,2,265069,0.265069,261006,266616,joint,"right,left,ordinary1,ordinary2,ordinary3; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,dynamic,1,3,235629,0.235629,234637,250226,joint,"ordinary1,left,ordinary2,ordinary3,right; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,dynamic,2,1,251869,0.251869,251528,265258,joint,"ordinary1,ordinary2,ordinary3,left,right; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,dynamic,2,2,280071,0.280071,272968,318433,joint,"left,ordinary1,ordinary2,ordinary3,right; backfill=0",1,0.0,0,0.0
+mixed_short_ordinary,4,dynamic,2,3,259458,0.259458,257730,266802,joint,"right,ordinary1,ordinary2,left,ordinary3; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,dynamic,3,1,230009,0.230009,228685,236095,joint,"right,left,ordinary1,ordinary2,ordinary3; backfill=1",1,0.0,1,0.0
+mixed_short_ordinary,4,dynamic,3,2,257490,0.25749,255396,264938,joint,"ordinary1,right,ordinary2,left,ordinary3; backfill=0",1,0.0,0,0.0
+mixed_short_ordinary,4,dynamic,3,3,232453,0.232453,231411,235428,joint,"ordinary1,left,ordinary2,right,ordinary3; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,1,1,240387,0.240387,240338,244786,joint,"ordinary1,ordinary2,left,ordinary3,right; backfill=1",1,1.0,0,1.0
+mixed_short_ordinary,4,ordinary-first,1,2,265069,0.265069,261006,266616,joint,"right,left,ordinary1,ordinary2,ordinary3; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,1,3,235629,0.235629,234637,250226,joint,"ordinary1,left,ordinary2,ordinary3,right; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,2,1,251869,0.251869,251528,265258,joint,"ordinary1,ordinary2,ordinary3,left,right; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,2,2,280071,0.280071,272968,318433,joint,"left,ordinary1,ordinary2,ordinary3,right; backfill=0",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,2,3,259458,0.259458,257730,266802,joint,"right,ordinary1,ordinary2,left,ordinary3; backfill=1",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,3,1,230009,0.230009,228685,236095,joint,"right,left,ordinary1,ordinary2,ordinary3; backfill=1",1,0.0,1,0.0
+mixed_short_ordinary,4,ordinary-first,3,2,257490,0.25749,255396,264938,joint,"ordinary1,right,ordinary2,left,ordinary3; backfill=0",1,0.0,0,0.0
+mixed_short_ordinary,4,ordinary-first,3,3,232453,0.232453,231411,235428,joint,"ordinary1,left,ordinary2,right,ordinary3; backfill=1",1,0.0,0,0.0

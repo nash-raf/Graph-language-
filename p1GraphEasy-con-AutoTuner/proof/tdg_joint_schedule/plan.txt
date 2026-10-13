@@ -1,0 +1,332 @@
+JOINT TDG ALLOCATION AND SCHEDULING PLAN — 2026-10-08
+
+Status: proposal. The current ordinary-first runtime has been backed up, with
+byte-for-byte verification. No production scheduler or compiler code has been
+changed for this proposal. Temporary main.cpp wiring is specified below for
+the implementation experiment. The graph-layout autotuner remains outside
+the scope of both phases.
+
+Objective
+
+Determine whether a model that jointly chooses task admission/order and loop
+widths reduces total TDG-level completion time compared with the CURRENT
+ordinary-first implementation. Each ordinary callback always uses one worker.
+Each running loop-containing callback also has one parent worker; its existing
+loop dispatcher may use an additional team. TDG levels remain serialized, so
+there is no optimization across levels or change to dependency grouping.
+
+The earlier measurements are motivation, not proof that removing task costs
+was beneficial in isolation. They combined fixed parent counts, ordinary-first
+phasing, and an improved loop composition model. Their loop-span prediction
+error is not a measurement of full-level scheduling quality.
+
+0. Preserve the reference and make the experiment removable
+
+Done: ordinary_first_2026_10_08/source contains exact copies of the current
+parallel_runtime.c, parallel_runtime.h, tdg_budget_test.c, the existing TDG
+probe, and main.cpp. manifest.json records their hashes, HEAD, and hashes of
+relevant compiler/dependency context. This captures the current tree, including
+later correctness changes, rather than the older phased_sum intermediate.
+The saved main.cpp is context, not a production replacement.
+
+Proposed temporary wiring:
+  * Add a compiler option in main.cpp, e.g.
+      --tdg-scheduler=ordinary-first-reference|joint-experimental
+    Keep the normal/default path unchanged during benchmarking.
+  * main.cpp selects the TDG runtime entry point in generated IR. The existing
+    PDG grouping, emitted task descriptors, and loop bodies remain identical.
+    The reference selection targets a distinct reference symbol; compile the
+    saved runtime with only that entry symbol renamed.
+  * The benchmark runner links exactly ONE parallel-runtime implementation
+    into each executable: the frozen reference or the candidate. main.cpp
+    currently emits an object, rather than performing this native link, so
+    the runner must supply the matching object. A mismatch should fail linking.
+    Do not link two complete runtimes or maintain two sets of live global pools
+    in the same executable.
+  * For direct runtime benchmarks, compile the same workload harness against
+    either runtime. For generated programs, verify that the emitted workload
+    IR differs only in the intentional policy entry point and necessary
+    diagnostic metadata. Preserve original task/site IDs in all schedules.
+  * Before evaluating the candidate, run the reference through the temporary
+    path and compare it with the current integrated path: outputs, phase
+    ordering, widths, reservations and timing distribution. Routing overhead
+    must be negligible and must not favor either policy.
+  * If ordinary-first wins, integrate/retain its scheduling code in the normal
+    runtime and delete temporary main selection and experimental dispatch.
+    Production must not call a backup file. If joint scheduling wins, integrate
+    that implementation through the normal sgpl_run_tdg_level entry point and
+    remove temporary production wiring. Keep the reference as test evidence.
+
+PHASE A — Allocation and scheduling for known loop cost curves
+
+A1. Establish consistent task costs
+
+Ordinary task j has fixed duration a_j. A loop-containing task consists of
+ordinary segments and sequential loop occurrences. For occurrence i in task j,
+T_ji(p) is the existing DOALL/DOACROSS cost prediction at legal integer width p.
+Its uncontended duration estimate is
+
+  D_j(p_j) = a_j + sum_i T_ji(p_ji).
+
+a_j excludes every separately priced loop occurrence. It also excludes queue
+waiting that the schedule will model explicitly. Multiple invocations of the
+same static site count multiple times; mutually exclusive branches are not
+blindly summed. If execution order/count is unknown, use an observed trace
+for that regime or an explicitly conservative aggregate.
+
+Use existing instruction-weight heuristics as cold-start priors, with units
+converted to time using runtime calibration. Raw heuristic units cannot be
+added to nanosecond loop estimates. The compiler currently counts static IR
+instructions; those counts do not by themselves determine dynamic execution
+counts or time inside opaque calls. Give those priors correspondingly low
+confidence. For ordinary tasks, prefer observed callback duration when ready.
+For loop-containing tasks, obtain ordinary-segment time from callback and
+dispatch boundaries, subtracting actual nested intervals rather than predicted
+loop time. No per-iteration instrumentation is needed.
+
+The current whole-task EWMA includes loops, waiting and the allocation under
+which it ran. It cannot be reused as a_j. Current effective-unit conversion
+also clamps profiles relative to heuristic weights. Keep the candidate's time
+estimator explicit, and benchmark its accuracy rather than treating these
+clipped work units as ground truth. Start with calibrated traces to isolate
+scheduling quality; report cold-start performance separately.
+
+A2. Mathematical model
+
+For one TDG level let B be the actual granted worker budget. For each task j,
+choose admission/start s_j, and for each loop occurrence choose width p_ji.
+All ordinary tasks and ordinary segments have width one. Callbacks and running
+loop teams are non-preemptive. Width is fixed once that loop dispatch starts.
+
+Let u_ji and v_ji be the actual modeled start/finish of a loop occurrence.
+Within-task constraints preserve program order, including ordinary segments:
+
+  v_ji = u_ji + T_ji(p_ji)
+  u_j,i+1 >= v_ji + a_j,i+1.
+
+The first occurrence follows its task's first ordinary segment. Completion C_j
+includes all segments plus any resource waits. Thus C_j need not equal
+s_j + D_j when the task waits for a team or for the exclusive pool.
+
+For the existing ordinary loop dispatcher, define extra worker demand
+
+  e(p) = 0 for p=1; e(p) = p for p>=2.
+
+A serial loop runs on its parent. A parallel loop's parent remains occupied
+and its separate team has p workers; e(p) is not p-1 for this implementation.
+At every time t enforce
+
+  sum_j 1{s_j <= t < C_j}
+    + sum_ji e(p_ji) * 1{u_ji <= t < v_ji} <= B.
+
+The first term counts occupied parent workers, including parents blocked at
+dispatch. If the implementation reserves team capacity before dispatch or
+holds it after completion, the simulator must charge that whole reservation
+interval, not just useful computation. It must never model capacity as free
+while the runtime still owns it.
+
+Parallel DOALL launches using the shared exclusive pool additionally require
+
+  sum_(ji using exclusive pool) 1{pool_hold_start_ji <= t < pool_hold_end_ji}
+    <= 1.
+
+Use the actual mutex-hold interval, including relevant launch/reduction work.
+DOACROSS ephemeral teams consume workers but not that pool token. Serial
+execution uses no pool token. Other existing dispatch paths must be classified
+from their implementation rather than assumed to share the same resource.
+
+The objective is
+
+  minimize over admission/order and loop widths:
+      predicted last task completion + predicted planning/dispatch overhead.
+
+Equivalently, minimize the predicted level makespan, including the cost of
+obtaining the plan. Keep overhead components disjoint from the launch costs
+already inside T_ji. Actual end-to-end level wall time is the benchmark score.
+
+Why it captures the interaction: increasing p decreases some T_ji but occupies
+more workers. That can delay another task's s_j or another loop's u_ji, raising
+the final completion time. Starting an ordinary task earlier can hide its fixed
+cost behind loop execution; its duration need not be reducible for its start
+time to matter. Allocation and ordering are scored in the same feasible event
+schedule, rather than optimized once in isolation.
+
+The number of active parents h(t) is a consequence of admissions. A pending
+task has no reserved parent. This retains one worker per running callback,
+while replacing the rule that h must equal min(all pending tasks, B).
+
+A3. A bounded implementation, with an exact offline comparison
+
+Recommended runtime candidate: a bounded event simulator plus joint search
+over task admission priorities and legal loop widths. Ordinary-first is always
+one feasible candidate, scored with its real barriers and overhead. Include
+other initial candidates such as long-task-first, loops-first, and mixed
+admissions. Test swaps, defer/admit decisions, and width changes together.
+Simulate the COMPLETE remaining level before comparing candidates; choosing
+only the next shortest task or the largest immediate loop speedup is not the
+objective. Prune dominated width options when resource usage and predicted
+duration are both no better. Permit idle capacity if its use adds overhead.
+
+Use a deterministic bound on evaluations and cache plans by level, budget and
+profile regime. Charge planning time, and invalidate cached plans when work
+size, cost curves or available budget changes. Search limits control overhead,
+not hardware-specific performance coefficients. Benchmark small levels with
+an exhaustive or exact offline scheduler to measure search-quality loss.
+Do not add an exact combinatorial solver to the runtime by default.
+
+Task completion or dispatch completion is an opportunity to reconsider pending
+work using observed progress. Never interrupt a running callback or change a
+team's width mid-dispatch. Reserve capacity before admission/launch and release
+it on real completion. Reserve the global level budget once and account for
+all suballocations within it.
+
+Reject simulated schedules that leave every parent blocked waiting for teams.
+Actual admission must preserve that progress guarantee even when durations
+are wrong. A conservative first implementation can reserve each admitted
+task's peak team demand until it completes; price that longer reservation in
+the model. Releasing/reassigning teams at individual dispatch boundaries is
+a separately measured refinement, not capacity the model may assume for free.
+
+This requires a targeted extension to the level executor's admission and
+budget-transfer logic. Merely sorting the old queue cannot implement the
+model: its fixed parent reservation persists until the phase barrier. Preserve
+loop kernels, pool locking, synchronization and dependencies. If implementing
+the model requires changes beyond TDG admission/resource accounting, report
+that separately rather than reshaping those subsystems to fit the model.
+
+Evaluate two scopes explicitly: first change admission only for overloaded
+levels, preserving the fitting-level behavior; then test whether deferring a
+ready task can help when task parents fit but parents plus desired teams do
+not. Report the second scope separately because it relaxes the earlier
+immediate-admission rule. Neither scope assigns multiple workers to an ordinary
+callback.
+
+Alternative: optimize groups of tasks executed as barrier-separated batches.
+This reuses more of the existing phase executor and is simpler to remove, but
+cannot exploit every task completion within a batch. It is a useful low-cost
+comparison, not a claim to have solved the full event-scheduling problem.
+
+A4. Benchmark and decision gates
+
+Use the frozen current ordinary-first runtime as the primary reference.
+Separate experimental variants isolate (1) ordering/admission with fixed loop
+widths, (2) joint ordering and allocation, and, where useful, (3) batch-based
+scheduling. Keep loop cost equations and workload bodies the same. Use a
+common calibrated profile set for algorithm-only comparisons, then independently
+measure natural cold starts and adaptive steady-state behavior.
+
+Cover budgets below/equal/above task counts, short and long ordinary tasks,
+ordinary-only and loop-only levels, unequal compute loops, memory-bound loops,
+sequential sites, DOACROSS, tiny workloads, changing trip counts, and already
+fitting mixed levels. Include pre-reserved capacity, failed launches/allocation,
+unregistered sites, output equivalence, balanced reservations and races.
+Keep the new sibling-graph fixtures in correctness coverage from the start.
+
+Randomize paired runs with identical compiler settings, graph layout, input,
+hardware and profiling/logging conditions. Measure in-process level wall time
+including planning, barriers, launch/join and cold profiling costs. Report
+program wall time too. Report per-case ratios, medians, tail regressions and
+uncertainty; neither a pooled average nor loop-only prediction accuracy is
+sufficient to select the winner. Use workloads held out from heuristic tuning.
+Use more than one hardware configuration if available; a budget sweep on one
+host is not proof of hardware portability. Do not fit to benchmark task IDs.
+
+Retain ordinary-first unless the joint candidate has repeatable net improvement
+across the intended workloads after its overhead is included, with regressions
+made explicit. If benefits are restricted to one regime, consider a small
+measured gate or retain the simpler policy; do not assume the new design must
+replace the reference. Report confidence thresholds and acceptable regressions
+before looking at final held-out results. Restore the winner as normal runtime
+code, then validate that removal of temporary wiring preserves its behavior.
+
+Graph loops during Phase A
+
+A sibling graph loop is a loop-containing task with its own execution path,
+not automatically an ordinary callback just because conventional loop metadata
+is absent. Keep graph identity distinct from the availability of a cost curve.
+The current num_loop_sites test is not a sufficient universal classification
+unless compiler registration covers the graph execution sites too.
+
+Do not invent T_graph(p)=T_graph(1)/p. In the primary Phase A performance
+experiment, optimize ordinary work and loops whose curves can be evaluated.
+For graph-containing levels, first preserve their existing behavior and run
+correctness coverage. An auxiliary scheduling experiment may treat a graph
+task as an opaque job at a known, enforced width/resource demand and measured
+duration, applied identically in both arms. If its demand cannot be enforced,
+do not call it a fixed-cost/one-worker job or claim a resource-feasible model
+for it. Graph-loop allocation claims belong to Phase B.
+
+PHASE B — Graph-loop scaling in the same scheduling framework
+
+B1. Connect graph execution to the same resource contract
+
+Enumerate CPU graph-loop/engine paths and determine where the existing budget
+hooks are obeyed, whether the parent participates, which pool/mutex is used,
+and what executes sequentially between steps. Count actual executing workers,
+not only requested widths. A path that bypasses the budget needs a narrow
+budget adapter or must remain an opaque bounded task. The existing graph-layout
+selector is not changed. Some engine hooks live in files shared with the
+autotuner. Use the parallel-runtime and compiler interfaces outside the
+protected autotuner for adapters. If these interfaces cannot provide the
+required information/control, report the missing boundary before proposing
+any expansion of scope. Do not modify layout scoring, choice, conversion
+policy or tuning behavior.
+
+B2. Learn a conditional cost curve from valid observations
+
+For a graph step/loop g, define a compact workload signature z using measurable
+work: active edges/vertices or frontier size, degree/work skew, operation kind,
+and the already selected representation/backend. Representation is observed
+context, never a scheduling variable that chooses a graph layout.
+
+Initially make no speedup claim at unobserved widths. Gather durations at a
+small geometric set of legal widths (1,2,4,... up to the allowed budget), with
+additional samples near promising widths. Sample only valid real executions,
+or reset isolated benchmark state. Never replay a mutating graph operation on
+live state merely to obtain a timing sample. Changed frontier work must not be
+mistaken for a threading speedup; use comparable regimes and work normalization.
+
+Start with a table of conditional median duration and variability:
+
+  T_hat_g(p | z) = robust observed duration at width p in comparable regime z.
+
+Interpolate cautiously between observed widths and mark extrapolations as
+uncertain. Do not force monotonic improvement; memory-bound graph work can slow
+down as p rises. Consider a compact scaling equation only after it predicts
+held-out widths and graphs better than the table. A serial fraction, launch
+overhead, bandwidth saturation and load imbalance are hypotheses to test, not
+constants to hard-code from this machine.
+
+Exploration is bounded and included in end-to-end performance. Sparse or
+uncertain profiles retain the current verified bounded policy. At known widths,
+the optimizer can use a conservative predicted duration, e.g. an upper estimate
+derived from observed variability, rather than buying resources on the basis
+of an optimistic point estimate alone. The uncertainty rule and exploration
+budget must be measured, not tuned on final validation cases.
+
+B3. Substitute the graph curve into the SAME scheduler
+
+Expose each graph operation through the same conceptual interface as ordinary
+loops: duration estimate T(p|z), allowed widths, worker demand e(p), exclusive
+resources, and profile confidence. e(p) follows its actual dispatcher: it may
+differ from the ordinary separate-team rule. Graph steps form sequential
+occurrences inside a task, with appropriate multiplicities; do not add an entire
+graph-task time on top of the same step costs.
+
+The Phase A capacity constraints and makespan objective then apply unchanged.
+This is the unification point: one scheduler compares ordinary tasks, ordinary
+loops and graph loops using their resource/duration contracts. Specialized loop
+models provide costs; they do not each own a competing thread budget.
+
+Shared bandwidth can make an isolated graph curve optimistic when siblings run
+together. Test graph+ordinary, graph+compute-loop and graph+graph combinations,
+including shared read-only graphs, skewed degree distributions and changing
+frontiers. If isolated curves fail systematically, measure a small concurrency
+correction or conservative confidence penalty; do not begin with an unrestricted
+pairwise model. Keep graph mutation/dependency safety as determined by the TDG.
+
+Compare Phase B with both frozen ordinary-first and the chosen Phase A policy
+on held-out graphs and changing work sizes. Include calibration cost, new graph
+regimes, actual width compliance and scheduling overhead. Broader changes to
+graph execution or layout selection require a separate proposal backed by this
+evidence; they are not part of this plan.

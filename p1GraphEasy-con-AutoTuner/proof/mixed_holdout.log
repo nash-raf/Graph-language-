@@ -1,0 +1,17 @@
+Holdout mixed_one_ordinary B2
+Holdout mixed_one_ordinary B4
+Holdout mixed_one_ordinary B6
+Holdout mixed_two_ordinary B2
+Holdout mixed_two_ordinary B4
+Holdout mixed_two_ordinary B6
+Holdout mixed_short_ordinary B2
+Holdout mixed_short_ordinary B4
+Holdout mixed_short_ordinary B6
+Holdout mixed_medium_ordinary B4
+Holdout mixed_medium_ordinary B6
+Holdout mixed_long_ordinary B4
+Holdout mixed_one_long_ordinary B4
+Holdout mixed_compute B4
+Holdout mixed_compute B6
+Holdout mixed_loop_skew B4
+Holdout mixed_loop_skew B6

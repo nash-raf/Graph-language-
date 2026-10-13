@@ -6,6 +6,7 @@ left/*
 __pycache__/
 *.py[cod]
 .cache/
+.tlacache/
 *.sgplbin
 
 # ---- build products / binaries ----
@@ -29,6 +30,8 @@ GraphProgram_*
 **/GraphProgram
 **/GraphProgram_*
 **/final_program*
+p1GraphEasy-con-AutoTuner/build_tdg_validation/
+p1GraphEasy-con-AutoTuner/proof/states/
 
 # ---- IR dumps (keep runtime IR stubs that the linker expects) ----
 *.ll

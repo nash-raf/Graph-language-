@@ -1,0 +1,9 @@
+{
+  "settings": 5,
+  "timed_samples": 4500,
+  "repeats": 9,
+  "samples": 25,
+  "wins": 3,
+  "total_time_after_over_before": 1.0318362639823089,
+  "method": "Same adapters and saved SGPL objects, randomized paired fresh processes; native timings precede frozen oracle replay."
+}

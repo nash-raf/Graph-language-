@@ -1,0 +1,110 @@
+[tdg.task] id=0 kind=1 graph=0 opaque=0 accesses=7 blocks=2
+[tdg.access] task=0 mode=W graph=0 object=alloca:main:right.data
+[tdg.access] task=0 mode=R graph=0 object=alloca:main:right.data
+[tdg.access] task=0 mode=W graph=0 object=alloca:main:right.data
+[tdg.access] task=0 mode=R graph=0 object=alloca:main:right.data
+[tdg.access] task=0 mode=W graph=0 object=alloca:main:right.data
+[tdg.access] task=0 mode=R graph=0 object=alloca:main:right.data
+[tdg.access] task=0 mode=W graph=0 object=alloca:main:right.data
+[tdg.task] id=1 kind=1 graph=0 opaque=0 accesses=7 blocks=2
+[tdg.access] task=1 mode=W graph=0 object=alloca:main:left.data
+[tdg.access] task=1 mode=R graph=0 object=alloca:main:left.data
+[tdg.access] task=1 mode=W graph=0 object=alloca:main:left.data
+[tdg.access] task=1 mode=R graph=0 object=alloca:main:left.data
+[tdg.access] task=1 mode=W graph=0 object=alloca:main:left.data
+[tdg.access] task=1 mode=R graph=0 object=alloca:main:left.data
+[tdg.access] task=1 mode=W graph=0 object=alloca:main:left.data
+[tdg.task] id=2 kind=1 graph=0 opaque=0 accesses=1 blocks=1
+[tdg.access] task=2 mode=W graph=0 object=alloca:main:right.data
+[tdg.task] id=3 kind=1 graph=0 opaque=0 accesses=1 blocks=1
+[tdg.access] task=3 mode=W graph=0 object=alloca:main:left.data
+[tdg.task] id=4 kind=0 graph=0 opaque=0 accesses=0 blocks=0
+[tdg.task] id=5 kind=0 graph=0 opaque=0 accesses=0 blocks=0
+[tdg.task] id=6 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=7 kind=0 graph=0 opaque=1 accesses=2 blocks=1
+[tdg.access] task=7 mode=R graph=0 object=alloca:main:left.data
+[tdg.access] task=7 mode=R graph=0 object=alloca:main:right.data
+[tdg.task] id=8 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=9 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=10 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=11 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=12 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=13 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=14 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=15 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=16 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=17 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=18 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.task] id=19 kind=0 graph=0 opaque=0 accesses=0 blocks=1
+[tdg.edge] from=6 to=3 type=RAW
+[tdg.edge] from=9 to=7 type=RAW
+[tdg.edge] from=9 to=0 type=RAW
+[tdg.edge] from=9 to=2 type=RAW
+[tdg.edge] from=3 to=1 type=MEM_MAY
+[tdg.edge] from=3 to=7 type=MEM_MAY
+[tdg.edge] from=2 to=0 type=MEM_MAY
+[tdg.edge] from=2 to=7 type=MEM_MAY
+[tdg.edge] from=1 to=7 type=MEM_MAY
+[tdg.edge] from=0 to=7 type=MEM_MAY
+[tdg.edge] from=6 to=12 type=CTRL_BRANCH
+[tdg.edge] from=6 to=14 type=CTRL_BRANCH
+[tdg.edge] from=14 to=3 type=CTRL_DEP
+[tdg.edge] from=12 to=2 type=CTRL_DEP
+[tdg.edge] from=12 to=1 type=CTRL_DEP
+[tdg.edge] from=12 to=0 type=CTRL_DEP
+[tdg.edge] from=9 to=18 type=CTRL_BRANCH
+[tdg.edge] from=9 to=8 type=CTRL_BRANCH
+[tdg.edge] from=8 to=2 type=CTRL_DEP
+[tdg.edge] from=18 to=1 type=CTRL_DEP
+[tdg.edge] from=18 to=0 type=CTRL_DEP
+[tdg.edge] from=1 to=0 type=CTRL_DEP
+[tdg.edge] from=6 to=2 type=CTRL_MAY
+[tdg.edge] from=6 to=1 type=CTRL_MAY
+[tdg.edge] from=6 to=0 type=CTRL_MAY
+[tdg.edge] from=3 to=2 type=CTRL_MAY
+[tdg.edge] from=3 to=0 type=CTRL_MAY
+[tdg.edge] from=9 to=1 type=CTRL_MAY
+[tdg.edge] from=2 to=1 type=CTRL_MAY
+[tdg.edge] from=6 to=7 type=MEM_BARRIER_BEFORE
+[tdg.edge] from=11 to=7 type=MEM_BARRIER_BEFORE
+[tdg.extract] task=0 graph=0 result=success function=task_0
+[tdg.extract] task=1 graph=0 result=success function=task_1
+[tdg.extract] task=2 graph=0 result=success function=task_2
+[tdg.extract] task=3 graph=0 result=success function=task_3
+[tdg.extract] task=6 graph=0 result=failed
+[tdg.extract] task=7 graph=0 result=success function=task_7
+[tdg.extract] task=9 graph=0 result=failed
+[tdg.extract] task=11 graph=0 result=success function=task_11
+[pdg-tdg] extracted=6/20 tasks levels=7
+[tdg.level] index=0 tasks=4,5,6,9,10,11,13,15,16,17,19,
+[tdg.level] index=1 tasks=8,12,14,18,
+[tdg.level] index=2 tasks=3,
+[tdg.level] index=3 tasks=2,
+[tdg.level] index=4 tasks=1,
+[tdg.level] index=5 tasks=0,
+[tdg.level] index=6 tasks=7,
+[pdg-tdg] groups=6
+[tdg.group] level=0 included=1
+[tdg.group.task] level=0 task=11 graph=0
+[tdg.emitted] level=0 count=1
+[tdg.emitted.task] level=0 task=11
+[tdg.group] level=2 included=1
+[tdg.group.task] level=2 task=3 graph=0
+[tdg.emitted] level=2 count=1
+[tdg.emitted.task] level=2 task=3
+[tdg.group] level=3 included=1
+[tdg.group.task] level=3 task=2 graph=0
+[tdg.emitted] level=3 count=1
+[tdg.emitted.task] level=3 task=2
+[tdg.group] level=4 included=1
+[tdg.group.task] level=4 task=1 graph=0
+[tdg.emitted] level=4 count=1
+[tdg.emitted.task] level=4 task=1
+[tdg.group] level=5 included=1
+[tdg.group.task] level=5 task=0 graph=0
+[tdg.emitted] level=5 count=1
+[tdg.emitted.task] level=5 task=0
+[tdg.group] level=6 included=1
+[tdg.group.task] level=6 task=7 graph=0
+[tdg.emitted] level=6 count=1
+[tdg.emitted.task] level=6 task=7

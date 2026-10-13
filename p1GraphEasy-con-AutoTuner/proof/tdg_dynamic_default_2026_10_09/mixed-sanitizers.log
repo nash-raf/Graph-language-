@@ -1,0 +1,21 @@
+In file included from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/driver.c:8,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/mixed_driver.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+PASS: ASan/UBSan mixed adapter and runtime, both native policies and all 1444 B4 forced schedules.
+Both overloaded ordinary-first phase ordering and serial SGPL task results asserted.
+SGPL-generated and SDK objects are not sanitizer instrumented. Leak detection disabled for existing generated dispatch environments and persistent pools.
+

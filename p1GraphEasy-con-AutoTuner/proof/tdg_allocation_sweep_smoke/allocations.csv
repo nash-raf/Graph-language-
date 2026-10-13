@@ -1,0 +1,13 @@
+case,budget,policy,left,right,median_ns,min_process_median_ns,max_process_median_ns,best_backend,best_order,best_parents,model_selection_fraction,empirical_best
+short,4,dynamic,1,1,42318,42298,59170,joint,"left,right",1,1.0,1
+short,4,dynamic,1,2,110145,105977,116537,joint,"right,left",1,0.0,0
+short,4,dynamic,1,3,98999,98764,108723,joint,"right,left",1,0.0,0
+short,4,dynamic,2,1,107941,106619,109765,joint,"right,left",1,0.0,0
+short,4,dynamic,2,2,173453,168906,179845,joint,"left,right",1,0.0,0
+short,4,dynamic,2,3,173002,161321,173398,joint,"right,left",1,0.0,0
+short,4,dynamic,3,1,104114,95928,115465,joint,"left,right",1,0.0,0
+short,4,dynamic,3,2,171480,170016,192634,joint,"right,left",1,0.0,0
+short,4,dynamic,3,3,173583,166039,179004,joint,"right,left",1,0.0,0
+short,4,ordinary-first,1,1,152454,146163,161711,ordinary,"left,right",2,1.0,1
+short,4,ordinary-first,1,2,238014,234146,252745,ordinary,"left,right",2,0.0,0
+short,4,ordinary-first,2,1,226967,195214,279620,ordinary,"left,right",2,0.0,0

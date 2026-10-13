@@ -1,0 +1,171 @@
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+In file included from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/driver.c:8,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/mixed_driver.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep/mixed/build/observed_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep/mixed/build/observed_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep/mixed/build/observed_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep/mixed/build/observed_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+Built mixed_one_ordinary
+Built mixed_two_ordinary
+Built mixed_short_ordinary
+Built mixed_medium_ordinary
+Built mixed_long_ordinary
+Built mixed_one_long_ordinary
+Built mixed_compute
+Built mixed_loop_skew
+mixed_one_ordinary B2 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B2 dynamic r1: 25 schedules, 130 physical samples, 0.1s
+mixed_one_ordinary B2 dynamic r2: 25 schedules, 130 physical samples, 0.1s
+mixed_one_ordinary B2 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B2 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B2 dynamic r3: 25 schedules, 130 physical samples, 0.1s
+mixed_one_ordinary B4 dynamic r1: 325 schedules, 1630 physical samples, 0.9s
+mixed_one_ordinary B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B4 dynamic r2: 325 schedules, 1630 physical samples, 1.0s
+mixed_one_ordinary B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B4 dynamic r3: 325 schedules, 1630 physical samples, 1.0s
+mixed_one_ordinary B6 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B6 dynamic r1: 905 schedules, 4530 physical samples, 2.8s
+mixed_one_ordinary B6 dynamic r2: 905 schedules, 4530 physical samples, 2.9s
+mixed_one_ordinary B6 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B6 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_one_ordinary B6 dynamic r3: 905 schedules, 4530 physical samples, 2.9s
+mixed_two_ordinary B2 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B2 dynamic r1: 49 schedules, 250 physical samples, 0.1s
+mixed_two_ordinary B2 dynamic r2: 49 schedules, 250 physical samples, 0.1s
+mixed_two_ordinary B2 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B2 dynamic r3: 49 schedules, 250 physical samples, 0.1s
+mixed_two_ordinary B2 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B4 dynamic r1: 865 schedules, 4330 physical samples, 3.1s
+mixed_two_ordinary B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B4 dynamic r2: 865 schedules, 4330 physical samples, 3.2s
+mixed_two_ordinary B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B4 dynamic r3: 865 schedules, 4330 physical samples, 3.1s
+mixed_two_ordinary B6 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B6 dynamic r1: 2403 schedules, 12020 physical samples, 8.3s
+mixed_two_ordinary B6 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B6 dynamic r2: 2403 schedules, 12020 physical samples, 8.2s
+mixed_two_ordinary B6 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_two_ordinary B6 dynamic r3: 2403 schedules, 12020 physical samples, 8.7s
+mixed_short_ordinary B2 dynamic r1: 81 schedules, 410 physical samples, 0.2s
+mixed_short_ordinary B2 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B2 dynamic r2: 81 schedules, 410 physical samples, 0.2s
+mixed_short_ordinary B2 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B2 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B2 dynamic r3: 81 schedules, 410 physical samples, 0.2s
+mixed_short_ordinary B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B4 dynamic r1: 1443 schedules, 7220 physical samples, 5.1s
+mixed_short_ordinary B4 dynamic r2: 1443 schedules, 7220 physical samples, 4.9s
+mixed_short_ordinary B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B4 dynamic r3: 1443 schedules, 7220 physical samples, 4.8s
+mixed_short_ordinary B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B6 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B6 dynamic r1: 5001 schedules, 25010 physical samples, 19.3s
+mixed_short_ordinary B6 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B6 dynamic r2: 5001 schedules, 25010 physical samples, 19.7s
+mixed_short_ordinary B6 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_short_ordinary B6 dynamic r3: 5001 schedules, 25010 physical samples, 19.9s
+mixed_medium_ordinary B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_medium_ordinary B4 dynamic r1: 1443 schedules, 7220 physical samples, 5.1s
+mixed_medium_ordinary B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_medium_ordinary B4 dynamic r2: 1443 schedules, 7220 physical samples, 5.0s
+mixed_medium_ordinary B4 dynamic r3: 1443 schedules, 7220 physical samples, 5.7s
+mixed_medium_ordinary B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_medium_ordinary B6 dynamic r1: 5001 schedules, 25010 physical samples, 23.7s
+mixed_medium_ordinary B6 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_medium_ordinary B6 dynamic r2: 5001 schedules, 25010 physical samples, 23.9s
+mixed_medium_ordinary B6 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_medium_ordinary B6 dynamic r3: 5001 schedules, 25010 physical samples, 21.9s
+mixed_medium_ordinary B6 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_long_ordinary B4 dynamic r1: 1443 schedules, 7220 physical samples, 9.9s
+mixed_long_ordinary B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_long_ordinary B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_long_ordinary B4 dynamic r2: 1443 schedules, 7220 physical samples, 10.1s
+mixed_long_ordinary B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_long_ordinary B4 dynamic r3: 1443 schedules, 7220 physical samples, 10.0s
+mixed_one_long_ordinary B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_one_long_ordinary B4 dynamic r1: 4323 schedules, 21620 physical samples, 20.5s
+mixed_one_long_ordinary B4 dynamic r2: 4323 schedules, 21620 physical samples, 21.4s
+mixed_one_long_ordinary B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_one_long_ordinary B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_one_long_ordinary B4 dynamic r3: 4323 schedules, 21620 physical samples, 23.6s
+mixed_compute B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.1s
+mixed_compute B4 dynamic r1: 1443 schedules, 7220 physical samples, 21.2s
+mixed_compute B4 dynamic r2: 1443 schedules, 7220 physical samples, 19.4s
+mixed_compute B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.1s
+mixed_compute B4 dynamic r3: 1443 schedules, 7220 physical samples, 18.7s
+mixed_compute B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.1s
+mixed_compute B6 dynamic r1: 5001 schedules, 25010 physical samples, 59.6s
+mixed_compute B6 ordinary-first r1: 0 schedules, 5 physical samples, 0.1s
+mixed_compute B6 dynamic r2: 5001 schedules, 25010 physical samples, 58.7s
+mixed_compute B6 ordinary-first r2: 0 schedules, 5 physical samples, 0.1s
+mixed_compute B6 dynamic r3: 5001 schedules, 25010 physical samples, 59.3s
+mixed_compute B6 ordinary-first r3: 0 schedules, 5 physical samples, 0.1s
+mixed_loop_skew B4 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_loop_skew B4 dynamic r1: 1443 schedules, 7220 physical samples, 7.8s
+mixed_loop_skew B4 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_loop_skew B4 dynamic r2: 1443 schedules, 7220 physical samples, 7.8s
+mixed_loop_skew B4 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_loop_skew B4 dynamic r3: 1443 schedules, 7220 physical samples, 7.8s
+mixed_loop_skew B6 dynamic r1: 5001 schedules, 25010 physical samples, 29.0s
+mixed_loop_skew B6 ordinary-first r1: 0 schedules, 5 physical samples, 0.0s
+mixed_loop_skew B6 dynamic r2: 5001 schedules, 25010 physical samples, 28.7s
+mixed_loop_skew B6 ordinary-first r2: 0 schedules, 5 physical samples, 0.0s
+mixed_loop_skew B6 ordinary-first r3: 0 schedules, 5 physical samples, 0.0s
+mixed_loop_skew B6 dynamic r3: 5001 schedules, 25010 physical samples, 28.6s
+PASS: complete mixed allocation/order/parent/backfill coverage; shared oracle; native choices covered.
+PASS: ordinary callbacks once each, serial results, loop outputs/grants, balanced budget, actual ordinary-first phase ordering.
+PASS: SGPL object/source and protected production hashes.
+{
+  "checked executions": 762645,
+  "verified ordinary-first phased executions": 927
+}
+
+{
+  "ordinary-first": {
+    "within 10%": 0,
+    "10\u201325% slower": 3,
+    ">25% slower": 14
+  },
+  "dynamic": {
+    "within 10%": 11,
+    "10\u201325% slower": 2,
+    ">25% slower": 4
+  }
+}
+{
+  "ordinary-first": {
+    "within 10%": 35,
+    "10\u201325% slower": 4,
+    ">25% slower": 14
+  },
+  "dynamic": {
+    "within 10%": 32,
+    "10\u201325% slower": 3,
+    ">25% slower": 18
+  }
+}
+PASS: complete mixed allocation/order/parent/backfill coverage; shared oracle; native choices covered.
+PASS: ordinary callbacks once each, serial results, loop outputs/grants, balanced budget, actual ordinary-first phase ordering.
+PASS: SGPL object/source and protected production hashes.
+{
+  "checked executions": 762645,
+  "verified ordinary-first phased executions": 927
+}
+

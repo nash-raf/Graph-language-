@@ -1,0 +1,3 @@
+case,budget,policy,allocations,schedules,model_actual_left,model_actual_right,modal_selection_fraction,requested_allocations,best_config,best_ms,model_ms,model_over_best_ratio,ratio_bootstrap_low,ratio_bootstrap_high,allocation_only_ratio,selected_schedule_replay_ratio,exact_best_allocation_repeat_fraction,fallback_fraction,verdict
+mixed_short_ordinary,4,dynamic,9,1443,1,1,1.0,"1,1",1:3:1:9:1,0.230009,0.243474,1.0585411875187494,1.049041559243334,1.0646697422218336,1.0451199735662517,1.093495419463454,0,0.0,within 10%
+mixed_short_ordinary,4,ordinary-first,9,1443,1,1,1.0,"1,1",1:3:1:9:1,0.230009,0.49947,2.1715237229847526,2.108333509815964,2.3579946871644153,1.0451199735662517,2.2874322309127035,0,0,>25% slower

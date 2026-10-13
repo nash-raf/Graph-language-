@@ -1,0 +1,62 @@
+tiny B2
+tiny B4
+tiny B6
+tiny B8
+chunk_edge B2
+chunk_edge B4
+chunk_edge B6
+chunk_edge B8
+short B2
+short B4
+short B6
+short B8
+balanced_compute B2
+balanced_compute B4
+balanced_compute B6
+balanced_compute B8
+trip_skew B2
+trip_skew B4
+trip_skew B6
+trip_skew B8
+work_skew B2
+work_skew B4
+work_skew B6
+work_skew B8
+work_skew_reversed B2
+work_skew_reversed B4
+work_skew_reversed B6
+work_skew_reversed B8
+large_arrays B2
+large_arrays B4
+large_arrays B6
+large_arrays B8
+uneven_chunks B2
+uneven_chunks B4
+uneven_chunks B6
+uneven_chunks B8
+mixed_one_ordinary B2
+mixed_one_ordinary B4
+mixed_one_ordinary B6
+mixed_two_ordinary B2
+mixed_two_ordinary B4
+mixed_two_ordinary B6
+mixed_short_ordinary B2
+mixed_short_ordinary B4
+mixed_short_ordinary B6
+mixed_medium_ordinary B4
+mixed_medium_ordinary B6
+mixed_long_ordinary B4
+mixed_one_long_ordinary B4
+mixed_compute B4
+mixed_compute B6
+mixed_loop_skew B4
+mixed_loop_skew B6
+{
+  "settings": 53,
+  "timed_samples": 15900,
+  "repeats": 5,
+  "samples": 15,
+  "wins": 28,
+  "total_time_after_over_before": 0.8981784894571211,
+  "method": "Same adapters and saved SGPL objects, randomized paired fresh processes; native timings precede frozen oracle replay."
+}

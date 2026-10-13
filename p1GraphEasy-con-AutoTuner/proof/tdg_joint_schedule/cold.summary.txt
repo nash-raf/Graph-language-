@@ -1,0 +1,11 @@
+B=2 overflow-short: joint=3.953ms, reference=3.887ms; joint change=+1.7%
+B=2 overflow-one-long: joint=8.099ms, reference=11.244ms; joint change=-28.0%
+B=2 tiny: joint=0.123ms, reference=0.186ms; joint change=-33.7%
+B=4 overflow-short: reference=1.849ms, joint=1.797ms; joint change=-2.8%
+B=4 overflow-one-long: joint=8.077ms, reference=9.178ms; joint change=-12.0%
+B=4 tiny: joint=0.153ms, reference=0.260ms; joint change=-41.0%
+B=8 overflow-short: reference=1.678ms, joint=1.630ms; joint change=-2.9%
+B=8 overflow-one-long: reference=8.922ms, joint=8.192ms; joint change=-8.2%
+B=8 tiny: reference=0.573ms, joint=0.248ms; joint change=-56.8%
+Geometric mean joint/reference=0.7692
+Cases improved=8/9; worst ratio=1.017

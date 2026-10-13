@@ -1,0 +1,86 @@
+{
+  "classification": {
+    "ordinary-first": {
+      "within 10%": 0,
+      "10\u201325% slower": 0,
+      ">25% slower": 1
+    },
+    "dynamic": {
+      "within 10%": 1,
+      "10\u201325% slower": 0,
+      ">25% slower": 0
+    }
+  },
+  "allocation_quality": {
+    "ordinary-first": {
+      "within_10_percent": 1,
+      "within_25_percent": 1,
+      "nontrivial_within_10_percent": 1,
+      "nontrivial_tested": 1,
+      "tested": 1
+    },
+    "dynamic": {
+      "within_10_percent": 1,
+      "within_25_percent": 1,
+      "nontrivial_within_10_percent": 1,
+      "nontrivial_tested": 1,
+      "tested": 1
+    }
+  },
+  "summary": [
+    {
+      "case": "mixed_short_ordinary",
+      "budget": 4,
+      "policy": "dynamic",
+      "allocations": 9,
+      "schedules": 1443,
+      "model_actual_left": 1,
+      "model_actual_right": 1,
+      "modal_selection_fraction": 1.0,
+      "requested_allocations": "1,1",
+      "best_config": "1:3:1:9:1",
+      "best_ms": 0.230009,
+      "model_ms": 0.243474,
+      "model_over_best_ratio": 1.0585411875187494,
+      "ratio_bootstrap_low": 1.049041559243334,
+      "ratio_bootstrap_high": 1.0646697422218336,
+      "allocation_only_ratio": 1.0451199735662517,
+      "selected_schedule_replay_ratio": 1.093495419463454,
+      "exact_best_allocation_repeat_fraction": 0,
+      "fallback_fraction": 0.0,
+      "verdict": "within 10%"
+    },
+    {
+      "case": "mixed_short_ordinary",
+      "budget": 4,
+      "policy": "ordinary-first",
+      "allocations": 9,
+      "schedules": 1443,
+      "model_actual_left": 1,
+      "model_actual_right": 1,
+      "modal_selection_fraction": 1.0,
+      "requested_allocations": "1,1",
+      "best_config": "1:3:1:9:1",
+      "best_ms": 0.230009,
+      "model_ms": 0.49947,
+      "model_over_best_ratio": 2.1715237229847526,
+      "ratio_bootstrap_low": 2.108333509815964,
+      "ratio_bootstrap_high": 2.3579946871644153,
+      "allocation_only_ratio": 1.0451199735662517,
+      "selected_schedule_replay_ratio": 2.2874322309127035,
+      "exact_best_allocation_repeat_fraction": 0,
+      "fallback_fraction": 0,
+      "verdict": ">25% slower"
+    }
+  ],
+  "policy_comparison": [
+    {
+      "case": "mixed_short_ordinary",
+      "budget": 4,
+      "ordinary_first_ms": 0.49947,
+      "dynamic_ms": 0.243474,
+      "dynamic_over_ordinary": 0.487464712595351
+    }
+  ],
+  "search_diagnostics": []
+}

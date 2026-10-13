@@ -1,0 +1,7 @@
+P=4 N=65536 chain=12 ratio=1: model=[(2, 1), (1, 2)] default_run=2.461ms; forced_selected=2.381ms; measured_best=(1, 2) 2.334ms; width_selection_regret=2.0%; default_run_gap=5.5%
+P=4 N=200000 chain=12 ratio=3: model=[(1, 2), (1, 2)] default_run=17.700ms; forced_selected=17.734ms; measured_best=(1, 2) 17.734ms; width_selection_regret=0.0%; default_run_gap=0.0%
+P=4 N=1000000 chain=0 ratio=1: model=[(1, 2), (1, 2)] default_run=1.041ms; forced_selected=1.067ms; measured_best=(2, 1) 0.837ms; width_selection_regret=27.4%; default_run_gap=24.4%
+P=8 N=65536 chain=12 ratio=1: model=[(3, 3), (3, 3)] default_run=2.069ms; forced_selected=2.087ms; measured_best=(3, 3) 2.087ms; width_selection_regret=0.0%; default_run_gap=0.0%
+P=8 N=200000 chain=12 ratio=3: model=[(1, 6), (1, 6)] default_run=8.552ms; forced_selected=8.952ms; measured_best=(1, 5) 8.249ms; width_selection_regret=8.5%; default_run_gap=3.7%
+P=8 N=1000000 chain=0 ratio=1: model=[(1, 2), (2, 1)] default_run=0.899ms; forced_selected=0.972ms; measured_best=(2, 3) 0.789ms; width_selection_regret=23.2%; default_run_gap=14.0%
+Median regret=5.3%; max=27.4%

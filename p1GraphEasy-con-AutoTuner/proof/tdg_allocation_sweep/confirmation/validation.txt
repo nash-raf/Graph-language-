@@ -1,0 +1,4 @@
+PASS: all requested widths equal actual grants.
+PASS: SGPL output arrays checked in full during training and at sampled indices every execution.
+PASS: protected model, compiler, loop and autotuner sources unchanged.
+PASS: expected sample counts for every legal allocation/schedule in every repeat.

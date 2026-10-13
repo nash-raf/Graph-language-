@@ -1,0 +1,29 @@
+{
+  "unchanged_protected_sources": {
+    "tdg_trace.inc": true,
+    "main.cpp": true,
+    "parallel_loop_outline.cpp": true,
+    "autotuner_runtime.c": true,
+    "AutoTunerPass.cpp": true,
+    "graph_frontier_lowering.cpp": true,
+    "roaring_bitmap.cpp": true,
+    "roaring_bitmap.h": true
+  },
+  "measured_snapshot_matches_current": {
+    "parallel_runtime.c": true,
+    "parallel_runtime.h": true,
+    "tdg_scheduler.inc": true,
+    "tdg_trace.inc": true,
+    "main.cpp": true,
+    "parallel_loop_outline.cpp": true,
+    "autotuner_runtime.c": true,
+    "AutoTunerPass.cpp": true,
+    "graph_frontier_lowering.cpp": true,
+    "roaring_bitmap.cpp": true,
+    "roaring_bitmap.h": true
+  },
+  "completion_ring_operations_unchanged": {
+    "doacross_wait_state": true,
+    "doacross_post_state": true
+  }
+}

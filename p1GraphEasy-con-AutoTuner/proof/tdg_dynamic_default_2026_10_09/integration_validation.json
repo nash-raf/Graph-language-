@@ -1,0 +1,18 @@
+{
+  "autotuner_sources_unchanged": {
+    "autotuner_runtime.c": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "AutoTunerPass.cpp": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "graph_frontier_lowering.cpp": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45"
+  },
+  "cost_and_fifo_allocation_functions_unchanged": [
+    "sgpl_loop_serial_model_time_ns",
+    "sgpl_loop_parallel_model_time_ns",
+    "sgpl_loop_candidate_model_time_ns",
+    "sgpl_level_loop_cost_ns",
+    "sgpl_choose_tdg_threads_with_loop_budget"
+  ],
+  "production_runtime_sha256": "d0e2380edf5fab7ff2ca36de065901f82ac4879ea37d114988d9983f29a09878",
+  "ordinary_first_production_symbol_absent": true,
+  "compiler_reference_option_absent": true,
+  "default_dynamic_trace_verified": true
+}

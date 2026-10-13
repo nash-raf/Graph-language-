@@ -1,0 +1,354 @@
+--- parallel_runtime.c
++++ parallel_runtime.c
+@@ -36,8 +36,6 @@
+ static const double SGPL_TDG_UNIT_COST_NS = 250.0;
+ static const double SGPL_TDG_BASE_LAUNCH_NS = 18000.0;
+ static const double SGPL_TDG_LAUNCH_PER_THREAD_NS = 2800.0;
+-static const double SGPL_POOL_BASE_LAUNCH_NS = 1200.0;
+-static const double SGPL_POOL_LAUNCH_PER_THREAD_NS = 180.0;
+ static const double SGPL_TDG_HT_EFFICIENCY = 0.42;
+ static const double SGPL_TDG_MIN_GAIN_FRACTION = 0.12;
+ static const int64_t SGPL_TDG_MIN_WORK_FOR_HT = 64;
+@@ -663,6 +661,7 @@
+ typedef struct
+ {
+     int in_use;
++    int ephemeral;
+     int mode;
+     int runtime_kind;
+     int threads;
+@@ -687,8 +686,9 @@
+ static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_loop_profile_desc *desc, int threads);
+ 
+ static sgpl_loop_runtime_state g_loop_states[SGPL_MAX_PROFILED_LOOPS];
+-static double g_launch_thread_costs[SGPL_TDG_MAX_REPORTED_THREADS];
+-static unsigned char g_launch_thread_cost_valid[SGPL_TDG_MAX_REPORTED_THREADS];
++static double g_launch_thread_costs[2][SGPL_TDG_MAX_REPORTED_THREADS];
++static unsigned char g_launch_thread_cost_valid[2][SGPL_TDG_MAX_REPORTED_THREADS];
++static pthread_mutex_t g_launch_model_lock = PTHREAD_MUTEX_INITIALIZER;
+ static sgpl_launch_path_cost_entry g_launch_path_costs[SGPL_MAX_LAUNCH_KEYS];
+ 
+ static atomic_long g_parallel_plain_calls = 0;
+@@ -2669,6 +2669,33 @@
+     return (double)trip_count * state->c_ns_per_iter_ewma;
+ }
+ 
++/* Largest lane's work under the existing cyclic/block-cyclic schedule.
++ * Fractional N/P invents balance the dispatcher cannot deliver near a chunk
++ * boundary. This mirrors worker_main; it does not change the schedule. */
++static double sgpl_loop_max_lane_iterations(int64_t trips, int32_t threads, int doacross)
++{
++    int64_t chunk = doacross ? 1 : sgpl_loop_chunk_iterations();
++    int64_t max_chunk;
++    int64_t stride;
++    int64_t remainder;
++    if (trips <= 0)
++        return 0.0;
++    if (threads <= 1)
++        return (double)trips;
++    max_chunk = trips / threads + (trips % threads != 0);
++    if (chunk > max_chunk)
++        chunk = max_chunk;
++    if (chunk < 1)
++        chunk = 1;
++    /* Avoid signed overflow for extreme trip counts. */
++    if (chunk > INT64_MAX / threads)
++        return (double)chunk;
++    stride = chunk * threads;
++    remainder = trips % stride;
++    return (double)(trips / stride) * (double)chunk +
++           (double)(remainder < chunk ? remainder : chunk);
++}
++
+ static double sgpl_loop_parallel_model_time_ns(const sgpl_loop_profile_desc *desc,
+                                                const sgpl_loop_runtime_state *state,
+                                                int64_t trip_count,
+@@ -2702,11 +2729,12 @@
+ 
+         return launch.total_ns +
+                (double)trip_count * state->c_dep_ns_per_iter_ewma +
+-               ((double)trip_count * state->c_ind_ns_per_iter_ewma / (double)threads) +
++               (sgpl_loop_max_lane_iterations(trip_count, threads, 1) * state->c_ind_ns_per_iter_ewma) +
+                ((double)trip_count * sync_per_iter);
+     }
+ 
+-    return launch.total_ns + ((double)trip_count * state->c_ns_per_iter_ewma / (double)threads);
++    return launch.total_ns +
++           sgpl_loop_max_lane_iterations(trip_count, threads, 0) * state->c_ns_per_iter_ewma;
+ }
+ 
+ static int32_t sgpl_loop_min_profitable_threads(const sgpl_level_loop_candidate *candidate,
+@@ -4348,12 +4376,27 @@
+     }
+ }
+ 
++/* Ignore the cold first dispatch and use a median: scheduler interruptions
++ * during one calibration should not become a permanent launch threshold. */
++static double sgpl_launch_sample_median(double samples[5])
++{
++    for (int i = 0; i < 5; ++i)
++        for (int j = i + 1; j < 5; ++j)
++            if (samples[j] < samples[i])
++            {
++                double tmp = samples[i];
++                samples[i] = samples[j];
++                samples[j] = tmp;
++            }
++    return samples[2];
++}
++
+ static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
+ {
+     int sample = 0;
+-    double total_ns = 0.0;
+-
+-    for (sample = 0; sample < 3; ++sample)
++    double samples[5];
++
++    for (sample = 0; sample < 6; ++sample)
+     {
+         uint64_t t0 = sgpl_now_ns();
+         sgpl_parallel_launch_plain_raw(0,
+@@ -4367,7 +4410,8 @@
+ 
+         {
+             double sample_ns = (double)(sgpl_now_ns() - t0);
+-            total_ns += sample_ns;
++            if (sample > 0)
++                samples[sample - 1] = sample_ns;
+             if (runtime_debug_enabled())
+             {
+                 fprintf(stderr,
+@@ -4379,15 +4423,15 @@
+         }
+     }
+ 
+-    return total_ns / 3.0;
++    return sgpl_launch_sample_median(samples);
+ }
+ 
+ static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_desc *desc, int threads)
+ {
+     int sample = 0;
+-    double total_ns = 0.0;
+-
+-    for (sample = 0; sample < 3; ++sample)
++    double samples[5];
++
++    for (sample = 0; sample < 6; ++sample)
+     {
+         uint64_t t0 = sgpl_now_ns();
+ 
+@@ -4448,7 +4492,8 @@
+ 
+         {
+             double sample_ns = (double)(sgpl_now_ns() - t0);
+-            total_ns += sample_ns;
++            if (sample > 0)
++                samples[sample - 1] = sample_ns;
+             if (runtime_debug_enabled())
+             {
+                 fprintf(stderr,
+@@ -4466,33 +4511,39 @@
+         }
+     }
+ 
+-    return total_ns / 3.0;
++    return sgpl_launch_sample_median(samples);
+ }
+ 
+ static double sgpl_get_thread_launch_overhead_ns(int threads)
+ {
+     double l_thread_ns = 0.0;
++    int ephemeral = g_tls_is_pool_worker || !sgpl_thread_pool_available();
+ 
+     if (threads <= 0)
+         return 0.0;
+ 
+-    if (sgpl_thread_pool_available() && !g_tls_is_pool_worker)
+-        return SGPL_POOL_BASE_LAUNCH_NS + SGPL_POOL_LAUNCH_PER_THREAD_NS * (double)threads;
+-
+-    if (threads < SGPL_TDG_MAX_REPORTED_THREADS && g_launch_thread_cost_valid[threads])
+-        return g_launch_thread_costs[threads];
++    pthread_mutex_lock(&g_launch_model_lock);
++    if (threads < SGPL_TDG_MAX_REPORTED_THREADS && g_launch_thread_cost_valid[ephemeral][threads])
++    {
++        l_thread_ns = g_launch_thread_costs[ephemeral][threads];
++        pthread_mutex_unlock(&g_launch_model_lock);
++        return l_thread_ns;
++    }
++    pthread_mutex_unlock(&g_launch_model_lock);
+ 
+     l_thread_ns = sgpl_calibrate_thread_launch_overhead_ns(threads);
++    pthread_mutex_lock(&g_launch_model_lock);
+     if (threads < SGPL_TDG_MAX_REPORTED_THREADS)
+     {
+-        g_launch_thread_costs[threads] = l_thread_ns;
+-        g_launch_thread_cost_valid[threads] = 1;
+-    }
++        g_launch_thread_costs[ephemeral][threads] = l_thread_ns;
++        g_launch_thread_cost_valid[ephemeral][threads] = 1;
++    }
++    pthread_mutex_unlock(&g_launch_model_lock);
+ 
+     if (runtime_debug_enabled())
+     {
+         fprintf(stderr,
+-                "[parallel-runtime] launch-thread-calibration threads=%d L_thread_ns(avg)=%.2f\n",
++                "[parallel-runtime] launch-thread-calibration threads=%d L_thread_ns(median)=%.2f\n",
+                 threads,
+                 l_thread_ns);
+     }
+@@ -4510,36 +4561,44 @@
+     int64_t env_size = desc ? desc->env_size : 0;
+     int32_t num_priv_targets = desc ? desc->num_priv_targets : 0;
+     int32_t doacross_num_sync_ids = desc ? desc->doacross_num_sync_ids : 0;
++    int ephemeral = g_tls_is_pool_worker || !sgpl_thread_pool_available();
+ 
+     if (runtime_kind == SGPL_RUNTIME_PLAIN && mode == SGPL_LOOP_DOALL)
+         return 0.0;
+ 
++    pthread_mutex_lock(&g_launch_model_lock);
+     for (i = 0; i < SGPL_MAX_LAUNCH_KEYS; ++i)
+     {
+         if (!g_launch_path_costs[i].in_use)
+             continue;
+ 
+-        if (g_launch_path_costs[i].runtime_kind == runtime_kind &&
++        if (g_launch_path_costs[i].ephemeral == ephemeral &&
++            g_launch_path_costs[i].runtime_kind == runtime_kind &&
+             g_launch_path_costs[i].mode == mode &&
+             g_launch_path_costs[i].threads == threads &&
+             g_launch_path_costs[i].env_size == env_size &&
+             g_launch_path_costs[i].num_priv_targets == num_priv_targets &&
+             g_launch_path_costs[i].doacross_num_sync_ids == doacross_num_sync_ids)
+         {
+-            return g_launch_path_costs[i].path_ns;
+-        }
+-    }
++            path_ns = g_launch_path_costs[i].path_ns;
++            pthread_mutex_unlock(&g_launch_model_lock);
++            return path_ns;
++        }
++    }
++    pthread_mutex_unlock(&g_launch_model_lock);
+ 
+     total_ns = sgpl_calibrate_total_launch_overhead_ns(desc, threads);
+     path_ns = total_ns - sgpl_get_thread_launch_overhead_ns(threads);
+     if (path_ns < 0.0)
+         path_ns = 0.0;
+ 
++    pthread_mutex_lock(&g_launch_model_lock);
+     for (i = 0; i < SGPL_MAX_LAUNCH_KEYS; ++i)
+     {
+         if (!g_launch_path_costs[i].in_use)
+         {
+             g_launch_path_costs[i].in_use = 1;
++            g_launch_path_costs[i].ephemeral = ephemeral;
+             g_launch_path_costs[i].runtime_kind = runtime_kind;
+             g_launch_path_costs[i].mode = mode;
+             g_launch_path_costs[i].threads = threads;
+@@ -4547,11 +4606,12 @@
+             g_launch_path_costs[i].num_priv_targets = num_priv_targets;
+             g_launch_path_costs[i].doacross_num_sync_ids = doacross_num_sync_ids;
+             g_launch_path_costs[i].path_ns = path_ns;
++            pthread_mutex_unlock(&g_launch_model_lock);
+ 
+             if (runtime_debug_enabled())
+             {
+                 fprintf(stderr,
+-                        "[parallel-runtime] launch-path-calibration loop=%s kind=%d mode=%d threads=%d env=%lld targets=%d sync_ids=%d L_path_ns(avg)=%.2f\n",
++                        "[parallel-runtime] launch-path-calibration loop=%s kind=%d mode=%d threads=%d env=%lld targets=%d sync_ids=%d L_path_ns(median)=%.2f\n",
+                         sgpl_loop_debug_name(desc),
+                         runtime_kind,
+                         mode,
+@@ -4564,6 +4624,7 @@
+             return path_ns;
+         }
+     }
++    pthread_mutex_unlock(&g_launch_model_lock);
+ 
+     return path_ns;
+ }
+@@ -4571,27 +4632,17 @@
+ static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_loop_profile_desc *desc, int threads)
+ {
+     sgpl_launch_overhead_detail detail;
+-
+-    if (sgpl_thread_pool_available() && !g_tls_is_pool_worker)
+-    {
+-        detail.thread_ns = SGPL_POOL_BASE_LAUNCH_NS + SGPL_POOL_LAUNCH_PER_THREAD_NS * (double)threads;
+-        detail.path_ns = 0.0;
+-        if (desc && desc->runtime_kind == SGPL_RUNTIME_PRIVATIZED)
+-        {
+-            /* Privatized path still copies env + allocates per-thread buffers. */
+-            detail.path_ns = 2500.0 + 400.0 * (double)threads;
+-            if (desc->num_priv_targets > 0)
+-                detail.path_ns += 800.0 * (double)desc->num_priv_targets;
+-        }
+-        if (desc && desc->mode == SGPL_LOOP_DOACROSS)
+-            detail.path_ns += 1500.0;
+-        detail.total_ns = detail.thread_ns + detail.path_ns;
+-        return detail;
+-    }
+-
++    /* Price the launch path that the runtime actually uses. The pool includes
++     * two barriers over ALL configured workers, including idle lanes; DOACROSS
++     * bypasses it and creates/join temporary threads. A fixed microsecond seed
++     * cannot represent either path on different hosts.
++     * Calibration must not consume the range entry point of the real launch. */
++    loop_range_fn saved_range_body = g_tls_pending_range_body;
++    g_tls_pending_range_body = NULL;
+     detail.thread_ns = sgpl_get_thread_launch_overhead_ns(threads);
+     detail.path_ns = sgpl_get_path_launch_overhead_ns(desc, threads);
+     detail.total_ns = detail.thread_ns + detail.path_ns;
++    g_tls_pending_range_body = saved_range_body;
+     return detail;
+ }
+ 
+@@ -4902,7 +4953,7 @@
+         l_path_ns = launch.path_ns;
+         l_ns = launch.total_ns;
+     }
+-    speedup_factor = 1.0 - (1.0 / (double)effective_threads);
++    speedup_factor = 1.0 - sgpl_loop_max_lane_iterations(trip_count, effective_threads, 0) / (double)trip_count;
+     denominator = c_ns * speedup_factor;
+     if (denominator > 0.0)
+         threshold = l_ns / denominator;
+@@ -4925,7 +4976,7 @@
+                 choose_parallel ? "parallel" : "serial",
+                 state->c_sampling_epoch);
+         fprintf(stderr,
+-                "[parallel-runtime] cost-doall loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d c_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f speedup=(1-1/P)=%.6f denominator=c*speedup=%.6f threshold=L/denominator=%.2f samples=%u\n",
++                "[parallel-runtime] cost-doall loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d c_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f speedup=(1-max_lane/N)=%.6f denominator=c*speedup=%.6f threshold=L/denominator=%.2f samples=%u\n",
+                 sgpl_loop_debug_name(desc),
+                 desc ? desc->loop_id : -1,
+                 decision_index,
+@@ -5490,7 +5541,8 @@
+             reason = "warmup-uninitialized";
+         else if (state->c_sampling_state != SGPL_C_SAMPLING_STABLE)
+             reason = state->c_sampling_state == SGPL_C_SAMPLING_RECALIBRATING ? "recalibrating" : "warmup";
+-        else if (state->c_dep_ns_per_iter_ewma <= 0.0 || state->c_ind_ns_per_iter_ewma <= 0.0)
++        else if (state->c_dep_ns_per_iter_ewma < 0.0 || state->c_ind_ns_per_iter_ewma < 0.0 ||
++                 state->c_dep_ns_per_iter_ewma + state->c_ind_ns_per_iter_ewma <= 0.0)
+             reason = "missing-c-dep-or-c-ind";
+     }
+ 
+@@ -5529,7 +5581,7 @@
+                         (double)desc->doacross_posts_per_iter * sigma_post;
+         serial_lhs = (double)trip_count * (c_dep + c_ind);
+         parallel_rhs = l_ns + critical_path_ns +
+-                       ((double)trip_count * c_ind / (double)effective_threads) +
++                       (sgpl_loop_max_lane_iterations(trip_count, effective_threads, 1) * c_ind) +
+                        ((double)trip_count * sync_per_iter);
+         choose_parallel = serial_lhs > parallel_rhs;
+         if (sgpl_should_cache_decision(state))
+@@ -5564,7 +5616,7 @@
+                     state ? state->c_sampling_epoch : 0);
+         }
+         fprintf(stderr,
+-                "[parallel-runtime] cost-doacross loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d bucket=%d c_state=%s c_dep_ns=%.2f c_ind_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f C_ns=N*c_dep=%.2f f_w=%d sigma_wait_ns=%.2f%s f_p=%d sigma_post_ns=%.2f%s sync_term_per_iter=%.2f serial_lhs=N*(c_dep+c_ind)=%.2f parallel_rhs=L+C+N*c_ind/P+N*sync_term=%.2f serial_samples=%u sync_samples=%u%s%s\n",
++                "[parallel-runtime] cost-doacross loop=%s loop_id=%d invocation=%ld choose=%s N=%lld P=%d bucket=%d c_state=%s c_dep_ns=%.2f c_ind_ns=%.2f L_thread_ns=%.2f L_path_ns=%.2f L_total_ns=%.2f C_ns=N*c_dep=%.2f f_w=%d sigma_wait_ns=%.2f%s f_p=%d sigma_post_ns=%.2f%s sync_term_per_iter=%.2f serial_lhs=N*(c_dep+c_ind)=%.2f parallel_rhs=L+C+max_lane*c_ind+N*sync_term=%.2f serial_samples=%u sync_samples=%u%s%s\n",
+                 sgpl_loop_debug_name(desc),
+                 desc ? desc->loop_id : -1,
+                 decision_index,

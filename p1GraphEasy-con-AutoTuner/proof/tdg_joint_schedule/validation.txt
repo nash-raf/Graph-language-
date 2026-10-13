@@ -1,0 +1,245 @@
+$ gcc -O2 -mavx2 -fopenmp -pthread -I. -c tools/tdg_joint_runtime_test.c -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test.o
+In file included from tools/tdg_joint_probe.c:6,
+                 from tools/tdg_joint_runtime_test.c:5:
+tools/../parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+tools/../parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from tools/../parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at tools/../parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+
+$ g++ -pthread -fopenmp /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test.o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/bitmap.o -lnlopt -lm -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test
+PASS model: coupled choices, occupied parents, pool serialization, ephemeral teams, site reuse
+PASS executor: resource peaks, exactly-once callbacks, failed creation, actual grant, ledger
+PASS adaptation: calibrated traces, cache reuse, changed work, metadata refusal, bounded fallback
+PASS: fixed workers, unique task threads, barrier progress, sequential site reuse, serial plans, forced budget, concurrent grants, balanced ledger
+ALL PHASE A STRUCTURAL TESTS PASS
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test
+PASS model: coupled choices, occupied parents, pool serialization, ephemeral teams, site reuse
+PASS executor: resource peaks, exactly-once callbacks, failed creation, actual grant, ledger
+PASS adaptation: calibrated traces, cache reuse, changed work, metadata refusal, bounded fallback
+PASS: fixed workers, unique task threads, barrier progress, sequential site reuse, serial plans, forced budget, concurrent grants, balanced ledger
+ALL PHASE A STRUCTURAL TESTS PASS
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test
+PASS model: coupled choices, occupied parents, pool serialization, ephemeral teams, site reuse
+PASS executor: resource peaks, exactly-once callbacks, failed creation, actual grant, ledger
+PASS adaptation: calibrated traces, cache reuse, changed work, metadata refusal, bounded fallback
+PASS: fixed workers, unique task threads, barrier progress, sequential site reuse, serial plans, forced budget, concurrent grants, balanced ledger
+ALL PHASE A STRUCTURAL TESTS PASS
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint_test
+PASS model: coupled choices, occupied parents, pool serialization, ephemeral teams, site reuse
+PASS executor: resource peaks, exactly-once callbacks, failed creation, actual grant, ledger
+PASS adaptation: calibrated traces, cache reuse, changed work, metadata refusal, bounded fallback
+PASS: fixed workers, unique task threads, barrier progress, sequential site reuse, serial plans, forced budget, concurrent grants, balanced ledger
+ALL PHASE A STRUCTURAL TESTS PASS
+
+$ python3 tools/tdg_joint_oracle.py
+PASS: independent simulator agrees on all 48 selected schedules; evaluation bound respected.
+Exhaustive small-instance allocation/order regret: median=0.00%, max=17.00%.
+
+In file included from tools/tdg_joint_oracle_probe.c:2:
+tools/../parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+tools/../parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from tools/../parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at tools/../parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+
+$ gcc -O2 -pthread -c gpu_runtime.c -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gpu.o
+
+$ gcc -O2 -pthread -DSGPL_ENABLE_JOINT_SCHEDULER -c parallel_runtime.c -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint.o
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+
+$ gcc -O2 -pthread -Dsgpl_run_tdg_level=sgpl_run_tdg_level_joint -c tdg_budget_test.c -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate.o
+
+$ g++ -pthread -fopenmp /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate.o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/joint.o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gpu.o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/bitmap.o -lnlopt -lm -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate
+tdg_budget_test: threads=1
+PASS T8 doall below min_trips -> CPU                trip=4095 verdict=1
+PASS T8 doall at min_trips -> device                trip=4096 verdict=0
+PASS T9 doacross distance 1 -> wave storm           trip=200000 dist=1 waves=200000 verdict=2
+PASS T9 doacross distance 64 -> device              trip=200000 dist=64 waves=3125 verdict=0
+PASS T9 doacross below min_trips -> CPU             trip=64 verdict=1
+PASS T10 engine step just below floor -> CPU        arcs=1999999 min=2000000 verdict=1
+PASS T10 engine step at floor -> device             arcs=2000000 min=2000000 verdict=0
+PASS T10 engine step gate disabled -> device        arcs=0 min=0 verdict=0
+PASS T10 empty step -> CPU                          arcs=0 min=2000000 verdict=1
+PASS T1 trip clamp (2 trips, 4 threads)             workers=1 trips=2
+PASS T2 desired threads (1,1) -> one worker         workers=1
+PASS T3 unregistered in level, sharing DISABLED     workers=1 trips=64 threads=1
+PASS T6 registered sites draw their planned width   site101 workers=1 trips=64; site102 workers=1 trips=64
+PASS T7 single-site level plans its site            site210 workers=1 trips=64 threads=1
+PASS T5 nested dispatch inside a worker is bounded  nested_parallel_calls=0 outer_threads=1
+PASS T4 reservation ledger balanced                 reserved=0
+ALL PASS (0 failures)
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate
+tdg_budget_test: threads=2
+PASS T8 doall below min_trips -> CPU                trip=4095 verdict=1
+PASS T8 doall at min_trips -> device                trip=4096 verdict=0
+PASS T9 doacross distance 1 -> wave storm           trip=200000 dist=1 waves=200000 verdict=2
+PASS T9 doacross distance 64 -> device              trip=200000 dist=64 waves=3125 verdict=0
+PASS T9 doacross below min_trips -> CPU             trip=64 verdict=1
+PASS T10 engine step just below floor -> CPU        arcs=1999999 min=2000000 verdict=1
+PASS T10 engine step at floor -> device             arcs=2000000 min=2000000 verdict=0
+PASS T10 engine step gate disabled -> device        arcs=0 min=0 verdict=0
+PASS T10 empty step -> CPU                          arcs=0 min=2000000 verdict=1
+PASS T1 trip clamp (2 trips, 4 threads)             workers=2 trips=2
+PASS T2 desired threads (1,1) -> one worker         workers=1
+PASS T3 unregistered in level, sharing DISABLED     workers=1 trips=64 threads=2
+PASS T6 registered sites draw their planned width   site101 workers=1 trips=64; site102 workers=1 trips=64
+PASS T7 single-site level plans its site            site210 workers=1 trips=64 threads=2
+PASS T5 nested dispatch inside a worker is bounded  nested_parallel_calls=0 outer_threads=2
+PASS T4 reservation ledger balanced                 reserved=0
+ALL PASS (0 failures)
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate
+tdg_budget_test: threads=4
+PASS T8 doall below min_trips -> CPU                trip=4095 verdict=1
+PASS T8 doall at min_trips -> device                trip=4096 verdict=0
+PASS T9 doacross distance 1 -> wave storm           trip=200000 dist=1 waves=200000 verdict=2
+PASS T9 doacross distance 64 -> device              trip=200000 dist=64 waves=3125 verdict=0
+PASS T9 doacross below min_trips -> CPU             trip=64 verdict=1
+PASS T10 engine step just below floor -> CPU        arcs=1999999 min=2000000 verdict=1
+PASS T10 engine step at floor -> device             arcs=2000000 min=2000000 verdict=0
+PASS T10 engine step gate disabled -> device        arcs=0 min=0 verdict=0
+PASS T10 empty step -> CPU                          arcs=0 min=2000000 verdict=1
+PASS T1 trip clamp (2 trips, 4 threads)             workers=2 trips=2
+PASS T2 desired threads (1,1) -> one worker         workers=1
+PASS T3 unregistered in level shares pool budget    workers=3 trips=64 threads=4
+PASS T6 registered sites draw their planned width   site101 workers=2 trips=64; site102 workers=1 trips=64
+PASS T7 single-site level plans its site            site210 workers=3 trips=64 threads=4
+PASS T5 nested dispatch inside a worker is bounded  nested_parallel_calls=0 outer_threads=4
+PASS T4 reservation ledger balanced                 reserved=0
+ALL PASS (0 failures)
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate
+tdg_budget_test: threads=8
+PASS T8 doall below min_trips -> CPU                trip=4095 verdict=1
+PASS T8 doall at min_trips -> device                trip=4096 verdict=0
+PASS T9 doacross distance 1 -> wave storm           trip=200000 dist=1 waves=200000 verdict=2
+PASS T9 doacross distance 64 -> device              trip=200000 dist=64 waves=3125 verdict=0
+PASS T9 doacross below min_trips -> CPU             trip=64 verdict=1
+PASS T10 engine step just below floor -> CPU        arcs=1999999 min=2000000 verdict=1
+PASS T10 engine step at floor -> device             arcs=2000000 min=2000000 verdict=0
+PASS T10 engine step gate disabled -> device        arcs=0 min=0 verdict=0
+PASS T10 empty step -> CPU                          arcs=0 min=2000000 verdict=1
+PASS T1 trip clamp (2 trips, 4 threads)             workers=2 trips=2
+PASS T2 desired threads (1,1) -> one worker         workers=1
+PASS T3 unregistered in level shares pool budget    workers=7 trips=64 threads=8
+PASS T6 registered sites draw their planned width   site101 workers=6 trips=64; site102 workers=1 trips=64
+PASS T7 single-site level plans its site            site210 workers=7 trips=64 threads=8
+PASS T5 nested dispatch inside a worker is bounded  nested_parallel_calls=0 outer_threads=8
+PASS T4 reservation ledger balanced                 reserved=0
+ALL PASS (0 failures)
+
+$ /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/gate
+tdg_budget_test: threads=4
+PASS T8 doall below min_trips -> CPU                trip=4095 verdict=1
+PASS T8 doall at min_trips -> device                trip=4096 verdict=0
+PASS T9 doacross distance 1 -> wave storm           trip=200000 dist=1 waves=200000 verdict=2
+PASS T9 doacross distance 64 -> device              trip=200000 dist=64 waves=3125 verdict=0
+PASS T9 doacross below min_trips -> CPU             trip=64 verdict=1
+PASS T10 engine step just below floor -> CPU        arcs=1999999 min=2000000 verdict=1
+PASS T10 engine step at floor -> device             arcs=2000000 min=2000000 verdict=0
+PASS T10 engine step gate disabled -> device        arcs=0 min=0 verdict=0
+PASS T10 empty step -> CPU                          arcs=0 min=2000000 verdict=1
+PASS T1 trip clamp (2 trips, 4 threads)             workers=2 trips=2
+PASS T2 desired threads (1,1) -> one worker         workers=1
+PASS T3 unregistered in level, sharing DISABLED     workers=1 trips=64 threads=4
+PASS T6 registered sites draw their planned width   site101 workers=1 trips=64; site102 workers=1 trips=64
+PASS T7 single-site level plans its site            site210 workers=3 trips=64 threads=4
+PASS T5 nested dispatch inside a worker is bounded  nested_parallel_calls=0 outer_threads=4
+PASS T4 reservation ledger balanced                 reserved=0
+ALL PASS (0 failures)
+
+$ python3 tools/test_cost_model_equations.py
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.000s
+
+OK
+
+$ gcc -O2 -pthread -fopenmp -I. test/parallel_append_runtime_test.c /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c -lnlopt -lm -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/append_current
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+
+Append current: exit=1
+order mismatch at 1: got 1, expected 4
+$ gcc -O2 -pthread -fopenmp -I. test/parallel_append_runtime_test.c /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c -lnlopt -lm -o /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/build/append_reference
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_joint_schedule/ordinary_first_2026_10_08/source/parallel_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+
+Append reference: exit=1
+order mismatch at 1: got 1, expected 4
+PASS append behavior identical to frozen reference.
+$ git -c core.autocrlf=true diff --check -- parallel_runtime.c parallel_runtime.h main.cpp pdg.cpp test/run_tdg_shared_graph_levels.sh
+warning: in the working copy of 'p1GraphEasy-con-AutoTuner/main.cpp', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'p1GraphEasy-con-AutoTuner/parallel_runtime.c', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'p1GraphEasy-con-AutoTuner/parallel_runtime.h', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'p1GraphEasy-con-AutoTuner/pdg.cpp', LF will be replaced by CRLF the next time Git touches it
+

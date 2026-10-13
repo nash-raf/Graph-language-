@@ -1,0 +1,8 @@
+B=4 fits-mixed: reference=2.039ms, current=2.016ms, joint=1.757ms; joint change=-13.8%
+B=4 overflow-short: joint=1.522ms, reference=1.452ms, current=1.409ms; joint change=+4.8%
+B=4 overflow-one-long: joint=6.946ms, current=7.990ms, reference=8.184ms; joint change=-15.1%
+B=4 overflow-all-long: joint=10.262ms, reference=11.322ms, current=11.633ms; joint change=-9.4%
+B=4 tiny: joint=0.040ms, reference=0.215ms, current=0.231ms; joint change=-81.6%
+B=4 streaming: current=0.540ms, reference=0.548ms, joint=0.400ms; joint change=-27.1%
+Geometric mean joint/reference=0.6736
+Cases improved=5/6; worst ratio=1.048

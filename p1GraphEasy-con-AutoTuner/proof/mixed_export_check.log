@@ -1,0 +1,11 @@
+PASS: complete mixed allocation/order/parent/backfill coverage; shared oracle; native choices covered.
+PASS: ordinary callbacks once each, serial results, loop outputs/grants, balanced budget, actual ordinary-first phase ordering.
+PASS: SGPL object/source and protected production hashes.
+{
+  "checked executions": 762645,
+  "verified ordinary-first phased executions": 927
+}
+PASS: original two-loop raw CSV preserved byte for byte as the prefix of the combined CSV.
+
+PASS: 1157316 CSV timing references (shared mixed oracle rows are counted twice); 2556 complete original allocation/schedule configurations; 106 case/budget/policy results.
+PASS: actual grants, CSV statistics, every allocation bar/table, generated objects and protected source hashes.

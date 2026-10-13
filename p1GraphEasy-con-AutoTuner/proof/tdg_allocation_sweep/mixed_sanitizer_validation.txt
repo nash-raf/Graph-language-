@@ -1,0 +1,3 @@
+PASS: ASan/UBSan mixed adapter and runtime, both native policies and all 1443 B4 forced schedules.
+Both overloaded ordinary-first phase ordering and serial SGPL task results asserted.
+SGPL-generated and SDK objects are not sanitizer instrumented. Leak detection disabled for existing generated dispatch environments and persistent pools.

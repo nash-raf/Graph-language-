@@ -1,0 +1,34 @@
+Phase A validation protocol, recorded before the full paired matrix
+
+The six-case pilot is developmental evidence, not the final validation set.
+The full set contains 36 combinations of budget (2/4/8) and workload shape,
+including cases not in the pilot. Three independent processes per arm/case
+run the identical in-process workload, with 3 warm levels and 11 measured
+levels. Case order and paired arm order are shuffled deterministically.
+No two benchmark processes run concurrently.
+
+Primary reference: frozen current ordinary-first implementation. Secondary
+arms: ordering/admission with the reference widths; joint scheduling restricted
+to overloaded levels; joint scheduling permitted when parents plus desired
+teams contend. Each process retains first-level time, all-14-level total,
+steady median, actual widths and planner/cache/fallback counts. Loop kernels
+and equations are identical across arms. There are no benchmark-site constants.
+
+The main matrix uses a common isolated loop calibration procedure in every
+arm. Task estimates then develop through normal callbacks. A separate cold
+matrix omits the isolated loop calibration. Total timing includes planning
+and profiling performed inside the level; external common preparation is
+explicitly outside these level timings. Generated-program tests measure the
+real public compiler/runtime path as well as direct runtime probes.
+
+Use paired process ratios and report 95% bootstrap intervals for the geometric
+mean. Report each case and cold/steady behavior separately. A tentative broad
+promotion requires at least 5% aggregate time reduction with its 95% interval
+entirely below parity and no >10% repeatable regression in a held-out workload
+stratum. These are evaluation thresholds, not coefficients in the model.
+Report exceptions instead of dropping them. If this evidence is insufficient,
+retain ordinary-first as the normal integrated policy and keep the candidate
+as an explicitly experimental, separately buildable comparison.
+
+This is one-host evidence. Graph scaling and graph-loop allocation claims
+remain Phase B; graph-containing compiled levels keep the current scheduler.

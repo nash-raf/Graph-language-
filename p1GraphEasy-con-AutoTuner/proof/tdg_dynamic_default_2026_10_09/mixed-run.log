@@ -1,0 +1,143 @@
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+In file included from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/driver.c:8,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/tdg_allocation_sweep/mixed_driver.c:6:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c:168:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  168 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_dynamic_default_2026_10_09/mixed/build/observed_runtime.c:168:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+Built mixed_short_ordinary
+Built mixed_one_long_ordinary
+Built mixed_compute
+Built mixed_loop_skew
+mixed_short_ordinary B4 ordinary-first r1: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B4 dynamic r1: 1444 schedules, 4335 physical samples, 3.5s
+mixed_short_ordinary B4 dynamic r2: 1444 schedules, 4335 physical samples, 3.4s
+mixed_short_ordinary B4 ordinary-first r2: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B4 dynamic r3: 1444 schedules, 4335 physical samples, 3.5s
+mixed_short_ordinary B4 ordinary-first r3: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B6 ordinary-first r1: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B6 dynamic r1: 5002 schedules, 15009 physical samples, 14.4s
+mixed_short_ordinary B6 ordinary-first r2: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B6 dynamic r2: 5002 schedules, 15009 physical samples, 13.9s
+mixed_short_ordinary B6 ordinary-first r3: 0 schedules, 3 physical samples, 0.0s
+mixed_short_ordinary B6 dynamic r3: 5002 schedules, 15009 physical samples, 14.7s
+mixed_one_long_ordinary B4 ordinary-first r1: 0 schedules, 3 physical samples, 0.0s
+mixed_one_long_ordinary B4 dynamic r1: 4324 schedules, 12975 physical samples, 13.5s
+mixed_one_long_ordinary B4 dynamic r2: 4324 schedules, 12975 physical samples, 13.6s
+mixed_one_long_ordinary B4 ordinary-first r2: 0 schedules, 3 physical samples, 0.0s
+mixed_one_long_ordinary B4 ordinary-first r3: 0 schedules, 3 physical samples, 0.0s
+mixed_one_long_ordinary B4 dynamic r3: 4324 schedules, 12975 physical samples, 13.8s
+mixed_compute B4 ordinary-first r1: 0 schedules, 3 physical samples, 0.1s
+mixed_compute B4 dynamic r1: 1444 schedules, 4335 physical samples, 12.3s
+mixed_compute B4 dynamic r2: 1444 schedules, 4335 physical samples, 12.9s
+mixed_compute B4 ordinary-first r2: 0 schedules, 3 physical samples, 0.1s
+mixed_compute B4 dynamic r3: 1444 schedules, 4335 physical samples, 12.2s
+mixed_compute B4 ordinary-first r3: 0 schedules, 3 physical samples, 0.1s
+mixed_compute B6 dynamic r1: 5002 schedules, 15009 physical samples, 39.8s
+mixed_compute B6 ordinary-first r1: 0 schedules, 3 physical samples, 0.1s
+mixed_compute B6 dynamic r2: 5002 schedules, 15009 physical samples, 40.6s
+mixed_compute B6 ordinary-first r2: 0 schedules, 3 physical samples, 0.1s
+mixed_compute B6 dynamic r3: 5002 schedules, 15009 physical samples, 39.0s
+mixed_compute B6 ordinary-first r3: 0 schedules, 3 physical samples, 0.1s
+mixed_loop_skew B4 ordinary-first r1: 0 schedules, 3 physical samples, 0.0s
+mixed_loop_skew B4 dynamic r1: 1444 schedules, 4335 physical samples, 5.1s
+mixed_loop_skew B4 ordinary-first r2: 0 schedules, 3 physical samples, 0.0s
+mixed_loop_skew B4 dynamic r2: 1444 schedules, 4335 physical samples, 5.1s
+mixed_loop_skew B4 ordinary-first r3: 0 schedules, 3 physical samples, 0.0s
+mixed_loop_skew B4 dynamic r3: 1444 schedules, 4335 physical samples, 5.1s
+mixed_loop_skew B6 dynamic r1: 5002 schedules, 15009 physical samples, 19.0s
+mixed_loop_skew B6 ordinary-first r1: 0 schedules, 3 physical samples, 0.0s
+mixed_loop_skew B6 dynamic r2: 5002 schedules, 15009 physical samples, 19.1s
+mixed_loop_skew B6 ordinary-first r2: 0 schedules, 3 physical samples, 0.0s
+mixed_loop_skew B6 ordinary-first r3: 0 schedules, 3 physical samples, 0.0s
+mixed_loop_skew B6 dynamic r3: 5002 schedules, 15009 physical samples, 19.5s
+PASS: complete mixed allocation/order/parent/backfill coverage; shared oracle; native choices covered.
+PASS: ordinary callbacks once each, serial results, loop outputs/grants, balanced budget, actual ordinary-first phase ordering.
+PASS: SGPL object/source and protected production hashes.
+{
+  "checked executions": 355896,
+  "verified ordinary-first phased executions": 360
+}
+
+{
+  "ordinary-first": {
+    "within 10%": 0,
+    "10\u201325% slower": 0,
+    ">25% slower": 7
+  },
+  "dynamic": {
+    "within 10%": 3,
+    "10\u201325% slower": 0,
+    ">25% slower": 4
+  }
+}
+{
+  "all mixed": {
+    "settings": 7,
+    "dynamic_wins": 6,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.8246171548535302,
+    "ordinary-first": {
+      "mean_gap_percent": 110.47217047791563,
+      "total_time_gap_percent": 101.8571694894975,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 3
+    },
+    "dynamic": {
+      "mean_gap_percent": 62.408156557483885,
+      "total_time_gap_percent": 66.45488479121624,
+      "within_10_percent": 3,
+      "allocation_within_10_percent": 3
+    }
+  },
+  "overloaded": {
+    "settings": 4,
+    "dynamic_wins": 4,
+    "ordinary_first_wins": 0,
+    "total_time_dynamic_over_ordinary": 0.7334299738244472,
+    "ordinary-first": {
+      "mean_gap_percent": 106.53789576124075,
+      "total_time_gap_percent": 93.49919115106972,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 2
+    },
+    "dynamic": {
+      "mean_gap_percent": 39.6047266241287,
+      "total_time_gap_percent": 41.91810670098079,
+      "within_10_percent": 2,
+      "allocation_within_10_percent": 2
+    }
+  },
+  "not overloaded": {
+    "settings": 3,
+    "dynamic_wins": 2,
+    "ordinary_first_wins": 1,
+    "total_time_dynamic_over_ordinary": 0.9593962489725771,
+    "ordinary-first": {
+      "mean_gap_percent": 115.71787010014876,
+      "total_time_gap_percent": 115.62311838153651,
+      "within_10_percent": 0,
+      "allocation_within_10_percent": 1
+    },
+    "dynamic": {
+      "mean_gap_percent": 92.81272980195746,
+      "total_time_gap_percent": 106.8680109670161,
+      "within_10_percent": 1,
+      "allocation_within_10_percent": 1
+    }
+  }
+}

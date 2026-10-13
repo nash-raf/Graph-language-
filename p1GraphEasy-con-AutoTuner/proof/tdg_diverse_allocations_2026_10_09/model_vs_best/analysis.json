@@ -1,0 +1,16 @@
+{
+  "source": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_diverse_allocations_2026_10_09",
+  "rows": 53,
+  "images": [
+    "mixed.png",
+    "loops.page1.png",
+    "loops.page2.png",
+    "loops.page3.png"
+  ],
+  "definition": "Prior exhaustive winner, remeasured against current model in fresh paired processes; not a new full sweep.",
+  "formula": "100 * (model_time / best_remeasured_time - 1)",
+  "source_sha256": {
+    "paired_raw.csv": "866382a34d707f37642aa2581281dd9f8934a340bb2bebb58d315469829f39e6",
+    "paired_summary.csv": "8599f2348ca0da64137a3bdebbd0e570f9acaca7110b89089ec6362a217b5c25"
+  }
+}

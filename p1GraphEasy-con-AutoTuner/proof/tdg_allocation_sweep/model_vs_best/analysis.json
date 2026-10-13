@@ -1,0 +1,23 @@
+{
+  "source": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/tdg_allocation_sweep",
+  "revision": "Earlier experimental runtime | historical ongoing CSV",
+  "metrics": {
+    "dynamic": {
+      "settings": 53,
+      "mean_slowdown_percent": 23.959819568200494,
+      "sum_time_slowdown_percent": 17.609026638364966,
+      "within_10_percent": 32
+    },
+    "ordinary-first": {
+      "settings": 53,
+      "mean_slowdown_percent": 979.4268275407744,
+      "sum_time_slowdown_percent": 34.12248575740193,
+      "within_10_percent": 7
+    }
+  },
+  "aggregation": "Median of per-process medians; fastest forced configuration across policy labels.",
+  "source_sha256": {
+    "raw.csv": "f3ece8840e0fa8ea35d103f8d46feaeaa1ab7046de3507c51aa0b5b3f57061c7",
+    "summary.csv": "6daff219d09ea4920aacffca527a5e6792a94a80d6062e8f409188e1f8773918"
+  }
+}

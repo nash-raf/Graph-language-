@@ -1,0 +1,2 @@
+PASS unchanged ordinary-first phase ordering and harness correctness/budget assertions.
+Default/frozen steady geometric ratio=0.9302; paired timing-noise bootstrap 95% CI=[0.8277, 1.0187].

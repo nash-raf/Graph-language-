@@ -1,0 +1,18 @@
+tdg_budget_test: threads=4
+PASS T8 doall below min_trips -> CPU                trip=4095 verdict=1
+PASS T8 doall at min_trips -> device                trip=4096 verdict=0
+PASS T9 doacross distance 1 -> wave storm           trip=200000 dist=1 waves=200000 verdict=2
+PASS T9 doacross distance 64 -> device              trip=200000 dist=64 waves=3125 verdict=0
+PASS T9 doacross below min_trips -> CPU             trip=64 verdict=1
+PASS T10 engine step just below floor -> CPU        arcs=1999999 min=2000000 verdict=1
+PASS T10 engine step at floor -> device             arcs=2000000 min=2000000 verdict=0
+PASS T10 engine step gate disabled -> device        arcs=0 min=0 verdict=0
+PASS T10 empty step -> CPU                          arcs=0 min=2000000 verdict=1
+PASS T1 trip clamp (2 trips, 4 threads)             workers=2 trips=2
+PASS T2 desired threads (1,1) -> one worker         workers=1
+PASS T3 unregistered in level shares pool budget    workers=3 trips=64 threads=4
+PASS T6 registered sites draw their planned width   site101 workers=2 trips=64; site102 workers=1 trips=64
+PASS T7 single-site level plans its site            site210 workers=3 trips=64 threads=4
+PASS T5 nested dispatch inside a worker is bounded  nested_parallel_calls=0 outer_threads=4
+PASS T4 reservation ledger balanced                 reserved=0
+ALL PASS (0 failures)

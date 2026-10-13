@@ -1,0 +1,1 @@
+PASS full-output, real dependencies, workers=8, serial_wall_ns=1198239, serial_samples=4, frozen_training_sync_samples=30756, heldout=7, no_TDG_plans

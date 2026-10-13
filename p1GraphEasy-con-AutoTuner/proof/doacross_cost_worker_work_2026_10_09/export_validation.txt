@@ -1,0 +1,4 @@
+PASS reconstructed predictions; max discrepancy 0.000423900783 ns
+PASS frozen forecasts/profile inputs; width samples = 4 learned / 0 seeded
+PASS seeded/learned forecasts share actual timings
+PASS independent signed and absolute error reconstruction

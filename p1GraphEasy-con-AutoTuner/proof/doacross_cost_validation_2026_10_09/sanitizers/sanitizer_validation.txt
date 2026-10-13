@@ -1,0 +1,5 @@
+tiny_chain: PASS full-output, real dependencies, workers=4, serial_wall_ns=43742, serial_samples=4, frozen_training_sync_samples=1028, heldout=3, no_TDG_plans
+
+two_streams: PASS full-output, real dependencies, workers=4, serial_wall_ns=2684102, serial_samples=4, frozen_training_sync_samples=123038, heldout=3, no_TDG_plans
+
+uneven: PASS full-output, real dependencies, workers=4, serial_wall_ns=1951149, serial_samples=4, frozen_training_sync_samples=31221, heldout=3, no_TDG_plans

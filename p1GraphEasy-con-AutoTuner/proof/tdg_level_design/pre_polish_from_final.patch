@@ -1,0 +1,181 @@
+--- parallel_runtime.c
++++ pre_polish_runtime.c
+@@ -2774,7 +2774,6 @@
+     const double *cost_table;
+     const sgpl_level_loop_candidate *candidates;
+     int32_t parent_workers;
+-    int32_t group_index[SGPL_MAX_TDG_LEVEL_LOOPS];
+ } sgpl_nlopt_problem;
+ 
+ /* Serial sites on different task workers overlap. Parallel DOALL sites use
+@@ -2782,15 +2781,19 @@
+  * task are serial. This is a resource lower bound, not a release-time model. */
+ static double sgpl_level_loop_cost_ns(const sgpl_level_loop_candidate *candidates,
+                                       int32_t count, const double *costs,
+-                                      const double *pooled_fraction, int32_t workers,
+-                                      const int32_t *group_index)
+-{
+-    double task_cost[SGPL_MAX_TDG_LEVEL_LOOPS];
++                                      const double *pooled_fraction, int32_t workers)
++{
++    double task_cost[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
+     double pool_cost = 0.0, total = 0.0, longest = 0.0;
+-    for (int32_t i = 0; i < count; ++i) task_cost[i] = 0.0;
+     for (int32_t i = 0; i < count; ++i)
+     {
+-        int32_t group = group_index[i];
++        int32_t group = i;
++        for (int32_t j = 0; j < i; ++j)
++            if (candidates[j].task_slot == candidates[i].task_slot)
++            {
++                group = j;
++                break;
++            }
+         task_cost[group] += costs[i];
+         total += costs[i];
+         if (candidates[i].desc.mode != SGPL_LOOP_DOACROSS)
+@@ -2848,30 +2851,34 @@
+         pooled_fraction[i] = fmin(1.0, fmax(0.0, x[i] - 1.0));
+     }
+     return sgpl_level_loop_cost_ns(problem->candidates, problem->candidate_count,
+-                                   costs, pooled_fraction, problem->parent_workers, problem->group_index);
++                                   costs, pooled_fraction, problem->parent_workers);
+ }
+ 
+ static double sgpl_integer_loop_objective(const sgpl_nlopt_problem *problem, const int32_t *consumed)
+ {
+-    double x[SGPL_MAX_TDG_LEVEL_LOOPS + 1];
++    double x[SGPL_MAX_TDG_LEVEL_LOOPS + 1] = {0};
+     for (int32_t i = 0; i < problem->candidate_count; ++i)
+         x[i] = consumed[i];
+-    x[problem->candidate_count] = 0.0;
+     return sgpl_nlopt_loop_objective((unsigned)(problem->candidate_count + 1), x, NULL, (void *)problem);
+ }
+ 
+ /* Sites in one callback execute sequentially and return their grant after
+  * each dispatch. Reserve the largest team per task, rather than summing all
+  * of that task's sequential sites. Different task workers can overlap. */
+-static double sgpl_loop_consumed_budget(const int32_t *group_index,
++static double sgpl_loop_consumed_budget(const sgpl_level_loop_candidate *candidates,
+                                         int32_t count, const double *consumed)
+ {
+-    double peak[SGPL_MAX_TDG_LEVEL_LOOPS];
++    double peak[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
+     double total = 0.0;
+-    for (int32_t i = 0; i < count; ++i) peak[i] = 0.0;
+     for (int32_t i = 0; i < count; ++i)
+     {
+-        int32_t group = group_index[i];
++        int32_t group = i;
++        for (int32_t j = 0; j < i; ++j)
++            if (candidates[i].task_slot == candidates[j].task_slot)
++            {
++                group = j;
++                break;
++            }
+         if (consumed[i] > peak[group])
+         {
+             total += consumed[i] - peak[group];
+@@ -2883,10 +2890,10 @@
+ 
+ static int32_t sgpl_integer_consumed_budget(const sgpl_nlopt_problem *problem, const int32_t *consumed)
+ {
+-    double x[SGPL_MAX_TDG_LEVEL_LOOPS];
++    double x[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
+     for (int32_t i = 0; i < problem->candidate_count; ++i)
+         x[i] = consumed[i];
+-    return (int32_t)sgpl_loop_consumed_budget(problem->group_index, problem->candidate_count, x);
++    return (int32_t)sgpl_loop_consumed_budget(problem->candidates, problem->candidate_count, x);
+ }
+ 
+ static double sgpl_nlopt_budget_constraint(unsigned n, const double *x, double *grad, void *data)
+@@ -2919,7 +2926,7 @@
+     if (!problem || !x)
+         return 0.0;
+ 
+-    sum = sgpl_loop_consumed_budget(problem->group_index, problem->candidate_count, x);
++    sum = sgpl_loop_consumed_budget(problem->candidates, problem->candidate_count, x);
+     sum += x[problem->candidate_count];
+     return sum - (double)problem->loop_budget;
+ }
+@@ -3077,18 +3084,6 @@
+         return;
+     }
+ 
+-    /* Cache task grouping once; optimizer evaluations need only linear work. */
+-    for (i = 0; i < candidate_count; ++i)
+-    {
+-        problem.group_index[i] = i;
+-        for (int32_t j = 0; j < i; ++j)
+-            if (candidates[j].task_slot == candidates[i].task_slot)
+-            {
+-                problem.group_index[i] = j;
+-                break;
+-            }
+-    }
+-
+     if (loop_budget <= 1)
+     {
+         double costs[SGPL_MAX_TDG_LEVEL_LOOPS], pooled_fraction[SGPL_MAX_TDG_LEVEL_LOOPS] = {0};
+@@ -3108,7 +3103,7 @@
+             }
+         }
+         plan->total_model_ns = sgpl_level_loop_cost_ns(candidates, candidate_count, costs,
+-                                                      pooled_fraction, parent_workers, problem.group_index);
++                                                      pooled_fraction, parent_workers);
+         plan->slack_threads = loop_budget;
+         return;
+     }
+@@ -3163,7 +3158,7 @@
+     }
+ 
+     sgpl_initialize_nlopt_guess(candidates, candidate_count, loop_budget, x_relaxed);
+-    x_relaxed[candidate_count] = loop_budget - sgpl_loop_consumed_budget(problem.group_index, candidate_count, x_relaxed);
++    x_relaxed[candidate_count] = loop_budget - sgpl_loop_consumed_budget(candidates, candidate_count, x_relaxed);
+     opt = nlopt_create(NLOPT_LN_COBYLA, (unsigned)(candidate_count + 1));
+     if (opt)
+     {
+@@ -3414,43 +3409,6 @@
+                     }
+                 }
+             }
+-        }
+-        /* On larger plans, fill profitable sequential sites within their
+-         * task's already allocated peak team. A relaxed solver can stop on
+-         * the flat serial interval without finding this free reuse. */
+-        if (candidate_count > 2)
+-        {
+-            int32_t trials = 0;
+-            for (int pass = 0; pass < 2 && trials < 65536; ++pass)
+-            {
+-                int changed = 0;
+-                for (i = 0; i < candidate_count && trials < 65536; ++i)
+-                {
+-                    int32_t cap = 0, cur = consumed[i], best = cur;
+-                    double best_cost = incumbent;
+-                    for (int32_t j = 0; j < candidate_count; ++j)
+-                        if (problem.group_index[i] == problem.group_index[j] && consumed[j] > cap)
+-                            cap = consumed[j];
+-                    for (int32_t width = 0; width <= cap && trials < 65536; ++width)
+-                    {
+-                        double cost;
+-                        if (width == 1) continue;
+-                        consumed[i] = width;
+-                        ++trials;
+-                        cost = sgpl_integer_loop_objective(&problem, consumed);
+-                        if (cost < best_cost - 1e-9)
+-                        {
+-                            best = width;
+-                            best_cost = cost;
+-                        }
+-                    }
+-                    consumed[i] = best;
+-                    if (best != cur) changed = 1;
+-                    incumbent = best_cost;
+-                }
+-                if (!changed) break;
+-            }
+-            total_consumed = sgpl_integer_consumed_budget(&problem, consumed);
+         }
+         rounded_idle = loop_budget - total_consumed;
+         plan->total_model_ns = incumbent;

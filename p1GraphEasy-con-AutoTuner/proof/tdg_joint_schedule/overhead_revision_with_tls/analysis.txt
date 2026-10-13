@@ -1,0 +1,20 @@
+benchmark
+  steady_ns: joint/reference=0.7892, hierarchical paired 95% CI=[0.6567555934643422, 0.91404029390954]
+  first_ns: joint/reference=1.0704, hierarchical paired 95% CI=[1.0256625787581863, 1.119629974667782]
+  all14_ns: joint/reference=0.9571, hierarchical paired 95% CI=[0.9145171390275207, 0.9980637936514467]
+  ablations: {'ordering': 0.8001945056482549, 'overload': 0.7986794571044752, 'previous': 0.8058342291022731}
+  excluding tiny: 0.9092
+  paired previous implementation: {'steady_ns': {'policy_reference_ratio': 0.8058342291022731, 'joint_policy_ratio': 0.9792980578963667}, 'first_ns': {'policy_reference_ratio': 1.1203601725619878, 'joint_policy_ratio': 0.9553631869515784}, 'all14_ns': {'policy_reference_ratio': 1.1530801931574286, 'joint_policy_ratio': 0.8300734188715371}}
+  joint diagnostic totals: {'cache_hits': 1011, 'plans': 117, 'reference_calls': 600, 'calibration_runs': 1260, 'revalidations': 186, 'learning_ns': 85390969, 'evaluations': 3669}
+  all-three-process >10% regressions: none
+  prediction median proxy: {'eligible_processes': 89, 'median_relative_error': 0.03274820041296067}
+cold
+  steady_ns: joint/reference=0.5280, hierarchical paired 95% CI=[0.30358679736858435, 0.8522858765971236]
+  first_ns: joint/reference=1.2374, hierarchical paired 95% CI=[1.1000518788619402, 1.4162870374664949]
+  all14_ns: joint/reference=0.9427, hierarchical paired 95% CI=[0.8663802616702185, 1.0210416824248167]
+  ablations: {'previous': 0.7902579184736562}
+  excluding tiny: 0.8953
+  paired previous implementation: {'steady_ns': {'policy_reference_ratio': 0.7902579184736562, 'joint_policy_ratio': 0.6680755066955882}, 'first_ns': {'policy_reference_ratio': 1.178519065802942, 'joint_policy_ratio': 1.0499609283424414}, 'all14_ns': {'policy_reference_ratio': 1.3638706695294247, 'joint_policy_ratio': 0.6912129837056072}}
+  joint diagnostic totals: {'cache_hits': 159, 'plans': 31, 'reference_calls': 166, 'calibration_runs': 324, 'revalidations': 68, 'learning_ns': 71573969, 'evaluations': 496}
+  all-three-process >10% regressions: none
+  prediction median proxy: {'eligible_processes': 18, 'median_relative_error': 0.03567159924149882}

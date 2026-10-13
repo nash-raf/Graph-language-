@@ -1,0 +1,196 @@
+{
+  "cases": [
+    {
+      "name": "tiny_chain",
+      "label": "Tiny chain",
+      "trips": 257,
+      "distance": 1,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "short_chain",
+      "label": "Short chain",
+      "trips": 20000,
+      "distance": 1,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "short_four_chains",
+      "label": "Short, four chains",
+      "trips": 20000,
+      "distance": 4,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "short_many_chains",
+      "label": "Short, 64 chains",
+      "trips": 20000,
+      "distance": 64,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "long_chain",
+      "label": "Long chain",
+      "trips": 200000,
+      "distance": 1,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "long_four_chains",
+      "label": "Long, four chains",
+      "trips": 200000,
+      "distance": 4,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "long_many_chains",
+      "label": "Long, 64 chains",
+      "trips": 200000,
+      "distance": 64,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "dependent_compute",
+      "label": "Compute in dependency",
+      "trips": 32768,
+      "distance": 1,
+      "dependent": 16,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "independent_before",
+      "label": "Compute before wait",
+      "trips": 32768,
+      "distance": 4,
+      "dependent": 0,
+      "independent": 16,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "independent_after",
+      "label": "Compute after post",
+      "trips": 32768,
+      "distance": 4,
+      "dependent": 0,
+      "independent": 16,
+      "after": 1,
+      "streams": 1
+    },
+    {
+      "name": "two_streams",
+      "label": "Two dependent streams",
+      "trips": 32768,
+      "distance": 4,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 2
+    },
+    {
+      "name": "uneven",
+      "label": "Uneven lanes + compute",
+      "trips": 8193,
+      "distance": 3,
+      "dependent": 4,
+      "independent": 8,
+      "after": 0,
+      "streams": 1
+    },
+    {
+      "name": "large_arrays",
+      "label": "Large arrays, 64 chains",
+      "trips": 1000000,
+      "distance": 64,
+      "dependent": 0,
+      "independent": 0,
+      "after": 0,
+      "streams": 1
+    }
+  ],
+  "threads": [
+    2,
+    4,
+    6,
+    8
+  ],
+  "repeats": 3,
+  "samples": 7,
+  "physical_heldout_timings": 1078,
+  "forecast_rows": 2156,
+  "method": "8 serial profile runs; seeded forecast; 4 forced parallel calibration runs; frozen learned forecast; held-out parallel timings.",
+  "actual": "Public parallel_for_runtime, real wait/post dependencies, per-iteration production profiling wrapper; setup and full-output checks outside timer.",
+  "prediction": "Exact sgpl_loop_parallel_model_time_ns production helper; same equation as per-loop chooser parallel_rhs.",
+  "limits": "Handwritten C kernels with compiler-like profiling, not SGPL compiler integration or uninstrumented application-time validation. Sync inputs are frozen before holdout.",
+  "failed_settings": [
+    {
+      "case": "uneven",
+      "threads": 6,
+      "repeat": 2,
+      "reason": "Command '['/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/proof/doacross_cost_validation_2026_10_09/build/probe', '8193', '3', '4', '8', '0', '1', '7']' timed out after 30 seconds"
+    }
+  ],
+  "excluded_partial_timings": 14,
+  "source_sha256": {
+    "parallel_runtime.c": "f0436d66e5176dbae87eea83b78844fa06b5c441df7c2164cfa402a1f146a6d1",
+    "parallel_runtime.h": "27bfd1907dd1cb43e1e5fbef0babb0228ab0598a97eda6303c24e06ee12a2437",
+    "tdg_scheduler.inc": "a25bd1b53b329589503a7f410c6fa0094e0fbe3a78e3501f9c89476021f98d3f",
+    "tdg_trace.inc": "f7e7f4591e4b2470c7d14ffe7d162f30dccbf048e76c254a75a649b46f25b0c4",
+    "main.cpp": "c4ff157532b17a43823a3b76d5ae140a77b87c879bf47dc27a36192998c049eb",
+    "parallel_loop_outline.cpp": "c3c4f7f61b8f05b3d02d8a61f68233d993ecab610a0a7da8b292b148afac6da6",
+    "autotuner_runtime.c": "ec5f0d10953921be2dd78cfda7ca52141845b359fbfcc5018a7f425aed6929b2",
+    "AutoTunerPass.cpp": "58b93f9aca60e28ba1532a93b1cdfb8c4883aca59798cc051fd182b0111781f3",
+    "graph_frontier_lowering.cpp": "7d1cff1d5fa1636b4536c0dcd5b72b2b15cec6478fa0c92d61a1c5258813ec45",
+    "roaring_bitmap.cpp": "ae53b1de446f250cb0c828cf302bdc3cc8f390e1598c29008428b0186fbbff54",
+    "roaring_bitmap.h": "80a0a420920f3d50b58bad636c373ae286149544d184b6a01402ffd33a15990e",
+    "test_probe.c": "a032459581d115b7798452fa12aa544192fe01bb5def2fcc2e87d2662e075d22"
+  },
+  "metrics": {
+    "learned-sync": {
+      "settings": 52,
+      "valid_settings": 51,
+      "failed_settings": 1,
+      "median_absolute_error_percent": 90.91753688897226,
+      "mean_absolute_error_percent": 123.45980115538873,
+      "median_signed_error_percent": 90.91753688897226,
+      "within_10_percent": 7,
+      "within_20_percent": 12,
+      "within_30_percent": 14
+    },
+    "seeded-sync": {
+      "settings": 52,
+      "valid_settings": 51,
+      "failed_settings": 1,
+      "median_absolute_error_percent": 436.5929013355395,
+      "mean_absolute_error_percent": 418.56407942161997,
+      "median_signed_error_percent": 436.5929013355395,
+      "within_10_percent": 2,
+      "within_20_percent": 3,
+      "within_30_percent": 3
+    }
+  },
+  "valid_heldout_timings": 1071
+}

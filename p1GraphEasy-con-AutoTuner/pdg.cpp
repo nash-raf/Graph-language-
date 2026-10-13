@@ -1,6 +1,7 @@
 #include "pdg.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Analysis/MemorySSA.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Support/raw_ostream.h"
@@ -14,6 +15,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -334,7 +336,7 @@ namespace
      * iteration -- a fabricated independence proof.  Fail closed: a
      * zero-distance verdict for a memory pair whose subscripts are
      * memory/call-derived at this level becomes an unknown carrier.
-     * SGPL_NO_PDG_EQ_GUARD=1 restores the previous behaviour for A/B. */
+     */
     static bool isLoopMemoryDerived(const llvm::Value *V, const llvm::Loop *L,
                                     llvm::SmallPtrSetImpl<const llvm::Value *> &Seen)
     {
@@ -403,14 +405,12 @@ namespace
      * Requiring a store on at least one side keeps read-read pairs (harmless)
      * out of the downgrade.  Addresses that do vary (A[phi], A[i+1]) are left
      * alone, so genuine intra-iteration pairs keep their verdict.
-     * SGPL_NO_PDG_INVARIANT_SLOT_GUARD=1 restores the old trust (A/B only). */
+     */
     static bool zeroDistanceOnLoopInvariantSlot(const llvm::Dependence &Dep,
                                                 const llvm::Loop *L,
                                                 llvm::ScalarEvolution *SE)
     {
         using namespace llvm;
-        if (::getenv("SGPL_NO_PDG_INVARIANT_SLOT_GUARD"))
-            return false;
         if (!SE || L->getLoopDepth() > Dep.getLevels())
             return false;
         if (classifyDistanceComponent(Dep, L->getLoopDepth()).kind !=
@@ -611,13 +611,10 @@ static bool loopHasTerminatorMetadata(const llvm::Loop *L, llvm::StringRef Name)
            L->getHeader()->getTerminator()->getMetadata(Name);
 }
 
-// Positive certificate for a DOALL verdict -- LLVM's own loop memory-dependence
-// gate, the analysis behind vectorization.  The call barrier below proves
-// "not parallel" from the callee's declared memory effects; this proves
-// "parallel" by the same standard LLVM itself uses: every access is
-// analyzable, there is no dependence cycle, no convergent operation in the
-// loop, and no pointer check left to perform.  Fail closed -- when the
-// analysis *refuses*, the loop stays sequential.
+// Secondary check for a DOALL verdict: LLVM's loop memory-dependence analysis
+// can veto a candidate when it finds an unhandled dependence or required
+// runtime pointer check.  This is not a complete certificate for every loop;
+// NoOpinion leaves the PDG classifier's verdict in place.
 //
 // LAA bounds every access through LLVM's object model.  DSL arrays are heap
 // pointers held in globals, so the base object of an access is a loaded
@@ -625,10 +622,8 @@ static bool loopHasTerminatorMetadata(const llvm::Loop *L, llvm::StringRef Name)
 // ("cannot identify array bounds"), and its report then lists no dependences
 // and no checks at all.  That is blindness, not evidence, so the analysis is
 // asked only about loops whose bases are statically bounded storage
-// (alloca/global/argument); elsewhere it returns NoOpinion and the PDG proof
-// stands -- the sequential side stays fail-closed through the call barrier
-// and the unknown-carrier guards.
-//   SGPL_PDG_NO_LAA_CERT=1  -- disable the certificate (A/B only)
+// (alloca/global/argument); elsewhere it returns NoOpinion.  The remaining
+// DOALL proof obligation belongs to the PDG classifier.
 //   SGPL_PDG_LAA_DEBUG=1    -- log the verdict for every DOALL candidate
 enum class LaaVerdict
 {
@@ -790,10 +785,8 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // DOALL/DOACROSS on the strength of those pairs alone: the call may write
     // exactly the data the pairs were shown independent of.  A call is benign
     // only when its *declared memory effects* say it cannot touch loop data:
-    //   - `memory(none)` / `memory(inaccessiblemem: readwrite)` -- touches no
-    //     program memory at all (the clock, and the profiler's counters, which
-    //     the runtime touches with atomics only, verified in
-    //     autotuner_runtime.c),
+    //   - side-effect-free `memory(none)` -- touches no program memory or
+    //     observable state,
     //   - the llvm.lifetime/assume/dbg intrinsics (compiler scaffolding).
     // The attributes are attached where those functions are declared
     // (AutoTunerPass.cpp, parallel_loop_outline.cpp), so the rule is driven by
@@ -803,8 +796,7 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
     // -- barriers the loop.  That is what lets the PDG *derive* the SEQUENTIAL
     // verdict for traversal nests instead of having the frontier pass assert it
     // with sgpl.frontier.nested.sequential.
-    // Kill switch SGPL_NO_PDG_CALL_BARRIER=1 (A/B only).
-    if (!::getenv("SGPL_NO_PDG_CALL_BARRIER"))
+    // Every unmodelled call remains a loop-carried-effect barrier.
     {
         StringRef BarrierCall;
         SmallVector<std::string, 8> BenignCalls;
@@ -815,7 +807,8 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                 if (!CB)
                     continue;
                 const Function *CF = CB->getCalledFunction();
-                if (CB->doesNotAccessMemory() || CB->onlyAccessesInaccessibleMemory())
+                if (CB->doesNotAccessMemory() &&
+                    !CB->mayHaveSideEffects() && !CB->isConvergent())
                 {
                     if (::getenv("SGPL_PDG_CALL_EFFECTS_DEBUG"))
                         BenignCalls.push_back(CF ? CF->getName().str() : "<indirect>");
@@ -853,6 +846,38 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
             logLoopClassify(("call barrier: stateful call " + BarrierCall).str());
         }
     }
+
+    // DependenceInfo's pair analysis below covers ordinary loads and stores.
+    // Atomic, volatile, fence, and other memory instructions have stronger
+    // ordering rules or effects that this classifier does not model.
+    for (BasicBlock *BB : L->blocks())
+        for (Instruction &I : *BB)
+        {
+            if (auto *Load = dyn_cast<LoadInst>(&I))
+            {
+                if (Load->isVolatile() || Load->isAtomic())
+                {
+                    Summary.hasUnknownAttributedDep = true;
+                    Summary.hasProofOfNoCarriedDeps = false;
+                }
+                continue;
+            }
+            if (auto *Store = dyn_cast<StoreInst>(&I))
+            {
+                if (Store->isVolatile() || Store->isAtomic())
+                {
+                    Summary.hasUnknownAttributedDep = true;
+                    Summary.hasProofOfNoCarriedDeps = false;
+                }
+                continue;
+            }
+            if (!isa<CallBase>(&I) && !isa<AllocaInst>(&I) &&
+                (I.mayReadOrWriteMemory() || isa<FenceInst>(&I)))
+            {
+                Summary.hasUnknownAttributedDep = true;
+                Summary.hasProofOfNoCarriedDeps = false;
+            }
+        }
 
     // --- PHI handling ---
     // Canonical inductions (SCEV AddRec for this loop) are ignored.
@@ -1123,36 +1148,18 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
              * next_rank[col_idx[j]] stores) into a proof of no carried
              * dependence -- the source of the false proofNoCarried verdicts.
              *
-             * Fail closed -- but only when the two accesses can actually touch
-             * the same memory.  "Confused" is also the answer for pairs that
-             * merely mix kinds DI cannot relate (a scalar global load next to
-             * an array store); treating those as hazards would make every loop
-             * containing a global scalar sequential.  AliasAnalysis settles
-             * that half: NoAlias means the pair cannot carry a dependence.
-             * SGPL_NO_PDG_CONFUSED_GUARD=1 restores the old (unsound) read. */
-            if (!::getenv("SGPL_NO_PDG_CONFUSED_GUARD") && Dep->isConfused())
+             * Fail closed.  A NoAlias answer for the two static instructions
+             * in one iteration does not rule out an inter-iteration alias.
+             */
+            if (Dep->isConfused())
             {
-                bool provablyIndependent = false;
-                if (AA &&
-                    ((isa<LoadInst>(edge.first) || isa<StoreInst>(edge.first)) &&
-                     (isa<LoadInst>(edge.second) || isa<StoreInst>(edge.second))))
-                {
-                    provablyIndependent =
-                        AA->alias(MemoryLocation::get(edge.first),
-                                  MemoryLocation::get(edge.second)) ==
-                        llvm::AliasResult::NoAlias;
-                }
                 if (::getenv("SGPL_PDG_CONFUSED_DEBUG"))
                 {
-                    std::cerr << "[pdg-confused"
-                              << (provablyIndependent ? " skipped-noalias" : " unknown")
-                              << "] ";
+                    std::cerr << "[pdg-confused unknown] ";
                     printInstToStderr(edge.first);
                     std::cerr << "   <->   ";
                     printInstToStderr(edge.second);
                 }
-                if (provablyIndependent)
-                    continue;
                 Summary.hasUnknownAttributedDep = true;
                 Summary.hasProofOfNoCarriedDeps = false;
                 logLoopClassify("confused dependence -> treated as unknown carrier");
@@ -1181,8 +1188,7 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                 continue;
             }
             CarrierInfo Info = proveCarrierForDependence(*Dep, L);
-            if (!::getenv("SGPL_NO_PDG_EQ_GUARD") &&
-                Info.kind == CarrierKind::IntraIteration &&
+            if (Info.kind == CarrierKind::IntraIteration &&
                 zeroDistanceOnLoopMemorySubscript(*Dep, L))
             {
                 if (::getenv("SGPL_PDG_EQ_DEBUG"))
@@ -1430,12 +1436,10 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
         classification = "DOACROSS";
     }
 
-    // A DOALL verdict is a claim that every iteration is independent.  The
-    // dependence walk above is one prover; LLVM's own loop memory-dependence
-    // gate is the second, and a DOALL nobody can certify is not a DOALL.  The
-    // certificate is fail-closed, so new address shapes stay sequential until
-    // they earn the verdict.
-    if (classification == "DOALL" && !::getenv("SGPL_PDG_NO_LAA_CERT"))
+    // A DOALL verdict claims every iteration is independent.  LAA can veto
+    // some candidates, but a NoOpinion result does not establish that claim;
+    // the classifier's own dependence argument must still be proved sound.
+    if (classification == "DOALL")
     {
         std::string Why;
         const LaaVerdict Verdict = laaCertifiesDoall(L, F, SE, AA, DT, LI, Why);
@@ -1571,6 +1575,15 @@ static void collectTopLevelLoopRegions(llvm::Function &F,
         Region.isExtractionRegion = true;
         Region.nestedSubloopCount = countNestedSubloops(TopLoop);
         Region.blocks.append(TopLoop->block_begin(), TopLoop->block_end());
+        /* CleanCut executes the stage in the driver's preheader.  Keeping the
+         * preheader outside the extracted task would leave the actual graph
+         * work inline and extract only the deactivated residual nest. */
+        if (Region.preheader && Region.header &&
+            (Region.header->getTerminator()->getMetadata(
+                 "sgpl.frontier.task.effects") ||
+             Region.header->getTerminator()->getMetadata(
+                 "sgpl.frontier.task.opaque")))
+            Region.blocks.insert(Region.blocks.begin(), Region.preheader);
 
         bool OverlapDetected = false;
         for (llvm::BasicBlock *BB : Region.blocks)
@@ -1608,6 +1621,62 @@ static void collectTopLevelLoopRegions(llvm::Function &F,
     }
 }
 
+/* Lowering may remove the original backedge entirely.  In that case LoopInfo
+ * cannot describe the graph work, which now lives at the marked executor call
+ * in its preheader.  Treat that complete basic block as a task region; if
+ * CodeExtractor cannot capture it, reconstruction leaves it inline. */
+static void collectCleanCutStageRegions(llvm::Function &F,
+                                        llvm::dependencyGraph &G)
+{
+    unsigned NextId = G.loopRegions.size();
+    for (llvm::BasicBlock &BB : F)
+    {
+        if (G.blockToLoopRegion.count(&BB))
+            continue;
+        bool HasStage = false;
+        for (llvm::Instruction &I : BB)
+            if (I.getMetadata("sgpl.frontier.task.effects") ||
+                I.getMetadata("sgpl.frontier.task.opaque"))
+                if (auto *CB = llvm::dyn_cast<llvm::CallBase>(&I))
+                    if (llvm::Function *Callee = CB->getCalledFunction())
+                        if (Callee->getName() == "autograph_frontier_execute" ||
+                            Callee->getName() == "autograph_frontier_fork_join")
+                            HasStage = true;
+        if (!HasStage)
+            continue;
+        llvm::BasicBlock *Start = BB.getSinglePredecessor();
+        bool CompleteStage = Start && !G.blockToLoopRegion.count(Start);
+        if (CompleteStage)
+        {
+            bool HasBuild = false;
+            for (llvm::Instruction &I : *Start)
+                if (auto *CB = llvm::dyn_cast<llvm::CallBase>(&I))
+                    if (llvm::Function *Callee = CB->getCalledFunction())
+                        HasBuild |= Callee->getName() == "autograph_build_clean_cut" ||
+                                    Callee->getName() == "autograph_pin_clean_cut";
+            CompleteStage = HasBuild;
+        }
+        llvm::dependencyGraph::LoopRegionInfo Region;
+        Region.loopRegionId = NextId++;
+        Region.header = CompleteStage ? Start : &BB;
+        if (CompleteStage)
+            Region.blocks.push_back(Start);
+        Region.blocks.push_back(&BB);
+        Region.isExtractionRegion = true;
+        G.loopRegions.push_back(Region);
+        for (llvm::BasicBlock *RB : Region.blocks)
+        {
+            G.blockToLoopRegion[RB] = Region.loopRegionId;
+            for (llvm::Instruction &I : *RB)
+            {
+                unsigned V = G.nodes.lookup(&I);
+                if (V)
+                    G.vertexToLoopRegion[V] = Region.loopRegionId;
+            }
+        }
+    }
+}
+
 void buildGraph(llvm::Function &F,
                 llvm::DependenceInfo &DI,
                 llvm::LoopInfo &LI,
@@ -1639,9 +1708,17 @@ void buildGraph(llvm::Function &F,
         {
 
             if (llvm::LoadInst *LI = llvm::dyn_cast<llvm::LoadInst>(&I))
+            {
                 loadCollector.push_back(LI);
+                if (LI->isVolatile() || LI->isAtomic())
+                    barrierInsts.push_back(LI);
+            }
             if (llvm::StoreInst *SI = llvm::dyn_cast<llvm::StoreInst>(&I))
+            {
                 storeCollector.push_back(SI);
+                if (SI->isVolatile() || SI->isAtomic())
+                    barrierInsts.push_back(SI);
+            }
             // printInstruction(&I);
             // llvm::nulls() << " ";
             // if (I.use_empty())
@@ -1671,19 +1748,13 @@ void buildGraph(llvm::Function &F,
             }
 
             // Handle call instructions - add them to barriers and ensure argument dependencies
-            if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I))
+            if (llvm::CallBase *CI = llvm::dyn_cast<llvm::CallBase>(&I))
             {
-                // Exempt argmemonly calls from barrier treatment. Such calls only
-                // access memory through pointer arguments, so they don't create
-                // function-wide memory barriers. This lets neighbor iteration
-                // calls (init/next) coexist with loop parallelization.
-                // Argument dependency edges are still created.
-                bool isArgMemOnly = false;
-                if (llvm::Function *Callee = CI->getCalledFunction())
-                    isArgMemOnly = Callee->onlyAccessesArgMemory();
-
-                if (!isArgMemOnly)
-                    barrierInsts.push_back(CI);
+                // A call may still write through an argument pointer even
+                // when its memory effects are restricted to argument memory.
+                // Intrinsics lowered to explicit loads/stores before this pass
+                // are handled below; all remaining calls retain a barrier.
+                barrierInsts.push_back(CI);
 
                 // Ensure all arguments are connected (though def-use should catch this)
                 for (llvm::Use &Arg : CI->args())
@@ -1694,91 +1765,51 @@ void buildGraph(llvm::Function &F,
                     }
                 }
             }
+            else if (I.mayReadOrWriteMemory() &&
+                     !llvm::isa<llvm::LoadInst>(&I) &&
+                     !llvm::isa<llvm::StoreInst>(&I) &&
+                     !llvm::isa<llvm::AllocaInst>(&I))
+                barrierInsts.push_back(&I);
         }
     }
 
-    auto *Walker = MSSA.getWalker();
+    (void)MSSA;
 
-    // Memory dependencies
-    for (auto LI : loadCollector)
+    /* Enumerate every potentially ordered read/write pair.  A single
+     * MemorySSA clobber can be a MemoryPhi and cannot certify all paths;
+     * dominance alone also misses accesses on conditional paths.  NoAlias is
+     * the only reason to omit a possible RAW, WAR, or WAW edge. */
+    llvm::SmallVector<llvm::Instruction *, 32> memoryOps;
+    memoryOps.append(loadCollector.begin(), loadCollector.end());
+    memoryOps.append(storeCollector.begin(), storeCollector.end());
+    for (llvm::Instruction *From : memoryOps)
     {
-
-        if (llvm::isa<llvm::CallInst>(LI) || llvm::isa<llvm::FenceInst>(LI) || llvm::isa<llvm::AtomicRMWInst>(LI) || llvm::isa<llvm::AtomicCmpXchgInst>(LI) || LI->isVolatile() || LI->isAtomic())
+        if (llvm::isa<llvm::StoreInst>(From) &&
+            LI.getLoopFor(From->getParent()))
+            createEdge(From, From, G, "WAW_LOOP_MAY");
+        for (llvm::Instruction *To : memoryOps)
         {
-            barrierInsts.push_back(LI);
-        }
-
-        if (llvm::MemoryAccess *MA = MSSA.getMemoryAccess(LI))
-        {
-            if (auto *Clobber = Walker->getClobberingMemoryAccess(MA))
-            {
-                if (auto *MD = llvm::dyn_cast<llvm::MemoryDef>(Clobber))
+            if (From == To ||
+                (llvm::isa<llvm::LoadInst>(From) &&
+                 llvm::isa<llvm::LoadInst>(To)) ||
+                !llvm::isPotentiallyReachable(From, To, nullptr, &DT, &LI))
+                continue;
+            // A NoAlias answer for two instructions in one dynamic iteration
+            // does not rule out their addresses meeting in later iterations.
+            // Leave every pair in a common loop to DependenceInfo below.
+            bool MayMeetAcrossIterations = false;
+            for (llvm::Loop *L = LI.getLoopFor(From->getParent()); L;
+                 L = L->getParentLoop())
+                if (L->contains(To->getParent()))
                 {
-                    if (auto *SI = llvm::dyn_cast_or_null<llvm::StoreInst>(MD->getMemoryInst()))
-                    {
-                        createEdge(SI, LI, G, "RAW");
-                    }
+                    MayMeetAcrossIterations = true;
+                    break;
                 }
-            }
-
-            for (auto SI : storeCollector)
-            {
-                if (llvm::isa<llvm::CallInst>(SI) || llvm::isa<llvm::FenceInst>(SI) || llvm::isa<llvm::AtomicRMWInst>(SI) || llvm::isa<llvm::AtomicCmpXchgInst>(SI) || SI->isVolatile() || SI->isAtomic())
-                {
-                    barrierInsts.push_back(SI);
-                }
-                llvm::MemoryAccess *StoreMA = MSSA.getMemoryAccess(SI);
-                if (!StoreMA)
-                    continue;
-
-                for (auto SI2 : storeCollector)
-                {
-                    if (SI == SI2)
-                        continue;
-                    llvm::MemoryAccess *StoreMA2 = MSSA.getMemoryAccess(SI2);
-                    if (!StoreMA2)
-                        continue;
-
-                    // if (AA.alias(SI, SI->getValueOperand()->getType()->getScalarSizeInBits() / 8, SI2, SI2->getValueOperand()->getType()->getScalarSizeInBits() / 8) != llvm::AliasResult::NoAlias)
-                    // {
-                    //     createEdge(SI, SI2, G, "WAW-may");
-                    // }
-                    if (AA.alias(SI, SI->getValueOperand()->getType()->getScalarSizeInBits() / 8, SI2, SI2->getValueOperand()->getType()->getScalarSizeInBits() / 8) != llvm::AliasResult::NoAlias)
-                    {
-                        if (auto *MA1 = MSSA.getMemoryAccess(SI))
-                            if (auto *MA2 = MSSA.getMemoryAccess(SI2))
-                            {
-                                if (MSSA.dominates(MA1, MA2))
-                                    createEdge(SI, SI2, G, "WAW");
-                                else if (MSSA.dominates(MA2, MA1))
-                                    createEdge(SI2, SI, G, "WAW");
-                            }
-                    }
-                }
-            }
-
-            // WAR (Write-After-Read) dependencies
-            for (auto SI : storeCollector)
-            {
-                llvm::MemoryAccess *StoreMA = MSSA.getMemoryAccess(SI);
-                if (!StoreMA)
-                    continue;
-
-                // Check if this store may alias with the load
-                if (AA.alias(LI, LI->getType()->getScalarSizeInBits() / 8,
-                             SI, SI->getValueOperand()->getType()->getScalarSizeInBits() / 8) != llvm::AliasResult::NoAlias)
-                {
-                    // Check ordering: Load should happen before Store
-                    if (auto *MA1 = MSSA.getMemoryAccess(LI))
-                        if (auto *MA2 = MSSA.getMemoryAccess(SI))
-                        {
-                            if (MSSA.dominates(MA1, MA2))
-                                createEdge(LI, SI, G, "WAR");
-                            else if (MSSA.dominates(MA2, MA1))
-                                createEdge(SI, LI, G, "WAR");
-                        }
-                }
-            }
+            if (MayMeetAcrossIterations ||
+                AA.alias(llvm::MemoryLocation::get(From),
+                         llvm::MemoryLocation::get(To)) !=
+                    llvm::AliasResult::NoAlias)
+                createEdge(From, To, G, "MEM_MAY");
         }
     }
 
@@ -1838,6 +1869,25 @@ void buildGraph(llvm::Function &F,
         }
     }
 
+    /* A successor-dominance test is too narrow for reconvergent or switch
+     * control flow.  A conditional terminator may control any reachable
+     * instruction that does not postdominate it.  PHIs at a join also depend
+     * on the chosen predecessor even though the join postdominates the branch.
+     * These extra edges deliberately overapproximate control dependence. */
+    for (llvm::BasicBlock &BB : F)
+    {
+        llvm::Instruction *Term = BB.getTerminator();
+        if (Term->getNumSuccessors() < 2)
+            continue;
+        for (llvm::BasicBlock &TargetBB : F)
+            for (llvm::Instruction &I : TargetBB)
+                if (&I != Term &&
+                    llvm::isPotentiallyReachable(Term, &I, nullptr, &DT, &LI) &&
+                    (llvm::isa<llvm::PHINode>(&I) ||
+                     !PDT.dominates(&I, Term)))
+                    createEdge(Term, &I, G, "CTRL_MAY");
+    }
+
     // Memory barrier handling
     // for (auto bar : barrierInsts)
     // {
@@ -1847,6 +1897,8 @@ void buildGraph(llvm::Function &F,
 
     for (auto *I : barrierInsts)
     {
+        if (LI.getLoopFor(I->getParent()))
+            createEdge(I, I, G, "MEM_BARRIER_LOOP_MAY");
         for (auto &BB : F)
         {
             for (auto &J : BB)
@@ -1854,14 +1906,14 @@ void buildGraph(llvm::Function &F,
                 if (&J == I)
                     continue;
 
-                if (DT.dominates(&J, I))
+                if (isPotentiallyReachable(&J, I, nullptr, &DT, &LI))
                 {
-                    // J happens before barrier
+                    // J may happen before the opaque memory operation.
                     createEdge(&J, I, G, "MEM_BARRIER_BEFORE");
                 }
-                else if (DT.dominates(I, &J))
+                if (isPotentiallyReachable(I, &J, nullptr, &DT, &LI))
                 {
-                    // J happens after barrier
+                    // J may happen after the opaque memory operation.
                     createEdge(I, &J, G, "MEM_BARRIER_AFTER");
                 }
             }
@@ -1886,6 +1938,7 @@ void buildGraph(llvm::Function &F,
     }
 
     collectTopLevelLoopRegions(F, LI, G);
+    collectCleanCutStageRegions(F, G);
 }
 
 // void buildGraph(llvm::Function &F,
@@ -2532,6 +2585,280 @@ namespace llvm
         return blocks;
     }
 
+    struct WholeTaskAccess
+    {
+        std::string objectId;
+        bool write = false;
+        bool graphObject = false;
+    };
+
+    struct WholeTaskEffects
+    {
+        SmallVector<WholeTaskAccess, 16> accesses;
+        bool opaque = false;
+        bool graph = false;
+    };
+
+    static const Value *taskUniqueSlotValue(const Value *Slot)
+    {
+        if (!isa<AllocaInst>(Slot) && !isa<GlobalVariable>(Slot))
+            return nullptr;
+        const Value *Definition = nullptr;
+        for (const User *U : Slot->users())
+        {
+            if (auto *SI = dyn_cast<StoreInst>(U))
+            {
+                if (SI->getPointerOperand() != Slot || Definition ||
+                    SI->getValueOperand() == Slot)
+                    return nullptr;
+                Definition = SI->getValueOperand();
+            }
+            else if (!isa<LoadInst>(U) && !isa<DbgInfoIntrinsic>(U))
+                return nullptr;
+        }
+        return Definition;
+    }
+
+    /* Resolve a pointer to a complete object, never to an element.  A pointer
+     * loaded from a local slot is usable only when the slot has one visible
+     * definition and that definition is a fresh allocation or a direct object.
+     * Anything less precise is deliberately treated as may-alias. */
+    static const Value *taskStorageObject(const Value *Ptr, unsigned Depth = 0)
+    {
+        if (!Ptr || Depth > 8 || !Ptr->getType()->isPointerTy())
+            return nullptr;
+        const Value *Root = getUnderlyingObject(Ptr);
+        if (auto *LI = dyn_cast<LoadInst>(Root))
+        {
+            const Value *Slot = getUnderlyingObject(LI->getPointerOperand());
+            return taskStorageObject(taskUniqueSlotValue(Slot), Depth + 1);
+        }
+        if (auto *AI = dyn_cast<AllocaInst>(Root))
+            return AI;
+        if (auto *GV = dyn_cast<GlobalVariable>(Root))
+            return GV;
+        if (auto *CB = dyn_cast<CallBase>(Root))
+        {
+            Function *F = CB->getCalledFunction();
+            if (F && F->getName() == "realloc")
+                return nullptr;
+            if (CB->hasRetAttr(Attribute::NoAlias) ||
+                (F && (F->getName() == "malloc" ||
+                       F->getName() == "calloc" ||
+                       F->getName() == "load_graph_from_file" ||
+                       F->getName() == "load_weighted_graph_from_file" ||
+                       F->getName() == "load_graph_from_file_directed" ||
+                       F->getName() == "load_weighted_graph_from_file_directed")))
+                return CB;
+        }
+        return nullptr;
+    }
+
+    static std::string taskObjectId(const Value *Obj)
+    {
+        if (!Obj || !Obj->hasName())
+            return "";
+        if (auto *GV = dyn_cast<GlobalVariable>(Obj))
+            return ("global:" + GV->getName()).str();
+        if (auto *AI = dyn_cast<AllocaInst>(Obj))
+        {
+            StringRef Name = AI->getName();
+            if (Name.ends_with(".ssa"))
+                return ("global:" + Name.drop_back(4)).str();
+            return ("alloca:" + AI->getFunction()->getName() + ":" + Name).str();
+        }
+        if (auto *CB = dyn_cast<CallBase>(Obj))
+            return ("call:" + CB->getFunction()->getName() + ":" +
+                    CB->getName()).str();
+        return "";
+    }
+
+    static void addTaskAccess(WholeTaskEffects &S, const Value *Ptr,
+                              bool Write)
+    {
+        const Value *Obj = taskStorageObject(Ptr);
+        bool GraphObject = false;
+        if (auto *GEP = dyn_cast<GEPOperator>(Ptr))
+            if (auto *ST = dyn_cast<StructType>(GEP->getSourceElementType()))
+                GraphObject = ST->hasName() &&
+                              ST->getName().contains("Graph");
+        S.accesses.push_back({taskObjectId(Obj), Write, GraphObject});
+    }
+
+    static bool isCoveredCleanCutCall(const CallBase &CB)
+    {
+        const Function *F = CB.getCalledFunction();
+        if (!F)
+            return false;
+        StringRef N = F->getName();
+        return N == "autograph_exec_op_create" ||
+               N == "autograph_exec_ctx_create" ||
+               N == "autograph_exec_ctx_destroy" ||
+               N == "autograph_exec_ctx_own_round" ||
+               N == "autograph_exec_partition_state" ||
+               N == "autograph_exec_ctx_graph" ||
+               N == "autograph_scratch_membership" ||
+               N == "autograph_scratch_dest_seen" ||
+               N == "autograph_scratch_next_frontier" ||
+               N == "autograph_prepare_frontier_array" ||
+               N == "autograph_prepare_frontier_bitmap" ||
+               N == "autograph_commit_frontier_bitmap" ||
+               N == "autograph_build_clean_cut" ||
+               N == "autograph_pin_clean_cut" ||
+               N == "autograph_unpin_clean_cut" ||
+               N == "autograph_frontier_execute" ||
+               N == "autograph_frontier_fork_join" ||
+               N == "autograph_frontier_activate" ||
+               N == "autograph_snapshot_publish" ||
+               N == "autograph_priv_bind" ||
+               N == "autograph_gpu_step_register" ||
+               N == "sgpl_gpu_register_pointee" ||
+               N == "graph_get_edge_weight" ||
+               N == "sgpl_now_ns" ||
+               N == "roaring_bitmap_add" ||
+               N == "roaring_bitmap_remove" ||
+               N == "roaring_bitmap_contains" ||
+               N == "roaring_bitmap_get_cardinality" ||
+               N == "roaring_bitmap_get_at_index" ||
+               N == "autograph_profile_region_enter" ||
+               N == "autograph_profile_region_exit" ||
+               N == "autograph_profile_record_kernel_ns";
+    }
+
+    static WholeTaskEffects summarizeWholeTask(const TaskNode &Task,
+                                                const dependencyGraph &G)
+    {
+        WholeTaskEffects S;
+        if (Task.kind == TaskKind::LoopRegion && Task.loopRegionId)
+            for (const auto &R : G.loopRegions)
+                if (R.loopRegionId == *Task.loopRegionId && R.header)
+                {
+                    for (BasicBlock *BB : R.blocks)
+                        for (Instruction &I : *BB)
+                        {
+                            if (I.getMetadata("sgpl.frontier.task.opaque"))
+                                S.opaque = true;
+                            MDNode *Effects = I.getMetadata("sgpl.frontier.task.effects");
+                            if (!Effects)
+                                continue;
+                            S.graph = true;
+                            for (const MDOperand &Op : Effects->operands())
+                            {
+                                auto *Entry = dyn_cast_or_null<MDNode>(Op.get());
+                                if (!Entry || Entry->getNumOperands() != 2)
+                                {
+                                    S.opaque = true;
+                                    continue;
+                                }
+                                auto *Mode = dyn_cast<MDString>(Entry->getOperand(0));
+                                auto *Id = dyn_cast<MDString>(Entry->getOperand(1));
+                                if (!Mode || !Id ||
+                                    (Mode->getString() != "write" &&
+                                     Mode->getString() != "read" &&
+                                     Mode->getString() != "graph-read"))
+                                {
+                                    S.opaque = true;
+                                    continue;
+                                }
+                                S.accesses.push_back(
+                                    {Id->getString().str(),
+                                     Mode->getString() == "write",
+                                     Mode->getString() == "graph-read"});
+                            }
+                        }
+                    break;
+                }
+        for (unsigned V : Task.vertices)
+        {
+            Instruction *I = getInstructionFromVertex(V, G);
+            if (!I)
+                continue;
+            if (auto *LI = dyn_cast<LoadInst>(I))
+            {
+                if (LI->isVolatile() || LI->isAtomic())
+                    S.opaque = true;
+                addTaskAccess(S, LI->getPointerOperand(), false);
+                if (tdgDebugEnabled() && S.graph &&
+                    S.accesses.back().objectId.empty() &&
+                    !S.accesses.back().graphObject)
+                {
+                    std::string Detail;
+                    raw_string_ostream OS(Detail);
+                    LI->print(OS);
+                    fprintf(stderr, "[tdg.unknown-read] %s\n", OS.str().c_str());
+                }
+            }
+            else if (auto *SI = dyn_cast<StoreInst>(I))
+            {
+                if (SI->isVolatile() || SI->isAtomic())
+                    S.opaque = true;
+                addTaskAccess(S, SI->getPointerOperand(), true);
+            }
+            else if (auto *MS = dyn_cast<MemSetInst>(I))
+                addTaskAccess(S, MS->getDest(), true);
+            else if (auto *MT = dyn_cast<MemTransferInst>(I))
+            {
+                addTaskAccess(S, MT->getSource(), false);
+                addTaskAccess(S, MT->getDest(), true);
+            }
+            else if (auto *CB = dyn_cast<CallBase>(I))
+            {
+                bool Lifetime = false;
+                if (auto *II = dyn_cast<IntrinsicInst>(I))
+                    Lifetime = II->getIntrinsicID() == Intrinsic::lifetime_start ||
+                               II->getIntrinsicID() == Intrinsic::lifetime_end;
+                if (isa<DbgInfoIntrinsic>(I) || Lifetime)
+                    continue;
+                if (!S.graph || !isCoveredCleanCutCall(*CB))
+                    S.opaque = true;
+            }
+            else if (I->mayReadOrWriteMemory() &&
+                     !isa<AllocaInst>(I))
+                S.opaque = true;
+        }
+        return S;
+    }
+
+    static bool independentWholeTasks(const WholeTaskEffects &A,
+                                       const WholeTaskEffects &B)
+    {
+        /* Graph tasks use the same conservative whole-task independence check
+         * as ordinary tasks.  Keep a singleton escape hatch for diagnostics. */
+        if ((A.graph || B.graph) &&
+            std::getenv("SGPL_TDG_DISABLE_GRAPH_SHARING"))
+            return false;
+        if (A.opaque || B.opaque)
+            return false;
+        for (const WholeTaskAccess &X : A.accesses)
+            for (const WholeTaskAccess &Y : B.accesses)
+                if (X.write || Y.write)
+                {
+                    if (X.objectId.empty() || Y.objectId.empty() ||
+                        X.objectId == Y.objectId)
+                        return false;
+                }
+        return true;
+    }
+
+    static bool isPureCallBarrierEdge(StringRef Type)
+    {
+        std::string Rest = Type.str();
+        bool HadBarrier = false;
+        for (StringRef Token : {StringRef("MEM_BARRIER_BEFORE"),
+                                StringRef("MEM_BARRIER_AFTER")})
+        {
+            size_t Pos = 0;
+            while ((Pos = Rest.find(Token.str(), Pos)) != std::string::npos)
+            {
+                Rest.erase(Pos, Token.size());
+                HadBarrier = true;
+            }
+        }
+        return HadBarrier &&
+               std::all_of(Rest.begin(), Rest.end(),
+                           [](char C) { return C == '_'; });
+    }
+
     // COMPLETE REPLACEMENT for the deprecated min-cut-named task-graph builder:
     // partitioning is SCC-based (Tarjan), not minimum-cut.
     TaskGraph buildSccTaskGraph(const dependencyGraph &G)
@@ -2686,8 +3013,61 @@ namespace llvm
             }
         }
 
+        /* A control-barrier marker belongs to the branch that created it.
+         * When that branch is inside an extracted loop, leaving its marker
+         * as a separate task produces a false loop-task -> marker ->
+         * loop-task cycle and prevents the loop from receiving any TDG level.
+         * Coarsen the marker into its owner; edges to code outside the loop
+         * still emanate from the complete loop task. */
+        for (Instruction *Marker : G.controlBarriers)
+        {
+            unsigned MarkerVertex = G.nodes.lookup(Marker);
+            auto MarkerTaskIt = vertexToTask.find(MarkerVertex);
+            if (!MarkerVertex || MarkerTaskIt == vertexToTask.end())
+                continue;
+            unsigned OwnerTask = std::numeric_limits<unsigned>::max();
+            for (const depEdge &E : G.edges)
+                if (E.target == MarkerVertex &&
+                    StringRef(E.type).contains("CTRL_BRANCH"))
+                {
+                    auto SourceIt = vertexToTask.find(E.source);
+                    if (SourceIt != vertexToTask.end() &&
+                        TG.tasks[SourceIt->second].kind == TaskKind::LoopRegion)
+                        OwnerTask = SourceIt->second;
+                }
+            if (OwnerTask == std::numeric_limits<unsigned>::max() ||
+                OwnerTask == MarkerTaskIt->second)
+                continue;
+            unsigned OldTask = MarkerTaskIt->second;
+            auto &OldVertices = TG.tasks[OldTask].vertices;
+            OldVertices.erase(std::remove(OldVertices.begin(), OldVertices.end(),
+                                          MarkerVertex), OldVertices.end());
+            TG.tasks[OwnerTask].vertices.push_back(MarkerVertex);
+            vertexToTask[MarkerVertex] = OwnerTask;
+        }
+
         // Copy vertexToTask mapping to TG
         TG.vertexToTask = vertexToTask;
+
+        SmallVector<WholeTaskEffects, 0> taskEffects;
+        taskEffects.reserve(TG.tasks.size());
+        for (const TaskNode &Task : TG.tasks)
+            taskEffects.push_back(summarizeWholeTask(Task, G));
+        if (tdgDebugEnabled())
+            for (unsigned TaskId = 0; TaskId < TG.tasks.size(); ++TaskId)
+            {
+                fprintf(stderr,
+                        "[tdg.task] id=%u kind=%d graph=%d opaque=%d accesses=%zu blocks=%zu\n",
+                        TaskId, (int)TG.tasks[TaskId].kind,
+                        taskEffects[TaskId].graph ? 1 : 0,
+                        taskEffects[TaskId].opaque ? 1 : 0,
+                        taskEffects[TaskId].accesses.size(),
+                        TG.tasks[TaskId].blocks.size());
+                for (const WholeTaskAccess &A : taskEffects[TaskId].accesses)
+                    fprintf(stderr, "[tdg.access] task=%u mode=%c graph=%d object=%s\n",
+                            TaskId, A.write ? 'W' : 'R',
+                            A.graphObject ? 1 : 0, A.objectId.c_str());
+            }
 
         llvm::nulls() << "✓ Created task graph with " << TG.tasks.size() << " tasks\n";
 
@@ -2714,6 +3094,17 @@ namespace llvm
             if (srcTask == dstTask)
                 continue;
 
+            /* A stateful CleanCut call is a PDG-wide memory barrier.  Once
+             * both complete task footprints prove disjoint, that particular
+             * cross-task barrier carries no dependence.  SSA, control and
+             * ordinary memory edges remain intact.  Opaque summaries never
+             * permit removing an edge. */
+            if ((taskEffects[srcTask].graph || taskEffects[dstTask].graph) &&
+                isPureCallBarrierEdge(edge.type) &&
+                independentWholeTasks(taskEffects[srcTask],
+                                      taskEffects[dstTask]))
+                continue;
+
             auto taskEdgePair = std::make_pair(srcTask, dstTask);
             if (seenTaskEdges.insert(taskEdgePair).second)
             {
@@ -2727,6 +3118,10 @@ namespace llvm
         }
 
         llvm::nulls() << "✓ Created " << TG.taskEdges.size() << " task-level edges\n";
+        if (tdgDebugEnabled())
+            for (const depEdge &E : TG.taskEdges)
+                fprintf(stderr, "[tdg.edge] from=%u to=%u type=%s\n",
+                        E.source, E.target, E.type.c_str());
 
         // Step 7: Identify cut vertices (optional, for analysis)
         DenseMap<unsigned, unsigned> taskInDegree;
@@ -3315,7 +3710,9 @@ namespace llvm
                 visit(Succ);
         };
 
-        visit(Region->header);
+        visit(Region->preheader && blockSet.count(Region->preheader)
+                  ? Region->preheader
+                  : Region->header);
 
         SmallVector<BasicBlock *> remaining;
         for (BasicBlock *BB : blockVec)
@@ -3526,6 +3923,32 @@ namespace llvm
                             return;
                     }
 
+        SmallVector<WholeTaskEffects, 0> originalTaskEffects;
+        originalTaskEffects.reserve(TG.tasks.size());
+        for (const TaskNode &Task : TG.tasks)
+            originalTaskEffects.push_back(summarizeWholeTask(Task, PDG));
+
+        SmallVector<SmallVector<unsigned, 4>, 0> taskSuccessors(TG.tasks.size());
+        for (const depEdge &Edge : TG.taskEdges)
+            if (Edge.source < TG.tasks.size() && Edge.target < TG.tasks.size())
+                taskSuccessors[Edge.source].push_back(Edge.target);
+        DenseSet<std::pair<unsigned, unsigned>> declaredTaskEdges;
+        for (unsigned Source = 0; Source < TG.tasks.size(); ++Source)
+        {
+            SmallVector<unsigned, 16> work(taskSuccessors[Source].begin(),
+                                           taskSuccessors[Source].end());
+            DenseSet<unsigned> seen;
+            while (!work.empty())
+            {
+                unsigned Target = work.pop_back_val();
+                if (!seen.insert(Target).second)
+                    continue;
+                declaredTaskEdges.insert({Source, Target});
+                work.append(taskSuccessors[Target].begin(),
+                            taskSuccessors[Target].end());
+            }
+        }
+
         // Create CodeExtractorAnalysisCache for the function
         CodeExtractorAnalysisCache CEAC(*mainFunc);
 
@@ -3608,12 +4031,11 @@ namespace llvm
             {
                 orderLoopTaskBlocks(TG.tasks[taskId], PDG, blockVec);
                 const auto *Region = findLoopRegionInfo(PDG, *TG.tasks[taskId].loopRegionId);
-                /* Graph-frontier round nests are classified SEQUENTIAL by design
-                 * (CleanCut does the parallel work; the residual round/beta/swap
-                 * loops must run inline).  Splitting them into tasks loses the
-                 * values, so leave them inline: the host executes the nest.
-                 * Note: Region->loop is a dangling Loop* (the PDG's LoopInfo is
-                 * gone); the header BLOCK is what remains valid here. */
+                /* Extract the entire top-level region, including a marked
+                 * CleanCut round nest.  The marker still protects its inner
+                 * loops from PDG/DOALL rewriting; CodeExtractor captures the
+                 * complete region's live-ins and live-outs.  A failed extract
+                 * leaves the original loop inline. */
                 if (getenv("SGPL_TMP_PDG_DIAG"))
                 {
                     fprintf(stderr, "  [diag] task %u kind=%d region=%d\n",
@@ -3696,12 +4118,31 @@ namespace llvm
             }
 
             // Try to extract
-            CodeExtractor CE(blockVec);
+            if (originalTaskEffects[taskId].graph &&
+                std::getenv("SGPL_TDG_TEST_EXTRACT_FAIL"))
+            {
+                if (tdgDebugEnabled())
+                    fprintf(stderr, "[tdg.extract] task=%u graph=1 result=forced-failure\n",
+                            taskId);
+                continue;
+            }
+            CodeExtractor CE(blockVec, nullptr, false, nullptr, nullptr,
+                             nullptr, false,
+                             originalTaskEffects[taskId].graph);
+            if (tdgDebugEnabled() && originalTaskEffects[taskId].graph)
+                fprintf(stderr, "[tdg.extract] task=%u eligible=%d entry=%s blocks=%zu\n",
+                        taskId, CE.isEligible() ? 1 : 0,
+                        blockVec.empty() ? "<none>" : blockVec.front()->getName().str().c_str(),
+                        blockVec.size());
 
             if (Function *extracted = CE.extractCodeRegion(CEAC))
             {
                 extracted->setName("task_" + Twine(taskId));
                 extractedFunctions[taskId] = extracted;
+                if (tdgDebugEnabled())
+                    fprintf(stderr, "[tdg.extract] task=%u graph=%d result=success function=%s\n",
+                            taskId, originalTaskEffects[taskId].graph ? 1 : 0,
+                            extracted->getName().str().c_str());
 
                 if (isLoopTask[taskId])
                 {
@@ -3717,6 +4158,9 @@ namespace llvm
             else
             {
                 llvm::nulls() << "  Task " << taskId << ": Extraction failed - will run serially\n";
+                if (tdgDebugEnabled())
+                    fprintf(stderr, "[tdg.extract] task=%u graph=%d result=failed\n",
+                            taskId, originalTaskEffects[taskId].graph ? 1 : 0);
             }
         }
 
@@ -3876,6 +4320,7 @@ namespace llvm
         }
 
         DominatorTree DT(*mainFunc);
+        PostDominatorTree PDT(*mainFunc);
         LoopInfo LI(DT);
         DenseMap<Instruction *, unsigned> globalInstIndex;
         {
@@ -3940,6 +4385,13 @@ namespace llvm
         {
             CallGroup G;
             G.levelIdx = levelIdx;
+            if (tdgDebugEnabled())
+            {
+                fprintf(stderr, "[tdg.level] index=%u tasks=", levelIdx);
+                for (unsigned TaskId : levels[levelIdx])
+                    fprintf(stderr, "%u,", TaskId);
+                fprintf(stderr, "\n");
+            }
             for (unsigned taskId : levels[levelIdx])
             {
                 if (taskId >= extractedFunctions.size() || !extractedFunctions[taskId])
@@ -3947,7 +4399,13 @@ namespace llvm
 
                 const TaskRegionInfo &TR = taskRegions[taskId];
                 if (TR.anchorCallsites.size() != 1 || TR.ambiguousRegion)
+                {
+                    if (tdgDebugEnabled() && originalTaskEffects[taskId].graph)
+                        fprintf(stderr, "[tdg.exclude] task=%u reason=anchor count=%zu ambiguous=%d\n",
+                                taskId, TR.anchorCallsites.size(),
+                                TR.ambiguousRegion ? 1 : 0);
                     continue;
+                }
 
                 int64_t taskWork = estimateTaskWorkUnits(TG.tasks[taskId], PDG);
                 G.taskIds.push_back(taskId);
@@ -3989,7 +4447,24 @@ namespace llvm
 
             TaskArgumentInfo &argInfo = taskArgInfo[taskId];
             if (argInfo.argStructType)
-                return argInfo.types.size() == CI->arg_size();
+            {
+                if (argInfo.types.size() != CI->arg_size())
+                    return false;
+                for (unsigned a = 0; a < CI->arg_size(); ++a)
+                {
+                    Type *From = CI->getArgOperand(a)->getType();
+                    Type *To = argInfo.types[a];
+                    if (From == To ||
+                        (From->isPointerTy() && To->isPointerTy()) ||
+                        (From->isIntegerTy() && To->isIntegerTy()) ||
+                        (From->isFloatingPointTy() && To->isFloatingPointTy()) ||
+                        (From->isIntegerTy() && To->isFloatingPointTy()) ||
+                        (From->isFloatingPointTy() && To->isIntegerTy()))
+                        continue;
+                    return false;
+                }
+                return true;
+            }
             return CI->arg_size() == 0;
         };
 
@@ -4053,14 +4528,74 @@ namespace llvm
         auto isHoistSafe = [&](unsigned taskId, CallInst *CI, Instruction *launchPoint) -> bool
         {
             if (!isLocallyLaunchable(taskId, CI))
+            {
+                if (tdgDebugEnabled()) fprintf(stderr, "[tdg.hoist] task=%u local=no\n", taskId);
                 return false;
+            }
+
+            if (launchPoint != CI &&
+                (!DT.dominates(launchPoint, CI) ||
+                 !PDT.dominates(CI, launchPoint)))
+            {
+                if (tdgDebugEnabled()) fprintf(stderr, "[tdg.hoist] task=%u control=no dt=%d pdt=%d\n", taskId, DT.dominates(launchPoint, CI), PDT.dominates(CI, launchPoint));
+                return false;
+            }
 
             auto it = taskTouchesMutableGlobals.find(taskId);
             if (it == taskTouchesMutableGlobals.end())
                 it = taskTouchesMutableGlobals.insert({taskId, touchesMutableGlobals(wrapperFunctions[taskId])}).first;
             bool touchesGlobals = it->second;
-            if (launchPoint != CI && touchesGlobals)
-                return false;
+            if (launchPoint != CI &&
+                (touchesGlobals || originalTaskEffects[taskId].opaque ||
+                 !originalTaskEffects[taskId].accesses.empty()))
+            {
+                const WholeTaskEffects &Candidate = originalTaskEffects[taskId];
+                if (Candidate.opaque)
+                {
+                    if (tdgDebugEnabled()) fprintf(stderr, "[tdg.hoist] task=%u opaque\n", taskId);
+                    return false;
+                }
+                for (BasicBlock &BB : *mainFunc)
+                    for (Instruction &Between : BB)
+                    {
+                        /* Function block-list order is not execution order.
+                         * Check every instruction that could execute after the
+                         * anchor and before this call on any CFG path. */
+                        if (&Between == launchPoint || &Between == CI ||
+                            !isPotentiallyReachable(launchPoint, &Between,
+                                                    nullptr, &DT, &LI) ||
+                            !isPotentiallyReachable(&Between, CI,
+                                                    nullptr, &DT, &LI) ||
+                            (!Between.mayReadOrWriteMemory() &&
+                             !isa<CallBase>(&Between)))
+                            continue;
+                        if (auto *Intrinsic = dyn_cast<IntrinsicInst>(&Between))
+                            if (Intrinsic->getIntrinsicID() == Intrinsic::lifetime_start ||
+                                Intrinsic->getIntrinsicID() == Intrinsic::lifetime_end ||
+                                isa<DbgInfoIntrinsic>(Intrinsic))
+                                continue;
+                        WholeTaskEffects Other;
+                        if (auto *BC = dyn_cast<CallInst>(&Between))
+                        {
+                            auto Found = extractedFuncToTaskId.find(BC->getCalledFunction());
+                            if (Found != extractedFuncToTaskId.end())
+                                Other = originalTaskEffects[Found->second];
+                            else
+                                Other.opaque = true;
+                        }
+                        else if (auto *L = dyn_cast<LoadInst>(&Between))
+                            addTaskAccess(Other, L->getPointerOperand(), false);
+                        else if (auto *S = dyn_cast<StoreInst>(&Between))
+                            addTaskAccess(Other, S->getPointerOperand(), true);
+                        else
+                            Other.opaque = true;
+                        if (!independentWholeTasks(Candidate, Other))
+                        {
+                            if (tdgDebugEnabled()) { std::string D; raw_string_ostream OS(D); Between.print(OS); fprintf(stderr, "[tdg.hoist] task=%u intermediate=%s\n", taskId, OS.str().c_str()); }
+                            return false;
+                        }
+                    }
+            }
 
             TaskArgumentInfo &argInfo = taskArgInfo[taskId];
             if (!argInfo.argStructType)
@@ -4072,7 +4607,10 @@ namespace llvm
                 if (auto *defI = dyn_cast<Instruction>(op))
                 {
                     if (!DT.dominates(defI, launchPoint))
+                    {
+                        if (tdgDebugEnabled()) fprintf(stderr, "[tdg.hoist] task=%u capture=no\n", taskId);
                         return false;
+                    }
                 }
             }
             return true;
@@ -4145,7 +4683,10 @@ namespace llvm
                 }
             }
 
-            bool hasManagedLifetime = !starts.empty() || !ends.empty() || !consumers.empty();
+            /* Later readers of a live alloca do not imply a lifetime scope.
+             * Only explicit lifetime intrinsics need relocation when the
+             * callback moves earlier in its TDG level. */
+            bool hasManagedLifetime = !starts.empty() || !ends.empty();
             if (!hasManagedLifetime)
                 return true;
 
@@ -4191,12 +4732,18 @@ namespace llvm
 
                 SlotSetupInfo slotInfo;
                 if (!analyzePointerSlot(op, CI, slotInfo))
+                {
+                    if (tdgDebugEnabled()) fprintf(stderr, "[tdg.hoist] task=%u slot=no\n", taskId);
                     return false;
+                }
                 if (!slotInfo.lifetimeStart)
                     continue;
                 if (slotInfo.firstConsumer &&
                     getInstOrder(slotInfo.firstConsumer) <= getInstOrder(launchPoint))
+                {
+                    if (tdgDebugEnabled()) fprintf(stderr, "[tdg.hoist] task=%u lifetime=no\n", taskId);
                     return false;
+                }
 
                 if (std::find(requiredStarts.begin(), requiredStarts.end(), slotInfo.lifetimeStart) == requiredStarts.end())
                     requiredStarts.push_back(slotInfo.lifetimeStart);
@@ -4247,7 +4794,22 @@ namespace llvm
                         for (llvm::Value *Op : I.operands())
                             inspectValue(Op);
                         if (auto *CB = llvm::dyn_cast<llvm::CallBase>(&I))
+                        {
+                            /* CleanCut assigns the same site-id space as outlined
+                             * loops, but carries its id in the execution context
+                             * constructor instead of an sgpl.loop.desc global. */
+                            if (const llvm::Function *Callee = CB->getCalledFunction())
+                                if (Callee->getName() == "autograph_exec_ctx_create" &&
+                                    CB->arg_size() > 12)
+                                    if (auto *Id = llvm::dyn_cast<llvm::ConstantInt>(
+                                            CB->getArgOperand(12)))
+                                    {
+                                        int32_t Site = (int32_t)Id->getSExtValue();
+                                        if (Site >= 0 && seenLoopIds.insert(Site).second)
+                                            loopIds.push_back(Site);
+                                    }
                             inspectFunction(CB->getCalledFunction());
+                        }
                     }
                 }
             };
@@ -4316,7 +4878,32 @@ namespace llvm
                 SmallVector<IntrinsicInst *, 4> taskStarts;
 
                 if (!collectLaunchSetups(taskId, CI, launchAnchor, taskStarts))
+                {
+                    if (tdgDebugEnabled() && originalTaskEffects[taskId].graph)
+                        fprintf(stderr, "[tdg.exclude] task=%u reason=hoist\n", taskId);
                     continue;
+                }
+
+                /* The PDG is a scheduling hint, not the final proof of
+                 * independence.  In particular, a missing memory edge must
+                 * never be enough to launch two whole tasks together. */
+                bool IndependentOfLevel = true;
+                for (unsigned OtherId : includedTaskIds)
+                    if (declaredTaskEdges.count(std::make_pair(taskId, OtherId)) ||
+                        declaredTaskEdges.count(std::make_pair(OtherId, taskId)) ||
+                        !independentWholeTasks(originalTaskEffects[taskId],
+                                               originalTaskEffects[OtherId]))
+                    {
+                        IndependentOfLevel = false;
+                        break;
+                    }
+                if (!IndependentOfLevel)
+                {
+                    if (tdgDebugEnabled())
+                        fprintf(stderr, "[tdg.exclude] task=%u reason=whole-task-conflict\n",
+                                taskId);
+                    continue;
+                }
 
                 includedTaskIds.push_back(taskId);
                 includedCalls.push_back(CI);
@@ -4337,6 +4924,12 @@ namespace llvm
 
             if (tdgDebugEnabled())
             {
+                fprintf(stderr, "[tdg.group] level=%u included=%zu\n",
+                        G.levelIdx, includedTaskIds.size());
+                for (unsigned TaskId : includedTaskIds)
+                    fprintf(stderr, "[tdg.group.task] level=%u task=%u graph=%d\n",
+                            G.levelIdx, TaskId,
+                            originalTaskEffects[TaskId].graph ? 1 : 0);
                 errs() << "[tdg.group] level=" << G.levelIdx
                        << " grouped_tasks=" << includedCalls.size()
                        << " total_calls=" << G.calls.size()
@@ -4405,22 +4998,12 @@ namespace llvm
                         argInfo.argStructType,
                         nullptr,
                         "task_" + Twine(taskId) + "_args");
-                    bool argSafe = true;
                     for (unsigned a = 0; a < CI->arg_size(); ++a)
                     {
                         Value *FieldPtr = B.CreateStructGEP(argInfo.argStructType, ArgStruct, a);
                         Value *stored = castValueForStore(B, CI->getArgOperand(a), argInfo.types[a]);
-                        if (!stored)
-                        {
-                            argSafe = false;
-                            break;
-                        }
+                        assert(stored && "isLocallyLaunchable checked every argument cast");
                         B.CreateStore(stored, FieldPtr);
-                    }
-                    if (!argSafe)
-                    {
-                        includedCalls[idx] = nullptr;
-                        continue;
                     }
                     TaskArg = B.CreateBitCast(ArgStruct, VoidPtrTy);
                 }
@@ -4449,7 +5032,11 @@ namespace llvm
                 B.CreateStore(TaskArg, ArgFieldPtr);
                 B.CreateStore(B.getInt32((int32_t)taskId), ProfileFieldPtr);
                 B.CreateStore(B.getInt32((int32_t)std::min<int64_t>(includedWorks[idx], (int64_t)std::numeric_limits<int32_t>::max())), WorkFieldPtr);
-                B.CreateStore(B.getInt32(LoopIdCount), LoopCountFieldPtr);
+                StoreInst *LoopCountStore = B.CreateStore(B.getInt32(LoopIdCount), LoopCountFieldPtr);
+                // Ordinary loop descriptors are created by the following
+                // outliner pass. main refreshes these fields afterward.
+                LoopCountStore->setMetadata("sgpl.tdg.loop_fields",
+                    MDNode::get(Ctx, {ValueAsMetadata::get(wrapperFunctions[taskId])}));
                 B.CreateStore(LoopIdsPtr, LoopIdsFieldPtr);
             }
 
@@ -4473,15 +5060,31 @@ namespace llvm
             if (actualCount == 0)
                 continue;
 
+            if (tdgDebugEnabled())
+            {
+                fprintf(stderr, "[tdg.emitted] level=%u count=%u\n",
+                        G.levelIdx, actualCount);
+                for (unsigned idx = 0; idx < includedCalls.size(); ++idx)
+                    if (includedCalls[idx])
+                        fprintf(stderr, "[tdg.emitted.task] level=%u task=%u\n",
+                                G.levelIdx, includedTaskIds[idx]);
+            }
+
             Value *TDGTaskBase = B.CreateGEP(
                 TDGTaskArrayTy, TDGTaskArray,
                 {B.getInt32(0), B.getInt32(0)});
-            B.CreateCall(
+            CallInst *LevelCall = B.CreateCall(
                 RunTDGLevel,
                 {B.CreateBitCast(TDGTaskBase, VoidPtrTy),
                  B.getInt32((int32_t)actualCount),
                  ConstantInt::get(Int64Ty, launchWorkUnits),
                  ConstantInt::get(Int64Ty, launchSpanUnits)});
+            for (unsigned Id : includedTaskIds)
+                if (originalTaskEffects[Id].graph)
+                {
+                    LevelCall->setMetadata("sgpl.tdg.has_graph", MDNode::get(Ctx, {}));
+                    break;
+                }
 
             llvm::sort(eraseStarts, [&](Instruction *A, Instruction *B)
                        { return getInstOrder(A) > getInstOrder(B); });

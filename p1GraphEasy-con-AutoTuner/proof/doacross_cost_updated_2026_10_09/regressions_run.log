@@ -1,0 +1,4 @@
+PASS scheduler/resource/budget 1
+PASS scheduler/resource/budget 2
+PASS scheduler/resource/budget 4
+PASS scheduler/resource/budget 8

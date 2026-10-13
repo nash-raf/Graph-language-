@@ -10,17 +10,17 @@ int n = numVertices(G);
 real a[n];
 real b[n];
 int round = 0;
-for each vertex v in G { a[v] = 1.0; b[v] = 1.0; }
+for v in G.nodes { a[v] = 1.0; b[v] = 1.0; }
 while (round < 200) {
   round = round + 1;
-  for each vertex v in G {            // task loop A: short
+  for v in G.nodes {            // task loop A: short
     real x = a[v];
     real s = x * 0.5;
     s = s + x / (1.0 + s * s + 1.0);
     x = x * 1.0000001 + s;
     a[v] = s;
   }
-  for each vertex v in G {            // task loop B: long
+  for v in G.nodes {            // task loop B: long
     real x = b[v];
     real s = x * 0.5;
     s = s + x / (1.0 + s * s + 0.0);

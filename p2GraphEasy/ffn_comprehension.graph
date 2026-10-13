@@ -6,7 +6,7 @@ graph G {
 set ffnVertices = {};
 int ffnCount = 0;
 
-for each edge u, v in G {
+for (u, v) in G.edges {
     for each out neighbor w of v in G {
         if (hasEdge(G, u, w)) {
             ffnCount = ffnCount + 1;
@@ -24,6 +24,6 @@ print setSize(ffnVertices);
 print numVertices(FFN);
 print numEdges(FFN);
 
-for each vertex v in FFN {
+for v in FFN.nodes {
     print v;
 }

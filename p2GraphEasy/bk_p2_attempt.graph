@@ -1,6 +1,6 @@
 fn set neighborsOf(graph G, int v) {
     set Nv = {};
-    for each neighbor u of v in G {
+    for u in G.neighbors(v) {
         Nv.add(u);
     }
     return Nv;

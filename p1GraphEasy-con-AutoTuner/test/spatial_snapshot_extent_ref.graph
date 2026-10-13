@@ -1,7 +1,7 @@
 graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
 int n = numVertices(G);
 int out[n+1]; int old[n+1];
-for each vertex u in G { out[u] = u+1; old[u] = u+1; }
+for u in G.nodes { out[u] = u+1; old[u] = u+1; }
 out[n] = 17; old[n] = 17;
-for each vertex u in G { for each neighbor v of u in G { out[v] = old[u + 1] + 2 * out[v] + 1; } }
-for each vertex u in G { print out[u]; }
+for u in G.nodes { for v in G.neighbors(u) { out[v] = old[u + 1] + 2 * out[v] + 1; } }
+for u in G.nodes { print out[u]; }

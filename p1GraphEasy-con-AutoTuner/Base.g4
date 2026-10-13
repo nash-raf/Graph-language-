@@ -27,8 +27,9 @@ statement:
 	| drawgraph
 	| drawmotifs
 	| motifMatchesDecl
+	| motifSearchDecl
 	| graphListDecl
-	| nodeEdgeOperation
+	| graphUpdateCall
 	| setOperation
 	| setMethodCall
 	| swapStatement
@@ -36,21 +37,26 @@ statement:
 
 swapStatement: 'swap' '(' ID ',' ID ')' ';';
 
-// Graph Definition
-// One rule, not two labelled alternatives: weightedness is just the optional
-// `TRUE` marker, so `weighted?` says it directly instead of duplicating the
-// whole production.  Sections are in fixed order, which also removes the four
-// interleaved graphProperty* repetitions the previous form needed.
+// Graph Definition.
+// The compiled parser (generated/, 09-07) carries labelled alternatives for the
+// two braced forms and no separate `weighted` rule; this text reproduces that
+// shape, then adds the loaded/bare forms of plan rows 1-4.  The two braced
+// alternatives are deliberately left modifier-free so regenerating them is a
+// no-op (gate: the context-class set must not change for them).
 graphDef
-    : GRAPH graphID '{' graphProperty? nodes? edges? weighted? '}' ';' ;
+    : GRAPH graphID '{' graphProperty* nodes? edges? 'TRUE' '}' ';'   # weightedGraphDef
+    | GRAPH graphID '{' graphProperty* nodes? edges? '}' ';'          # unweightedGraphDef
+    | ('directed' | 'weighted')* GRAPH graphID ';'                    # plainGraphDef
+    | ('directed' | 'weighted')* GRAPH graphID '=' 'load' '(' STRING ')' ';'  # loadGraphDef
+    ;
 
 // `directed` is a flag that can only be true, so it carries no value -- present
 // means directed, absent means undirected.  It is what makes a motif's `->`
 // meaningful: on an undirected graph every edge is stored both ways, so a -> b
 // and b -> a are the same edge and directed motifs collapse.
-graphProperty : 'directed' ';' ;
-
-weighted      : 'TRUE' ;
+// `directed: true;` inside a braced declaration (the compiled parser's shape --
+// see the accessor BaseParser::GraphPropertyContext::drawBoolLiteral()).
+graphProperty : 'directed' ':' drawBoolLiteral ';' ;
 
 //in graphDef
 nodes: 'nodes:' nodeList ';';
@@ -123,11 +129,13 @@ condition:
 	) expr					# Relational
 	| nodeID 'in' graphID	# NodeCheck
 	| edge 'in' graphID		# EdgeCheck
+	| graphID '.' 'hasNode' '(' expr ')'			# HasNodeCheck
+	| graphID '.' 'hasEdge' '(' expr ',' expr ')'	# HasEdgeCheck
 	| expr					# ExprCondition;
 
 //graphcondition
 graphComprehension:
-	ID '=' '[' graphExpr ('where' graphCondition)? ']' ';';
+	GRAPH? ID '=' '[' graphExpr ('where' graphCondition)? ']' ';'  ;
 
 graphExpr:
 	graphID ((AND | OR) graphID)*;
@@ -139,6 +147,16 @@ motifMatchesDecl:
 
 graphListDecl:
 	'graphs' ID '=' '[' graphID 'where' 'motif' '{' motifEdge+ '}' ']' ';';
+
+// Row 13 (adopted style): `M = in G search motif { a->b; b->c; };`
+// Builds the same bindings node (MotifMatchesDeclNode) the `motifs M = [...]`
+// spelling builds, so the analyzer and IRGen paths are identical.
+motifSearchDecl:
+	ID '=' 'in' graphID 'search' 'motif' '{' motifEdge+ '}' ';';
+
+
+
+
 
 // '->' requires a positive edge, '-|' a negative one.
 motifEdge: ID ('->' | '-|') ID ';';
@@ -161,25 +179,38 @@ graphCondition:
 
 //loop
 loopStatement: foreachStatement | whileStatement;
-foreachStatement: 'for' 'each' loopTarget 'in' graphID block;
+foreachStatement: 'for' 'each' loopTarget 'in' graphID block | memberLoopStatement;
+
+// Rows 5-7: the member-style loop headers.
+//   for v in G.nodes            -> the CSR vertex scan (NOT a materialized set)
+//   for (u, v) in G.edges       -> the edge scan
+//   for u in G.neighbors(v)     -> the neighbour scan
+// Each builds the same foreach AST node the classic spelling builds, so the
+// backend is untouched; `G.nodes` in a set context keeps its set meaning.
+memberLoopStatement
+    : 'for' ID 'in' graphID '.' 'nodes' block                    # foreachNodes
+    | 'for' '(' ID ',' ID ')' 'in' graphID '.' 'edges' block     # foreachEdges
+    | 'for' ID 'in' graphID '.' 'neighbors' '(' expr ')' block   # foreachNeighbors
+    ;
 loopTarget:
-	'vertex' ID					# forEachVertex
-	| 'edge' ID ',' ID			# forEachEdge
-	| 'neighbor' ID 'of' expr	# forEachAdj
-	| 'element' ID				# forEachElement
+	'element' ID				# forEachElement
 	| 'graph' ID				# ForEachGraph
 	| 'motif' '(' ID (',' ID)+ ')'	# ForEachMotif
 	| ID						# forEachPlain;
 whileStatement: 'while' '(' condition ')' block;
 
-nodeEdgeOperation: addOperation | removeOperation;
+// Plan row 1 + the old `add … to G` removal: graph mutation by method call,
+// literals only.  All four desugar in the builder to the existing
+// GraphUpdateNode (Add / Remove), so no new AST node kind is needed.
+graphUpdateCall
+    : graphID '.' 'addNodes' '(' nodeList? ')' ';'      # GraphAddNodesCall
+    | graphID '.' 'addEdges' '(' edgeList? ')' ';'      # GraphAddEdgesCall
+    | graphID '.' 'removeNodes' '(' nodeList? ')' ';'   # GraphRemoveNodesCall
+    | graphID '.' 'removeEdges' '(' edgeList? ')' ';'   # GraphRemoveEdgesCall
+    ;
 
-addOperation: 'add' graphUpdateTargets 'to' graphID ';';
-removeOperation: 'remove' graphUpdateTargets 'from' graphID ';';
-graphUpdateTargets: updateNodeTargetList | updateEdgeTargetList;
-updateNodeTargetList: expr (',' expr)*;
-updateEdgeTargetList: updateEdgeTarget (',' updateEdgeTarget)*;
-updateEdgeTarget: expr '->' expr;
+// (the old `add … to G` / `remove … from G` family is deleted: the call form
+// `G.addNodes/addEdges/removeNodes/removeEdges` is the only mutation surface.)
 
 
 
@@ -250,8 +281,7 @@ drawBoolLiteral: TRUE | FALSE | 'true' | 'false';
 // cannot match ID.  Without this alternative the degree() builtin -- which
 // IRGen already implements as an O(1) row_ptr[v+1]-row_ptr[v] -- is
 // unreachable from the surface syntax.
-functionCall: functionName '(' argumentList? ')';
-functionName: ID | 'degree';
+functionCall: (ID | 'degree') '(' argumentList? ')';
 argumentList: expr (',' expr)*;
 
 // Sleep statement

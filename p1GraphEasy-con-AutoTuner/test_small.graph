@@ -2,9 +2,9 @@ graph g1 {
     edges: file "synth_v_50000_e_500000.txt";
 };
 
-add 10->20 to g1;
-add 20->30 to g1;
-add 30->40 to g1;
-add 40->50 to g1;
+g1.addEdges(10->20);
+g1.addEdges(20->30);
+g1.addEdges(30->40);
+g1.addEdges(40->50);
 
 query bfs_test: "bfs" of g1;

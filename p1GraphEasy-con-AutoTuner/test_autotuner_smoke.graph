@@ -4,7 +4,7 @@ graph G {
 
 query bfs_before: "bfs" of G;
 
-add 0->3 to G;
-add 3->1 to G;
+G.addEdges(0->3);
+G.addEdges(3->1);
 
 query bfs_after: "bfs" of G;

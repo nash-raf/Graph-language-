@@ -8,9 +8,9 @@ int r = 0;
 while (r < 3) {
   roundEffect = roundEffect + 1;
   r = r + 1;
-  for each vertex u in G {
+  for u in G.nodes {
     acc = 0;
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       acc = acc + v + 1;
       data[u] = data[u] + acc;
     }
@@ -18,6 +18,6 @@ while (r < 3) {
   }
 }
 int total = q + roundEffect;
-for each vertex u in G { total = total + data[u]; }
+for u in G.nodes { total = total + data[u]; }
 print total;
 print r;

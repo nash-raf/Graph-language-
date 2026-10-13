@@ -20,7 +20,7 @@ fn void cc_kernel() {
     int k = 0;
     while (k < frontier_size) {
       int u = frontier[k];
-      for each neighbor v of u in G {
+      for v in G.neighbors(u) {
         if (id[u] < id[v]) {
           id[v] = id[u];
           next_frontier[next_size] = v;

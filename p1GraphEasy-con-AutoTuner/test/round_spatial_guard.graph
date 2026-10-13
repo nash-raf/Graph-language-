@@ -8,8 +8,8 @@ while (r < limit) {
   acc = 0;
   r = r + 1;
   if (r != 4) {
-  for each vertex u in G {
-    for each neighbor v of u in G {
+  for u in G.nodes {
+    for v in G.neighbors(u) {
       acc = acc + (v + 1);
     }
   }

@@ -14,15 +14,15 @@ set next;
 int round = 0;
 int max_rounds = 100;
 
-for each vertex v in G {
+for v in G.nodes {
   cur_rank[v] = 0.0;
   ngh_sum[v] = 0.0;
   delta[v] = one_over_n;
   out_degree[v] = 0;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     out_degree[u] = out_degree[u] + 1;
   }
 }
@@ -37,7 +37,7 @@ while (round < max_rounds) {
     int outd = out_degree[u];
     if (outd > 0) {
       real contrib = du / outd;
-      for each neighbor v of u in G {
+      for v in G.neighbors(u) {
         ngh_sum[v] = ngh_sum[v] + contrib;
       }
     }
@@ -45,7 +45,7 @@ while (round < max_rounds) {
 
   next = {};
   if (round == 1) {
-    for each vertex v in G {
+    for v in G.nodes {
       real nd = damp * ngh_sum[v] + beta;
       cur_rank[v] = cur_rank[v] + nd;
       delta[v] = nd - one_over_n;
@@ -56,7 +56,7 @@ while (round < max_rounds) {
       ngh_sum[v] = 0.0;
     }
   } else {
-    for each vertex v in G {
+    for v in G.nodes {
       real nd = ngh_sum[v] * damp;
       delta[v] = nd;
       real pv = cur_rank[v];
@@ -71,7 +71,7 @@ while (round < max_rounds) {
   }
 
   real l1 = 0.0;
-  for each vertex v in G {
+  for v in G.nodes {
     real dv = delta[v];
     if (dv < 0) { dv = 0 - dv; }
     l1 = l1 + dv;
@@ -81,4 +81,4 @@ while (round < max_rounds) {
   frontier = next;
 }
 
-for each vertex v in G { print cur_rank[v]; }
+for v in G.nodes { print cur_rank[v]; }

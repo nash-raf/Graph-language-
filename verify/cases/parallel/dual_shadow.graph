@@ -22,19 +22,19 @@ int alive[n];
 set frontier;
 set next;
 
-for each vertex v in G {
+for v in G.nodes {
     deg[v] = 0;
     alive[v] = 1;
 }
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         deg[u] = deg[u] + 1;
     }
 }
 
 frontier = {};
-for each vertex v in G {
+for v in G.nodes {
     if (deg[v] < k) {
         frontier.add(v);
     }
@@ -45,7 +45,7 @@ while (setSize(frontier) > 0) {
     for each element u in frontier {
         if (alive[u] == 1) {
             alive[u] = 0;
-            for each neighbor v of u in G {
+            for v in G.neighbors(u) {
                 if (alive[v] == 1) {
                     deg[v] = deg[v] - 1;
                     if (deg[v] < k) {

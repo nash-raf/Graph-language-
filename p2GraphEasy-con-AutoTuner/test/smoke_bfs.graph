@@ -9,7 +9,7 @@ int next_size = 0;
 int level = 0;
 int unreachable = -1;
 
-for each vertex v in G {
+for v in G.nodes {
   dist[v] = unreachable;
   visited[v] = 0;
 }
@@ -24,7 +24,7 @@ while (frontier_size > 0) {
   while (i < frontier_size) {
     int v = frontier[i];
     dist[v] = level;
-    for each neighbor u of v in G {
+    for u in G.neighbors(v) {
       if (visited[u] == 0) {
         visited[u] = 1;
         next_frontier[next_size] = u;
@@ -38,6 +38,6 @@ while (frontier_size > 0) {
   level = level + 1;
 }
 
-for each vertex v in G {
+for v in G.nodes {
   print dist[v];
 }

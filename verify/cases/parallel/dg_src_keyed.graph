@@ -5,9 +5,9 @@ graph G {
 int n = numVertices(G);
 int deg[n];
 int alive[n];
-for each vertex v in G { deg[v] = 0; alive[v] = 1; }
-for each vertex u in G {
-  for each neighbor v of u in G {
+for v in G.nodes { deg[v] = 0; alive[v] = 1; }
+for u in G.nodes {
+  for v in G.neighbors(u) {
     deg[u] = deg[u] + 1;
   }
 }

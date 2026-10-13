@@ -6,7 +6,7 @@ int n = numVertices(G);
 int visited[n];
 int dist[n];
 
-for each vertex v in G {
+for v in G.nodes {
     visited[v] = 0;
     dist[v] = -1;
 }
@@ -20,7 +20,7 @@ set next_frontier = {};
 while (setSize(frontier) > 0) {
     next_frontier = {};
     for each element v in frontier {
-        for each neighbor u of v in G {
+        for u in G.neighbors(v) {
             if (visited[u] == 0) {
                 visited[u] = 1;
                 dist[u] = dist[v] + 1;

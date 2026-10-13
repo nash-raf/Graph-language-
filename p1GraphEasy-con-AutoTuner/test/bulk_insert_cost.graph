@@ -8,6 +8,6 @@ int i = 0;
 while (i < 256) {
   int src = 10000 + i;
   int dst = 30000 + i;
-  add src->dst to BulkInsert;
+  BulkInsert.addEdges(src->dst);
   i = i + 1;
 }

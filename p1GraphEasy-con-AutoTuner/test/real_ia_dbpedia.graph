@@ -2,64 +2,64 @@ graph ia_dbpedia {
   edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/ia-dbpedia.txt";
 };
 
-for each vertex v in ia_dbpedia {
-    for each neighbor u of v in ia_dbpedia {
+for v in ia_dbpedia.nodes {
+    for u in ia_dbpedia.neighbors(v) {
     };
 };
 
-add 335243->58369 to ia_dbpedia;
-add 13112->144194 to ia_dbpedia;
-add 128393->117026 to ia_dbpedia;
-add 73158->53736 to ia_dbpedia;
-add 354785->285929 to ia_dbpedia;
-add 45580->309588 to ia_dbpedia;
-add 221208->16663 to ia_dbpedia;
-add 15622->49123 to ia_dbpedia;
-add 114629->121981 to ia_dbpedia;
-add 264951->315631 to ia_dbpedia;
-add 13912->294254 to ia_dbpedia;
-add 104248->340726 to ia_dbpedia;
-add 285706->219949 to ia_dbpedia;
-add 115574->235514 to ia_dbpedia;
-add 308944->145852 to ia_dbpedia;
-add 3407->83707 to ia_dbpedia;
-add 221571->178389 to ia_dbpedia;
-add 145684->81516 to ia_dbpedia;
-add 112886->176472 to ia_dbpedia;
-add 53587->48625 to ia_dbpedia;
-add 199191->50707 to ia_dbpedia;
-add 188208->180331 to ia_dbpedia;
-add 316526->138685 to ia_dbpedia;
-add 22780->240870 to ia_dbpedia;
-add 281137->65444 to ia_dbpedia;
-add 198461->41313 to ia_dbpedia;
-add 289428->153709 to ia_dbpedia;
-add 329588->324282 to ia_dbpedia;
-add 189600->302698 to ia_dbpedia;
-add 100814->36466 to ia_dbpedia;
-add 24025->346692 to ia_dbpedia;
-add 119484->151722 to ia_dbpedia;
-add 41833->122049 to ia_dbpedia;
-add 52953->199295 to ia_dbpedia;
-add 145738->237717 to ia_dbpedia;
-add 333281->191277 to ia_dbpedia;
-add 85277->194081 to ia_dbpedia;
-add 186264->109842 to ia_dbpedia;
-add 351364->139973 to ia_dbpedia;
-add 358375->339757 to ia_dbpedia;
-add 37435->319360 to ia_dbpedia;
-add 332911->89725 to ia_dbpedia;
-add 280043->128351 to ia_dbpedia;
-add 85669->242357 to ia_dbpedia;
-add 198943->141530 to ia_dbpedia;
-add 335544->360795 to ia_dbpedia;
-add 292002->115141 to ia_dbpedia;
-add 358935->170017 to ia_dbpedia;
-add 29327->120087 to ia_dbpedia;
-add 16829->165388 to ia_dbpedia;
+ia_dbpedia.addEdges(335243->58369);
+ia_dbpedia.addEdges(13112->144194);
+ia_dbpedia.addEdges(128393->117026);
+ia_dbpedia.addEdges(73158->53736);
+ia_dbpedia.addEdges(354785->285929);
+ia_dbpedia.addEdges(45580->309588);
+ia_dbpedia.addEdges(221208->16663);
+ia_dbpedia.addEdges(15622->49123);
+ia_dbpedia.addEdges(114629->121981);
+ia_dbpedia.addEdges(264951->315631);
+ia_dbpedia.addEdges(13912->294254);
+ia_dbpedia.addEdges(104248->340726);
+ia_dbpedia.addEdges(285706->219949);
+ia_dbpedia.addEdges(115574->235514);
+ia_dbpedia.addEdges(308944->145852);
+ia_dbpedia.addEdges(3407->83707);
+ia_dbpedia.addEdges(221571->178389);
+ia_dbpedia.addEdges(145684->81516);
+ia_dbpedia.addEdges(112886->176472);
+ia_dbpedia.addEdges(53587->48625);
+ia_dbpedia.addEdges(199191->50707);
+ia_dbpedia.addEdges(188208->180331);
+ia_dbpedia.addEdges(316526->138685);
+ia_dbpedia.addEdges(22780->240870);
+ia_dbpedia.addEdges(281137->65444);
+ia_dbpedia.addEdges(198461->41313);
+ia_dbpedia.addEdges(289428->153709);
+ia_dbpedia.addEdges(329588->324282);
+ia_dbpedia.addEdges(189600->302698);
+ia_dbpedia.addEdges(100814->36466);
+ia_dbpedia.addEdges(24025->346692);
+ia_dbpedia.addEdges(119484->151722);
+ia_dbpedia.addEdges(41833->122049);
+ia_dbpedia.addEdges(52953->199295);
+ia_dbpedia.addEdges(145738->237717);
+ia_dbpedia.addEdges(333281->191277);
+ia_dbpedia.addEdges(85277->194081);
+ia_dbpedia.addEdges(186264->109842);
+ia_dbpedia.addEdges(351364->139973);
+ia_dbpedia.addEdges(358375->339757);
+ia_dbpedia.addEdges(37435->319360);
+ia_dbpedia.addEdges(332911->89725);
+ia_dbpedia.addEdges(280043->128351);
+ia_dbpedia.addEdges(85669->242357);
+ia_dbpedia.addEdges(198943->141530);
+ia_dbpedia.addEdges(335544->360795);
+ia_dbpedia.addEdges(292002->115141);
+ia_dbpedia.addEdges(358935->170017);
+ia_dbpedia.addEdges(29327->120087);
+ia_dbpedia.addEdges(16829->165388);
 
-for each vertex v in ia_dbpedia {
-    for each neighbor u of v in ia_dbpedia {
+for v in ia_dbpedia.nodes {
+    for u in ia_dbpedia.neighbors(v) {
     };
 };
 

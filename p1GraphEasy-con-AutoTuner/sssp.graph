@@ -33,7 +33,7 @@ while (frontier_size > 0) {
   int i = 0;
   while (i < frontier_size) {
     int u = frontier[i];
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       int nd = dist[u] + weight(G, u, v);
       if (nd < dist[v]) {
         dist[v] = nd;

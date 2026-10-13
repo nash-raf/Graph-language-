@@ -7,7 +7,7 @@ a[0] = 1;
 a[1] = 1;
 int iters = 0;
 while (iters < 10) {
-  for each vertex v in G {
+  for v in G.nodes {
     if (v % 2 == 0) {
       a[v+2] = a[v] + 1;
     } else {

@@ -14,22 +14,22 @@ graph G {
 int n = numVertices(G);
 
 real rsum = 0.0;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     rsum = rsum + 1.0;
   }
 }
 
 real rmn = 100000000.0;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     rmn = min(rmn, v);
   }
 }
 
 real rmx = -1.0;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     rmx = max(rmx, v);
   }
 }

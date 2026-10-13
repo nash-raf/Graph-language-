@@ -9,13 +9,13 @@ int alive[n];
 int core[n];
 int largestCore = 0;
 
-for each vertex v in G {
+for v in G.nodes {
   originalDeg[v] = 0;
   core[v] = -1;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     originalDeg[u] = originalDeg[u] + 1;
   }
 }
@@ -24,7 +24,7 @@ int k = 1;
 while (k <= n) {
   int activeCount = 0;
 
-  for each vertex v in G {
+  for v in G.nodes {
     deg[v] = originalDeg[v];
     alive[v] = 1;
     activeCount = activeCount + 1;
@@ -34,7 +34,7 @@ while (k <= n) {
   while (changed == 1) {
     changed = 0;
 
-    for each vertex u in G {
+    for u in G.nodes {
       if (alive[u] == 1 && deg[u] < k) {
         alive[u] = 0;
         if (core[u] < 0) {
@@ -43,7 +43,7 @@ while (k <= n) {
         activeCount = activeCount - 1;
         changed = 1;
 
-        for each neighbor v of u in G {
+        for v in G.neighbors(u) {
           if (alive[v] == 1) {
             deg[v] = deg[v] - 1;
           }
@@ -61,14 +61,14 @@ while (k <= n) {
   k = k + 1;
 }
 
-for each vertex v in G {
+for v in G.nodes {
   if (core[v] < 0 && originalDeg[v] > 0) {
     core[v] = largestCore;
   }
 }
 
 int ge5 = 0;
-for each vertex v in G {
+for v in G.nodes {
   if (core[v] >= 5) {
     ge5 = ge5 + 1;
   }
@@ -76,6 +76,6 @@ for each vertex v in G {
 
 print largestCore;
 print ge5;
-for each vertex v in G {
+for v in G.nodes {
   print core[v];
 }

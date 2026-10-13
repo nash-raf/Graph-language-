@@ -18,7 +18,7 @@ fn void bifan() {
     i = i + 1;
   }
 
-  for each edge u, v in G {
+  for (u, v) in G.edges {
     A[u][v - S] = 1;
   }
 

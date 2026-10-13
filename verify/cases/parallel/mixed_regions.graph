@@ -18,8 +18,8 @@ int arr[n];
 int i = 0;
 while (i < n) { arr[i] = 1; i = i + 1; }
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         arr[u] = arr[u] + 1;
         arr[v] = arr[v] + 1;
     }

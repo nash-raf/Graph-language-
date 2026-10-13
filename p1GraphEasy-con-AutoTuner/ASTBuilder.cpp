@@ -113,6 +113,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             return visitWeightedGraphDef(wg);
         else if (auto ug = dynamic_cast<BaseParser::UnweightedGraphDefContext *>(ctx->graphDef()))
             return visitUnweightedGraphDef(ug);
+        else if (auto pg = dynamic_cast<BaseParser::PlainGraphDefContext *>(ctx->graphDef()))
+            return visitPlainGraphDef(pg);
+        else if (auto lg = dynamic_cast<BaseParser::LoadGraphDefContext *>(ctx->graphDef()))
+            return visitLoadGraphDef(lg);
         else
             throw std::runtime_error("internal: unknown graphDef alternative");
         // produce a GraphDeclNode
@@ -122,80 +126,17 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
     {
         return visitQueryStatement(ctx->queryStatement());
     }
-    else if (ctx->nodeEdgeOperation())
+    else if (ctx->graphUpdateCall())
     {
-        auto *op = ctx->nodeEdgeOperation();
-
-        std::vector<GraphUpdateTarget> targets;
-        std::string gname;
-        GraphUpdateKind kind;
-
-        if (auto *add = op->addOperation())
-        {
-            kind = GraphUpdateKind::Add;
-            gname = add->graphID()->getText();
-            auto *t = add->graphUpdateTargets();
-            if (!t)
-                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
-            if (auto *nodeList = t->updateNodeTargetList())
-            {
-                for (auto *exprCtx : nodeList->expr())
-                {
-                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
-                    targets.emplace_back(std::move(value));
-                }
-            }
-            else if (auto *edgeList = t->updateEdgeTargetList())
-            {
-                for (auto *edgeCtx : edgeList->updateEdgeTarget())
-                {
-                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
-                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
-                    targets.emplace_back(std::move(src), std::move(dst));
-                }
-            }
-            else
-            {
-                throw std::runtime_error("graph update parse error: malformed add target list");
-            }
-        }
-        else if (auto *rem = op->removeOperation())
-        {
-            kind = GraphUpdateKind::Remove;
-            gname = rem->graphID()->getText();
-            auto *t = rem->graphUpdateTargets();
-            if (!t)
-                throw std::runtime_error("graph update parse error: expected node expressions or edge expressions");
-            if (auto *nodeList = t->updateNodeTargetList())
-            {
-                for (auto *exprCtx : nodeList->expr())
-                {
-                    ASTNodePtr value = safe_any_cast<ASTNodePtr>(visitExpr(exprCtx));
-                    targets.emplace_back(std::move(value));
-                }
-            }
-            else if (auto *edgeList = t->updateEdgeTargetList())
-            {
-                for (auto *edgeCtx : edgeList->updateEdgeTarget())
-                {
-                    ASTNodePtr src = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(0)));
-                    ASTNodePtr dst = safe_any_cast<ASTNodePtr>(visitExpr(edgeCtx->expr(1)));
-                    targets.emplace_back(std::move(src), std::move(dst));
-                }
-            }
-            else
-            {
-                throw std::runtime_error("graph update parse error: malformed remove target list");
-            }
-        }
-        
-        else
-        {
-            throw std::runtime_error("nodeEdgeOperation: unknown alternative");
-        }
-
-        auto up = std::make_shared<GraphUpdateNode>(kind, gname, std::move(targets));
-        return std::static_pointer_cast<ASTNode>(up);
+        if (auto *an = dynamic_cast<BaseParser::GraphAddNodesCallContext *>(ctx->graphUpdateCall()))
+            return visitGraphAddNodesCall(an);
+        if (auto *ae = dynamic_cast<BaseParser::GraphAddEdgesCallContext *>(ctx->graphUpdateCall()))
+            return visitGraphAddEdgesCall(ae);
+        if (auto *rn = dynamic_cast<BaseParser::GraphRemoveNodesCallContext *>(ctx->graphUpdateCall()))
+            return visitGraphRemoveNodesCall(rn);
+        if (auto *re = dynamic_cast<BaseParser::GraphRemoveEdgesCallContext *>(ctx->graphUpdateCall()))
+            return visitGraphRemoveEdgesCall(re);
+        throw std::runtime_error("internal: unknown graphUpdateCall alternative");
     }
     else if (ctx->graphComprehension())
     {
@@ -223,6 +164,21 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
         if (gc->graphCondition())
             cond = buildGraphCondition(gc->graphCondition());
 
+    // Unified comprehension: a `motif` condition yields the bindings
+    // (MotifMatchesDeclNode), exactly like the explicit `motifs h = [...]` form.
+    if (cond && !cond->motifEdges.empty())
+    {
+        std::vector<std::string> variables;
+        std::unordered_set<std::string> seen;
+        for (const MotifEdgeSpec &e : cond->motifEdges)
+        {
+            if (seen.insert(e.source).second) variables.push_back(e.source);
+            if (seen.insert(e.target).second) variables.push_back(e.target);
+        }
+        auto mnode = std::make_shared<MotifMatchesDeclNode>(
+            target, gname, cond->motifEdges, std::move(variables));
+        return std::static_pointer_cast<ASTNode>(mnode);
+    }
         auto node = std::make_shared<GraphComprehensionNode>(
             target, gname, std::move(ops), std::move(operands), cond);
         return std::static_pointer_cast<ASTNode>(node);
@@ -246,6 +202,10 @@ antlrcpp::Any ASTBuilder::visitStatement(BaseParser::StatementContext *ctx)
             decl->ID()->getText(), decl->graphID()->getText(),
             std::move(edges), std::move(variables));
         return std::static_pointer_cast<ASTNode>(node);
+    }
+    else if (ctx->motifSearchDecl())
+    {
+        return visitMotifSearchDecl(ctx->motifSearchDecl());
     }
     else if (ctx->graphListDecl())
     {
@@ -524,6 +484,22 @@ antlrcpp::Any ASTBuilder::visitCondition(BaseParser::ConditionContext *ctx)
                                          : r->GREATERTHAN()  ? ">"
                                                              : "";
         return ASTNodePtr(std::make_shared<BinaryExprNode>(op, left, right));
+    }
+    if (auto hn = dynamic_cast<Ctx::HasNodeCheckContext *>(ctx))
+    {
+        // G.hasNode(x)  ==  x in G.nodes  (the backend already lowers set membership)
+        ASTNodePtr val = safe_any_cast<ASTNodePtr>(visitExpr(hn->expr()));
+        return ASTNodePtr(std::make_shared<SetContainsExprNode>(
+            SetTargetKind::GraphNodes, hn->graphID()->getText(), val));
+    }
+    if (auto he = dynamic_cast<Ctx::HasEdgeCheckContext *>(ctx))
+    {
+        // G.hasEdge(u, v): lowered by IRGen as the "hasEdge" builtin (runtime pair lookup)
+        std::vector<ASTNodePtr> args;
+        args.push_back(std::make_shared<VariableNode>(he->graphID()->getText()));
+        args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(he->expr(0))));
+        args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(he->expr(1))));
+        return ASTNodePtr(std::make_shared<FunctionCallNode>("hasEdge", args));
     }
     if (auto e = dynamic_cast<Ctx::ExprConditionContext *>(ctx))
     {
@@ -1254,31 +1230,23 @@ antlrcpp::Any ASTBuilder::visitSleepStatement(BaseParser::SleepStatementContext 
 
 antlrcpp::Any ASTBuilder::visitForeachStatement(BaseParser::ForeachStatementContext *ctx)
 {
+    if (auto *member = ctx->memberLoopStatement())
+    {
+        if (auto *n = dynamic_cast<BaseParser::ForeachNodesContext *>(member))
+            return visitForeachNodes(n);
+        if (auto *e = dynamic_cast<BaseParser::ForeachEdgesContext *>(member))
+            return visitForeachEdges(e);
+        if (auto *nb = dynamic_cast<BaseParser::ForeachNeighborsContext *>(member))
+            return visitForeachNeighbors(nb);
+        throw std::runtime_error("internal: unknown memberLoopStatement alternative");
+    }
     ForEachTargetType tgt;
     std::string var1, var2;
     ASTNodePtr adjNodeExpr = nullptr;
 
     // Determine loop type
     auto *loopCtx = ctx->loopTarget();
-    if (auto vertexCtx = dynamic_cast<BaseParser::ForEachVertexContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::Vertex;
-        var1 = vertexCtx->ID()->getText();
-    }
-    else if (auto edgeCtx = dynamic_cast<BaseParser::ForEachEdgeContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::Edge;
-        auto ids = edgeCtx->ID();
-        var1 = ids[0]->getText();
-        var2 = ids[1]->getText();
-    }
-    else if (auto adjCtx = dynamic_cast<BaseParser::ForEachAdjContext *>(loopCtx))
-    {
-        tgt = ForEachTargetType::Neighbor;
-        var1 = adjCtx->ID()->getText();
-        adjNodeExpr = safe_any_cast<ASTNodePtr>(visitExpr(adjCtx->expr()));
-    }
-    else if (auto elemCtx = dynamic_cast<BaseParser::ForEachElementContext *>(loopCtx))
+    if (auto elemCtx = dynamic_cast<BaseParser::ForEachElementContext *>(loopCtx))
     {
         tgt = ForEachTargetType::Element;
         var1 = elemCtx->ID()->getText();
@@ -1601,5 +1569,206 @@ antlrcpp::Any ASTBuilder::visitSwapStatement(BaseParser::SwapStatementContext *c
     std::string a = ctx->ID(0)->getText();
     std::string b = ctx->ID(1)->getText();
     auto node = std::make_shared<SwapStmtNode>(a, b);
+    return std::static_pointer_cast<ASTNode>(node);
+}
+
+// ── plan rows 1-4: new declaration / mutation surface ───────────────────────
+// Every function here builds the SAME AST node the old spelling builds
+// (GraphDeclNode / WeightedGraphDeclNode / GraphUpdateNode), so IRGen,
+// SemanticAnalyzer and the mid-end passes are untouched: only the surface
+// spelling of the program changes.
+
+namespace {
+// The declaration modifiers are an inlined ('directed' | 'weighted')* block, so
+// they appear as terminal children of the declaration context.
+void readGraphMods(antlr4::ParserRuleContext *ctx, bool &directed, bool &weighted)
+{
+    for (auto *child : ctx->children)
+        if (auto *t = dynamic_cast<antlr4::tree::TerminalNode *>(child))
+        {
+            const std::string s = t->getText();
+            if (s == "directed")
+                directed = true;
+            else if (s == "weighted")
+                weighted = true;
+        }
+}
+
+// Literal node/edge targets for the call forms (literals only, per the agreed
+// surface).  A `G.addNodes(0,1,2)` is one GraphUpdateNode with three Node
+// targets, exactly like `add 0, 1, 2 to G;`.
+std::vector<GraphUpdateTarget> litNodeTargets(BaseParser::NodeListContext *nl)
+{
+    std::vector<GraphUpdateTarget> out;
+    if (!nl)
+        return out;
+    for (auto *n : nl->nodeID())
+        out.emplace_back(std::make_shared<IntLiteralNode>(std::stoi(n->getText())));
+    return out;
+}
+
+std::vector<GraphUpdateTarget> litEdgeTargets(BaseParser::EdgeListContext *el)
+{
+    std::vector<GraphUpdateTarget> out;
+    if (!el)
+        return out;
+    for (auto *e : el->edge())
+    {
+        ASTNodePtr s = std::make_shared<IntLiteralNode>(std::stoi(e->nodeID(0)->getText()));
+        ASTNodePtr d = std::make_shared<IntLiteralNode>(std::stoi(e->nodeID(1)->getText()));
+        out.emplace_back(std::move(s), std::move(d));
+    }
+    return out;
+}
+
+std::shared_ptr<ASTNode> makeUpdateNode(const std::string &gname,
+                                       GraphUpdateKind kind,
+                                       std::vector<GraphUpdateTarget> targets)
+{
+    return std::static_pointer_cast<ASTNode>(
+        std::make_shared<GraphUpdateNode>(kind, gname, std::move(targets)));
+}
+} // namespace
+
+antlrcpp::Any ASTBuilder::visitPlainGraphDef(BaseParser::PlainGraphDefContext *ctx)
+{
+    bool directed = false, weighted = false;
+    readGraphMods(ctx, directed, weighted);
+    const std::string name = ctx->graphID()->getText();
+    std::shared_ptr<ASTNode> g;
+    if (weighted)
+        g = std::make_shared<WeightedGraphDeclNode>(
+            name, std::make_unique<InlineNodeList>(std::vector<int>{}),
+            std::make_unique<InlineWeightedEdgeList>(
+                std::vector<std::pair<int, int>>{},
+                llvm::DenseMap<std::pair<int, int>, int>{}));
+    else
+        g = std::make_shared<GraphDeclNode>(
+            name, std::make_unique<InlineNodeList>(std::vector<int>{}),
+            std::make_unique<InlineEdgeList>(std::vector<std::pair<int, int>>{}));
+    if (directed) // `directed graph G;` -- the flag the braced form sets too
+    {
+        if (auto *wd = dynamic_cast<WeightedGraphDeclNode *>(g.get()))
+            wd->directed = true;
+        else
+            static_cast<GraphDeclNode *>(g.get())->directed = true;
+    }
+    return std::static_pointer_cast<ASTNode>(g);
+}
+
+antlrcpp::Any ASTBuilder::visitLoadGraphDef(BaseParser::LoadGraphDefContext *ctx)
+{
+    bool directed = false, weighted = false;
+    readGraphMods(ctx, directed, weighted);
+    const std::string name = ctx->graphID()->getText();
+    std::string file = ctx->STRING()->getText();
+    if (file.size() >= 2 && file.front() == '"' && file.back() == '"')
+        file = file.substr(1, file.size() - 2);
+    std::shared_ptr<ASTNode> g;
+    if (weighted)
+    {
+        auto wd = std::make_shared<WeightedGraphDeclNode>(name, file);
+        wd->directed = directed;
+        g = wd;
+    }
+    else
+    {
+        auto d = std::make_shared<GraphDeclNode>(name, file);
+        d->directed = directed;
+        g = d;
+    }
+    return std::static_pointer_cast<ASTNode>(g);
+}
+
+antlrcpp::Any ASTBuilder::visitGraphAddNodesCall(BaseParser::GraphAddNodesCallContext *ctx)
+{
+    return makeUpdateNode(ctx->graphID()->getText(), GraphUpdateKind::Add,
+                          litNodeTargets(ctx->nodeList()));
+}
+
+antlrcpp::Any ASTBuilder::visitGraphAddEdgesCall(BaseParser::GraphAddEdgesCallContext *ctx)
+{
+    return makeUpdateNode(ctx->graphID()->getText(), GraphUpdateKind::Add,
+                          litEdgeTargets(ctx->edgeList()));
+}
+
+antlrcpp::Any ASTBuilder::visitGraphRemoveNodesCall(BaseParser::GraphRemoveNodesCallContext *ctx)
+{
+    return makeUpdateNode(ctx->graphID()->getText(), GraphUpdateKind::Remove,
+                          litNodeTargets(ctx->nodeList()));
+}
+
+antlrcpp::Any ASTBuilder::visitGraphRemoveEdgesCall(BaseParser::GraphRemoveEdgesCallContext *ctx)
+{
+    return makeUpdateNode(ctx->graphID()->getText(), GraphUpdateKind::Remove,
+                          litEdgeTargets(ctx->edgeList()));
+}
+
+// Rows 5-7: member-style loop headers.  Each builds the same ForEachStmtNode the
+// classic spelling builds -- Vertex = CSR vertex scan, Edge = edge scan,
+// Neighbor = neighbour scan -- so the effect analysis sees the same loops.
+antlrcpp::Any ASTBuilder::visitForeachNodes(BaseParser::ForeachNodesContext *ctx)
+{
+    auto fs = std::make_shared<ForEachStmtNode>(
+        ForEachTargetType::Vertex, ctx->ID()->getText(), std::string(),
+        ctx->graphID()->getText(), nullptr,
+        std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
+    return std::static_pointer_cast<ASTNode>(fs);
+}
+
+antlrcpp::Any ASTBuilder::visitForeachEdges(BaseParser::ForeachEdgesContext *ctx)
+{
+    auto fs = std::make_shared<ForEachStmtNode>(
+        ForEachTargetType::Edge, ctx->ID(0)->getText(), ctx->ID(1)->getText(),
+        ctx->graphID()->getText(), nullptr,
+        std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
+    return std::static_pointer_cast<ASTNode>(fs);
+}
+
+antlrcpp::Any ASTBuilder::visitForeachNeighbors(BaseParser::ForeachNeighborsContext *ctx)
+{
+    ASTNodePtr adj = std::any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
+    auto fs = std::make_shared<ForEachStmtNode>(
+        ForEachTargetType::Neighbor, ctx->ID()->getText(), std::string(),
+        ctx->graphID()->getText(), std::move(adj),
+        std::any_cast<ASTNodePtr>(visitBlock(ctx->block())));
+    return std::static_pointer_cast<ASTNode>(fs);
+}
+
+// Row 8: membership checks (the dispatch in visitCondition calls these overrides).
+antlrcpp::Any ASTBuilder::visitHasNodeCheck(BaseParser::HasNodeCheckContext *ctx)
+{
+    ASTNodePtr val = safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr()));
+    return ASTNodePtr(std::make_shared<SetContainsExprNode>(
+        SetTargetKind::GraphNodes, ctx->graphID()->getText(), val));
+}
+
+antlrcpp::Any ASTBuilder::visitHasEdgeCheck(BaseParser::HasEdgeCheckContext *ctx)
+{
+    std::vector<ASTNodePtr> args;
+    args.push_back(std::make_shared<VariableNode>(ctx->graphID()->getText()));
+    args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(0))));
+    args.push_back(safe_any_cast<ASTNodePtr>(visitExpr(ctx->expr(1))));
+    return ASTNodePtr(std::make_shared<FunctionCallNode>("hasEdge", args));
+}
+
+// Row 13: `M = in G search motif { ... };` -> the same MotifMatchesDeclNode the
+// `motifs` spelling builds (bindings, first-appearance variable order).
+antlrcpp::Any ASTBuilder::visitMotifSearchDecl(BaseParser::MotifSearchDeclContext *ctx)
+{
+    std::vector<MotifEdgeSpec> edges;
+    std::vector<std::string> variables;
+    std::unordered_set<std::string> seen;
+    for (auto *edgeCtx : ctx->motifEdge())
+    {
+        MotifEdgeSpec edge = parseMotifEdge(edgeCtx);
+        if (seen.insert(edge.source).second)
+            variables.push_back(edge.source);
+        if (seen.insert(edge.target).second)
+            variables.push_back(edge.target);
+        edges.push_back(std::move(edge));
+    }
+    auto node = std::make_shared<MotifMatchesDeclNode>(
+        ctx->ID()->getText(), ctx->graphID()->getText(), std::move(edges), std::move(variables));
     return std::static_pointer_cast<ASTNode>(node);
 }

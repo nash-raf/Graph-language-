@@ -10,19 +10,19 @@ int colors[n];
 int used[n];
 int degrees[n];
 
-for each vertex v in G {
+for v in G.nodes {
     colors[v] = -1;
     degrees[v] = degree(G, v);
 }
 
-for each vertex v in G {
+for v in G.nodes {
     int i = 0;
     while (i < n) {
         used[i] = 0;
         i = i + 1;
     }
 
-    for each neighbor u of v in G {
+    for u in G.neighbors(v) {
         if (colors[u] >= 0) {
             used[colors[u]] = 1;
         }
@@ -56,6 +56,6 @@ draw G to "graph_coloring.png" {
     }
 };
 
-for each vertex v in G {
+for v in G.nodes {
     print colors[v];
 }

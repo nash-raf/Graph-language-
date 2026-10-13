@@ -11,14 +11,14 @@ int degA[n];
 int degB[n];
 real acc[n];
 int round = 0;
-for each vertex v in G { degA[v] = 0; degB[v] = 0; acc[v] = 1.0; }
+for v in G.nodes { degA[v] = 0; degB[v] = 0; acc[v] = 1.0; }
 while (round < 50) {
   round = round + 1;
-  for each vertex u in G {            // task A: light
-    for each neighbor v of u in G { degA[u] = degA[u] + 1; }
+  for u in G.nodes {            // task A: light
+    for v in G.neighbors(u) { degA[u] = degA[u] + 1; }
   }
-  for each vertex u in G {            // task B: heavy
-    for each neighbor v of u in G {
+  for u in G.nodes {            // task B: heavy
+    for v in G.neighbors(u) {
       real x = acc[u];
       real s = x * 0.5;
       s = s + x / (1.0 + s * s + 0.0);

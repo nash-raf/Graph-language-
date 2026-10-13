@@ -7,7 +7,7 @@ int id[n];
 set frontier;
 set next;
 
-for each vertex v in G {
+for v in G.nodes {
   id[v] = v;
 }
 
@@ -16,7 +16,7 @@ frontier = G.nodes;
 while (setSize(frontier) > 0) {
   next = {};
   for each element u in frontier {
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       if (id[u] < id[v]) {
         id[v] = id[u];
         next.add(v);
@@ -26,6 +26,6 @@ while (setSize(frontier) > 0) {
   frontier = next;
 }
 
-for each vertex v in G {
+for v in G.nodes {
   print id[v];
 }

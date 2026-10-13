@@ -17,7 +17,7 @@ int n = numVertices(G);
 int claim[n];
 int outdeg[n];
 
-for each vertex u in G {
+for u in G.nodes {
   if (u < 2) {
     claim[u] = 1;
   } else {
@@ -26,10 +26,10 @@ for each vertex u in G {
   outdeg[u] = 0;
 }
 
-for each vertex u in G {
+for u in G.nodes {
   if (claim[u] == 1) {
     claim[u] = 0;
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       outdeg[v] = outdeg[v] + 1;
     }
   }

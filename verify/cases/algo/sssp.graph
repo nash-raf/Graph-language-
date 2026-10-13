@@ -19,7 +19,7 @@ int frontier_size = 0;
 int next_size = 0;
 int src = 1;
 
-for each vertex v in G {
+for v in G.nodes {
   dist[v] = inf;
 }
 
@@ -32,7 +32,7 @@ while (frontier_size > 0) {
   int p = 0;
   while (p < frontier_size) {
     int u = frontier[p];
-      for each neighbor v of u in G {
+      for v in G.neighbors(u) {
         int nd = dist[u] + weight(G, u, v);
         if (nd < dist[v]) {
           dist[v] = nd;

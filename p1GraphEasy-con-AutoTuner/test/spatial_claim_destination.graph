@@ -2,5 +2,5 @@ graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
 int n = numVertices(G);
 int out[n];
 int seen[n];
-for each vertex u in G { if (seen[u] == 0) { seen[u] = 1; for each neighbor v of u in G { out[v] = out[v] + u + 1; } } }
-for each vertex u in G { print out[u]; }
+for u in G.nodes { if (seen[u] == 0) { seen[u] = 1; for v in G.neighbors(u) { out[v] = out[v] + u + 1; } } }
+for u in G.nodes { print out[u]; }

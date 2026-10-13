@@ -1,6 +1,6 @@
 graph G3 { edges: file "edgelist.txt"; };
 int j = 0;
 while (j < 5) {
-  add j->((j+1) % 500) to G3;
+  G3.addEdges(j->((j+1) % 500));
   j = j + 1;
 }

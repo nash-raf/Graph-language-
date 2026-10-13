@@ -8,7 +8,7 @@ set frontier;
 set next;
 int src = 1;
 
-for each vertex v in G {
+for v in G.nodes {
   dist[v] = 2147483647;
 }
 
@@ -18,7 +18,7 @@ frontier = {1};
 while (setSize(frontier) > 0) {
   next = {};
   for each element u in frontier {
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       int nd = dist[u] + weight(G, u, v);
       if (nd < dist[v]) {
         dist[v] = nd;

@@ -1,4 +1,4 @@
 graph G { edges: file "../verify/fixtures/tiny_w.txt"; TRUE };
 int s = 0;
-for each edge u, v in G { s = s + weight(G, u, v); }
+for (u, v) in G.edges { s = s + weight(G, u, v); }
 print s;

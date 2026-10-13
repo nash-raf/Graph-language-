@@ -13,7 +13,7 @@ c[0] = 1;
 c[1] = 1;
 int iters = 0;
 while (iters < 10) {
-  for each vertex v in G {
+  for v in G.nodes {
     if (v % 2 == 0) {
       a[v+2] = (a[v] * 3 + b[v]) % 1000003;
       b[v+2] = b[v] * 7 + 11;

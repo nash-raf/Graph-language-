@@ -27,7 +27,7 @@ while (frontier_size > 0) {
 
   while (i < frontier_size) {
     int v = frontier[i];
-    for each neighbor u of v in G {
+    for u in G.neighbors(v) {
       if (visited[u] == 0) {
         visited[u] = 1;
         parent[u] = v;

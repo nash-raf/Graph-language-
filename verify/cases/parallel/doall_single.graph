@@ -9,10 +9,10 @@ graph G {
 int n = numVertices(G);
 real a[n];
 int round = 0;
-for each vertex v in G { a[v] = 1.0; }
+for v in G.nodes { a[v] = 1.0; }
 while (round < 200) {
   round = round + 1;
-  for each vertex v in G {
+  for v in G.nodes {
     real x = a[v];
     real s = x * 0.5;
     s = s + x / (1.0 + s * s + 0.0);

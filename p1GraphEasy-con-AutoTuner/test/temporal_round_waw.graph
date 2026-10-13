@@ -3,12 +3,12 @@ int n = numVertices(G);
 int data[n];
 int r = 0;
 while (r < 3) {
-  for each vertex u in G {
-    for each neighbor v of u in G { data[v] = r; }
+  for u in G.nodes {
+    for v in G.neighbors(u) { data[v] = r; }
   }
   r = r + 1;
 }
 int total = 0;
-for each vertex u in G { total = total + data[u]; }
+for u in G.nodes { total = total + data[u]; }
 print total;
 print r;

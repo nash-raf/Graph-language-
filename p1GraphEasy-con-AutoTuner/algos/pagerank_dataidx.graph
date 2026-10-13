@@ -13,15 +13,15 @@ int perm[n];
 int round = 0;
 int max_rounds = 20;
 
-for each vertex v in G {
+for v in G.nodes {
   cur_rank[v] = one_over_n;
   next_rank[v] = beta;
   out_degree[v] = 0;
   perm[v] = v;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     out_degree[u] = out_degree[u] + 1;
   }
 }
@@ -32,21 +32,21 @@ while (round < max_rounds) {
   // Hand-rolled, iterator-less vertex loop whose store index is load-derived
   // from the graph-data array `perm` (perm[v]) -> must be marked SEQUENTIAL,
   // never racy DOALL. `perm` is the identity, so results equal pagerank_100k.
-  for each vertex v in G {
+  for v in G.nodes {
     next_rank[perm[v]] = beta;
   }
 
-  for each vertex u in G {
+  for u in G.nodes {
     int outd = out_degree[u];
     if (outd > 0) {
       real contrib = damp * cur_rank[u] / outd;
-      for each neighbor v of u in G {
+      for v in G.neighbors(u) {
         next_rank[v] = next_rank[v] + contrib;
       }
     }
   }
 
-  for each vertex v in G {
+  for v in G.nodes {
     cur_rank[v] = next_rank[v];
   }
 }

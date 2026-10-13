@@ -12,8 +12,8 @@ int n = numVertices(G);
 set next;
 
 next = {};
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     next.add(v);
   }
 }

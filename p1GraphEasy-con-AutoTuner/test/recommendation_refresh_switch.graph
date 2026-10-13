@@ -16,7 +16,7 @@ while (event < 16) {
   int user = user_base + event;
   int item = item_base + event;
   int topic = topic_base + event;
-  add user->item, item->topic to InteractionGraph;
+  InteractionGraph.addEdges(user->item, item->topic);
   event = event + 1;
 }
 
@@ -34,15 +34,15 @@ set next;
 int round = 0;
 int max_rounds = 20;
 
-for each vertex v in InteractionGraph {
+for v in InteractionGraph.nodes {
   cur_rank[v] = 0.0;
   ngh_sum[v] = 0.0;
   delta[v] = one_over_n;
   out_degree[v] = 0;
 }
 
-for each vertex u in InteractionGraph {
-  for each neighbor v of u in InteractionGraph {
+for u in InteractionGraph.nodes {
+  for v in InteractionGraph.neighbors(u) {
     out_degree[u] = out_degree[u] + 1;
   }
 }
@@ -56,14 +56,14 @@ while (round < max_rounds) {
     int outd = out_degree[u];
     if (outd > 0) {
       real contrib = du / outd;
-      for each neighbor v of u in InteractionGraph {
+      for v in InteractionGraph.neighbors(u) {
         ngh_sum[v] = ngh_sum[v] + contrib;
       }
     }
   }
 
   next = {};
-  for each vertex v in InteractionGraph {
+  for v in InteractionGraph.nodes {
     real nd = damp * ngh_sum[v] + beta;
     cur_rank[v] = cur_rank[v] + nd;
     delta[v] = nd;

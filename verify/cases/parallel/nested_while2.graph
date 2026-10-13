@@ -1,7 +1,7 @@
 graph G { edges: file "../verify/fixtures/g20k.txt"; };
 int n = numVertices(G);
 int acc[n];
-for each vertex u in G
+for u in G.nodes
 {
     acc[u] = 0;
     int a = 0;
@@ -10,7 +10,7 @@ for each vertex u in G
         int b = 0;
         while (b < 2)
         {
-            for each neighbor v of u in G
+            for v in G.neighbors(u)
             {
                 acc[u] = acc[u] + 1;
             }

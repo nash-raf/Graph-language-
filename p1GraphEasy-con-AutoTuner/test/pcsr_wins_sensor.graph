@@ -24,7 +24,7 @@ int event = 0;
 while (event < 64) {
   int sensor = 500 + event;
   int gateway = 500 + event + 64;
-  add sensor->gateway, gateway->sensor to sensor_graph;
+  sensor_graph.addEdges(sensor->gateway, gateway->sensor);
   event = event + 1;
 }
 
@@ -36,7 +36,7 @@ int rounds = 0;
 while (rounds < 4) {
   set next = {};
   for each element u in frontier {
-    for each neighbor v of u in sensor_graph {
+    for v in sensor_graph.neighbors(u) {
       if (!visited.contains(v)) {
         visited.add(v);
         next.add(v);

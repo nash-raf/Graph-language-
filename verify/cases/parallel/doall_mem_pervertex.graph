@@ -9,7 +9,7 @@ real b[n];
 int round = 0;
 while (round < 200) {
   round = round + 1;
-  for each vertex v in G { b[v] = 1.0 * v; }
+  for v in G.nodes { b[v] = 1.0 * v; }
 }
 real tot = 0.0; int q = 0;
 while (q < n) { tot = tot + b[q]; q = q + 1; }

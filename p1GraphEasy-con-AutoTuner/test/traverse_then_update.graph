@@ -7,66 +7,66 @@ graph WorkGraph {
 
 int checksum = 0;
 
-for each vertex u in WorkGraph {
-  for each neighbor v of u in WorkGraph {
+for u in WorkGraph.nodes {
+  for v in WorkGraph.neighbors(u) {
     checksum = checksum + v;
   }
 }
 
-add 12500->12597 to WorkGraph;
-add 12503->12600 to WorkGraph;
-add 12506->12603 to WorkGraph;
-add 12509->12606 to WorkGraph;
-add 12512->12609 to WorkGraph;
-add 12515->12612 to WorkGraph;
-add 12518->12615 to WorkGraph;
-add 12521->12618 to WorkGraph;
-add 12524->12621 to WorkGraph;
-add 12527->12624 to WorkGraph;
-add 12530->12627 to WorkGraph;
-add 12533->12630 to WorkGraph;
-add 12536->12633 to WorkGraph;
-add 12539->12636 to WorkGraph;
-add 12542->12639 to WorkGraph;
-add 12545->12642 to WorkGraph;
-add 12548->12645 to WorkGraph;
-add 12551->12648 to WorkGraph;
-add 12554->12651 to WorkGraph;
-add 12557->12654 to WorkGraph;
-add 12560->12657 to WorkGraph;
-add 12563->12660 to WorkGraph;
-add 12566->12663 to WorkGraph;
-add 12569->12666 to WorkGraph;
-add 12572->12669 to WorkGraph;
-add 12575->12672 to WorkGraph;
-add 12578->12675 to WorkGraph;
-add 12581->12678 to WorkGraph;
-add 12584->12681 to WorkGraph;
-add 12587->12684 to WorkGraph;
-add 12590->12687 to WorkGraph;
-add 12593->12690 to WorkGraph;
-add 12596->12693 to WorkGraph;
-add 12599->12696 to WorkGraph;
-add 12602->12699 to WorkGraph;
-add 12605->12702 to WorkGraph;
-add 12608->12705 to WorkGraph;
-add 12611->12708 to WorkGraph;
-add 12614->12711 to WorkGraph;
-add 12617->12714 to WorkGraph;
-add 12620->12717 to WorkGraph;
-add 12623->12720 to WorkGraph;
-add 12626->12723 to WorkGraph;
-add 12629->12726 to WorkGraph;
-add 12632->12729 to WorkGraph;
-add 12635->12732 to WorkGraph;
-add 12638->12735 to WorkGraph;
-add 12641->12738 to WorkGraph;
-add 12644->12741 to WorkGraph;
-add 12647->12744 to WorkGraph;
+WorkGraph.addEdges(12500->12597);
+WorkGraph.addEdges(12503->12600);
+WorkGraph.addEdges(12506->12603);
+WorkGraph.addEdges(12509->12606);
+WorkGraph.addEdges(12512->12609);
+WorkGraph.addEdges(12515->12612);
+WorkGraph.addEdges(12518->12615);
+WorkGraph.addEdges(12521->12618);
+WorkGraph.addEdges(12524->12621);
+WorkGraph.addEdges(12527->12624);
+WorkGraph.addEdges(12530->12627);
+WorkGraph.addEdges(12533->12630);
+WorkGraph.addEdges(12536->12633);
+WorkGraph.addEdges(12539->12636);
+WorkGraph.addEdges(12542->12639);
+WorkGraph.addEdges(12545->12642);
+WorkGraph.addEdges(12548->12645);
+WorkGraph.addEdges(12551->12648);
+WorkGraph.addEdges(12554->12651);
+WorkGraph.addEdges(12557->12654);
+WorkGraph.addEdges(12560->12657);
+WorkGraph.addEdges(12563->12660);
+WorkGraph.addEdges(12566->12663);
+WorkGraph.addEdges(12569->12666);
+WorkGraph.addEdges(12572->12669);
+WorkGraph.addEdges(12575->12672);
+WorkGraph.addEdges(12578->12675);
+WorkGraph.addEdges(12581->12678);
+WorkGraph.addEdges(12584->12681);
+WorkGraph.addEdges(12587->12684);
+WorkGraph.addEdges(12590->12687);
+WorkGraph.addEdges(12593->12690);
+WorkGraph.addEdges(12596->12693);
+WorkGraph.addEdges(12599->12696);
+WorkGraph.addEdges(12602->12699);
+WorkGraph.addEdges(12605->12702);
+WorkGraph.addEdges(12608->12705);
+WorkGraph.addEdges(12611->12708);
+WorkGraph.addEdges(12614->12711);
+WorkGraph.addEdges(12617->12714);
+WorkGraph.addEdges(12620->12717);
+WorkGraph.addEdges(12623->12720);
+WorkGraph.addEdges(12626->12723);
+WorkGraph.addEdges(12629->12726);
+WorkGraph.addEdges(12632->12729);
+WorkGraph.addEdges(12635->12732);
+WorkGraph.addEdges(12638->12735);
+WorkGraph.addEdges(12641->12738);
+WorkGraph.addEdges(12644->12741);
+WorkGraph.addEdges(12647->12744);
 
 checksum = 0;
-for each vertex u in WorkGraph {
-  for each neighbor v of u in WorkGraph {
+for u in WorkGraph.nodes {
+  for v in WorkGraph.neighbors(u) {
     checksum = checksum + 1;
   }
 }

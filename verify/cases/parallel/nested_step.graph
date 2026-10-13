@@ -12,7 +12,7 @@ graph G { directed: true; edges: file "../verify/fixtures/tiny5.txt"; };
 int arr[16];
 int k = 0;
 while (k < 16) {
-    for each vertex u in G { for each neighbor v of u in G { arr[v] = arr[v] + 1; } }
+    for u in G.nodes { for v in G.neighbors(u) { arr[v] = arr[v] + 1; } }
     arr[k] = arr[k] + k;
     k = k + 1;
 }

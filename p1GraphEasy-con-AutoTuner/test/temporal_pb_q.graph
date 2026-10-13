@@ -4,11 +4,11 @@ int p[n];
 int b[n];
 int q[n];
 int acc = 0;
-for each vertex u in G {
+for u in G.nodes {
   acc = u;
-  for each neighbor v of u in G { acc = acc + v; b[u] = acc; }
+  for v in G.neighbors(u) { acc = acc + v; b[u] = acc; }
   q[u] = q[u] + 1;
 }
 int total = 0;
-for each vertex u in G { total = total + b[u] + q[u]; }
+for u in G.nodes { total = total + b[u] + q[u]; }
 print total;

@@ -6,18 +6,18 @@ graph G {
 int n = numVertices(G);
 int dist[n];
 
-for each vertex v in G {
+for v in G.nodes {
   dist[v] = v;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     if (dist[u] + 1 < dist[v]) {
       dist[v] = dist[u] + 1;
     }
   }
 }
 
-for each vertex v in G {
+for v in G.nodes {
   print dist[v];
 }

@@ -24,7 +24,7 @@ while (stack_size > 0) {
   stack_size = stack_size - 1;
   int v = stack[stack_size];
 
-  for each neighbor u of v in G {
+  for u in G.neighbors(v) {
     if (visited[u] == 0) {
       visited[u] = 1;
       parent[u] = v;

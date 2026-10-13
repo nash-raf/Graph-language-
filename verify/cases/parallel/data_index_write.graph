@@ -11,19 +11,19 @@ int n = numVertices(G);
 int deg[n];
 int cnt[n];
 
-for each vertex u in G {
+for u in G.nodes {
   deg[u] = 0;
   cnt[u] = 0;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     deg[u] = deg[u] + 1;
   }
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     cnt[deg[u]] = cnt[deg[u]] + 1;
   }
 }

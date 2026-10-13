@@ -1,13 +1,13 @@
 graph G { edges: file "../verify/fixtures/g20k.txt"; };
 int n = numVertices(G);
 int acc[n];
-for each vertex u in G
+for u in G.nodes
 {
     acc[u] = 0;
     int k = 0;
     while (k < 3)
     {
-        for each neighbor v of u in G
+        for v in G.neighbors(u)
         {
             acc[u] = acc[u] + 1;
         }

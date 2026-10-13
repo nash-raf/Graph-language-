@@ -6,13 +6,13 @@ int n = numVertices(G);
 int srcmark[n];
 int dstacc[n];
 
-for each vertex v in G {
+for v in G.nodes {
   srcmark[v] = 0;
   dstacc[v] = 0;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     srcmark[u] = 1;
     dstacc[v] = dstacc[v] + 1;
   }

@@ -22,14 +22,14 @@ while (i < n) {
     i = i + 1;
 }
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         deg[u] = deg[u] + 1;
     }
 }
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         cnt[deg[u]] = cnt[deg[u]] + 1;
     }
 }

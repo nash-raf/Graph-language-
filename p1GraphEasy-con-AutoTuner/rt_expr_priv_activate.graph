@@ -11,7 +11,7 @@ set next;
 while (setSize(frontier) > 0) {
   next = {};
   for each element u in frontier {
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       a = a + v;
       b = b + 1;
       if (v > u) {

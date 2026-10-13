@@ -9,7 +9,7 @@ int dstacc[n];
 set frontier = {0};
 set next;
 
-for each vertex v in G {
+for v in G.nodes {
   alive[v] = 1;
   srcmark[v] = 0;
   dstacc[v] = 0;
@@ -20,7 +20,7 @@ while (setSize(frontier) > 0) {
   for each element u in frontier {
     if (alive[u] == 1) {
       alive[u] = 0;
-      for each neighbor v of u in G {
+      for v in G.neighbors(u) {
         srcmark[u] = 1;
         dstacc[v] = dstacc[v] + 1;
         if (v > u) {

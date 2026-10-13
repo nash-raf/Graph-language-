@@ -2,64 +2,64 @@ graph bio_grid_yeast {
   edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/bio-grid-yeast.txt";
 };
 
-for each vertex v in bio_grid_yeast {
-    for each neighbor u of v in bio_grid_yeast {
+for v in bio_grid_yeast.nodes {
+    for u in bio_grid_yeast.neighbors(v) {
     };
 };
 
-add 5238->912 to bio_grid_yeast;
-add 204->2253 to bio_grid_yeast;
-add 2006->1828 to bio_grid_yeast;
-add 1143->839 to bio_grid_yeast;
-add 5543->4467 to bio_grid_yeast;
-add 712->4837 to bio_grid_yeast;
-add 3456->260 to bio_grid_yeast;
-add 244->767 to bio_grid_yeast;
-add 1791->1905 to bio_grid_yeast;
-add 4139->4931 to bio_grid_yeast;
-add 217->4597 to bio_grid_yeast;
-add 1628->5865 to bio_grid_yeast;
-add 5323->5745 to bio_grid_yeast;
-add 4464->3436 to bio_grid_yeast;
-add 1805->3679 to bio_grid_yeast;
-add 4827->2278 to bio_grid_yeast;
-add 53->1307 to bio_grid_yeast;
-add 5719->3462 to bio_grid_yeast;
-add 2787->2276 to bio_grid_yeast;
-add 1273->1763 to bio_grid_yeast;
-add 2757->837 to bio_grid_yeast;
-add 759->3112 to bio_grid_yeast;
-add 792->2940 to bio_grid_yeast;
-add 2817->4945 to bio_grid_yeast;
-add 2166->355 to bio_grid_yeast;
-add 5977->3763 to bio_grid_yeast;
-add 4392->1022 to bio_grid_yeast;
-add 3100->645 to bio_grid_yeast;
-add 4522->2401 to bio_grid_yeast;
-add 5149->5066 to bio_grid_yeast;
-add 2962->4729 to bio_grid_yeast;
-add 1575->5771 to bio_grid_yeast;
-add 569->375 to bio_grid_yeast;
-add 5417->1866 to bio_grid_yeast;
-add 2370->653 to bio_grid_yeast;
-add 1907->827 to bio_grid_yeast;
-add 3113->2277 to bio_grid_yeast;
-add 3714->5207 to bio_grid_yeast;
-add 2988->1332 to bio_grid_yeast;
-add 3032->2910 to bio_grid_yeast;
-add 1716->5490 to bio_grid_yeast;
-add 2187->5749 to bio_grid_yeast;
-add 5599->5308 to bio_grid_yeast;
-add 584->4990 to bio_grid_yeast;
-add 5201->1401 to bio_grid_yeast;
-add 4375->5973 to bio_grid_yeast;
-add 2005->1338 to bio_grid_yeast;
-add 3786->3108 to bio_grid_yeast;
-add 2211->5242 to bio_grid_yeast;
-add 5637->4562 to bio_grid_yeast;
+bio_grid_yeast.addEdges(5238->912);
+bio_grid_yeast.addEdges(204->2253);
+bio_grid_yeast.addEdges(2006->1828);
+bio_grid_yeast.addEdges(1143->839);
+bio_grid_yeast.addEdges(5543->4467);
+bio_grid_yeast.addEdges(712->4837);
+bio_grid_yeast.addEdges(3456->260);
+bio_grid_yeast.addEdges(244->767);
+bio_grid_yeast.addEdges(1791->1905);
+bio_grid_yeast.addEdges(4139->4931);
+bio_grid_yeast.addEdges(217->4597);
+bio_grid_yeast.addEdges(1628->5865);
+bio_grid_yeast.addEdges(5323->5745);
+bio_grid_yeast.addEdges(4464->3436);
+bio_grid_yeast.addEdges(1805->3679);
+bio_grid_yeast.addEdges(4827->2278);
+bio_grid_yeast.addEdges(53->1307);
+bio_grid_yeast.addEdges(5719->3462);
+bio_grid_yeast.addEdges(2787->2276);
+bio_grid_yeast.addEdges(1273->1763);
+bio_grid_yeast.addEdges(2757->837);
+bio_grid_yeast.addEdges(759->3112);
+bio_grid_yeast.addEdges(792->2940);
+bio_grid_yeast.addEdges(2817->4945);
+bio_grid_yeast.addEdges(2166->355);
+bio_grid_yeast.addEdges(5977->3763);
+bio_grid_yeast.addEdges(4392->1022);
+bio_grid_yeast.addEdges(3100->645);
+bio_grid_yeast.addEdges(4522->2401);
+bio_grid_yeast.addEdges(5149->5066);
+bio_grid_yeast.addEdges(2962->4729);
+bio_grid_yeast.addEdges(1575->5771);
+bio_grid_yeast.addEdges(569->375);
+bio_grid_yeast.addEdges(5417->1866);
+bio_grid_yeast.addEdges(2370->653);
+bio_grid_yeast.addEdges(1907->827);
+bio_grid_yeast.addEdges(3113->2277);
+bio_grid_yeast.addEdges(3714->5207);
+bio_grid_yeast.addEdges(2988->1332);
+bio_grid_yeast.addEdges(3032->2910);
+bio_grid_yeast.addEdges(1716->5490);
+bio_grid_yeast.addEdges(2187->5749);
+bio_grid_yeast.addEdges(5599->5308);
+bio_grid_yeast.addEdges(584->4990);
+bio_grid_yeast.addEdges(5201->1401);
+bio_grid_yeast.addEdges(4375->5973);
+bio_grid_yeast.addEdges(2005->1338);
+bio_grid_yeast.addEdges(3786->3108);
+bio_grid_yeast.addEdges(2211->5242);
+bio_grid_yeast.addEdges(5637->4562);
 
-for each vertex v in bio_grid_yeast {
-    for each neighbor u of v in bio_grid_yeast {
+for v in bio_grid_yeast.nodes {
+    for u in bio_grid_yeast.neighbors(v) {
     };
 };
 

@@ -28,6 +28,23 @@ public:
     antlrcpp::Any visitFunctionCall(BaseParser::FunctionCallContext *ctx) override;
     antlrcpp::Any visitUnweightedGraphDef(BaseParser::UnweightedGraphDefContext *ctx) override;
     antlrcpp::Any visitWeightedGraphDef(BaseParser::WeightedGraphDefContext *ctx) override;
+    // Plan rows 1-4: the new declaration and mutation surface.  Each builds the
+    // same AST node the old spelling builds, so the backend is untouched.
+    antlrcpp::Any visitPlainGraphDef(BaseParser::PlainGraphDefContext *ctx) override;
+    antlrcpp::Any visitLoadGraphDef(BaseParser::LoadGraphDefContext *ctx) override;
+    antlrcpp::Any visitGraphAddNodesCall(BaseParser::GraphAddNodesCallContext *ctx) override;
+    antlrcpp::Any visitGraphAddEdgesCall(BaseParser::GraphAddEdgesCallContext *ctx) override;
+    antlrcpp::Any visitGraphRemoveNodesCall(BaseParser::GraphRemoveNodesCallContext *ctx) override;
+    antlrcpp::Any visitGraphRemoveEdgesCall(BaseParser::GraphRemoveEdgesCallContext *ctx) override;
+    // Rows 5-7: member-style loop headers (same foreach node, CSR iteration).
+    antlrcpp::Any visitForeachNodes(BaseParser::ForeachNodesContext *ctx) override;
+    antlrcpp::Any visitForeachEdges(BaseParser::ForeachEdgesContext *ctx) override;
+    antlrcpp::Any visitForeachNeighbors(BaseParser::ForeachNeighborsContext *ctx) override;
+    // Row 8: membership checks.  hasNode desugars to set membership on G.nodes;
+    // hasEdge lowers through a runtime pair lookup (FunctionCallNode "hasEdge").
+    antlrcpp::Any visitHasNodeCheck(BaseParser::HasNodeCheckContext *ctx) override;
+    antlrcpp::Any visitHasEdgeCheck(BaseParser::HasEdgeCheckContext *ctx) override;
+    antlrcpp::Any visitMotifSearchDecl(BaseParser::MotifSearchDeclContext *ctx) override;
 
     antlrcpp::Any visitQueryStatement(BaseParser::QueryStatementContext *ctx) override;
 

@@ -17,12 +17,12 @@ graph G {
 int n = numVertices(G);
 int A[n];
 
-for each vertex v in G {
+for v in G.nodes {
   A[v] = 0;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     A[u] = 1;
     A[v] = 1;
   }

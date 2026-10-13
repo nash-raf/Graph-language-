@@ -15,7 +15,7 @@ while (patch < 8) {
   int region = region_base + patch;
   int shard = shard_base + patch;
   int replica = replica_base + patch;
-  add region->shard, shard->replica to InfraGraph;
+  InfraGraph.addEdges(region->shard, shard->replica);
   patch = patch + 1;
 }
 
@@ -23,7 +23,7 @@ int cleanup = 0;
 while (cleanup < 8) {
   int shard = shard_base + cleanup;
   int replica = replica_base + cleanup;
-  remove shard->replica from InfraGraph;
+  InfraGraph.removeEdges(shard->replica);
   cleanup = cleanup + 1;
 }
 
@@ -51,7 +51,7 @@ while (frontier_size > 0) {
   int i = 0;
   while (i < frontier_size) {
     int v = frontier[i];
-    for each neighbor u of v in InfraGraph {
+    for u in InfraGraph.neighbors(v) {
       if (visited[u] == 0) {
         visited[u] = 1;
         parent[u] = v;

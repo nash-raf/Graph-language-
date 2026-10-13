@@ -7,8 +7,8 @@ int acc = 0; int other = 0;
 while (r < limit) {
   acc = 0; other = 0;
   r = r + 1;
-  for each vertex u in G {
-    for each neighbor v of u in G {
+  for u in G.nodes {
+    for v in G.neighbors(u) {
       acc = acc + (v + 1);
       other = other + (u + 2);
     }

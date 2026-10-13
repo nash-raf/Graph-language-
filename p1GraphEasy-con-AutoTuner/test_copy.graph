@@ -4,12 +4,12 @@ graph g1 {
 
 query bfs_a: "bfs" of g1;
 
-add 500001 to g1;
-add 500002 to g1;
-add 2->500001 to g1;
-add 3->500002 to g1;
-remove 1 from g1;
-remove 2->3 from g1;
+g1.addNodes(500001);
+g1.addNodes(500002);
+g1.addEdges(2->500001);
+g1.addEdges(3->500002);
+g1.removeNodes(1);
+g1.removeEdges(2->3);
 
 set s_nodes = g1.nodes;
 set s_mix = s_nodes intersect g1.nodes;

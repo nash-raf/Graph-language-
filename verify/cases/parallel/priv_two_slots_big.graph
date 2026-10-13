@@ -14,8 +14,8 @@ graph G {
 int a = 0;
 int b = 0;
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         a = a + 1;
         b = b + v;
     }

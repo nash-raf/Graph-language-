@@ -2,64 +2,64 @@ graph copresence_InVS15 {
   edges: file "/home/kazisahib/sgpl_main/dataset/real graphs/copresence-InVS15.txt";
 };
 
-for each vertex v in copresence_InVS15 {
-    for each neighbor u of v in copresence_InVS15 {
+for v in copresence_InVS15.nodes {
+    for u in copresence_InVS15.neighbors(v) {
     };
 };
 
-add 1309->228 to copresence_InVS15;
-add 51->1518 to copresence_InVS15;
-add 563->501 to copresence_InVS15;
-add 457->285 to copresence_InVS15;
-add 1508->209 to copresence_InVS15;
-add 1385->1516 to copresence_InVS15;
-add 1827->1116 to copresence_InVS15;
-add 178->1209 to copresence_InVS15;
-add 864->65 to copresence_InVS15;
-add 61->191 to copresence_InVS15;
-add 447->476 to copresence_InVS15;
-add 1034->1232 to copresence_InVS15;
-add 54->1149 to copresence_InVS15;
-add 407->1466 to copresence_InVS15;
-add 1330->1436 to copresence_InVS15;
-add 1116->859 to copresence_InVS15;
-add 451->919 to copresence_InVS15;
-add 1206->569 to copresence_InVS15;
-add 1657->1780 to copresence_InVS15;
-add 13->1554 to copresence_InVS15;
-add 1650->326 to copresence_InVS15;
-add 1429->865 to copresence_InVS15;
-add 696->569 to copresence_InVS15;
-add 318->440 to copresence_InVS15;
-add 1563->689 to copresence_InVS15;
-add 209->189 to copresence_InVS15;
-add 778->198 to copresence_InVS15;
-add 735->1735 to copresence_InVS15;
-add 704->1236 to copresence_InVS15;
-add 541->1652 to copresence_InVS15;
-add 88->1494 to copresence_InVS15;
-add 940->1098 to copresence_InVS15;
-add 255->775 to copresence_InVS15;
-add 161->1130 to copresence_InVS15;
-add 600->1698 to copresence_InVS15;
-add 1287->1266 to copresence_InVS15;
-add 1813->1764 to copresence_InVS15;
-add 740->1182 to copresence_InVS15;
-add 393->1442 to copresence_InVS15;
-add 142->93 to copresence_InVS15;
-add 1354->466 to copresence_InVS15;
-add 1583->592 to copresence_InVS15;
-add 163->1751 to copresence_InVS15;
-add 476->1774 to copresence_InVS15;
-add 206->778 to copresence_InVS15;
-add 569->928 to copresence_InVS15;
-add 1301->1708 to copresence_InVS15;
-add 747->333 to copresence_InVS15;
-add 758->727 to copresence_InVS15;
-add 429->1372 to copresence_InVS15;
+copresence_InVS15.addEdges(1309->228);
+copresence_InVS15.addEdges(51->1518);
+copresence_InVS15.addEdges(563->501);
+copresence_InVS15.addEdges(457->285);
+copresence_InVS15.addEdges(1508->209);
+copresence_InVS15.addEdges(1385->1516);
+copresence_InVS15.addEdges(1827->1116);
+copresence_InVS15.addEdges(178->1209);
+copresence_InVS15.addEdges(864->65);
+copresence_InVS15.addEdges(61->191);
+copresence_InVS15.addEdges(447->476);
+copresence_InVS15.addEdges(1034->1232);
+copresence_InVS15.addEdges(54->1149);
+copresence_InVS15.addEdges(407->1466);
+copresence_InVS15.addEdges(1330->1436);
+copresence_InVS15.addEdges(1116->859);
+copresence_InVS15.addEdges(451->919);
+copresence_InVS15.addEdges(1206->569);
+copresence_InVS15.addEdges(1657->1780);
+copresence_InVS15.addEdges(13->1554);
+copresence_InVS15.addEdges(1650->326);
+copresence_InVS15.addEdges(1429->865);
+copresence_InVS15.addEdges(696->569);
+copresence_InVS15.addEdges(318->440);
+copresence_InVS15.addEdges(1563->689);
+copresence_InVS15.addEdges(209->189);
+copresence_InVS15.addEdges(778->198);
+copresence_InVS15.addEdges(735->1735);
+copresence_InVS15.addEdges(704->1236);
+copresence_InVS15.addEdges(541->1652);
+copresence_InVS15.addEdges(88->1494);
+copresence_InVS15.addEdges(940->1098);
+copresence_InVS15.addEdges(255->775);
+copresence_InVS15.addEdges(161->1130);
+copresence_InVS15.addEdges(600->1698);
+copresence_InVS15.addEdges(1287->1266);
+copresence_InVS15.addEdges(1813->1764);
+copresence_InVS15.addEdges(740->1182);
+copresence_InVS15.addEdges(393->1442);
+copresence_InVS15.addEdges(142->93);
+copresence_InVS15.addEdges(1354->466);
+copresence_InVS15.addEdges(1583->592);
+copresence_InVS15.addEdges(163->1751);
+copresence_InVS15.addEdges(476->1774);
+copresence_InVS15.addEdges(206->778);
+copresence_InVS15.addEdges(569->928);
+copresence_InVS15.addEdges(1301->1708);
+copresence_InVS15.addEdges(747->333);
+copresence_InVS15.addEdges(758->727);
+copresence_InVS15.addEdges(429->1372);
 
-for each vertex v in copresence_InVS15 {
-    for each neighbor u of v in copresence_InVS15 {
+for v in copresence_InVS15.nodes {
+    for u in copresence_InVS15.neighbors(v) {
     };
 };
 

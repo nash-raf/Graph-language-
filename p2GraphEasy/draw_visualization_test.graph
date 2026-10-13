@@ -9,7 +9,7 @@ int classes[5] = [1, 2, 1, 3, 2];
 int sizes[5] = [1, 2, 3, 4, 5];
 real scores[n];
 
-for each vertex v in G {
+for v in G.nodes {
     scores[v] = v / 4.0;
 }
 

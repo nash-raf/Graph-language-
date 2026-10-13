@@ -1,7 +1,7 @@
 graph G { directed: true; edges: file "rtest_small.txt"; };
 int n = numVertices(G);
 int out[n];
-for each vertex u in G {
-  for each neighbor v of u in G { out[u] = out[u] + v; }
+for u in G.nodes {
+  for v in G.neighbors(u) { out[u] = out[u] + v; }
 }
 print out[0];

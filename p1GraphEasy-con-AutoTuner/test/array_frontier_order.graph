@@ -13,7 +13,7 @@ while(frontier_size>0) {
   int p=0;
   while(p<frontier_size) {
     int u=frontier[p];
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       hits[v]=hits[v]+1;
       if(hits[v]<2) {
         next_frontier[next_size]=v; next_size=next_size+1;
@@ -29,4 +29,4 @@ while(frontier_size>0) {
   swap(frontier,next_frontier);
   frontier_size=next_size;
 }
-for each vertex v in G { print hits[v]; }
+for v in G.nodes { print hits[v]; }

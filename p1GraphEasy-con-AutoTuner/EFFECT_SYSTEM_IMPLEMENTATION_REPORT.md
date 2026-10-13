@@ -979,3 +979,42 @@ without an activation envelope): the emitter prints
 i.e. `HasFrontierAppend == false` (so R7 is not raised and no envelope is
 required) and no reduction/private/claim machinery — the verdict admits it, and
 the runtime routes its source-owned kernel to the source-owned device attempt.
+
+---
+
+## Proof layer (plan sections 3–11, this round)
+
+The implementation no longer decides from the R1–R7 witness list.  The verdicts
+come from a complete relation/graph proof:
+
+- **Footprints** (§3.1): `Effect::Footprints` — one footprint per access mode
+  (an RMW owns a Read and a Write) plus resource footprints in the `SGPL_RES_*`
+  vocabulary.  Built once by `buildFootprints()` after σ, round separation and
+  the privatization decision are final.
+- **Relations** (§3.2): `deriveAccessRelations` generates every ordered
+  footprint pair on an aliased base or shared resource with a writer — RAW,
+  WAR, WAW — with no cap (`RelationOverflow` is rejected) and with semantic
+  order only from phases/`Seq`, never from `Par` flattening.
+- **Projections** (§4/§5): `relateAccessTemporal` (phase + round scopes) and
+  `relateAccessSpatial`/`footprintHasOwner` (ExactOwner / MayCrossOwner /
+  CrossOwner / NoOwner / UnknownOwner; resolved only by privatization, a
+  recognized fold's partial, a staged claim, or the wired frontier envelope —
+  each using the same availability test as the corresponding witness).
+- **Transformations** (§7): `buildTransformations` records each removal with
+  the conditions it checked; atomicity alone never discharges.
+- **Graphs and proof** (§6/§9): `buildProofGraphs` (phase, round, spatial;
+  components, cycles, crossing test, unary obligations) and `buildAxisProof`
+  (three-valued: proven / interfering / inconclusive, where inconclusive is
+  never non-interference).
+- **Schedule** (§10): `selectSchedule` consumes the proof; R8 keeps its guard,
+  an inconclusive or unrealizable proof fails closed to serial+impl, and the
+  effective axes are the certificate OR the graph — the graph can only be
+  stricter.  A surviving `CrossOwner` edge adds the tagged `RealizationOrder`
+  edge the staged dual needs even when no witness fired.
+- **Runtime** (§11): `sgpl_dag_relation_desc` carries the proof metadata and is
+  validated fail-closed; `sgpl_exec_dag_spatial_graph`,
+  `sgpl_exec_dag_temporal_units` and `sgpl_exec_dag_product` execute
+  proof-derived graphs while the existing lifecycle units stay untouched.
+
+Evidence: see `verify/PLAN_CONFORMANCE.md`, `verify/PLAN_PROGRESS.md` and
+`verify/PLAN_FINAL_REPORT.md`.

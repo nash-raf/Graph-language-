@@ -17,22 +17,22 @@ graph G {
 int n = numVertices(G);
 
 int cnt = 0;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     cnt = cnt + 1;
   }
 }
 
 int subc = 0;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     subc = subc - 1;
   }
 }
 
 int ssum = 0;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     if (v < 100) {
       ssum = ssum + v;
     }
@@ -40,15 +40,15 @@ for each vertex u in G {
 }
 
 int mn = 1000000;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     mn = min(mn, v);
   }
 }
 
 int mn2 = 1000000;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     if (v < mn2) {
       mn2 = v;
     }
@@ -56,15 +56,15 @@ for each vertex u in G {
 }
 
 int mx = -1;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     mx = max(mx, v);
   }
 }
 
 int mx2 = -1;
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     if (v > mx2) {
       mx2 = v;
     }

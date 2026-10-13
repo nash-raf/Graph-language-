@@ -12,14 +12,14 @@ int out_degree[n];
 int round = 0;
 int max_rounds = 20;
 
-for each vertex v in G {
+for v in G.nodes {
   cur_rank[v] = one_over_n;
   next_rank[v] = beta;
   out_degree[v] = 0;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     out_degree[u] = out_degree[u] + 1;
   }
 }
@@ -27,21 +27,21 @@ for each vertex u in G {
 while (round < max_rounds) {
   round = round + 1;
 
-  for each vertex v in G {
+  for v in G.nodes {
     next_rank[v] = beta;
   }
 
-  for each vertex u in G {
+  for u in G.nodes {
     int outd = out_degree[u];
     if (outd > 0) {
       real contrib = damp * cur_rank[u] / outd;
-      for each neighbor v of u in G {
+      for v in G.neighbors(u) {
         next_rank[v] = next_rank[v] + contrib;
       }
     }
   }
 
-  for each vertex v in G {
+  for v in G.nodes {
     cur_rank[v] = next_rank[v];
   }
 }

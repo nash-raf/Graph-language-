@@ -17,10 +17,10 @@ graph G {
 int n = numVertices(G);
 int dist[n];
 
-for each vertex v in G { dist[v] = 1; }
+for v in G.nodes { dist[v] = 1; }
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         dist[v] = dist[v] + dist[u];
     }
 }

@@ -996,7 +996,19 @@ void SemanticAnalyzer::analyzeMotifMatchesDecl(MotifMatchesDeclNode *M)
         else if (auto *weighted = dynamic_cast<WeightedGraphDeclNode *>(graphIt->second))
             directed = weighted->directed;
         if (!directed)
-            error("motif collections require directed: true on graph " + M->graphName);
+        {
+            // Undirected graph: mirror every pattern edge so the matcher's
+            // `required` matrix becomes symmetric.  Without this the reverse-arc
+            // test can never hold on a CSR that stores both directions, and the
+            // pattern matches nothing.  Reading: `->` = adjacency, `-|` =
+            // non-adjacency; the automorphism canonicalization de-duplicates the
+            // symmetric variable orders.
+            std::vector<MotifEdgeSpec> mirrored;
+            for (const MotifEdgeSpec &e : M->motifEdges)
+                if (e.source != e.target)
+                    mirrored.push_back(MotifEdgeSpec{e.target, e.source, e.sign});
+            M->motifEdges.insert(M->motifEdges.end(), mirrored.begin(), mirrored.end());
+        }
     }
 
     std::unordered_set<std::string> edgeKeys;

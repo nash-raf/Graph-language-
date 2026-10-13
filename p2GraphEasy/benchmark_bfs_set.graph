@@ -13,7 +13,7 @@ while (setSize(frontier) > 0) {
   next = {};
   for each element v in frontier {
     dist[v] = level;
-    for each neighbor u of v in G {
+    for u in G.neighbors(v) {
       if (!visited.contains(u)) {
         visited.add(u);
         next.add(u);

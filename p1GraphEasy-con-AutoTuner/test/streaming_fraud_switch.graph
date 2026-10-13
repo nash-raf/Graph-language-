@@ -16,7 +16,7 @@ while (batch < 16) {
   int suspicious = suspicious_base + batch;
   int mule = mule_base + batch;
   int merchant = merchant_base + batch;
-  add suspicious->mule, mule->merchant, merchant->(merchant + 500) to TransactionGraph;
+  TransactionGraph.addEdges(suspicious->mule, mule->merchant, merchant->(merchant + 500));
   batch = batch + 1;
 }
 
@@ -27,7 +27,7 @@ int rounds = 0;
 while (rounds < 3) {
   set next = {};
   for each element u in frontier {
-    for each neighbor v of u in TransactionGraph {
+    for v in TransactionGraph.neighbors(u) {
       if (!visited.contains(v)) {
         visited.add(v);
         next.add(v);

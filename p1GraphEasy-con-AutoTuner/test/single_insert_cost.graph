@@ -4,4 +4,4 @@ graph SingleInsert {
   edges: file "shared_edgelist.txt";
 };
 
-add 0->5 to SingleInsert;
+SingleInsert.addEdges(0->5);

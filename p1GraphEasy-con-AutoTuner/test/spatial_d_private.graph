@@ -1,6 +1,6 @@
 graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
 int n = numVertices(G);
 int index[n]; int out[n];
-for each vertex u in G { index[u] = u % 2; }
-for each vertex u in G { for each neighbor v of u in G { out[index[v]] = out[index[v]] + (u + 1); } }
-for each vertex u in G { print out[u]; }
+for u in G.nodes { index[u] = u % 2; }
+for u in G.nodes { for v in G.neighbors(u) { out[index[v]] = out[index[v]] + (u + 1); } }
+for u in G.nodes { print out[u]; }

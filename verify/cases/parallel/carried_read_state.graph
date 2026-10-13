@@ -19,19 +19,19 @@ graph G {
 int n = numVertices(G);
 int deg[n];
 
-for each vertex v in G {
+for v in G.nodes {
     deg[v] = 0;
 }
 
-for each vertex u in G {
-    for each neighbor v of u in G {
+for u in G.nodes {
+    for v in G.neighbors(u) {
         deg[u] = deg[u] + 1;
     }
 }
 
-for each vertex u in G {
+for u in G.nodes {
     if (deg[u] >= 0) {
-        for each neighbor v of u in G {
+        for v in G.neighbors(u) {
             deg[v] = deg[v] - 1;
         }
     }

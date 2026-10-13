@@ -42,7 +42,7 @@ while (frontier_size > 0) {
             int v = frontier[i];
             dist[v] = level;
 
-            for each neighbor u of v in G {
+            for u in G.neighbors(v) {
                 if (visited[u] == 0) {
                     visited[u] = 1;
                     next_frontier[next_size] = u;
@@ -64,7 +64,7 @@ while (frontier_size > 0) {
                 int v = i;
                 int discovered = 0;
 
-                for each neighbor u of v in G {
+                for u in G.neighbors(v) {
                     if (frontier_bitmap[u] == 1 && discovered == 0) {
                         visited[v] = 1;
                         dist[v] = level;

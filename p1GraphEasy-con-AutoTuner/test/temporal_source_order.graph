@@ -3,13 +3,13 @@ int n = numVertices(G);
 int pairs[n];
 int expected = 0;
 int bad = 0;
-for each vertex u in G {
+for u in G.nodes {
   if (u != expected) { bad = bad + 1; }
-  for each neighbor v of u in G { pairs[u] = pairs[u] + v; }
+  for v in G.neighbors(u) { pairs[u] = pairs[u] + v; }
   expected = expected + 1;
 }
 int total = 0;
-for each vertex u in G { total = total + pairs[u]; }
+for u in G.nodes { total = total + pairs[u]; }
 print total;
 print expected;
 print bad;

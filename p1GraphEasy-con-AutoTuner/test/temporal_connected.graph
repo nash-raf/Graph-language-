@@ -2,11 +2,11 @@ graph G { directed: true; edges: file "rtest_small.txt"; };
 int n = numVertices(G);
 int out[n];
 int acc = 0;
-for each vertex u in G {
+for u in G.nodes {
   acc = u;
-  for each neighbor v of u in G { acc = acc + v; }
+  for v in G.neighbors(u) { acc = acc + v; }
   out[u] = acc;
 }
 int total = 0;
-for each vertex u in G { total = total + out[u]; }
+for u in G.nodes { total = total + out[u]; }
 print total;

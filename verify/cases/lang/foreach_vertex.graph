@@ -1,4 +1,4 @@
 graph G { edges: file "../verify/fixtures/tiny.txt"; };
 int c = 0;
-for each vertex v in G { c = c + 1; }
+for v in G.nodes { c = c + 1; }
 print c;

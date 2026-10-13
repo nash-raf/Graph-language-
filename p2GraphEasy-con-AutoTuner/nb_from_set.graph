@@ -6,7 +6,7 @@ set frontier;
 frontier = {0};
 for each element u in frontier {
   print u;
-  for each neighbor v of u in G {
+  for v in G.neighbors(u) {
     print v;
     print weight(G, u, v);
   }

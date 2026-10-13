@@ -5,12 +5,12 @@ graph G {
 int n = numVertices(G);
 int dist[n];
 
-for each vertex v in G {
+for v in G.nodes {
   dist[v] = n;
 }
 
-for each vertex u in G {
-  for each neighbor v of u in G {
+for u in G.nodes {
+  for v in G.neighbors(u) {
     if (u < dist[v]) {
       dist[v] = u;
     }

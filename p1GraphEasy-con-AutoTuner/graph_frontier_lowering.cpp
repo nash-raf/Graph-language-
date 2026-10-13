@@ -1050,6 +1050,7 @@ static bool hasPerSourceClaim(const NeighborLoopInfo &Info);
 static bool gpuBackendSelected(Module *M);
 static bool hasPairPhaseClaim(const NeighborLoopInfo &Info);
 static bool envelopeWired(const NeighborLoopInfo &Info);
+static SmallVector<const Effect *, 2> perSourceClaims(const NeighborLoopInfo &Info);
 
 /* Does this load read one element out of a data array (base = a loaded pointer
  * or a global array), as opposed to a scalar slot?  A graph data array element
@@ -2788,14 +2789,25 @@ static const Value *indexIdentity(const NeighborLoopInfo &Info, Value *Idx)
  * owned exactly when its index is an element of the owning domain (never a
  * constant: a constant element is written by every iteration).  Resolved by a
  * transformation whenever the footprint is a private copy, a recognized fold's
- * partial, or staged claim state. */
+ * partial, a staged claim, or the wired frontier envelope — and only when that
+ * transformation's own availability test holds (the same test the witness uses,
+ * so the graph can never be cleaner than the witness list). */
 static bool footprintHasOwner(const NeighborLoopInfo &Info, const Footprint &F)
 {
     if (F.Modes & FP_PRIVATE)
         return true; /* the private copy belongs to the partition */
     for (const ResourceAccess &RA : F.Resources)
-        if (RA.Resource == SGPL_RES_PARTIAL || RA.Resource == SGPL_RES_CLAIM)
-            return true;
+        if (RA.Resource == SGPL_RES_PARTIAL)
+            return true; /* a recognized fold's partial */
+        else if (RA.Resource == SGPL_RES_CLAIM)
+        {
+            /* A pair-phase claim is ordered by the claim op itself; a
+             * per-source claim is owned only when the staging path exists
+             * (exactly the R2 witness's discharge test). */
+            if (Info.HasFirstWins || F.Scope == OccurrenceScope::PerPair)
+                return true;
+            return !perSourceClaims(Info).empty();
+        }
     /* §7.6: a wired frontier envelope owns its append (F_t membership read,
      * dest_seen claim, F_{t+1} append, append-head ordering).  Without the
      * envelope the append has no owner — the R7 shape. */
@@ -6988,7 +7000,8 @@ static uint32_t proofAddNode(ProofGraph &G, ProofNodeKind Kind, Region Owned,
                              PhaseSegment Seg, DomainKind Dom)
 {
     for (const ProofNode &N : G.Nodes)
-        if (N.Kind == Kind && N.Owned == Owned && N.Seg == Seg && N.Domain == Dom)
+        if (N.Kind == Kind && N.Owned == Owned && N.Seg == Seg &&
+            N.Domain == Dom)
             return N.Id;
     ProofNode N;
     N.Id = (uint32_t)G.Nodes.size() + 1;
@@ -7188,7 +7201,9 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         ProofEdge SE = E;
         /* The endpoint nodes must exist even when a footprint has no Base (a
          * resource relation) or a provenance region no effect wrote: an
-         * unrepresentable endpoint is a graph error, never a missing edge. */
+         * unrepresentable endpoint is a graph error, never a missing edge.
+         * Nodes are keyed by (base, owner domain), so an edge can only ever
+         * join two nodes of the relation's own base. */
         SE.From = proofAddNode(Spatial, ProofNodeKind::Partition, R.SourceRegion,
                                PhaseSegment::None, DomainKind::AllVertices);
         SE.To = proofAddNode(Spatial, ProofNodeKind::Partition, R.SinkRegion,

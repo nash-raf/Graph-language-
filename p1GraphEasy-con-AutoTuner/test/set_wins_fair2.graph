@@ -11,7 +11,7 @@ int batch = 0;
 while (batch < 128) {
   int src = batch % 20;
   int dst = (batch + 10) % 20;
-  add src->dst, dst->src to team_graph;
+  team_graph.addEdges(src->dst, dst->src);
   batch = batch + 1;
 }
 

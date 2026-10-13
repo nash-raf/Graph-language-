@@ -12,6 +12,6 @@ while (i < 10) {
 /* Phase 2: insert (triggers conversion at boundary) */
 int j = 0;
 while (j < 10) {
-  add j->((j+1) % 500) to Ablation_N500_D2_H10;
+  Ablation_N500_D2_H10.addEdges(j->((j+1) % 500));
   j = j + 1;
 }

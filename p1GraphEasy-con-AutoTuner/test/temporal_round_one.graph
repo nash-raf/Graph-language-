@@ -11,10 +11,10 @@ while (r < limit) {
   p[r] = 0;
   q[r] = 0;
   r = r + 1;
-  for each vertex u in G {
+  for u in G.nodes {
     acc = 0;
     p[r - 1] = p[r - 1] + 1;
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
       acc = acc + v + 1;
       out[r - 1] = out[r - 1] + acc;
     }

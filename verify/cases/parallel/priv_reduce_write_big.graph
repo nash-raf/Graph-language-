@@ -22,9 +22,9 @@ int i = 0;
 while (i < n) { w[i] = 0; i = i + 1; }
 
 int acc = 0;
-for each vertex u in G {
+for u in G.nodes {
     w[u] = w[u] + 1;
-    for each neighbor v of u in G {
+    for v in G.neighbors(u) {
         acc = acc + 1;
     }
 }

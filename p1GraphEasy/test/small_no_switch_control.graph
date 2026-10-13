@@ -7,13 +7,13 @@ query baseline: "bfs" of SmallControl;
 
 int src = 100;
 while (src < 102) {
-  add src->(src + 1), src->(src + 3) to SmallControl;
+  SmallControl.addEdges(src->(src + 1), src->(src + 3));
   src = src + 1;
 }
 
 int dead = 100;
 while (dead < 102) {
-  remove dead->(dead + 3) from SmallControl;
+  SmallControl.removeEdges(dead->(dead + 3));
   dead = dead + 1;
 }
 
@@ -29,7 +29,7 @@ while (setSize(frontier) > 0) {
     if (!visited.contains(u)) {
       visited.add(u);
       reached = reached + 1;
-      for each neighbor v of u in SmallControl {
+      for v in SmallControl.neighbors(u) {
         if (!visited.contains(v)) {
           next.add(v);
         }

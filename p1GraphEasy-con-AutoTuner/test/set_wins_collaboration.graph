@@ -15,7 +15,7 @@ int batch = 0;
 while (batch < 128) {
   int new_member = 20 + batch;
   int hub = batch % 10;
-  add new_member->hub, hub->new_member to team_graph;
+  team_graph.addEdges(new_member->hub, hub->new_member);
   batch = batch + 1;
 }
 

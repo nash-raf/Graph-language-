@@ -7,16 +7,16 @@ int n = numVertices(G);
 int res[n];
 int acc = 0;
 
-for each vertex u in G {
+for u in G.nodes {
   acc = 0;
-  for each neighbor v of u in G {
+  for v in G.neighbors(u) {
     acc = acc + v;
   }
   res[u] = acc;
 }
 
 int total = 0;
-for each vertex v in G {
+for v in G.nodes {
   total = total + res[v];
 }
 

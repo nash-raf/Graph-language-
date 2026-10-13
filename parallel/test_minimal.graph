@@ -3,6 +3,6 @@ graph g1 {
 };
 
 query bfs_boot: "bfs" of g1;
-add 1->2 to g1;
-add 3->4 to g1;
+g1.addEdges(1->2);
+g1.addEdges(3->4);
 query bfs_final: "bfs" of g1;

@@ -113,7 +113,7 @@ _CLASS_TIERS = {}  # graph label → {cls: (N_s, h2, h3)} | None
 def _class_tiers_for_label(n_ops=100):
     """Per-class (N, h2, h3) per directed insert for the graph currently
     being predicted.  Returns None when the edge file is unavailable so
-    insert_cost_bcsr degrades to the legacy equation."""
+    insert_cost_bcsr uses DRAM residency in the current equation."""
     label = _CUR_GRAPH
     if not label:
         return None
@@ -132,61 +132,16 @@ def _class_tiers_for_label(n_ops=100):
 
 _CLASS_RATES = None
 
-# ── Cache-model selection (exactly one active) ─────────────────────────
-# AUTOTUNER_CACHE_MODEL ∈ {hybrid, legacy, aware, class_tier}:
-#   hybrid     -> legacy structural equations + class-tier weighted
-#                 per-line rates on the memory-penalty terms (DEFAULT,
-#                 production cost model; mirrors the AutoTunerPass)
-#   legacy     -> original footprint-only mem_penalty (no RD correction)
-#   aware      -> legacy structural equations + cache-aware penalty
-#                 F(W,h2,h3) on the existing mem_penalty terms
-#   class_tier -> previous experimental class x residency rate model
-#                 (diagnostics only)
-_CACHE_MODEL_OVERRIDE = None  # set via set_cache_model (tests/harness)
-
-def cache_model():
-    """Current cache-model mode.  Default 'hybrid'."""
-    if _CACHE_MODEL_OVERRIDE is not None:
-        return _CACHE_MODEL_OVERRIDE
-    m = os.environ.get("AUTOTUNER_CACHE_MODEL", "hybrid")
-    return m if m in ("hybrid", "legacy", "aware", "class_tier") else "hybrid"
-
+# The imported ARS equation is the only graph-layout cost model.
+# Retain the setter for scripts that already select the production "hybrid"
+# name, and reject retired comparison modes instead of computing old costs.
 def set_cache_model(mode):
-    global _CACHE_MODEL_OVERRIDE
-    _CACHE_MODEL_OVERRIDE = (mode if mode in ("hybrid", "legacy", "aware",
-                                              "class_tier") else "hybrid")
+    if mode != "hybrid":
+        raise ValueError("Retired cost model: " + str(mode) +
+                         "; only the current ARS model ('hybrid') is available")
 
-# Cache hierarchy sizes used by the cache-aware penalty (bytes).
-# L2 = 1,310,720 B (1.25 MiB; matches rd_hist.L2_LINES * 64 and the C++
-# HwCalib.l2Bytes).  LLC comes from hw_calib.json (matches the RD L3
-# threshold and the C++ HwCalib.LLC).
+
 L2_BYTES = 1310720.0
-
-def mem_penalty_cache_aware(ws, h2, h3):
-    """F(W, h2, h3) — cache-aware extension of the existing footprint
-    penalty (Sen/Wood supplies the residency fractions; the calibrated
-    curve supplies the per-line cost proxy):
-
-        F = h2·p(min(W, L2)) + (h3−h2)·p(min(W, LLC)) + (1−h3)·p(W)
-
-    with p(·) = mem_penalty(·) = curve_per_line(·)/Tm.  This is a
-    cache-locality correction to the calibrated penalty, NOT a replacement
-    of the structural cost terms.  Limits: h3=0 -> p(W) (exact legacy);
-    h2=1 -> p(min(W,L2)) (cache-resident floor); W<=L2 -> p(W)."""
-    p = mem_penalty
-    return (h2 * p(min(ws, L2_BYTES))
-            + (h3 - h2) * p(min(ws, LLC))
-            + (1.0 - h3) * p(ws))
-
-
-def _penalty(ws, tiers, cls):
-    """mem_penalty for a legacy memory term: the cache-aware F when the
-    mode is 'aware' and the class-tier payload is present; otherwise the
-    frozen footprint-only penalty."""
-    if cache_model() == "aware" and tiers is not None:
-        _, h2, h3 = tiers[cls]
-        return mem_penalty_cache_aware(ws, h2, h3)
-    return mem_penalty(ws)
 
 # CSR per-class tiers: mirror of _CLASS_TIERS but resolved by the CSR
 # estimator (AnalyticCSR: move/brow/struct; scan absent).
@@ -195,7 +150,7 @@ _CSR_TIERS = {}
 def _class_tiers_csr_for_label(n_ops=100):
     """Per-class (N, h2, h3) per directed insert for the current graph from
     the CSR analytic estimator.  None when the edge file is unavailable so
-    insert_cost_csr degrades to the legacy equation."""
+    insert_cost_csr uses DRAM residency in the current equation."""
     label = _CUR_GRAPH
     if not label:
         return None
@@ -225,6 +180,7 @@ def class_rates_model():
         return _CLASS_RATES
     _DEP = (1.6220, 2.1931, 8.6007)
     _CSR_MOVE = (1.6756, 3.2460, 8.4735)
+    _SET_ITER = (3.1999, 4.1621, 6.4436)   # ns/pair, measured (class_calib.c "set_iter": real roaring_bitmap_contains, fully-live bitmap, locked state)
     cr = _hw.get("class_rates")
     if cr:
         _CLASS_RATES = {
@@ -232,6 +188,7 @@ def class_rates_model():
             "brow": tuple(cr["rmw"]), "struct": tuple(cr["rand"]),
             "dep": tuple(cr.get("dep", _DEP)),
             "csr_move": tuple(cr.get("csr_move", _CSR_MOVE)),
+            "set_iter": tuple(cr.get("set_iter", _SET_ITER)),
         }
         return _CLASS_RATES
     try:
@@ -248,6 +205,9 @@ def class_rates_model():
             "csr_move": (lev.get("csr_move", {}).get("L2", _CSR_MOVE[0]),
                          lev.get("csr_move", {}).get("L3", _CSR_MOVE[1]),
                          lev.get("csr_move", {}).get("DRAM", _CSR_MOVE[2])),
+            "set_iter": (lev.get("set_iter", {}).get("L2", _SET_ITER[0]),
+                         lev.get("set_iter", {}).get("L3", _SET_ITER[1]),
+                         lev.get("set_iter", {}).get("DRAM", _SET_ITER[2])),
         }
     except Exception:
         _CLASS_RATES = {
@@ -257,24 +217,10 @@ def class_rates_model():
             "struct": (7.5485, 16.1414, 118.0597),
             "dep": _DEP,
             "csr_move": _CSR_MOVE,
+            "set_iter": _SET_ITER,
         }
     return _CLASS_RATES
 
-def _charge_class(cls, tiers, rates):
-    """Expected ns for one directed insert's class-s line traffic:
-    N_s lines split by the analytic RD tiers, each at its measured rate."""
-    N, h2, h3 = tiers[cls]
-    r2, r3, rD = rates[cls]
-    return N * (h2 * r2 + (h3 - h2) * r3 + (1.0 - h3) * rD)
-
-def insert_cost_bcsr_analytic(bcsr_tiers):
-    """Per undirected graph_add_edge (2 directed inserts) under the analytic
-    class × residency model: scan/move/brow/struct line traffic at per-tier
-    rates; 4t latency (locate redirections) kept from the legacy equation."""
-    rates = class_rates_model()
-    per_dir = sum(_charge_class(cls, bcsr_tiers, rates)
-                  for cls in ("scan", "move", "brow", "struct"))
-    return 4.0 * t + 2.0 * per_dir
 
 def _dataset_dir():
     """Root of the sgpl dataset tree (sibling of the repo's graph dirs)."""
@@ -533,64 +479,25 @@ def conversion_cost(from_layout, to_layout, n, m):
 # ── Cost model equations ──────────────────────────────────────────────
 
 def insert_cost_csr(n, m, csr_frac=None, csr_tiers=None):
-    """Per undirected graph_add_edge → two csr_add_directed calls.
+    """Current ARS cost per undirected add (two directed CSR inserts).
 
-    PRODUCTION (hybrid, default): the legacy structural decomposition
-    (locate + write + move + realloc) with the memory-penalty terms replaced
-    by the class-tier weighted per-line rates:
-        C_write = ⌈8n/L⌉ · wrate_brow      (was 2T·memPenalty)
-        C_move  = ⌈4m·csrFrac/L⌉ · wrate_move  (was Tm·memPenalty)
-    wrate(cls) = h2·r_L2 + (h3−h2)·r_L3 + (1−h3)·r_DRAM from the
-    autotuner.class_tiers_csr payload at the rmw rates.  Absent the payload,
-    the footprint-only legacy equation applies.  Other modes: 'legacy' /
-    'aware' / 'class_tier' (diagnostics).  Pass csr_tiers to pin the
-    payload; None resolves it from the current graph label's edge file.
+    Resolve graph-specific residency when available. Missing metadata uses
+    DRAM rates in the same equation, with no full-array relocation charge.
     """
-    model = cache_model()
-    if csr_tiers is None and model in ("hybrid", "aware", "class_tier"):
+    if csr_tiers is None:
         csr_tiers = _class_tiers_csr_for_label()
-    if model == "hybrid" and csr_tiers is not None:
-        return insert_cost_csr_hybrid(n, m, csr_frac, csr_tiers)
-    if model == "class_tier" and csr_tiers is not None:
-        return insert_cost_csr_analytic(csr_tiers)
-    d = 2.0 * m / n if n > 0 else 1.0
-    cLocate = 2*t + math.ceil(d * 4/L) * T
-    # row_ptr prefix-sum update: E[n−from] = n/2 int64 entries per directed
-    # insert × 2 directed inserts per undirected edge = n int64 R-M-W entries
-    # total = 8n bytes (dependent load→store, cannot overlap; 2T per line)
-    # and DRAM-bound once the prefix array outgrows the LLC — same physics
-    # as the BCSR brow prefix.
-    prefix_bytes = n * 8.0
-    cWrite  = 1.0*t + math.ceil(prefix_bytes / L) * 2.0 * T * _penalty(prefix_bytes, csr_tiers, "brow")
-    # col_idx memmove: two directed inserts per undirected edge, each moves
-    # the tail of the array (~m/2 of 4-byte cols on average), so ~4m bytes
-    # are read+written via Tm, DRAM-bound past the LLC — same physics as the
-    # BCSR cMove term.  With --exact-shifts the shift tail is computed from
-    # the real degree vector instead of the blanket 0.5 heuristic (csr_frac).
-    move_bytes = 4.0 * m
-    if csr_frac is not None:
-        move_bytes = move_bytes * max(csr_frac, 0.0)
-    elif _EXACT_MODE:
-        cf, _ = _shift_fracs_for_n_m(n, m)
-        move_bytes = move_bytes * max(cf, 0.0)
-    cMove   = math.ceil(move_bytes / L) * Tm * _penalty(8.0*m + move_bytes, csr_tiers, "move")
-    # col_idx growth: the array doubles (4m bytes) on demand, so the growth
-    # write ceil(4m/L) lines at T plus the fixed realloc charge (capped by
-    # page-remap cost R) — size aware, unlike a flat per-call R.
-    cRealloc = R + math.ceil(4.0 * m / L) * T
-    return cLocate + cWrite + cMove + cRealloc
+    return insert_cost_csr_hybrid(n, m, csr_frac, csr_tiers)
 
 
 def insert_cost_csr_hybrid(n, m, csr_frac, csr_tiers):
-    """Hybrid CSR insert cost (per undirected add): legacy structural terms
-    with the memory-penalty terms charged at the class-tier weighted
-    per-line rates (brow + move classes at rmw).  Mirror of the C++ pass's
-    CacheModel::Hybrid branch."""
+    """Current ARS CSR equation, mirrored by the C++ layout chooser."""
     rates = class_rates_model()
 
     def wrate(cls):
-        _, h2, h3 = csr_tiers[cls]
         r = rates[cls]
+        if csr_tiers is None:
+            return r[2]
+        _, h2, h3 = csr_tiers[cls]
         return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2]
 
     d = 2.0 * m / n if n > 0 else 1.0
@@ -603,28 +510,14 @@ def insert_cost_csr_hybrid(n, m, csr_frac, csr_tiers):
         cf, _ = _shift_fracs_for_n_m(n, m)
         move_bytes = move_bytes * max(cf, 0.0)
     cMove = math.ceil(move_bytes / L) * wrate("move")
-    cRealloc = R + math.ceil(4.0 * m / L) * T
+    # cRealloc = 0: the kernel's realloc(col_idx, +1 int32) grows the array
+    # in place and never relocates (proven in-situ: reloc_cnt == 0 at 10 MB
+    # and 25 MB col_idx sizes), and it grows by 1 int32 per add — there is
+    # no capacity doubling, so the old R + ⌈4m/L⌉·T charged a phantom
+    # page-remap + growth-write cost on every add.
+    cRealloc = 0.0
     return cLocate + cWrite + cMove + cRealloc
 
-
-def insert_cost_csr_analytic(csr_tiers):
-    """Per undirected graph_add_edge under the analytic class × residency
-    model: move/brow/struct line traffic at per-tier rates + 2t locate
-    latency (one row_ptr[from+1] chase per directed insert; the read itself
-    is inside the brow line set).  Mirrors insert_cost_bcsr_analytic.
-    move (the col_idx memmove tail) is charged at csr_move — the rate
-    measured on the ACTUAL kernel pattern (libc memmove, 4-byte shift;
-    ~= rmw) — and brow (the row_ptr prefix loop) at the dependent R-M-W
-    rate (dep) — scalar addq $1, mem serializes per line."""
-    rates = class_rates_model()
-    per_dir = 0.0
-    for cls in ("move", "brow", "struct"):
-        N, h2, h3 = csr_tiers[cls]
-        r = {"move": rates["csr_move"], "brow": rates["dep"]}.get(cls,
-                                                                  rates[cls])
-        r2, r3, rD = r
-        per_dir += N * (h2 * r2 + (h3 - h2) * r3 + (1.0 - h3) * rD)
-    return 2.0 * t + 2.0 * per_dir
 
 def insert_cost_pcsr(n, m):
     d = 2.0 * m / n if n > 0 else 1.0
@@ -653,61 +546,24 @@ def static_hash_build_cost(pairs):
 K_INS = 50.0   # adds per measured insert kernel (test/real_*_ins.graph)
 
 def insert_cost_bcsr(n, m, bcsr_frac=None, bcsr_tiers=None):
-    """Per undirected graph_add_edge → two autograph_bcsr_add_edge calls.
+    """Current ARS cost per undirected add (two directed BCSR inserts).
 
-    PRODUCTION (hybrid, default): the legacy structural decomposition
-    (locate + write + move + realloc) with the memory-penalty terms replaced
-    by the class-tier weighted per-line rates:
-        C_move    = ⌈16m·bcsrFrac/L⌉ · wrate_move     (was Tm·memPenalty)
-        C_realloc = min(⌈16m/L⌉·wrate_struct, R)·2    (was reallocCost)
-    C_write (brow prefix) has no memPenalty today and stays unchanged.
-    wrate uses the autotuner.class_tiers payload (move at rmw, struct at
-    rand).  Absent the payload, the footprint-only legacy equation applies.
-    Other modes: 'legacy' / 'aware' / 'class_tier' (diagnostics).  Pass
-    bcsr_tiers to pin the payload; None resolves it from the current graph
-    label's edge file.
+    Missing residency metadata uses DRAM rates in the current equation.
     """
-    model = cache_model()
-    if bcsr_tiers is None and model in ("hybrid", "aware", "class_tier"):
+    if bcsr_tiers is None:
         bcsr_tiers = _class_tiers_for_label()
-    if model == "hybrid" and bcsr_tiers is not None:
-        return insert_cost_bcsr_hybrid(n, m, bcsr_frac, bcsr_tiers)
-    if model == "class_tier" and bcsr_tiers is not None:
-        return insert_cost_bcsr_analytic(bcsr_tiers)
-    d = 2.0 * m / n if n > 0 else 1.0
-    b = kBcsr
-    nb = math.ceil(n / b)
-    arr_bytes = 16.0 * m
-    dirs = 2.0  # graph_add_edge calls autograph_bcsr_add_edge twice
-    # 2 dirs × (2 brow reads + dup/insert-point scan of the block row)
-    cLocate = 4.0 * t + dirs * math.ceil(8.0 * b * d / L) * T
-    # brow prefix-sum R-M-W: both directions bump brow[blk+1..nb], expected
-    # E[nb−blk] = nb/2 int32 entries per directed insert × 2 dirs = nb int32
-    # R-M-W entries total = 4·nb bytes (dependent load→store, 2T per line).
-    cWrite = math.ceil(nb * 4.0 / L) * 2.0 * T
-    # Exact shift: bcsr_frac = expected tail as a fraction of m (computed
-    # from the real degree vector; 1.0 = whole array).  Two directed inserts
-    # × 8 bytes per shifted edge-pair.  mem_penalty keeps the working-set
-    # cache-pressure physics of the whole backing array.
-    _, bf = _shift_fracs_for_n_m(n, m)
-    if bcsr_frac is not None:
-        bf = bcsr_frac
-    move_bytes = dirs * 8.0 * max(bf, 0.0) * m
-    cMove = math.ceil(move_bytes / L) * Tm * _penalty(move_bytes, bcsr_tiers, "move")
-    cRealloc = realloc_cost(16.0 * m, objs=dirs)
-    return cLocate + cWrite + cMove + cRealloc
+    return insert_cost_bcsr_hybrid(n, m, bcsr_frac, bcsr_tiers)
 
 
 def insert_cost_bcsr_hybrid(n, m, bcsr_frac, bcsr_tiers):
-    """Hybrid BCSR insert cost (per undirected add): legacy structural terms
-    with the memory-penalty terms charged at the class-tier weighted
-    per-line rates (move at rmw, struct at rand).  Mirror of the C++ pass's
-    CacheModel::Hybrid branch."""
+    """Current ARS BCSR equation, with zero full-array relocation cost."""
     rates = class_rates_model()
 
     def wrate(cls):
-        _, h2, h3 = bcsr_tiers[cls]
         r = rates[cls]
+        if bcsr_tiers is None:
+            return r[2]
+        _, h2, h3 = bcsr_tiers[cls]
         return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2]
 
     d = 2.0 * m / n if n > 0 else 1.0
@@ -721,7 +577,7 @@ def insert_cost_bcsr_hybrid(n, m, bcsr_frac, bcsr_tiers):
         bf = bcsr_frac
     move_bytes = dirs * 8.0 * max(bf, 0.0) * m
     cMove = math.ceil(move_bytes / L) * wrate("move")
-    cRealloc = min(math.ceil(16.0 * m / L) * wrate("struct"), R) * dirs
+    cRealloc = 0.0
     return cLocate + cWrite + cMove + cRealloc
 
 def insert_setup_cost_set(m):
@@ -781,8 +637,29 @@ def traverse_cost_bcsr(n, m):
     return n * (2.0 * t + math.ceil(bU / L) * T)
 
 def traverse_cost_set(n, m):
-    bU = 8 * m
-    return n * ( math.ceil(bU / L) * T)
+    """SET traversal: per vertex the neighbor iterator sweeps the whole
+    static pair table (m pairs x 8 B = 8m bytes) with a per-pair
+    roaring_bitmap_contains probe + 2 int32 compares + branch.  Both the
+    per-pair compute and the table sweep are priced by the derived reuse
+    distance of a swept line — the table itself, RD = 8m/64 = m/8 lines —
+    giving h2/h3 from the L2/L3 thresholds, at the calibrated per-tier
+    rates (set_iter ns/pair for the compute, seq ns/line for the sweep).
+    Mirrors traversalCost(LAYOUT_SET) in AutoTunerPass.cpp."""
+    tbl_lines = 8.0 * m / L
+    if tbl_lines <= 0.0:
+        return 0.0
+    l2_lines = L2_BYTES / L
+    l3_lines = LLC / L
+    h2 = min(1.0, l2_lines / tbl_lines)
+    h3 = min(1.0, l3_lines / tbl_lines)
+    rates = class_rates_model()
+
+    def wrate(r):
+        return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2]
+
+    per_pair = wrate(rates["set_iter"])
+    sweep = wrate(rates["scan"])
+    return n * (2.0 * t + m * per_pair + math.ceil(8.0 * m / L) * sweep)
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────

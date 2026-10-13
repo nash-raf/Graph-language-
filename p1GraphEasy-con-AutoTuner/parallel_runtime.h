@@ -115,6 +115,11 @@ void sgpl_set_pending_range_body(void *fn);
  * Disable the sharing with SGPL_NO_UNREGISTERED_POOL_SHARE=1. */
 void sgpl_set_pending_loop_id(int32_t loop_id);
 
+/* True while this thread is executing a callback owned by a TDG level.
+ * Engine steps use the level's loop pool instead of creating a nested level. */
+int32_t sgpl_tdg_level_active(void);
+int32_t sgpl_tdg_level_task_count(void);
+
 /* Desired width for the next dispatch on this thread (annotated by the
  * compiler or by an engine).  max<=0 means "no upper bound"; min<=0 means
  * "no lower bound".  The runtime still clamps by the budget, the trip count
@@ -136,6 +141,8 @@ void sgpl_record_doacross_serial_sample(
     uint64_t dep_elapsed_ns,
     uint64_t ind_elapsed_ns);
 
+/* Outlined body samples are batched at the actual execution width. Calls
+ * outside a dispatched body are serial observations (width one). */
 void sgpl_record_doacross_sync_sample(
     const sgpl_loop_profile_desc *desc,
     uint64_t wait_elapsed_ns_total,
@@ -149,16 +156,34 @@ int32_t sgpl_should_parallelize_doacross(
     int64_t end,
     int64_t step);
 
+/* Parent workers = min(task_count, available budget). Work/span are retained
+ * for API compatibility; task durations do not affect worker allocation. */
 int32_t sgpl_choose_tdg_threads(
     int64_t work_units,
     int64_t span_units,
     int32_t task_count);
 
+/* Default: jointly choose loop widths and task admission within this level.
+ * Each callback uses one parent; only declared loop dispatches get extra
+ * workers. Cold/unsupported/nested levels use the bounded FIFO executor. */
 void sgpl_run_tdg_level(
     const sgpl_tdg_task_desc *tasks,
     int32_t task_count,
     int64_t work_units,
     int64_t span_units);
+
+/* Compatibility entry for callers that explicitly selected dynamic scheduling.
+ * Dynamic scheduling is included in every normal runtime build. */
+void sgpl_run_tdg_level_joint(
+    const sgpl_tdg_task_desc *tasks,
+    int32_t task_count,
+    int64_t work_units,
+    int64_t span_units);
+
+/* Conservative one-queue executor for compiler-excluded graph/GPU levels,
+ * nested scopes, and unavailable profiles. No ordinary-first phase rule. */
+void sgpl_run_tdg_level_fifo(const sgpl_tdg_task_desc *tasks, int32_t task_count,
+                            int64_t work_units, int64_t span_units);
 
 void sgpl_doacross_profile_enter(const sgpl_loop_profile_desc *desc);
 void sgpl_doacross_profile_exit(const sgpl_loop_profile_desc *desc);

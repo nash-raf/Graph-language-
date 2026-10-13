@@ -1,8 +1,14 @@
 #include "AutoTunerPass.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -19,6 +25,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -38,43 +45,6 @@ namespace
     LAYOUT_SET = 3,
     LAYOUT_COUNT = 4
   };
-
-  // Cache-model selection (exactly one active; AUTOTUNER_CACHE_MODEL):
-  //   Hybrid    -> legacy structural equations + class-tier weighted
-  //                per-line rates on the memory-penalty terms (DEFAULT,
-  //                production cost model)
-  //   Legacy    -> footprint-only memPenalty (no RD correction)
-  //   Aware     -> legacy + cache-aware penalty F(W,h2,h3) (diagnostics)
-  //   ClassTier -> previous experimental class x residency rate model
-  //                (diagnostics only)
-  enum class CacheModel
-  {
-    Hybrid,
-    Legacy,
-    Aware,
-    ClassTier
-  };
-
-  static CacheModel g_cacheModel = CacheModel::Hybrid;
-
-  static CacheModel cacheModelFromEnv()
-  {
-    const char *raw = std::getenv("AUTOTUNER_CACHE_MODEL");
-    if (raw && *raw)
-    {
-      std::string value(raw);
-      std::transform(value.begin(), value.end(), value.begin(),
-                     [](unsigned char c)
-                     { return static_cast<char>(std::tolower(c)); });
-      if (value == "legacy")
-        return CacheModel::Legacy;
-      if (value == "aware")
-        return CacheModel::Aware;
-      if (value == "class_tier")
-        return CacheModel::ClassTier;
-    }
-    return CacheModel::Hybrid;
-  }
 
   // Class-tier weighted per-line rate: h2·r_L2 + (h3−h2)·r_L3 + (1−h3)·r_DRAM
   // (the RD/MRC residency fractions applied to a measured per-tier rate).
@@ -166,7 +136,7 @@ namespace
     // Measured by hw_calib_bench (with conservative fallbacks):
     double LLC = 8.0 * 1024.0 * 1024.0; // last-level-cache capacity in bytes
     // L2 capacity in bytes (1.25 MiB; matches rd_hist.L2_LINES * 64 and the
-    // cost_model.py L2_BYTES used by the cache-aware penalty F).
+    // cost_model.py L2_BYTES).
     double l2Bytes = 1310720.0;
     double Tm = 2.5;                    // per-line cost of a cache-resident overlapping memmove
                                         // (read + write per line; distinct from read-only T)
@@ -196,7 +166,7 @@ namespace
     // read stream, move/brow = overlapping R-M-W shift, struct = random
     // chase.  Defaults are this machine's measured class_calib.json values;
     // hw_calib.json "class_rates": {"seq": [L2,L3,DRAM], "rmw": [...],
-    // "rand": [...], "dep": [...]} overrides them.
+    // "rand": [...], "set_iter": [...]} overrides them.
     double seqRate[3] = {0.5235, 1.4058, 4.1822};
     double rmwRate[3] = {1.6780, 3.1595, 8.5411};
     double randRate[3] = {7.5485, 16.1414, 118.0597};
@@ -214,6 +184,10 @@ namespace
     // byte volume, so the rates are indistinguishable within noise.  Baked
     // as frozen-rmw x median ratio.
     double csrMoveRate[3] = {1.6756, 3.2460, 8.4735};
+    // SET neighbor-iterator per-pair rate (ns/pair, class_calib.c
+    // "set_iter"): the roaring_bitmap_contains probe + 2 int32 compares +
+    // branch while sweeping the pair table, at each table residency.
+    double setIterRate[3] = {3.1999, 4.1621, 6.4436};
   };
 
   // Log-linear ramp multiplier between lo (penalty 1.0) and hi (penalty P).
@@ -287,24 +261,6 @@ namespace
     // per-line cost ÷ cache-resident per-line cost (hw.Tm).  Without it, the
     // log-linear ramp over the [ramp_lo, ramp_hi] band.
     return curvePerLine(workingSetBytes, hw) / hw.Tm;
-  }
-
-  // F(W, h2, h3) — cache-aware extension of the footprint penalty (mirror of
-  // cost_model.py mem_penalty_cache_aware).  The RD/MRC (Sen/Wood) machinery
-  // supplies the residency fractions h2 (L2), h3−h2 (L3), 1−h3 (DRAM); the
-  // calibrated curve supplies the per-line cost proxy p(W)=memPenalty(W):
-  //     F = h2·p(min(W, L2)) + (h3−h2)·p(min(W, LLC)) + (1−h3)·p(W).
-  // Limits: h3=0 -> p(W) (exact legacy); h2=1 -> p(min(W,L2)) (cache-resident
-  // floor); W<=L2 -> p(W).  This is a locality correction to the calibrated
-  // penalty, NOT a replacement of the structural cost terms.
-  double memPenaltyCacheAware(double ws, double h2, double h3,
-                              const HwCalib &hw)
-  {
-    const double l2 = hw.l2Bytes;
-    const double llc = hw.LLC;
-    return h2 * memPenalty(std::min(ws, l2), hw) +
-           (h3 - h2) * memPenalty(std::min(ws, llc), hw) +
-           (1.0 - h3) * memPenalty(ws, hw);
   }
 
   // Size-aware per-insert cost for an EdgeHashMap bulk build.  The table is
@@ -488,6 +444,7 @@ namespace
     parseRateArray("\"rand\"", hw.randRate);
     parseRateArray("\"dep\"", hw.depRate);
     parseRateArray("\"csr_move\"", hw.csrMoveRate);
+    parseRateArray("\"set_iter\"", hw.setIterRate);
     return hw;
   }
 
@@ -591,7 +548,9 @@ namespace
   bool isTraverseCall(StringRef fn)
   {
     return fn == "bfs_runtime" || fn == "bfs_runtime_src" || fn == "dfs_runtime" ||
-           fn == "dfs_runtime_src" || fn == "autograph_frontier_step";
+           fn == "dfs_runtime_src" || fn == "autograph_frontier_step" ||
+           fn == "autograph_frontier_execute" ||
+           fn == "autograph_frontier_fork_join" || fn == "autograph_edgemap";
   }
 
   bool isInsertCall(StringRef fn)
@@ -657,12 +616,28 @@ namespace
       break;
     case LAYOUT_SET:
     {
-      // Per vertex: scan ALL m edge_pairs (16 bytes each) + per-pair compute.
-      // Inner loop: roaring_bitmap_contains + int32 compare + branch.
-      // The contains check is NOT free — it's a full function call with binary
-      // search (~log(#containers) comps).  Approximate as t/6 ≈ 5.5ns/pair.
-      bUseful = 8.0 * m;
-      return n * (std::ceil(bUseful / L) * T);
+      // Per vertex, the neighbor iterator sweeps the whole static pair
+      // table (m pairs x 8 B = 8m bytes) with a per-pair contains probe
+      // (roaring_bitmap_contains: container binary search + bit test) +
+      // 2 int32 compares + branch.  Derived reuse distance of a swept
+      // line = the table itself (re-touched once per vertex sweep) =
+      // 8m/64 = m/8 lines, so h2/h3 come from the L2/L3 thresholds:
+      //   per-pair compute at setIterRate (ns/pair, calibrated class)
+      //   table sweep at the seq rate (read-only stream, calibrated)
+      // both tier-weighted exactly like the insert terms.
+      constexpr double kL2Lines = 20480.0;   // 1.25 MiB / 64 B
+      constexpr double kL3Lines = 196608.0;  // 12 MiB / 64 B
+      const double tblLines = 8.0 * m / L;
+      const double h2 = (tblLines > 0.0) ? std::min(1.0, kL2Lines / tblLines)
+                                         : 1.0;
+      const double h3 = (tblLines > 0.0) ? std::min(1.0, kL3Lines / tblLines)
+                                         : 1.0;
+      auto wrate = [&](const double r[3]) {
+        return h2 * r[0] + (h3 - h2) * r[1] + (1.0 - h3) * r[2];
+      };
+      const double perPair = wrate(hw.setIterRate);
+      const double sweep = wrate(hw.seqRate);
+      return n * (2.0 * t + m * perPair + std::ceil(8.0 * m / L) * sweep);
     }
     default:
       return kInf;
@@ -708,79 +683,26 @@ namespace
     const double t = hw.t;
     const double T = hw.T;
     const double L = hw.L;
-    const double R = hw.R;
     const double gU = g * d;  // g(u) = physical span of vertex u
 
     switch (layout)
     {
     case LAYOUT_CSR:
     {
-      // PRODUCTION (Hybrid): legacy structural decomposition
-      // (locate + write + move + realloc) with the memory-penalty terms
-      // replaced by the class-tier weighted per-line rates:
-      //   C_write = ⌈8n/L⌉ · wrate_brow      (was 2T·memPenalty)
-      //   C_move  = ⌈4m·csrFrac/L⌉ · wrate_move  (was Tm·memPenalty)
-      // wrate uses the autotuner.class_tiers_csr payload (brow/move classes)
-      // at the rmw per-tier rates.  Absent the payload, the footprint-only
-      // legacy equation applies.  Mirrors cost_model.py insert_cost_csr
-      // under AUTOTUNER_CACHE_MODEL=hybrid.
-      if (csrClassTiers && g_cacheModel == CacheModel::Hybrid)
-      {
-        const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
-        const double cWrite =
-            std::ceil(8.0 * n / L) *
-            weightedRate(csrClassTiers[7], csrClassTiers[8], hw.rmwRate);
-        const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
-        const double cMove =
-            std::ceil(moveBytes / L) *
-            weightedRate(csrClassTiers[4], csrClassTiers[5], hw.rmwRate);
-        const double cRealloc = R + std::ceil(4.0 * m / L) * T;
-        return cLocate + cWrite + cMove + cRealloc;
-      }
-      // Class-tier diagnostics: the experimental class × residency rate
-      // model replacing the whole memory terms.
-      if (csrClassTiers && g_cacheModel == CacheModel::ClassTier)
-      {
-        const double *rates[4] = {hw.seqRate, hw.csrMoveRate, hw.depRate,
-                                  hw.randRate};
-        double perDir = 0.0;
-        for (int cls = 0; cls < 4; ++cls)
-        {
-          const double N = csrClassTiers[cls * 3 + 0];
-          const double h2 = csrClassTiers[cls * 3 + 1];
-          const double h3 = csrClassTiers[cls * 3 + 2];
-          perDir += N * (h2 * rates[cls][0] + (h3 - h2) * rates[cls][1] +
-                         (1.0 - h3) * rates[cls][2]);
-        }
-        return 2.0 * t + 2.0 * perDir;
-      }
-      // One undirected edge = 2 directed inserts (from→to, to→from).
-      // Per directed: realloc + memmove + row_ptr prefix-sum update.
-      // C_locate  = 2t + ⌈d·4/L⌉·T       (row_ptr[from+1] random read + scan)
-      // C_prefix  = t + ⌈(n−u)·8/L⌉·2T·pen (n/2 int64 R-M-W entries;
-      //                                 dependent load→store, DRAM-bound past LLC)
-      // C_move    = ⌈4m/L⌉·Tm·pen        (2 dirs × ~m/2 cols each ≈ 4m bytes
-      //                                 read+written via Tm — same physics as
-      //                                 cost_model.py insert_cost_csr)
-      // C_realloc = R + ⌈4m/L⌉·T        (realloc cap + col_idx growth write)
+      // Current ARS equation: locate + tier-weighted prefix/shift traffic.
+      // Unknown residency uses the DRAM rate; it never selects another model.
+      const double browRate = csrClassTiers
+          ? weightedRate(csrClassTiers[7], csrClassTiers[8], hw.rmwRate)
+          : hw.rmwRate[2];
+      const double moveRate = csrClassTiers
+          ? weightedRate(csrClassTiers[4], csrClassTiers[5], hw.rmwRate)
+          : hw.rmwRate[2];
       const double cLocate = 2 * t + std::ceil(d * 4 / L) * T;
-      const double prefixBytes = n * 8.0;
-      const bool awareCsr = (csrClassTiers && g_cacheModel == CacheModel::Aware);
-      const double browH2 = awareCsr ? csrClassTiers[7] : 0.0;
-      const double browH3 = awareCsr ? csrClassTiers[8] : 0.0;
-      const double cWrite =
-          1.0 * t + std::ceil(prefixBytes / L) * 2.0 * T *
-                        (awareCsr ? memPenaltyCacheAware(prefixBytes, browH2, browH3, hw)
-                                  : memPenalty(prefixBytes, hw));
+      const double cWrite = std::ceil(8.0 * n / L) * browRate;
       const double moveBytes = 4.0 * m * std::max(0.0, csrFrac);
-      const double moveH2 = awareCsr ? csrClassTiers[4] : 0.0;
-      const double moveH3 = awareCsr ? csrClassTiers[5] : 0.0;
-      const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm *
-          (awareCsr ? memPenaltyCacheAware(8.0 * m + moveBytes, moveH2, moveH3, hw)
-                    : memPenalty(8.0 * m + moveBytes, hw));
-      const double cRealloc = R + std::ceil(4.0 * m / L) * T;
-      return cLocate + cWrite + cMove + cRealloc;
+      const double cMove = std::ceil(moveBytes / L) * moveRate;
+      // In-place growth contributes no full-array relocation charge.
+      return cLocate + cWrite + cMove;
     }
     case LAYOUT_PCSR:
     {
@@ -793,86 +715,20 @@ namespace
     }
     case LAYOUT_BCSR:
     {
-      // PRODUCTION (Hybrid): legacy structural decomposition with the
-      // memory-penalty terms replaced by the class-tier weighted per-line
-      // rates:
-      //   C_move  = ⌈16m·bcsrFrac/L⌉ · wrate_move    (was Tm·memPenalty)
-      //   C_realloc = min(⌈16m/L⌉·wrate_struct, R)·2  (was reallocCost)
-      // C_write (brow prefix) has no memPenalty today and stays unchanged.
-      // wrate uses the autotuner.class_tiers payload (move at rmw, struct
-      // at rand).  Absent the payload, the footprint-only legacy equation
-      // applies.  Mirrors cost_model.py insert_cost_bcsr under
-      // AUTOTUNER_CACHE_MODEL=hybrid.
-      if (classTiers && g_cacheModel == CacheModel::Hybrid)
-      {
-        const double b = kBcsrBlockSize;
-        const double nb = std::ceil(n / b);
-        constexpr double kDirs = 2.0;
-        const double cLocate =
-            4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
-        const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
-        const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
-        const double cMove =
-            std::ceil(moveBytes / L) *
-            weightedRate(classTiers[4], classTiers[5], hw.rmwRate);
-        const double cRealloc =
-            std::min(std::ceil(16.0 * m / L) *
-                         weightedRate(classTiers[10], classTiers[11],
-                                      hw.randRate),
-                     R) *
-            kDirs;
-        return cLocate + cWrite + cMove + cRealloc;
-      }
-      // Class-tier diagnostics: the experimental class × residency rate
-      // model replacing the whole memory terms.
-      if (classTiers && g_cacheModel == CacheModel::ClassTier)
-      {
-        const double *rates[4] = {hw.seqRate, hw.rmwRate, hw.rmwRate,
-                                  hw.randRate};
-        double perDir = 0.0;
-        for (int cls = 0; cls < 4; ++cls)
-        {
-          const double N = classTiers[cls * 3 + 0];
-          const double h2 = classTiers[cls * 3 + 1];
-          const double h3 = classTiers[cls * 3 + 2];
-          perDir += N * (h2 * rates[cls][0] + (h3 - h2) * rates[cls][1] +
-                         (1.0 - h3) * rates[cls][2]);
-        }
-        return 4.0 * t + 2.0 * perDir;
-      }
-      // graph_add_edge calls autograph_bcsr_add_edge twice (both directions).
-      // Runtime (autograph_bcsr_add_edge): dup-scan the block row, realloc
-      // bcol by +2 ints, memmove everything after the insertion point, bump
-      // the brow prefix sums.  bcol backing array = 16m bytes.
-      //
-      // Both directed inserts always pay a memmove of the bcol tail after
-      // the sorted insertion point; the expected tail volume is computed
-      // exactly from the graph's degree vector (bcsrFrac) — deliberately NO
-      // degree-based piecewise approximation (append shortcut / second-shift
-      // probability / hard cutoff); the exact expected tail replaces all of
-      // it.  Mirrors insert_cost_bcsr() in cost_model.py.
+      // Current ARS equation, including both directed inserts.
       const double b = kBcsrBlockSize;
       const double nb = std::ceil(n / b);
       constexpr double kDirs = 2.0;
+      const double moveRate = classTiers
+          ? weightedRate(classTiers[4], classTiers[5], hw.rmwRate)
+          : hw.rmwRate[2];
       const double cLocate =
           4.0 * t + kDirs * std::ceil(8.0 * b * d / L) * T;
-      // brow prefix-sum R-M-W: expected E[nb−blk] = nb/2 int32 entries per
-      // directed insert × 2 dirs = nb int32 entries, 2T per line.
       const double cWrite = std::ceil(nb * 4.0 / L) * 2.0 * T;
-      // Exact shift: bcsrFrac = expected tail / m (from the real degree
-      // vector; 1.0 = whole array).  Two directed inserts × 8 bytes per
-      // shifted edge-pair.  memPenalty keeps the working-set cache-pressure
-      // physics of the whole backing array.
       const double moveBytes = kDirs * 8.0 * std::max(0.0, bcsrFrac) * m;
-      const bool awareBcsr = (classTiers && g_cacheModel == CacheModel::Aware);
-      const double moveH2 = awareBcsr ? classTiers[4] : 0.0;
-      const double moveH3 = awareBcsr ? classTiers[5] : 0.0;
-      const double cMove =
-          std::ceil(moveBytes / L) * hw.Tm *
-          (awareBcsr ? memPenaltyCacheAware(moveBytes, moveH2, moveH3, hw)
-                     : memPenalty(moveBytes, hw));
-      const double cRealloc = reallocCost(16.0 * m, kDirs, hw);
-      return cLocate + cWrite + cMove + cRealloc;
+      const double cMove = std::ceil(moveBytes / L) * moveRate;
+      // In-place growth contributes no full-array relocation charge.
+      return cLocate + cWrite + cMove;
     }
     case LAYOUT_SET:
     {
@@ -1417,85 +1273,69 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return sites * H;
   }
 
-  double estimateExecMultiplier(BasicBlock *BB)
+  // Keep loop analysis alive only while collecting events, before ARS mutates
+  // the CFG. Following an arbitrary predecessor can miss an enclosing loop,
+  // or incorrectly charge a preceding loop to a call after that loop.
+  class ExecutionCounts
   {
-    // H = product of exact enclosing-loop trip counts (from IRGen metadata
-    // autotuner.trip_count, or recovered from icmp vs constant). No heuristic ×8.
-    double mult = 1.0;
-    SmallPtrSet<BasicBlock *, 16> visited;
-    BasicBlock *cur = BB;
-    while (cur && visited.insert(cur).second)
+    struct FunctionLoops
     {
-      if (Instruction *Term = cur->getTerminator())
+      TargetLibraryInfoImpl TLII;
+      TargetLibraryInfo TLI;
+      AssumptionCache AC;
+      DominatorTree DT;
+      LoopInfo LI;
+      ScalarEvolution SE;
+
+      explicit FunctionLoops(Function &F)
+          : TLII(Triple(F.getParent()->getTargetTriple())), TLI(TLII), AC(F),
+            DT(F), LI(DT), SE(F, TLI, AC, DT, LI) {}
+    };
+    std::map<Function *, std::unique_ptr<FunctionLoops>> analyses;
+
+  public:
+    double multiplier(BasicBlock *BB, bool wholeTraversal = false)
+    {
+      auto &A = analyses[BB->getParent()];
+      if (!A)
+        A = std::make_unique<FunctionLoops>(*BB->getParent());
+      if (!A->DT.isReachableFromEntry(BB))
+        return 0.0;
+      double mult = 1.0;
+      Loop *Enclosing = A->LI.getLoopFor(BB);
+      // An iterator-header event prices a whole graph pass, not one header
+      // visit per vertex. Only loops outside that traversal repeat the pass.
+      if (wholeTraversal && Enclosing && Enclosing->getHeader() == BB)
+        Enclosing = Enclosing->getParentLoop();
+      for (Loop *L = Enclosing; L; L = L->getParentLoop())
       {
-        if (MDNode *MD = Term->getMetadata("autotuner.trip_count"))
-        {
+        if (MDNode *MD = L->getHeader()->getTerminator()->getMetadata("autotuner.trip_count"))
           if (MD->getNumOperands() >= 1)
-          {
             if (auto *CAM = dyn_cast<ConstantAsMetadata>(MD->getOperand(0)))
-            {
               if (auto *CI = dyn_cast<ConstantInt>(CAM->getValue()))
               {
-                const uint64_t trips = CI->getZExtValue();
-                if (trips > 0)
-                  mult *= static_cast<double>(trips);
+                mult *= static_cast<double>(CI->getZExtValue());
+                continue;
               }
-            }
-          }
-        }
-        else if (auto *BI = dyn_cast<BranchInst>(Term))
-        {
-          // Fallback: loop header `br i1 (icmp slt/ult %iv, C), body, exit`
-          // with a back-edge into this block — use constant C as trip count
-          // when iv starts at 0 (matches SGPL while (i < N) lowering).
-          if (BI->isConditional())
-          {
-            bool hasBackedge = false;
-            for (BasicBlock *succ : successors(cur))
-            {
-              for (BasicBlock *pred : predecessors(cur))
-              {
-                if (pred == succ)
-                {
-                  hasBackedge = true;
-                  break;
-                }
-              }
-              if (hasBackedge)
-                break;
-            }
-            if (hasBackedge)
-            {
-              if (auto *Cmp = dyn_cast<ICmpInst>(BI->getCondition()))
-              {
-                if (Cmp->getPredicate() == ICmpInst::ICMP_SLT ||
-                    Cmp->getPredicate() == ICmpInst::ICMP_ULT ||
-                    Cmp->getPredicate() == ICmpInst::ICMP_SLE ||
-                    Cmp->getPredicate() == ICmpInst::ICMP_ULE)
-                {
-                  if (auto *C = dyn_cast<ConstantInt>(Cmp->getOperand(1)))
-                  {
-                    uint64_t trips = C->getZExtValue();
-                    if (Cmp->getPredicate() == ICmpInst::ICMP_SLE ||
-                        Cmp->getPredicate() == ICmpInst::ICMP_ULE)
-                      trips += 1;
-                    if (trips > 0)
-                      mult *= static_cast<double>(trips);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
 
-      if (cur->hasNPredecessorsOrMore(1))
-        cur = *pred_begin(cur);
-      else
-        break;
+        // For SSA loops, SCEV accounts for nonzero starts and non-unit steps.
+        // A pre-tested loop visits its header once more than its body. Avoid
+        // inferring a count for loops with multiple exits. Conditional sites
+        // are still estimates: a trip count does not prove a branch is taken.
+        if (BasicBlock *Exit = L->getExitingBlock())
+          if (auto *Count = dyn_cast<SCEVConstant>(A->SE.getBackedgeTakenCount(L)))
+          {
+            double trips = Count->getAPInt().roundToDouble();
+            if (Exit != L->getHeader() || BB == L->getHeader())
+              trips += 1.0;
+            mult *= trips;
+          }
+        // Data-dependent loops retain the one-visit estimate. Runtime visit
+        // counts remain diagnostics; there is no online layout replanning.
+      }
+      return mult;
     }
-    return std::max(1.0, mult);
-  }
+  };
 
   /* Step-kernel engine calls: the CleanCut executor (frontier_execute and its
    * fork/join variant) and the CAS/combine edgemap kernel (autograph_edgemap).
@@ -1515,16 +1355,6 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return false;
   }
 
-  bool moduleHasStepKernels(Module &M)
-  {
-    for (Function &Fn : M)
-      for (BasicBlock &BB : Fn)
-        for (Instruction &I : BB)
-          if (isCleanCutStepCall(&I))
-            return true;
-    return false;
-  }
-
   Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr);
 
   bool isOutlinedTaskFunction(const Function *F)
@@ -1539,6 +1369,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
   void collectOpEventsFromFunction(Function &F,
                                    const std::map<Value *, GraphMeta> &metaByGraphPtr,
                                    std::vector<OpEvent> &events,
+                                   ExecutionCounts &counts,
                                    std::set<Function *> &visited);
 
   void collectOpEventsInCallOrder(Function &F,
@@ -1546,12 +1377,14 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
                                   std::vector<OpEvent> &events)
   {
     std::set<Function *> visited;
-    collectOpEventsFromFunction(F, metaByGraphPtr, events, visited);
+    ExecutionCounts counts;
+    collectOpEventsFromFunction(F, metaByGraphPtr, events, counts, visited);
   }
 
   void collectOpEventsFromFunction(Function &F,
                                    const std::map<Value *, GraphMeta> &metaByGraphPtr,
                                    std::vector<OpEvent> &events,
+                                   ExecutionCounts &counts,
                                    std::set<Function *> &visited)
   {
     if (!visited.insert(&F).second)
@@ -1716,8 +1549,9 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
               graphPtr = finalizeGraphPtr(graphPtr);
               if (graphPtr && metaByGraphPtr.count(graphPtr))
               {
-                double mult = estimateExecMultiplier(&BB);
-                events.push_back({RegionType::Traverse, Term, graphPtr, mult});
+                double mult = counts.multiplier(&BB, /*wholeTraversal=*/true);
+                if (mult > 0.0)
+                  events.push_back({RegionType::Traverse, Term, graphPtr, mult});
               }
               (void)MDS;
             }
@@ -1733,7 +1567,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         Function *Callee = resolveCallee(CB);
         if (Callee && isOutlinedTaskFunction(Callee) && !Callee->isDeclaration())
         {
-          collectOpEventsFromFunction(*Callee, metaByGraphPtr, events, visited);
+          collectOpEventsFromFunction(*Callee, metaByGraphPtr, events, counts, visited);
           continue;
         }
         if (!Callee)
@@ -1753,8 +1587,9 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         graphPtr = finalizeGraphPtr(graphPtr);
         if (!graphPtr || !metaByGraphPtr.count(graphPtr))
           continue;
-        double mult = estimateExecMultiplier(CB->getParent());
-        events.push_back({ty, CB, graphPtr, mult});
+        double mult = counts.multiplier(CB->getParent());
+        if (mult > 0.0)
+          events.push_back({ty, CB, graphPtr, mult});
       }
     }
   }
@@ -1770,6 +1605,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     cur.anchor = events[0].call;
     cur.graphPtr = events[0].graphPtr;
     std::array<uint64_t, 4> counts = {0, 0, 0, 0};
+    double effectiveOps = 0.0;
 
     auto flushRegion = [&]()
     {
@@ -1777,12 +1613,17 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         return;
       for (int i = 0; i < 4; ++i)
         cur.freq[i] = static_cast<double>(counts[i]) / static_cast<double>(cur.totalOps);
+      cur.execCount = effectiveOps / static_cast<double>(cur.totalOps);
       regions.push_back(cur);
     };
 
     for (const OpEvent &ev : events)
     {
-      if (ev.type != cur.dominant)
+      // Each engine call represents one whole traversal, with its own outer
+      // repetition count and profiling boundary. Keep it separate from native
+      // iterator events and from the next engine call.
+      if (ev.type != cur.dominant || isCleanCutStepCall(ev.call) ||
+          isCleanCutStepCall(cur.anchor))
       {
         flushRegion();
         cur = Region{};
@@ -1790,11 +1631,12 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         cur.anchor = ev.call;
         cur.graphPtr = ev.graphPtr;
         counts = {0, 0, 0, 0};
+        effectiveOps = 0.0;
       }
       const int idx = opIndex(ev.type);
       counts[idx]++;
       cur.totalOps++;
-      cur.execCount = std::max(cur.execCount, ev.execMultiplier);
+      effectiveOps += ev.execMultiplier;
     }
     flushRegion();
     return regions;
@@ -1825,6 +1667,12 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     {
       Region &prev = merged.back();
       const Region &cur = raw[i];
+
+      if (isCleanCutStepCall(prev.anchor) || isCleanCutStepCall(cur.anchor))
+      {
+        merged.push_back(cur);
+        continue;
+      }
 
       // Forced-layout regions must not merge with non-forced or with each
       // other (conflicting forced layouts like SetQuery vs CSRQuery are
@@ -2148,7 +1996,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
 
   std::vector<OpEvent> allEvents;
   collectOpEventsInCallOrder(*mainFn, metaByGraphPtr, allEvents);
-  if (allEvents.empty() && !moduleHasStepKernels(M))
+  if (allEvents.empty())
   {
     return PreservedAnalyses::all();
   }
@@ -2158,7 +2006,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   // Load hardware calibration (cache-line size, access/transfer costs).
   const HwCalib hw = loadHwCalib();
   const int forcedLayout = forcedLayoutFromEnv();
-  g_cacheModel = cacheModelFromEnv();
 
   // Build per-graph event sequences while preserving order.
   // Canonicalize aliases (reloads of the same init graph) onto one key.
@@ -2177,10 +2024,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
   }
 
   int totalInjected = 0;
-  /* Iterate every graph the module uses, not only graphs with classified call
-   * events: a program whose kernel is only an autograph_edgemap call (e.g.
-   * array-frontier connected components) produces zero OpEvents and still
-   * needs the step-region annotation below. */
+  // Canonical graph aliases share one schedule, including executor-only graphs.
   std::vector<const Value *> graphKeys;
   for (const auto &KV : eventsByGraph)
     graphKeys.push_back(KV.first);
@@ -2207,69 +2051,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     const double *gCsrClassTiers =
         metaIt->second.hasCsrClassTiers ? metaIt->second.csrClassTiers.data() : nullptr;
     std::vector<Region> regions = mergeSmallRegions(buildRegions(events));
-
-    /* CleanCut dual annotation: graph-iterator loops were lowered by the
-     * graph-frontier pass into owner-computes step calls.  Annotate each
-     * step call as a Traverse region paired with the loop region of the same
-     * graph (same totalOps estimate), so predicted-vs-measured and layout
-     * decisions cover the executed kernel, not just the residual loops. */
-    {
-      /* Slot -> graph map: the generated main stores the loaded graph pointer
-       * into the @G global; step calls re-load it.  Mirrors the collection
-       * logic in collectOpEventsFromFunction. */
-      std::map<Value *, Value *> storageToGraph;
-      for (Function &Fn : M)
-        for (BasicBlock &BB : Fn)
-          for (Instruction &I : BB)
-            if (auto *SI = dyn_cast<StoreInst>(&I))
-              if (metaByGraphPtr.count(SI->getValueOperand()))
-                storageToGraph[SI->getPointerOperand()->stripPointerCasts()] =
-                    SI->getValueOperand();
-      auto graphOfStepArg = [&](Value *V) -> Value * {
-        if (!V)
-          return nullptr;
-        V = V->stripPointerCasts();
-        if (metaByGraphPtr.count(V))
-          return V;
-        if (auto *LI = dyn_cast<LoadInst>(V))
-        {
-          Value *slot = LI->getPointerOperand()->stripPointerCasts();
-          auto it = storageToGraph.find(slot);
-          if (it != storageToGraph.end())
-            return it->second;
-        }
-        return nullptr;
-      };
-      uint64_t loopOps = 0;
-      for (const Region &R : regions)
-        if (R.graphPtr == graphKey)
-          loopOps = std::max<uint64_t>(loopOps, R.totalOps);
-      // No sibling loop regions (edgemap-only programs): the step executes one
-      // graph pass per call, and traversalCost already prices a whole pass, so
-      // the op-count multiplier is 1 -- NOT the edge count, which would
-      // overprice a pass by O(m).
-      if (loopOps == 0)
-        loopOps = 1;
-      for (Function &Fn : M)
-        for (BasicBlock &BB : Fn)
-          for (Instruction &I : BB)
-          {
-            auto *CB = dyn_cast<CallBase>(&I);
-            if (!CB || !isCleanCutStepCall(&I) || CB->arg_size() == 0)
-              continue;
-            Value *g = graphOfStepArg(CB->getArgOperand(0));
-            if (!g || g != const_cast<Value *>(graphKey))
-              continue;
-            Region SR;
-            SR.dominant = RegionType::Traverse;
-            SR.anchor = &I;
-            SR.graphPtr = const_cast<Value *>(graphKey);
-            SR.freq = {1.0, 0.0, 0.0, 0.0};
-            SR.totalOps = loopOps;
-            SR.execCount = 1.0;
-            regions.push_back(SR);
-          }
-    }
 
     if (regions.empty())
       continue;

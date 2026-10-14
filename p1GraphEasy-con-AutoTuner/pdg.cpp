@@ -213,6 +213,16 @@ namespace
         return Proof.kind == DistanceProofKind::ProvenPositiveConstant;
     }
 
+    // A proven constant distance is orderable whatever its sign: a DOACROSS
+    // schedule paces the iterations and inserts the syncs at the exact distance.
+    // Unknown and sign-unknown proofs still fail closed through
+    // isSchedulableAtCarrier below.
+    static bool isOrderableCarriedDistance(const DistanceProof &Proof)
+    {
+        return Proof.kind == DistanceProofKind::ProvenPositiveConstant ||
+               Proof.kind == DistanceProofKind::ProvenNonPositiveConstant;
+    }
+
     static std::string distanceProofToString(const DistanceProof &Proof)
     {
         switch (Proof.kind)
@@ -1259,7 +1269,7 @@ static std::string analyzeAndAnnotateLoop(llvm::Loop *L, llvm::Function &F,
                              distanceProofToString(Info.carriedDistance))
                                 .str());
 
-            if (!isSchedulableAtCarrier(Info.carriedDistance))
+            if (!isOrderableCarriedDistance(Info.carriedDistance))
             {
                 Summary.hasUnschedulableCarriedDep = true;
                 continue;

@@ -31,6 +31,9 @@ static void array_begin(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
 static void array_end(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
   (void)op;(void)u;++ends_by_occurrence[autograph_exec_ctx_occurrence(ctx)];
 }
+static void *destroy_snapshot_context(void *opaque) {
+  autograph_exec_ctx_destroy(opaque);return NULL;
+}
 int main(void) {
   int64_t rp[8]={0,2,4,5,5,6,7,7};int32_t ci[7]={1,2,2,2,3,1,6};
   int32_t weights[]={7,8,40,41,9,10,11};
@@ -109,5 +112,50 @@ int main(void) {
   check(sgpl_frontier_reserve_i32(&g,input,6,&data,&capacity,2,1)==SGPL_DAG_ERR_NOMEM&&data==old,
       "reservation failure leaves the original buffer before any effect");
   unsetenv("SGPL_FRONTIER_FAIL");
+  int32_t live_a[]={11,22},live_b[]={33,44},live_c[]={55,66};
+  sgpl_exec_ctx *a=autograph_exec_ctx_create(&g,SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,
+      NULL,NULL,NULL,0,NULL,NULL,0,NULL,0,-1);
+  sgpl_exec_ctx *b=autograph_exec_ctx_create(&g,SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,
+      NULL,NULL,NULL,0,NULL,NULL,0,NULL,0,-1);
+  check(a&&b&&a->execution_scratch&&b->execution_scratch&&a->execution_scratch!=b->execution_scratch,
+      "simultaneous contexts have exclusive scratch leases");
+  check(!autograph_exec_ctx_bind_snapshot_range(a,0,live_a,2,4)&&
+        !autograph_exec_ctx_bind_snapshot_range(b,0,live_b,2,4),"reserve separate live snapshots");
+  int32_t *snapshot_a=autograph_exec_ctx_snapshot(a,0),*snapshot_b=autograph_exec_ctx_snapshot(b,0);
+  live_a[0]=99;live_b[0]=99;
+  check(snapshot_a!=snapshot_b&&snapshot_a[0]==11&&snapshot_b[0]==33,
+      "overlapping context snapshots remain frozen and isolated");
+  void *lease=a->execution_scratch;autograph_exec_ctx_destroy(a);
+  sgpl_exec_ctx *c=autograph_exec_ctx_create(&g,SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,
+      NULL,NULL,NULL,0,NULL,NULL,0,NULL,0,-1);
+  check(c&&c->execution_scratch==lease&&
+        !autograph_exec_ctx_bind_snapshot_range(c,0,live_c,2,4),"reuse the returned lease for a later context");
+  check(autograph_exec_ctx_snapshot(c,0)==snapshot_a&&snapshot_b[0]==33,
+      "reused snapshot capacity cannot overwrite another active context");
+  atomic_store(&fail_malloc,1);
+  check(autograph_exec_ctx_reserve_snapshot(c,0,10000,4)==SGPL_DAG_ERR_NOMEM&&
+        autograph_exec_ctx_snapshot(c,0)==snapshot_a&&snapshot_a[0]==55,
+      "failed scratch growth retains the current snapshot");
+  pthread_t release_thread;
+  check(!pthread_create(&release_thread,NULL,destroy_snapshot_context,b),"transfer lease destruction to another thread");
+  pthread_join(release_thread,NULL);
+  check(snapshot_a[0]==55,"thread-exit cleanup preserves other live leases");
+  autograph_exec_ctx_destroy(c);
+  for(int parts=2;parts<=5;parts+=3) {
+    check(autograph_build_clean_cut(&g,parts)==parts,"change partition boundaries between invocations");
+    int32_t *output=NULL,append_head=0;int64_t output_capacity=0;
+    sgpl_runtime_op *pair_op=autograph_exec_op_create(SGPL_OP_PAIR,NULL,array_pair,NULL,NULL,NULL,NULL,NULL,0);
+    sgpl_runtime_op *pair_ops[]={pair_op};
+    sgpl_exec_ctx *partitioned=autograph_exec_ctx_create(&g,SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,
+        NULL,NULL,NULL,0,&append_head,NULL,0,pair_ops,1,-1);
+    check(!autograph_exec_ctx_bind_array_frontier(partitioned,input,6,&output,&output_capacity,2)&&
+          !autograph_exec_ctx_prepare_spatial(partitioned,SGPL_SPATIAL_DESTINATION,SGPL_SPATIAL_DESTINATION,1),
+        "prepare array records after repartitioning");
+    skip_appends=0;
+    check(autograph_frontier_execute(&g,partitioned)==14&&
+          !memcmp(output,expected_output,sizeof expected_output),
+        "cached ownership follows changed boundaries and preserves occurrence order");
+    autograph_exec_ctx_destroy(partitioned);sgpl_frontier_release_buffers();
+  }
   printf("ordered array frontier: %d failures\n",failures);return failures?1:0;
 }

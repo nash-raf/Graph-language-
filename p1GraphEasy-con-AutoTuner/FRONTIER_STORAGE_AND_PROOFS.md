@@ -72,6 +72,52 @@ and reordered records are prepared only when a device submission needs them.
 Normal output compaction counts and emits in one pass when reserved capacity
 covers every slot; smaller reservations keep the checked growth path.
 
+For CSR, consecutive source-ordinal chunks count and fill in parallel through
+the existing worker pool and thread-budget ledger. Per-chunk counts are prefixed
+in original chunk order within each partition. Thus every source occurrence,
+neighbor occurrence, source hook and append ordinal keeps its original position.
+Preparation runs no user callbacks. Allocation and validation finish before
+effects begin; unavailable or nested teams use serial preparation. Small
+frontiers retain serial preparation. `SGPL_ARRAY_PREP_SERIAL=1` is an ablation
+control. Other layouts retain their original preparation path.
+
+Accepted array spatial stages request partition boundaries without eagerly
+constructing full source slices and destination rows. Full-view consumers,
+including direct GPU record preparation, materialize those views before use.
+An upgrade preserves the boundary allocation already held by array contexts.
+Cut construction is serialized and cache identities belong to each graph;
+looking up another graph does not evict an active graph's views. Allocation
+failure stops generated setup before private-buffer initialization or effects.
+`SGPL_ARRAY_FULL_CUT=1` restores eager construction for comparisons.
+
+The normal launcher defaults supporting OpenMP teams to `OMP_WAIT_POLICY=PASSIVE`
+and `GOMP_SPINCOUNT=0`, while preserving explicit settings. Direct executable
+launches with neither variable set soft-pause the loader's idle OpenMP team on
+supported GCC runtimes. SGPL preparation and execution still use the existing
+grants, nested-dispatch rules and DOALL/DOACROSS budget equations.
+
+CPU contexts lease reusable record, append-log and snapshot buffers. A buffer
+belongs to one live context; overlapping contexts never share a lease. At most
+one idle lease of at most 64 MiB is retained per thread, with thread-exit
+cleanup. Every used append slot is zeroed during preparation; the first
+execution skips the redundant clear, while later executions clear it again.
+Snapshot contents are still copied at the original snapshot boundary. Failed
+growth retains the previous storage. Device record preparation transfers live
+buffers out of the lease before the original GPU reorder/free path takes over.
+
+Single-operation batches containing only pair records select the grouping
+action outside the record loop. Per-occurrence source gates, callback order,
+append identities and cancellation checks remain in place. Lifecycle-bearing
+batches and multiple-operation contexts retain the general dispatch path.
+
+A preparation-thread vertex-to-partition cache compares
+the vertex count and complete partition boundary values, including changes
+made through the same boundary pointer. Its isolated BFS/CC measurements were
+slightly worse, but the complete combination improved BFS's profiled time
+compared with omitting the cache. All four execution optimizations are enabled
+by default. Compile-time `SGPL_EXEC_*` switches support controlled ablations
+without changing proof decisions.
+
 For native weighted CSR, preparation caches the first matching neighbor index
 for each column, including unsorted rows and unequal-weight duplicate edges.
 Contexts own their copied index hints. The preparation-thread cache follows
@@ -106,6 +152,12 @@ capability separately from the spatial proof.
 edges, original append order, source hooks, zero-neighbor entries, all supported
 layouts, growth with copying, prefix bounds, and allocation failure at 1, 2, 4,
 and 8 workers.
+
+`test/run_array_preparation_exec_tests.sh` checks parallel chunk order and
+weighted hints, source hooks, nested and parent budgets, balanced reservations,
+cold-team failure, invalid-input rejection, lazy full-view upgrades and
+independent-graph cache reuse at 1, 2, 4 and 8 workers. The comparison with
+`effect_interim` and Graptor is recorded in `../verify/PREPARED_RUNTIME_COMPARISON.md`.
 
 `test/run_array_frontier_lowering_tests.sh` checks automatic compiler acceptance,
 two append sites, duplicates, exact intermediate frontier order, normal bounds,

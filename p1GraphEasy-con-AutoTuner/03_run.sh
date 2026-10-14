@@ -27,6 +27,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Supporting OpenMP teams sleep while the SGPL team runs. Explicit policy wins.
+if [[ -z "${OMP_WAIT_POLICY+x}" ]]; then export OMP_WAIT_POLICY=PASSIVE; fi
+if [[ "${OMP_WAIT_POLICY^^}" == PASSIVE && -z "${GOMP_SPINCOUNT+x}" ]]; then
+  export GOMP_SPINCOUNT=0
+fi
+
 GRAPH_FILE="${GRAPH_FILE:-kcore.graph}"
 GP_BIN="${GP_BIN:-./GraphProgram}"
 GPU_FLAG=""

@@ -78,6 +78,10 @@ typedef void (*sgpl_pool_work_fn)(void *state, int32_t worker_index);
 int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
                               int32_t worker_count);
 int32_t sgpl_is_worker_pool_thread(void);
+/* Infrastructure-only passes: existing ledger/level grants, exclusive pool,
+ * serial nested/denied fallback, and balanced release. No profile site. */
+typedef void (*sgpl_preparation_fn)(void *, int32_t worker, int32_t width);
+void sgpl_run_preparation(sgpl_preparation_fn, void *, int32_t max_threads);
 
 /* Debug introspection: current global budget reservations.  Used by the
  * fork/join resources-and-budget tests to verify the ledger is balanced. */

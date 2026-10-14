@@ -5684,6 +5684,18 @@ static Function *emitPrivCombiner(LLVMContext &Ctx, Module *Mod,
     return FN;
 }
 
+static void requireArrayCut(IRBuilder<> &B, Module *M, Value *Graph, Value *Parts)
+{
+    auto &C = M->getContext();
+    auto *I32 = Type::getInt32Ty(C), *I64 = Type::getInt64Ty(C);
+    Value *N = B.CreateLoad(I64, Graph);
+    Value *OK = B.CreateOr(B.CreateICmpSGT(Parts, ConstantInt::get(I32, 0)),
+                           B.CreateICmpEQ(N, ConstantInt::get(I64, 0)));
+    B.CreateCall(M->getOrInsertFunction("sgpl_exec_require_status",
+        FunctionType::get(Type::getVoidTy(C), {I32}, false)),
+        {B.CreateSelect(OK, ConstantInt::get(I32, 0), ConstantInt::getSigned(I32, SGPL_DAG_ERR_NOMEM))});
+}
+
 struct PrivSetup
 {
     Function *WF = nullptr;
@@ -5721,11 +5733,16 @@ static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
         if (GL->getPointerOperand())
             S.GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
-        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+        Info.OrderedArrayFrontier && Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+        Info.Schedule.Kind == ScheduleKind::SpatialDag ? "autograph_build_array_cut" : "autograph_build_clean_cut",
+        FunctionType::get(I32, {I8P, I32}, false));
     S.PartCount = Info.CombinedStage ? EB.CreateCall(Mod->getOrInsertFunction(
         "autograph_clean_cut_partition_count", FunctionType::get(I32, {I8P}, false)), {S.GraphArg})
         : EB.CreateCall(BuildCC, {S.GraphArg, gpuBackendSelected(Mod) ?
             static_cast<Value *>(EB.CreateCall(Mod->getOrInsertFunction("autograph_gpu_clean_cut_partitions",FunctionType::get(I32,false)))) : ConstantInt::get(I32, 0)});
+    if (Info.OrderedArrayFrontier && Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
+        Info.Schedule.Kind == ScheduleKind::SpatialDag && !Info.CombinedStage)
+        requireArrayCut(EB, Mod, S.GraphArg, S.PartCount);
 
     const unsigned NS = (unsigned)Info.Slots.size();
     const unsigned NA = (unsigned)Info.PrivArrays.size();
@@ -8035,11 +8052,14 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         if (GL->getPointerOperand())
             GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
-        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+        Info.OrderedArrayFrontier && ScopedSpatial ? "autograph_build_array_cut" : "autograph_build_clean_cut",
+        FunctionType::get(I32, {I8P, I32}, false));
     Value *PartCount = Info.CombinedStage ? EB.CreateCall(Mod->getOrInsertFunction(
         "autograph_clean_cut_partition_count", FunctionType::get(I32, {I8P}, false)), {GraphArg})
         : EB.CreateCall(BuildCC, {GraphArg, gpuBackendSelected(Mod) ?
             static_cast<Value *>(EB.CreateCall(Mod->getOrInsertFunction("autograph_gpu_clean_cut_partitions",FunctionType::get(I32,false)))) : ConstantInt::get(I32, 0)});
+    if (Info.OrderedArrayFrontier && ScopedSpatial && !Info.CombinedStage)
+        requireArrayCut(EB, Mod, GraphArg, PartCount);
 
     /* Round-separation (composition A): snapshot the in-place bases for this
      * round; the pair work fn reads the frozen snapshot through the published

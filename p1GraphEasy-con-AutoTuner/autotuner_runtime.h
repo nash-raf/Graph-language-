@@ -165,6 +165,7 @@ typedef struct {
   int32_t cc_cache_layout_epoch;
   int64_t cc_cache_live_edges;
   int64_t cc_cache_extra_edges;
+  int64_t cc_ranges_n; /* vertex-span identity for range-only array cuts */
 } AutoGraphMeta;
 
 #ifdef __cplusplus
@@ -572,8 +573,13 @@ typedef struct sgpl_exec_ctx {
    * is unsorted or has duplicates. Contexts own their copies of these hints. */
   int64_t *array_record_edges;
   int64_t array_edge_index;
+  /* Exclusive execution-buffer lease; no live context shares its storage. */
+  void *execution_scratch;
+  int32_t array_log_pristine;
+  int32_t array_pair_records;
 } sgpl_exec_ctx;
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
+int32_t autograph_build_array_cut(void *,int32_t);
 int32_t autograph_exec_ctx_bind_array_frontier(sgpl_exec_ctx *,const int32_t *,int32_t,
                                                int32_t **,int64_t *,int32_t);
 int64_t autograph_exec_ctx_occurrence(sgpl_exec_ctx *);

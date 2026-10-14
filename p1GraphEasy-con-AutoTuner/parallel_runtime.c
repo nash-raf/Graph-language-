@@ -5759,6 +5759,37 @@ void parallel_for_runtime(int64_t start,
     }
 }
 
+typedef struct {
+    sgpl_preparation_fn fn;
+    void *state;
+    int32_t width;
+} sgpl_preparation_job;
+static void sgpl_preparation_worker(void *opaque, int32_t worker) {
+    sgpl_preparation_job *job = opaque;
+    sgpl_push_thread_budget(1);
+    job->fn(job->state, worker, job->width);
+    sgpl_pop_thread_budget();
+}
+void sgpl_run_preparation(sgpl_preparation_fn fn, void *state, int32_t max_threads) {
+    if (!fn) return;
+    int32_t requested = sgpl_configured_worker_count();
+    if (max_threads > 0 && requested > max_threads) requested = max_threads;
+    int32_t parent = sgpl_current_thread_budget();
+    if (parent > 0 && requested > parent) requested = parent;
+    if (sgpl_is_worker_pool_thread() || requested < 1) requested = 1;
+    int32_t granted = requested > 1 ? sgpl_loop_pool_try_acquire(-1, requested) : 1;
+    sgpl_preparation_job job = {fn, state, granted};
+    int rc = granted > 1 ? sgpl_run_on_worker_pool(sgpl_preparation_worker, &job, granted) : -1;
+    if (granted > 1) sgpl_loop_pool_release(-1, granted);
+    if (rc != 0) {
+        job.width = 1;
+        sgpl_preparation_worker(&job, 0);
+    }
+    if (getenv("SGPL_PREPARE_DEBUG"))
+        fprintf(stderr, "[prepare-pool] requested=%d granted=%d actual=%d rc=%d reserved=%d\n",
+                requested, granted, job.width, rc, sgpl_debug_reserved_threads());
+}
+
 void parallel_for_runtime_ex(int64_t start,
                              int64_t end,
                              int64_t step,

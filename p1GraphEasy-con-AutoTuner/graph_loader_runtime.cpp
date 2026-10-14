@@ -28,6 +28,15 @@ static int omp_get_thread_num() { return 0; }
 #include "roaring_bitmap.h"
 #include "autotuner_runtime.h"
 
+static void pause_idle_loader_team() {
+#if defined(_OPENMP) && defined(__GNUC__) && __GNUC__ >= 9
+    // Direct executable launches also relinquish the loader's idle team.
+    // Explicit OpenMP settings are preserved; the normal launcher sets PASSIVE.
+    if (!std::getenv("OMP_WAIT_POLICY") && !std::getenv("GOMP_SPINCOUNT"))
+        omp_pause_resource_all(omp_pause_soft);
+#endif
+}
+
 struct Graph {
     int64_t n;
     int64_t m;
@@ -896,8 +905,10 @@ static Graph *load_graph_from_file_impl(const char *filename, bool weighted,
     if (!cache_disabled && !graph_cache_refresh_requested()) {
         Graph *cached =
             try_load_graph_cache(cache_path, source_stat, weighted, directed);
-        if (cached)
+        if (cached) {
+            pause_idle_loader_team();
             return cached;
+        }
     }
 
     MappedFile mf = map_file_read_only(filename);
@@ -972,6 +983,7 @@ static Graph *load_graph_from_file_impl(const char *filename, bool weighted,
         publish_graph_cache(cache_path, filename, source_stat, weighted,
                             graph, extra);
     register_graph_extra(graph, extra);
+    pause_idle_loader_team();
     return graph;
 }
 

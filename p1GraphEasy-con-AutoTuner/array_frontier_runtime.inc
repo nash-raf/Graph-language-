@@ -64,16 +64,28 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
   *cache=(SgplArrayWeightIndex){m,m->csr_row_ptr,first,m->csr_col_idx,m->csr_n,m->csr_m,m->layout_epoch,generation};
   *out=first;return 0;
 }
+#include "array_preparation_runtime.inc"
 static int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+  if(m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx)
+    return sgpl_array_records_csr(c,m,begins,ends);
   int64_t work=0,records=0;
   int source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U;
   int64_t *counts=calloc((size_t)m->partition_count,8),*positions=calloc((size_t)m->partition_count,8);
   if((uint64_t)m->csr_n>SIZE_MAX/sizeof(int32_t)) {free(counts);free(positions);return SGPL_DAG_ERR_NOMEM;}
-  int32_t *owners=malloc((size_t)(m->csr_n?m->csr_n:1)*sizeof(int32_t));
+  int32_t *owned_map=NULL;
+  const int32_t *owners=NULL;
   int rc=SGPL_DAG_ERR_NOMEM;
-  if(!counts||!positions||!owners)goto done;
-  for(int p=0;p<m->partition_count;++p)
-    for(int64_t u=m->partition_start[p];u<m->partition_start[p+1];++u)owners[u]=p;
+  if(!counts||!positions)goto done;
+  if(SGPL_EXEC_CACHE_OWNERS) {
+    rc=sgpl_array_owner_map(m,&owners);if(rc<0)goto done;
+    rc=SGPL_DAG_ERR_NOMEM;
+  } else {
+    owned_map=malloc((size_t)(m->csr_n?m->csr_n:1)*sizeof(int32_t));
+    if(!owned_map)goto done;
+    for(int p=0;p<m->partition_count;++p)
+      for(int64_t u=m->partition_start[p];u<m->partition_start[p+1];++u)owned_map[u]=p;
+    owners=owned_map;
+  }
   const int csr=m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx;
   /* The language weight query reads the loader's CSR, which can differ from
    * a converted layout. Never use an index from another representation. */
@@ -118,12 +130,12 @@ static int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,i
       work=ordinal;records=work+(source?(begins+ends)*c->array_source_count:0);
       if((uint64_t)records>SIZE_MAX/12||(uint64_t)work>SIZE_MAX/8/c->array_append_sites)goto done;
       c->array_work_count=work;
-      c->array_append_log=calloc((size_t)(work?work:1)*c->array_append_sites,8);
-      c->gpu_records=malloc((size_t)(records?records:1)*12);
-      c->gpu_record_sources=malloc((size_t)(records?records:1)*8);
-      c->gpu_record_work=malloc((size_t)(records?records:1)*8);
-      if(native_weighted)c->array_record_edges=malloc((size_t)(records?records:1)*8);
-      c->gpu_record_offsets=calloc((size_t)m->partition_count+1,8);
+      c->array_append_log=sgpl_execution_buffer(c,SGPL_BUF_APPEND,(size_t)(work?work:1)*c->array_append_sites*8,1);
+      c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*12,0);
+      c->gpu_record_sources=sgpl_execution_buffer(c,SGPL_BUF_SOURCES,(size_t)(records?records:1)*8,0);
+      c->gpu_record_work=sgpl_execution_buffer(c,SGPL_BUF_WORK,(size_t)(records?records:1)*8,0);
+      if(native_weighted)c->array_record_edges=sgpl_execution_buffer(c,SGPL_BUF_EDGES,(size_t)(records?records:1)*8,0);
+      c->gpu_record_offsets=sgpl_execution_buffer(c,SGPL_BUF_OFFSETS,((size_t)m->partition_count+1)*8,1);
       if(!c->array_append_log||!c->gpu_records||!c->gpu_record_sources||!c->gpu_record_work||!c->gpu_record_offsets||
           (native_weighted&&!c->array_record_edges))goto done;
       for(int p=0;p<m->partition_count;++p) {
@@ -131,9 +143,10 @@ static int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,i
       }
     }
   }
-  c->gpu_record_count=records;rc=0;
+  c->gpu_record_count=records;c->array_log_pristine=1;
+  c->array_pair_records=!source||(!begins&&!ends);rc=0;
 done:
-  free(counts);free(positions);free(owners);return rc;
+  free(counts);free(positions);free(owned_map);return rc;
 }
 extern int32_t graph_get_edge_weight(void *,int32_t,int32_t) __attribute__((weak));
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *c,void *graph,int32_t u,int32_t v) {

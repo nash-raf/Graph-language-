@@ -6,6 +6,8 @@
 > A subsequent 64-pair SSSP verification finds 108.78 ms before versus 106.33 ms
 > after: no established process-time change, but a small traversal-region
 > regression. See the SSSP verification section for the stronger comparison.
+> The regression is now repaired by isolating preparation code placement.
+> The final 144-set comparison and diagnosis appear in the last section.
 
 All three requested changes are implemented on top of the previous four runtime
 optimizations. The main comparison uses eleven randomized fresh-process sets per
@@ -348,4 +350,112 @@ Reproduce the requested direct comparison from WSL:
 
 ```text
 python3 verify/bin/preparation_simplification_2026_10_14/verify_sssp.py
+```
+
+## Traversal regression diagnosis and repair
+
+The simplification grew preparation code within the runtime's ordinary `.text`
+section. This relocated unrelated execution instructions: for example,
+`sgpl_exec_partition_body` moved from `0x40d400` to `0x40d940` in the pinned
+SSSP executables. The execution kernel's own instructions were unchanged.
+Disassembly comparisons, accounting for relocated addresses/RIP references,
+match for the generated pair callback, partition executor, spatial begin/finish
+and frontier activation. The added measured time was in the execution kernel;
+initialization did not account for the regression.
+
+Untimed diagnostic builds hash every prepared record, source/work ordinal,
+first-match weight hint and partition offset. All 22 SSSP rounds match across
+original, simplified and fixed versions. Their buffers have identical page
+offsets. Debug traces also show identical grants: four workers for the first
+four DAG rounds, then three for the remaining 18, with balanced preparation
+reservations. Thus neither changed records/algorithmic work nor a changed
+thread-budget assignment explains the penalty.
+
+Controlled placement builds hold the preparation algorithms constant while
+changing their code sections. Moving only the callbacks into `.text.*` is
+insufficient: the linker merges those subsections and the record driver still
+grows. Moving the complete preparation path into its own executable section
+keeps executor, DAG worker and worker-pool addresses identical between original
+and simplified control builds, and removes their region-time difference. For
+example, those two controls share partition executor `0x40d070`, frontier
+activation `0x419820`, DAG worker `0x40aab0` and worker pool `0x432290`.
+
+This identifies a binary code-placement regression. Placement affects
+instruction fetching and branch prediction; the experiments do not separately
+identify an instruction-cache versus branch-predictor hardware mechanism.
+It is not a changed effect proof, loss of ordering or a changed budget equation.
+
+The production fix marks the two preparation callbacks and record driver
+`noinline` and places them in `.sgpl_preparation` on GNU-compatible ELF builds.
+This prevents helper growth/inlining from perturbing ordinary execution text.
+The linker marks the new section allocatable/executable, in the executable
+load mapping. Other toolchains use ordinary function placement. The fix adds
+only private placement annotations in `array_preparation_runtime.inc` and
+`array_frontier_runtime.inc`; counting/filling operations and data formats are
+unchanged. There are no dummy loops, manual byte padding, schedule overrides,
+timer changes or cost-model adjustments.
+
+### Final matched comparison
+
+The original, regressed simplified and fixed binaries run together in 144
+matched sets (432 timed fresh processes), after three warmup sets. Each of the
+six ordering permutations is used once per six-set block, with blocks shuffled.
+All runs use the same generated program objects, compiler flags, input,
+calibration, passive waiting, four-worker settings and affinity 0, 2, 4, 6.
+Builds, tests and profiling are stopped before timing; logs are written outside
+the measurements. The original executable remains byte-identical to the
+original 109 ms executable. Absolute times below belong to this new window.
+
+| SSSP version | Median process ms | Median reported traversal ms | Median pure kernel ms |
+|---|---:|---:|---:|
+| Original, before simplification | 127.595 | 23.286 | 19.922 |
+| Simplified, before placement fix | 127.131 | 23.995 | 20.610 |
+| Simplified, with placement fix | 123.441 | 22.722 | 19.525 |
+
+Paired geometric-mean ratios, with bootstrap 95% intervals:
+
+| Comparison | Process ratio | Traversal ratio | Pure kernel ratio |
+|---|---:|---:|---:|
+| Regressed / original | 0.9855 [0.9695, 1.0018] | 1.0316 [1.0093, 1.0543] | 1.0358 [1.0112, 1.0610] |
+| Fixed / original | 0.9763 [0.9604, 0.9923] | 0.9829 [0.9615, 1.0046] | 0.9828 [0.9595, 1.0066] |
+| Fixed / regressed | 0.9906 [0.9760, 1.0055] | 0.9528 [0.9313, 0.9750] | 0.9488 [0.9260, 0.9723] |
+
+The experiment reproduces the approximately 3% traversal penalty and verifies
+its removal. Fixed traversal is about 4.7% faster than the regressed build in
+paired results. Against the original, the traversal estimate is slightly faster
+but its interval includes equality; no remaining regression is established and
+the interval excludes a 3% penalty. Process time is about 2.4% lower than the
+original in this window. The mean paired traversal reduction versus the
+regressed build is 1.173 ms, interval [0.566, 1.781] ms.
+
+All 432 timed answers have 20,000 reachable vertices and checksum 1,182,819.
+All profiling counts/layouts/predictions match: CSR, 20,001 visits for region 0,
+22 for region 1, total prediction 2.343960 ms. The absolute autotuner accuracy
+problem is unchanged and was not adjusted to improve this comparison.
+
+### Safety and artifacts
+
+All ten executor/compiler regression suites pass on the fixed sources,
+including real GPU invocation/group execution, source hooks, duplicates,
+weighted lookup, snapshots, ordered dependent rounds and failure propagation.
+Budget, joint scheduling, DOACROSS, DAG and snapshot tests pass as well.
+ASan/UBSan passes at 1, 4 and 8 workers, including cold-team fallback and
+malformed/overflow input. All five unchanged generated LLVM modules verify.
+The autotuner sources remain identical to `effect_interim`; profiler, proof,
+scheduler, budgeting and compiler-lowering source identities are unchanged.
+
+Ignored artifacts are in `verify/bin/traversal_regression_2026_10_14/`, including
+before-fix source snapshots, original/simplified/control/fixed executables,
+normalized disassembly evidence, ELF section/symbol dumps, all 22 record hashes
+and grants, regression/sanitizer/budget logs, source identities, placement
+control measurements and final paired raw/summary data and output logs.
+Final data is in `paired_verification/`. Reproduction from WSL:
+
+```text
+python3 verify/bin/traversal_regression_2026_10_14/build_fixed.py
+python3 verify/bin/traversal_regression_2026_10_14/validate.py
+python3 verify/bin/traversal_regression_2026_10_14/sanitize.py
+python3 verify/bin/traversal_regression_2026_10_14/check_budget_tests.py
+python3 verify/bin/traversal_regression_2026_10_14/check_records.py
+python3 verify/bin/traversal_regression_2026_10_14/verify_fixed.py
 ```

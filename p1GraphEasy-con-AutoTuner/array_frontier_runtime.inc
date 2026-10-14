@@ -65,7 +65,7 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
   *out=first;return 0;
 }
 #include "array_preparation_runtime.inc"
-static int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
   if(m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx)
     return sgpl_array_records_csr(c,m,begins,ends);
   int64_t work=0,records=0;

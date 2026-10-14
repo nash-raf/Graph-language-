@@ -1,5 +1,14 @@
 /* Preparation writes infrastructure only. Chunks cover consecutive original
  * source ordinals; prefix offsets concatenate them in that same order. */
+#if defined(__GNUC__) && defined(__ELF__)
+/* Keep preparation out of .text, including its driver below. Expanding these
+ * loops must not relocate the executor, DAG or worker-pool instruction streams.
+ * The linker retains this as an executable section; no schedule or data layout
+ * changes. Other toolchains keep the ordinary function placement. */
+#define SGPL_PREPARATION_FN __attribute__((noinline,section(".sgpl_preparation")))
+#else
+#define SGPL_PREPARATION_FN
+#endif
 typedef struct {
   sgpl_exec_ctx *ctx;
   AutoGraphMeta *meta;
@@ -10,7 +19,7 @@ typedef struct {
   int32_t chunks,parts,source,begins,ends;
   _Atomic int32_t error;
 } SgplArrayPreparation;
-static void sgpl_array_count_chunks(void *opaque,int32_t worker,int32_t width) {
+static SGPL_PREPARATION_FN void sgpl_array_count_chunks(void *opaque,int32_t worker,int32_t width) {
   SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
   const int source=j->source,hooks=j->begins+j->ends;
   const int64_t limit=j->pair_limit;
@@ -49,7 +58,7 @@ invalid:
  * the total ordinal limit. Topology and the input frontier are immutable until
  * preparation joins; no user callback runs between counting and filling.
  * Filling therefore has no per-edge validation or phase branch. */
-static void sgpl_array_fill_chunks(void *opaque,int32_t worker,int32_t width) {
+static SGPL_PREPARATION_FN void sgpl_array_fill_chunks(void *opaque,int32_t worker,int32_t width) {
   SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
   const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
   const int32_t chunks=j->chunks,parts=j->parts;

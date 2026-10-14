@@ -91,6 +91,15 @@ This changes preparation implementation only; record formats and proof decisions
 are unchanged. Rejection tests cover malformed rows/columns and per-row and
 cross-chunk append overflow without allocating huge buffers.
 
+On GNU-compatible ELF builds, the counting/filling callbacks and record driver
+occupy the executable `.sgpl_preparation` section instead of ordinary `.text`.
+The driver is not inlined into its callers. Preparation code growth therefore
+does not shift executor and worker-pool instruction placement in the tested
+builds. Other toolchains retain ordinary placement and the same semantics.
+This is a code-placement measure, with no change to scheduling or record data.
+The SSSP layout controls and final paired verification are recorded in
+`../verify/PREPARED_RUNTIME_COMPARISON.md`.
+
 Accepted array spatial stages request partition boundaries without eagerly
 constructing full source slices and destination rows. Full-view consumers,
 including direct GPU record preparation, materialize those views before use.

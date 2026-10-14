@@ -1,5 +1,10 @@
 # Merge report: origin/effect_interim into two-axis-dag-scheduler
 
+> Update, 2026-10-14: the budgeting integration is repaired and verified. The
+> autotuner remains unchanged; the calibration claim below is corrected in
+> [MERGE_INTEGRATION_FIX.md](MERGE_INTEGRATION_FIX.md). The rest of this file
+> preserves the original merge investigation and its historical measurements.
+
 This file records the merge, the three failures that it caused, the fix for one of
 them, the full verification we ran, and what is still open.
 

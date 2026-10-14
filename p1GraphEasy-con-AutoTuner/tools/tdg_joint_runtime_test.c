@@ -260,6 +260,23 @@ static void cold_fifo_case(void)
     puts("PASS default: cold fallback preserves source order without an ordinary-first phase");
 }
 
+static void exhausted_loop_pool_case(void)
+{
+    sgpl_level_loop_plan plan = {.loop_budget=0};
+    sgpl_level_loop_pool pool, *saved_pool;
+    int32_t saved_pending;
+    sgpl_loop_pool_init(&pool, &plan);
+    sgpl_bind_level_loop_pool(&pool, &saved_pool, &saved_pending);
+    /* A zero remaining budget must be visible to the profitability gate,
+     * even if the enclosing TLS cap permits multiple threads. */
+    assert(sgpl_loop_effective_decision_threads_for_loop_id(-1) == 1);
+    assert(sgpl_loop_pool_try_acquire(-1, 4) == 1);
+    assert(atomic_load(&pool.remaining_threads) == 0);
+    sgpl_unbind_level_loop_pool(saved_pool, saved_pending);
+    sgpl_loop_pool_destroy(&pool);
+    puts("PASS empty pool: loop predicate and dispatch both stay serial");
+}
+
 int main(void)
 {
     sgpl_configured_worker_count();
@@ -267,6 +284,7 @@ int main(void)
     capacity_cases();
     adaptation_cases();
     cold_fifo_case();
+    exhausted_loop_pool_case();
     structural();
     puts("ALL PHASE A STRUCTURAL TESTS PASS");
     return 0;

@@ -300,6 +300,42 @@ static void t7(void)
 
 static void test_gpu_cost_model(void);
 
+/* A registered site with no samples follows the same bounded fallback as an
+ * engine dispatch without a site. This is the cold DSL loop shape that the
+ * merge accidentally stranded in an empty, active level pool. */
+static void t12(void)
+{
+    static const int32_t ids[] = {211};
+    struct site_env se = {0};
+    sgpl_tdg_task_desc task = {0};
+    char buf[160];
+    se.loop_id = ids[0];
+    task.fn = site_task;
+    task.arg = &se;
+    task.profile_id = -1;
+    task.static_work_units = 42;
+    task.num_loop_sites = 1;
+    task.loop_site_ids = ids;
+    /* Include a span-dominated level: serial task execution must not imply
+     * that the loops inside its callback have a zero budget. */
+    sgpl_run_tdg_level(&task, 1, 42, 42);
+    int cap = sgpl_configured_worker_count();
+    int disabled = getenv("SGPL_NO_UNREGISTERED_POOL_SHARE") != NULL;
+    snprintf(buf, sizeof(buf), "workers=%d trips=%lld budget=%d", se.c.workers,
+             (long long)se.c.trips, cap);
+    check("T12 cold registered site shares residual budget",
+          se.c.trips == 64 && se.c.workers >= 1 &&
+          (disabled || cap < 3 ? se.c.workers == 1 : se.c.workers >= 2) &&
+          (cap <= 1 || se.c.workers <= cap - 1), buf);
+
+    memset(&se.c, 0, sizeof(se.c));
+    sgpl_push_thread_budget(2);
+    sgpl_run_tdg_level(&task, 1, 42, 42);
+    sgpl_pop_thread_budget();
+    check("T12 cold fallback respects parent budget of 2",
+          se.c.trips == 64 && se.c.workers == 1, "one callback + no parallel team");
+}
+
 int main(void)
 {
     printf("tdg_budget_test: threads=%d\n", sgpl_configured_worker_count());
@@ -309,6 +345,7 @@ int main(void)
     t3();
     t6();
     t7();
+    t12();
     t5();
     t4();
     printf("%s (%d failure%s)\n", failures == 0 ? "ALL PASS" : "FAILURES", failures,

@@ -2528,7 +2528,7 @@ static int32_t sgpl_loop_effective_decision_threads_for_loop_id(int32_t loop_id)
             int32_t remaining = atomic_load(&pool->remaining_threads);
 
             threads = cap;
-            if (remaining > 0 && remaining < threads)
+            if (remaining < threads)
                 threads = remaining;
             if (threads < 1)
                 threads = 1;
@@ -3836,121 +3836,6 @@ static void sgpl_tdg_apply_forced_widths(sgpl_level_loop_plan *plan)
     }
 }
 
-/* A TDG task is a serial callback. Reserve one parent worker per task;
- * only its declared loop sites can spend the remaining level capacity. Task
- * duration profiles must not trade parent workers for loop workers. */
-static const double SGPL_TDG_BASE_LAUNCH_NS = 18000.0;
-static const double SGPL_TDG_LAUNCH_PER_THREAD_NS = 2800.0;
-
-static double sgpl_tdg_launch_overhead(int32_t threads, int64_t work_units)
-{
-    double base = SGPL_TDG_BASE_LAUNCH_NS;
-    double per_thread = SGPL_TDG_LAUNCH_PER_THREAD_NS;
-    double scaled = base + per_thread * (double)threads;
-    if (work_units > 0)
-    {
-        scaled += 0.35 * (double)work_units;
-    }
-    return scaled;
-}
-static double sgpl_tdg_effective_threads(int32_t threads)
-{
-    if (threads <= sgpl_tdg_physical_threads)
-        return (double)threads;
-    if (!sgpl_tdg_allow_hyperthread)
-        return (double)sgpl_tdg_physical_threads;
-    return (double)sgpl_tdg_physical_threads +
-           (double)(threads - sgpl_tdg_physical_threads) * SGPL_TDG_HT_EFFICIENCY;
-}
-
-static double sgpl_tdg_model_time_ns(int64_t work_units, int64_t span_units, int32_t threads)
-{
-    int64_t safe_work = work_units;
-    int64_t safe_span = span_units;
-    double launch_ns = 0.0;
-    double work_term = 0.0;
-
-    if (threads <= 1)
-    {
-        if (safe_work <= 0)
-            safe_work = 1;
-        return (double)safe_work * sgpl_tdg_unit_cost_ns;
-    }
-
-    if (safe_work <= 0 || safe_span <= 0)
-        return 1.0e300;
-
-    if (safe_span > safe_work)
-        safe_span = safe_work;
-
-    launch_ns = sgpl_tdg_launch_overhead(threads, safe_work);
-    work_term = (double)(safe_work - safe_span) / sgpl_tdg_effective_threads(threads);
-    return launch_ns + ((double)safe_span + work_term) * sgpl_tdg_unit_cost_ns;
-}
-static int32_t sgpl_plan_single_site(const sgpl_tdg_task_desc *tasks,
-                                     int32_t task_count,
-                                     sgpl_level_loop_plan *plan,
-                                     int32_t level_budget_threads,
-                                     double min_gain,
-                                     const char **reason_out)
-{
-    sgpl_level_loop_candidate candidates[SGPL_MAX_TDG_LEVEL_LOOPS];
-    int32_t candidate_count = 0;
-    int32_t best_threads = 1;
-    int32_t budget = level_budget_threads - 1; /* one worker runs the task */
-    double serial_time = 0.0;
-    double best_time = 0.0;
-    double gain = 0.0;
-    int32_t i = 0;
-
-    if (!tasks || task_count <= 0 || !plan || budget < 2)
-        return 1;
-
-    candidate_count = sgpl_collect_level_loop_candidates(
-        tasks, task_count, candidates, SGPL_MAX_TDG_LEVEL_LOOPS);
-    if (candidate_count <= 0)
-        return 1;
-
-    serial_time = sgpl_loop_candidate_model_time_ns(&candidates[0], 1);
-    best_time = serial_time;
-    for (i = 2; i <= budget; ++i)
-    {
-        double model = sgpl_loop_candidate_model_time_ns(&candidates[0], i);
-
-        if (model > 0.0 && model < best_time)
-        {
-            best_time = model;
-            best_threads = i;
-        }
-    }
-
-    if (best_threads <= 1 || serial_time <= 0.0)
-        return 1;
-
-    gain = (serial_time - best_time) / serial_time;
-    if (gain < min_gain)
-        return 1;
-
-    memset(plan, 0, sizeof(*plan));
-    plan->loop_budget = budget;
-    plan->remaining_threads = budget;
-    plan->idle_threads = budget - best_threads;
-    plan->entry_count = 1;
-    plan->dominant_loop_id = candidates[0].loop_id;
-    plan->dominant_model_ns = best_time;
-    plan->total_model_ns = best_time;
-    plan->slack_threads = plan->idle_threads;
-    plan->entries[0].task_slot = candidates[0].task_slot;
-    plan->entries[0].loop_id = candidates[0].loop_id;
-    plan->entries[0].assigned_threads = best_threads;
-    plan->entries[0].active_threads = 0;
-    plan->entries[0].c_rank_ns = candidates[0].c_rank_ns;
-    plan->entries[0].model_ns = best_time;
-    if (reason_out)
-        *reason_out = "single-site-model-win";
-    return best_threads;
-}
-
 static int32_t sgpl_choose_tdg_threads_with_loop_budget(int64_t work_units,
                                                         int64_t span_units,
                                                         const sgpl_tdg_task_desc *tasks,
@@ -3958,212 +3843,44 @@ static int32_t sgpl_choose_tdg_threads_with_loop_budget(int64_t work_units,
                                                         int32_t level_budget_threads,
                                                         sgpl_level_loop_plan *selected_plan)
 {
-    int64_t safe_work = work_units;
-    int64_t safe_span = span_units;
-    int32_t tdg_cap = 0;
-    int32_t task_limit = task_count > 0 ? task_count : 0;
-    int32_t best_threads = 1;
-    int32_t selected_threads = 1;
-    double best_time = 0.0;
-    double serial_time = 0.0;
-    double min_gain = SGPL_TDG_MIN_GAIN_FRACTION;
-    double span_ratio = 1.0;
-    double best_gain = 0.0;
-    const char *decision_reason = "serial-invalid-input";
+    /* This is the joint scheduler's FIFO reference, also used for cold and
+     * unsupported levels. Keep one worker per runnable task and distribute the
+     * residual reservation to its loops. A work/span profitability gate here
+     * changes the reference policy and can strand unprofiled sites at width 1.
+     * The joint scheduler compares alternative admission/allocation plans once
+     * profiles are ready; the loop predicates still decide profitability. */
     sgpl_level_loop_candidate candidates[SGPL_MAX_TDG_LEVEL_LOOPS];
-    int32_t candidate_count = 0;
-    sgpl_level_loop_plan best_plan;
-    sgpl_level_loop_plan candidate_plan;
-
-    memset(&best_plan, 0, sizeof(best_plan));
-    memset(&candidate_plan, 0, sizeof(candidate_plan));
-    if (selected_plan)
-        memset(selected_plan, 0, sizeof(*selected_plan));
-
-    sgpl_tdg_init_runtime_config();
-    candidate_count = sgpl_collect_level_loop_candidates(tasks,
-                                                         task_count,
-                                                         candidates,
-                                                         SGPL_MAX_TDG_LEVEL_LOOPS);
+    int32_t workers = task_count < level_budget_threads ? task_count : level_budget_threads;
+    int32_t count;
+    (void)work_units;
+    (void)span_units;
+    if (workers < 1)
+        workers = 1;
+    count = sgpl_collect_level_loop_candidates(tasks, task_count, candidates,
+                                               SGPL_MAX_TDG_LEVEL_LOOPS);
+    sgpl_evaluate_level_loop_plan(candidates, count,
+                                  level_budget_threads > workers ? level_budget_threads - workers : 0,
+                                  workers,
+                                  selected_plan);
     if (tdg_debug_enabled())
     {
-        fprintf(stderr,
-                "[tdg.univ] input work=%lld span=%lld tasks=%d level_budget=%d loop_sites=%d\n",
-                (long long)work_units,
-                (long long)span_units,
-                task_count,
-                level_budget_threads,
-                candidate_count);
-    }
-
-    if (safe_work <= 0 || safe_span <= 0 || task_limit <= 0)
-        goto tdg_finalize;
-    if (safe_span > safe_work)
-        safe_span = safe_work;
-    if (safe_span <= 0 || safe_work <= 0)
-    {
-        decision_reason = "serial-sanitized-invalid";
-        goto tdg_finalize;
-    }
-    if (task_limit <= 1)
-    {
-        const char *single_site_reason = NULL;
-        int32_t site_threads = sgpl_plan_single_site(tasks,
-                                                     task_count,
-                                                     &best_plan,
-                                                     level_budget_threads,
-                                                     min_gain,
-                                                     &single_site_reason);
-
-        if (tdg_debug_enabled())
+        fprintf(stderr, "[tdg.univ] workers=%d tasks=%d level_budget=%d loop_budget=%d reason=one-worker-per-task\n",
+                workers, task_count, level_budget_threads,
+                selected_plan ? selected_plan->loop_budget : 0);
+        if (task_count == 1)
         {
+            int32_t site_threads = 1;
+            if (selected_plan)
+                for (int32_t i = 0; i < selected_plan->entry_count; ++i)
+                    if (selected_plan->entries[i].assigned_threads > site_threads)
+                        site_threads = selected_plan->entries[i].assigned_threads;
             fprintf(stderr,
                     "[tdg.single-site] chosen_workers=1 site_threads=%d loop_id=%d level_budget=%d reason=%s\n",
-                    site_threads > 0 ? site_threads : 1,
-                    best_plan.dominant_loop_id,
-                    level_budget_threads,
-                    single_site_reason ? single_site_reason : "serial-single-task");
-        }
-        if (site_threads > 1)
-        {
-            /* One level worker runs the task; the task's site draws the rest. */
-            selected_threads = 1;
-            decision_reason = single_site_reason;
-            goto tdg_finalize;
-        }
-
-        decision_reason = "serial-single-task";
-        goto tdg_finalize;
-    }
-    if (sgpl_tdg_runtime_threads <= 1)
-    {
-        decision_reason = "serial-single-runtime-thread";
-        goto tdg_finalize;
-    }
-    if (level_budget_threads <= 1)
-    {
-        decision_reason = "serial-no-level-budget";
-        goto tdg_finalize;
-    }
-
-    tdg_cap = sgpl_tdg_allow_hyperthread ? sgpl_tdg_runtime_threads : sgpl_tdg_physical_threads;
-    if (tdg_cap > level_budget_threads)
-        tdg_cap = level_budget_threads;
-    if (tdg_cap > task_limit)
-        tdg_cap = task_limit;
-    if (tdg_cap < 1)
-        tdg_cap = 1;
-
-    span_ratio = (double)safe_span / (double)safe_work;
-    if (span_ratio >= 0.95 || safe_work < 8)
-    {
-        decision_reason = span_ratio >= 0.95 ? "serial-span-dominated" : "serial-too-little-work";
-        goto tdg_finalize;
-    }
-
-    sgpl_evaluate_level_loop_plan(candidates, candidate_count, level_budget_threads - 1, 1, &best_plan);
-    serial_time = sgpl_tdg_model_time_ns(safe_work, safe_span, 1) + best_plan.total_model_ns;
-    best_time = serial_time;
-    best_threads = 1;
-
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.univ-candidate] tdg_threads=1 loop_threads=%d tdg_model_ns=%.2f loop_model_ns=%.2f total_ns=%.2f dominant_loop=%d enabled_loops=%d slack=%d\n",
-                level_budget_threads > 0 ? level_budget_threads - 1 : 0,
-                sgpl_tdg_model_time_ns(safe_work, safe_span, 1),
-                best_plan.total_model_ns,
-                serial_time,
-                best_plan.dominant_loop_id,
-                best_plan.entry_count,
-                best_plan.slack_threads);
-    }
-
-    for (int32_t tdg_threads = 2; tdg_threads <= tdg_cap; ++tdg_threads)
-    {
-        int32_t loop_threads = level_budget_threads - tdg_threads;
-        double tdg_time = sgpl_tdg_model_time_ns(safe_work, safe_span, tdg_threads);
-        double loop_time = 0.0;
-        double model = 0.0;
-
-        if (loop_threads < 0)
-            loop_threads = 0;
-        sgpl_evaluate_level_loop_plan(candidates, candidate_count, loop_threads, tdg_threads, &candidate_plan);
-        loop_time = candidate_plan.total_model_ns;
-        model = tdg_time + loop_time;
-
-        if (tdg_debug_enabled())
-        {
-            fprintf(stderr,
-                    "[tdg.univ-candidate] tdg_threads=%d loop_threads=%d tdg_model_ns=%.2f loop_model_ns=%.2f total_ns=%.2f dominant_loop=%d enabled_loops=%d slack=%d\n",
-                    tdg_threads,
-                    loop_threads,
-                    tdg_time,
-                    loop_time,
-                    model,
-                    candidate_plan.dominant_loop_id,
-                    candidate_plan.entry_count,
-                    candidate_plan.slack_threads);
-        }
-
-        if (model < best_time)
-        {
-            best_time = model;
-            best_threads = tdg_threads;
-            best_plan = candidate_plan;
+                    site_threads, selected_plan ? selected_plan->dominant_loop_id : -1,
+                    level_budget_threads, count > 0 ? "single-site-loop-plan" : "unprofiled-site-fallback");
         }
     }
-
-    if ((best_time <= 0.0) || (serial_time <= 0.0))
-    {
-        decision_reason = "serial-nonpositive-model";
-        selected_threads = 1;
-        goto tdg_finalize;
-    }
-
-    best_gain = (serial_time - best_time) / serial_time;
-    if (best_threads <= 1)
-    {
-        decision_reason = "serial-best-not-better";
-        selected_threads = 1;
-        goto tdg_finalize;
-    }
-    if (best_gain < min_gain)
-    {
-        decision_reason = "serial-gain-below-threshold";
-        selected_threads = 1;
-        goto tdg_finalize;
-    }
-
-    selected_threads = best_threads;
-    decision_reason = "parallel-model-win";
-
-tdg_finalize:
-    if (selected_threads < 1)
-        selected_threads = 1;
-    if (selected_plan)
-        *selected_plan = best_plan;
-
-    if (tdg_debug_enabled())
-    {
-        fprintf(stderr,
-                "[tdg.univ] decision=%s final_threads=%d reason=%s gain=%.6f work=%lld span=%lld tasks=%d level_budget=%d loop_budget=%d dominant_loop=%d enabled_loops=%d idle_threads=%d loop_model_ns=%.2f\n",
-                selected_threads <= 1 ? "serial" : "parallel",
-                selected_threads,
-                decision_reason,
-                best_gain,
-                (long long)safe_work,
-                (long long)safe_span,
-                task_limit,
-                level_budget_threads,
-                selected_plan ? selected_plan->loop_budget : 0,
-                selected_plan ? selected_plan->dominant_loop_id : -1,
-                selected_plan ? selected_plan->entry_count : 0,
-                selected_plan ? selected_plan->idle_threads : 0,
-                selected_plan ? selected_plan->total_model_ns : 0.0);
-    }
-
-    return selected_threads;
+    return workers;
 }
 
 static int sgpl_loop_try_cached_decision(sgpl_loop_runtime_state *state,

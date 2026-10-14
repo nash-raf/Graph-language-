@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # Low-memory rebuild of p1-AT's GraphProgram (one TU at a time, no -g).
-# The prebuilt GraphProgram_new/_orig link against libantlr4-runtime 4.13.2,
-# which is not installed here (system has 4.13.1) -- hence rebuilding.
+# Use the installed LLVM toolchain and rebuild objects when their local or
+# generated parser headers change.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
 # A failed compile must not be mistaken for a successful one: the binary can
 # only exist if the link that follows succeeded.
 rm -f GraphProgram
-LLVM_CONFIG="${LLVM_CONFIG:-/usr/local/llvm-20-polly-rtti/bin/llvm-config}"
+if [[ -z "${LLVM_CONFIG:-}" ]]; then
+  if [[ -x /usr/local/llvm-20-polly-rtti/bin/llvm-config ]]; then
+    LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+  else
+    LLVM_CONFIG=llvm-config-20
+  fi
+fi
 OBJ_DIR="${OBJ_DIR:-$ROOT/build_lowmem}"; mkdir -p "$OBJ_DIR"
 LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"; LLVM_CXXFLAGS="${LLVM_CXXFLAGS//-fno-exceptions/}"
 LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"; LLVM_LIBS="$($LLVM_CONFIG --libs all)"
@@ -29,7 +35,13 @@ OBJECTS=()
 # shared library double-registers Polly's command-line options and aborts at
 # startup ("Option 'polly-dependences-computeout' registered more than once"),
 # so the explicit list is an override: `POLLY_LIBS="" bash build_lowmem.sh`.
-POLLY_LIBS="${POLLY_LIBS:--lPolly -lPollyISL -lisl}"
+if [[ ! ${POLLY_LIBS+x} ]]; then
+  if [[ "$LLVM_LIBS" =~ (^|[[:space:]])-lLLVM(-[0-9.]+)?([[:space:]]|$) ]]; then
+    POLLY_LIBS=""
+  else
+    POLLY_LIBS="-lPolly -lPollyISL -lisl"
+  fi
+fi
 echo "=== compiling ${#SOURCES[@]} sources ==="
 for src in "${SOURCES[@]}"; do
   obj="$OBJ_DIR/$(echo "$src" | tr '/' '_' | sed 's/\.cpp$/.o/')"; OBJECTS+=("$obj")
@@ -40,7 +52,7 @@ for src in "${SOURCES[@]}"; do
   stale=0
   [[ -f "$obj" ]] || stale=1
   if [[ "$stale" == 0 ]]; then
-    for hdr in *.h *.inc; do [[ "$hdr" -nt "$obj" ]] && { stale=1; break; }; done
+    for hdr in *.h *.inc generated/*.h; do [[ "$hdr" -nt "$obj" ]] && { stale=1; break; }; done
   fi
   [[ "$src" -nt "$obj" ]] && stale=1
   if [[ "$stale" == 0 ]]; then echo "  skip: $src"; continue; fi

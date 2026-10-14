@@ -89,8 +89,10 @@ static int32_t g_cc_cache_partitions = 0;
 static uint64_t g_cc_cache_epoch = 0;
 static int64_t g_cc_cache_live_edges = -1;
 static int64_t g_cc_cache_extra_edges = -1;
+static atomic_uint_fast64_t g_cc_topology_generation = 1;
 
 static void autograph_clean_cut_cache_invalidate(void) {
+  atomic_fetch_add_explicit(&g_cc_topology_generation, 1, memory_order_relaxed);
   g_cc_cache_meta = NULL;
   g_cc_cache_partitions = 0;
 }
@@ -752,6 +754,7 @@ static int rebuild_sets_from_csr_meta(AutoGraphMeta *meta, const int64_t *csr_rp
 }
 
 void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *col_idx) {
+  atomic_fetch_add_explicit(&g_cc_topology_generation, 1, memory_order_relaxed);
   AutoGraphMeta *meta = find_meta(graph_ptr);
   /* Only CSR mode: struct.Graph's row_ptr/col_idx alias the CSR arrays here.
    * In PCSR/BCSR mode they alias the transient arrays (or are NULL), and
@@ -764,6 +767,7 @@ void autograph_update_csr_pointers(void *graph_ptr, int64_t *row_ptr, int32_t *c
 
 void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
                                       int64_t *row_ptr, int32_t *col_idx) {
+  atomic_fetch_add_explicit(&g_cc_topology_generation, 1, memory_order_relaxed);
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta)
     return;
@@ -776,6 +780,7 @@ void autograph_record_adjacency_state(void *graph_ptr, int64_t n, int64_t m,
 }
 
 void autograph_mark_canonical_dirty(void *graph_ptr) {
+  atomic_fetch_add_explicit(&g_cc_topology_generation, 1, memory_order_relaxed);
   AutoGraphMeta *meta = find_meta(graph_ptr);
   if (!meta)
     return;
@@ -3264,6 +3269,9 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
       int32_t u=ctx->gpu_records[3*i],v=ctx->gpu_records[3*i+1],kind=ctx->gpu_records[3*i+2];
       local.array_source_ordinal=ctx->gpu_record_sources[i];
       local.array_work_ordinal=ctx->gpu_record_work[i];local.array_append_seq=0;
+      /* Device grouping may reorder records; its CPU fallback keeps the
+       * original language query rather than using an unreordered CSR hint. */
+      local.array_edge_index=ctx->array_record_edges&&!ctx->gpu_group_offsets?ctx->array_record_edges[i]:-1;
       if(kind==1) {local.source_state=NULL;sgpl_exec_source_begin_ops(&local,u);}
       else if(kind==2)sgpl_exec_source_end_ops(&local,u);
       else if(!local.spatial_source_gate||local.spatial_source_gate[local.array_source_ordinal])
@@ -4056,11 +4064,13 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   AutoGraphMeta *m=ctx?find_meta(ctx->graph):NULL;
   if(!m||m->partition_count<1||m->csr_n<0) return SGPL_DAG_ERR_INVALID;
-  if(ctx->gpu_record_offsets) return ctx->gpu_group_offsets&&ctx->gpu_partition_groups?0:SGPL_DAG_ERR_NOMEM;
+  if(ctx->gpu_record_offsets && ctx->gpu_group_offsets && ctx->gpu_partition_groups) return 0;
   int begins=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN),ends=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END);
   int64_t records=0;
   if(ctx->array_append_sites) {
-    int rc=sgpl_array_records(ctx,m,begins,ends);if(rc<0)return rc;
+    if(!ctx->gpu_record_offsets) {
+      int rc=sgpl_array_records(ctx,m,begins,ends);if(rc<0)return rc;
+    }
     records=ctx->gpu_record_count;goto records_ready;
   }
   for(int p=0;p<m->partition_count;++p) {
@@ -4490,6 +4500,7 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
   free(ctx->ops);
   free(ctx->gpu_records);
   free(ctx->gpu_record_sources);free(ctx->gpu_record_work);free(ctx->array_append_log);
+  free(ctx->array_record_edges);
   free(ctx->gpu_record_offsets);
   free(ctx->gpu_group_offsets);
   free(ctx->gpu_partition_groups);
@@ -4582,7 +4593,10 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
   ctx->spatial_group = group;
   ctx->spatial_runtime_group = runtime_group;
   ctx->execution_error = &ctx->execution_status;
-  if(ctx->array_append_sites)return sgpl_gpu_prepare_spatial_records(ctx);
+  /* CPU batches need occurrence records, not the device's second grouping
+   * and reordered copy. Device submission prepares those lazily. */
+  if(ctx->array_append_sites)return sgpl_array_records(ctx,meta,
+      sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN),sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END));
   return 0;
 }
 

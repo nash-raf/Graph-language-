@@ -54,5 +54,21 @@ printf '14\n1\n1\n2\n2\n2\n2\n1\n1\n2\n2\n2\n2\n2\n2\n' >"$TMP/unrolled.expected
 cmp "$TMP/unrolled.expected" "$TMP/unrolled.output"
 grep -q '\[frontier-buffer\] fallback-grow' "$TMP/unrolled.log"
 echo 'PASS append guards survive complete source-loop unrolling'
+
+# Unsorted/duplicate rows retain first-match weight lookup; the unique sorted
+# row can consume its CSR hint. Repeated sources still contribute repeatedly.
+printf '7\n2\n1\n1\n2\n1\n1\n2\n0\n28\n27\n' >"$TMP/weights.expected"
+for backend in sequential cpu; do
+  flags=()
+  [[ "$backend" == sequential ]] && flags+=(GRAPH_DISABLE_PDG=1)
+  env FORCE_CPU=1 "${flags[@]}" ./GraphProgram test/array_frontier_weights.graph >"$TMP/weights.$backend.compile" 2>&1
+  cp program.o "$TMP/weights.$backend.program"
+  g++ -fopenmp -no-pie "$TMP/weights.$backend.program" "${OBJECTS[@]}" -pthread -ldl -lnlopt -o "$TMP/weights.$backend"
+  for workers in 1 2 4 8; do
+    env SGPL_NUM_THREADS="$workers" SGPL_CLEANCUT_PARTITIONS=3 "$TMP/weights.$backend" >"$TMP/weights.output" 2>"$TMP/weights.log"
+    cmp "$TMP/weights.expected" "$TMP/weights.output"
+  done
+done
+echo 'PASS weighted array frontiers retain unsorted/duplicate first-match lookup and repeated sources'
 echo 'PASS automatic array-frontier proof, exact append order and duplicates, checked copy/growth, and real GPU execution at 1,2,4,8 workers'
 echo "Array frontier lowering logs: $TMP"

@@ -5,6 +5,10 @@
 > [MERGE_INTEGRATION_FIX.md](MERGE_INTEGRATION_FIX.md). The rest of this file
 > preserves the original merge investigation and its historical measurements.
 
+> The subsequent [same-machine autotuner comparison](AUTOTUNER_BRANCH_COMPARISON.md)
+> measures both parents and the merged revisions, resolving the accuracy
+> attribution against the requested `effect_interim` baseline.
+
 This file records the merge, the three failures that it caused, the fix for one of
 them, the full verification we ran, and what is still open.
 

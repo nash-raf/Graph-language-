@@ -13,11 +13,8 @@ g++ -O2 -c graph_runtime.cpp -o "$TMP/graph_runtime.o"
 OBJECTS=("$TMP"/*.o)
 for fixture in round_spatial_fold round_spatial_guard round_spatial_twofold; do
  FORCE_CPU=1 GRAPH_FRONTIER_STATS=1 SGPL_FRONTIER_STRICT=1 ./GraphProgram "test/$fixture.graph" >"$TMP/$fixture.compile" 2>&1
- if [[ "$fixture" == round_spatial_twofold ]]; then
-  grep -q 'schedule=round-dag' "$TMP/$fixture.compile"
- else
-  grep -q 'schedule=round-spatial-dag' "$TMP/$fixture.compile"
- fi
+ # The private-fold proof also realizes both axes for the twofold fixture.
+ grep -q 'schedule=round-spatial-dag' "$TMP/$fixture.compile"
  mv program.o "$TMP/$fixture.o"
  g++ -fopenmp -no-pie "$TMP/$fixture.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt -o "$TMP/$fixture"
  FORCE_CPU=1 GRAPH_FRONTIER_REWRITE_OFF=1 ./GraphProgram "test/$fixture.graph" >"$TMP/reference.compile" 2>&1

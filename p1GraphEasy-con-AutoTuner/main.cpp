@@ -17,6 +17,8 @@
 #include "parallel_loop_outline.h"
 #include "graph_frontier_lowering.h"
 #include "AutoTunerPass.h"
+#include "autotuner_runtime.h"
+#include <cstddef>
 
 // 'INF' is reserved as the infinity literal by the grammar, but nothing in the
 // program corpus uses that literal -- programs hit it only when naming a
@@ -852,6 +854,158 @@ static void expandArgumentMemoryIntrinsicsForPDG(llvm::Module &M)
             MM->eraseFromParent();
 }
 
+/* PDG extraction can split one pair callback into several tiny direct task
+ * calls. Rejoin those local bodies after scheduling/outlining: the runtime
+ * still owns the same callback and every dispatch/budget call stays intact. */
+static llvm::Function *spatialContextAccessor(llvm::Module &M, llvm::Function *Original)
+{
+    const auto Name = Original->getName();
+    auto *Fn = llvm::Function::Create(Original->getFunctionType(), llvm::GlobalValue::InternalLinkage,
+                                     "sgpl.ctx.inline." + Name, M);
+    auto &C = M.getContext();
+    llvm::IRBuilder<> B(llvm::BasicBlock::Create(C, "entry", Fn));
+    auto *Ctx = Fn->getArg(0);
+    auto *Fallback = llvm::BasicBlock::Create(C, "fallback", Fn);
+    auto *Body = llvm::BasicBlock::Create(C, "context", Fn);
+    B.CreateCondBr(B.CreateIsNull(Ctx), Fallback, Body);
+    B.SetInsertPoint(Body);
+    auto Field = [&](llvm::Type *Ty, size_t Offset) {
+        return B.CreateLoad(Ty, B.CreateGEP(B.getInt8Ty(), Ctx, B.getInt64(Offset)));
+    };
+    if (Name == "autograph_exec_ctx_occurrence") {
+        auto *Sites = Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, array_append_sites));
+        auto *Ordinal = Field(B.getInt64Ty(), offsetof(sgpl_exec_ctx, array_source_ordinal));
+        B.CreateRet(B.CreateSelect(B.CreateICmpNE(Sites, B.getInt32(0)), Ordinal, B.getInt64(0)));
+        B.SetInsertPoint(Fallback); B.CreateRet(B.getInt64(0));
+    } else if (Name == "autograph_exec_ctx_snapshot") {
+        auto *Slot = Fn->getArg(1);
+        auto *Count = Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, spatial_snapshot_count));
+        auto *Read = llvm::BasicBlock::Create(C, "snapshot", Fn);
+        B.CreateCondBr(B.CreateAnd(B.CreateICmpSGE(Slot, B.getInt32(0)), B.CreateICmpSLT(Slot, Count)), Read, Fallback);
+        B.SetInsertPoint(Read);
+        auto *Table = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, spatial_snapshots));
+        B.CreateRet(B.CreateLoad(B.getPtrTy(), B.CreateGEP(B.getPtrTy(), Table, Slot)));
+        B.SetInsertPoint(Fallback); B.CreateRet(llvm::ConstantPointerNull::get(B.getPtrTy()));
+    } else {
+        auto *Graph = Fn->getArg(1), *U = Fn->getArg(2), *V = Fn->getArg(3);
+        auto *Index = Field(B.getInt64Ty(), offsetof(sgpl_exec_ctx, array_edge_index));
+        auto *Records = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, array_record_edges));
+        auto *Owner = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, graph));
+        auto *Native = llvm::BasicBlock::Create(C, "native", Fn);
+        B.CreateCondBr(B.CreateAnd(B.CreateAnd(B.CreateICmpEQ(Graph, Owner), B.CreateIsNotNull(Records)),
+                                  B.CreateAnd(B.CreateICmpSGE(Index, B.getInt64(0)), B.CreateICmpSGE(U, B.getInt32(0)))), Native, Fallback);
+        B.SetInsertPoint(Native);
+        auto *N = B.CreateLoad(B.getInt64Ty(), Graph);
+        auto *Row = llvm::BasicBlock::Create(C, "row", Fn);
+        B.CreateCondBr(B.CreateICmpSLT(B.CreateSExt(U, B.getInt64Ty()), N), Row, Fallback);
+        B.SetInsertPoint(Row);
+        auto *Rp = B.CreateLoad(B.getPtrTy(), B.CreateGEP(B.getInt8Ty(), Graph, B.getInt64(16)));
+        auto *First = B.CreateLoad(B.getInt64Ty(), B.CreateGEP(B.getInt64Ty(), Rp, U));
+        auto *Last = B.CreateLoad(B.getInt64Ty(), B.CreateGEP(B.getInt64Ty(), Rp, B.CreateAdd(U, B.getInt32(1))));
+        auto *Edge = llvm::BasicBlock::Create(C, "edge", Fn);
+        B.CreateCondBr(B.CreateAnd(B.CreateICmpSGE(Index, First), B.CreateICmpSLT(Index, Last)), Edge, Fallback);
+        B.SetInsertPoint(Edge);
+        auto *Ci = B.CreateLoad(B.getPtrTy(), B.CreateGEP(B.getInt8Ty(), Graph, B.getInt64(24)));
+        auto *Destination = B.CreateLoad(B.getInt32Ty(), B.CreateGEP(B.getInt32Ty(), Ci, Index));
+        auto *Weight = llvm::BasicBlock::Create(C, "weight", Fn);
+        B.CreateCondBr(B.CreateICmpEQ(Destination, V), Weight, Fallback);
+        B.SetInsertPoint(Weight);
+        auto *Weights = B.CreateLoad(B.getPtrTy(), B.CreateGEP(B.getInt8Ty(), Graph, B.getInt64(32)));
+        auto *Weighted = llvm::BasicBlock::Create(C, "weighted", Fn);
+        auto *Unit = llvm::BasicBlock::Create(C, "unit", Fn);
+        B.CreateCondBr(B.CreateIsNull(Weights), Unit, Weighted);
+        B.SetInsertPoint(Unit); B.CreateRet(B.getInt32(1));
+        B.SetInsertPoint(Weighted); B.CreateRet(B.CreateLoad(B.getInt32Ty(), B.CreateGEP(B.getInt32Ty(), Weights, Index)));
+        B.SetInsertPoint(Fallback);
+        llvm::SmallVector<llvm::Value *, 4> Args;
+        for (auto &A : Fn->args()) Args.push_back(&A);
+        B.CreateRet(B.CreateCall(Original, Args));
+    }
+    return Fn;
+}
+
+static void inlineSpatialCallbackTasks(llvm::Module &M)
+{
+    for (llvm::Function &F : M) {
+        if (!F.hasFnAttribute("sgpl.spatial.callback")) continue;
+        /* Limit this cleanup to ordered array callbacks. Ordinary graph
+         * stages retain their established outlining and calibration shape. */
+        bool ArrayCallback = false;
+        llvm::SmallVector<llvm::Function *, 8> Pending{&F};
+        llvm::SmallPtrSet<llvm::Function *, 8> Seen;
+        while (!Pending.empty() && !ArrayCallback) {
+            auto *Body = Pending.pop_back_val();
+            if (!Seen.insert(Body).second) continue;
+            for (llvm::BasicBlock &BB : *Body)
+                for (llvm::Instruction &I : BB)
+                    if (auto *Call = llvm::dyn_cast<llvm::CallBase>(&I))
+                        if (auto *Callee = Call->getCalledFunction()) {
+                            if (Callee->getName() == "autograph_exec_ctx_occurrence") ArrayCallback = true;
+                            else if (Callee->hasLocalLinkage() && Callee->getName().starts_with("task_"))
+                                Pending.push_back(Callee);
+                        }
+        }
+        if (!ArrayCallback) continue;
+        for (unsigned attempt = 0; attempt < 64; ++attempt) {
+            llvm::CallBase *Candidate = nullptr;
+            for (llvm::BasicBlock &BB : F) {
+                for (llvm::Instruction &I : BB) {
+                    auto *Call = llvm::dyn_cast<llvm::CallBase>(&I);
+                    llvm::Function *Callee = Call ? Call->getCalledFunction() : nullptr;
+                    if (!Callee || Callee == &F || !Callee->hasLocalLinkage() ||
+                        !Callee->getName().starts_with("task_") || Callee->isDeclaration()) continue;
+                    unsigned Count = 0;
+                    for (llvm::BasicBlock &Body : *Callee) Count += Body.size();
+                    if (Count <= 128) { Candidate = Call; break; }
+                }
+                if (Candidate) break;
+            }
+            if (!Candidate) break;
+            llvm::InlineFunctionInfo Info;
+            if (!llvm::InlineFunction(*Candidate, Info).isSuccess()) break;
+        }
+        /* Device callbacks were captured before PDG reconstruction. This
+         * replacement affects only the host callback; an ineligible row or
+         * query on a different graph/edge uses the original lookup. */
+        if (F.arg_size() != 4 || !F.getArg(1)->getType()->isPointerTy() ||
+            !F.hasFnAttribute("sgpl.spatial.runtime.group")) continue;
+        llvm::SmallVector<llvm::CallInst *, 4> WeightCalls;
+        for (llvm::BasicBlock &BB : F)
+            for (llvm::Instruction &I : BB)
+                if (auto *Call = llvm::dyn_cast<llvm::CallInst>(&I))
+                    if (auto *Callee = Call->getCalledFunction())
+                        if (Callee->getName() == "graph_get_edge_weight" && Call->arg_size() == 3)
+                            WeightCalls.push_back(Call);
+        for (llvm::CallInst *Call : WeightCalls) {
+            llvm::IRBuilder<> B(Call);
+            auto Lookup = M.getOrInsertFunction("autograph_exec_ctx_edge_weight",
+                llvm::FunctionType::get(B.getInt32Ty(),
+                    {B.getPtrTy(), B.getPtrTy(), B.getInt32Ty(), B.getInt32Ty()}, false));
+            auto *Fast = B.CreateCall(Lookup, {F.getArg(1), Call->getArgOperand(0),
+                                             Call->getArgOperand(1), Call->getArgOperand(2)});
+            Call->replaceAllUsesWith(Fast);
+            Call->eraseFromParent();
+        }
+        llvm::SmallVector<llvm::CallInst *, 8> Accessors;
+        for (llvm::BasicBlock &BB : F)
+            for (llvm::Instruction &I : BB)
+                if (auto *Call = llvm::dyn_cast<llvm::CallInst>(&I))
+                    if (auto *Callee = Call->getCalledFunction()) {
+                        auto N = Callee->getName();
+                        if (N == "autograph_exec_ctx_occurrence" || N == "autograph_exec_ctx_snapshot" ||
+                            N == "autograph_exec_ctx_edge_weight") Accessors.push_back(Call);
+                    }
+        for (auto *Call : Accessors) {
+            auto *Helper = spatialContextAccessor(M, Call->getCalledFunction());
+            Call->setCalledFunction(Helper);
+            llvm::InlineFunctionInfo Info;
+            auto Result = llvm::InlineFunction(*Call, Info);
+            if (Helper->use_empty()) Helper->eraseFromParent();
+            if (!Result.isSuccess()) llvm::report_fatal_error("cannot inline spatial context accessor");
+        }
+    }
+}
+
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
     // Storage safety also applies to the unoutlined sequential reference.
@@ -1180,6 +1334,8 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         // optional: you can still call your helper which creates its own managers
         runLoopOutlinerOnModule(M);
         refreshTDGLoopSites(M);
+        inlineSpatialCallbackTasks(M);
+        MAM.invalidate(M, llvm::PreservedAnalyses::none());
 
         // Build function-level cleanup pipeline
         FunctionPassManager FPM;

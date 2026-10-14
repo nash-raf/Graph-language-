@@ -52,8 +52,15 @@ int32_t sgpl_frontier_reserve_i32(void *graph,const int32_t *input,int32_t count
                                  int32_t **slot,int64_t *capacity,int32_t sites,int32_t prefix) {
   if(!graph||count<0||sites<1||prefix<0||!capacity||prefix>*capacity||(!input&&count)) return SGPL_DAG_ERR_INVALID;
   int64_t n=*(int64_t*)graph,work=prefix;
+  AutoGraphMeta *meta=find_meta(graph);
+  const int csr=meta&&meta->current_layout==LAYOUT_CSR&&meta->csr_row_ptr&&meta->csr_col_idx;
   for(int32_t i=0;i<count;i++) {
     if(input[i]<0||input[i]>=n) return SGPL_DAG_ERR_INVALID;
+    if(csr) {
+      int64_t degree=meta->csr_row_ptr[input[i]+1]-meta->csr_row_ptr[input[i]];
+      if(degree<0||degree>(INT32_MAX-work)/sites)return SGPL_DAG_ERR_INVALID;
+      work+=degree*sites;continue;
+    }
     AutoNeighborIter iter;int32_t v;
     autograph_neighbor_iter_init(graph,input[i],&iter);
     while(autograph_neighbor_iter_next(&iter,&v)) {

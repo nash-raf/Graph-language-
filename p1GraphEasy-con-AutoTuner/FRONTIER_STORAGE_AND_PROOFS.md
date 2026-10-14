@@ -66,6 +66,21 @@ different rounds. Unknown publications and pointer escapes reject the argument.
 
 ## Runtime
 
+CPU array preparation counts and fills stable partition records in two topology
+passes. Native CSR capacity reservation uses row lengths. Device group offsets
+and reordered records are prepared only when a device submission needs them.
+Normal output compaction counts and emits in one pass when reserved capacity
+covers every slot; smaller reservations keep the checked growth path.
+
+For native weighted CSR, preparation caches the first matching neighbor index
+for each column, including unsorted rows and unequal-weight duplicate edges.
+Contexts own their copied index hints. The preparation-thread cache follows
+topology publication/mutation and layout/pointer/size changes, and is released
+at thread exit. CPU callbacks validate the graph and edge before using a hint
+and read the weight value live. Other layouts, other queries and a device-
+reordered CPU fallback use the original lookup. This cache establishes no
+independence fact and does not suppress any pair or append occurrence.
+
 CleanCut batches contain whole accepted proof blocks. CPU callbacks preserve
 the order assigned to each batch. Device lanes preserve each dependent group's
 order. Both paths use the same occurrence identities and append slots.

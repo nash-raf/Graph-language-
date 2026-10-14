@@ -1,0 +1,21 @@
+graph G { directed: true; edges: file "test/array_frontier_weights.txt"; TRUE };
+int n=numVertices(G);
+int frontier[n];
+int next_frontier[n];
+int hits[n];
+frontier[0]=0;frontier[1]=0;frontier[2]=1;
+int frontier_size=3;
+int next_size=0;
+int p=0;
+while(p<frontier_size) {
+  int u=frontier[p];
+  for v in G.neighbors(u) {
+    hits[v]=hits[v]+weight(G,u,v);
+    next_frontier[next_size]=v;next_size=next_size+1;
+  }
+  p=p+1;
+}
+print next_size;
+int i=0;
+while(i<next_size) {print next_frontier[i];i=i+1;}
+for v in G.nodes {print hits[v];}

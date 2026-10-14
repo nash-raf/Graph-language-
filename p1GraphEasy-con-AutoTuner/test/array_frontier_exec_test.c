@@ -3,8 +3,25 @@
 static atomic_int occurrence_calls;
 static int skip_appends;
 static int begins_by_occurrence[16],ends_by_occurrence[16];
+static int64_t weight_rp[]={0,2,4,5,5,6,7,7};
+static int32_t weight_ci[]={1,2,2,2,3,1,6},weight_data[]={7,8,40,41,9,10,11};
+int32_t graph_get_edge_weight(void *graph,int32_t u,int32_t v) {
+  /* This link stub models the original weight query. PCSR has holes and
+   * BCSR/SET do not publish a loader CSR, so use the immutable fixture rows. */
+  ExecTestGraph *g=graph;
+  if(u<0||u>=g->n)return INT32_MAX;
+  for(int64_t j=weight_rp[u];j<weight_rp[u+1];++j)
+    if(weight_ci[j]==v)return weight_data[j];
+  return INT32_MAX;
+}
+static atomic_int weight_errors;
 static void array_pair(void *unused,sgpl_exec_ctx *ctx,int32_t u,int32_t v) {
   (void)unused;(void)u;atomic_fetch_add(&occurrence_calls,1);
+  if(autograph_exec_ctx_edge_weight(ctx,ctx->graph,u,v)!=graph_get_edge_weight(ctx->graph,u,v))
+    atomic_fetch_add(&weight_errors,1);
+  /* A query on a different destination must not consume this pair's hint. */
+  if(autograph_exec_ctx_edge_weight(ctx,ctx->graph,u,6)!=graph_get_edge_weight(ctx->graph,u,6))
+    atomic_fetch_add(&weight_errors,1);
   if(skip_appends)return;
   autograph_frontier_activate(ctx,v);autograph_frontier_activate(ctx,v);
 }
@@ -16,7 +33,8 @@ static void array_end(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
 }
 int main(void) {
   int64_t rp[8]={0,2,4,5,5,6,7,7};int32_t ci[7]={1,2,2,2,3,1,6};
-  ExecTestGraph g={.n=7,.m=7,.row_ptr=rp,.col_idx=ci,.directed=1};
+  int32_t weights[]={7,8,40,41,9,10,11};
+  ExecTestGraph g={.n=7,.m=7,.row_ptr=rp,.col_idx=ci,.weights=weights,.directed=1};
   autograph_init(&g,7,7,NULL,NULL,pairs);
   int32_t input[]={4,1,3,0,1,6};
   int32_t expected_output[]={1,1,2,2,2,2,1,1,2,2,2,2,2,2};
@@ -35,6 +53,8 @@ int main(void) {
     check(!autograph_exec_ctx_bind_array_frontier(ctx,input,6,&out,&cap,2),"bind array frontier");
     int key=source?SGPL_SPATIAL_SOURCE:SGPL_SPATIAL_DESTINATION;
     check(!autograph_exec_ctx_prepare_spatial(ctx,key,key,1),"reserve ordered occurrence log");
+    check(ctx->gpu_group_offsets==NULL,"CPU preparation defers device grouping");
+    if(layout==LAYOUT_CSR)check(ctx->array_record_edges!=NULL,"native weighted CSR prepares direct edge hints");
     check(autograph_frontier_execute(&g,ctx)==14,"retain duplicate append cardinality");
     check(atomic_load(&occurrence_calls)==7,"duplicate sources and edges execute exactly once per occurrence");
     check(cap>=14&&!memcmp(out,expected_output,sizeof expected_output),"compact in original source and neighbor order");
@@ -42,8 +62,37 @@ int main(void) {
     skip_appends=1;
     check(autograph_frontier_execute(&g,ctx)==0&&atomic_load(&occurrence_calls)==14,
         "reused context clears prior append validity without replaying a dispatch");
+    check(!sgpl_gpu_prepare_spatial_records(ctx)&&ctx->gpu_group_offsets&&ctx->gpu_partition_groups,
+        "device grouping can be prepared lazily on the same context");
+    skip_appends=0;
+    check(autograph_frontier_execute(&g,ctx)==14&&!memcmp(out,expected_output,sizeof expected_output),
+        "CPU fallback after device grouping preserves every original append occurrence");
+    autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
+    if(layout==LAYOUT_CSR&&!source) {
+      ci[1]=1;
+      autograph_record_adjacency_state(&g,7,7,rp,ci);
+      int32_t one[]={0};out=initial;cap=2;head=0;
+      op=autograph_exec_op_create(SGPL_OP_PAIR,NULL,array_pair,NULL,NULL,NULL,NULL,NULL,0);ops[0]=op;
+      ctx=autograph_exec_ctx_create(&g,SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,NULL,NULL,out,0,&head,NULL,0,ops,1,-1);
+      check(!autograph_exec_ctx_bind_array_frontier(ctx,one,1,&out,&cap,2)&&
+            !autograph_exec_ctx_prepare_spatial(ctx,key,key,1),"rebuild weight hints after same-pointer topology publication");
+      check(autograph_frontier_execute(&g,ctx)==4&&out[0]==1&&out[1]==1&&out[2]==1&&out[3]==1&&
+            !atomic_load(&weight_errors),"mutation invalidates the prior first-match weight index");
+      autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
+      ci[1]=2;autograph_record_adjacency_state(&g,7,7,rp,ci);
+    }
+    out=initial;cap=2;head=0;
+    op=autograph_exec_op_create(SGPL_OP_PAIR,NULL,array_pair,NULL,NULL,NULL,NULL,NULL,0);
+    ops[0]=op;
+    ctx=autograph_exec_ctx_create(&g,source?SGPL_TRAVERSE_OWNER_U:SGPL_TRAVERSE_OWNER_V,
+        SGPL_DOMAIN_FRONTIER,NULL,NULL,out,2,&head,NULL,0,ops,1,-1);
+    check(!autograph_exec_ctx_bind_array_frontier(ctx,input,6,&out,&cap,2)&&
+          !autograph_exec_ctx_prepare_spatial(ctx,key,key,1),"prepare nonempty output prefix");
+    check(autograph_frontier_execute(&g,ctx)==16&&out[0]==99&&out[1]==88&&
+          !memcmp(out+2,expected_output,sizeof expected_output),"growth preserves prefix and every append occurrence");
     autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
   }
+  check(!atomic_load(&weight_errors),"CSR hints and duplicate/layout/device fallbacks preserve first-match edge weights");
   int32_t old[]={7,8},*data=old;int64_t capacity=2;
   check(!sgpl_frontier_ensure_i32(&data,&capacity,2)&&data!=old&&data[0]==7&&data[1]==8,
       "fallback grows and copies existing stack buffer");

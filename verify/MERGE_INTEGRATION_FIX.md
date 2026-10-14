@@ -1,5 +1,11 @@
 # Merge integration repair — 2026-10-14
 
+> Follow-up: the controlled [autotuner branch comparison](AUTOTUNER_BRANCH_COMPARISON.md)
+> confirms that the merged version is substantially worse than `effect_interim`
+> on CC and SSSP. Most of the degradation already exists in the other merge
+> parent; the cost-model files are identical. The original evidence below is
+> preserved as the earlier diagnosis.
+
 This follows `MERGE_THREE_FAILURES.md`. The budgeting integration is repaired.
 The layout autotuner is diagnosed below and was not modified.
 

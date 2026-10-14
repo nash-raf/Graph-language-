@@ -568,7 +568,12 @@ typedef struct sgpl_exec_ctx {
   int64_t array_work_count;
   int32_t *array_append_log; /* validity, payload per occurrence and site */
   int64_t *gpu_record_sources, *gpu_record_work;
+  /* CPU-only CSR hint, indexed to the first matching neighbor even when a row
+   * is unsorted or has duplicates. Contexts own their copies of these hints. */
+  int64_t *array_record_edges;
+  int64_t array_edge_index;
 } sgpl_exec_ctx;
+int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
 int32_t autograph_exec_ctx_bind_array_frontier(sgpl_exec_ctx *,const int32_t *,int32_t,
                                                int32_t **,int64_t *,int32_t);
 int64_t autograph_exec_ctx_occurrence(sgpl_exec_ctx *);

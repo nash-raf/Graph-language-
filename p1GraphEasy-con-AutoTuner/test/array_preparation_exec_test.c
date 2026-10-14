@@ -36,9 +36,23 @@ static void count_only(void *state,sgpl_exec_ctx *ctx,int32_t u,int32_t v) {
       atomic_fetch_add(&large_errors,1);
   }
 }
+static void check_rejected_preparation(ExecTestGraph *graph,const int32_t *input,int count,int sites,int source,const char *message) {
+  autograph_init(graph,graph->n,graph->m,NULL,NULL,NULL);
+  check(autograph_build_array_cut(graph,8)==8,"prepare malformed-input test ranges");
+  int32_t *output=NULL,head=0;int64_t capacity=0;
+  sgpl_runtime_op *op=autograph_exec_op_create(SGPL_OP_PAIR,NULL,count_only,NULL,NULL,NULL,NULL,NULL,0),*ops[]={op};
+  sgpl_exec_ctx *ctx=autograph_exec_ctx_create(graph,source?SGPL_TRAVERSE_OWNER_U:SGPL_TRAVERSE_OWNER_V,
+      SGPL_DOMAIN_FRONTIER,NULL,NULL,NULL,0,&head,NULL,0,ops,1,-1);
+  atomic_store(&large_calls,0);
+  check(!autograph_exec_ctx_bind_array_frontier(ctx,input,count,&output,&capacity,sites),"bind rejection fixture");
+  int group=source?SGPL_SPATIAL_SOURCE:SGPL_SPATIAL_DESTINATION;
+  check(autograph_exec_ctx_prepare_spatial(ctx,group,group,1)==SGPL_DAG_ERR_INVALID&&
+      !atomic_load(&large_calls)&&!sgpl_debug_reserved_threads(),message);
+  autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
+}
 int main(int argc,char **argv) {
   int cold=argc>1&&!strcmp(argv[1],"cold-failure");
-  enum { N=128, M=256, F=2048 };
+  enum { N=128, M=256, F=2047 };
   int64_t rows[N+1];int32_t cols[M],input[F],weights[M];
   for(int u=0;u<N;++u) {rows[u]=2*u;cols[2*u]=(u+1)%N;cols[2*u+1]=(u+7)%N;
     weights[2*u]=2*u+1;weights[2*u+1]=2*u+2;}
@@ -107,5 +121,21 @@ int main(int argc,char **argv) {
       !atomic_load(&large_calls)&&!sgpl_debug_reserved_threads(),
       "invalid parallel preparation executes no effects and releases its entire grant");
   autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
+  input[F/2]=0;
+  ExecTestGraph invalid=graph;invalid.weights=NULL;
+  for(int source=0;source<2;++source) {
+    int64_t saved_row=rows[64];rows[64]=-1;
+    check_rejected_preparation(&invalid,input,F,1,source,"counting rejects negative row bounds before filling or effects");
+    rows[64]=rows[65]+1;
+    check_rejected_preparation(&invalid,input,F,1,source,"counting rejects decreasing row bounds before filling or effects");
+    rows[64]=M+1;
+    check_rejected_preparation(&invalid,input,F,1,source,"counting rejects rows beyond the CSR edge span");rows[64]=saved_row;
+    int32_t saved_col=cols[127];cols[127]=-1;
+    check_rejected_preparation(&invalid,input,F,1,source,"counting rejects negative destinations before filling or effects");
+    cols[127]=N;
+    check_rejected_preparation(&invalid,input,F,1,source,"counting rejects destinations beyond the vertex span");cols[127]=saved_col;
+    check_rejected_preparation(&invalid,input,1,INT32_MAX,source,"row-degree check rejects append ordinal overflow without large allocations");
+    check_rejected_preparation(&invalid,input,129,INT32_MAX/256,source,"host prefix rejects aggregate append overflow across individually valid chunks");
+  }
   printf("parallel array preparation: %d failures\n",failures);return failures?1:0;
 }

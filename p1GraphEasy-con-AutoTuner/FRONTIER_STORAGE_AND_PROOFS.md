@@ -81,6 +81,16 @@ effects begin; unavailable or nested teams use serial preparation. Small
 frontiers retain serial preparation. `SGPL_ARRAY_PREP_SERIAL=1` is an ablation
 control. Other layouts retain their original preparation path.
 
+CSR counting and filling use separate loops. Counting validates every source,
+row bound and destination; row-degree and host-prefix checks enforce the append
+ordinal limit computed once per preparation. Filling then writes the validated
+records without repeating validation or testing a phase flag. Both loops cache
+immutable graph and job metadata locally. The input frontier and topology stay
+immutable through the preparation join, and no user effect runs between passes.
+This changes preparation implementation only; record formats and proof decisions
+are unchanged. Rejection tests cover malformed rows/columns and per-row and
+cross-chunk append overflow without allocating huge buffers.
+
 Accepted array spatial stages request partition boundaries without eagerly
 constructing full source slices and destination rows. Full-view consumers,
 including direct GPU record preparation, materialize those views before use.

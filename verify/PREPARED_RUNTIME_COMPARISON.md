@@ -1,5 +1,12 @@
 # Passive waiting, parallel preparation and lightweight cuts
 
+> Follow-up: preparation simplification is implemented and tested. Its fresh
+> measurements and limits appear in the final section below. Earlier tables
+> preserve their original measurement window.
+> A subsequent 64-pair SSSP verification finds 108.78 ms before versus 106.33 ms
+> after: no established process-time change, but a small traversal-region
+> regression. See the SSSP verification section for the stronger comparison.
+
 All three requested changes are implemented on top of the previous four runtime
 optimizations. The main comparison uses eleven randomized fresh-process sets per
 workload on the same Ryzen 5 5500 / WSL Ubuntu machine, with four workers pinned
@@ -194,4 +201,151 @@ python3 verify/bin/prepared_runtime_2026_10_14/check_failures.py
 python3 verify/bin/prepared_runtime_2026_10_14/compare.py
 python3 verify/bin/prepared_runtime_2026_10_14/supplement.py
 python3 verify/bin/prepared_runtime_2026_10_14/replay_accuracy.py
+```
+
+## Follow-up: preparation simplification
+
+Baseline for this follow-up is commit `3a2d99e5b03b9432966a420a6f6173a028e11326`,
+including all previous optimizations. Production changes are confined to
+`array_preparation_runtime.inc`; the preparation test and storage documentation
+are extended. There are no changes to effect analysis/proofs, record formats,
+context ABI, generated callbacks, snapshots, scheduling, DOALL/DOACROSS,
+thread-budget equations or autotuner sources/predictions.
+
+Counting and filling now have separate callbacks. The append ordinal limit is
+computed once per preparation instead of dividing in the edge loop. Counting
+validates sources, CSR row bounds and destinations, checks per-row ordinal
+capacity, and accumulates source-owned counts from row lengths. The host prefix
+checks aggregate capacity across chunks before allocations/filling. Filling
+writes validated records without repeating validation or testing a phase flag.
+Both callbacks cache immutable topology and job metadata in local variables.
+The original contract keeps topology and input immutable through preparation;
+no user callback runs between passes. Chunk boundaries, stable prefix offsets,
+occurrence identities, hooks and original neighbor order are unchanged.
+
+New rejection tests cover negative/decreasing/out-of-span rows, negative and
+out-of-span columns, per-row append overflow, and aggregate overflow across
+otherwise valid chunks. They reject without effects or unbalanced reservations.
+The repeated-source fixture now has 2,047 entries to exercise uneven chunks.
+All ten executor/compiler suites passed on the final implementation, including
+real GPU grouping, CPU/GPU equivalence, ordering and failure propagation.
+ASan/UBSan passed at 1, 4 and 8 workers and with cold-team failure fallback
+(`detect_leaks=0` for existing process-lifetime metadata). All five unchanged
+generated LLVM modules passed verification. Final source hashes match the
+tested and benchmarked files.
+
+An initial split without locally cached metadata did not establish a process
+speedup and showed a CC region regression in one window. A separate 20-pair
+control experiment tested arithmetic hoisting alone and splitting while keeping
+duplicate validation. Neither provided a useful overall improvement. Those
+variants are retained only in ignored experiment artifacts. The final version
+includes the metadata hoist and was rebuilt, retested and measured separately.
+
+Final measurements use eleven randomized fresh-process sets, four workers on
+CPUs 0, 2, 4 and 6, passive waiting, unchanged generated objects/runtime flags,
+the same fixture files and the same frozen calibration. All SGPL outputs match
+their goldens and before/after predictions are identical. Times below are
+medians in milliseconds. Ratios are medians of paired after/before process
+times, with bootstrap 95% intervals, so they need not equal ratios of medians.
+
+| Workload | Before process | After process | Paired process ratio [95% interval] |
+|---|---:|---:|---:|
+| BFS | 44.277 | 44.254 | 0.979 [0.948, 1.063] |
+| CC | 56.002 | 56.554 | 0.981 [0.922, 0.996] |
+| k-core | 81.496 | 79.556 | 0.990 [0.932, 1.040] |
+| PageRank | 87.060 | 86.367 | 0.992 [0.818, 1.046] |
+| SSSP | 130.743 | 129.245 | 0.990 [0.971, 0.998] |
+
+The paired CC and SSSP gains are small (about 1.9% and 1.0%) and their intervals
+are close to 1. Other cases have no established improvement. No workload has an
+established traversal-region improvement in the final measurement. For SSSP,
+the region medians are 23.423 and 24.840 ms, with a paired ratio 1.029 and
+interval [0.949, 1.112]. This simplification does not close the runtime gap and
+does not establish a reduction in the extra algorithmic/frontier work.
+
+The same final randomized set reruns `effect_interim` and exact Graptor SSSP:
+
+| SSSP implementation | Process ms | Reported region ms |
+|---|---:|---:|
+| Before simplification | 130.743 | 23.423 |
+| After simplification | 129.245 | 24.840 |
+| effect_interim | 72.859 | 7.694 |
+| Graptor, passive | 54.147 | 4.823 |
+
+These remain different region boundaries and execution semantics, as explained
+above. Graptor uses the unchanged executable, graph, source, weights and
+configuration from the previous exact comparison. This follow-up checks SGPL
+goldens and Graptor's reported timing; it does not repeat the full distance
+export already validated in the preceding comparison. Do not subtract absolute
+times from the earlier tables: they were measured in different windows.
+
+Artifacts are in ignored `verify/bin/preparation_simplification_2026_10_14/`:
+before source snapshots and executables, final binaries, source/control hashes,
+initial and final raw/summary measurements, isolated variants, final regression
+and sanitizer logs, and disassembly confirming removal of the per-edge append
+division. Reproduction from WSL, with builds/tests stopped before measuring:
+
+```text
+python3 verify/bin/preparation_simplification_2026_10_14/build.py
+python3 verify/bin/preparation_simplification_2026_10_14/validate.py
+python3 verify/bin/preparation_simplification_2026_10_14/sanitize.py
+python3 verify/bin/preparation_simplification_2026_10_14/compare.py
+```
+
+## SSSP verification: the 109 ms versus 129 ms question
+
+The original executable which measured 109.387 ms is byte-identical to the
+pre-simplification executable used in the later 130.743 / 129.245 ms comparison.
+Its SHA-256 is
+`a042f93b14894c7661ea3e1bddc6b8af4df608ade7ae7997ce860fceeb412747`.
+Thus comparing 109 ms from the older window directly with 129 ms from the newer
+window mixes time variation with the code change. The unchanged original binary
+itself measured approximately 109, 131 and now 109 ms in different windows.
+The available logs do not identify the specific host condition responsible for
+the earlier shift; background contention, clocks or VM scheduling were not
+controlled or measured across those historical windows.
+
+The requested verification runs the saved original and simplified binaries
+together, without rebuilding or changing runtime/autotuner sources. It uses
+three untimed warmup pairs followed by 64 fresh-process pairs in eight blocks.
+Each block contains four before-first and four after-first pairs in randomized
+order. Both versions have the same working directory, input, frozen calibration,
+four-worker settings, passive waiting, stack limit and affinity on CPUs 0, 2,
+4 and 6. No builds, tests or CPU profiling run concurrently. Timed output is
+captured identically and logs are written outside timing. Source, binary,
+input and calibration hashes are verified before measurement.
+
+| Version | Median process ms | Median reported traversal ms |
+|---|---:|---:|
+| Before simplification, original 109 ms executable | 108.781 | 19.760 |
+| After simplification | 106.332 | 20.287 |
+
+All 128 timed answers match: 20,000 reachable vertices, checksum 1,182,819.
+Profiling layouts, visit counts and predictions match across all timed runs and
+the original 109 ms run: CSR, region 0 visits 20,001, region 1 visits 22, and
+total predicted time 2.343960 ms.
+
+The paired process-time geometric-mean ratio is 0.9821, with bootstrap 95%
+interval [0.9636, 1.0012]. The mean paired elapsed-time difference is -1.894 ms,
+with interval [-4.123, +0.380] ms. The result establishes neither a process-time
+slowdown nor a significant speedup. It does not reproduce or support a 20 ms
+whole-process penalty from simplification under these tested conditions.
+The earlier approximately 1% process gain should therefore be treated as a
+small, uncertain estimate rather than an established performance improvement.
+
+The reported traversal region does regress slightly: paired median ratio
+1.0304, with interval [1.0096, 1.0477]. Its average paired increase is 0.719 ms,
+with interval [+0.193, +1.301] ms. This is a roughly 3% region regression, which
+must not be hidden by the whole-process result. Preparation and the reported
+traversal region have different boundaries; this verification does not isolate
+the mechanism for that small region regression.
+
+Artifacts and all output logs are in
+`verify/bin/preparation_simplification_2026_10_14/sssp_verification/`.
+The summary includes both paired median and geometric-mean ratios, elapsed-time
+differences, CPU usage, per-block medians, hashes and verified profiling counts.
+Reproduce the requested direct comparison from WSL:
+
+```text
+python3 verify/bin/preparation_simplification_2026_10_14/verify_sssp.py
 ```

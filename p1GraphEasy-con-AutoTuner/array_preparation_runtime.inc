@@ -6,56 +6,83 @@ typedef struct {
   const int32_t *owners;
   const int64_t *weights;
   int64_t *positions, *work;
-  int32_t chunks,parts,source,begins,ends,pass;
+  int64_t pair_limit;
+  int32_t chunks,parts,source,begins,ends;
   _Atomic int32_t error;
 } SgplArrayPreparation;
-static void sgpl_array_prepare_chunks(void *opaque,int32_t worker,int32_t width) {
+static void sgpl_array_count_chunks(void *opaque,int32_t worker,int32_t width) {
   SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
-  for(int32_t chunk=worker;chunk<j->chunks;chunk+=width) {
-    int64_t lo=c->array_source_count*chunk/j->chunks,hi=c->array_source_count*(chunk+1)/j->chunks;
-    int64_t *positions=j->positions+(size_t)chunk*j->parts;
-    int64_t ordinal=j->pass?j->work[chunk]:0;
+  const int source=j->source,hooks=j->begins+j->ends;
+  const int64_t limit=j->pair_limit;
+  const int32_t chunks=j->chunks,parts=j->parts;
+  const int64_t count=c->array_source_count,n=m->csr_n,arcs=m->csr_m;
+  const int64_t *rows=m->csr_row_ptr;
+  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
+  for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
+    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
+    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t ordinal=0;
     for(int64_t i=lo;i<hi;++i) {
       if(atomic_load_explicit(&j->error,memory_order_relaxed))return;
-      int32_t u=c->array_sources[i];
-      if(u<0||u>=m->csr_n)goto invalid;
-      int64_t first=m->csr_row_ptr[u],last=m->csr_row_ptr[u+1];
-      if(first<0||last<first||last>m->csr_m)goto invalid;
-      int32_t source_part=j->owners[u];
-      if(j->source&&j->begins) {
-        int64_t at=positions[source_part]++;
-        if(j->pass) {
-          c->gpu_records[3*at]=u;c->gpu_records[3*at+1]=-1;c->gpu_records[3*at+2]=1;
-          c->gpu_record_sources[at]=i;c->gpu_record_work[at]=-1;
-          if(c->array_record_edges)c->array_record_edges[at]=-1;
-        }
-      }
+      int32_t u=input[i];
+      if(u<0||u>=n)goto invalid;
+      int64_t first=rows[u],last=rows[u+1];
+      if(first<0||last<first||last>arcs)goto invalid;
+      int64_t degree=last-first;
+      if(degree>limit-ordinal)goto invalid;
+      int32_t source_part=owners[u];
+      if(source)positions[source_part]+=degree+hooks;
       for(int64_t edge=first;edge<last;++edge) {
-        int32_t v=m->csr_col_idx[edge];
-        if(v<0||v>=m->csr_n||ordinal>=INT32_MAX/c->array_append_sites)goto invalid;
-        int32_t p=j->source?source_part:j->owners[v];
-        int64_t at=positions[p]++;
-        if(j->pass) {
-          c->gpu_records[3*at]=u;c->gpu_records[3*at+1]=v;c->gpu_records[3*at+2]=0;
-          c->gpu_record_sources[at]=i;c->gpu_record_work[at]=ordinal;
-          if(c->array_record_edges)c->array_record_edges[at]=j->weights[edge];
-        }
-        ++ordinal;
+        int32_t v=columns[edge];
+        if(v<0||v>=n)goto invalid;
+        if(!source)++positions[owners[v]];
       }
-      if(j->source&&j->ends) {
-        int64_t at=positions[source_part]++;
-        if(j->pass) {
-          c->gpu_records[3*at]=u;c->gpu_records[3*at+1]=-1;c->gpu_records[3*at+2]=2;
-          c->gpu_record_sources[at]=i;c->gpu_record_work[at]=-1;
-          if(c->array_record_edges)c->array_record_edges[at]=-1;
-        }
-      }
+      ordinal+=degree;
     }
-    if(!j->pass)j->work[chunk+1]=ordinal;
+    j->work[chunk+1]=ordinal;
   }
   return;
 invalid:
   atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
+}
+/* Counting validated every source, row and column, and the host prefix checked
+ * the total ordinal limit. Topology and the input frontier are immutable until
+ * preparation joins; no user callback runs between counting and filling.
+ * Filling therefore has no per-edge validation or phase branch. */
+static void sgpl_array_fill_chunks(void *opaque,int32_t worker,int32_t width) {
+  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
+  const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
+  const int32_t chunks=j->chunks,parts=j->parts;
+  const int64_t count=c->array_source_count;
+  const int64_t *rows=m->csr_row_ptr,*weights=j->weights;
+  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
+  int32_t *records=c->gpu_records;
+  int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
+  for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
+    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
+    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t ordinal=j->work[chunk];
+    for(int64_t i=lo;i<hi;++i) {
+      int32_t u=input[i],source_part=owners[u];
+      int64_t first=rows[u],last=rows[u+1];
+      if(begins) {
+        int64_t at=positions[source_part]++;
+        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=1;
+        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+      }
+      for(int64_t edge=first;edge<last;++edge) {
+        int32_t v=columns[edge],p=source?source_part:owners[v];
+        int64_t at=positions[p]++;
+        records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
+        sources[at]=i;work[at]=ordinal++;if(edges)edges[at]=weights[edge];
+      }
+      if(ends) {
+        int64_t at=positions[source_part]++;
+        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=2;
+        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+      }
+    }
+  }
 }
 static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
   int32_t width=sgpl_configured_worker_count();
@@ -86,11 +113,12 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   if(native_weighted) {rc=sgpl_array_weight_indices(m,&weight_indices);if(rc<0)goto done;}
   SgplArrayPreparation job={.ctx=c,.meta=m,.owners=owners,.weights=weight_indices,
       .positions=positions,.work=work,.chunks=chunks,.parts=parts,
+      .pair_limit=INT32_MAX/c->array_append_sites,
       .source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U,.begins=begins,.ends=ends};
-  sgpl_run_preparation(sgpl_array_prepare_chunks,&job,width);
+  sgpl_run_preparation(sgpl_array_count_chunks,&job,width);
   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
   for(int32_t k=0;k<chunks;++k) {
-    if(work[k+1]>INT32_MAX/c->array_append_sites-work[k]) {rc=SGPL_DAG_ERR_INVALID;goto done;}
+    if(work[k+1]>job.pair_limit-work[k]) {rc=SGPL_DAG_ERR_INVALID;goto done;}
     work[k+1]+=work[k];
   }
   int64_t pair_count=work[chunks],records=pair_count+(job.source?(begins+ends)*c->array_source_count:0);
@@ -113,12 +141,9 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   }
   c->gpu_record_offsets[parts]=at;
   if(at!=records) {rc=SGPL_DAG_ERR_INVALID;goto done;}
-  job.pass=1;sgpl_run_preparation(sgpl_array_prepare_chunks,&job,width);
-  rc=atomic_load_explicit(&job.error,memory_order_relaxed);
-  if(!rc) {
-    c->gpu_record_count=records;c->array_log_pristine=1;
-    c->array_pair_records=!job.source||(!begins&&!ends);
-  }
+  sgpl_run_preparation(sgpl_array_fill_chunks,&job,width);
+  c->gpu_record_count=records;c->array_log_pristine=1;
+  c->array_pair_records=!job.source||(!begins&&!ends);rc=0;
 done:
   free(positions);free(work);free(owned_map);return rc;
 }

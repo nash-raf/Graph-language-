@@ -1,0 +1,85 @@
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp: In lambda function:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:4875:41: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+ 4875 |         return GetElementPtrInst::Create(ET, Shad, Idx, "shadow_elem", InsertPt);
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/DebugProgramInstruction.h:55,
+                 from /usr/lib/llvm-20/include/llvm/IR/BasicBlock.h:23,
+                 from /usr/lib/llvm-20/include/llvm/IR/Function.h:27,
+                 from /usr/lib/llvm-20/include/llvm/IR/Module.h:25,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:28:
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+In file included from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:8009:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/gpu_callback_lowering.inc: In function ‘GpuCallback buildGpuCallback(llvm::Function*, uint64_t)’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/gpu_callback_lowering.inc:269:48: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+  269 |                 PHINode *Result=PHINode::Create(Call->getType(),2,"last.source",&*Done->begin());Result->addIncoming(Last,Found);Result->addIncoming(ConstantInt::getSigned(Call->getType(),-1),Empty);
+      |                                 ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/gpu_callback_lowering.inc:314:45: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+  314 |                 PHINode *Won=PHINode::Create(Call->getType(),5,"won",&*Done->begin());Won->addIncoming(ConstantInt::get(Call->getType(),0),Legacy);
+      |                              ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/gpu_callback_lowering.inc:336:45: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+  336 |                 PHINode *Has=PHINode::Create(Call->getType(),2,"next",&*Done->begin());
+      |                              ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/gpu_callback_lowering.inc:386:72: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+  386 |             if(!Desired) Desired=R.CreateCall(Intrinsic::getDeclaration(M,Intr,{T}),{Old,Contribution});
+      |                                               ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/Instructions.h:33,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:30:
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp: In instantiation of ‘emitPairWorkFn(const NeighborLoopInfo&, PairPhase, bool, PairEnvKind)::<lambda(llvm::Value*, auto:38&&)> [with auto:38 = emitPairWorkFn(const NeighborLoopInfo&, PairPhase, bool, PairEnvKind)::<lambda(llvm::Value*, auto:38&&)>&]’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:5020:27:   required from here
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:4950:36: warning: ‘void llvm::Instruction::insertBefore(llvm::Instruction*)’ is deprecated: Use iterators as instruction positions [-Wdeprecated-declarations]
+ 4950 |                 Clone->insertBefore(T);
+      |                 ~~~~~~~~~~~~~~~~~~~^~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:215:8: note: declared here
+  215 |   void insertBefore(Instruction *InsertPos);
+      |        ^~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/graph_frontier_lowering.cpp:4950:36: warning: ‘void llvm::Instruction::insertBefore(llvm::Instruction*)’ is deprecated: Use iterators as instruction positions [-Wdeprecated-declarations]
+ 4950 |                 Clone->insertBefore(T);
+      |                 ~~~~~~~~~~~~~~~~~~~^~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:215:8: note: declared here
+  215 |   void insertBefore(Instruction *InsertPos);
+      |        ^~~~~~~~~~~~
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:185:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  185 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/parallel_runtime.c:185:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+PASS twenty_rounds: traversal counts=[20]
+PASS offset_stride: traversal counts=[8]
+PASS after_loop: traversal counts=[1]
+PASS zero_rounds: traversal counts=[]
+PASS dynamic_rounds: traversal counts=[1]
+PASS fork_join: traversal counts=[20]
+PASS edgemap: traversal counts=[20]
+PASS inserts_then_step: traversal counts=[1]
+PASS two_steps: traversal counts=[20, 20]
+PASS nested_rounds: traversal counts=[21]
+PASS effect_one: traversal counts=[1]
+PASS effect_twenty: traversal counts=[20]
+PASS native_twenty: traversal counts=[20]
+PASS different_repetitions: traversal counts=[7]
+ARS frequency regression tests: PASS
+PASS frontend/runtime: 20x predicted work; correct results and visits at 1/4 threads

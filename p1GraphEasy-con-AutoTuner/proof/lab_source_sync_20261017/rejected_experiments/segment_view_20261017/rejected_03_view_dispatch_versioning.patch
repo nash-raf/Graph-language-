@@ -1,0 +1,559 @@
+--- a/autotuner_runtime.h
++++ b/autotuner_runtime.h
+@@ -407,7 +407,8 @@
+   SGPL_OP_ROUND_BEGIN = 1u << 5,
+   SGPL_OP_ROUND_END = 1u << 6,
+   SGPL_OP_COMBINE = 1u << 7,
+-  SGPL_OP_SNAPSHOT = 1u << 8 /* RoundBegin -> Snapshot(A) -> CrossRead(A) */
++  SGPL_OP_SNAPSHOT = 1u << 8, /* RoundBegin -> Snapshot(A) -> CrossRead(A) */
++  SGPL_OP_SEGMENT_VIEW = 1u << 9 /* compiler: stable topology, opaque-context ABI only */
+ };
+ 
+ /* Resource classes. */
+@@ -571,7 +572,9 @@
+   int64_t *gpu_record_sources, *gpu_record_work;
+   /* CPU-only CSR hint, indexed to the first matching neighbor even when a row
+    * is unsorted or has duplicates. Contexts own their copies of these hints. */
+-  int64_t *array_record_edges;
++  /* Mode 3 owns an immutable view; modes 0/1 own per-record indices.
++   * Both provide the existing non-null hint-presence ABI to callbacks. */
++  union { int64_t *array_record_edges; void *array_segment_view; };
+   int64_t array_edge_index;
+   /* Exclusive execution-buffer lease; no live context shares its storage. */
+   void *execution_scratch;
+@@ -580,7 +583,8 @@
+   /* CPU pair batches: mode 1 is four i32s (u,v,source ordinal,work ordinal).
+    * Mode 2 adds an i32 first-match hint after a proven CSR-index range bound.
+    * Mode 0 keeps triples plus i64 side arrays. CPU compact modes expand
+-   * transactionally to the legacy representation before device grouping. */
++   * transactionally to the legacy representation before device grouping.
++   * Mode 3 contains source/partition descriptors into an immutable view. */
+   int32_t array_compact_records;
+ } sgpl_exec_ctx;
+ int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
+--- a/graph_frontier_lowering.cpp
++++ b/graph_frontier_lowering.cpp
+@@ -3325,6 +3325,46 @@
+     return false;
+ }
+ 
++/* A deferred pair representation is legal only when the emitted callback
++ * cannot mutate topology or inspect prepared-record storage. Stores must be
++ * into compiler-owned language arrays or local scalar slots. Calls are limited
++ * to pure intrinsics and the record-transparent execution ABI. Unknown/indirect
++ * calls and unresolved pointer provenance retain materialization. */
++static bool segmentViewProof(Function *WF) {
++    if (WF->arg_size()!=4) return false;
++    for (User *U : WF->getArg(1)->users()) {
++        auto *Call=dyn_cast<CallBase>(U);
++        if (!Call || !Call->getCalledFunction() || Call->arg_empty() ||
++            Call->getArgOperand(0)!=WF->getArg(1)) return false;
++    }
++    auto SafeStore = [&](Value *Pointer) {
++        const Value *Base = getUnderlyingObject(Pointer);
++        if (const auto *Load = dyn_cast<LoadInst>(Base))
++            Base = getUnderlyingObject(Load->getPointerOperand());
++        Type *Elem = nullptr; Value *Count = nullptr, *Array = nullptr;
++        return arrayBaseInfo(Base, Elem, Count, Array);
++    };
++    for (BasicBlock &BB : *WF) for (Instruction &I : BB) {
++        if (auto *Store = dyn_cast<StoreInst>(&I)) {
++            if (Store->isVolatile() || !SafeStore(Store->getPointerOperand())) return false;
++        } else if (auto *Atomic = dyn_cast<AtomicRMWInst>(&I)) {
++            if (!SafeStore(Atomic->getPointerOperand())) return false;
++        } else if (auto *Atomic = dyn_cast<AtomicCmpXchgInst>(&I)) {
++            if (!SafeStore(Atomic->getPointerOperand())) return false;
++        } else if (auto *Call = dyn_cast<CallBase>(&I)) {
++            Function *F = Call->getCalledFunction();
++            if (!F) return false;
++            if (F->isIntrinsic() && Call->doesNotAccessMemory()) continue;
++            StringRef N = F->getName();
++            if (N != "autograph_exec_ctx_edge_weight" && N != "graph_get_edge_weight" &&
++                N != "autograph_exec_ctx_snapshot" && N != "autograph_exec_ctx_occurrence" &&
++                N != "autograph_exec_partition_state" && N != "autograph_frontier_activate") return false;
++        } else if (I.mayWriteToMemory()) return false;
++    }
++    WF->addFnAttr("sgpl.segment.view.proof");
++    return true;
++}
++
+ /* FoldSound(ω,T): does folding partition partials with ω.f_fold reproduce the
+  * serial left-to-right fold for element type T under exact machine semantics?
+  * Integer arithmetic is exact modulo the width for every recognized operator,
+@@ -8323,6 +8363,9 @@
+         ClaimOps.push_back(MakeOp(SGPL_OP_SOURCE_BEGIN, Null, nullptr, nullptr,
+                                   CB, nullptr, nullptr, {ResClaim}));
+     uint64_t PairCaps = SGPL_OP_PAIR;
++    if (ExplicitArrayDomain && !CombCB && !SrcEndCB &&
++        Info.SpatialResult.CoverageComplete && segmentViewProof(WF))
++        PairCaps |= SGPL_OP_SEGMENT_VIEW;
+     if (CombCB)
+         PairCaps |= SGPL_OP_COMBINE;
+     if (SrcEndCB)
+--- /dev/null
++++ b/array_segment_runtime.inc
+@@ -0,0 +1,189 @@
++/* Deferred pair representation. The compiler certificate excludes topology
++ * writes and raw record-storage observation. Immutable views nevertheless own
++ * their topology copy: cache eviction, another graph and later publication
++ * cannot invalidate a live context. No source or edge occurrence is merged. */
++#if defined(__GNUC__) && defined(__ELF__)
++#define SGPL_SEGMENT_FN __attribute__((noinline,section(".sgpl_segment_preparation")))
++#else
++#define SGPL_SEGMENT_FN
++#endif
++typedef struct { int32_t v, delta, hint; } SgplSegmentEdge;
++typedef struct { int32_t u, source, work; } SgplSegmentRecord;
++typedef struct {
++  _Atomic int32_t refs;
++  AutoGraphMeta *meta;int64_t n,m;int32_t parts,epoch;
++  uint64_t generation;const int64_t *identity_rp;const int32_t *identity_ci;
++  int64_t *rows,*starts;int32_t *offsets;SgplSegmentEdge *edges;
++} SgplSegmentView;
++static SGPL_SEGMENT_FN void sgpl_segment_release(void *opaque) {
++  SgplSegmentView *v=opaque;
++  if(v&&atomic_fetch_sub_explicit(&v->refs,1,memory_order_acq_rel)==1) {
++    free(v->rows);free(v->starts);free(v->offsets);free(v->edges);free(v);
++  }
++}
++static pthread_key_t sgpl_segment_key;
++static pthread_once_t sgpl_segment_once=PTHREAD_ONCE_INIT;
++static int sgpl_segment_key_error;
++static SGPL_SEGMENT_FN void sgpl_segment_key_init(void) {
++  sgpl_segment_key_error=pthread_key_create(&sgpl_segment_key,sgpl_segment_release);
++}
++typedef struct {SgplSegmentView *view;const int32_t *owners;const int64_t *hints;_Atomic int32_t error;} SgplSegmentBuild;
++static SGPL_SEGMENT_FN void sgpl_segment_build_rows(void *opaque,int32_t worker,int32_t width) {
++  SgplSegmentBuild *j=opaque;SgplSegmentView *v=j->view;AutoGraphMeta *m=v->meta;
++  int32_t parts=v->parts;int64_t n=v->n,arcs=v->m;
++  const int32_t *owners=j->owners;const int64_t *hints=j->hints;
++  int32_t *positions=malloc((size_t)parts*4);
++  if(!positions){atomic_store(&j->error,1);return;}
++  for(int64_t u=worker;u<n;u+=width) {
++    int64_t first=v->rows[u],last=v->rows[u+1];
++    if(first<0||last<first||last>arcs)goto invalid;
++    int32_t *offsets=v->offsets+(size_t)u*(parts+1);
++    for(int64_t e=first;e<last;++e) {
++      int32_t to=m->csr_col_idx[e];if(to<0||to>=n)goto invalid;
++      ++offsets[owners[to]+1];
++    }
++    int32_t at=(int32_t)first;
++    for(int32_t p=0;p<parts;++p){int32_t count=offsets[p+1];offsets[p]=at;positions[p]=at;at+=count;}
++    offsets[parts]=at;
++    for(int64_t e=first;e<last;++e) {
++      int32_t to=m->csr_col_idx[e],p=owners[to];
++      v->edges[positions[p]++]=(SgplSegmentEdge){to,(int32_t)(e-first),hints?(int32_t)hints[e]:-1};
++    }
++  }
++  free(positions);return;
++invalid:atomic_store(&j->error,1);free(positions);
++}
++static SGPL_SEGMENT_FN SgplSegmentView *sgpl_segment_view(sgpl_exec_ctx *c,AutoGraphMeta *m) {
++  pthread_once(&sgpl_segment_once,sgpl_segment_key_init);
++  if(sgpl_segment_key_error)return NULL;
++  uint64_t generation=atomic_load_explicit(&g_cc_topology_generation,memory_order_relaxed);
++  SgplSegmentView *old=pthread_getspecific(sgpl_segment_key);
++  int32_t parts=m->partition_count;int64_t n=m->csr_n,arcs=m->csr_m;
++  if(old&&old->meta==m&&old->n==n&&old->m==arcs&&old->parts==parts&&
++      old->epoch==m->layout_epoch&&old->generation==generation&&
++      old->identity_rp==m->csr_row_ptr&&old->identity_ci==m->csr_col_idx&&
++      !memcmp(old->starts,m->partition_start,((size_t)parts+1)*8))return old;
++  const int32_t *owners=NULL;const int64_t *hints=NULL;
++  if(sgpl_array_owner_map(m,&owners)<0)return NULL;
++  if(m->csr_weights&&sgpl_array_weight_indices(m,&hints)<0)return NULL;
++  size_t cells=(size_t)n*(parts+1);
++  SgplSegmentView *v=calloc(1,sizeof(*v));if(!v)return NULL;
++  atomic_init(&v->refs,1);v->meta=m;v->n=n;v->m=arcs;v->parts=parts;v->epoch=m->layout_epoch;
++  v->generation=generation;v->identity_rp=m->csr_row_ptr;v->identity_ci=m->csr_col_idx;
++  v->rows=malloc(((size_t)n+1)*8);v->starts=malloc(((size_t)parts+1)*8);
++  v->offsets=calloc(cells?cells:1,4);v->edges=malloc((size_t)(arcs?arcs:1)*sizeof(*v->edges));
++  if(!v->rows||!v->starts||!v->offsets||!v->edges)goto fail;
++  memcpy(v->rows,m->csr_row_ptr,((size_t)n+1)*8);memcpy(v->starts,m->partition_start,((size_t)parts+1)*8);
++  SgplSegmentBuild job={.view=v,.owners=owners,.hints=hints};
++  int32_t width=sgpl_configured_worker_count();int64_t useful=arcs/SGPL_CUT_PARALLEL_GRAIN;
++  if(width>useful)width=(int32_t)useful;if(width<1)width=1;
++  sgpl_run_preparation(sgpl_segment_build_rows,&job,width);
++  if(atomic_load(&job.error))goto fail;
++  if(pthread_setspecific(sgpl_segment_key,v)){sgpl_segment_release(v);return NULL;}
++  sgpl_segment_release(old);
++  if(getenv("SGPL_SEGMENT_DEBUG"))fprintf(stderr,"[segment-view] build vertices=%lld edges=%lld partitions=%d\n",(long long)n,(long long)arcs,parts);
++  return v;
++fail:
++  sgpl_segment_release(v);return NULL;
++}
++typedef struct {
++  sgpl_exec_ctx *ctx;SgplSegmentView *view;int64_t *positions,*work;
++  int32_t chunks;_Atomic int32_t error;
++} SgplSegmentPreparation;
++static SGPL_SEGMENT_FN void sgpl_segment_count(void *opaque,int32_t worker,int32_t width) {
++  SgplSegmentPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;SgplSegmentView *v=j->view;
++  for(int32_t k=worker;k<j->chunks;k+=width) {
++    int64_t lo=c->array_source_count*k/j->chunks,hi=c->array_source_count*(k+1)/j->chunks;
++    int64_t *positions=j->positions+(size_t)k*v->parts,total=0;
++    for(int64_t i=lo;i<hi;++i) {
++      int32_t u=c->array_sources[i];if(u<0||u>=v->n)goto invalid;
++      int64_t degree=v->rows[u+1]-v->rows[u];
++      if(degree>INT32_MAX/c->array_append_sites-total)goto invalid;
++      total+=degree;
++      const int32_t *offsets=v->offsets+(size_t)u*(v->parts+1);
++      for(int32_t p=0;p<v->parts;++p)positions[p]+=offsets[p]!=offsets[p+1];
++    }
++    j->work[k+1]=total;
++  }
++  return;
++invalid:atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
++}
++static SGPL_SEGMENT_FN void sgpl_segment_fill(void *opaque,int32_t worker,int32_t width) {
++  SgplSegmentPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;SgplSegmentView *v=j->view;
++  SgplSegmentRecord *records=(SgplSegmentRecord *)c->gpu_records;
++  for(int32_t k=worker;k<j->chunks;k+=width) {
++    int64_t lo=c->array_source_count*k/j->chunks,hi=c->array_source_count*(k+1)/j->chunks;
++    int64_t *positions=j->positions+(size_t)k*v->parts,work=j->work[k];
++    for(int64_t i=lo;i<hi;++i) {
++      int32_t u=c->array_sources[i];const int32_t *offsets=v->offsets+(size_t)u*(v->parts+1);
++      for(int32_t p=0;p<v->parts;++p)if(offsets[p]!=offsets[p+1])
++        records[positions[p]++]=(SgplSegmentRecord){u,(int32_t)i,(int32_t)work};
++      work+=v->rows[u+1]-v->rows[u];
++    }
++  }
++}
++/* The byte gate compares one whole-frontier materialization with cached edge
++ * data, row/partition offsets and the worst-case source/partition descriptors.
++ * It is derived from representation sizes, not graph identity or algorithm. */
++static SGPL_SEGMENT_FN int32_t sgpl_array_segment_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
++  if(getenv("SGPL_SEGMENT_DEBUG"))fprintf(stderr,"[segment-eligibility] ops=%u cap=%llu traversal=%d layout=%d n=%lld m=%lld p=%d weighted=%d native=%d hooks=%d/%d\n",c->op_count,(unsigned long long)(c->op_count?c->ops[0].capabilities:0),c->traversal_kind,m->current_layout,(long long)m->csr_n,(long long)m->csr_m,m->partition_count,m->csr_weights!=NULL,m->csr_row_ptr==*(int64_t **)((char *)c->graph+16)&&m->csr_col_idx==*(int32_t **)((char *)c->graph+24),begins,ends);
++
++  if(!SGPL_EXEC_PAIR_BATCH||getenv("SGPL_NO_SEGMENT_VIEW")||begins||ends||c->op_count!=1||!c->ops[0].pair||
++      c->ops[0].capabilities!=(SGPL_OP_PAIR|SGPL_OP_SEGMENT_VIEW)||
++      c->traversal_kind!=SGPL_TRAVERSE_OWNER_V||m->current_layout!=LAYOUT_CSR||
++      !m->csr_row_ptr||!m->csr_col_idx||m->csr_n<=0||m->csr_m<=0||m->csr_m>INT32_MAX||
++      m->partition_count<=0||m->csr_row_ptr!=*(int64_t **)((char *)c->graph+16)||
++      m->csr_col_idx!=*(int32_t **)((char *)c->graph+24))return 0;
++  uint64_t n=m->csr_n,parts=m->partition_count,arcs=m->csr_m,cells=n*(parts+1);
++  uint64_t old_bytes=arcs*(m->csr_weights?20:16);
++  if(cells>SIZE_MAX/4||12*arcs+4*cells+8*(n+1)+12*n*parts>=old_bytes)return 0;
++  SgplSegmentView *v=sgpl_segment_view(c,m);if(!v)return 0;
++  int32_t width=sgpl_configured_worker_count();
++  if(c->array_source_count<128||getenv("SGPL_ARRAY_PREP_SERIAL"))width=1;
++  int32_t chunks=width>16?64:width*4;if(chunks>c->array_source_count)chunks=(int32_t)c->array_source_count;if(chunks<1)chunks=1;
++  int64_t *positions=sgpl_execution_buffer(c,SGPL_BUF_PREP_POSITIONS,(size_t)chunks*parts*8,1);
++  int64_t *work=sgpl_execution_buffer(c,SGPL_BUF_PREP_WORK,((size_t)chunks+1)*8,1);
++  if(!positions||!work)return SGPL_DAG_ERR_NOMEM;
++  SgplSegmentPreparation job={.ctx=c,.view=v,.positions=positions,.work=work,.chunks=chunks};
++  sgpl_run_preparation(sgpl_segment_count,&job,width);
++  int32_t rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
++  for(int32_t k=0;k<chunks;++k){if(work[k+1]>INT32_MAX/c->array_append_sites-work[k]){rc=SGPL_DAG_ERR_INVALID;goto done;}work[k+1]+=work[k];}
++  int64_t pairs=work[chunks],records=0;
++  for(uint32_t p=0;p<parts;++p)for(int32_t k=0;k<chunks;++k)records+=positions[(size_t)k*parts+p];
++  if((uint64_t)records*12>=(uint64_t)pairs*(m->csr_weights?20:16)){rc=0;goto done;}
++  c->array_append_log=sgpl_execution_buffer(c,SGPL_BUF_APPEND,(size_t)(pairs?pairs:1)*c->array_append_sites*8,1);
++  c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*12,0);
++  c->gpu_record_offsets=sgpl_execution_buffer(c,SGPL_BUF_OFFSETS,((size_t)parts+1)*8,1);
++  if(!c->array_append_log||!c->gpu_records||!c->gpu_record_offsets){rc=SGPL_DAG_ERR_NOMEM;goto done;}
++  int64_t at=0;
++  for(uint32_t p=0;p<parts;++p){c->gpu_record_offsets[p]=at;for(int32_t k=0;k<chunks;++k){int64_t count=positions[(size_t)k*parts+p];positions[(size_t)k*parts+p]=at;at+=count;}}
++  c->gpu_record_offsets[parts]=at;
++  sgpl_run_preparation(sgpl_segment_fill,&job,width);
++  atomic_fetch_add_explicit(&v->refs,1,memory_order_relaxed);c->array_segment_view=v;
++  c->array_work_count=pairs;c->gpu_record_count=records;c->array_compact_records=3;
++  c->array_pair_records=1;c->array_log_pristine=1;rc=1;
++  if(getenv("SGPL_SEGMENT_DEBUG"))fprintf(stderr,"[segment-view] pairs=%lld descriptors=%lld\n",(long long)pairs,(long long)records);
++done:
++  if(!c->execution_scratch){free(positions);free(work);}return rc;
++}
++static SGPL_SEGMENT_FN int32_t sgpl_segment_expand(sgpl_exec_ctx *c) {
++  SgplSegmentView *v=c->array_segment_view;int64_t count=c->array_work_count;
++  int32_t *records=malloc((size_t)(count?count:1)*12);
++  int64_t *sources=malloc((size_t)(count?count:1)*8),*work=malloc((size_t)(count?count:1)*8);
++  int64_t *hints=malloc((size_t)(count?count:1)*8),*offsets=malloc(((size_t)v->parts+1)*8);
++  if(!records||!sources||!work||!hints||!offsets){free(records);free(sources);free(work);free(hints);free(offsets);return SGPL_DAG_ERR_NOMEM;}
++  SgplSegmentRecord *descriptors=(SgplSegmentRecord *)c->gpu_records;int64_t out=0;
++  for(int32_t p=0;p<v->parts;++p) {
++    offsets[p]=out;
++    for(int64_t i=c->gpu_record_offsets[p];i<c->gpu_record_offsets[p+1];++i) {
++      SgplSegmentRecord d=descriptors[i];const int32_t *b=v->offsets+(size_t)d.u*(v->parts+1);
++      for(int32_t e=b[p];e<b[p+1];++e){SgplSegmentEdge edge=v->edges[e];records[3*out]=d.u;records[3*out+1]=edge.v;records[3*out+2]=0;sources[out]=d.source;work[out]=(int64_t)d.work+edge.delta;hints[out]=edge.hint;++out;}
++    }
++  }
++  offsets[v->parts]=out;
++  if(out!=count){free(records);free(sources);free(work);free(hints);free(offsets);return SGPL_DAG_ERR_INVALID;}
++  sgpl_execution_scratch_detach(c);free(c->gpu_records);free(c->gpu_record_offsets);
++  c->gpu_records=records;c->gpu_record_offsets=offsets;c->gpu_record_sources=sources;c->gpu_record_work=work;c->array_record_edges=hints;
++  sgpl_segment_release(v);
++  c->gpu_record_count=count;c->array_compact_records=0;return 0;
++}
+--- a/autotuner_runtime.c
++++ b/autotuner_runtime.c
+@@ -3295,6 +3295,69 @@
+       (ctx->spatial_group==SGPL_SPATIAL_SOURCE || ctx->spatial_group==SGPL_SPATIAL_DESTINATION);
+ }
+ 
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_segment_execution")))
++#endif
++static void sgpl_exec_partition_segment(int32_t p,sgpl_exec_ctx *ctx) {
++  sgpl_exec_ctx local=*ctx;SgplSegmentView *view=ctx->array_segment_view;
++  if(local.execution_status<0)return;
++  local.spatial_partition=p;
++  local.partition_state=local.partition_base&&local.partition_stride>0?
++      (char *)local.partition_base+(int64_t)p*local.partition_stride:local.partition_base;
++  void (*PairFn)(void *,sgpl_exec_ctx *,int32_t,int32_t)=local.ops[0].pair;
++  void *state=local.ops[0].state;const uint8_t *gate=local.spatial_source_gate;
++  uint8_t *seen=local.spatial_groups_seen;int sparse=sgpl_sparse_group_tracking(ctx);
++  SgplExecutionScratch *scratch=ctx->execution_scratch;
++  uint32_t *tags=sparse&&scratch&&scratch->group_capacity>=(size_t)view->n?scratch->group_tags:NULL;
++  uint32_t epoch=tags?scratch->group_epoch:0;uint64_t occupied=0;
++  int32_t *error=local.execution_error;
++  const SgplSegmentRecord *records=(const SgplSegmentRecord *)ctx->gpu_records;
++  /* The certificate restricts context access to the opaque execution ABI:
++   * source ordinals, the error-pointer identity and grouping mode cannot be
++   * rewritten by a callback. Cancellation is still checked for every pair. */
++#define SGPL_SEGMENT_LOOP(MARK) do { \
++  for(int64_t i=ctx->gpu_record_offsets[p];i<ctx->gpu_record_offsets[p+1];++i) { \
++    SgplSegmentRecord d=records[i]; \
++    const int32_t *offsets=view->offsets+(size_t)d.u*(view->parts+1); \
++    if(gate&&!gate[d.source])continue; \
++    local.array_source_ordinal=d.source; \
++    for(int32_t e=offsets[p];e<offsets[p+1];++e) { \
++      if(error&&__atomic_load_n(error,__ATOMIC_ACQUIRE)<0)return; \
++      SgplSegmentEdge edge=view->edges[e]; \
++      local.array_work_ordinal=(int64_t)d.work+edge.delta; \
++      local.array_append_seq=0;local.array_edge_index=edge.hint; \
++      MARK; \
++      PairFn(state,&local,d.u,edge.v); \
++    } \
++  } \
++} while(0)
++  if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE)
++    SGPL_SEGMENT_LOOP(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED));
++  else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE)
++    SGPL_SEGMENT_LOOP(if(tags){if(tags[d.u]!=epoch){tags[d.u]=epoch;seen[d.u]=1;++occupied;}}else if(sparse){if(!seen[d.u]){seen[d.u]=1;++occupied;}}else seen[d.u]=1);
++  else if(seen)
++    SGPL_SEGMENT_LOOP(if(tags){if(tags[edge.v]!=epoch){tags[edge.v]=epoch;seen[edge.v]=1;++occupied;}}else if(sparse){if(!seen[edge.v]){seen[edge.v]=1;++occupied;}}else seen[edge.v]=1);
++  else SGPL_SEGMENT_LOOP((void)0);
++#undef SGPL_SEGMENT_LOOP
++  if(occupied)__atomic_fetch_add(&ctx->spatial_occupied_groups,occupied,__ATOMIC_RELAXED);
++}
++
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_segment_execution")))
++#endif
++static void sgpl_exec_segment_callback(int64_t index,void *opaque) {
++  sgpl_exec_partition_segment((int32_t)index,opaque);
++}
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_segment_execution")))
++#endif
++static int32_t sgpl_dag_partition_segment(void *opaque,int64_t index) {
++  sgpl_exec_ctx *ctx=opaque;
++  if(ctx->execution_error&&__atomic_load_n(ctx->execution_error,__ATOMIC_ACQUIRE)<0)
++    return __atomic_load_n(ctx->execution_error,__ATOMIC_RELAXED);
++  sgpl_exec_partition_segment((int32_t)index,ctx);
++  return ctx->execution_error?__atomic_load_n(ctx->execution_error,__ATOMIC_ACQUIRE):0;
++}
+ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
+   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
+   sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
+@@ -3803,7 +3866,7 @@
+     ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
+   }
+   else
+-    parallel_for_runtime(0, partitions, 1, ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body, ctx, 0, 0);
++    parallel_for_runtime(0, partitions, 1, ctx->array_compact_records==3?sgpl_exec_segment_callback:(ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body), ctx, 0, 0);
+ }
+ 
+ static void *sgpl_exec_step_task(void *opaque) {
+@@ -4232,7 +4295,7 @@
+     if (ctx->spatial_groups_seen && meta) {
+       if(sgpl_sparse_group_tracking(ctx) && sgpl_group_epoch_begin(ctx,meta)) {
+         /* No per-record clear: the exclusive generation defines this round. */
+-      } else if(sgpl_sparse_group_tracking(ctx)) {
++      } else if(sgpl_sparse_group_tracking(ctx) && ctx->array_compact_records!=3) {
+         int key=ctx->spatial_group==SGPL_SPATIAL_DESTINATION;
+         for(int64_t i=0;i<ctx->gpu_record_count;++i)
+           ctx->spatial_groups_seen[sgpl_array_record_endpoint(ctx,i,key)]=0;
+@@ -4369,7 +4432,8 @@
+   if (!ctx || !meta || partition < 0 || partition >= meta->partition_count)
+     return SGPL_DAG_ERR_INVALID;
+   if (sgpl_exec_failed(ctx)) return ctx->execution_status;
+-  if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
++  if(ctx->array_compact_records==3)sgpl_exec_partition_segment(partition,ctx);
++  else if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
+   else sgpl_exec_partition_body(partition, ctx);
+   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
+ }
+@@ -4825,6 +4889,7 @@
+   int scratch_cacheable=ctx->gpu_group_offsets==NULL;
+   /* Sparse CPU execution initializes its live endpoint domain in begin().
+    * Do not rescan occurrence records just to clear unused cached bytes. */
++  if(ctx->array_compact_records==3){sgpl_segment_release(ctx->array_segment_view);ctx->array_segment_view=NULL;}
+   free(ctx->ops);
+   /* Non-array device records still use the original allocation path. */
+   if(!ctx->execution_scratch||!ctx->array_append_sites) {
+@@ -5079,6 +5144,7 @@
+ void *autograph_exec_ctx_claims(sgpl_exec_ctx *ctx) { return ctx ? ctx->spatial_claims : NULL; }
+ void autograph_exec_ctx_gpu_storage(sgpl_exec_ctx *ctx, uint32_t scalars, uint32_t arrays,
+                                    void *targets, const uint64_t *sizes, uint64_t claim_bytes) {
++
+   if (!ctx) return;
+   ctx->gpu_private_scalars=scalars; ctx->gpu_private_arrays=arrays;
+   ctx->gpu_private_targets=targets; ctx->gpu_private_element_bytes=sizes;
+@@ -6252,6 +6318,31 @@
+    * callback errors are still published immediately. */
+   if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+ }
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_segment_execution")))
++#endif
++static void sgpl_independent_spatial_worker_segment(void *opaque,int32_t index) {
++  SgplIndependentSpatial *job=opaque;
++  sgpl_set_current_worker_index(index);
++  int32_t completed=0;
++  for(;;) {
++    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
++    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
++    if(node>=job->count)break;
++    /* Every active lane owns one slot of the enclosing grant. Nested work
++     * retains that slot and cannot claim another lane behind its siblings. */
++    sgpl_push_thread_budget(1);
++    int32_t rc=sgpl_dag_partition_segment(job->ctx,job->nodes?job->nodes[node]:node);
++    sgpl_pop_thread_budget();
++    ++completed;
++    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
++  }
++  /* Completion is consumed only after the worker-pool join. Publish each
++   * lane's completed-node count once, instead of contending on one cache line
++   * for every node. Cancellation is still checked before each claim and
++   * callback errors are still published immediately. */
++  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
++}
+ 
+ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
+                                          const sgpl_dag_relation_desc *relations,
+@@ -6283,7 +6374,7 @@
+   tmpl.node_count = partitions;
+   tmpl.relation_count = relation_count;
+   tmpl.relations = relation_count > 0 ? relations : NULL;
+-  tmpl.node_fn = ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node;
++  tmpl.node_fn = ctx->array_compact_records==3?sgpl_dag_partition_segment:(ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node);
+   /* Section 15 work estimate: the partition's own pair count -- a measured
+    * quantity, not the TDG cost model (which the pod measurements showed
+    * mismatched).  It only caps the share; see dag_dispatch_budget. */
+@@ -6331,7 +6422,7 @@
+         atomic_store_explicit(&job.completed,partitions-active,memory_order_relaxed);
+       }
+     }
+-    int pool_rc=sgpl_run_on_worker_pool(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker,&job,worker_budget);
++    int pool_rc=sgpl_run_on_worker_pool(ctx->array_compact_records==3?sgpl_independent_spatial_worker_segment:(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker),&job,worker_budget);
+     if(nodes && nodes!=local_nodes)free(nodes);
+     int status=pool_rc ? (pool_rc==-1?SGPL_DAG_ERR_NOMEM:SGPL_DAG_ERR_NODE) :
+         atomic_load_explicit(&job.failed,memory_order_acquire)?SGPL_DAG_ERR_NODE:SGPL_DAG_OK;
+--- a/array_frontier_runtime.inc
++++ b/array_frontier_runtime.inc
+@@ -64,12 +64,14 @@
+   *cache=(SgplArrayWeightIndex){m,m->csr_row_ptr,first,m->csr_col_idx,m->csr_n,m->csr_m,m->layout_epoch,generation};
+   *out=first;return 0;
+ }
++#include "array_segment_runtime.inc"
+ static int32_t sgpl_array_record_endpoint(const sgpl_exec_ctx *c,int64_t i,int key) {
+   return c->gpu_records[(c->array_compact_records==2?5:(c->array_compact_records?4:3))*i+key];
+ }
+ /* Device grouping retains its original triples/ordinal arrays. Expansion is
+  * transactional: allocation failure leaves the CPU representation usable. */
+ static int32_t sgpl_array_expand_records(sgpl_exec_ctx *c) {
++  if(c->array_compact_records==3)return sgpl_segment_expand(c);
+   if(!c->array_compact_records)return 0;
+   int64_t n=c->gpu_record_count;
+   if((uint64_t)n>SIZE_MAX/12)return SGPL_DAG_ERR_NOMEM;
+@@ -91,6 +93,8 @@
+ }
+ #include "array_preparation_runtime.inc"
+ static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
++  int deferred=sgpl_array_segment_records(c,m,begins,ends);
++  if(deferred)return deferred<0?deferred:0;
+   if(m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx)
+     return sgpl_array_records_csr(c,m,begins,ends);
+   int64_t work=0,records=0;
+--- /dev/null
++++ b/test/segment_view_test.c
+@@ -0,0 +1,62 @@
++#define SGPL_SPATIAL_FIXTURE_ONLY
++#include "spatial_exec_test.c"
++static atomic_int pair_calls,weight_errors;
++static int occurrence_group;
++int32_t graph_get_edge_weight(void *opaque,int32_t u,int32_t v) {
++  ExecTestGraph *g=opaque;if(u<0||u>=g->n)return INT32_MAX;
++  for(int64_t e=g->row_ptr[u];e<g->row_ptr[u+1];++e)if(g->col_idx[e]==v)return g->weights?g->weights[e]:1;
++  return INT32_MAX;
++}
++static void segment_pair(void *state,sgpl_exec_ctx *c,int32_t u,int32_t v) {
++  (void)state;atomic_fetch_add(&pair_calls,1);
++  if(autograph_exec_ctx_edge_weight(c,c->graph,u,v)!=graph_get_edge_weight(c->graph,u,v))atomic_fetch_add(&weight_errors,1);
++  if(sgpl_current_thread_budget()>1)atomic_fetch_add(&weight_errors,1);
++  autograph_frontier_activate(c,v);autograph_frontier_activate(c,v);
++}
++static sgpl_exec_ctx *make(ExecTestGraph *g,int32_t *input,int size,int proof,int source,int32_t **out,int64_t *cap,int32_t *head) {
++  check(autograph_build_array_cut(g,3)==3,"array partition ranges");
++  sgpl_runtime_op *op=autograph_exec_op_create(SGPL_OP_PAIR|(proof?SGPL_OP_SEGMENT_VIEW:0),NULL,segment_pair,NULL,NULL,NULL,NULL,NULL,0),*ops[]={op};
++  sgpl_exec_ctx *c=autograph_exec_ctx_create(g,source?SGPL_TRAVERSE_OWNER_U:SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,NULL,NULL,NULL,0,head,NULL,0,ops,1,-1);
++  check(!autograph_exec_ctx_bind_array_frontier(c,input,size,out,cap,2),"bind occurrence array");
++  int group=source?SGPL_SPATIAL_SOURCE:SGPL_SPATIAL_DESTINATION;
++  check(!autograph_exec_ctx_prepare_spatial(c,occurrence_group?SGPL_SPATIAL_PAIR_OCCURRENCE:group,group,1),"prepare certified/fallback context");
++  autograph_exec_ctx_set_dag_axes(c,1,-1);return c;
++}
++static void execute_check(sgpl_exec_ctx *c,int32_t **out,const int32_t *expected,int count) {
++  atomic_store(&pair_calls,0);atomic_store(&weight_errors,0);
++  check(autograph_frontier_execute(c->graph,c)==count,"full append cardinality");
++  check(atomic_load(&pair_calls)==count/2&&!atomic_load(&weight_errors),"pair callbacks, first-match weights and nested budget");
++  check(!memcmp(*out,expected,(size_t)count*4),"source/neighbor order and duplicate occurrences");
++  check(c->spatial_occupied_groups==(c->spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE?count/2:(c->spatial_group==SGPL_SPATIAL_SOURCE?6:24)),"exact occupied endpoint count");
++  check(!sgpl_debug_reserved_threads(),"budget ledger released");
++}
++int main(void) {
++  enum {N=24,D=48,M=N*D,F=7,O=F*D*2};
++  int64_t rows[N+1];int32_t cols[M],weights[M],input[F]={4,1,3,0,1,23,2},expected[O];
++  for(int u=0;u<N;++u){rows[u]=u*D;for(int e=0;e<D;++e){cols[u*D+e]=(e*7)%N;weights[u*D+e]=1000*u+e+1;}}rows[N]=M;
++  for(int i=0;i<F;++i)for(int e=0;e<D;++e)expected[2*(i*D+e)]=expected[2*(i*D+e)+1]=cols[input[i]*D+e];
++  ExecTestGraph g={.n=N,.m=M,.row_ptr=rows,.col_idx=cols,.weights=weights,.directed=1};autograph_init(&g,N,M,NULL,NULL,NULL);
++  for(int source=0;source<2;++source) {
++    int32_t *out=NULL,head=0;int64_t cap=0;sgpl_exec_ctx *c=make(&g,input,F,0,source,&out,&cap,&head);
++    check(c->array_compact_records==2,"no certificate retains materialized format");execute_check(c,&out,expected,O);autograph_exec_ctx_destroy(c);sgpl_frontier_release_buffers();
++  }
++  int32_t *out=NULL,head=0;int64_t cap=0;sgpl_exec_ctx *c=make(&g,input,F,1,0,&out,&cap,&head);
++  check(c->array_compact_records==3&&c->gpu_record_count==F*3&&c->array_work_count==F*D,"descriptors replace per-edge records");execute_check(c,&out,expected,O);
++  /* Another graph replaces the thread cache while the first view is live. */
++  ExecTestGraph other=g;autograph_init(&other,N,M,NULL,NULL,NULL);int32_t *out2=NULL,head2=0;int64_t cap2=0;
++  sgpl_exec_ctx *c2=make(&other,input,F,1,0,&out2,&cap2,&head2);execute_check(c2,&out2,expected,O);
++  autograph_exec_ctx_destroy(c2);execute_check(c,&out,expected,O);
++  atomic_store(&fail_malloc,1);check(sgpl_gpu_prepare_spatial_records(c)==SGPL_DAG_ERR_NOMEM&&c->array_compact_records==3,"failed expansion preserves deferred view");execute_check(c,&out,expected,O);
++  check(!sgpl_gpu_prepare_spatial_records(c)&&c->array_compact_records==0,"device upgrade expands transactionally");execute_check(c,&out,expected,O);
++  autograph_exec_ctx_destroy(c);sgpl_frontier_release_buffers();
++  cols[D]=2;autograph_record_adjacency_state(&g,N,M,rows,cols);
++  for(int i=0;i<F;++i)for(int e=0;e<D;++e)expected[2*(i*D+e)]=expected[2*(i*D+e)+1]=cols[input[i]*D+e];
++  out=NULL;cap=0;head=0;c=make(&g,input,F,1,0,&out,&cap,&head);check(c->array_compact_records==3,"publication rebuilds cached topology view");execute_check(c,&out,expected,O);
++  autograph_exec_ctx_destroy(c);sgpl_frontier_release_buffers();
++  occurrence_group=1;out=NULL;cap=0;head=0;c=make(&g,input,F,1,0,&out,&cap,&head);
++  check(c->array_compact_records==3,"occurrence grouping uses deferred descriptors");execute_check(c,&out,expected,O);
++  c->array_append_sites=1;
++  check(autograph_frontier_execute(&g,c)<0&&!sgpl_debug_reserved_threads(),"per-pair append failure cancels and joins the team");
++  autograph_exec_ctx_destroy(c);sgpl_frontier_release_buffers();
++  printf("segmented records: %d failures\n",failures);return failures?1:0;
++}
+--- /dev/null
++++ b/test/run_segment_view_tests.sh
+@@ -0,0 +1,15 @@
++#!/usr/bin/env bash
++set -euo pipefail
++cd "$(dirname "$0")/.."
++TMP="$(mktemp -d)"
++trap 'if (($?)); then echo "segment test logs: $TMP"; else rm -rf "$TMP"; fi' EXIT
++for mode in normal sanitized no_scratch; do
++ flags=(-O2)
++ [[ "$mode" == sanitized ]] && flags=(-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer)
++ [[ "$mode" == no_scratch ]] && flags+=(-DSGPL_EXEC_REUSE_BUFFERS=0)
++ gcc "${flags[@]}" -std=gnu11 -pthread -I. test/segment_view_test.c autotuner_runtime.c parallel_runtime.c -lnlopt -lm -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=pthread_create -o "$TMP/test"
++ for workers in 1 4 32; do
++  ASAN_OPTIONS=detect_leaks=0 SGPL_NUM_THREADS=$workers SGPL_ALLOW_HT=1 SGPL_SEGMENT_DEBUG=1 "$TMP/test" > "$TMP/${mode}_${workers}.log" 2>&1 || { cat "$TMP/${mode}_${workers}.log"; exit 1; }
++  tail -1 "$TMP/${mode}_${workers}.log"
++ done
++done

@@ -1,0 +1,86 @@
+{
+  "AUTO": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "semantic_outputs_verified": true,
+    "graph_fingerprints_verified": true,
+    "mutation_effect_samples": 144,
+    "native_mutations": 2560016,
+    "adds": 1280008,
+    "removes": 1280008,
+    "transitions": [
+      [
+        "CSR",
+        "SET"
+      ],
+      [
+        "SET",
+        "CSR"
+      ]
+    ],
+    "full_native_updates": true
+  },
+  "CSR": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "semantic_outputs_verified": true,
+    "graph_fingerprints_verified": true,
+    "mutation_effect_samples": 144,
+    "native_mutations": 144,
+    "adds": 1280008,
+    "removes": 1280008,
+    "transitions": [],
+    "full_native_updates": false
+  },
+  "PCSR": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "semantic_outputs_verified": true,
+    "graph_fingerprints_verified": true,
+    "mutation_effect_samples": 144,
+    "native_mutations": 2560016,
+    "adds": 1280008,
+    "removes": 1280008,
+    "transitions": [
+      [
+        "CSR",
+        "PCSR"
+      ]
+    ],
+    "full_native_updates": true
+  },
+  "BCSR": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "semantic_outputs_verified": true,
+    "graph_fingerprints_verified": true,
+    "mutation_effect_samples": 144,
+    "native_mutations": 144,
+    "adds": 1280008,
+    "removes": 1280008,
+    "transitions": [
+      [
+        "CSR",
+        "BCSR"
+      ]
+    ],
+    "full_native_updates": false
+  },
+  "SET": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "semantic_outputs_verified": true,
+    "graph_fingerprints_verified": true,
+    "mutation_effect_samples": 144,
+    "native_mutations": 2560016,
+    "adds": 1280008,
+    "removes": 1280008,
+    "transitions": [
+      [
+        "CSR",
+        "SET"
+      ]
+    ],
+    "full_native_updates": true
+  }
+}

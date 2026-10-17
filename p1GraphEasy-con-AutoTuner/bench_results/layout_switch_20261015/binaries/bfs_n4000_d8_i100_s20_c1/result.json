@@ -1,0 +1,58 @@
+{
+  "case": "bfs_n4000_d8_i100_s20_c1",
+  "config": {
+    "n": 4000,
+    "degree": 8,
+    "inserts": 100,
+    "scans": 20,
+    "cycles": 1,
+    "shape": "bfs"
+  },
+  "source": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/layout_switch_20261015/codes/bfs_n4000_d8_i100_s20_c1.sgpl",
+  "expected_stdout": "0\n32100\n",
+  "schedules": {
+    "AUTO": [
+      "PCSR"
+    ],
+    "CSR": [],
+    "PCSR": [
+      "PCSR"
+    ],
+    "BCSR": [
+      "BCSR"
+    ],
+    "SET": [
+      "SET"
+    ]
+  },
+  "samples_ms": {
+    "AUTO": [
+      38.802198,
+      37.040669
+    ],
+    "CSR": [
+      41.524489,
+      37.92428
+    ],
+    "PCSR": [
+      40.767365,
+      39.775389
+    ],
+    "BCSR": [
+      78.893996,
+      77.333571
+    ],
+    "SET": [
+      24873.409645,
+      22444.493323
+    ]
+  },
+  "medians_ms": {
+    "AUTO": 37.9214335,
+    "CSR": 39.7243845,
+    "PCSR": 40.271377,
+    "BCSR": 78.11378350000001,
+    "SET": 23658.951483999997
+  },
+  "speedup_vs_best_fixed": 1.0475443788273457
+}

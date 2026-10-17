@@ -1,0 +1,7 @@
+sensor_backbone_events10000_batch8_motif AUTO ['CSR', 'SET']
+sensor_backbone_events10000_batch8_motif PCSR ['PCSR']
+sensor_backbone_events10000_batch8_motif 1/4 {}
+sensor_backbone_events10000_batch8_motif 2/4 {'AUTO': 69.508, 'PCSR': 139.577}
+sensor_backbone_events10000_batch8_motif 3/4 {'AUTO': 70.815, 'PCSR': 124.04}
+sensor_backbone_events10000_batch8_motif 4/4 {'AUTO': 72.121, 'PCSR': 108.503}
+RESULT sensor_backbone_events10000_batch8_motif {'AUTO': 72.120741, 'PCSR': 108.502632} None

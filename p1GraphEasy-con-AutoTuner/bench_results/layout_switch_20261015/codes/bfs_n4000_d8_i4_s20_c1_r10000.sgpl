@@ -1,0 +1,63 @@
+// SGPL workload: bfs_n4000_d8_i4_s20_c1_r10000
+// Run all variants on this identical source.
+graph G {
+  edges: file "../graphs/ring_n4000_d8.txt";
+};
+int checksum = 0;
+// Phase 0: initial scans.
+query scan_0_pre_0: "bfs_src" of G;
+query scan_0_pre_1: "bfs_src" of G;
+query scan_0_pre_2: "bfs_src" of G;
+query scan_0_pre_3: "bfs_src" of G;
+query scan_0_pre_4: "bfs_src" of G;
+query scan_0_pre_5: "bfs_src" of G;
+query scan_0_pre_6: "bfs_src" of G;
+query scan_0_pre_7: "bfs_src" of G;
+query scan_0_pre_8: "bfs_src" of G;
+query scan_0_pre_9: "bfs_src" of G;
+query scan_0_pre_10: "bfs_src" of G;
+query scan_0_pre_11: "bfs_src" of G;
+query scan_0_pre_12: "bfs_src" of G;
+query scan_0_pre_13: "bfs_src" of G;
+query scan_0_pre_14: "bfs_src" of G;
+query scan_0_pre_15: "bfs_src" of G;
+query scan_0_pre_16: "bfs_src" of G;
+query scan_0_pre_17: "bfs_src" of G;
+query scan_0_pre_18: "bfs_src" of G;
+query scan_0_pre_19: "bfs_src" of G;
+// Phase 0: insert a batch of absent in-bounds edges.
+int batch_0 = 0;
+while (batch_0 < 10000) {
+G.addEdges(0->39);
+G.removeEdges(0->39);
+G.addEdges(37->76);
+G.removeEdges(37->76);
+G.addEdges(74->113);
+G.removeEdges(74->113);
+G.addEdges(111->150);
+G.removeEdges(111->150);
+  batch_0 = batch_0 + 1;
+}
+// Phase 0: scan the updated graph.
+query scan_0_post_0: "bfs_src" of G;
+query scan_0_post_1: "bfs_src" of G;
+query scan_0_post_2: "bfs_src" of G;
+query scan_0_post_3: "bfs_src" of G;
+query scan_0_post_4: "bfs_src" of G;
+query scan_0_post_5: "bfs_src" of G;
+query scan_0_post_6: "bfs_src" of G;
+query scan_0_post_7: "bfs_src" of G;
+query scan_0_post_8: "bfs_src" of G;
+query scan_0_post_9: "bfs_src" of G;
+query scan_0_post_10: "bfs_src" of G;
+query scan_0_post_11: "bfs_src" of G;
+query scan_0_post_12: "bfs_src" of G;
+query scan_0_post_13: "bfs_src" of G;
+query scan_0_post_14: "bfs_src" of G;
+query scan_0_post_15: "bfs_src" of G;
+query scan_0_post_16: "bfs_src" of G;
+query scan_0_post_17: "bfs_src" of G;
+query scan_0_post_18: "bfs_src" of G;
+query scan_0_post_19: "bfs_src" of G;
+print checksum;
+print numEdges(G);

@@ -1,0 +1,85 @@
+EFFECT SYSTEM: MAIN PAPER / APPENDIX SPLIT
+
+Scope
+This split follows the attached text, whose actual heading is Effect
+System. It is separate from the existing p1-main.tex and p1-appendix.tex.
+The editorial goal is a main section that explains the contribution,
+its correctness obligations, and its implementation scope without making
+readers traverse routine runtime mechanics. This is an editorial judgment
+for an OOPSLA research paper, not a claim about conference formatting rules.
+
+Integration
+Replace the supplied subsection with effect-system-main.tex.
+Include effect-system-appendix.tex after the manuscript's existing
+\appendix command. Neither file is a standalone document.
+Required packages: amsmath, amssymb, booktabs, tabularx.
+Retain the four bibliography entries already cited in the supplied text.
+The full-width recognition table uses table*.
+Use this pair instead of the earlier P1 pair if they replace the same
+material; including both pairs would duplicate text and some labels.
+Check pagination in the actual manuscript class.
+
+KEEP IN THE MAIN PAPER
+- The phase- and scope-aware representation and canonical loop equation.
+- The meanings of effect kinds, regions, and scopes.
+- Why phase structure matters to cross-source interference.
+- One independence equation shared by the spatial and temporal analyses.
+- A short ownership example and the transformation correctness obligations.
+- The conditional commutation argument and constraints on the other axis.
+- How independence yields execution, including combined round/spatial work.
+- Implementation limits that affect claims or evaluation interpretation.
+
+MOVE TO THE APPENDIX
+- Graph-loop detection, provenance lattice, full atom representation,
+  and recognition table.
+- Detailed RAW/WAR classification cases, WAW handling, read summaries,
+  and finite enumeration semantics.
+- Expanded footprint definitions, graph representations, and conditional
+  preservation argument.
+- Callback parameters, frames, descriptors, source-coverage passes,
+  task readiness, joins, storage initialization, and finalization.
+- GPU lowering, CUDA streams, transfers, and window publication barriers.
+
+CONDENSE OR CORRECT, RATHER THAN JUST MOVE
+- Merge duplicated spatial/temporal conflict definitions and commuting
+  lemmas into a parameterized account.
+- Remove the equation equating a union of effects to final program state:
+  an access summary is not a state.
+- Replace the original case-specific discharge theorem with an explicit
+  obligation. The supplied theorem states an independence criterion but
+  gives no transformation cases proving semantic preservation.
+- Make preservation conditional on sound footprints, valid transformations,
+  and faithful lowering. Noninterference of transformed code alone does
+  not establish equivalence to the original code.
+- Treat a round summary with a self-loop as an interference graph, not a DAG.
+- Correct the unmatched end-definition and malformed loop equation.
+- Apply sequential order to all three alternatives of the conflict predicate.
+- Consolidate repeated descriptions of task graphs, joins, and fallbacks.
+
+IMPORTANT AUTHOR FOLLOW-UP
+The attachment does not provide the actual transformation rules or their
+proofs. If those rules are a principal contribution, their essential
+applicability conditions and one worked example belong in the main paper,
+with full proofs in the appendix. The generic independence equation is
+not a substitute. This split does not invent those missing rules.
+
+The appendix preserves the description of a four-valued read summary,
+but the attachment never specifies its four values or ranking. Add these
+to make that algorithm reproducible. Do not infer them from the distinct
+footprint-classification names.
+
+Frontier traversal alone does not justify snapshotting; recognized
+subtraction or floating-point addition alone does not justify reduction
+regrouping; recognizing a conditional claim alone does not justify a
+different winning source. The actual transformation conditions must
+address these issues wherever those transformations are defined.
+
+The runtime description is retained from the supplied material. This was
+an editorial split, not an independent implementation or proof audit.
+
+Cross-references
+The original eq:effect-expr and tab:effect-recognition labels remain.
+The original def:effect-atom, ni, and corol labels are not retained because
+their formal environments were consolidated or replaced. Update external
+references to the appropriate new sections or eq:effects-independence;
+do not refer to the equation as a transformation-soundness theorem.

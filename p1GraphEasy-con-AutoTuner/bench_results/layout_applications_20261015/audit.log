@@ -1,0 +1,25 @@
+AUDIT contact_trace_events80000_batch8_motif AUTO [('CSR', 'SET'), ('SET', 'CSR')] native 2560016 samples 144
+AUDIT contact_trace_events80000_batch8_motif CSR [] native 144 samples 144
+AUDIT contact_trace_events80000_batch8_motif PCSR [('CSR', 'PCSR')] native 2560016 samples 144
+AUDIT contact_trace_events80000_batch8_motif BCSR [('CSR', 'BCSR')] native 144 samples 144
+AUDIT contact_trace_events80000_batch8_motif SET [('CSR', 'SET')] native 2560016 samples 144
+AUDIT service_islands_events80000_batch8_motif AUTO [('CSR', 'SET'), ('SET', 'CSR')] native 1280001 samples 65
+AUDIT service_islands_events80000_batch8_motif CSR [] native 65 samples 65
+AUDIT service_islands_events80000_batch8_motif PCSR [('CSR', 'PCSR')] native 1280001 samples 65
+AUDIT service_islands_events80000_batch8_motif BCSR [('CSR', 'BCSR')] native 65 samples 65
+AUDIT service_islands_events80000_batch8_motif SET [('CSR', 'SET')] native 1280001 samples 65
+AUDIT sensor_backbone_events80000_batch8_motif AUTO [('CSR', 'SET'), ('SET', 'CSR')] native 1280013 samples 77
+AUDIT sensor_backbone_events80000_batch8_motif CSR [] native 77 samples 77
+AUDIT sensor_backbone_events80000_batch8_motif PCSR [('CSR', 'PCSR')] native 1280013 samples 77
+AUDIT sensor_backbone_events80000_batch8_motif BCSR [('CSR', 'BCSR')] native 77 samples 77
+AUDIT sensor_backbone_events80000_batch8_motif SET [('CSR', 'SET')] native 1280013 samples 77
+AUDIT route_failover_events80000_batch8_motif AUTO [('CSR', 'SET'), ('SET', 'CSR')] native 2560002 samples 130
+AUDIT route_failover_events80000_batch8_motif CSR [] native 130 samples 130
+AUDIT route_failover_events80000_batch8_motif PCSR [('CSR', 'PCSR')] native 2560002 samples 130
+AUDIT route_failover_events80000_batch8_motif BCSR [('CSR', 'BCSR')] native 130 samples 130
+AUDIT route_failover_events80000_batch8_motif SET [('CSR', 'SET')] native 2560002 samples 130
+AUDIT trust_audit_events80000_batch8_motif AUTO [('CSR', 'SET'), ('SET', 'CSR')] native 1280001 samples 65
+AUDIT trust_audit_events80000_batch8_motif CSR [] native 65 samples 65
+AUDIT trust_audit_events80000_batch8_motif PCSR [('CSR', 'PCSR')] native 1280001 samples 65
+AUDIT trust_audit_events80000_batch8_motif BCSR [('CSR', 'BCSR')] native 65 samples 65
+AUDIT trust_audit_events80000_batch8_motif SET [('CSR', 'SET')] native 1280001 samples 65

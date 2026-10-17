@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Low-memory rebuild of p1-AT's GraphProgram (one TU at a time, no -g).
+# Use the installed LLVM toolchain and rebuild objects when their local or
+# generated parser headers change.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
+# A failed compile must not be mistaken for a successful one: the binary can
+# only exist if the link that follows succeeded.
+rm -f GraphProgram
+if [[ -z "${LLVM_CONFIG:-}" ]]; then
+  if [[ -x /usr/local/llvm-20-polly-rtti/bin/llvm-config ]]; then
+    LLVM_CONFIG=/usr/local/llvm-20-polly-rtti/bin/llvm-config
+  else
+    LLVM_CONFIG=llvm-config-20
+  fi
+fi
+OBJ_DIR="${OBJ_DIR:-$ROOT/build_lowmem}"; mkdir -p "$OBJ_DIR"
+LLVM_CXXFLAGS="$($LLVM_CONFIG --cxxflags)"; LLVM_CXXFLAGS="${LLVM_CXXFLAGS//-fno-exceptions/}"
+LLVM_LDFLAGS="$($LLVM_CONFIG --ldflags)"; LLVM_LIBS="$($LLVM_CONFIG --libs all)"
+LLVM_SYSTEM_LIBS="$($LLVM_CONFIG --system-libs)"
+# -iquote, not -I., so #include <random> cannot hit the stray ELF named `random`
+CXXFLAGS=(-O2 -mavx2 -march=native -std=c++17 -fexceptions -pthread
+          -I/usr/local/include/antlr4-runtime -Igenerated -iquote .
+          -I"$($LLVM_CONFIG --includedir)/polly" $LLVM_CXXFLAGS)
+SOURCES=(main.cpp IRGenVisitor.cpp MotifPattern.cpp MotifIRBuilder.cpp ASTBuilder.cpp pdg.cpp parallel_loop_outline.cpp
+         graph_frontier_lowering.cpp
+         SemanticAnalyzer.cpp roaring_bitmap.cpp AutoTunerPass.cpp
+         generated/BaseBaseListener.cpp generated/BaseBaseVisitor.cpp
+         generated/BaseLexer.cpp generated/BaseListener.cpp
+         generated/BaseParser.cpp generated/BaseVisitor.cpp)
+OBJECTS=()
+# Optional Polly link libraries.  The compiler references no Polly symbol of its
+# own: a toolchain whose llvm-config already lists Polly (`--libs all`) links it
+# from there.  A toolchain that ships libPolly.a *and* a Polly-enabled LLVM
+# shared library double-registers Polly's command-line options and aborts at
+# startup ("Option 'polly-dependences-computeout' registered more than once"),
+# so the explicit list is an override: `POLLY_LIBS="" bash build_lowmem.sh`.
+if [[ ! ${POLLY_LIBS+x} ]]; then
+  if [[ "$LLVM_LIBS" =~ (^|[[:space:]])-lLLVM(-[0-9.]+)?([[:space:]]|$) ]]; then
+    POLLY_LIBS=""
+  else
+    POLLY_LIBS="-lPolly -lPollyISL -lisl"
+  fi
+fi
+echo "=== compiling ${#SOURCES[@]} sources ==="
+for src in "${SOURCES[@]}"; do
+  obj="$OBJ_DIR/$(echo "$src" | tr '/' '_' | sed 's/\.cpp$/.o/')"; OBJECTS+=("$obj")
+  # Rebuild when the source OR any local header is newer.  Comparing against
+  # the .cpp alone let a changed SemanticAnalyzer.h / IRGenVisitor.h leave other
+  # objects compiled against the previous class layout, which corrupts memory at
+  # run time instead of failing to link.
+  stale=0
+  [[ -f "$obj" ]] || stale=1
+  if [[ "$stale" == 0 ]]; then
+    for hdr in *.h *.inc generated/*.h; do [[ "$hdr" -nt "$obj" ]] && { stale=1; break; }; done
+  fi
+  [[ "$src" -nt "$obj" ]] && stale=1
+  if [[ "$stale" == 0 ]]; then echo "  skip: $src"; continue; fi
+  echo "  cc: $src"; g++ -c "${CXXFLAGS[@]}" "$src" -o "$obj"
+done
+echo "=== linking GraphProgram ==="
+g++ "${OBJECTS[@]}" $LLVM_LDFLAGS -Wl,--no-keep-memory -Wl,--reduce-memory-overheads \
+  -pthread -lantlr4-runtime $POLLY_LIBS $LLVM_LIBS $LLVM_SYSTEM_LIBS -o GraphProgram
+if [ ! -f GraphProgram ]; then echo ">>> GraphProgram MISSING: build failed"; exit 1; fi
+echo ">>> p1-AT GraphProgram build complete"
+
+# Dense semiring-closure runtime (autograph_closure) — link into user programs.
+if [[ -f semiring_runtime.c ]]; then
+  echo "=== compiling semiring_runtime.o ==="
+  gcc -O3 -fopenmp -iquote . -c semiring_runtime.c -o semiring_runtime.o
+fi
+echo "Link user programs with: parallel_runtime_shim.o semiring_runtime.o (and the usual loaders)"

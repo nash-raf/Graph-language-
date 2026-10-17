@@ -1,0 +1,642 @@
+{
+  "backend": "Default; GRAPH_FRONTIER_REWRITE_OFF unset for all variants",
+  "settings": {},
+  "input_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+  "source_sha256": {
+    "GraphProgram": "c60ddc255905969104ad829619040b3f473fd01ec30ec9640644184818fe3ea8",
+    "AutoTunerPass.cpp": "64b1b28c71f9b8ce63b5373044407f6fde559b603cc8b8f45126cc96d9b7bcc8",
+    "autotuner_runtime.c": "72c4f1faaf1534e5e3d92c3979d19c41233e350d6ce85b2428a6cff98f2445b6",
+    "parallel_runtime.c": "93dbde4fb3ebf4a1be399c4901efb2af62b1b263cf87a50f2eb54067bfc7a6a4",
+    "graph_mutation_runtime.c": "562a944ad33af90f4e288264f32313013b57d776c6abcd4bb7c068ba62c2eecd",
+    "graph_frontier_lowering.cpp": "222cf8240492b6d3a4082ec56cf3834b65341330277364719d8487cc9ea8882e",
+    "bfs_runtime_src.cpp": "f7e97c72672b92af4272704ad876048a3050e9a6eb60ffec4eeb710dd7ef8723",
+    "dfs_runtime_src.cpp": "17d19a8ce4392e4234f0daecd3adc0580f6ee5f0d19daa2c4be7f217af202e0b"
+  },
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        48 bits physical, 48 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               12\nOn-line CPU(s) list:                  0-11\nVendor ID:                            AuthenticAMD\nModel name:                           AMD Ryzen 5 5500\nCPU family:                           25\nModel:                                80\nThread(s) per core:                   2\nCore(s) per socket:                   6\nSocket(s):                            1\nStepping:                             0\nBogoMIPS:                             7186.32\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                       AMD-V\nHypervisor vendor:                    Microsoft\nVirtualization type:                  full\nL1d cache:                            192 KiB (6 instances)\nL1i cache:                            192 KiB (6 instances)\nL2 cache:                             3 MiB (6 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-11\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n",
+  "threads": 1,
+  "sampling": {
+    "AUTO": 7,
+    "CSR": 1,
+    "PCSR": 7,
+    "BCSR": 1,
+    "SET": 7
+  },
+  "date": "2026-10-15",
+  "same_sources_as_motif_experiment": true,
+  "distinct_normalized_sources": 5,
+  "total_measured_launches": 115,
+  "timing": "Whole process wall time including loading, allocations, conversions, all native updates, analysis, profiling and output; compilation, input generation, sidecar prebuild and audits excluded.",
+  "audit_protocol": "Layouts checked at mutations, built-in queries, effect executors and intercepted iterator initializations. Graph fingerprints and independent semantic outputs verified. Epoch stability checked on intercepted next() calls. All native updates run in AUTO/PCSR/SET diagnostics; CSR/BCSR diagnostic wrappers omit middle recurring windows. Timed executables always run every native update.",
+  "benchmark_tools_sha256": {
+    "tools/benchmark_default_layout_applications.py": "8645c0aeeb7822da29c136eda614d67d258b733883df70c8cd425d520ca1adfe",
+    "tools/layout_application_benchmark.py": "2d9bee246e5d69ee77d09779d13e6d0c048408a4cfdf808e57a3ca41d9193aaa",
+    "tools/layout_application_cases.py": "a372f6b1f514f70632cd662363b4db3811a5ae3843b327cc2ba54aaba93bf763",
+    "tools/layout_switch_benchmark.py": "09ba97f83ec987a0dc0685c290bcb20a799ea768432627cc48bb6d4228f94b00",
+    "tools/default_layout_application_audit.c": "fd56ffeff792e58c04a15a1dee42102a518082ec1f4995c37bc330072502739c",
+    "tools/layout_application_audit.c": "d263a4bc0c3073f5c1b51bdd7d7268a2127a87ee6de608a14f51ca2af700db20",
+    "tools/prebuild_graph_cache.cpp": "5d1c30e6473822175eb3b38f540b6a315c049fc87c723210a1eb94051c16b67a"
+  },
+  "cases": [
+    {
+      "case": "contact_trace_events80000_batch8_default",
+      "application": "Contact exposure tracing",
+      "source": "winning_codes/contact_trace.sgpl",
+      "source_sha256": "5856867f9f666ed95953f613aa5706b5c857bff97bf29898ef9a406e27821e3e",
+      "binaries_sha256": {
+        "AUTO": "77a2ae146255af1b8f332f9619862bb70b268fbe26f346ae87b6d4a8ad0b3c82",
+        "CSR": "231ab1bd7d67c5369a7d762dc097b54fc8691b1e9a02a62480030d3d64ed8b9a",
+        "PCSR": "6eb10eb4cf0ca6e3fd2e445b8776267e65cb32d11e9a9417804d3318213f640d",
+        "BCSR": "388a9e2d213013213900ebe6f3d4934f389d4016dd74560db4ff31c4c2ceca45",
+        "SET": "3c16fa6606587e00953fef4dd4a24360bbc25f361908850d8ae0291882bf236b"
+      },
+      "samples": {
+        "AUTO": 7,
+        "CSR": 1,
+        "PCSR": 7,
+        "BCSR": 1,
+        "SET": 7
+      },
+      "medians_ms": {
+        "AUTO": 610.497283,
+        "CSR": 33331.756016,
+        "PCSR": 1470.676136,
+        "BCSR": 119100.386038,
+        "SET": 2624.596163
+      },
+      "audit": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "adds": 1280008,
+          "removes": 1280008,
+          "mutation_effect_samples": 144,
+          "native_mutations": 2560016,
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [],
+          "adds": 1280008,
+          "removes": 1280008,
+          "mutation_effect_samples": 144,
+          "native_mutations": 144,
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "adds": 1280008,
+          "removes": 1280008,
+          "mutation_effect_samples": 144,
+          "native_mutations": 2560016,
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "adds": 1280008,
+          "removes": 1280008,
+          "mutation_effect_samples": 144,
+          "native_mutations": 144,
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "adds": 1280008,
+          "removes": 1280008,
+          "mutation_effect_samples": 144,
+          "native_mutations": 2560016,
+          "full_native_updates": true
+        }
+      },
+      "autotuner_faster": true,
+      "speedup_vs_best_fixed": 2.4089806407868974
+    },
+    {
+      "case": "service_islands_events80000_batch8_default",
+      "application": "Service outage islands",
+      "source": "winning_codes/service_islands.sgpl",
+      "source_sha256": "4f5f558863aa1c336b18b5e2dabea40bc330a9ed6bddd993317aa07eea922e0e",
+      "binaries_sha256": {
+        "AUTO": "47fc5a0ed78b2a65bc0b6f2a316b9034b7716ff39c42bfa0dbaea7357f99e62b",
+        "CSR": "c76a9a7578a41e64616dea59a749b867e761bb4aba1da6d9ac9eb4aa3d0faba4",
+        "PCSR": "b9cbd472d634caa91bf249a6df5772517d60f7a632faeba2876f86227c5faeef",
+        "BCSR": "f6333ebffce4b2ad4acbc750f7023ce4d4379c832c22d65f55e2adb7846a32dd",
+        "SET": "9f32b1ba1918d081cf6ccb90d72300b0a7a96b2968af6abef8b16d3e53fa20d6"
+      },
+      "samples": {
+        "AUTO": 7,
+        "CSR": 1,
+        "PCSR": 7,
+        "BCSR": 1,
+        "SET": 7
+      },
+      "medians_ms": {
+        "AUTO": 548.013661,
+        "CSR": 28611.301184,
+        "PCSR": 1079.520389,
+        "BCSR": 77550.595343,
+        "SET": 4078.513448
+      },
+      "audit": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "full_native_updates": true
+        }
+      },
+      "autotuner_faster": true,
+      "speedup_vs_best_fixed": 1.9698786103801162
+    },
+    {
+      "case": "sensor_backbone_events80000_batch8_default",
+      "application": "Sensor backbone pruning",
+      "source": "winning_codes/sensor_backbone.sgpl",
+      "source_sha256": "d8ebf2f32dcfe82889d1625189313810e03ac3009c5390ad984ec25b44bdca22",
+      "binaries_sha256": {
+        "AUTO": "caaf8bd97a3b35bd2c632e51546045171954fa74de7071dd454918f08ad6fd02",
+        "CSR": "0ae5464285b588dbf974e4dfddeabcafc6043ad3464f2880f10e8ece58e486c4",
+        "PCSR": "95d65d20e3706332ea7efe705205351df05de52c6fcc6b4f944628de717fe7e5",
+        "BCSR": "75088e7b564bd1818f6f59b858235b8e722090aaf6b2b0b8350d032cf1c24b10",
+        "SET": "39113ab7c299e3c5fbafebdb1b8f7e6fc61263068974a6878f0813d461b65859"
+      },
+      "samples": {
+        "AUTO": 7,
+        "CSR": 1,
+        "PCSR": 7,
+        "BCSR": 1,
+        "SET": 7
+      },
+      "medians_ms": {
+        "AUTO": 156.626259,
+        "CSR": 4300.11231,
+        "PCSR": 670.877607,
+        "BCSR": 34378.765315,
+        "SET": 1184.855553
+      },
+      "audit": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640013,
+          "mutation_effect_samples": 77,
+          "native_mutations": 1280013,
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [],
+          "adds": 640000,
+          "removes": 640013,
+          "mutation_effect_samples": 77,
+          "native_mutations": 77,
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640013,
+          "mutation_effect_samples": 77,
+          "native_mutations": 1280013,
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640013,
+          "mutation_effect_samples": 77,
+          "native_mutations": 77,
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640013,
+          "mutation_effect_samples": 77,
+          "native_mutations": 1280013,
+          "full_native_updates": true
+        }
+      },
+      "autotuner_faster": true,
+      "speedup_vs_best_fixed": 4.283302246272766
+    },
+    {
+      "case": "route_failover_events80000_batch8_default",
+      "application": "Gateway failover recovery",
+      "source": "winning_codes/route_failover.sgpl",
+      "source_sha256": "5b65604569f18cb7511ba56f6c3bd33909d31fa13a51e3e308cf2b52dfd0957d",
+      "binaries_sha256": {
+        "AUTO": "100b2a0d5bcc8bf9ccfd16af00310ca026197f57a94173db4dc7596d93181c75",
+        "CSR": "b303527c802afa6011dda00b16d5367cf08ad3747076907124c566b1d66a4bf5",
+        "PCSR": "9d8124c7c96507be6ee241402052028fbcc6dc8c5ae53300ea00795c0a0888f0",
+        "BCSR": "cba916fb962eba6df6eea3b68009140356d3944c821d8bcf01831ed454c454c3",
+        "SET": "dfbfa767f74498288c0333c706197a66dfae0de288dd75e7b1c87086274106ca"
+      },
+      "samples": {
+        "AUTO": 7,
+        "CSR": 1,
+        "PCSR": 7,
+        "BCSR": 1,
+        "SET": 7
+      },
+      "medians_ms": {
+        "AUTO": 278.642887,
+        "CSR": 31917.882278,
+        "PCSR": 1257.533481,
+        "BCSR": 111343.424495,
+        "SET": 1175.229654
+      },
+      "audit": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "adds": 1280001,
+          "removes": 1280001,
+          "mutation_effect_samples": 130,
+          "native_mutations": 2560002,
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [],
+          "adds": 1280001,
+          "removes": 1280001,
+          "mutation_effect_samples": 130,
+          "native_mutations": 130,
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "adds": 1280001,
+          "removes": 1280001,
+          "mutation_effect_samples": 130,
+          "native_mutations": 2560002,
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "adds": 1280001,
+          "removes": 1280001,
+          "mutation_effect_samples": 130,
+          "native_mutations": 130,
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "adds": 1280001,
+          "removes": 1280001,
+          "mutation_effect_samples": 130,
+          "native_mutations": 2560002,
+          "full_native_updates": true
+        }
+      },
+      "autotuner_faster": true,
+      "speedup_vs_best_fixed": 4.217691205589612
+    },
+    {
+      "case": "trust_audit_events80000_batch8_default",
+      "application": "Trust-boundary audit",
+      "source": "winning_codes/trust_audit.sgpl",
+      "source_sha256": "22dc9d032ead5a6dd4a37d23300c9d1ed26840319b3742b5db84460c61d1899a",
+      "binaries_sha256": {
+        "AUTO": "bef3281ec02214a7e6b54472d16e6b1a96f630d89b1824474036f3a6ed4f5f45",
+        "CSR": "f402c7ea3b7eb20e6391f14b77c1af788aefe66aa8d194e9b208963679daae4d",
+        "PCSR": "847a0cbc4c78f6ddf99a4c58aaf0d64b37671d5f1f9ba3564cba7b57fc56cc00",
+        "BCSR": "661df0e5121f223fbe12456e7fd5c9bcbaed02a314ef025f2d1f778e622ff31b",
+        "SET": "127db83500ad768b66de61c4658da70f3d20e356af7400b2eaa21a3e2b8e15ed"
+      },
+      "samples": {
+        "AUTO": 7,
+        "CSR": 1,
+        "PCSR": 7,
+        "BCSR": 1,
+        "SET": 7
+      },
+      "medians_ms": {
+        "AUTO": 160.054877,
+        "CSR": 28363.849193,
+        "PCSR": 566.957531,
+        "BCSR": 83184.447472,
+        "SET": 443.360444
+      },
+      "audit": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "graph_fingerprints_verified": true,
+          "semantic_outputs_verified": true,
+          "iterator_epochs_verified": true,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "adds": 640000,
+          "removes": 640001,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "full_native_updates": true
+        }
+      },
+      "autotuner_faster": true,
+      "speedup_vs_best_fixed": 2.770052698862778
+    }
+  ]
+}

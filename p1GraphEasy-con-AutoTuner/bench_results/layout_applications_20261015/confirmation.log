@@ -1,0 +1,15 @@
+contact_trace_events80000_batch8_motif AUTO ['CSR', 'SET']
+contact_trace_events80000_batch8_motif CSR []
+contact_trace_events80000_batch8_motif PCSR ['PCSR']
+contact_trace_events80000_batch8_motif BCSR ['BCSR']
+contact_trace_events80000_batch8_motif SET ['SET']
+contact_trace_events80000_batch8_motif 1/3 {'AUTO': 261.801, 'CSR': 34661.968, 'PCSR': 1156.927, 'BCSR': 124633.636, 'SET': 1073.752}
+contact_trace_events80000_batch8_motif 2/3 {'AUTO': 260.794, 'CSR': 34450.806, 'PCSR': 1141.378, 'BCSR': 126258.141, 'SET': 1085.169}
+contact_trace_events80000_batch8_motif 3/3 {'AUTO': 261.801, 'CSR': 34239.644, 'PCSR': 1156.927, 'BCSR': 127882.645, 'SET': 1096.585}
+RESULT contact_trace_events80000_batch8_motif {'AUTO': 261.800593, 'CSR': 34239.643606, 'PCSR': 1156.926603, 'BCSR': 127882.64539, 'SET': 1096.585183} 4.188627575033797
+service_islands_events80000_batch8_motif AUTO ['CSR', 'SET']
+service_islands_events80000_batch8_motif CSR []
+service_islands_events80000_batch8_motif PCSR ['PCSR']
+service_islands_events80000_batch8_motif BCSR ['BCSR']
+service_islands_events80000_batch8_motif SET ['SET']
+service_islands_events80000_batch8_motif 1/3 {'AUTO': 189.952, 'CSR': 30556.082, 'PCSR': 787.23, 'BCSR': 79983.349, 'SET': 1060.58}

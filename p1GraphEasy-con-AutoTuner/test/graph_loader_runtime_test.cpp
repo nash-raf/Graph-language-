@@ -17,6 +17,8 @@ struct Graph {
 
 extern "C" Graph *load_graph_from_file(const char *filename);
 extern "C" Graph *load_weighted_graph_from_file(const char *filename);
+extern "C" Graph *load_graph_from_file_directed(const char *filename);
+extern "C" Graph *load_weighted_graph_from_file_directed(const char *filename);
 extern "C" void *graph_get_node_bitmap(Graph *graph);
 extern "C" void *graph_get_edge_bitmap(Graph *graph);
 extern "C" int32_t *graph_get_edge_pairs(Graph *graph);
@@ -43,14 +45,22 @@ static uint64_t hash_value(uint64_t hash, const T &value) {
 int main(int argc, char **argv) {
     if (argc != 3 ||
         (strcmp(argv[1], "unweighted") != 0 &&
-         strcmp(argv[1], "weighted") != 0)) {
-        std::fprintf(stderr, "usage: %s unweighted|weighted GRAPH\n", argv[0]);
+         strcmp(argv[1], "weighted") != 0 &&
+         strcmp(argv[1], "directed") != 0 &&
+         strcmp(argv[1], "weighted_directed") != 0)) {
+        std::fprintf(stderr, "usage: %s unweighted|weighted|directed|weighted_directed GRAPH\n", argv[0]);
         return 2;
     }
 
-    bool weighted = strcmp(argv[1], "weighted") == 0;
-    Graph *graph = weighted ? load_weighted_graph_from_file(argv[2])
-                            : load_graph_from_file(argv[2]);
+    bool weighted = strcmp(argv[1], "weighted") == 0 ||
+                    strcmp(argv[1], "weighted_directed") == 0;
+    bool directed = strcmp(argv[1], "directed") == 0 ||
+                    strcmp(argv[1], "weighted_directed") == 0;
+    Graph *graph = directed
+        ? (weighted ? load_weighted_graph_from_file_directed(argv[2])
+                    : load_graph_from_file_directed(argv[2]))
+        : (weighted ? load_weighted_graph_from_file(argv[2])
+                    : load_graph_from_file(argv[2]));
     if (!graph)
         return 3;
 

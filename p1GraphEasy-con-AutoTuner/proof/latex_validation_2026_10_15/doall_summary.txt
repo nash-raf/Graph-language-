@@ -1,0 +1,14 @@
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Equation & Settings & Mean APE (\%) & Median APE (\%) & Within 20\% \\
+\midrule
+Original & 18 & 41.41 & 30.93 & 6/18 \\
+Corrected & 18 & 17.81 & 12.09 & 12/18 \\
+\bottomrule
+\end{tabular}
+\caption{DOALL cost-model validation: historical audit with identical inputs for both equations.}\label{tab:doall-summary}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize APE $=100|\widehat T-T|/T$. These are the existing 18 audit measurements; they do not constitute a fresh validation of any changes made after that audit.\end{minipage}
+\end{table}

@@ -1,0 +1,53 @@
+// Service-topology updates followed by connected-component outage detection.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 300) {
+  G.addEdges(0->256);
+  G.addEdges(13->269);
+  G.addEdges(26->282);
+  G.addEdges(39->295);
+  G.addEdges(52->308);
+  G.addEdges(65->321);
+  G.addEdges(78->334);
+  G.addEdges(91->347);
+  G.removeEdges(0->256);
+  G.removeEdges(13->269);
+  G.removeEdges(26->282);
+  G.removeEdges(39->295);
+  G.removeEdges(52->308);
+  G.removeEdges(65->321);
+  G.removeEdges(78->334);
+  G.removeEdges(91->347);
+  window = window + 1;
+}
+  G.removeEdges(0->512);
+query core_snapshot: "bfs_src" 0 of G;
+query edge_snapshot: "bfs_src" 543 of G;
+print core_snapshot; print edge_snapshot;
+// Label all disconnected service islands; emit the largest island.
+int label[n]; int frontier[n]; int next_frontier[n];
+int frontier_size=n; int next_size=0; int v=0;
+while(v<n) { label[v]=v; frontier[v]=v; v=v+1; }
+while(frontier_size>0) {
+  next_size=0; int i=0;
+  while(i<frontier_size) {
+    int u=frontier[i];
+    for v in G.neighbors(u) {
+      if(label[u]<label[v]) {
+        label[v]=label[u];
+        next_frontier[next_size]=v; next_size=next_size+1;
+      }
+    }
+    i=i+1;
+  }
+  swap(frontier,next_frontier); frontier_size=next_size;
+}
+int count[n]; v=0;
+while(v<n) { count[v]=0; v=v+1; }
+v=0; while(v<n) { count[label[v]]=count[label[v]]+1; v=v+1; }
+int islands=0; int largest=0; v=0;
+while(v<n) { if(count[v]>0) { islands=islands+1; } if(count[v]>largest) { largest=count[v]; } v=v+1; }
+print islands; print largest;
+print numEdges(G);

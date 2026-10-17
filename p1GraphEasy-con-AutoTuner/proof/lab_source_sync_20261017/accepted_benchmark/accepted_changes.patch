@@ -1,0 +1,471 @@
+--- a/autotuner_runtime.h
++++ b/autotuner_runtime.h
+@@ -577,8 +577,10 @@
+   void *execution_scratch;
+   int32_t array_log_pristine;
+   int32_t array_pair_records;
+-  /* CPU pair batches: four int32s (u,v,source ordinal,work ordinal), no kind
+-   * or parallel int64 ordinal arrays. Expanded before device grouping. */
++  /* CPU pair batches: mode 1 is four i32s (u,v,source ordinal,work ordinal).
++   * Mode 2 adds an i32 first-match hint after a proven CSR-index range bound.
++   * Mode 0 keeps triples plus i64 side arrays. CPU compact modes expand
++   * transactionally to the legacy representation before device grouping. */
+   int32_t array_compact_records;
+ } sgpl_exec_ctx;
+ int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
+--- a/main.cpp
++++ b/main.cpp
+@@ -891,8 +891,9 @@
+         auto *Index = Field(B.getInt64Ty(), offsetof(sgpl_exec_ctx, array_edge_index));
+         auto *Records = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, array_record_edges));
+         auto *Owner = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, graph));
++        auto *Packed = B.CreateICmpEQ(Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, array_compact_records)), B.getInt32(2));
+         auto *Native = llvm::BasicBlock::Create(C, "native", Fn);
+-        B.CreateCondBr(B.CreateAnd(B.CreateAnd(B.CreateICmpEQ(Graph, Owner), B.CreateIsNotNull(Records)),
++        B.CreateCondBr(B.CreateAnd(B.CreateAnd(B.CreateICmpEQ(Graph, Owner), B.CreateOr(B.CreateIsNotNull(Records), Packed)),
+                                   B.CreateAnd(B.CreateICmpSGE(Index, B.getInt64(0)), B.CreateICmpSGE(U, B.getInt32(0)))), Native, Fallback);
+         B.SetInsertPoint(Native);
+         auto *N = B.CreateLoad(B.getInt64Ty(), Graph);
+--- a/array_preparation_runtime.inc
++++ b/array_preparation_runtime.inc
+@@ -104,6 +104,54 @@
+     }
+   }
+ }
++
++/* Format versioning is outside the loop; the original filler stays intact. */
++static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_packed(void *opaque,int32_t worker,int32_t width) {
++  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
++  const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
++  const int32_t chunks=j->chunks,parts=j->parts;
++  const int64_t count=c->array_source_count;
++  const int64_t *rows=m->csr_row_ptr,*weights=j->weights;
++  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
++  int32_t *records=c->gpu_records;
++  int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
++  for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
++    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
++    int64_t *positions=j->positions+(size_t)chunk*parts;
++    int64_t ordinal=j->work[chunk];
++    for(int64_t i=lo;i<hi;++i) {
++      int32_t u=input[i],source_part=owners[u];
++      int64_t first=rows[u],last=rows[u+1];
++      if(begins) {
++        int64_t at=positions[source_part]++;
++        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=1;
++        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
++      }
++      for(int64_t edge=first;edge<last;++edge) {
++        int32_t v=columns[edge],p=source?source_part:owners[v];
++        if(source&&(v<0||v>=m->csr_n)) {
++          atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
++          return;
++        }
++        int64_t at=positions[p]++;
++        if(1) {
++          records[5*at]=u;records[5*at+1]=v;
++          records[5*at+2]=(int32_t)i;records[5*at+3]=(int32_t)ordinal++;
++          records[5*at+4]=(int32_t)weights[edge];
++        } else {
++          records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
++          sources[at]=i;work[at]=ordinal++;
++        }
++        if(edges)edges[at]=weights[edge];
++      }
++      if(ends) {
++        int64_t at=positions[source_part]++;
++        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=2;
++        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
++      }
++    }
++  }
++}
+ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+   int32_t width=sgpl_configured_worker_count();
+   if(c->array_source_count<128||getenv("SGPL_ARRAY_PREP_SERIAL"))width=1;
+@@ -169,17 +217,22 @@
+   c->array_work_count=pair_count;
+   c->array_compact_records=SGPL_EXEC_PAIR_BATCH&&!begins&&!ends&&c->op_count==1&&
+       (c->ops[0].capabilities&SGPL_OP_PAIR)&&c->ops[0].pair;
+-  if((uint64_t)records>SIZE_MAX/(c->array_compact_records?16:12)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
++  /* The row validator and m bound prove every first-match hint fits i32.
++   * Lifecycle records retain their original representation. */
++  if(c->array_compact_records && native_weighted && m->csr_m>=0 && m->csr_m<=INT32_MAX)
++    c->array_compact_records=2;
++  size_t record_bytes=c->array_compact_records==2?20:(c->array_compact_records?16:12);
++  if((uint64_t)records>SIZE_MAX/record_bytes) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
+   c->array_append_log=sgpl_execution_buffer(c,SGPL_BUF_APPEND,(size_t)(pair_count?pair_count:1)*c->array_append_sites*8,1);
+-  c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*(c->array_compact_records?16:12),0);
++  c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*record_bytes,0);
+   if(!c->array_compact_records) {
+     c->gpu_record_sources=sgpl_execution_buffer(c,SGPL_BUF_SOURCES,(size_t)(records?records:1)*8,0);
+     c->gpu_record_work=sgpl_execution_buffer(c,SGPL_BUF_WORK,(size_t)(records?records:1)*8,0);
+   }
+-  if(native_weighted)c->array_record_edges=sgpl_execution_buffer(c,SGPL_BUF_EDGES,(size_t)(records?records:1)*8,0);
++  if(native_weighted&&c->array_compact_records!=2)c->array_record_edges=sgpl_execution_buffer(c,SGPL_BUF_EDGES,(size_t)(records?records:1)*8,0);
+   c->gpu_record_offsets=sgpl_execution_buffer(c,SGPL_BUF_OFFSETS,((size_t)parts+1)*8,1);
+   if(!c->array_append_log||!c->gpu_records||(!c->array_compact_records&&(!c->gpu_record_sources||!c->gpu_record_work))||!c->gpu_record_offsets||
+-      (native_weighted&&!c->array_record_edges)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
++      (native_weighted&&c->array_compact_records!=2&&!c->array_record_edges)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
+   int64_t at=0;
+   for(int32_t p=0;p<parts;++p) {
+     c->gpu_record_offsets[p]=at;
+@@ -189,7 +242,7 @@
+   }
+   c->gpu_record_offsets[parts]=at;
+   if(at!=records) {rc=SGPL_DAG_ERR_INVALID;goto done;}
+-  sgpl_run_preparation(sgpl_array_fill_chunks,&job,width);
++  sgpl_run_preparation(c->array_compact_records==2?sgpl_array_fill_chunks_packed:sgpl_array_fill_chunks,&job,width);
+   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
+   c->gpu_record_count=records;c->array_log_pristine=1;
+   c->array_pair_records=!job.source||(!begins&&!ends);rc=0;
+--- a/autotuner_runtime.c
++++ b/autotuner_runtime.c
+@@ -3476,6 +3476,192 @@
+ #undef SGPL_EXEC_EMIT_PAIR
+ }
+ 
++/* Record-format versioning preserves the established reader verbatim.
++ * Only prepared bounded-hint records enter this fixed-stride reader. */
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_packed_records")))
++#endif
++static void sgpl_exec_partition_body_packed(int64_t index, void *opaque) {
++  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
++  sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
++  AutoGraphMeta *meta = find_meta(ctx->graph);
++  int32_t p = (int32_t)index;
++  local.spatial_partition = p;
++  if (local.spatial_lane_seen && meta)
++    local.dest_seen = local.spatial_lane_seen + (int64_t)p * meta->csr_n;
++  if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0)
++    return;
++  /* Hoist the single pair operation's callback and state: compiler-emitted
++   * contexts carry exactly one pair op, and holding them in locals keeps the
++   * per-pair path at one indirect call with no descriptor reloads. */
++  void (*PairFn)(void *, sgpl_exec_ctx *, int32_t, int32_t) = NULL;
++  void *PairState = NULL;
++
++  local.partition_state =
++      (local.partition_base && local.partition_stride > 0)
++          ? (char *)local.partition_base + (int64_t)p * local.partition_stride
++          : local.partition_base;
++
++  sgpl_exec_partition_begin_ops(&local, p);
++
++  if (local.op_count == 1 && (local.ops[0].capabilities & SGPL_OP_PAIR)) {
++    PairFn = local.ops[0].pair;
++    PairState = local.ops[0].state;
++  }
++#define SGPL_EXEC_EMIT_PAIR(U, V)                                             \
++  do {                                                                        \
++    if (local.execution_error &&                                              \
++        __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0)          \
++      return;                                                                 \
++    if (local.spatial_group == SGPL_SPATIAL_PAIR_OCCURRENCE)                   \
++      __atomic_fetch_add(&ctx->spatial_occupied_groups, 1, __ATOMIC_RELAXED);   \
++    else if (local.spatial_groups_seen)                                       \
++      local.spatial_groups_seen[local.spatial_group == SGPL_SPATIAL_SOURCE    \
++          ? (U) : (V)] = 1;                                                  \
++    if (PairFn)                                                               \
++      PairFn(PairState, &local, (U), (V));                                    \
++    else                                                                      \
++      sgpl_exec_pair_ops(&local, (U), (V));                                   \
++  } while (0)
++
++  if (local.array_append_sites && SGPL_EXEC_PAIR_BATCH && local.array_pair_records && PairFn) {
++    /* Preparation certifies that this batch contains pairs only. Select the
++     * grouping action once, retain the occurrence gate and cancellation at
++     * each callback, and leave lifecycle-bearing batches on the general path. */
++    const int32_t *records=ctx->gpu_records;
++    const int64_t *sources=ctx->gpu_record_sources,*work=ctx->gpu_record_work;
++    const int64_t *edges=ctx->gpu_group_offsets?NULL:ctx->array_record_edges;
++    const uint8_t *gate=local.spatial_source_gate;
++    uint8_t *seen=local.spatial_groups_seen;
++    int sparse_groups=sgpl_sparse_group_tracking(ctx);uint64_t groups_local=0;
++    SgplExecutionScratch *group_scratch=ctx->execution_scratch;
++    uint32_t *group_tags=sparse_groups&&group_scratch&&group_scratch->group_capacity>=(size_t)meta->csr_n?group_scratch->group_tags:NULL;
++    uint32_t group_epoch=group_tags?group_scratch->group_epoch:0;
++    int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1];
++#define SGPL_PAIR_BATCH(MARK) do {                                           \
++    for(int64_t i=first;i<last;++i) {                                        \
++      if(sgpl_exec_failed(&local))return;                                   \
++      int stride=5;                            \
++      int32_t u=records[stride*i],v=records[stride*i+1];                     \
++      local.array_source_ordinal=records[5*i+2]; \
++      local.array_work_ordinal=records[5*i+3];local.array_append_seq=0; \
++      local.array_edge_index=records[5*i+4];                              \
++      if(gate&&!gate[local.array_source_ordinal])continue;                   \
++      MARK;                                                                \
++      PairFn(PairState,&local,u,v);                                         \
++    }                                                                      \
++  } while(0)
++    if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE)
++      SGPL_PAIR_BATCH(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED));
++    else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE)
++      SGPL_PAIR_BATCH(if(group_tags){if(group_tags[u]!=group_epoch){group_tags[u]=group_epoch;seen[u]=1;++groups_local;}}else if(sparse_groups){if(!seen[u]){seen[u]=1;++groups_local;}}else seen[u]=1);
++    else if(seen)
++      SGPL_PAIR_BATCH(if(group_tags){if(group_tags[v]!=group_epoch){group_tags[v]=group_epoch;seen[v]=1;++groups_local;}}else if(sparse_groups){if(!seen[v]){seen[v]=1;++groups_local;}}else seen[v]=1);
++    else
++      SGPL_PAIR_BATCH((void)0);
++#undef SGPL_PAIR_BATCH
++    if(groups_local)__atomic_fetch_add(&ctx->spatial_occupied_groups,groups_local,__ATOMIC_RELAXED);
++    if(sgpl_exec_failed(&local))return;
++  } else if (local.array_append_sites) {
++    for(int64_t i=ctx->gpu_record_offsets[p];i<ctx->gpu_record_offsets[p+1];++i) {
++      int32_t u=ctx->gpu_records[3*i],v=ctx->gpu_records[3*i+1],kind=ctx->gpu_records[3*i+2];
++      local.array_source_ordinal=ctx->gpu_record_sources[i];
++      local.array_work_ordinal=ctx->gpu_record_work[i];local.array_append_seq=0;
++      /* Device grouping may reorder records; its CPU fallback keeps the
++       * original language query rather than using an unreordered CSR hint. */
++      local.array_edge_index=ctx->array_record_edges&&!ctx->gpu_group_offsets?ctx->array_record_edges[i]:-1;
++      if(kind==1) {local.source_state=NULL;sgpl_exec_source_begin_ops(&local,u);}
++      else if(kind==2)sgpl_exec_source_end_ops(&local,u);
++      else if(!local.spatial_source_gate||local.spatial_source_gate[local.array_source_ordinal])
++        SGPL_EXEC_EMIT_PAIR(u,v);
++      if(sgpl_exec_failed(&local))return;
++    }
++  } else if (local.traversal_kind == SGPL_TRAVERSE_OWNER_V) {
++    int64_t rows = meta->push_row_count ? meta->push_row_count[p] : 0;
++    int64_t *rp = meta->push_rp ? meta->push_rp[p] : NULL;
++    int32_t *ci = meta->push_ci ? meta->push_ci[p] : NULL;
++    int32_t *indir = meta->push_indir ? meta->push_indir[p] : NULL;
++    for (int64_t r = 0; r < rows; ++r) {
++      int32_t u = indir[r];
++      if (local.membership && !local.membership[u])
++        continue;
++      if (local.spatial_source_gate && !local.spatial_source_gate[u]) continue;
++      for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
++        SGPL_EXEC_EMIT_PAIR(u, ci[j]);
++    }
++  } else if (local.spatial_group != SGPL_SPATIAL_NONE) {
++    /* Visit the complete source range in original order. Empty rows must not
++     * move after later nonempty rows when source lifecycle is observable. */
++    int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
++    int64_t count = meta->src_pair_count ? meta->src_pair_count[p] : 0, e = 0;
++    int32_t lo = (int32_t)meta->partition_start[p];
++    int32_t hi = (int32_t)meta->partition_start[p + 1];
++    for (int32_t u = lo; u < hi; ++u) {
++      if (local.membership && !local.membership[u]) continue;
++      if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0) return;
++      local.source_state = NULL;
++      if (local.spatial_group == SGPL_SPATIAL_SOURCE && local.spatial_groups_seen &&
++          sgpl_exec_has_cap(&local, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END))
++        local.spatial_groups_seen[u] = 1;
++      sgpl_exec_source_begin_ops(&local, u);
++      while (e < count && pairs[2*e] < u) ++e;
++      while (e < count && pairs[2*e] == u) {
++        if (!local.spatial_source_gate || local.spatial_source_gate[u])
++          SGPL_EXEC_EMIT_PAIR(u, pairs[2*e+1]);
++        ++e;
++      }
++      if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0) return;
++      sgpl_exec_source_end_ops(&local, u);
++    }
++  } else {
++    int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
++    int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
++    int32_t pending = -1;
++    int64_t e = 0;
++    for (; e < cnt; ++e) {
++      int32_t u = pairs[2 * e];
++      int32_t v = pairs[2 * e + 1];
++      if (local.membership && !local.membership[u])
++        continue;
++      if (pending != u) {
++        if (pending >= 0)
++          sgpl_exec_source_end_ops(&local, pending);
++        local.source_state = NULL; /* source-scoped claim channel (R7) */
++        sgpl_exec_source_begin_ops(&local, u);
++        pending = u;
++      }
++      if (!local.spatial_source_gate || local.spatial_source_gate[u])
++        SGPL_EXEC_EMIT_PAIR(u, v);
++    }
++    if (pending >= 0)
++      sgpl_exec_source_end_ops(&local, pending);
++
++    /* Complete source-domain coverage: a source in this partition's range
++     * with no pairs in the slice still gets begin/end, so a zero-pair source
++     * observes source_begin(u); source_end(u). */
++    if (meta->partition_start && pairs &&
++        sgpl_exec_has_cap(&local, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END)) {
++      int64_t e2 = 0;
++      int32_t lo = (int32_t)meta->partition_start[p];
++      int32_t hi = (int32_t)meta->partition_start[p + 1];
++      for (int32_t u = lo; u < hi; ++u) {
++        if (local.membership && !local.membership[u])
++          continue;
++        while (e2 < cnt && pairs[2 * e2] < u)
++          ++e2;
++        if (e2 < cnt && pairs[2 * e2] == u)
++          continue;
++        local.source_state = NULL; /* source-scoped claim channel (R7) */
++        sgpl_exec_source_begin_ops(&local, u);
++        sgpl_exec_source_end_ops(&local, u);
++      }
++    }
++  }
++
++  sgpl_exec_partition_end_ops(&local, p);
++#undef SGPL_EXEC_EMIT_PAIR
++}
++
+ /* Complete source-domain coverage for OWNER_V source lifecycle: a source's
+  * arcs are split across destination partitions, so source_begin/source_end
+  * cannot be driven by row iteration.  The scan is partition-local: each worker
+@@ -3617,7 +3803,7 @@
+     ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
+   }
+   else
+-    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
++    parallel_for_runtime(0, partitions, 1, ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body, ctx, 0, 0);
+ }
+ 
+ static void *sgpl_exec_step_task(void *opaque) {
+@@ -4183,7 +4369,8 @@
+   if (!ctx || !meta || partition < 0 || partition >= meta->partition_count)
+     return SGPL_DAG_ERR_INVALID;
+   if (sgpl_exec_failed(ctx)) return ctx->execution_status;
+-  sgpl_exec_partition_body(partition, ctx);
++  if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
++  else sgpl_exec_partition_body(partition, ctx);
+   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
+ }
+ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+@@ -5984,6 +6171,20 @@
+   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
+ }
+ 
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_packed_records")))
++#endif
++static int32_t sgpl_dag_partition_node_packed(void *state, int64_t instance) {
++  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)state;
++  if (ctx->execution_error && __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) < 0)
++    return __atomic_load_n(ctx->execution_error, __ATOMIC_RELAXED);
++  AutoGraphMeta *meta = find_meta(ctx->graph);
++  if (ctx->spatial_group != SGPL_SPATIAL_NONE && meta && instance == meta->partition_count)
++    sgpl_exec_source_coverage(ctx, /*begin=*/1);
++  else sgpl_exec_partition_body_packed(instance, state);
++  return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
++}
++
+ static _Atomic int32_t g_dag_last_dispatch_width = 0;
+ 
+ int32_t sgpl_debug_last_dag_dispatch_width(void) {
+@@ -6006,18 +6207,50 @@
+ static void sgpl_independent_spatial_worker(void *opaque,int32_t index) {
+   SgplIndependentSpatial *job=opaque;
+   sgpl_set_current_worker_index(index);
++  int32_t completed=0;
+   for(;;) {
+-    if(atomic_load_explicit(&job->failed,memory_order_acquire))return;
++    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+     int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+-    if(node>=job->count)return;
++    if(node>=job->count)break;
+     /* Every active lane owns one slot of the enclosing grant. Nested work
+      * retains that slot and cannot claim another lane behind its siblings. */
+     sgpl_push_thread_budget(1);
+     int32_t rc=sgpl_dag_partition_node(job->ctx,job->nodes?job->nodes[node]:node);
+     sgpl_pop_thread_budget();
+-    atomic_fetch_add_explicit(&job->completed,1,memory_order_relaxed);
++    ++completed;
+     if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+   }
++  /* Completion is consumed only after the worker-pool join. Publish each
++   * lane's completed-node count once, instead of contending on one cache line
++   * for every node. Cancellation is still checked before each claim and
++   * callback errors are still published immediately. */
++  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
++}
++
++#if defined(__GNUC__) && defined(__ELF__)
++__attribute__((noinline,section(".sgpl_packed_records")))
++#endif
++static void sgpl_independent_spatial_worker_packed(void *opaque,int32_t index) {
++  SgplIndependentSpatial *job=opaque;
++  sgpl_set_current_worker_index(index);
++  int32_t completed=0;
++  for(;;) {
++    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
++    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
++    if(node>=job->count)break;
++    /* Every active lane owns one slot of the enclosing grant. Nested work
++     * retains that slot and cannot claim another lane behind its siblings. */
++    sgpl_push_thread_budget(1);
++    int32_t rc=sgpl_dag_partition_node_packed(job->ctx,job->nodes?job->nodes[node]:node);
++    sgpl_pop_thread_budget();
++    ++completed;
++    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
++  }
++  /* Completion is consumed only after the worker-pool join. Publish each
++   * lane's completed-node count once, instead of contending on one cache line
++   * for every node. Cancellation is still checked before each claim and
++   * callback errors are still published immediately. */
++  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+ }
+ 
+ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
+@@ -6050,7 +6283,7 @@
+   tmpl.node_count = partitions;
+   tmpl.relation_count = relation_count;
+   tmpl.relations = relation_count > 0 ? relations : NULL;
+-  tmpl.node_fn = sgpl_dag_partition_node;
++  tmpl.node_fn = ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node;
+   /* Section 15 work estimate: the partition's own pair count -- a measured
+    * quantity, not the TDG cost model (which the pod measurements showed
+    * mismatched).  It only caps the share; see dag_dispatch_budget. */
+@@ -6098,7 +6331,7 @@
+         atomic_store_explicit(&job.completed,partitions-active,memory_order_relaxed);
+       }
+     }
+-    int pool_rc=sgpl_run_on_worker_pool(sgpl_independent_spatial_worker,&job,worker_budget);
++    int pool_rc=sgpl_run_on_worker_pool(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker,&job,worker_budget);
+     if(nodes && nodes!=local_nodes)free(nodes);
+     int status=pool_rc ? (pool_rc==-1?SGPL_DAG_ERR_NOMEM:SGPL_DAG_ERR_NODE) :
+         atomic_load_explicit(&job.failed,memory_order_acquire)?SGPL_DAG_ERR_NODE:SGPL_DAG_OK;
+--- a/array_frontier_runtime.inc
++++ b/array_frontier_runtime.inc
+@@ -65,7 +65,7 @@
+   *out=first;return 0;
+ }
+ static int32_t sgpl_array_record_endpoint(const sgpl_exec_ctx *c,int64_t i,int key) {
+-  return c->gpu_records[(c->array_compact_records?4:3)*i+key];
++  return c->gpu_records[(c->array_compact_records==2?5:(c->array_compact_records?4:3))*i+key];
+ }
+ /* Device grouping retains its original triples/ordinal arrays. Expansion is
+  * transactional: allocation failure leaves the CPU representation usable. */
+@@ -75,15 +75,18 @@
+   if((uint64_t)n>SIZE_MAX/12)return SGPL_DAG_ERR_NOMEM;
+   int32_t *records=malloc((size_t)(n?n:1)*12);
+   int64_t *sources=malloc((size_t)(n?n:1)*8),*work=malloc((size_t)(n?n:1)*8);
+-  if(!records||!sources||!work) {free(records);free(sources);free(work);return SGPL_DAG_ERR_NOMEM;}
++  int packed=c->array_compact_records==2,stride=packed?5:4;
++  int64_t *edges=packed?malloc((size_t)(n?n:1)*8):NULL;
++  if(!records||!sources||!work||(packed&&!edges)) {free(records);free(sources);free(work);free(edges);return SGPL_DAG_ERR_NOMEM;}
+   for(int64_t i=0;i<n;++i) {
+-    records[3*i]=c->gpu_records[4*i];records[3*i+1]=c->gpu_records[4*i+1];records[3*i+2]=0;
+-    sources[i]=c->gpu_records[4*i+2];work[i]=c->gpu_records[4*i+3];
++    records[3*i]=c->gpu_records[stride*i];records[3*i+1]=c->gpu_records[stride*i+1];records[3*i+2]=0;
++    sources[i]=c->gpu_records[stride*i+2];work[i]=c->gpu_records[stride*i+3];
++    if(packed)edges[i]=c->gpu_records[stride*i+4];
+   }
+   /* The expansion is now complete; preserve all other active leased buffers. */
+   sgpl_execution_scratch_detach(c);
+   free(c->gpu_records);c->gpu_records=records;
+-  c->gpu_record_sources=sources;c->gpu_record_work=work;c->array_compact_records=0;
++  c->gpu_record_sources=sources;c->gpu_record_work=work;if(packed)c->array_record_edges=edges;c->array_compact_records=0;
+   return 0;
+ }
+ #include "array_preparation_runtime.inc"
+@@ -172,7 +175,7 @@
+ }
+ extern int32_t graph_get_edge_weight(void *,int32_t,int32_t) __attribute__((weak));
+ int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *c,void *graph,int32_t u,int32_t v) {
+-  if(c&&c->graph==graph&&c->array_record_edges&&c->array_edge_index>=0&&
++  if(c&&c->graph==graph&&(c->array_record_edges||c->array_compact_records==2)&&c->array_edge_index>=0&&
+       u>=0&&u<*(int64_t *)graph) {
+     int64_t *rp=*(int64_t **)((char *)graph+16),index=c->array_edge_index;
+     int32_t *ci=*(int32_t **)((char *)graph+24),*weights=*(int32_t **)((char *)graph+32);

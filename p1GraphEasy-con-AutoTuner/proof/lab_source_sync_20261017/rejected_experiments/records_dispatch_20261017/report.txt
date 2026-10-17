@@ -1,0 +1,44 @@
+Record preparation and dispatch investigation -- 2026-10-17
+
+Result: all four candidates rejected. Installed P1 remains packing_regression_20261017/03_completion_batch. Installed compiler/runtime hashes match the preserved baseline.
+
+Protocol: Five fresh whole-process launches per variant, 32 configured workers. Loading, initialization, computation, worker teardown and process exit included; compilation, untimed reference validation, warmup and instrumented profiles excluded. Variant order rotated. Warm filesystem cache. Every primary sample retained. Extra paired confirmations kept separately.
+Scope: 12 cases / 10 distinct graph IDs: 8 SSSP, 2 BFS, 1 CC, 1 PageRank. Four candidates, 144 reference-validated framework cases, 720 primary timed launches, 120 extra paired confirmation launches. No validation failures or missing pairs.
+
+Trial | current P1 / candidate mean geomean | median geomean | decision
+01_dispatch_cachelines | 0.9768x | 1.0099x | REJECTED
+02_preparation_versioning | 1.0029x | 0.9971x | REJECTED
+03_worker_budget_scope | 0.9796x | 0.9926x | REJECTED
+04_preparation_team_fusion | 0.9165x | 0.9838x | REJECTED
+
+Above 1x in current/candidate columns means the candidate is faster. Reported detail block is the near-flat rejected preparation-versioning trial; candidate results must not be presented as installed P1.
+
+Algorithm | graph | current P1 ms | rejected candidate ms | Graptor ms
+sssp | road/road-luxembourg-osm.edges | 39.7416 | 41.3429 | 56.5023
+sssp | road/road-usroads-48.edges | 98.0727 | 95.5597 | 79.4547
+sssp | soc/soc-epinions.edges | 15.8727 | 16.4250 | 9.1564
+cc | soc/soc-epinions.edges | 9.4615 | 10.1594 | 8.0365
+pagerank | soc/soc-epinions.edges | 18.8598 | 19.4094 | 18.0985
+sssp | soc/soc-slashdot.edges | 32.1740 | 31.3691 | 16.1367
+sssp | dimacs/DSJC1000-5.edges | 21.2980 | 21.0655 | 14.5213
+sssp | misc/delaunay_n13.edges | 14.0870 | 12.9216 | 7.8002
+sssp | ia/ia-email-EU.edges | 13.0607 | 13.0178 | 10.7491
+sssp | email/email-enron-large.edges | 21.6405 | 20.9297 | 16.0620
+bfs | inf/inf-roadNet-CA.edges | 99.4900 | 98.2521 | 130.7051
+bfs | dimacs10/inf-asia_osm.edges | 1105.0340 | 1092.8398 | 1564.5937
+
+Fresh baseline diagnostic phases before experiments (median of three instrumented runs):
+dimacs/DSJC1000-5.edges: record preparation 8.244 ms, dispatch 4.722 ms, compaction 1.436 ms. Weight-index construction 2.067 ms is already included in preparation.
+soc/soc-slashdot.edges: record preparation 12.102 ms, dispatch 9.083 ms, compaction 1.754 ms. Weight-index construction 3.464 ms is already included in preparation.
+
+Changes tried: isolate claim/cancellation/completion coherence lines; version pair-only packed preparation by ownership and eliminate unreachable lifecycle/side-array work; hoist invariant per-worker budget scope; fuse preparation count/prefix/fill into one worker-team region. All retained callback, occurrence, order, cancellation and budget contracts.
+
+Fusion confirmed regressions: [{"algorithm": "sssp", "graph": "road/road-usroads-48.edges", "ratio": 0.8897204385759884}, {"algorithm": "cc", "graph": "soc/soc-epinions.edges", "ratio": 0.7164461063635841}, {"algorithm": "sssp", "graph": "soc/soc-slashdot.edges", "ratio": 0.6814756826531077}]
+
+Conclusion: these scheduling and loop-bookkeeping changes did not remove the dominant intermediate materialization cost. A future representation/lowering change could avoid per-edge record copying under explicit topology-stability and ownership/order proofs, retaining materialization fallback when those proofs do not hold. This future change was not implemented or benchmarked here.
+
+Only the established 12-case suite on 10 graph IDs; not a rerun of all 273 graphs.
+Hardware perf sampling unavailable: perf_event_paranoid=4. Diagnostic timing instrumentation was used instead.
+Instrumented phase times are diagnostic; weight-index construction is nested within record preparation. Fused count/fill phases were not separately instrumented; their absent values do not mean zero cost.
+
+Remote artifacts: /media/readinggroup/Storage/splash/bench/optimizations/records_dispatch_20261017

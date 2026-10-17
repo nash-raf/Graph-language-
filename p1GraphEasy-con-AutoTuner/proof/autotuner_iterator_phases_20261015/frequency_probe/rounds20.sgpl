@@ -1,0 +1,12 @@
+graph G { edges: file "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/shared_edgelist.txt"; };
+int out_degree[6];
+int round = 0;
+while (round < 20) {
+  for u in G.nodes {
+    for v in G.neighbors(u) {
+      out_degree[u] = out_degree[u] + 1;
+    }
+  }
+  round = round + 1;
+}
+print out_degree[1];

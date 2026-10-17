@@ -300,7 +300,7 @@ static bool graph_cache_refresh_requested() {
 
 static bool validate_cache_layout(const GraphCacheHeader &header,
                                   off_t file_size,
-                                  bool weighted) {
+                                  bool weighted, bool directed) {
     if (memcmp(header.magic, kCacheMagic, sizeof(kCacheMagic)) != 0 ||
         header.version != kCacheVersion ||
         header.header_size != sizeof(GraphCacheHeader) ||
@@ -309,7 +309,7 @@ static bool validate_cache_layout(const GraphCacheHeader &header,
         header.n < 0 || header.n > INT32_MAX ||
         header.m < 0 || header.num_edge_pairs < 0 ||
         header.num_edge_pairs > UINT32_MAX ||
-        header.m != header.num_edge_pairs * 2)
+        header.m != header.num_edge_pairs * (directed ? 1 : 2))
         return false;
 
     uint64_t expected[CACHE_SECTION_COUNT] = {};
@@ -359,7 +359,7 @@ static Graph *try_load_graph_cache(const std::string &path,
                  header.source_size == static_cast<uint64_t>(source_stat.st_size) &&
                  header.source_mtime_sec == source_stat.st_mtim.tv_sec &&
                  header.source_mtime_nsec == source_stat.st_mtim.tv_nsec &&
-                 validate_cache_layout(header, cache_stat.st_size, weighted);
+                 validate_cache_layout(header, cache_stat.st_size, weighted, directed);
     if (!valid) {
         close(fd);
         return nullptr;
@@ -375,8 +375,11 @@ static Graph *try_load_graph_cache(const std::string &path,
     madvise(mapping, static_cast<size_t>(cache_stat.st_size), MADV_WILLNEED);
     const uint8_t *base = static_cast<const uint8_t *>(mapping);
 
+    // Avoid creating a second worker team for sub-millisecond cache checks.
+    // Every integrity and bounds check still runs; the graph compute budget is unchanged.
+    const bool parallel_checks = cache_stat.st_size >= 512 * 1024;
     std::array<uint8_t, CACHE_SECTION_COUNT> valid_hashes = {};
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static) if(parallel_checks)
     for (size_t section = 0; section < CACHE_SECTION_COUNT; ++section) {
         size_t size = static_cast<size_t>(header.section_sizes[section]);
         uint64_t hash =
@@ -403,7 +406,7 @@ static Graph *try_load_graph_cache(const std::string &path,
     valid = row_ptr[0] == 0 && row_ptr[header.n] == header.m;
     for (int64_t vertex = 0; valid && vertex < header.n; ++vertex)
         valid = row_ptr[vertex] <= row_ptr[vertex + 1];
-    #pragma omp parallel for reduction(&&:valid) schedule(static)
+    #pragma omp parallel for reduction(&&:valid) schedule(static) if(parallel_checks)
     for (int64_t edge = 0; edge < header.m; ++edge) {
         bool edge_valid = col_idx[edge] >= 0 && col_idx[edge] < header.n;
         valid = valid && edge_valid;

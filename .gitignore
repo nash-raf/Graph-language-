@@ -39,6 +39,9 @@ p1GraphEasy-con-AutoTuner/proof/states/
 !**/*runtime_src.ll
 
 # ---- benchmark / experiment artifacts (regenerate locally) ----
+# Generated benchmark build trees include WSL symlinks that Windows Git cannot read.
+p1GraphEasy-con-AutoTuner/bench_results/**/build/
+p1GraphEasy-con-AutoTuner/proof/autotuner_iterator_phases_*/**/build/
 **/benchmark_logs/
 **/benchmark_results/
 **/build_lowmem/

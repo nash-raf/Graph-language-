@@ -1,0 +1,33 @@
+// SGPL workload: bfs_n256_d96_i4_s240_c1_r1000_t4_loop
+// Run all variants on this identical source.
+graph G {
+  edges: file "../graphs/ring_n256_d96.txt";
+};
+int checksum = 0;
+// Phase 0: initial scans.
+int probe_0_pre = 0;
+while (probe_0_pre < 240) {
+query scan_0_pre: "bfs_src" of G;
+  probe_0_pre = probe_0_pre + 1;
+}
+// Phase 0: insert a batch of absent in-bounds edges.
+int batch_0 = 0;
+while (batch_0 < 1000) {
+G.addEdges(0->127);
+G.removeEdges(0->127);
+G.addEdges(37->164);
+G.removeEdges(37->164);
+G.addEdges(74->201);
+G.removeEdges(74->201);
+G.addEdges(111->238);
+G.removeEdges(111->238);
+  batch_0 = batch_0 + 1;
+}
+// Phase 0: scan the updated graph.
+int probe_0_post = 0;
+while (probe_0_post < 4) {
+query scan_0_post: "bfs_src" of G;
+  probe_0_post = probe_0_post + 1;
+}
+print checksum;
+print numEdges(G);

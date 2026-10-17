@@ -1,0 +1,693 @@
+=== compiling 17 sources ===
+  cc: main.cpp
+In file included from main.cpp:762:
+gpu_host_coherence.inc: In function ‘void instrumentGpuHostCoherence(llvm::Module&)’:
+gpu_host_coherence.inc:37:98: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+   37 |                     IRBuilder<> R(S->getNextNode());R.CreateCall(Refresh,{R.CreateGlobalStringPtr(G->getName()),S->getValueOperand()});
+      |                                                                           ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+In file included from IRGenVisitor.h:5,
+                 from main.cpp:14:
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+  cc: IRGenVisitor.cpp
+IRGenVisitor.cpp: In member function ‘llvm::Type* IRGenVisitor::getLLVMTypeFromTypeKind(TypeKind)’:
+IRGenVisitor.cpp:865:37: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+  865 |         return GraphTy->getPointerTo();
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+In file included from /usr/lib/llvm-20/include/llvm/IR/DerivedTypes.h:23,
+                 from /usr/lib/llvm-20/include/llvm/IR/InstrTypes.h:26,
+                 from /usr/lib/llvm-20/include/llvm/IR/ConstantFold.h:24,
+                 from /usr/lib/llvm-20/include/llvm/IR/ConstantFolder.h:21,
+                 from /usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:24,
+                 from IRGenVisitor.h:5,
+                 from IRGenVisitor.cpp:1:
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:868:37: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+  868 |         return GraphTy->getPointerTo();
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘llvm::Type* IRGenVisitor::getLLVMTypeForName(const std::string&)’:
+IRGenVisitor.cpp:893:37: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+  893 |         return GraphTy->getPointerTo();
+      |                ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘llvm::Value* IRGenVisitor::loadGraphValue(const std::string&)’:
+IRGenVisitor.cpp:933:52: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+  933 |     return Builder.CreateLoad(GraphTy->getPointerTo(), it->second, name + ".graph");
+      |                               ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::visitDrawGraph(DrawGraphNode*)’:
+IRGenVisitor.cpp:1176:56: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 1176 |     llvm::Value *output = Builder.CreateGlobalStringPtr(
+      |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 1177 |         D->outputPath, D->graphName + ".draw.output");
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::visitDrawMotifs(DrawMotifsNode*)’:
+IRGenVisitor.cpp:1266:62: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 1266 |     llvm::Value *outputPrefix = Builder.CreateGlobalStringPtr(
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 1267 |         D->outputPrefix, D->graphName + ".draw_motif.output");
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp:1268:60: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 1268 |     llvm::Value *nameString = Builder.CreateGlobalStringPtr(
+      |                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 1269 |         namesCsv, D->graphName + ".draw_motif.names");
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~       
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode*)’:
+IRGenVisitor.cpp:1566:45: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 1566 |     auto *graphPtrTy = GraphTy->getPointerTo();
+      |                        ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::visitForEach(ForEachStmtNode*)’:
+IRGenVisitor.cpp:4378:34: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 4378 |             GraphTy->getPointerTo(), nullptr, fs->var1 + ".graph_iter");
+      |             ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:4427:82: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 4427 |         Builder.CreateStore(Builder.CreateBitCast(graphObj, GraphTy->getPointerTo()), graphStorage);
+      |                                                             ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘llvm::Value* IRGenVisitor::visitExpr(ASTNode*)’:
+IRGenVisitor.cpp:5116:75: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 5116 |                 llvm::FunctionType::get(i32TyLocal, {GraphTy->getPointerTo(), i32TyLocal, i32TyLocal}, false);
+      |                                                      ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:5140:75: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 5140 |                 llvm::FunctionType::get(i32TyLocal, {GraphTy->getPointerTo(), i32TyLocal}, false);
+      |                                                      ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘llvm::Value* IRGenVisitor::visitGraphDecl(GraphDeclNode*)’:
+IRGenVisitor.cpp:5659:62: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 5659 |         llvm::Value *fnameStr = Builder.CreateGlobalStringPtr(
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 5660 |             G->edgeFileName, G->name + "_filename");
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~           
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘llvm::Value* IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode*)’:
+IRGenVisitor.cpp:6013:62: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6013 |         llvm::Value *fnameStr = Builder.CreateGlobalStringPtr(
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 6014 |             G->edgeFileName, G->name + "_filename");
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~           
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp:6152:53: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+ 6152 |     auto *memcpyTy = llvm::Intrinsic::getDeclaration(
+      |                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 6153 |         &Module, llvm::Intrinsic::memcpy,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~            
+ 6154 |         {i8PtrTy, i8PtrTy, i64Ty});
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~                   
+In file included from /usr/lib/llvm-20/include/llvm/IR/Constants.h:32,
+                 from /usr/lib/llvm-20/include/llvm/IR/ConstantFolder.h:22:
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+IRGenVisitor.cpp:6189:30: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6189 |         GraphTy->getPointerTo(),
+      |         ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6239:34: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6239 |             GraphTy->getPointerTo(),
+      |             ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6242:95: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6242 |             llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(GraphTy->getPointerTo())),
+      |                                                                          ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6248:80: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6248 |         graphStorage = createEntryBlockAlloca(F, G->name, GraphTy->getPointerTo());
+      |                                                           ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6298:50: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6298 |         auto *graphPtrTyW = GraphTy->getPointerTo();
+      |                             ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitBFS(QueryNode*)’:
+IRGenVisitor.cpp:6372:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6372 |     llvm::Type *int32PtrTy = int32Ty->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6373:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6373 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6377:79: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6377 |         llvm::FunctionType::get(int32Ty, {graphPtrTy, int32PtrTy->getPointerTo(), int32Ty->getPointerTo()}, false);
+      |                                                       ~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6377:104: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6377 |         llvm::FunctionType::get(int32Ty, {graphPtrTy, int32PtrTy->getPointerTo(), int32Ty->getPointerTo()}, false);
+      |                                                                                   ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitDFS(QueryNode*)’:
+IRGenVisitor.cpp:6401:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6401 |     llvm::Type *int32PtrTy = int32Ty->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6402:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6402 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6406:55: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6406 |         int32Ty, {graphPtrTy, int32PtrTy->getPointerTo()}, false);
+      |                               ~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::visitPrintArray(PrintArrayNode*)’:
+IRGenVisitor.cpp:6447:47: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6447 |     llvm::Type *i32PtrTy = i32Ty->getPointerTo();
+      |                            ~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6479:57: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6479 |     llvm::Value *fmtElem = Builder.CreateGlobalStringPtr("%d ");
+      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp:6488:66: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6488 |     Builder.CreateCall(printfFunc, {Builder.CreateGlobalStringPtr("\n")});
+      |                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitFloydWarshall(QueryNode*)’:
+IRGenVisitor.cpp:6500:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6500 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitBK(QueryNode*)’:
+IRGenVisitor.cpp:6522:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6522 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitDijkstra(QueryNode*)’:
+IRGenVisitor.cpp:6541:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6541 |     llvm::Type *int32PtrTy = int32Ty->getPointerTo();       // int32_t*
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6542:57: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6542 |     llvm::Type *int32PtrPtrTy = int32PtrTy->getPointerTo(); // int32_t**
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6543:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6543 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6548:91: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6548 |                                 {graphPtrTy, int32Ty, int32PtrPtrTy, int32Ty->getPointerTo()},
+      |                                                                      ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitChromacity(QueryNode*)’:
+IRGenVisitor.cpp:6602:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6602 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitMinCut(QueryNode*)’:
+IRGenVisitor.cpp:6638:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6638 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitDFSSrc(QueryNode*)’:
+IRGenVisitor.cpp:6672:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6672 |     llvm::Type *int32PtrTy = int32Ty->getPointerTo();       // int32_t*
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6673:57: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6673 |     llvm::Type *int32PtrPtrTy = int32PtrTy->getPointerTo(); // int32_t**
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6674:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6674 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6679:91: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6679 |                                 {graphPtrTy, int32Ty, int32PtrPtrTy, int32Ty->getPointerTo()},
+      |                                                                      ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::emitBFSSrc(QueryNode*)’:
+IRGenVisitor.cpp:6711:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6711 |     llvm::Type *int32PtrTy = int32Ty->getPointerTo();       // int32_t*
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6712:57: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6712 |     llvm::Type *int32PtrPtrTy = int32PtrTy->getPointerTo(); // int32_t**
+      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6713:51: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6713 |     llvm::Type *graphPtrTy = GraphTy->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp:6718:91: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 6718 |                                 {graphPtrTy, int32Ty, int32PtrPtrTy, int32Ty->getPointerTo()},
+      |                                                                      ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+IRGenVisitor.cpp: In member function ‘void IRGenVisitor::visitPrintStmt(PrintStmtNode*)’:
+IRGenVisitor.cpp:6834:57: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6834 |         llvm::Value *fmt = Builder.CreateGlobalStringPtr("%s\n");
+      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp:6835:57: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6835 |         llvm::Value *str = Builder.CreateGlobalStringPtr(sln->value);
+      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp:6927:64: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6927 |             llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%.13g\n");
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+IRGenVisitor.cpp:6934:60: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 6934 |         llvm::Value *strPtr = Builder.CreateGlobalStringPtr("%d\n");
+      |                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+  cc: MotifPattern.cpp
+  cc: MotifIRBuilder.cpp
+  cc: ASTBuilder.cpp
+  cc: pdg.cpp
+pdg.cpp: In function ‘llvm::Function* llvm::outlineComponent(const TaskNode&, const dependencyGraph&, const SmallVector<Value*>&, const SmallVector<Value*>&, ComponentFunction&, Module&)’:
+pdg.cpp:3388:68: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3388 |             paramTypes.push_back(compFunc.argStructTy->getPointerTo());
+      |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+In file included from /usr/lib/llvm-20/include/llvm/IR/DerivedTypes.h:23,
+                 from /usr/lib/llvm-20/include/llvm/IR/Function.h:29,
+                 from /usr/lib/llvm-20/include/llvm/IR/CFG.h:26,
+                 from /usr/lib/llvm-20/include/llvm/IR/Instructions.h:26,
+                 from /usr/lib/llvm-20/include/llvm/Analysis/DependenceAnalysis.h:43,
+                 from pdg.h:4,
+                 from pdg.cpp:1:
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3390:71: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3390 |             paramTypes.push_back(compFunc.resultStructTy->getPointerTo());
+      |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp: In function ‘void llvm::generateParallelRegion(IRBuilder<>&, const SmallVector<unsigned int>&, SmallVector<ComponentFunction>&, Module*)’:
+pdg.cpp:3576:54: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3576 |         PointerType *VoidPtrTy = VoidTy->getPointerTo();
+      |                                  ~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3577:54: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3577 |         PointerType *PthreadTy = VoidTy->getPointerTo(); // Opaque handle
+      |                                  ~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3583:37: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3583 |             {PthreadTy->getPointerTo(), VoidPtrTy, StartRoutineTy->getPointerTo(), VoidPtrTy},
+      |              ~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3583:80: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3583 |             {PthreadTy->getPointerTo(), VoidPtrTy, StartRoutineTy->getPointerTo(), VoidPtrTy},
+      |                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3588:48: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3588 |             {PthreadTy, VoidPtrTy->getPointerTo()},
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3616:93: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3616 |                                                               comp.argStructTy->getPointerTo());
+      |                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3624:94: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3624 |                                                             comp.resultStructTy->getPointerTo()));
+      |                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp:3638:68: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 3638 |             Value *FormatStr = WrapperBuilder.CreateGlobalStringPtr(
+      |                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 3639 |                 "Thread executing component " + std::to_string(tid) + "\\n");
+      |                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/VectorBuilder.h:18,
+                 from /usr/lib/llvm-20/include/llvm/Transforms/Utils/LoopUtils.h:19,
+                 from /usr/lib/llvm-20/include/llvm/Transforms/Scalar/LoopPassManager.h:47,
+                 from /usr/lib/llvm-20/include/llvm/Passes/PassBuilder.h:28,
+                 from pdg.h:14:
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+pdg.cpp:3644:61: warning: ‘llvm::Constant* llvm::IRBuilderBase::CreateGlobalStringPtr(llvm::StringRef, const llvm::Twine&, unsigned int, llvm::Module*, bool)’ is deprecated: Use CreateGlobalString instead [-Wdeprecated-declarations]
+ 3644 |             FormatStr = WrapperBuilder.CreateGlobalStringPtr(
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+ 3645 |                 "Thread finished component " + std::to_string(tid) + "\\n");
+      |                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/IRBuilder.h:2004:13: note: declared here
+ 2004 |   Constant *CreateGlobalStringPtr(StringRef Str, const Twine &Name = "",
+      |             ^~~~~~~~~~~~~~~~~~~~~
+pdg.cpp:3681:102: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3681 |             Builder.CreateCall(PthreadJoin, {Thread, ConstantPointerNull::get(VoidPtrTy->getPointerTo())});
+      |                                                                               ~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+pdg.cpp: In function ‘void llvm::reconstructParallelIR(Module&, const dependencyGraph&, const TaskGraph&, const SmallVector<SmallVector<unsigned int> >&)’:
+pdg.cpp:4833:56: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 4833 |         PointerType *Int32PtrTy = Int32Ty->getPointerTo();
+      |                                   ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+  cc: parallel_loop_outline.cpp
+parallel_loop_outline.cpp: In function ‘void {anonymous}::instrumentDoAcrossWrapper(llvm::Function&, llvm::GlobalVariable*)’:
+parallel_loop_outline.cpp:353:54: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+  353 |         PointerType *DescPtrTy = DescTy->getPointerTo();
+      |                                  ~~~~~~~~~~~~~~~~~~~~^~
+In file included from /usr/lib/llvm-20/include/llvm/IR/DerivedTypes.h:23,
+                 from /usr/lib/llvm-20/include/llvm/IR/DataLayout.h:27,
+                 from /usr/lib/llvm-20/include/llvm/IR/Module.h:24,
+                 from parallel_loop_outline.h:4,
+                 from parallel_loop_outline.cpp:1:
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp: In function ‘{anonymous}::ParallelTransformResult {anonymous}::transformLoopCloneToParallel(llvm::Function&, const LoopTransformTarget&, llvm::Value*, llvm::Value*, llvm::Value*)’:
+parallel_loop_outline.cpp:2157:81: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2157 |                     NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2161:81: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2161 |                     NewEnvFieldTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2236:61: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2236 |         Type *Int8PtrTy = Type::getInt8Ty(Ctx)->getPointerTo();
+      |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2237:98: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2237 |         Type *LoopBodyFnTy = FunctionType::get(VoidTy, {Int64Ty, Int8PtrTy}, false)->getPointerTo();
+      |                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2257:80: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2257 |         Value *NewEnvPtr = B.CreateBitCast(RawPtr, NewEnvStructTy->getPointerTo(), "envptr_struct");
+      |                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2359:88: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2359 |             Value *EnvStructPtr = WB.CreateBitCast(EnvArg, NewEnvStructTy->getPointerTo(), "envstruct");
+      |                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2374:74: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2374 |                 NewParamTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+      |                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2375:74: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2375 |                 NewParamTys.push_back(Type::getInt32Ty(Ctx)->getPointerTo());
+      |                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2561:92: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2561 |                     Value *REnvStruct = RB.CreateBitCast(EnvA, NewEnvStructTy->getPointerTo(), "envstruct");
+      |                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2642:53: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2642 |                                Int64Ty->getPointerTo(),
+      |                                ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2643:53: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2643 |                                Int32Ty->getPointerTo(),
+      |                                ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:2644:53: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 2644 |                                Int64Ty->getPointerTo(),
+      |                                ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:3000:60: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+ 3000 |                 Function *GetBX = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_ctaid_x);
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/Constants.h:32,
+                 from /usr/lib/llvm-20/include/llvm/Analysis/TargetLibraryInfo.h:13,
+                 from /usr/lib/llvm-20/include/llvm/Analysis/LazyCallGraph.h:46,
+                 from /usr/lib/llvm-20/include/llvm/Analysis/CGSCCPassManager.h:92,
+                 from /usr/lib/llvm-20/include/llvm/Passes/PassBuilder.h:18,
+                 from parallel_loop_outline.h:6:
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+parallel_loop_outline.cpp:3001:60: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+ 3001 |                 Function *GetTX = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_tid_x);
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+parallel_loop_outline.cpp:3002:60: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+ 3002 |                 Function *GetBD = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_ntid_x);
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+parallel_loop_outline.cpp:3029:64: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+ 3029 |                     Function *GetGD = Intrinsic::getDeclaration(M, Intrinsic::nvvm_read_ptx_sreg_nctaid_x);
+      |                                       ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+parallel_loop_outline.cpp:3117:80: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3117 |                 PointerType *I64PtrTy = cast<PointerType>(Int64Ty->getPointerTo());
+      |                                                           ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:3224:86: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3224 |                 PointerType *Int8PtrPtrTy = cast<PointerType>(Int8PtrTy->getPointerTo());
+      |                                                               ~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:3228:110: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3228 |                 Value *GpuGlobalPointeeArg = ConstantPointerNull::get(cast<PointerType>(Int32Ty->getPointerTo()));
+      |                                                                                         ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:3289:61: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3289 |                                        Int32Ty->getPointerTo(),
+      |                                        ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp: In function ‘llvm::StructType* {anonymous}::getLoopProfileDescTy(llvm::LLVMContext&)’:
+parallel_loop_outline.cpp:3405:61: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3405 |         Type *Int8PtrTy = Type::getInt8Ty(Ctx)->getPointerTo();
+      |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp:3412:54: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3412 |                                 Int64Ty->getPointerTo(),
+      |                                 ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp: In function ‘llvm::GlobalVariable* {anonymous}::buildLoopProfileDescriptor(llvm::Module&, const LoopVersioningInfo&, const LoopCandidateAnalysis&, const ParallelTransformResult&, llvm::StringRef, llvm::StringRef)’:
+parallel_loop_outline.cpp:3453:100: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3453 |         Constant *PrivOffsetsPtr = ConstantPointerNull::get(cast<PointerType>(Int64Ty->getPointerTo()));
+      |                                                                               ~~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+parallel_loop_outline.cpp: In function ‘void {anonymous}::finalizeLoopDispatch(llvm::Function&, const LoopVersioningInfo&, const LoopCandidateAnalysis&, const ParallelTransformResult&)’:
+parallel_loop_outline.cpp:3513:54: warning: ‘llvm::PointerType* llvm::Type::getPointerTo(unsigned int) const’ is deprecated: Use PointerType::get instead [-Wdeprecated-declarations]
+ 3513 |         PointerType *DescPtrTy = DescTy->getPointerTo();
+      |                                  ~~~~~~~~~~~~~~~~~~~~^~
+/usr/lib/llvm-20/include/llvm/IR/Type.h:490:16: note: declared here
+  490 |   PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+      |                ^~~~~~~~~~~~
+  cc: graph_frontier_lowering.cpp
+graph_frontier_lowering.cpp: In lambda function:
+graph_frontier_lowering.cpp:4875:41: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+ 4875 |         return GetElementPtrInst::Create(ET, Shad, Idx, "shadow_elem", InsertPt);
+      |                ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/DebugProgramInstruction.h:55,
+                 from /usr/lib/llvm-20/include/llvm/IR/BasicBlock.h:23,
+                 from /usr/lib/llvm-20/include/llvm/IR/Function.h:27,
+                 from /usr/lib/llvm-20/include/llvm/IR/Module.h:25,
+                 from graph_frontier_lowering.cpp:28:
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+In file included from graph_frontier_lowering.cpp:8009:
+gpu_callback_lowering.inc: In function ‘GpuCallback buildGpuCallback(llvm::Function*, uint64_t)’:
+gpu_callback_lowering.inc:269:48: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+  269 |                 PHINode *Result=PHINode::Create(Call->getType(),2,"last.source",&*Done->begin());Result->addIncoming(Last,Found);Result->addIncoming(ConstantInt::getSigned(Call->getType(),-1),Empty);
+      |                                 ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+gpu_callback_lowering.inc:314:45: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+  314 |                 PHINode *Won=PHINode::Create(Call->getType(),5,"won",&*Done->begin());Won->addIncoming(ConstantInt::get(Call->getType(),0),Legacy);
+      |                              ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+gpu_callback_lowering.inc:336:45: warning: ‘llvm::InsertPosition::InsertPosition(llvm::Instruction*)’ is deprecated: Use BasicBlock::iterators for insertion instead [-Wdeprecated-declarations]
+  336 |                 PHINode *Has=PHINode::Create(Call->getType(),2,"next",&*Done->begin());
+      |                              ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:57:3: note: declared here
+   57 |   InsertPosition(Instruction *InsertBefore);
+      |   ^~~~~~~~~~~~~~
+gpu_callback_lowering.inc:386:72: warning: ‘llvm::Function* llvm::Intrinsic::getDeclaration(llvm::Module*, ID, llvm::ArrayRef<llvm::Type*>)’ is deprecated: Use getOrInsertDeclaration instead [-Wdeprecated-declarations]
+  386 |             if(!Desired) Desired=R.CreateCall(Intrinsic::getDeclaration(M,Intr,{T}),{Old,Contribution});
+      |                                               ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+In file included from /usr/lib/llvm-20/include/llvm/IR/Instructions.h:33,
+                 from graph_frontier_lowering.cpp:30:
+/usr/lib/llvm-20/include/llvm/IR/Intrinsics.h:102:20: note: declared here
+  102 |   inline Function *getDeclaration(Module *M, ID id, ArrayRef<Type *> Tys = {}) {
+      |                    ^~~~~~~~~~~~~~
+graph_frontier_lowering.cpp: In instantiation of ‘emitPairWorkFn(const NeighborLoopInfo&, PairPhase, bool, PairEnvKind)::<lambda(llvm::Value*, auto:38&&)> [with auto:38 = emitPairWorkFn(const NeighborLoopInfo&, PairPhase, bool, PairEnvKind)::<lambda(llvm::Value*, auto:38&&)>&]’:
+graph_frontier_lowering.cpp:5020:27:   required from here
+graph_frontier_lowering.cpp:4950:36: warning: ‘void llvm::Instruction::insertBefore(llvm::Instruction*)’ is deprecated: Use iterators as instruction positions [-Wdeprecated-declarations]
+ 4950 |                 Clone->insertBefore(T);
+      |                 ~~~~~~~~~~~~~~~~~~~^~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:215:8: note: declared here
+  215 |   void insertBefore(Instruction *InsertPos);
+      |        ^~~~~~~~~~~~
+graph_frontier_lowering.cpp:4950:36: warning: ‘void llvm::Instruction::insertBefore(llvm::Instruction*)’ is deprecated: Use iterators as instruction positions [-Wdeprecated-declarations]
+ 4950 |                 Clone->insertBefore(T);
+      |                 ~~~~~~~~~~~~~~~~~~~^~~
+/usr/lib/llvm-20/include/llvm/IR/Instruction.h:215:8: note: declared here
+  215 |   void insertBefore(Instruction *InsertPos);
+      |        ^~~~~~~~~~~~
+  cc: SemanticAnalyzer.cpp
+  cc: roaring_bitmap.cpp
+  cc: AutoTunerPass.cpp
+  cc: generated/BaseBaseListener.cpp
+  cc: generated/BaseBaseVisitor.cpp
+  cc: generated/BaseLexer.cpp
+  cc: generated/BaseListener.cpp
+  cc: generated/BaseParser.cpp
+  cc: generated/BaseVisitor.cpp
+=== linking GraphProgram ===
+>>> p1-AT GraphProgram build complete
+=== compiling semiring_runtime.o ===
+Link user programs with: parallel_runtime_shim.o semiring_runtime.o (and the usual loaders)

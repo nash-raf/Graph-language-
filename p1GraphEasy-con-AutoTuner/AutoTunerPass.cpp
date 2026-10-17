@@ -13,6 +13,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ModRef.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -97,6 +98,7 @@ namespace
     Instruction *call = nullptr;
     Value *graphPtr = nullptr;
     double execMultiplier = 1.0;
+    Instruction *phase = nullptr;
   };
 
   struct Region
@@ -107,6 +109,8 @@ namespace
     std::array<double, 4> freq = {0.0, 0.0, 0.0, 0.0}; // T,I,SetQ,CSRQ
     uint64_t totalOps = 0;
     double execCount = 1.0;
+    Instruction *phase = nullptr;
+    unsigned allowedLayouts = (1u << LAYOUT_COUNT) - 1;
   };
 
   struct LayoutSchedule
@@ -545,6 +549,19 @@ namespace
 
   bool hasPrefix(StringRef s, StringRef pref) { return s.starts_with(pref); }
 
+  bool layoutFeasible(const Region &R, int layout)
+  {
+    if (!(R.allowedLayouts & (1u << layout)))
+      return false;
+    // A physical requirement inside an iterator phase takes precedence over
+    // the validation-only forced choice, just as a standalone CSRQuery does.
+    const int forced = forcedLayoutFromEnv();
+    if (R.allowedLayouts != (1u << LAYOUT_COUNT) - 1 &&
+        forced >= 0 && !(R.allowedLayouts & (1u << forced)))
+      return true;
+    return layoutFeasible(R.dominant, layout);
+  }
+
   bool isTraverseCall(StringRef fn)
   {
     return fn == "bfs_runtime" || fn == "bfs_runtime_src" || fn == "dfs_runtime" ||
@@ -560,8 +577,8 @@ namespace
            hasPrefix(fn, "roaring_bitmap_add") || hasPrefix(fn, "roaring_bitmap_remove");
   }
 
-  // Queries that operate directly on Roaring bitmaps — they cannot execute
-  // unless the graph is in LAYOUT_SET, so they force SET via layoutFeasible.
+  // Only queries on the graph's own bitmaps require SET. Independent bitmaps
+  // (frontiers, visited sets, etc.) do not constrain a graph representation.
   bool isSetSpecificQuery(StringRef fn)
   {
     return fn == "roaring_bitmap_contains" ||
@@ -930,7 +947,7 @@ namespace
     double total = 0.0;
     for (const Region &R : regions)
     {
-      if (!layoutFeasible(R.dominant, LAYOUT_CSR))
+      if (!layoutFeasible(R, LAYOUT_CSR))
         return kInf;
 total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       total += operationCost(R, LAYOUT_CSR, estN, estM, csrFrac, bcsrFrac, hw,
@@ -969,7 +986,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       const int layout = chosen[i];
       if (layout < 0 || layout >= LAYOUT_COUNT)
         return kInf;
-      if (!layoutFeasible(regions[i].dominant, layout))
+      if (!layoutFeasible(regions[i], layout))
         return kInf;
       total += conversionCost(current, layout, estN, estM, hw);
       total += operationCost(regions[i], layout, estN, estM, csrFrac, bcsrFrac, hw,
@@ -1015,7 +1032,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     // The autotuner may convert away from CSR for the first region.
     for (int l = 0; l < LAYOUT_COUNT; ++l)
     {
-      if (!layoutFeasible(regions[0].dominant, l))
+      if (!layoutFeasible(regions[0], l))
         continue;
       dp[0][l] = conversionCost(LAYOUT_CSR, l, estN, estM, hw) +
                  operationCost(regions[0], l, estN, estM, csrFrac, bcsrFrac, hw,
@@ -1026,7 +1043,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     {
       for (int cur = 0; cur < LAYOUT_COUNT; ++cur)
       {
-        if (!layoutFeasible(regions[i].dominant, cur))
+        if (!layoutFeasible(regions[i], cur))
           continue;
         const double runCost = operationCost(regions[i], cur, estN, estM, csrFrac, bcsrFrac, hw,
                                              classTiers, csrClassTiers);
@@ -1070,7 +1087,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     S.suffixCost.assign(R, std::vector<double>(LAYOUT_COUNT, kInf));
     for (int l = 0; l < LAYOUT_COUNT; ++l)
     {
-      if (!layoutFeasible(regions[R - 1].dominant, l))
+      if (!layoutFeasible(regions[R - 1], l))
         continue;
       S.suffixCost[R - 1][l] = operationCost(regions[R - 1], l, estN, estM, csrFrac, bcsrFrac, hw,
                                              classTiers, csrClassTiers);
@@ -1079,7 +1096,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     {
       for (int l = 0; l < LAYOUT_COUNT; ++l)
       {
-        if (!layoutFeasible(regions[i].dominant, l))
+        if (!layoutFeasible(regions[i], l))
           continue;
         const double here = operationCost(regions[i], l, estN, estM, csrFrac, bcsrFrac, hw,
                                           classTiers, csrClassTiers);
@@ -1294,6 +1311,60 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     std::map<Function *, std::unique_ptr<FunctionLoops>> analyses;
 
   public:
+    bool hasNativeTraversal(BasicBlock *BB)
+    {
+      auto &A = analyses[BB->getParent()];
+      if (!A)
+        A = std::make_unique<FunctionLoops>(*BB->getParent());
+      auto HasIterator = [](BasicBlock *Block)
+      {
+        for (Instruction &I : *Block)
+          if (auto *CB = dyn_cast<CallBase>(&I))
+            if (Function *Callee = CB->getCalledFunction())
+              if (Callee->getName() == "autograph_neighbor_iter_init" ||
+                  Callee->getName() == "autograph_neighbor_iter_next")
+                return true;
+        return false;
+      };
+      Loop *L = A->LI.getLoopFor(BB);
+      if (L && L->getHeader() == BB)
+      {
+        for (BasicBlock *Block : L->blocks())
+          if (HasIterator(Block))
+            return true;
+        return false;
+      }
+      return HasIterator(BB);
+    }
+
+    Loop *traversalPhase(BasicBlock *BB)
+    {
+      auto &A = analyses[BB->getParent()];
+      if (!A)
+        A = std::make_unique<FunctionLoops>(*BB->getParent());
+      Loop *Phase = nullptr;
+      for (Loop *L = A->LI.getLoopFor(BB); L; L = L->getParentLoop())
+        if (L->getHeader()->getTerminator()->getMetadata("autotuner.traverse") &&
+            hasNativeTraversal(L->getHeader()))
+          Phase = L;
+      return Phase;
+    }
+
+    Instruction *phaseAnchor(Loop *L)
+    {
+      BasicBlock *Pre = L->getLoopPreheader();
+      if (!Pre)
+        report_fatal_error("AutoTuner: traversal requires a unique preheader");
+      // For a neighbor loop the iterator is initialized in its preheader.
+      // Converting at the header terminator would be AFTER the first next().
+      for (Instruction &I : *Pre)
+        if (auto *CB = dyn_cast<CallBase>(&I))
+          if (Function *Callee = CB->getCalledFunction())
+            if (Callee->getName() == "autograph_neighbor_iter_init")
+              return &I;
+      return Pre->getTerminator();
+    }
+
     double multiplier(BasicBlock *BB, bool wholeTraversal = false)
     {
       auto &A = analyses[BB->getParent()];
@@ -1356,6 +1427,46 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
   }
 
   Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr);
+
+  Value *graphForBitmap(Value *V,
+                       const std::map<Value *, GraphMeta> &metaByGraphPtr,
+                       unsigned depth = 0)
+  {
+    if (!V || depth > 12 || isa<ConstantPointerNull>(V))
+      return nullptr;
+    V = V->stripPointerCasts();
+    for (const auto &KV : metaByGraphPtr)
+    {
+      const GraphMeta &G = KV.second;
+      if ((G.nodesBmp && V == G.nodesBmp->stripPointerCasts()) ||
+          (G.edgesBmp && V == G.edgesBmp->stripPointerCasts()))
+        return G.graphPtr->stripPointerCasts();
+    }
+    if (auto *CB = dyn_cast<CallBase>(V))
+      if (Function *Callee = resolveCallee(CB))
+        if ((Callee->getName() == "graph_get_node_bitmap" ||
+             Callee->getName() == "graph_get_edge_bitmap") && CB->arg_size())
+          if (Value *Root = resolveGraphRoot(CB->getArgOperand(0), metaByGraphPtr))
+            return metaByGraphPtr.at(Root).graphPtr->stripPointerCasts();
+    // Recover a bitmap spilled to a local/global slot. Require all stores to
+    // resolve to the same graph; do not attribute unrelated sets to lastGraph.
+    if (auto *LI = dyn_cast<LoadInst>(V))
+    {
+      Value *Slot = LI->getPointerOperand()->stripPointerCasts();
+      Value *Graph = nullptr;
+      for (User *U : Slot->users())
+        if (auto *SI = dyn_cast<StoreInst>(U))
+          if (SI->getPointerOperand()->stripPointerCasts() == Slot)
+          {
+            Value *StoredGraph = graphForBitmap(SI->getValueOperand(), metaByGraphPtr, depth + 1);
+            if (!StoredGraph || (Graph && Graph != StoredGraph))
+              return nullptr;
+            Graph = StoredGraph;
+          }
+      return Graph;
+    }
+    return nullptr;
+  }
 
   bool isOutlinedTaskFunction(const Function *F)
   {
@@ -1485,7 +1596,11 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       {
         if (MDNode *MD = Term->getMetadata("autotuner.traverse"))
         {
-          if (MD->getNumOperands() >= 1)
+          // Effect lowering may leave a metadata-bearing empty exit block.
+          // The executor is already a Traverse event; do not price it again.
+          if (!counts.hasNativeTraversal(&BB))
+            Term->setMetadata("autotuner.traverse", nullptr);
+          else if (MD->getNumOperands() >= 1)
           {
             if (auto *MDS = dyn_cast<MDString>(MD->getOperand(0)))
             {
@@ -1549,9 +1664,17 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
               graphPtr = finalizeGraphPtr(graphPtr);
               if (graphPtr && metaByGraphPtr.count(graphPtr))
               {
-                double mult = counts.multiplier(&BB, /*wholeTraversal=*/true);
-                if (mult > 0.0)
-                  events.push_back({RegionType::Traverse, Term, graphPtr, mult});
+                Loop *Phase = counts.traversalPhase(&BB);
+                // Nested neighbor scans belong to their enclosing traversal.
+                // One phase has one conversion, before any iterator is live.
+                if (!Phase || Phase->getHeader() == &BB)
+                {
+                  double mult = counts.multiplier(&BB, /*wholeTraversal=*/true);
+                  Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : Term;
+                  if (mult > 0.0)
+                    events.push_back({RegionType::Traverse, Anchor, graphPtr, mult,
+                                      Phase ? Anchor : nullptr});
+                }
               }
               (void)MDS;
             }
@@ -1579,6 +1702,27 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
           continue;
 
         Value *graphPtr = nullptr;
+        if (name.starts_with("roaring_bitmap_"))
+        {
+          // A standalone set operation is not an insertion/query on a graph.
+          // Binary queries can reference the bitmaps of two distinct graphs.
+          std::set<Value *> BitmapGraphs;
+          const unsigned nArgs = isSetSpecificQuery(name) ? CB->arg_size() :
+                                                          std::min<unsigned>(1, CB->arg_size());
+          for (unsigned a = 0; a < nArgs; ++a)
+            if (CB->getArgOperand(a)->getType()->isPointerTy())
+              if (Value *G = graphForBitmap(CB->getArgOperand(a), metaByGraphPtr))
+                BitmapGraphs.insert(G);
+          for (Value *G : BitmapGraphs)
+          {
+            Loop *Phase = counts.traversalPhase(&BB);
+            Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : CB;
+            double mult = counts.multiplier(&BB);
+            if (mult > 0.0)
+              events.push_back({ty, Anchor, G, mult, Phase ? Anchor : nullptr});
+          }
+          continue;
+        }
         if (usesGraphArg0 && CB->arg_size() > 0)
           graphPtr = resolveGraphPtr(CB->getArgOperand(0));
         else
@@ -1589,7 +1733,11 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
           continue;
         double mult = counts.multiplier(CB->getParent());
         if (mult > 0.0)
-          events.push_back({ty, CB, graphPtr, mult});
+        {
+          Loop *Phase = counts.traversalPhase(&BB);
+          Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : CB;
+          events.push_back({ty, Anchor, graphPtr, mult, Phase ? Anchor : nullptr});
+        }
       }
     }
   }
@@ -1597,48 +1745,49 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
   std::vector<Region> buildRegions(const std::vector<OpEvent> &events)
   {
     std::vector<Region> regions;
-    if (events.empty())
-      return regions;
-
-    Region cur;
-    cur.dominant = events[0].type;
-    cur.anchor = events[0].call;
-    cur.graphPtr = events[0].graphPtr;
-    std::array<uint64_t, 4> counts = {0, 0, 0, 0};
-    double effectiveOps = 0.0;
-
-    auto flushRegion = [&]()
-    {
-      if (cur.totalOps == 0)
-        return;
-      for (int i = 0; i < 4; ++i)
-        cur.freq[i] = static_cast<double>(counts[i]) / static_cast<double>(cur.totalOps);
-      cur.execCount = effectiveOps / static_cast<double>(cur.totalOps);
-      regions.push_back(cur);
-    };
+    std::map<Instruction *, size_t> phases;
 
     for (const OpEvent &ev : events)
     {
-      // Each engine call represents one whole traversal, with its own outer
-      // repetition count and profiling boundary. Keep it separate from native
-      // iterator events and from the next engine call.
-      if (ev.type != cur.dominant || isCleanCutStepCall(ev.call) ||
-          isCleanCutStepCall(cur.anchor))
+      size_t index;
+      auto Phase = phases.find(ev.phase);
+      if (ev.phase && Phase != phases.end())
+        index = Phase->second;
+      else if (!regions.empty() && !ev.phase && !regions.back().phase &&
+               ev.type == regions.back().dominant && !isCleanCutStepCall(ev.call) &&
+               !isCleanCutStepCall(regions.back().anchor))
+        index = regions.size() - 1;
+      else
       {
-        flushRegion();
-        cur = Region{};
-        cur.dominant = ev.type;
+        index = regions.size();
+        Region cur;
+        cur.dominant = ev.phase ? RegionType::Traverse : ev.type;
         cur.anchor = ev.call;
         cur.graphPtr = ev.graphPtr;
-        counts = {0, 0, 0, 0};
-        effectiveOps = 0.0;
+        cur.phase = ev.phase;
+        regions.push_back(cur);
+        if (ev.phase)
+          phases[ev.phase] = index;
       }
-      const int idx = opIndex(ev.type);
-      counts[idx]++;
+      Region &cur = regions[index];
+      if (ev.type == RegionType::CSRQuery)
+        cur.allowedLayouts &= 1u << LAYOUT_CSR;
+      if (ev.type == RegionType::SetQuery)
+        cur.allowedLayouts &= 1u << LAYOUT_SET;
+      if (!cur.allowedLayouts)
+        report_fatal_error("AutoTuner: a traversal requires incompatible CSR and SET access");
+      // Queries inside the phase impose a representation requirement. They
+      // must not multiply its graph-traversal cost by their own loop count.
+      if (ev.phase && (ev.type == RegionType::CSRQuery || ev.type == RegionType::SetQuery))
+        continue;
+      const double oldOps = static_cast<double>(cur.totalOps);
+      double effectiveOps = cur.execCount * oldOps + ev.execMultiplier;
+      for (int i = 0; i < 4; ++i)
+        cur.freq[i] = (cur.freq[i] * oldOps + (i == opIndex(ev.type) ? 1.0 : 0.0)) /
+                      (oldOps + 1.0);
       cur.totalOps++;
-      effectiveOps += ev.execMultiplier;
+      cur.execCount = effectiveOps / static_cast<double>(cur.totalOps);
     }
-    flushRegion();
     return regions;
   }
 
@@ -1668,7 +1817,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       Region &prev = merged.back();
       const Region &cur = raw[i];
 
-      if (isCleanCutStepCall(prev.anchor) || isCleanCutStepCall(cur.anchor))
+      if (prev.phase || cur.phase ||
+          isCleanCutStepCall(prev.anchor) || isCleanCutStepCall(cur.anchor))
       {
         merged.push_back(cur);
         continue;
@@ -1799,7 +1949,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         B.CreateCall(profileExitFn, {ConstantInt::get(i32Ty, static_cast<int>(i - 1))});
       }
 
-      bool mustGuard = isForcedLayoutRegion(R.dominant);
+      bool mustGuard = isForcedLayoutRegion(R.dominant) ||
+                       R.allowedLayouts != (1u << LAYOUT_COUNT) - 1;
       bool shouldSwitch = true;
       if (target == current)
         shouldSwitch = false;
@@ -1906,9 +2057,10 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return nullptr;
   }
 
-  bool moduleRequiresCSRLayout(Module &M,
-                               const std::map<Value *, GraphMeta> &metaByGraphPtr)
+  std::set<Value *> graphsRequiringCSRLayout(
+      Module &M, const std::map<Value *, GraphMeta> &metaByGraphPtr)
   {
+    std::set<Value *> graphs;
     // CSR-specific runtime calls are now handled by CSRQuery regions, not
     // here.  Only direct GEP access to row_ptr / col_idx / weights in the
     // graph struct (e.g. neighbor loops) requires CSR pinning.
@@ -1916,12 +2068,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     // row_ptr → field 2 (or byte offset +16), col_idx → field 3 (+24),
     // weights → field 4 (+32).
     //
-    // Also pin when the module uses weight()/neighbor-iter APIs: those need
-    // stable CSR for the whole loop.  Otherwise SetQuery regions from user
-    // `set` roaring ops (frontier, setSize) get attributed to the graph, the
-    // cost model inserts ensure_layout(SET), Polly loop-rotate peels the
-    // first neighbor_iter_next before ensure_layout(CSR), and the iterator
-    // aborts on epoch mismatch after one neighbor.
+    // Iterator APIs support all layouts. Their phases are guarded before init;
+    // CSR-only calls inside a phase constrain that phase rather than this module.
     for (Function &F : M)
     {
       if (F.isDeclaration())
@@ -1930,24 +2078,13 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
       {
         for (Instruction &I : BB)
         {
-          if (auto *CB = dyn_cast<CallBase>(&I))
-          {
-            Function *Callee = CB->getCalledFunction();
-            if (!Callee)
-              continue;
-            const StringRef name = Callee->getName();
-            if (name == "graph_get_edge_weight" ||
-                name == "graph_get_edge_weight_by_id" ||
-                name == "autograph_neighbor_iter_init" ||
-                name == "autograph_neighbor_iter_next")
-              return true;
-          }
-
           auto *GEP = dyn_cast<GetElementPtrInst>(&I);
           if (!GEP)
             continue;
-          if (!resolveGraphRoot(GEP->getPointerOperand(), metaByGraphPtr))
+          Value *Root = resolveGraphRoot(GEP->getPointerOperand(), metaByGraphPtr);
+          if (!Root)
             continue;
+          Value *Graph = metaByGraphPtr.at(Root).graphPtr->stripPointerCasts();
 
           // Opaque-pointer IRGen: row_ptr +16, col_idx +24, weights +32 bytes.
           // 1-index GEP operands are [ptr, index0] — the offset is operand 1, not 2.
@@ -1957,7 +2094,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
             {
               const int64_t off = byteOff->getSExtValue();
               if (off == 16 || off == 24 || off == 32)
-                return true;
+                graphs.insert(Graph);
             }
             continue;
           }
@@ -1971,11 +2108,11 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
             continue;
           const int field = static_cast<int>(fieldIdx->getSExtValue());
           if (field == 2 || field == 3 || field == 4)
-            return true;
+            graphs.insert(Graph);
         }
       }
     }
-    return false;
+    return graphs;
   }
 
 } // namespace
@@ -2001,7 +2138,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     return PreservedAnalyses::all();
   }
 
-  const bool pinCSR = moduleRequiresCSRLayout(M, metaByGraphPtr);
+  const std::set<Value *> csrOnlyGraphs = graphsRequiringCSRLayout(M, metaByGraphPtr);
 
   // Load hardware calibration (cache-line size, access/transfer costs).
   const HwCalib hw = loadHwCalib();
@@ -2055,13 +2192,24 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     if (regions.empty())
       continue;
 
+    // Unscoped raw CSR pointers can escape across phase boundaries. Express
+    // their requirement in feasibility BEFORE solving, and only for that
+    // graph; do not overwrite the selected schedule for every graph afterward.
+    if (csrOnlyGraphs.count(const_cast<Value *>(graphKey)))
+      for (Region &R : regions)
+      {
+        R.allowedLayouts &= 1u << LAYOUT_CSR;
+        if (!R.allowedLayouts)
+          report_fatal_error("AutoTuner: raw CSR access conflicts with a graph bitmap query");
+      }
+
     LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw,
                                gClassTiers, gCsrClassTiers);
     if (forcedLayout >= 0)
     {
       for (size_t i = 0; i < S.chosen.size(); ++i)
       {
-        if (layoutFeasible(regions[i].dominant, forcedLayout))
+        if (layoutFeasible(regions[i], forcedLayout))
           S.chosen[i] = forcedLayout;
       }
       // errs() << "[AutoTuner] Forced layout override: "
@@ -2093,11 +2241,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
       }
     }
     if (forcedLayout < 0 && allCSRSchedule)
-    {
-      shouldSkip = true;
-    }
-    // Neighbor loops read row_ptr/col_idx directly from the Graph struct; keep CSR.
-    if (forcedLayout < 0 && pinCSR)
     {
       shouldSkip = true;
     }

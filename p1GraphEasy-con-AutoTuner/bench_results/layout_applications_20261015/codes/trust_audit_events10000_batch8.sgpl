@@ -1,0 +1,30 @@
+// Short-lived access grants, revocation, and DFS trust-boundary inventories.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 10000) {
+  G.addEdges(0->256);
+  G.removeEdges(0->256);
+  G.addEdges(13->269);
+  G.removeEdges(13->269);
+  G.addEdges(26->282);
+  G.removeEdges(26->282);
+  G.addEdges(39->295);
+  G.removeEdges(39->295);
+  G.addEdges(52->308);
+  G.removeEdges(52->308);
+  G.addEdges(65->321);
+  G.removeEdges(65->321);
+  G.addEdges(78->334);
+  G.removeEdges(78->334);
+  G.addEdges(91->347);
+  G.removeEdges(91->347);
+  window = window + 1;
+}
+  G.removeEdges(0->512);
+// Enumerate both sides of the revoked trust boundary.
+query allowed: "dfs_src" 0 of G;
+query isolated: "dfs_src" 543 of G;
+print allowed; print isolated;
+print numEdges(G);

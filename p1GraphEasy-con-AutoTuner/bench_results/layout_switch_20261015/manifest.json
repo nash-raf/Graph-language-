@@ -1,0 +1,161 @@
+{
+  "configs": [
+    {
+      "n": 200,
+      "degree": 64,
+      "inserts": 4,
+      "churn": 1000,
+      "scans": 300,
+      "tail_scans": 4,
+      "cycles": 1,
+      "shape": "bfs",
+      "query_loops": true
+    },
+    {
+      "n": 256,
+      "degree": 96,
+      "inserts": 4,
+      "churn": 1000,
+      "scans": 240,
+      "tail_scans": 4,
+      "cycles": 1,
+      "shape": "bfs",
+      "query_loops": true
+    },
+    {
+      "n": 300,
+      "degree": 100,
+      "inserts": 4,
+      "churn": 1000,
+      "scans": 180,
+      "tail_scans": 4,
+      "cycles": 1,
+      "shape": "bfs",
+      "query_loops": true
+    },
+    {
+      "n": 384,
+      "degree": 128,
+      "inserts": 4,
+      "churn": 1000,
+      "scans": 140,
+      "tail_scans": 4,
+      "cycles": 1,
+      "shape": "bfs",
+      "query_loops": true
+    },
+    {
+      "n": 512,
+      "degree": 192,
+      "inserts": 4,
+      "churn": 1000,
+      "scans": 100,
+      "tail_scans": 4,
+      "cycles": 1,
+      "shape": "bfs",
+      "query_loops": true
+    }
+  ],
+  "selected": [
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop"
+  ],
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        48 bits physical, 48 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               12\nOn-line CPU(s) list:                  0-11\nVendor ID:                            AuthenticAMD\nModel name:                           AMD Ryzen 5 5500\nCPU family:                           25\nModel:                                80\nThread(s) per core:                   2\nCore(s) per socket:                   6\nSocket(s):                            1\nStepping:                             0\nBogoMIPS:                             7186.32\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                       AMD-V\nHypervisor vendor:                    Microsoft\nVirtualization type:                  full\nL1d cache:                            192 KiB (6 instances)\nL1i cache:                            192 KiB (6 instances)\nL2 cache:                             3 MiB (6 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-11\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n",
+  "git_commit": "6a820091dab212077ae646087f45600d67832d55",
+  "compiler": "Existing GraphProgram, LLVM 20.1; runtimes built with GCC/G++ -O3",
+  "source_sha256": {
+    "GraphProgram": "ff015ba5b91d651ca6abea2bb0aae5444e62e47d988c914b0be52b7003d8cd7f",
+    "AutoTunerPass.cpp": "a9365a2206cd6fd5ae03bd41123640881de1af2515c3ae6e65ec905d30172d0f",
+    "autotuner_runtime.c": "72c4f1faaf1534e5e3d92c3979d19c41233e350d6ce85b2428a6cff98f2445b6",
+    "graph_mutation_runtime.c": "562a944ad33af90f4e288264f32313013b57d776c6abcd4bb7c068ba62c2eecd",
+    "graph_loader_runtime.cpp": "12c5d5e1ddacc6f5b53ecaef1ebc668dceed0e0f218a2210370851a402b3babc",
+    "roaring_bitmap.cpp": "ae53b1de446f250cb0c828cf302bdc3cc8f390e1598c29008428b0186fbbff54",
+    "parallel_runtime.c": "93dbde4fb3ebf4a1be399c4901efb2af62b1b263cf87a50f2eb54067bfc7a6a4",
+    "bfs_runtime_src.cpp": "f7e97c72672b92af4272704ad876048a3050e9a6eb60ffec4eeb710dd7ef8723",
+    "tools/layout_switch_benchmark.py": "72318baddfe437d864fa90bb5d1aaaa998858474de4fb70635b21c8979f6d822",
+    "tools/layout_switch_audit.c": "4d799d3eaaf11fa31ead5371031b736e30a7fd9e3bae9541c686ee901861f387",
+    "tools/run_layout_switch_suite.py": "15bb291fda950b8508287684aafbbfc6daf574024110b64fc58a4ddb6fb94e98"
+  },
+  "run_environment": {
+    "OMP_NUM_THREADS": "1",
+    "SGPL_NUM_THREADS": "1",
+    "SGPL_ROARING_THREADS": "1",
+    "OMP_WAIT_POLICY": "PASSIVE",
+    "GOMP_SPINCOUNT": "0"
+  },
+  "calibration_sha256": "a867cfad9b1c288275f6d1220d43130baec654ffe17c7c23c16c621fa932a4ea",
+  "timing": "perf_counter_ns before subprocess.run through process exit; includes loading, runtime layout conversions, computation, allocation, profiler and output; excludes compilation and diagnostic audit",
+  "repetitions": 7,
+  "warmups_per_variant": 1,
+  "random_order_seed": 20261015,
+  "filesystem": "WSL local /tmp/sgpl_layout_switch_20261015; all timed variants use the same graph and warm .sgplbin loader cache",
+  "fixed_layout": "Graphs initially load as CSR. Install requested fixed layout before first workload operation; include this initial conversion in total time. Assert layout at every traversal and mutation.",
+  "selection": "Search-selected synthetic workloads. Final seven-run measurements and audits confirm a win over every fixed-layout median; results are not representative of all SGPL programs.",
+  "benchmark_date": "2026-10-15",
+  "client_timezone": "Asia/Dhaka",
+  "workload_sha256": {
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop": "8629922d30582aa4116f4947b1425c0589a2d2d1f494dc42bdf97695d93b03dc",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop": "1795c39e3aeb4fdfd63bb2b06bbb042868b044cc6dfc32e30d16e694b2e68829",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop": "2354ec838240deb6f2a6e8e1bfec44e17c5db9fad18a2bba6cc9c793870ab665",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop": "13d589dd2f94fb37a4d0aa464af9dcc0002521f2a0852efc2da366af5319a331",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop": "bf65af85aa6f057fee27359caf3479ad44598759534e63971d3a11e1309eb793"
+  },
+  "timed_binary_sha256": {
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop/AUTO": "f2604c9edba0cea457c95ceff93ce596e02f8663927cd36dd7d821cb3a686e2d",
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop/CSR": "010fef02dffbbf81fa502e460628b42d5af5d130442e85d39f7c5a08901c8fb4",
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop/PCSR": "701224fd138f8892e0e4a476a1bd615d2bd2d30022681094368d557a61fecc2d",
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop/BCSR": "57a325c165e22bd1b23c61c43d7f611e43e0d47bf6babd509cf351e697c14459",
+    "bfs_n200_d64_i4_s300_c1_r1000_t4_loop/SET": "f8e77ecd96eb9fa23df12aae0b690152e014a6c779ab024830661a0e50a36d56",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop/AUTO": "699ffbad385c28277f5b6c142eec0f25b8ffbf5191d79000ea9fcffe7d728651",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop/CSR": "8d68eb8fe0cedba320dde3247024ba6cf3fea2876451c483345a988400bbd3da",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop/PCSR": "84eaeae4cf6ea0cf9aab6b386f825d04d0d897717057811d1886b3afa64fa428",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop/BCSR": "3c2e4294eb6a6c2950191f6ad32296b862d4d3477b7b2759b48e53edc31d348c",
+    "bfs_n256_d96_i4_s240_c1_r1000_t4_loop/SET": "befde2cdce9550e73470bb1bbd236b0e0af3f99a6f1b695d2abd941f65d8e97f",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop/AUTO": "637483efa19caa1b4328e4a8635923994c824c9490dd06c074b455d0b5f31126",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop/CSR": "29fa8b7fc16844c810f0dcf65a22c4a438f956090d31c8a9e26f91fc779c6d34",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop/PCSR": "5b8628e036c0e871eb760267eb83f2df128c62c2c395415942e0603d7ddd1d87",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop/BCSR": "02528e79fe887b32d92e6675dc964707899b25e770cc9390788cba383a198008",
+    "bfs_n300_d100_i4_s180_c1_r1000_t4_loop/SET": "7070b44ab4ab5df49773b7048a1c13e4750daecb92e7684564f764b56990c667",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop/AUTO": "7cefb0638aff4b5b694cabb9d3c1935366ed3eb54ed6d7f40989f58807e26390",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop/CSR": "5b9fe5aac0ffd404fe167b9518f32b2bf86477de1872015ebf0015469c5e9f3f",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop/PCSR": "c4afa11d0c9e6d10d1604b6b45f02ba90b7722cb9e1e8e80a7ea1eec919c2a3f",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop/BCSR": "bf691882968e81899bb7243759545c166a1427c65862743316b54b9e699eae76",
+    "bfs_n384_d128_i4_s140_c1_r1000_t4_loop/SET": "e6c30d03659b6a814942da2ec0a506ff17399ac2f3174fe9a5e50cc4781785e6",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop/AUTO": "3395ea052435017bf48b4fae277120fbf2d0c5042608e33db43a433f0404c541",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop/CSR": "8a09d3f4f0e7b4d624163133e1ad84cb94191f46a4746fef437eaf49fa253c63",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop/PCSR": "ae0c91c3a6b8c60a4b371244d346aabd1462e4dc5426e9801f30ef2af89e1aed",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop/BCSR": "4f2aa29ae9286e91d97da0012b65fe09c5aca475699ec1b5146bba2144ec3659",
+    "bfs_n512_d192_i4_s100_c1_r1000_t4_loop/SET": "bfbb7d6f76f28328217c72fe0b5ac89f8485d233adf631f06f2b93fa372c754a"
+  },
+  "graph_sha256": {
+    "ring_n200_d64.txt": "2c86ba8435db3be75fc2b3aadf7ba5375c06e45ee39663ecb12bf55bdee8c493",
+    "ring_n256_d96.txt": "00db8267b0d18477ae984413a80c74a51acfb125f1154897c169b002cdb3c537",
+    "ring_n300_d100.txt": "77ee5f4d593b9a16f2d69526aaadee2f307bac7f89bd2f4d80f0a94f8caee205",
+    "ring_n384_d128.txt": "237f24d0b9ca8c8f2b38a506481f3fe51b9de230ca9f08098717866ef7f0494c",
+    "ring_n512_d192.txt": "0e2aeb83e71a5fbf545750f9b06fb7441b3a4069ea6f0e5f8bae486afdbf159b"
+  },
+  "final_verification_scripts_sha256": {
+    "tools/layout_switch_benchmark.py": "72318baddfe437d864fa90bb5d1aaaa998858474de4fb70635b21c8979f6d822",
+    "tools/layout_switch_audit.c": "4d799d3eaaf11fa31ead5371031b736e30a7fd9e3bae9541c686ee901861f387",
+    "tools/run_layout_switch_suite.py": "15bb291fda950b8508287684aafbbfc6daf574024110b64fc58a4ddb6fb94e98",
+    "tools/audit_layout_switch_suite.py": "687c4f47c1e8011c3dde4d67e666dcf36dcd8251bce485fe865cb2a802b87013",
+    "tools/summarize_layout_switch.py": "41eeaf951306c9fec0018e1c6690507edfbcc3d030aafd30865c56ecf9c8b300",
+    "bench_results/layout_switch_20261015/report/build_report.mjs": "51a1ffe3be720dcfe98deb490c7f241e2f527bf78c3374a8b9c35ea84a03ec04"
+  },
+  "checks": {
+    "winning_cases": 5,
+    "audited_variants": 25,
+    "timed_observations": 175,
+    "traversal_outputs_verified": true,
+    "mutation_effects_verified": true,
+    "fixed_layouts_verified": true,
+    "saved_source_matches_measured_source": true,
+    "saved_binaries_used_as_staging_sources": true,
+    "csv_matches_measurements": true
+  },
+  "staging_method": "shutil.copy2 copies each retained variant executable to WSL local storage before warm-up and timing; temporary copies may be removed when WSL restarts."
+}

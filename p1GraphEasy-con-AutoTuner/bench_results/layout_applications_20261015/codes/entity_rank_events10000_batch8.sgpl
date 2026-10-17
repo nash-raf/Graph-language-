@@ -1,0 +1,153 @@
+// Rolling association updates followed by a PageRank importance refresh.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+// Degree cache supplied with the snapshot and maintained with every update.
+int out_degree[n]=[501,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1];
+int window = 0;
+while (window < 10000) {
+  G.addEdges(0->256);
+  out_degree[0] = out_degree[0] + 1;
+  out_degree[256] = out_degree[256] + 1;
+  G.addEdges(13->269);
+  out_degree[13] = out_degree[13] + 1;
+  out_degree[269] = out_degree[269] + 1;
+  G.addEdges(26->282);
+  out_degree[26] = out_degree[26] + 1;
+  out_degree[282] = out_degree[282] + 1;
+  G.addEdges(39->295);
+  out_degree[39] = out_degree[39] + 1;
+  out_degree[295] = out_degree[295] + 1;
+  G.addEdges(52->308);
+  out_degree[52] = out_degree[52] + 1;
+  out_degree[308] = out_degree[308] + 1;
+  G.addEdges(65->321);
+  out_degree[65] = out_degree[65] + 1;
+  out_degree[321] = out_degree[321] + 1;
+  G.addEdges(78->334);
+  out_degree[78] = out_degree[78] + 1;
+  out_degree[334] = out_degree[334] + 1;
+  G.addEdges(91->347);
+  out_degree[91] = out_degree[91] + 1;
+  out_degree[347] = out_degree[347] + 1;
+  G.removeEdges(402->502);
+  out_degree[402] = out_degree[402] - 1;
+  out_degree[502] = out_degree[502] - 1;
+  G.removeEdges(403->503);
+  out_degree[403] = out_degree[403] - 1;
+  out_degree[503] = out_degree[503] - 1;
+  G.removeEdges(404->504);
+  out_degree[404] = out_degree[404] - 1;
+  out_degree[504] = out_degree[504] - 1;
+  G.removeEdges(405->505);
+  out_degree[405] = out_degree[405] - 1;
+  out_degree[505] = out_degree[505] - 1;
+  G.removeEdges(406->506);
+  out_degree[406] = out_degree[406] - 1;
+  out_degree[506] = out_degree[506] - 1;
+  G.removeEdges(407->507);
+  out_degree[407] = out_degree[407] - 1;
+  out_degree[507] = out_degree[507] - 1;
+  G.removeEdges(408->508);
+  out_degree[408] = out_degree[408] - 1;
+  out_degree[508] = out_degree[508] - 1;
+  G.removeEdges(409->509);
+  out_degree[409] = out_degree[409] - 1;
+  out_degree[509] = out_degree[509] - 1;
+  G.addEdges(402->502);
+  out_degree[402] = out_degree[402] + 1;
+  out_degree[502] = out_degree[502] + 1;
+  G.addEdges(403->503);
+  out_degree[403] = out_degree[403] + 1;
+  out_degree[503] = out_degree[503] + 1;
+  G.addEdges(404->504);
+  out_degree[404] = out_degree[404] + 1;
+  out_degree[504] = out_degree[504] + 1;
+  G.addEdges(405->505);
+  out_degree[405] = out_degree[405] + 1;
+  out_degree[505] = out_degree[505] + 1;
+  G.addEdges(406->506);
+  out_degree[406] = out_degree[406] + 1;
+  out_degree[506] = out_degree[506] + 1;
+  G.addEdges(407->507);
+  out_degree[407] = out_degree[407] + 1;
+  out_degree[507] = out_degree[507] + 1;
+  G.addEdges(408->508);
+  out_degree[408] = out_degree[408] + 1;
+  out_degree[508] = out_degree[508] + 1;
+  G.addEdges(409->509);
+  out_degree[409] = out_degree[409] + 1;
+  out_degree[509] = out_degree[509] + 1;
+  G.removeEdges(0->256);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[256] = out_degree[256] - 1;
+  G.removeEdges(13->269);
+  out_degree[13] = out_degree[13] - 1;
+  out_degree[269] = out_degree[269] - 1;
+  G.removeEdges(26->282);
+  out_degree[26] = out_degree[26] - 1;
+  out_degree[282] = out_degree[282] - 1;
+  G.removeEdges(39->295);
+  out_degree[39] = out_degree[39] - 1;
+  out_degree[295] = out_degree[295] - 1;
+  G.removeEdges(52->308);
+  out_degree[52] = out_degree[52] - 1;
+  out_degree[308] = out_degree[308] - 1;
+  G.removeEdges(65->321);
+  out_degree[65] = out_degree[65] - 1;
+  out_degree[321] = out_degree[321] - 1;
+  G.removeEdges(78->334);
+  out_degree[78] = out_degree[78] - 1;
+  out_degree[334] = out_degree[334] - 1;
+  G.removeEdges(91->347);
+  out_degree[91] = out_degree[91] - 1;
+  out_degree[347] = out_degree[347] - 1;
+  window = window + 1;
+}
+  G.addEdges(0->256);
+  out_degree[0] = out_degree[0] + 1;
+  out_degree[256] = out_degree[256] + 1;
+  G.addEdges(13->269);
+  out_degree[13] = out_degree[13] + 1;
+  out_degree[269] = out_degree[269] + 1;
+  G.addEdges(26->282);
+  out_degree[26] = out_degree[26] + 1;
+  out_degree[282] = out_degree[282] + 1;
+  G.addEdges(39->295);
+  out_degree[39] = out_degree[39] + 1;
+  out_degree[295] = out_degree[295] + 1;
+  G.addEdges(52->308);
+  out_degree[52] = out_degree[52] + 1;
+  out_degree[308] = out_degree[308] + 1;
+  G.addEdges(65->321);
+  out_degree[65] = out_degree[65] + 1;
+  out_degree[321] = out_degree[321] + 1;
+  G.addEdges(78->334);
+  out_degree[78] = out_degree[78] + 1;
+  out_degree[334] = out_degree[334] + 1;
+  G.addEdges(91->347);
+  out_degree[91] = out_degree[91] + 1;
+  out_degree[347] = out_degree[347] + 1;
+query core_snapshot: "bfs_src" 0 of G;
+query edge_snapshot: "bfs_src" 543 of G;
+// Recompute entity importance after interaction-window replacement.
+real rank[n]; real next_rank[n];
+real damp=0.85; real beta=0.15/n; int v=0;
+while(v<n) { rank[v]=1.0/n; next_rank[v]=0.0; v=v+1; }
+int round=0;
+while(round<12) {
+  for v in G.nodes { next_rank[v]=beta; }
+  for u in G.nodes {
+    int outd=out_degree[u];
+    if(outd>0) {
+      real contrib=damp*rank[u]/outd;
+      for v in G.neighbors(u) { next_rank[v]=next_rank[v]+contrib; }
+    }
+  }
+  for v in G.nodes { rank[v]=next_rank[v]; }
+  round=round+1;
+}
+real total=0.0; real peripheral=0.0; v=0;
+while(v<n) { total=total+rank[v]; if(v>=512) { peripheral=peripheral+rank[v]; } v=v+1; }
+print total; print peripheral; print rank[0];
+print numEdges(G);

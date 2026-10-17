@@ -1,0 +1,9 @@
+test_calibrated_equations_in_actual_pass (__main__.LayoutModelTests.test_calibrated_equations_in_actual_pass) ... ok
+test_missing_metadata_uses_current_dram_rates (__main__.LayoutModelTests.test_missing_metadata_uses_current_dram_rates) ... ok
+test_python_preserves_current_metadata_equations (__main__.LayoutModelTests.test_python_preserves_current_metadata_equations) ... ok
+test_retired_python_modes_cannot_be_selected (__main__.LayoutModelTests.test_retired_python_modes_cannot_be_selected) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 10.743s
+
+OK

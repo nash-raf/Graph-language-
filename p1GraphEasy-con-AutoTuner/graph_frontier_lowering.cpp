@@ -3261,6 +3261,25 @@ static bool arrayBaseInfo(const Value *Base, Type *&ElemTy, Value *&Count,
     LLVMContext &Ctx = Base->getContext();
     if (Depth > 3)
         return false;
+    /* calloc carries the allocation count as a normal SSA argument. Keep
+     * only its element type in metadata: function-local SSA values are not
+     * valid operands of arbitrary global metadata nodes. */
+    if (const auto *Allocation = dyn_cast<CallInst>(Base))
+        if (Allocation->getMetadata("sgpl.language.array") &&
+            Allocation->getCalledFunction() && Allocation->getCalledFunction()->getName()=="calloc")
+            if (auto *ElementMD=Allocation->getMetadata("sgpl.array.element"))
+                if (ElementMD->getNumOperands()==1) {
+                    auto *Element=dyn_cast<ConstantAsMetadata>(ElementMD->getOperand(0));
+                    auto *Width=dyn_cast<ConstantInt>(Allocation->getArgOperand(1));
+                    if (Element&&Width) {
+                        ElemTy=Element->getValue()->getType();
+                        auto Bytes=Allocation->getModule()->getDataLayout().getTypeAllocSize(ElemTy);
+                        if (!Bytes.isScalable()&&Width->equalsInt(Bytes.getFixedValue())) {
+                            Count=Allocation->getArgOperand(0);ArrPtr=const_cast<CallInst *>(Allocation);
+                            return ElemTy->isIntegerTy()||ElemTy->isFloatingPointTy();
+                        }
+                    }
+                }
     if (const auto *AI = dyn_cast<AllocaInst>(Base))
     {
         ArrPtr = const_cast<AllocaInst *>(AI);
@@ -8078,7 +8097,22 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
      * the activation primitive claims dest_seen / appends to next_frontier. */
     const bool WantFt = Info.MembershipGated || WantEnvelope;
     FrontierEnv Env;
-    if (WantFt && !Info.CombinedStage)
+    /* An explicit occurrence domain is already carried by array_sources and
+     * its prepared records. The CPU array executor never consumes a vertex
+     * membership bitmap, and activation writes occurrence slots rather than
+     * destination claims. This is a lowering-contract proof, independent of
+     * the user callback/algorithm. Keep general/device/combined paths intact.
+     * Record preparation retains source/edge bounds checks before effects. */
+    const bool ExplicitArrayDomain = Info.OrderedArrayFrontier && ScopedSpatial &&
+        !Info.CombinedStage && !gpuBackendSelected(Mod);
+    if (WantFt && ExplicitArrayDomain) {
+        Env.GraphArg = GraphArg;
+        Env.FrontArg = ptrFromSlot(EB, Info.FrontierArrayPtr, I8P);
+        Env.FrontSize = EB.CreateLoad(I32, Info.FrontierSizePtr);
+        Env.Membership = Null; Env.SeenArg = Null; Env.WorkEnv = Null;
+        Env.NextArg = ptrFromSlot(EB, Info.AppendArrayPtr, I8P);
+        Env.HasEnvelope = WantEnvelope;
+    } else if (WantFt && !Info.CombinedStage)
         fillFrontierEnv(EB, Info, Mod, I8P, I32, Ctx, GraphArg, Env, WantEnvelope);
     else if (WantFt) { Env.Membership = Null; Env.SeenArg = Null; Env.NextArg = Null; }
     Value *HeadSlot = Null;
@@ -8404,6 +8438,30 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         if (Info.CombinedStage && WantFt)
             EB.CreateCall(Require, {EB.CreateCall(Mod->getOrInsertFunction("autograph_exec_ctx_reserve_frontier",
                 FunctionType::get(I32, {I8P, I32, I32}, false)), {ExecCtx, EB.getInt32(1), EB.getInt32(WantEnvelope)})});
+        bool DeferredArrayReservation=false;
+        if(Info.OrderedArrayFrontier && !Info.CombinedStage) {
+            SmallVector<CallInst *,2> Reservations;
+            if(BasicBlock *Pre=Info.DriverLoop->getLoopPreheader())
+                for(Instruction &I:*Pre) if(auto *Call=dyn_cast<CallInst>(&I)) {
+                    Function *Fn=Call->getCalledFunction();
+                    if(!Fn||Fn->getName()!="sgpl_frontier_reserve_i32"||Call->arg_size()!=7||
+                       !Call->getMetadata("sgpl.frontier.infrastructure")||
+                       Call->getArgOperand(3)!=Info.AppendArrayPtr)continue;
+                    auto *Input=dyn_cast<LoadInst>(Call->getArgOperand(1));
+                    if(!Input||Input->getPointerOperand()!=Info.FrontierArrayPtr)continue;
+                    bool GuardsOnly=true;
+                    for(User *U:Call->users()) {
+                        auto *Guard=dyn_cast<CallInst>(U);
+                        GuardsOnly &= Guard&&Guard->getCalledFunction()&&
+                            Guard->getCalledFunction()->getName()=="sgpl_exec_require_status";
+                    }
+                    if(GuardsOnly)Reservations.push_back(Call);
+                }
+            if(Reservations.size()==1) {
+                Reservations[0]->replaceAllUsesWith(ConstantInt::get(I32,0));
+                Reservations[0]->eraseFromParent();DeferredArrayReservation=true;
+            }
+        }
         if(Info.OrderedArrayFrontier) {
             auto BindArray=Mod->getOrInsertFunction("autograph_exec_ctx_bind_array_frontier",
                 FunctionType::get(I32,{I8P,I8P,I32,I8P,I8P,I32},false));
@@ -8414,6 +8472,11 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
             ConstantInt::get(I32, (int)Info.SpatialResult.Group),
             ConstantInt::get(I32, (int)Info.SpatialResult.CleanCutGroup),
             ConstantInt::get(I32, WantEnvelope ? 1 : 0)})});
+        if(DeferredArrayReservation) {
+            auto ReservePrepared=Mod->getOrInsertFunction("autograph_exec_ctx_reserve_prepared_output",
+                FunctionType::get(I32,{I8P},false));
+            EB.CreateCall(Require,{EB.CreateCall(ReservePrepared,{ExecCtx})});
+        }
         if (FrameClaims) {
             FunctionCallee BindClaims = Mod->getOrInsertFunction("autograph_exec_ctx_set_claims",
                 FunctionType::get(Type::getVoidTy(Ctx), {I8P, I8P}, false));
@@ -8436,8 +8499,25 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
                 EB.CreateCall(Require, {EB.CreateCall(Reserve, {ExecCtx, ConstantInt::get(I32, N), Count,
                     ConstantInt::get(I64, Bytes)})});
                 Info.CombinedStage->Snapshots.emplace_back(N, Base, Count, Bytes);
-            } else EB.CreateCall(Require, {EB.CreateCall(Bind, {ExecCtx, ConstantInt::get(I32, N), Base, Count,
-                ConstantInt::get(I64, Bytes)})});
+            } else {
+                bool SourceOnly = Info.OrderedArrayFrontier && S.WritesV &&
+                    !gpuBackendSelected(Mod) && !S.CrossReads.empty();
+                for (const LoadInst *Read : S.CrossReads) {
+                    auto *Address = dyn_cast<GetElementPtrInst>(Read->getPointerOperand());
+                    SourceOnly &= Address && Address->getNumIndices()==1 && !Read->isAtomic() && !Read->isVolatile() &&
+                        isOwnedEndpointIndex(primaryIndex(Address),Region::U,Info);
+                    if(Address) for(Value *Index=primaryIndex(Address);isa_and_nonnull<CastInst>(Index);) {
+                        auto *Cast=cast<CastInst>(Index);
+                        SourceOnly &= isa<SExtInst>(Cast)||isa<ZExtInst>(Cast)||isa<BitCastInst>(Cast);
+                        Index=Cast->getOperand(0);
+                    }
+                }
+                FunctionCallee Capture = SourceOnly ? Mod->getOrInsertFunction(
+                    "autograph_exec_ctx_bind_source_snapshot_range",
+                    FunctionType::get(I32,{I8P,I32,I8P,I64,I64},false)) : Bind;
+                EB.CreateCall(Require,{EB.CreateCall(Capture,{ExecCtx,ConstantInt::get(I32,N),Base,Count,
+                    ConstantInt::get(I64,Bytes)})});
+            }
         }
     }
     if (!SnapOps.empty())

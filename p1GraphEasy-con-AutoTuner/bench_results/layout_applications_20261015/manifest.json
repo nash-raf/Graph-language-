@@ -1,0 +1,666 @@
+{
+  "date": "2026-10-15",
+  "timezone": "Asia/Dhaka",
+  "same_graph_for_all_cases": true,
+  "graph_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+  "distinct_normalized_sources": 5,
+  "backend": "Supported motif lowering, GRAPH_FRONTIER_REWRITE_OFF=1 for all 25 variants",
+  "timing": "Whole subprocess wall time, including graph loading, cache initialization, layout conversions, updates, analysis and output. Compilation, fixture generation, sidecar prebuild and diagnostic audits are excluded.",
+  "input_cache": "Same input bytes, prebuilt loader sidecar, WSL local staging filesystem",
+  "sampling": "Contact tracing: 3 launches of every variant. Other cases: 7 AUTO/PCSR/SET launches and 1 full CSR/BCSR launch. Variant order randomized with seed 20261015.",
+  "audit_sampling": "Every graph-call layout is checked. Mutation effects are probed in the first and last two windows and all permanent changes. AUTO/PCSR/SET audits run all native updates. CSR/BCSR diagnostic wrappers omit native updates in middle repeated windows; timed executables always perform the full workload.",
+  "sourceHashes": {
+    "GraphProgram": "ff015ba5b91d651ca6abea2bb0aae5444e62e47d988c914b0be52b7003d8cd7f",
+    "AutoTunerPass.cpp": "a9365a2206cd6fd5ae03bd41123640881de1af2515c3ae6e65ec905d30172d0f",
+    "autotuner_runtime.c": "72c4f1faaf1534e5e3d92c3979d19c41233e350d6ce85b2428a6cff98f2445b6",
+    "graph_mutation_runtime.c": "562a944ad33af90f4e288264f32313013b57d776c6abcd4bb7c068ba62c2eecd",
+    "bfs_runtime_src.cpp": "f7e97c72672b92af4272704ad876048a3050e9a6eb60ffec4eeb710dd7ef8723",
+    "dfs_runtime_src.cpp": "17d19a8ce4392e4234f0daecd3adc0580f6ee5f0d19daa2c4be7f217af202e0b",
+    "tools/layout_application_cases.py": "a372f6b1f514f70632cd662363b4db3811a5ae3843b327cc2ba54aaba93bf763",
+    "tools/layout_application_benchmark.py": "86a1e60590d0292588b86ef6519a90390789f29c186ede5bfb75cf63b2c87ec9",
+    "tools/layout_application_audit.c": "d263a4bc0c3073f5c1b51bdd7d7268a2127a87ee6de608a14f51ca2af700db20",
+    "tools/audit_layout_applications.py": "109aae8ee86923ede3791dc6d6ce593d32b73c7603dc70971e8c2b8441035395"
+  },
+  "cases": [
+    {
+      "case": "contact_trace_events80000_batch8_motif",
+      "application": "Contact exposure tracing",
+      "analysis": "BFS exposure cohort and maximum hop count",
+      "source": "winning_codes/contact_trace.sgpl",
+      "source_sha256": "5856867f9f666ed95953f613aa5706b5c857bff97bf29898ef9a406e27821e3e",
+      "graph_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+      "settings": {
+        "GRAPH_FRONTIER_REWRITE_OFF": "1"
+      },
+      "medians_ms": {
+        "AUTO": 261.800593,
+        "CSR": 34239.643606,
+        "PCSR": 1156.926603,
+        "BCSR": 127882.64539,
+        "SET": 1096.585183
+      },
+      "counts": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "transitions": [
+        [
+          "CSR",
+          "SET"
+        ],
+        [
+          "SET",
+          "CSR"
+        ]
+      ],
+      "binary_sha256": {
+        "AUTO": "bd7eeb5930961afdde14ef23603a66662dce2aee57a30752f98540fc8b9ac898",
+        "CSR": "c768a5f0c9e5e3c2fe0a5a039c29678728c39a5a3ffba0f055886c60c1ee06fc",
+        "PCSR": "372238583b5926b59baba95d8fdc88cf07455e1b1c71025d508348204fd909eb",
+        "BCSR": "5a42430491f7717f1250d8afafc87ab73c854f8ec7d69a70f41e41ca5bef8a94",
+        "SET": "62cb10e80b3d6669725f63d6325cb10cfd7051117fe4eebaf1f07f4bb41d539e"
+      },
+      "audits": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 144,
+          "native_mutations": 2560016,
+          "adds": 1280008,
+          "removes": 1280008,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 144,
+          "native_mutations": 144,
+          "adds": 1280008,
+          "removes": 1280008,
+          "transitions": [],
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 144,
+          "native_mutations": 2560016,
+          "adds": 1280008,
+          "removes": 1280008,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 144,
+          "native_mutations": 144,
+          "adds": 1280008,
+          "removes": 1280008,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 144,
+          "native_mutations": 2560016,
+          "adds": 1280008,
+          "removes": 1280008,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "full_native_updates": true
+        }
+      }
+    },
+    {
+      "case": "service_islands_events80000_batch8_motif",
+      "application": "Service outage islands",
+      "analysis": "Connected components and largest island",
+      "source": "winning_codes/service_islands.sgpl",
+      "source_sha256": "4f5f558863aa1c336b18b5e2dabea40bc330a9ed6bddd993317aa07eea922e0e",
+      "graph_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+      "settings": {
+        "GRAPH_FRONTIER_REWRITE_OFF": "1"
+      },
+      "medians_ms": {
+        "AUTO": 188.609631,
+        "CSR": 30826.202807,
+        "PCSR": 904.634346,
+        "BCSR": 82320.019773,
+        "SET": 1331.949474
+      },
+      "counts": [
+        7,
+        1,
+        7,
+        1,
+        7
+      ],
+      "transitions": [
+        [
+          "CSR",
+          "SET"
+        ],
+        [
+          "SET",
+          "CSR"
+        ]
+      ],
+      "binary_sha256": {
+        "AUTO": "bafdd132d575186cae6da7e92146cbbeb102806cc5c257da22afc43a126b7886",
+        "CSR": "61e16c0234ef5014429529a6786f4ee8fa0418ae5328bf65634a75370e403205",
+        "PCSR": "ab84981e282be3a600a4a0ffbd7f2777d6279083ec82691376828faf0994bc88",
+        "BCSR": "ae31414ef46529a9821f379320f1e271c447dbaa4f3823b72cda9b5b776d548d",
+        "SET": "67453fe1e0b4259c2b70e3c47bd9bd3607e2faeac404bded6f838ef1fae52a14"
+      },
+      "audits": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [],
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "full_native_updates": true
+        }
+      }
+    },
+    {
+      "case": "sensor_backbone_events80000_batch8_motif",
+      "application": "Sensor backbone pruning",
+      "analysis": "490-core retention and failed-sensor eligibility",
+      "source": "winning_codes/sensor_backbone.sgpl",
+      "source_sha256": "d8ebf2f32dcfe82889d1625189313810e03ac3009c5390ad984ec25b44bdca22",
+      "graph_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+      "settings": {
+        "GRAPH_FRONTIER_REWRITE_OFF": "1"
+      },
+      "medians_ms": {
+        "AUTO": 169.825346,
+        "CSR": 4781.084625,
+        "PCSR": 722.875718,
+        "BCSR": 38748.896866,
+        "SET": 507.418947
+      },
+      "counts": [
+        7,
+        1,
+        7,
+        1,
+        7
+      ],
+      "transitions": [
+        [
+          "CSR",
+          "SET"
+        ],
+        [
+          "SET",
+          "CSR"
+        ]
+      ],
+      "binary_sha256": {
+        "AUTO": "4f5a3e15d1420cb5a94396df3afd23f4499f2bdfed499c5d37027bf89e77ca79",
+        "CSR": "87f21667687e7dce250b92f97852509f539069de1b71eb280753db42eb0c4507",
+        "PCSR": "7c19d02722acaeeefa86b22152aab0bc199293211cf7d3e523b1295078356a4c",
+        "BCSR": "b6fb834364091456dbc3a58e5dd3b669d92886f8c49f36af8991848fe02197d8",
+        "SET": "41baed9319188cad7e1fa39e11c0323cd580ce47b25ccb1ef376543494e0a0e7"
+      },
+      "audits": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 77,
+          "native_mutations": 1280013,
+          "adds": 640000,
+          "removes": 640013,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 77,
+          "native_mutations": 77,
+          "adds": 640000,
+          "removes": 640013,
+          "transitions": [],
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 77,
+          "native_mutations": 1280013,
+          "adds": 640000,
+          "removes": 640013,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 77,
+          "native_mutations": 77,
+          "adds": 640000,
+          "removes": 640013,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 77,
+          "native_mutations": 1280013,
+          "adds": 640000,
+          "removes": 640013,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "full_native_updates": true
+        }
+      }
+    },
+    {
+      "case": "route_failover_events80000_batch8_motif",
+      "application": "Gateway failover recovery",
+      "analysis": "Outage BFS, alternate-gateway recovery, and DFS inspection",
+      "source": "winning_codes/route_failover.sgpl",
+      "source_sha256": "5b65604569f18cb7511ba56f6c3bd33909d31fa13a51e3e308cf2b52dfd0957d",
+      "graph_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+      "settings": {
+        "GRAPH_FRONTIER_REWRITE_OFF": "1"
+      },
+      "medians_ms": {
+        "AUTO": 305.761933,
+        "CSR": 33682.003839,
+        "PCSR": 1322.544617,
+        "BCSR": 116395.317634,
+        "SET": 1325.182004
+      },
+      "counts": [
+        7,
+        1,
+        7,
+        1,
+        7
+      ],
+      "transitions": [
+        [
+          "CSR",
+          "SET"
+        ],
+        [
+          "SET",
+          "CSR"
+        ]
+      ],
+      "binary_sha256": {
+        "AUTO": "100b2a0d5bcc8bf9ccfd16af00310ca026197f57a94173db4dc7596d93181c75",
+        "CSR": "b303527c802afa6011dda00b16d5367cf08ad3747076907124c566b1d66a4bf5",
+        "PCSR": "9d8124c7c96507be6ee241402052028fbcc6dc8c5ae53300ea00795c0a0888f0",
+        "BCSR": "cba916fb962eba6df6eea3b68009140356d3944c821d8bcf01831ed454c454c3",
+        "SET": "dfbfa767f74498288c0333c706197a66dfae0de288dd75e7b1c87086274106ca"
+      },
+      "audits": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 130,
+          "native_mutations": 2560002,
+          "adds": 1280001,
+          "removes": 1280001,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 130,
+          "native_mutations": 130,
+          "adds": 1280001,
+          "removes": 1280001,
+          "transitions": [],
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 130,
+          "native_mutations": 2560002,
+          "adds": 1280001,
+          "removes": 1280001,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 130,
+          "native_mutations": 130,
+          "adds": 1280001,
+          "removes": 1280001,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 130,
+          "native_mutations": 2560002,
+          "adds": 1280001,
+          "removes": 1280001,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "full_native_updates": true
+        }
+      }
+    },
+    {
+      "case": "trust_audit_events80000_batch8_motif",
+      "application": "Trust-boundary audit",
+      "analysis": "DFS inventories on both sides of a revoked gateway",
+      "source": "winning_codes/trust_audit.sgpl",
+      "source_sha256": "22dc9d032ead5a6dd4a37d23300c9d1ed26840319b3742b5db84460c61d1899a",
+      "graph_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+      "settings": {
+        "GRAPH_FRONTIER_REWRITE_OFF": "1"
+      },
+      "medians_ms": {
+        "AUTO": 165.195202,
+        "CSR": 28666.07579,
+        "PCSR": 606.554909,
+        "BCSR": 78874.58435,
+        "SET": 473.340207
+      },
+      "counts": [
+        7,
+        1,
+        7,
+        1,
+        7
+      ],
+      "transitions": [
+        [
+          "CSR",
+          "SET"
+        ],
+        [
+          "SET",
+          "CSR"
+        ]
+      ],
+      "binary_sha256": {
+        "AUTO": "bef3281ec02214a7e6b54472d16e6b1a96f630d89b1824474036f3a6ed4f5f45",
+        "CSR": "f402c7ea3b7eb20e6391f14b77c1af788aefe66aa8d194e9b208963679daae4d",
+        "PCSR": "847a0cbc4c78f6ddf99a4c58aaf0d64b37671d5f1f9ba3564cba7b57fc56cc00",
+        "BCSR": "661df0e5121f223fbe12456e7fd5c9bcbaed02a314ef025f2d1f778e622ff31b",
+        "SET": "127db83500ad768b66de61c4658da70f3d20e356af7400b2eaa21a3e2b8e15ed"
+      },
+      "audits": {
+        "AUTO": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ],
+            [
+              "SET",
+              "CSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "CSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [],
+          "full_native_updates": false
+        },
+        "PCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "PCSR"
+            ]
+          ],
+          "full_native_updates": true
+        },
+        "BCSR": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 65,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "BCSR"
+            ]
+          ],
+          "full_native_updates": false
+        },
+        "SET": {
+          "correct": true,
+          "layouts_checked_on_all_calls": true,
+          "semantic_outputs_verified": true,
+          "graph_fingerprints_verified": true,
+          "mutation_effect_samples": 65,
+          "native_mutations": 1280001,
+          "adds": 640000,
+          "removes": 640001,
+          "transitions": [
+            [
+              "CSR",
+              "SET"
+            ]
+          ],
+          "full_native_updates": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,1085 @@
+{
+  "backend": "Default effect lowering; GRAPH_FRONTIER_REWRITE_OFF unset",
+  "full_size_auto_transitions": "CSR -> SET -> CSR for all five cases at one and four threads",
+  "application_executions": 60,
+  "compiler_and_source_sha256": {
+    "GraphProgram": "c60ddc255905969104ad829619040b3f473fd01ec30ec9640644184818fe3ea8",
+    "AutoTunerPass.cpp": "64b1b28c71f9b8ce63b5373044407f6fde559b603cc8b8f45126cc96d9b7bcc8",
+    "test/pdg_tdg_verification/test_autotuner_iterator_phases.py": "c337d580d952a234214d90777ff207f03a144cdd6b619f5c50bdb8b994a0fbde",
+    "test/pdg_tdg_verification/iterator_phase_audit.c": "1e854d5cc855970152d45dbf8eb5357e988191e2823c3f4e75529ada6ca1cbfd",
+    "test/pdg_tdg_verification/test_autotuner_frequency.py": "0eb3b52f5ed1e3e3016035bdefcdedcbcfa924348a6aa00ee96bc851a3c56b9b"
+  },
+  "application_executions_detail": [
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "f35c481b06fe07c1be4ebed591e32f8c6db1e2feda0b3ddc6f79b794cf3e2067"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "b3a98ca6033286a2751924fe4004f00aab720617901c784e7cb371d0605f0d75"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "CSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/contact_trace_events300_batch8/CSR.threads1.audit.log",
+      "audit_sha256": "2474acf0f7bd23c07f8ccced94b0db1ce46834062d0ff488669529ae827e23aa"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "CSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/contact_trace_events300_batch8/CSR.threads4.audit.log",
+      "audit_sha256": "acd8fc1a2a6962da9435e84cb36e033773f9f9d168d736892dd1c1ef0d384df9"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "PCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/PCSR.threads1.audit.log",
+      "audit_sha256": "dc05a2a0ef262e64c53a717812b16751c5ec2407fcd7b0573623ad2ba5e400d2"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "PCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/PCSR.threads4.audit.log",
+      "audit_sha256": "00ed7def51637df0bf452e9d8b140d1b3d8462ac869d020b20168e2e401461a9"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "BCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/BCSR.threads1.audit.log",
+      "audit_sha256": "37e1bdaf33fd47fc039082df89a489e992fd38154672c2b398bd894bd889bfa0"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "BCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/BCSR.threads4.audit.log",
+      "audit_sha256": "07084455be52294cc87636c578b1642aa581bf8d1c949da2eb3f241c25009c61"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "SET",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/SET.threads1.audit.log",
+      "audit_sha256": "80b41a7f8b884b1b085ccfa5980c7cdc88f60207bd7183a687e25a3e7047842e"
+    },
+    {
+      "case": "contact_trace_events300_batch8",
+      "mode": "SET",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/contact_trace_events300_batch8/SET.threads4.audit.log",
+      "audit_sha256": "31b6b5c5e49cb2e9afa3b4e8e03c364e040c8fc7b045da914f922de58afd1cdb"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "b76d96b647c2dc8e379f4da95c7cd1fb08a37114469c0e16bb02f9cbdf598d4f"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "ce4d5ac8b2137de06b12fb81c5be2ed4e61e98cf81cb325670a38d5c1ea6fc33"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "CSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/service_islands_events300_batch8/CSR.threads1.audit.log",
+      "audit_sha256": "e6e9f58d18751a00eaa29903400f857ef14c4de28aea3a0e330d0e8c72f22a3e"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "CSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/service_islands_events300_batch8/CSR.threads4.audit.log",
+      "audit_sha256": "b42093587a613553287bebe6879ce56fdd5761f2066d9011668c7acc7d334709"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "PCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/PCSR.threads1.audit.log",
+      "audit_sha256": "5a8bf185a388c89adf47e332e6ed47d5932fcf9e6d5caab522e8bb4241baca06"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "PCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/PCSR.threads4.audit.log",
+      "audit_sha256": "d41edd84817d28ab2fa1e1a3f5bb8c1824e6867890c6fb762370265661957319"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "BCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/BCSR.threads1.audit.log",
+      "audit_sha256": "df7dae2e1d4756957bdfb6173f892a7fefc925fe9cd499dce12bdc5b384f0d4d"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "BCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/BCSR.threads4.audit.log",
+      "audit_sha256": "ab91ef7f0eef14a61d8f50612a768d46578f77149692df1c0e0440753d07b5af"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "SET",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/SET.threads1.audit.log",
+      "audit_sha256": "cac9887b17d5e1970c297c610c294799fe9a44071977841b6dcf4e2f59519536"
+    },
+    {
+      "case": "service_islands_events300_batch8",
+      "mode": "SET",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/service_islands_events300_batch8/SET.threads4.audit.log",
+      "audit_sha256": "9bce87dbcf8cb76c7503b75e646f3d47a178dc2cd21e8393e3ca8940b953f3e6"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "1564813c3b28073e040b6c82ed053ff9284958aeb8ef7f844120df2a2176035d"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "800bcc761c50ab89db33220116955412ef89c50a924c88fa62fb5ee80ca0fadf"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "CSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/CSR.threads1.audit.log",
+      "audit_sha256": "07a621ee50d118cd75a30acf469cca70fce969102cdf57b0c7f720f46300c895"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "CSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/CSR.threads4.audit.log",
+      "audit_sha256": "96f7094519ec8c2e5f122908223f7b9f3757ce928222884a4a754ade95a499a6"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "PCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/PCSR.threads1.audit.log",
+      "audit_sha256": "ad0eea23bc894232843884b9e9cfef726a3e50a33efe590e6fdf7b1a82e73453"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "PCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/PCSR.threads4.audit.log",
+      "audit_sha256": "9d7bd8b1c174ac78d56808e965ea982fbe4e1194a5116cfe564a4177c72a2b57"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "BCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/BCSR.threads1.audit.log",
+      "audit_sha256": "14398f2e207afb44386568d5337ddb5615f630782392bbd2ac21ec75f06e17a7"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "BCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/BCSR.threads4.audit.log",
+      "audit_sha256": "638c51caa4fc44c477d89f40a87a187cd4b98f2e0bffe12be9822ea9bbcda804"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "SET",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/SET.threads1.audit.log",
+      "audit_sha256": "adc203f4a1e0f8f3877f5538f0a347321c247aa1838d4ad885dc7da8e76c4fee"
+    },
+    {
+      "case": "sensor_backbone_events300_batch8",
+      "mode": "SET",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/sensor_backbone_events300_batch8/SET.threads4.audit.log",
+      "audit_sha256": "2cab31725b10629ae2d983e723f174e637b5867788c4a41df6d8b6e22aa4064e"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "CSR",
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "ff4a283e2b4bbf78681833effaadfb7c39b769f0739b73e916f5ab7bd597a640"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "CSR",
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "4c88e296b9543fe73081c0bd6d4a33d82da5000c6c731a6e88df6626e871b340"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "CSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/route_failover_events300_batch8/CSR.threads1.audit.log",
+      "audit_sha256": "a7d4eb93ef6c8dd33571de27f286662c9ebdb7d853d712efef8c69c67286d884"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "CSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/route_failover_events300_batch8/CSR.threads4.audit.log",
+      "audit_sha256": "6639e898b6260be47565f2d827e65f35379452265682868ac2ffa57de7060fd2"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "PCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/PCSR.threads1.audit.log",
+      "audit_sha256": "e99f72aa837f009d22fbc22d296b2077240d000d603aea7a9e4089b1f78a5d94"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "PCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/PCSR.threads4.audit.log",
+      "audit_sha256": "f093606f93e0baa27da9b3136fede7571895fef34ed700889d8a3932d7ebcc0e"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "BCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/BCSR.threads1.audit.log",
+      "audit_sha256": "edb1f5a6c1bba8fd9bbcfa2da6e384ea5a42a0f2b7e6e83a50cbad793de59f31"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "BCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/BCSR.threads4.audit.log",
+      "audit_sha256": "5c0afed6332b1aef89de2d722b1101c5fd520ad99aa1df00092236c444ad854c"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "SET",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/SET.threads1.audit.log",
+      "audit_sha256": "825614cdfbf3a10f8bf58239dc3c608d9f843234b14c982c17b8a7a3155ca81b"
+    },
+    {
+      "case": "route_failover_events300_batch8",
+      "mode": "SET",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/route_failover_events300_batch8/SET.threads4.audit.log",
+      "audit_sha256": "1255d1ffa5b952063878d58e9a4d1d4e45f0012dad6d7766049838330be3d8d2"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "17d2969a25b61fd2c6a292e9db6f0485a6bf33d9a40eb9b775d4d34dd68eceee"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "66eafbf55fbc129537d76baad5589349cd8d5356ba114b8d450a8b149985987c"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "CSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/trust_audit_events300_batch8/CSR.threads1.audit.log",
+      "audit_sha256": "f6b3bbe89197826287d131e75fbf96277f8c72c214d807fbedf618d0ccfb5ec0"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "CSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [],
+      "rounds": 300,
+      "transitions": [],
+      "audit": "applications/binaries/trust_audit_events300_batch8/CSR.threads4.audit.log",
+      "audit_sha256": "956f089539de6efacf67031c72f747c5e9d918cafccc2c41a422d742884da688"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "PCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/PCSR.threads1.audit.log",
+      "audit_sha256": "7a36d97458923906e71b6f0b1e374d6a412c65a1bd1cd7205e1654fcd89703fc"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "PCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "PCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          1
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/PCSR.threads4.audit.log",
+      "audit_sha256": "2826192aef484997249ca05632cd304a86f755669648c5c20af4b74f6f539b8f"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "BCSR",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/BCSR.threads1.audit.log",
+      "audit_sha256": "d580a2d13f79bbfca3c87c1932ee512cff467a5a6e8bbf5e16aae30404cfac0f"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "BCSR",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "BCSR"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          2
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/BCSR.threads4.audit.log",
+      "audit_sha256": "ac32de2aa84daf3ebdfda419a46a5365a3bebb9a9f2b259ca18bff6f7cbb3ddd"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "SET",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/SET.threads1.audit.log",
+      "audit_sha256": "d56306220eda68fd8493c10e9dff97743e403f78280ce520976e13a30cfa959e"
+    },
+    {
+      "case": "trust_audit_events300_batch8",
+      "mode": "SET",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET"
+      ],
+      "rounds": 300,
+      "transitions": [
+        [
+          0,
+          3
+        ]
+      ],
+      "audit": "applications/binaries/trust_audit_events300_batch8/SET.threads4.audit.log",
+      "audit_sha256": "967fc8800f707fdc984069224b69222ef3697ca0d67824864af5431b62c19197"
+    },
+    {
+      "case": "contact_trace_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET",
+        "CSR"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/contact_trace_events80000_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "4b09ac045fb6dfe0db70ab9be03f5e5d45bf05d5a741f82ab9d1fe93a7a03787"
+    },
+    {
+      "case": "contact_trace_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET",
+        "CSR"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/contact_trace_events80000_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "772265c2bef20ffd25396e387baf341a004356d8ba6c7be92e250f162a757cae"
+    },
+    {
+      "case": "service_islands_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET",
+        "CSR"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/service_islands_events80000_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "7288637e07da1a4bcc8644fde7133b5ff3a625ba709188373ce6659a8df55a3f"
+    },
+    {
+      "case": "service_islands_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET",
+        "CSR"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/service_islands_events80000_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "d136eba2a7d704ed9dd4c586a2de70be0703b44519afc078a220b99c9ba8eff1"
+    },
+    {
+      "case": "sensor_backbone_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "SET",
+        "CSR"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/sensor_backbone_events80000_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "c188830415bf71990fd9c38e43be76aa397e933bb1c4b1aa859b0d5f8057f08b"
+    },
+    {
+      "case": "sensor_backbone_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "SET",
+        "CSR"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/sensor_backbone_events80000_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "5b403c37bb165bc2b2a0b26bf91e5d4a1fe6d2f66ce103ddab02442864cc918d"
+    },
+    {
+      "case": "route_failover_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "CSR",
+        "SET"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/route_failover_events80000_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "ab557ae78b7a72680b54ed9ef7069adf1504058f37d1555b0dca3c6f17ac2e9f"
+    },
+    {
+      "case": "route_failover_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "CSR",
+        "SET"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/route_failover_events80000_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "fcc2e9abd2c7b5de1b2273b1e0b2a198e1d5f909c56562314f887e010c62b1f1"
+    },
+    {
+      "case": "trust_audit_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 1,
+      "correct": true,
+      "schedule": [
+        "CSR",
+        "SET"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/trust_audit_events80000_batch8/AUTO.threads1.audit.log",
+      "audit_sha256": "72c9c63bc524393184e833f1e487f61dc74e1e7f0b6559a041c70b2e69918dc2"
+    },
+    {
+      "case": "trust_audit_events80000_batch8",
+      "mode": "AUTO",
+      "threads": 4,
+      "correct": true,
+      "schedule": [
+        "CSR",
+        "SET"
+      ],
+      "rounds": 80000,
+      "transitions": [
+        [
+          0,
+          3
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "audit": "applications_rounds80000/binaries/trust_audit_events80000_batch8/AUTO.threads4.audit.log",
+      "audit_sha256": "99e6e00a0093913f84ceb9c54cbde6e470415624cb55ce2d20743b599cff5eb5"
+    }
+  ],
+  "timings": "Correctness/audit executions only; no new speedup claim"
+}

@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py", line 285, in <module>
+    main()
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py", line 171, in main
+    frontend_check(Path(tmp), dict(os.environ, AUTOTUNER_FORCE_LAYOUT="CSR",
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py", line 139, in frontend_check
+    assert len(observed) == 1, (rounds, observed)
+           ^^^^^^^^^^^^^^^^^^
+AssertionError: (1, [125.71079999999999, 125.71079999999999])

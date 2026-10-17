@@ -1,0 +1,50 @@
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Equation & Settings & Mean APE (\%) & Median APE (\%) & Within 20\% \\
+\midrule
+Original & 18 & 41.41 & 30.93 & 6/18 \\
+Corrected & 18 & 17.81 & 12.09 & 12/18 \\
+\bottomrule
+\end{tabular}
+\caption{DOALL cost-model validation: historical audit with identical inputs for both equations.}\label{tab:doall-summary}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize APE $=100|\widehat T-T|/T$. These are the existing 18 audit measurements; they do not constitute a fresh validation of any changes made after that audit.\end{minipage}
+\end{table}
+% Requires booktabs; detailed tables also require longtable.
+\begin{center}
+\small
+\begin{longtable}{lrrrrrrr}
+\caption{DOALL corrected cost predictions versus measured parallel execution. Times are milliseconds.}\label{tab:doall-detail}\\
+\toprule
+$P$ & $N$ & Chain & Streaming & Predicted & Measured & Error (\%) & APE (\%) \\
+\midrule
+\endfirsthead
+\toprule
+$P$ & $N$ & Chain & Streaming & Predicted & Measured & Error (\%) & APE (\%) \\
+\midrule
+\endhead
+\bottomrule\endfoot
+2 & 20000 & 12 & 0 & 0.4060 & 0.3991 & +1.73 & 1.73 \\
+2 & 200000 & 24 & 0 & 9.7919 & 10.4565 & -6.36 & 6.36 \\
+2 & 200000 & 0 & 1 & 0.2080 & 0.1122 & +85.41 & 85.41 \\
+2 & 8192 & 0 & 1 & 0.0655 & 0.0522 & +25.48 & 25.48 \\
+2 & 65536 & 4 & 0 & 0.3060 & 0.2814 & +8.77 & 8.77 \\
+2 & 1000000 & 12 & 0 & 17.4584 & 20.8848 & -16.41 & 16.41 \\
+4 & 20000 & 12 & 0 & 0.2552 & 0.2549 & +0.13 & 0.13 \\
+4 & 200000 & 24 & 0 & 5.0284 & 5.2342 & -3.93 & 3.93 \\
+4 & 200000 & 0 & 1 & 0.1569 & 0.1182 & +32.74 & 32.74 \\
+4 & 8192 & 0 & 1 & 0.0805 & 0.0849 & -5.18 & 5.18 \\
+4 & 65536 & 4 & 0 & 0.2094 & 0.1998 & +4.82 & 4.82 \\
+4 & 1000000 & 12 & 0 & 8.8766 & 9.1369 & -2.85 & 2.85 \\
+8 & 20000 & 12 & 0 & 0.2397 & 0.2676 & -10.42 & 10.42 \\
+8 & 200000 & 24 & 0 & 2.6157 & 3.1649 & -17.35 & 17.35 \\
+8 & 200000 & 0 & 1 & 0.2408 & 0.2117 & +13.75 & 13.75 \\
+8 & 8192 & 0 & 1 & 0.1830 & 0.1349 & +35.67 & 35.67 \\
+8 & 65536 & 4 & 0 & 0.2762 & 0.2257 & +22.40 & 22.40 \\
+8 & 1000000 & 12 & 0 & 4.7383 & 6.5031 & -27.14 & 27.14 \\
+\bottomrule
+\end{longtable}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Chain is the benchmark arithmetic-chain parameter; streaming is a Boolean workload flag. Signed error $=100(\widehat T/T-1)$.\end{minipage}
+\end{center}

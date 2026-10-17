@@ -1,0 +1,35 @@
+contact_trace_events80000_batch8_motif AUTO ['CSR', 'SET']
+contact_trace_events80000_batch8_motif PCSR ['PCSR']
+contact_trace_events80000_batch8_motif 1/4 {}
+contact_trace_events80000_batch8_motif 2/4 {'AUTO': 276.963, 'PCSR': 1102.333}
+contact_trace_events80000_batch8_motif 3/4 {'AUTO': 267.398, 'PCSR': 1102.668}
+contact_trace_events80000_batch8_motif 4/4 {'AUTO': 257.834, 'PCSR': 1103.002}
+RESULT contact_trace_events80000_batch8_motif {'AUTO': 257.833593, 'PCSR': 1103.002176} None
+service_islands_events80000_batch8_motif AUTO ['CSR', 'SET']
+service_islands_events80000_batch8_motif PCSR ['PCSR']
+service_islands_events80000_batch8_motif 1/4 {}
+service_islands_events80000_batch8_motif 2/4 {'AUTO': 163.422, 'PCSR': 730.003}
+service_islands_events80000_batch8_motif 3/4 {'AUTO': 174.424, 'PCSR': 801.208}
+service_islands_events80000_batch8_motif 4/4 {'AUTO': 163.422, 'PCSR': 794.652}
+RESULT service_islands_events80000_batch8_motif {'AUTO': 163.421556, 'PCSR': 794.651512} None
+sensor_backbone_events80000_batch8_motif AUTO ['CSR', 'SET']
+sensor_backbone_events80000_batch8_motif PCSR ['PCSR']
+sensor_backbone_events80000_batch8_motif 1/4 {}
+sensor_backbone_events80000_batch8_motif 2/4 {'AUTO': 165.388, 'PCSR': 679.132}
+sensor_backbone_events80000_batch8_motif 3/4 {'AUTO': 171.683, 'PCSR': 711.165}
+sensor_backbone_events80000_batch8_motif 4/4 {'AUTO': 165.388, 'PCSR': 743.197}
+RESULT sensor_backbone_events80000_batch8_motif {'AUTO': 165.388092, 'PCSR': 743.197493} None
+route_failover_events80000_batch8_motif AUTO ['CSR', 'SET']
+route_failover_events80000_batch8_motif PCSR ['PCSR']
+route_failover_events80000_batch8_motif 1/4 {}
+route_failover_events80000_batch8_motif 2/4 {'AUTO': 293.425, 'PCSR': 1476.168}
+route_failover_events80000_batch8_motif 3/4 {'AUTO': 307.07, 'PCSR': 1480.136}
+route_failover_events80000_batch8_motif 4/4 {'AUTO': 293.425, 'PCSR': 1484.104}
+RESULT route_failover_events80000_batch8_motif {'AUTO': 293.425251, 'PCSR': 1484.103983} None
+trust_audit_events80000_batch8_motif AUTO ['CSR', 'SET']
+trust_audit_events80000_batch8_motif PCSR ['PCSR']
+trust_audit_events80000_batch8_motif 1/4 {}
+trust_audit_events80000_batch8_motif 2/4 {'AUTO': 159.523, 'PCSR': 601.744}
+trust_audit_events80000_batch8_motif 3/4 {'AUTO': 158.29, 'PCSR': 627.632}
+trust_audit_events80000_batch8_motif 4/4 {'AUTO': 157.058, 'PCSR': 653.094}
+RESULT trust_audit_events80000_batch8_motif {'AUTO': 157.057717, 'PCSR': 653.093822} None

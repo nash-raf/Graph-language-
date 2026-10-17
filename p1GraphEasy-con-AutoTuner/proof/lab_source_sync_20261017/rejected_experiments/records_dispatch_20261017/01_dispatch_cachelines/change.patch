@@ -1,0 +1,16 @@
+--- a/autotuner_runtime.c
++++ b/autotuner_runtime.c
+@@ -6202,7 +6202,12 @@
+   sgpl_exec_ctx *ctx;
+   int32_t count;
+   const int32_t *nodes;
+-  _Atomic int32_t next, failed, completed;
++  /* Claims mutate on every partition; cancellation is read on every claim.
++   * Separate coherence lines prevent claims from invalidating the cancellation
++   * flag and immutable job inputs on every worker. Ownership is unchanged. */
++  _Alignas(64) _Atomic int32_t next;
++  _Alignas(64) _Atomic int32_t failed;
++  _Alignas(64) _Atomic int32_t completed;
+ } SgplIndependentSpatial;
+ static void sgpl_independent_spatial_worker(void *opaque,int32_t index) {
+   SgplIndependentSpatial *job=opaque;

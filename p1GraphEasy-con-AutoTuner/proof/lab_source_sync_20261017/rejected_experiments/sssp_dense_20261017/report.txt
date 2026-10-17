@@ -1,0 +1,52 @@
+SSSP dense-graph investigation: all candidates rejected; installed P1 unchanged.
+32 workers; 5 primary complete-process repeats per variant, plus separate 5-repeat full confirmation for the reported prototype.
+12 validated cases on 10 graphs; no failed/missing pairs in the reported comparison.
+
+Baseline median diagnostic phases (ms; nested weight/count/fill times are part of records):
+dimacs/DSJC1000-5.edges {"begin": 0.004534, "finish": 1.40984, "compaction": 1.405686, "dispatch": 4.709622, "records": 7.941057, "weight_indices": 1.966854, "count": 0.635795, "fill": 4.851524}
+soc/soc-slashdot.edges {"begin": 0.054868, "finish": 1.543191, "compaction": 1.537292, "dispatch": 8.683726, "records": 9.893556, "weight_indices": 3.519748, "count": 1.198357, "fill": 3.975458}
+
+The prepared Graptor CSR and native P1 CSR have matching n/m but different row order. Sortedness was initially checked on the prepared representation; native-cache auditing corrected that assumption. No input was reordered.
+Most measured extra P1 work is partitioned-record construction, weight-hint preparation, callback/worker dispatch and compaction.
+
+REJECTED outlined uniqueness prototype, primary five-launch means (ms):
+algorithm | graph | current P1 | rejected candidate | Graptor | current/candidate | Graptor/candidate
+sssp | road/road-luxembourg-osm.edges | 41.607 | 41.748 | 49.097 | 0.997 | 1.176
+sssp | road/road-usroads-48.edges | 93.758 | 92.574 | 87.746 | 1.013 | 0.948
+sssp | soc/soc-epinions.edges | 15.588 | 15.032 | 9.256 | 1.037 | 0.616
+cc | soc/soc-epinions.edges | 9.618 | 9.711 | 6.234 | 0.990 | 0.642
+pagerank | soc/soc-epinions.edges | 18.239 | 19.346 | 19.974 | 0.943 | 1.032
+sssp | soc/soc-slashdot.edges | 31.330 | 28.873 | 16.244 | 1.085 | 0.563
+sssp | dimacs/DSJC1000-5.edges | 21.670 | 19.695 | 9.734 | 1.100 | 0.494
+sssp | misc/delaunay_n13.edges | 13.608 | 13.004 | 8.039 | 1.046 | 0.618
+sssp | ia/ia-email-EU.edges | 13.279 | 12.683 | 7.954 | 1.047 | 0.627
+sssp | email/email-enron-large.edges | 21.509 | 20.856 | 11.499 | 1.031 | 0.551
+bfs | inf/inf-roadNet-CA.edges | 95.871 | 89.698 | 137.151 | 1.069 | 1.529
+bfs | dimacs10/inf-asia_osm.edges | 1143.046 | 1099.763 | 1551.020 | 1.039 | 1.410
+
+Pooled primary+confirmation comparisons (10 launches per variant):
+sssp | road/road-luxembourg-osm.edges | mean ratio 1.016382 | median ratio 1.062672
+sssp | road/road-usroads-48.edges | mean ratio 0.974084 | median ratio 0.928051
+sssp | soc/soc-epinions.edges | mean ratio 1.040777 | median ratio 1.035690
+cc | soc/soc-epinions.edges | mean ratio 1.005281 | median ratio 1.003376
+pagerank | soc/soc-epinions.edges | mean ratio 0.975617 | median ratio 0.998743
+sssp | soc/soc-slashdot.edges | mean ratio 1.105745 | median ratio 1.115017
+sssp | dimacs/DSJC1000-5.edges | mean ratio 1.089321 | median ratio 1.090707
+sssp | misc/delaunay_n13.edges | mean ratio 1.013586 | median ratio 1.009375
+sssp | ia/ia-email-EU.edges | mean ratio 1.031091 | median ratio 1.015532
+sssp | email/email-enron-large.edges | mean ratio 1.075606 | median ratio 1.092123
+bfs | inf/inf-roadNet-CA.edges | mean ratio 1.014838 | median ratio 0.985417
+bfs | dimacs10/inf-asia_osm.edges | mean ratio 1.024918 | median ratio 1.035589
+
+Final decisions:
+01_identity_hints: REJECT. Primary DSJC and Slashdot were slower, so this is not a suitable fix for the requested targets. Try loop versioning to remove per-edge representation checks.
+02_identity_fill: REJECT. Sortedness proof fails on actual DSJC/Slashdot CSR. The audit of cached native topology overlapped the end of this exploratory timing block, so its timing comparisons are excluded; no candidate installed.
+03_unique_hints: REJECT. PageRank regressed about 5.6% in pooled means and 6.4% in pooled medians. Do not accept target gains at that cost.
+04_outlined_hints: REJECT. Full confirmation exposed a US-roads regression: pooled mean ratio 0.974 and median ratio 0.928. Do not install.
+05_narrow_hints: REJECT. US-roads primary median ratio 0.918 and confirmation mean ratio 0.857; reject the narrowing candidate.
+
+No default changed. Original P1 remains the prior accepted completion-batching/weighted-packing version.
+Validation: independent references for all 36 reported case-variants; 36 compiler differential runs; new contract fixtures for ordered/unordered unique rows, duplicate first-match weights, same-pointer topology mutation, repeated sources, lifecycle hooks, context reuse, stable append order, device fallback, and balanced budgets; normal and ASan/UBSan at 1,4,32 workers.
+All profiling, compilation, tests and benchmarks were executed on the lab PC. Original 273-graph run remains stopped at 544 final-batch cases.
+Primary CSV: benchmark_results.csv; all trials: all_trials.csv; complete report: report.json.
+Rejected patches are explicitly named rejected_*.patch; raw measurements and logs remain in each stage.

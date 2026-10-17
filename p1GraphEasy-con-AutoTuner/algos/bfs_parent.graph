@@ -1,4 +1,5 @@
 graph G {
+  directed: false;
   edges: file "../graphs/grapheasy/violin/synth_v_1000000_e_1000000_seed_1.txt";
 };
 

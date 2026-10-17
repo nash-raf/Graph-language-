@@ -14,7 +14,7 @@ static void probe_team(void *state,int32_t worker,int32_t width) {
 static atomic_int large_calls;
 static atomic_int large_errors;
 static atomic_int upgrade_pending,cache_probe;
-static int32_t large_begins[2048],large_ends[2048];
+static int32_t large_begins[32768],large_ends[32768];
 static void large_begin(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
   (void)op;(void)u;++large_begins[autograph_exec_ctx_occurrence(ctx)];
   if(atomic_exchange(&upgrade_pending,0)&&autograph_build_clean_cut(ctx->graph,8)!=8)
@@ -52,7 +52,8 @@ static void check_rejected_preparation(ExecTestGraph *graph,const int32_t *input
 }
 int main(int argc,char **argv) {
   int cold=argc>1&&!strcmp(argv[1],"cold-failure");
-  enum { N=128, M=256, F=2047 };
+  /* Enough edges to exercise parallel preparation even at 32 lanes. */
+  enum { N=128, M=256, F=32767 };
   int64_t rows[N+1];int32_t cols[M],input[F],weights[M];
   for(int u=0;u<N;++u) {rows[u]=2*u;cols[2*u]=(u+1)%N;cols[2*u+1]=(u+7)%N;
     weights[2*u]=2*u+1;weights[2*u+1]=2*u+2;}

@@ -2835,7 +2835,9 @@ static int cc_arcs_order_sources(CcArcs *A) {
   return 1;
 }
 
+#include "clean_cut_preparation_runtime.inc"
 static int32_t autograph_build_clean_cut_inner(void *graph_ptr, int32_t partitions,AutoGraphMeta *meta) {
+  int32_t fast=sgpl_build_csr_cut_parallel(meta,partitions);if(fast>0)return fast;
   if (!meta)
     return 0;
   if (meta->csr_n <= 0)
@@ -3281,6 +3283,18 @@ static void sgpl_exec_pair_ops(sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
 #include "execution_scratch_runtime.inc"
 #include "array_frontier_runtime.inc"
 
+/* CPU pair-only array batches have no source lifecycle outside their
+ * records. Source/destination ownership puts all occurrences of a group in
+ * one partition, so only that partition marks and counts the group. GPU
+ * grouped records keep the original bookkeeping path. */
+static int sgpl_sparse_group_tracking(const sgpl_exec_ctx *ctx) {
+  return SGPL_EXEC_PAIR_BATCH && ctx->array_append_sites && ctx->array_pair_records &&
+      ctx->spatial_runtime_group==ctx->spatial_group &&
+      !ctx->gpu_group_offsets && ctx->spatial_groups_seen && ctx->gpu_records &&
+      ctx->op_count==1 && (ctx->ops[0].capabilities&SGPL_OP_PAIR) &&
+      (ctx->spatial_group==SGPL_SPATIAL_SOURCE || ctx->spatial_group==SGPL_SPATIAL_DESTINATION);
+}
+
 static void sgpl_exec_partition_body(int64_t index, void *opaque) {
   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
   sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
@@ -3333,13 +3347,18 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
     const int64_t *edges=ctx->gpu_group_offsets?NULL:ctx->array_record_edges;
     const uint8_t *gate=local.spatial_source_gate;
     uint8_t *seen=local.spatial_groups_seen;
+    int sparse_groups=sgpl_sparse_group_tracking(ctx);uint64_t groups_local=0;
+    SgplExecutionScratch *group_scratch=ctx->execution_scratch;
+    uint32_t *group_tags=sparse_groups&&group_scratch&&group_scratch->group_capacity>=(size_t)meta->csr_n?group_scratch->group_tags:NULL;
+    uint32_t group_epoch=group_tags?group_scratch->group_epoch:0;
     int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1];
 #define SGPL_PAIR_BATCH(MARK) do {                                           \
     for(int64_t i=first;i<last;++i) {                                        \
       if(sgpl_exec_failed(&local))return;                                   \
-      int32_t u=records[3*i],v=records[3*i+1];                               \
-      local.array_source_ordinal=sources[i];                               \
-      local.array_work_ordinal=work[i];local.array_append_seq=0;             \
+      int stride=ctx->array_compact_records?4:3;                            \
+      int32_t u=records[stride*i],v=records[stride*i+1];                     \
+      local.array_source_ordinal=ctx->array_compact_records?records[4*i+2]:sources[i]; \
+      local.array_work_ordinal=ctx->array_compact_records?records[4*i+3]:work[i];local.array_append_seq=0; \
       local.array_edge_index=edges?edges[i]:-1;                              \
       if(gate&&!gate[local.array_source_ordinal])continue;                   \
       MARK;                                                                \
@@ -3349,12 +3368,199 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
     if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE)
       SGPL_PAIR_BATCH(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED));
     else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE)
-      SGPL_PAIR_BATCH(seen[u]=1);
+      SGPL_PAIR_BATCH(if(group_tags){if(group_tags[u]!=group_epoch){group_tags[u]=group_epoch;seen[u]=1;++groups_local;}}else if(sparse_groups){if(!seen[u]){seen[u]=1;++groups_local;}}else seen[u]=1);
     else if(seen)
-      SGPL_PAIR_BATCH(seen[v]=1);
+      SGPL_PAIR_BATCH(if(group_tags){if(group_tags[v]!=group_epoch){group_tags[v]=group_epoch;seen[v]=1;++groups_local;}}else if(sparse_groups){if(!seen[v]){seen[v]=1;++groups_local;}}else seen[v]=1);
     else
       SGPL_PAIR_BATCH((void)0);
 #undef SGPL_PAIR_BATCH
+    if(groups_local)__atomic_fetch_add(&ctx->spatial_occupied_groups,groups_local,__ATOMIC_RELAXED);
+    if(sgpl_exec_failed(&local))return;
+  } else if (local.array_append_sites) {
+    for(int64_t i=ctx->gpu_record_offsets[p];i<ctx->gpu_record_offsets[p+1];++i) {
+      int32_t u=ctx->gpu_records[3*i],v=ctx->gpu_records[3*i+1],kind=ctx->gpu_records[3*i+2];
+      local.array_source_ordinal=ctx->gpu_record_sources[i];
+      local.array_work_ordinal=ctx->gpu_record_work[i];local.array_append_seq=0;
+      /* Device grouping may reorder records; its CPU fallback keeps the
+       * original language query rather than using an unreordered CSR hint. */
+      local.array_edge_index=ctx->array_record_edges&&!ctx->gpu_group_offsets?ctx->array_record_edges[i]:-1;
+      if(kind==1) {local.source_state=NULL;sgpl_exec_source_begin_ops(&local,u);}
+      else if(kind==2)sgpl_exec_source_end_ops(&local,u);
+      else if(!local.spatial_source_gate||local.spatial_source_gate[local.array_source_ordinal])
+        SGPL_EXEC_EMIT_PAIR(u,v);
+      if(sgpl_exec_failed(&local))return;
+    }
+  } else if (local.traversal_kind == SGPL_TRAVERSE_OWNER_V) {
+    int64_t rows = meta->push_row_count ? meta->push_row_count[p] : 0;
+    int64_t *rp = meta->push_rp ? meta->push_rp[p] : NULL;
+    int32_t *ci = meta->push_ci ? meta->push_ci[p] : NULL;
+    int32_t *indir = meta->push_indir ? meta->push_indir[p] : NULL;
+    for (int64_t r = 0; r < rows; ++r) {
+      int32_t u = indir[r];
+      if (local.membership && !local.membership[u])
+        continue;
+      if (local.spatial_source_gate && !local.spatial_source_gate[u]) continue;
+      for (int64_t j = rp[r]; j < rp[r + 1]; ++j)
+        SGPL_EXEC_EMIT_PAIR(u, ci[j]);
+    }
+  } else if (local.spatial_group != SGPL_SPATIAL_NONE) {
+    /* Visit the complete source range in original order. Empty rows must not
+     * move after later nonempty rows when source lifecycle is observable. */
+    int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+    int64_t count = meta->src_pair_count ? meta->src_pair_count[p] : 0, e = 0;
+    int32_t lo = (int32_t)meta->partition_start[p];
+    int32_t hi = (int32_t)meta->partition_start[p + 1];
+    for (int32_t u = lo; u < hi; ++u) {
+      if (local.membership && !local.membership[u]) continue;
+      if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0) return;
+      local.source_state = NULL;
+      if (local.spatial_group == SGPL_SPATIAL_SOURCE && local.spatial_groups_seen &&
+          sgpl_exec_has_cap(&local, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END))
+        local.spatial_groups_seen[u] = 1;
+      sgpl_exec_source_begin_ops(&local, u);
+      while (e < count && pairs[2*e] < u) ++e;
+      while (e < count && pairs[2*e] == u) {
+        if (!local.spatial_source_gate || local.spatial_source_gate[u])
+          SGPL_EXEC_EMIT_PAIR(u, pairs[2*e+1]);
+        ++e;
+      }
+      if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0) return;
+      sgpl_exec_source_end_ops(&local, u);
+    }
+  } else {
+    int32_t *pairs = meta->src_pairs ? meta->src_pairs[p] : NULL;
+    int64_t cnt = meta->src_pair_count ? meta->src_pair_count[p] : 0;
+    int32_t pending = -1;
+    int64_t e = 0;
+    for (; e < cnt; ++e) {
+      int32_t u = pairs[2 * e];
+      int32_t v = pairs[2 * e + 1];
+      if (local.membership && !local.membership[u])
+        continue;
+      if (pending != u) {
+        if (pending >= 0)
+          sgpl_exec_source_end_ops(&local, pending);
+        local.source_state = NULL; /* source-scoped claim channel (R7) */
+        sgpl_exec_source_begin_ops(&local, u);
+        pending = u;
+      }
+      if (!local.spatial_source_gate || local.spatial_source_gate[u])
+        SGPL_EXEC_EMIT_PAIR(u, v);
+    }
+    if (pending >= 0)
+      sgpl_exec_source_end_ops(&local, pending);
+
+    /* Complete source-domain coverage: a source in this partition's range
+     * with no pairs in the slice still gets begin/end, so a zero-pair source
+     * observes source_begin(u); source_end(u). */
+    if (meta->partition_start && pairs &&
+        sgpl_exec_has_cap(&local, SGPL_OP_SOURCE_BEGIN | SGPL_OP_SOURCE_END)) {
+      int64_t e2 = 0;
+      int32_t lo = (int32_t)meta->partition_start[p];
+      int32_t hi = (int32_t)meta->partition_start[p + 1];
+      for (int32_t u = lo; u < hi; ++u) {
+        if (local.membership && !local.membership[u])
+          continue;
+        while (e2 < cnt && pairs[2 * e2] < u)
+          ++e2;
+        if (e2 < cnt && pairs[2 * e2] == u)
+          continue;
+        local.source_state = NULL; /* source-scoped claim channel (R7) */
+        sgpl_exec_source_begin_ops(&local, u);
+        sgpl_exec_source_end_ops(&local, u);
+      }
+    }
+  }
+
+  sgpl_exec_partition_end_ops(&local, p);
+#undef SGPL_EXEC_EMIT_PAIR
+}
+
+/* Record-format versioning preserves the established reader verbatim.
+ * Only prepared bounded-hint records enter this fixed-stride reader. */
+#if defined(__GNUC__) && defined(__ELF__)
+__attribute__((noinline,section(".sgpl_packed_records")))
+#endif
+static void sgpl_exec_partition_body_packed(int64_t index, void *opaque) {
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
+  sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  int32_t p = (int32_t)index;
+  local.spatial_partition = p;
+  if (local.spatial_lane_seen && meta)
+    local.dest_seen = local.spatial_lane_seen + (int64_t)p * meta->csr_n;
+  if (local.execution_error && __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0)
+    return;
+  /* Hoist the single pair operation's callback and state: compiler-emitted
+   * contexts carry exactly one pair op, and holding them in locals keeps the
+   * per-pair path at one indirect call with no descriptor reloads. */
+  void (*PairFn)(void *, sgpl_exec_ctx *, int32_t, int32_t) = NULL;
+  void *PairState = NULL;
+
+  local.partition_state =
+      (local.partition_base && local.partition_stride > 0)
+          ? (char *)local.partition_base + (int64_t)p * local.partition_stride
+          : local.partition_base;
+
+  sgpl_exec_partition_begin_ops(&local, p);
+
+  if (local.op_count == 1 && (local.ops[0].capabilities & SGPL_OP_PAIR)) {
+    PairFn = local.ops[0].pair;
+    PairState = local.ops[0].state;
+  }
+#define SGPL_EXEC_EMIT_PAIR(U, V)                                             \
+  do {                                                                        \
+    if (local.execution_error &&                                              \
+        __atomic_load_n(local.execution_error, __ATOMIC_ACQUIRE) < 0)          \
+      return;                                                                 \
+    if (local.spatial_group == SGPL_SPATIAL_PAIR_OCCURRENCE)                   \
+      __atomic_fetch_add(&ctx->spatial_occupied_groups, 1, __ATOMIC_RELAXED);   \
+    else if (local.spatial_groups_seen)                                       \
+      local.spatial_groups_seen[local.spatial_group == SGPL_SPATIAL_SOURCE    \
+          ? (U) : (V)] = 1;                                                  \
+    if (PairFn)                                                               \
+      PairFn(PairState, &local, (U), (V));                                    \
+    else                                                                      \
+      sgpl_exec_pair_ops(&local, (U), (V));                                   \
+  } while (0)
+
+  if (local.array_append_sites && SGPL_EXEC_PAIR_BATCH && local.array_pair_records && PairFn) {
+    /* Preparation certifies that this batch contains pairs only. Select the
+     * grouping action once, retain the occurrence gate and cancellation at
+     * each callback, and leave lifecycle-bearing batches on the general path. */
+    const int32_t *records=ctx->gpu_records;
+    const int64_t *sources=ctx->gpu_record_sources,*work=ctx->gpu_record_work;
+    const int64_t *edges=ctx->gpu_group_offsets?NULL:ctx->array_record_edges;
+    const uint8_t *gate=local.spatial_source_gate;
+    uint8_t *seen=local.spatial_groups_seen;
+    int sparse_groups=sgpl_sparse_group_tracking(ctx);uint64_t groups_local=0;
+    SgplExecutionScratch *group_scratch=ctx->execution_scratch;
+    uint32_t *group_tags=sparse_groups&&group_scratch&&group_scratch->group_capacity>=(size_t)meta->csr_n?group_scratch->group_tags:NULL;
+    uint32_t group_epoch=group_tags?group_scratch->group_epoch:0;
+    int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1];
+#define SGPL_PAIR_BATCH(MARK) do {                                           \
+    for(int64_t i=first;i<last;++i) {                                        \
+      if(sgpl_exec_failed(&local))return;                                   \
+      int stride=5;                            \
+      int32_t u=records[stride*i],v=records[stride*i+1];                     \
+      local.array_source_ordinal=records[5*i+2]; \
+      local.array_work_ordinal=records[5*i+3];local.array_append_seq=0; \
+      local.array_edge_index=records[5*i+4];                              \
+      if(gate&&!gate[local.array_source_ordinal])continue;                   \
+      MARK;                                                                \
+      PairFn(PairState,&local,u,v);                                         \
+    }                                                                      \
+  } while(0)
+    if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE)
+      SGPL_PAIR_BATCH(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED));
+    else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE)
+      SGPL_PAIR_BATCH(if(group_tags){if(group_tags[u]!=group_epoch){group_tags[u]=group_epoch;seen[u]=1;++groups_local;}}else if(sparse_groups){if(!seen[u]){seen[u]=1;++groups_local;}}else seen[u]=1);
+    else if(seen)
+      SGPL_PAIR_BATCH(if(group_tags){if(group_tags[v]!=group_epoch){group_tags[v]=group_epoch;seen[v]=1;++groups_local;}}else if(sparse_groups){if(!seen[v]){seen[v]=1;++groups_local;}}else seen[v]=1);
+    else
+      SGPL_PAIR_BATCH((void)0);
+#undef SGPL_PAIR_BATCH
+    if(groups_local)__atomic_fetch_add(&ctx->spatial_occupied_groups,groups_local,__ATOMIC_RELAXED);
     if(sgpl_exec_failed(&local))return;
   } else if (local.array_append_sites) {
     for(int64_t i=ctx->gpu_record_offsets[p];i<ctx->gpu_record_offsets[p+1];++i) {
@@ -3597,7 +3803,7 @@ static void sgpl_exec_step_dispatch_body(sgpl_exec_ctx *ctx, int32_t partitions,
     ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
   }
   else
-    parallel_for_runtime(0, partitions, 1, sgpl_exec_partition_body, ctx, 0, 0);
+    parallel_for_runtime(0, partitions, 1, ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body, ctx, 0, 0);
 }
 
 static void *sgpl_exec_step_task(void *opaque) {
@@ -3917,7 +4123,11 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
         (v && *v && strcmp(v, "0") != 0 && strcmp(v, "false") != 0) ? 1 : 0;
   }
 
-  if (step_id < 0 || tdg_engine_disabled) {
+  /* Compiler-proved spatial graph steps already have an executable schedule.
+   * Preserve the graph DAG and parent budget; do not infer its scaling from
+   * generic DOALL/DOACROSS planning. Their TDG entry points stay unchanged. */
+  if (step_id < 0 || tdg_engine_disabled ||
+      (ctx->spatial_group != SGPL_SPATIAL_NONE && sgpl_ctx_dag_spatial(ctx) > 0)) {
     sgpl_exec_step_dispatch_body(ctx, partitions, sgpl_configured_worker_count());
     return;
   }
@@ -4016,14 +4226,18 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
       !autograph_build_clean_cut(graph_ptr,meta->partition_count))return SGPL_DAG_ERR_NOMEM;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
     ctx->execution_status = 0;
-    if(ctx->array_append_log) {
-      if(!SGPL_EXEC_SKIP_FRESH_CLEAR||!ctx->array_log_pristine)
-        memset(ctx->array_append_log,0,(size_t)ctx->array_work_count*ctx->array_append_sites*8);
-      ctx->array_log_pristine=0;
-    }
+    if(ctx->array_append_log)sgpl_array_begin_append(ctx);
     ctx->spatial_occupied_groups = 0;
     ctx->spatial_nontrivial = 0;
-    if (ctx->spatial_groups_seen && meta) memset(ctx->spatial_groups_seen, 0, (size_t)meta->csr_n);
+    if (ctx->spatial_groups_seen && meta) {
+      if(sgpl_sparse_group_tracking(ctx) && sgpl_group_epoch_begin(ctx,meta)) {
+        /* No per-record clear: the exclusive generation defines this round. */
+      } else if(sgpl_sparse_group_tracking(ctx)) {
+        int key=ctx->spatial_group==SGPL_SPATIAL_DESTINATION;
+        for(int64_t i=0;i<ctx->gpu_record_count;++i)
+          ctx->spatial_groups_seen[sgpl_array_record_endpoint(ctx,i,key)]=0;
+      } else memset(ctx->spatial_groups_seen,0,(size_t)meta->csr_n);
+    }
     ctx->execution_error = &ctx->execution_status;
     if (ctx->spatial_frontier_lanes && meta)
       for (int32_t lane = 0; lane < meta->partition_count; ++lane)
@@ -4097,7 +4311,7 @@ int32_t sgpl_exec_spatial_finish(sgpl_exec_ctx *ctx) {
     }
   }
 
-  if (ctx->spatial_groups_seen)
+  if (ctx->spatial_groups_seen && !sgpl_sparse_group_tracking(ctx))
     for (int64_t u = 0; u < meta->csr_n; ++u) ctx->spatial_occupied_groups += ctx->spatial_groups_seen[u] != 0;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
     ctx->spatial_nontrivial = ctx->spatial_occupied_groups >= 2;
@@ -4155,13 +4369,21 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   if (!ctx || !meta || partition < 0 || partition >= meta->partition_count)
     return SGPL_DAG_ERR_INVALID;
   if (sgpl_exec_failed(ctx)) return ctx->execution_status;
-  sgpl_exec_partition_body(partition, ctx);
+  if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
+  else sgpl_exec_partition_body(partition, ctx);
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
 }
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   if(ctx)sgpl_execution_scratch_detach(ctx);
   AutoGraphMeta *m=ctx?find_meta(ctx->graph):NULL;
   if(!m||m->partition_count<1||m->csr_n<0) return SGPL_DAG_ERR_INVALID;
+  /* Device grouping exposes the complete group array, unlike a sparse CPU
+   * batch. Materialize that full clean view at this consumer boundary. This
+   * also handles fallback after a lease has been reused for another graph. */
+  if(ctx->spatial_groups_seen) {
+    if(sgpl_gpu_host_access)sgpl_gpu_host_access(ctx->spatial_groups_seen,(uint64_t)m->csr_n,1);
+    memset(ctx->spatial_groups_seen,0,(size_t)m->csr_n);
+  }
   if(!ctx->array_append_sites&&__atomic_load_n(&m->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
       autograph_build_clean_cut(ctx->graph,m->partition_count)<1)return SGPL_DAG_ERR_NOMEM;
   if(ctx->gpu_record_offsets && ctx->gpu_group_offsets && ctx->gpu_partition_groups) return 0;
@@ -4171,6 +4393,7 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
     if(!ctx->gpu_record_offsets) {
       int rc=sgpl_array_records(ctx,m,begins,ends);if(rc<0)return rc;
     }
+    int rc=sgpl_array_expand_records(ctx);if(rc<0)return rc;
     records=ctx->gpu_record_count;goto records_ready;
   }
   for(int p=0;p<m->partition_count;++p) {
@@ -4326,7 +4549,8 @@ int32_t autograph_frontier_activate(sgpl_exec_ctx *ctx, int32_t v) {
       return 0;
     }
     int64_t at=ctx->array_work_ordinal*ctx->array_append_sites+ctx->array_append_seq++;
-    ctx->array_append_log[2*at+1]=v;ctx->array_append_log[2*at]=1;return 1;
+    ctx->array_append_log[2*at+1]=v;
+    ((uint32_t *)ctx->array_append_log)[2*at]=sgpl_array_append_epoch(ctx);return 1;
   }
   if(!ctx->dest_seen)return 0;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
@@ -4599,6 +4823,8 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
   if (!ctx)
     return;
   int scratch_cacheable=ctx->gpu_group_offsets==NULL;
+  /* Sparse CPU execution initializes its live endpoint domain in begin().
+   * Do not rescan occurrence records just to clear unused cached bytes. */
   free(ctx->ops);
   /* Non-array device records still use the original allocation path. */
   if(!ctx->execution_scratch||!ctx->array_append_sites) {
@@ -4621,8 +4847,10 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
   free(ctx->spatial_frontier_storage);
   free(ctx->spatial_frontier_offsets);
   free(ctx->spatial_membership);
-  free(ctx->spatial_source_gate);
-  free(ctx->spatial_groups_seen);
+  if(!ctx->execution_scratch||!ctx->array_append_sites) {
+    free(ctx->spatial_source_gate);
+    free(ctx->spatial_groups_seen);
+  }
   free(ctx->spatial_seen);
   free(ctx->spatial_lane_seen);
   /* Device-grouped storage can have residency registrations; do not retain it. */
@@ -4647,11 +4875,15 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
   if (n && count <= 0) return SGPL_DAG_ERR_NOMEM;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) return SGPL_DAG_ERR_INVALID;
   if (n) {
-    ctx->spatial_source_gate = malloc((size_t)(ctx->array_append_sites?ctx->array_source_count+1:n));
+    ctx->spatial_source_gate = ctx->array_append_sites&&ctx->execution_scratch
+        ? sgpl_execution_buffer(ctx,SGPL_BUF_SOURCE_GATE,(size_t)ctx->array_source_count+1,0)
+        : malloc((size_t)(ctx->array_append_sites?ctx->array_source_count+1:n));
     if (!ctx->spatial_source_gate) return SGPL_DAG_ERR_NOMEM;
     memset(ctx->spatial_source_gate, 1, (size_t)(ctx->array_append_sites?ctx->array_source_count+1:n));
     if (group != SGPL_SPATIAL_PAIR_OCCURRENCE) {
-      ctx->spatial_groups_seen = calloc((size_t)n, 1);
+      ctx->spatial_groups_seen = ctx->array_append_sites&&ctx->execution_scratch
+          ? sgpl_execution_buffer(ctx,SGPL_BUF_GROUPS,(size_t)n,0)
+          : calloc((size_t)n, 1);
       if (!ctx->spatial_groups_seen) return SGPL_DAG_ERR_NOMEM;
     }
   }
@@ -5939,6 +6171,20 @@ static int32_t sgpl_dag_partition_node(void *state, int64_t instance) {
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
 }
 
+#if defined(__GNUC__) && defined(__ELF__)
+__attribute__((noinline,section(".sgpl_packed_records")))
+#endif
+static int32_t sgpl_dag_partition_node_packed(void *state, int64_t instance) {
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)state;
+  if (ctx->execution_error && __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) < 0)
+    return __atomic_load_n(ctx->execution_error, __ATOMIC_RELAXED);
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE && meta && instance == meta->partition_count)
+    sgpl_exec_source_coverage(ctx, /*begin=*/1);
+  else sgpl_exec_partition_body_packed(instance, state);
+  return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
+}
+
 static _Atomic int32_t g_dag_last_dispatch_width = 0;
 
 int32_t sgpl_debug_last_dag_dispatch_width(void) {
@@ -5949,6 +6195,64 @@ int32_t sgpl_debug_last_dag_dispatch_width(void) {
  * partition body, so nothing about the round's lifecycle changes; only the
  * partition fan-out goes through the ready-work scheduler, now optionally with
  * proof-derived edges. */
+/* An edgeless proved spatial DAG needs no ready queue. Atomic work claiming
+ * balances independent partitions while the existing persistent pool retains
+ * the configured width. Callbacks, joins and cancellation remain unchanged. */
+typedef struct {
+  sgpl_exec_ctx *ctx;
+  int32_t count;
+  const int32_t *nodes;
+  _Atomic int32_t next, failed, completed;
+} SgplIndependentSpatial;
+static void sgpl_independent_spatial_worker(void *opaque,int32_t index) {
+  SgplIndependentSpatial *job=opaque;
+  sgpl_set_current_worker_index(index);
+  int32_t completed=0;
+  for(;;) {
+    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+    if(node>=job->count)break;
+    /* Every active lane owns one slot of the enclosing grant. Nested work
+     * retains that slot and cannot claim another lane behind its siblings. */
+    sgpl_push_thread_budget(1);
+    int32_t rc=sgpl_dag_partition_node(job->ctx,job->nodes?job->nodes[node]:node);
+    sgpl_pop_thread_budget();
+    ++completed;
+    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+  }
+  /* Completion is consumed only after the worker-pool join. Publish each
+   * lane's completed-node count once, instead of contending on one cache line
+   * for every node. Cancellation is still checked before each claim and
+   * callback errors are still published immediately. */
+  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+}
+
+#if defined(__GNUC__) && defined(__ELF__)
+__attribute__((noinline,section(".sgpl_packed_records")))
+#endif
+static void sgpl_independent_spatial_worker_packed(void *opaque,int32_t index) {
+  SgplIndependentSpatial *job=opaque;
+  sgpl_set_current_worker_index(index);
+  int32_t completed=0;
+  for(;;) {
+    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+    if(node>=job->count)break;
+    /* Every active lane owns one slot of the enclosing grant. Nested work
+     * retains that slot and cannot claim another lane behind its siblings. */
+    sgpl_push_thread_budget(1);
+    int32_t rc=sgpl_dag_partition_node_packed(job->ctx,job->nodes?job->nodes[node]:node);
+    sgpl_pop_thread_budget();
+    ++completed;
+    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+  }
+  /* Completion is consumed only after the worker-pool join. Publish each
+   * lane's completed-node count once, instead of contending on one cache line
+   * for every node. Cancellation is still checked before each claim and
+   * callback errors are still published immediately. */
+  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+}
+
 static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
                                          const sgpl_dag_relation_desc *relations,
                                          int32_t relation_count,
@@ -5979,7 +6283,7 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
   tmpl.node_count = partitions;
   tmpl.relation_count = relation_count;
   tmpl.relations = relation_count > 0 ? relations : NULL;
-  tmpl.node_fn = sgpl_dag_partition_node;
+  tmpl.node_fn = ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node;
   /* Section 15 work estimate: the partition's own pair count -- a measured
    * quantity, not the TDG cost model (which the pod measurements showed
    * mismatched).  It only caps the share; see dag_dispatch_budget. */
@@ -6005,6 +6309,37 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
     tmpl.node_count = partitions + 1;
     tmpl.relation_count = partitions;
     tmpl.relations = publication;
+  }
+  if (!relation_count && !ctx->spatial_coverage_pending &&
+      ctx->spatial_group != SGPL_SPATIAL_NONE && sgpl_ctx_dag_spatial(ctx)>0 &&
+      worker_budget>1) {
+    SgplIndependentSpatial job={.ctx=ctx,.count=partitions};
+    /* Empty pair-only partitions have no callback or group effects. Keep
+     * their logical completion, but omit context copies and work claiming.
+     * Any source/partition lifecycle capability retains every original node.
+     * The configured grant, join, combines and round lifecycle stay intact. */
+    int32_t local_nodes[256],*nodes=NULL;
+    if(ctx->array_append_sites && ctx->array_pair_records && ctx->gpu_record_offsets &&
+        !ctx->gpu_group_offsets && !sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN|
+          SGPL_OP_SOURCE_END|SGPL_OP_PARTITION_BEGIN|SGPL_OP_PARTITION_END)) {
+      nodes=partitions<=256?local_nodes:malloc((size_t)partitions*sizeof(*nodes));
+      if(nodes) {
+        int32_t active=0;
+        for(int32_t p=0;p<partitions;++p)
+          if(ctx->gpu_record_offsets[p]!=ctx->gpu_record_offsets[p+1])nodes[active++]=p;
+        job.nodes=nodes;job.count=active;
+        atomic_store_explicit(&job.completed,partitions-active,memory_order_relaxed);
+      }
+    }
+    int pool_rc=sgpl_run_on_worker_pool(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker,&job,worker_budget);
+    if(nodes && nodes!=local_nodes)free(nodes);
+    int status=pool_rc ? (pool_rc==-1?SGPL_DAG_ERR_NOMEM:SGPL_DAG_ERR_NODE) :
+        atomic_load_explicit(&job.failed,memory_order_acquire)?SGPL_DAG_ERR_NODE:SGPL_DAG_OK;
+    if(!status && (atomic_load(&job.completed)!=partitions || sgpl_exec_failed(ctx)))status=SGPL_DAG_ERR_NODE;
+    if(getenv("SGPL_DAG_DEBUG"))fprintf(stderr,
+        "[sgpl-dag-independent] nodes=%d budget=%d completed=%d rc=%d\n",
+        partitions,worker_budget,atomic_load(&job.completed),status);
+    return status;
   }
   int32_t status = autograph_execute_dag(&tmpl, ctx, worker_budget);
   free(publication);
@@ -6410,4 +6745,36 @@ int32_t sgpl_exec_dag_round_spatial(const sgpl_round_spatial_plan *p,
   }
   free(frames); free(rounds); free(edges);
   return status;
+}
+
+int32_t autograph_exec_ctx_bind_source_snapshot_range(sgpl_exec_ctx *ctx,int32_t slot,
+    const void *base,int64_t count,int64_t elem_bytes) {
+  /* Sparse random loads lose to bulk copying for dense source domains. */
+  if(!ctx||ctx->array_source_count<0||!ctx->array_sources||ctx->array_source_count>=count/8)
+    return autograph_exec_ctx_bind_snapshot_range(ctx,slot,base,count,elem_bytes);
+  if(count&&!base)return SGPL_DAG_ERR_INVALID;
+  int32_t rc=autograph_exec_ctx_reserve_snapshot(ctx,slot,count,elem_bytes);
+  if(rc<0)return rc;
+  for(int64_t i=0;i<ctx->array_source_count;++i)
+    if(ctx->array_sources[i]<0||ctx->array_sources[i]>=count)return SGPL_DAG_ERR_INVALID;
+  char *out=ctx->spatial_snapshots[slot];const char *in=base;
+  if(elem_bytes==4)for(int64_t i=0;i<ctx->array_source_count;++i) {
+    int32_t u=ctx->array_sources[i];memcpy(out+(size_t)u*4,in+(size_t)u*4,4);
+  } else if(elem_bytes==8)for(int64_t i=0;i<ctx->array_source_count;++i) {
+    int32_t u=ctx->array_sources[i];memcpy(out+(size_t)u*8,in+(size_t)u*8,8);
+  } else for(int64_t i=0;i<ctx->array_source_count;++i) {
+    int64_t u=ctx->array_sources[i];memcpy(out+u*elem_bytes,in+u*elem_bytes,(size_t)elem_bytes);
+  }
+  return SGPL_DAG_OK;
+}
+
+int32_t autograph_exec_ctx_reserve_prepared_output(sgpl_exec_ctx *c) {
+ if(!c||!c->array_append_sites||!c->array_output_slot||!c->array_output_capacity||
+    c->array_work_count<0||c->initial_next_size<0||
+    c->array_work_count>(INT32_MAX-c->initial_next_size)/c->array_append_sites)
+   return SGPL_DAG_ERR_INVALID;
+ int64_t count=c->initial_next_size+c->array_work_count*c->array_append_sites;
+ if(getenv("SGPL_FRONTIER_TEST_UNDERRESERVE"))count=0;
+ int32_t rc=sgpl_frontier_resize(c->array_output_slot,c->array_output_capacity,count,0);
+ if(rc<0)return rc;c->next_frontier=*c->array_output_slot;return 0;
 }

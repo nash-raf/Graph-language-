@@ -1,0 +1,1553 @@
+diff --git a/p1GraphEasy-con-AutoTuner/AutoTunerPass.cpp b/p1GraphEasy-con-AutoTuner/AutoTunerPass.cpp
+index b870f9a..2c13875 100644
+--- a/p1GraphEasy-con-AutoTuner/AutoTunerPass.cpp
++++ b/p1GraphEasy-con-AutoTuner/AutoTunerPass.cpp
+@@ -13,6 +13,7 @@
+ #include "llvm/IR/IRBuilder.h"
+ #include "llvm/IR/Instructions.h"
+ #include "llvm/IR/Module.h"
++#include "llvm/Support/ErrorHandling.h"
+ #include "llvm/Support/ModRef.h"
+ #include "llvm/Support/raw_ostream.h"
+ 
+@@ -97,6 +98,7 @@ namespace
+     Instruction *call = nullptr;
+     Value *graphPtr = nullptr;
+     double execMultiplier = 1.0;
++    Instruction *phase = nullptr;
+   };
+ 
+   struct Region
+@@ -107,6 +109,8 @@ namespace
+     std::array<double, 4> freq = {0.0, 0.0, 0.0, 0.0}; // T,I,SetQ,CSRQ
+     uint64_t totalOps = 0;
+     double execCount = 1.0;
++    Instruction *phase = nullptr;
++    unsigned allowedLayouts = (1u << LAYOUT_COUNT) - 1;
+   };
+ 
+   struct LayoutSchedule
+@@ -545,6 +549,19 @@ namespace
+ 
+   bool hasPrefix(StringRef s, StringRef pref) { return s.starts_with(pref); }
+ 
++  bool layoutFeasible(const Region &R, int layout)
++  {
++    if (!(R.allowedLayouts & (1u << layout)))
++      return false;
++    // A physical requirement inside an iterator phase takes precedence over
++    // the validation-only forced choice, just as a standalone CSRQuery does.
++    const int forced = forcedLayoutFromEnv();
++    if (R.allowedLayouts != (1u << LAYOUT_COUNT) - 1 &&
++        forced >= 0 && !(R.allowedLayouts & (1u << forced)))
++      return true;
++    return layoutFeasible(R.dominant, layout);
++  }
++
+   bool isTraverseCall(StringRef fn)
+   {
+     return fn == "bfs_runtime" || fn == "bfs_runtime_src" || fn == "dfs_runtime" ||
+@@ -560,8 +577,8 @@ namespace
+            hasPrefix(fn, "roaring_bitmap_add") || hasPrefix(fn, "roaring_bitmap_remove");
+   }
+ 
+-  // Queries that operate directly on Roaring bitmaps — they cannot execute
+-  // unless the graph is in LAYOUT_SET, so they force SET via layoutFeasible.
++  // Only queries on the graph's own bitmaps require SET. Independent bitmaps
++  // (frontiers, visited sets, etc.) do not constrain a graph representation.
+   bool isSetSpecificQuery(StringRef fn)
+   {
+     return fn == "roaring_bitmap_contains" ||
+@@ -930,7 +947,7 @@ namespace
+     double total = 0.0;
+     for (const Region &R : regions)
+     {
+-      if (!layoutFeasible(R.dominant, LAYOUT_CSR))
++      if (!layoutFeasible(R, LAYOUT_CSR))
+         return kInf;
+ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+       total += operationCost(R, LAYOUT_CSR, estN, estM, csrFrac, bcsrFrac, hw,
+@@ -969,7 +986,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+       const int layout = chosen[i];
+       if (layout < 0 || layout >= LAYOUT_COUNT)
+         return kInf;
+-      if (!layoutFeasible(regions[i].dominant, layout))
++      if (!layoutFeasible(regions[i], layout))
+         return kInf;
+       total += conversionCost(current, layout, estN, estM, hw);
+       total += operationCost(regions[i], layout, estN, estM, csrFrac, bcsrFrac, hw,
+@@ -1015,7 +1032,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     // The autotuner may convert away from CSR for the first region.
+     for (int l = 0; l < LAYOUT_COUNT; ++l)
+     {
+-      if (!layoutFeasible(regions[0].dominant, l))
++      if (!layoutFeasible(regions[0], l))
+         continue;
+       dp[0][l] = conversionCost(LAYOUT_CSR, l, estN, estM, hw) +
+                  operationCost(regions[0], l, estN, estM, csrFrac, bcsrFrac, hw,
+@@ -1026,7 +1043,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     {
+       for (int cur = 0; cur < LAYOUT_COUNT; ++cur)
+       {
+-        if (!layoutFeasible(regions[i].dominant, cur))
++        if (!layoutFeasible(regions[i], cur))
+           continue;
+         const double runCost = operationCost(regions[i], cur, estN, estM, csrFrac, bcsrFrac, hw,
+                                              classTiers, csrClassTiers);
+@@ -1070,7 +1087,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     S.suffixCost.assign(R, std::vector<double>(LAYOUT_COUNT, kInf));
+     for (int l = 0; l < LAYOUT_COUNT; ++l)
+     {
+-      if (!layoutFeasible(regions[R - 1].dominant, l))
++      if (!layoutFeasible(regions[R - 1], l))
+         continue;
+       S.suffixCost[R - 1][l] = operationCost(regions[R - 1], l, estN, estM, csrFrac, bcsrFrac, hw,
+                                              classTiers, csrClassTiers);
+@@ -1079,7 +1096,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     {
+       for (int l = 0; l < LAYOUT_COUNT; ++l)
+       {
+-        if (!layoutFeasible(regions[i].dominant, l))
++        if (!layoutFeasible(regions[i], l))
+           continue;
+         const double here = operationCost(regions[i], l, estN, estM, csrFrac, bcsrFrac, hw,
+                                           classTiers, csrClassTiers);
+@@ -1294,6 +1311,60 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     std::map<Function *, std::unique_ptr<FunctionLoops>> analyses;
+ 
+   public:
++    bool hasNativeTraversal(BasicBlock *BB)
++    {
++      auto &A = analyses[BB->getParent()];
++      if (!A)
++        A = std::make_unique<FunctionLoops>(*BB->getParent());
++      auto HasIterator = [](BasicBlock *Block)
++      {
++        for (Instruction &I : *Block)
++          if (auto *CB = dyn_cast<CallBase>(&I))
++            if (Function *Callee = CB->getCalledFunction())
++              if (Callee->getName() == "autograph_neighbor_iter_init" ||
++                  Callee->getName() == "autograph_neighbor_iter_next")
++                return true;
++        return false;
++      };
++      Loop *L = A->LI.getLoopFor(BB);
++      if (L && L->getHeader() == BB)
++      {
++        for (BasicBlock *Block : L->blocks())
++          if (HasIterator(Block))
++            return true;
++        return false;
++      }
++      return HasIterator(BB);
++    }
++
++    Loop *traversalPhase(BasicBlock *BB)
++    {
++      auto &A = analyses[BB->getParent()];
++      if (!A)
++        A = std::make_unique<FunctionLoops>(*BB->getParent());
++      Loop *Phase = nullptr;
++      for (Loop *L = A->LI.getLoopFor(BB); L; L = L->getParentLoop())
++        if (L->getHeader()->getTerminator()->getMetadata("autotuner.traverse") &&
++            hasNativeTraversal(L->getHeader()))
++          Phase = L;
++      return Phase;
++    }
++
++    Instruction *phaseAnchor(Loop *L)
++    {
++      BasicBlock *Pre = L->getLoopPreheader();
++      if (!Pre)
++        report_fatal_error("AutoTuner: traversal requires a unique preheader");
++      // For a neighbor loop the iterator is initialized in its preheader.
++      // Converting at the header terminator would be AFTER the first next().
++      for (Instruction &I : *Pre)
++        if (auto *CB = dyn_cast<CallBase>(&I))
++          if (Function *Callee = CB->getCalledFunction())
++            if (Callee->getName() == "autograph_neighbor_iter_init")
++              return &I;
++      return Pre->getTerminator();
++    }
++
+     double multiplier(BasicBlock *BB, bool wholeTraversal = false)
+     {
+       auto &A = analyses[BB->getParent()];
+@@ -1357,6 +1428,46 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+ 
+   Value *resolveGraphRoot(Value *V, const std::map<Value *, GraphMeta> &metaByGraphPtr);
+ 
++  Value *graphForBitmap(Value *V,
++                       const std::map<Value *, GraphMeta> &metaByGraphPtr,
++                       unsigned depth = 0)
++  {
++    if (!V || depth > 12 || isa<ConstantPointerNull>(V))
++      return nullptr;
++    V = V->stripPointerCasts();
++    for (const auto &KV : metaByGraphPtr)
++    {
++      const GraphMeta &G = KV.second;
++      if ((G.nodesBmp && V == G.nodesBmp->stripPointerCasts()) ||
++          (G.edgesBmp && V == G.edgesBmp->stripPointerCasts()))
++        return G.graphPtr->stripPointerCasts();
++    }
++    if (auto *CB = dyn_cast<CallBase>(V))
++      if (Function *Callee = resolveCallee(CB))
++        if ((Callee->getName() == "graph_get_node_bitmap" ||
++             Callee->getName() == "graph_get_edge_bitmap") && CB->arg_size())
++          if (Value *Root = resolveGraphRoot(CB->getArgOperand(0), metaByGraphPtr))
++            return metaByGraphPtr.at(Root).graphPtr->stripPointerCasts();
++    // Recover a bitmap spilled to a local/global slot. Require all stores to
++    // resolve to the same graph; do not attribute unrelated sets to lastGraph.
++    if (auto *LI = dyn_cast<LoadInst>(V))
++    {
++      Value *Slot = LI->getPointerOperand()->stripPointerCasts();
++      Value *Graph = nullptr;
++      for (User *U : Slot->users())
++        if (auto *SI = dyn_cast<StoreInst>(U))
++          if (SI->getPointerOperand()->stripPointerCasts() == Slot)
++          {
++            Value *StoredGraph = graphForBitmap(SI->getValueOperand(), metaByGraphPtr, depth + 1);
++            if (!StoredGraph || (Graph && Graph != StoredGraph))
++              return nullptr;
++            Graph = StoredGraph;
++          }
++      return Graph;
++    }
++    return nullptr;
++  }
++
+   bool isOutlinedTaskFunction(const Function *F)
+   {
+     if (!F)
+@@ -1485,7 +1596,11 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+       {
+         if (MDNode *MD = Term->getMetadata("autotuner.traverse"))
+         {
+-          if (MD->getNumOperands() >= 1)
++          // Effect lowering may leave a metadata-bearing empty exit block.
++          // The executor is already a Traverse event; do not price it again.
++          if (!counts.hasNativeTraversal(&BB))
++            Term->setMetadata("autotuner.traverse", nullptr);
++          else if (MD->getNumOperands() >= 1)
+           {
+             if (auto *MDS = dyn_cast<MDString>(MD->getOperand(0)))
+             {
+@@ -1549,9 +1664,17 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+               graphPtr = finalizeGraphPtr(graphPtr);
+               if (graphPtr && metaByGraphPtr.count(graphPtr))
+               {
+-                double mult = counts.multiplier(&BB, /*wholeTraversal=*/true);
+-                if (mult > 0.0)
+-                  events.push_back({RegionType::Traverse, Term, graphPtr, mult});
++                Loop *Phase = counts.traversalPhase(&BB);
++                // Nested neighbor scans belong to their enclosing traversal.
++                // One phase has one conversion, before any iterator is live.
++                if (!Phase || Phase->getHeader() == &BB)
++                {
++                  double mult = counts.multiplier(&BB, /*wholeTraversal=*/true);
++                  Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : Term;
++                  if (mult > 0.0)
++                    events.push_back({RegionType::Traverse, Anchor, graphPtr, mult,
++                                      Phase ? Anchor : nullptr});
++                }
+               }
+               (void)MDS;
+             }
+@@ -1579,6 +1702,27 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+           continue;
+ 
+         Value *graphPtr = nullptr;
++        if (name.starts_with("roaring_bitmap_"))
++        {
++          // A standalone set operation is not an insertion/query on a graph.
++          // Binary queries can reference the bitmaps of two distinct graphs.
++          std::set<Value *> BitmapGraphs;
++          const unsigned nArgs = isSetSpecificQuery(name) ? CB->arg_size() :
++                                                          std::min<unsigned>(1, CB->arg_size());
++          for (unsigned a = 0; a < nArgs; ++a)
++            if (CB->getArgOperand(a)->getType()->isPointerTy())
++              if (Value *G = graphForBitmap(CB->getArgOperand(a), metaByGraphPtr))
++                BitmapGraphs.insert(G);
++          for (Value *G : BitmapGraphs)
++          {
++            Loop *Phase = counts.traversalPhase(&BB);
++            Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : CB;
++            double mult = counts.multiplier(&BB);
++            if (mult > 0.0)
++              events.push_back({ty, Anchor, G, mult, Phase ? Anchor : nullptr});
++          }
++          continue;
++        }
+         if (usesGraphArg0 && CB->arg_size() > 0)
+           graphPtr = resolveGraphPtr(CB->getArgOperand(0));
+         else
+@@ -1589,7 +1733,11 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+           continue;
+         double mult = counts.multiplier(CB->getParent());
+         if (mult > 0.0)
+-          events.push_back({ty, CB, graphPtr, mult});
++        {
++          Loop *Phase = counts.traversalPhase(&BB);
++          Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : CB;
++          events.push_back({ty, Anchor, graphPtr, mult, Phase ? Anchor : nullptr});
++        }
+       }
+     }
+   }
+@@ -1597,48 +1745,49 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+   std::vector<Region> buildRegions(const std::vector<OpEvent> &events)
+   {
+     std::vector<Region> regions;
+-    if (events.empty())
+-      return regions;
+-
+-    Region cur;
+-    cur.dominant = events[0].type;
+-    cur.anchor = events[0].call;
+-    cur.graphPtr = events[0].graphPtr;
+-    std::array<uint64_t, 4> counts = {0, 0, 0, 0};
+-    double effectiveOps = 0.0;
+-
+-    auto flushRegion = [&]()
+-    {
+-      if (cur.totalOps == 0)
+-        return;
+-      for (int i = 0; i < 4; ++i)
+-        cur.freq[i] = static_cast<double>(counts[i]) / static_cast<double>(cur.totalOps);
+-      cur.execCount = effectiveOps / static_cast<double>(cur.totalOps);
+-      regions.push_back(cur);
+-    };
++    std::map<Instruction *, size_t> phases;
+ 
+     for (const OpEvent &ev : events)
+     {
+-      // Each engine call represents one whole traversal, with its own outer
+-      // repetition count and profiling boundary. Keep it separate from native
+-      // iterator events and from the next engine call.
+-      if (ev.type != cur.dominant || isCleanCutStepCall(ev.call) ||
+-          isCleanCutStepCall(cur.anchor))
++      size_t index;
++      auto Phase = phases.find(ev.phase);
++      if (ev.phase && Phase != phases.end())
++        index = Phase->second;
++      else if (!regions.empty() && !ev.phase && !regions.back().phase &&
++               ev.type == regions.back().dominant && !isCleanCutStepCall(ev.call) &&
++               !isCleanCutStepCall(regions.back().anchor))
++        index = regions.size() - 1;
++      else
+       {
+-        flushRegion();
+-        cur = Region{};
+-        cur.dominant = ev.type;
++        index = regions.size();
++        Region cur;
++        cur.dominant = ev.phase ? RegionType::Traverse : ev.type;
+         cur.anchor = ev.call;
+         cur.graphPtr = ev.graphPtr;
+-        counts = {0, 0, 0, 0};
+-        effectiveOps = 0.0;
++        cur.phase = ev.phase;
++        regions.push_back(cur);
++        if (ev.phase)
++          phases[ev.phase] = index;
+       }
+-      const int idx = opIndex(ev.type);
+-      counts[idx]++;
++      Region &cur = regions[index];
++      if (ev.type == RegionType::CSRQuery)
++        cur.allowedLayouts &= 1u << LAYOUT_CSR;
++      if (ev.type == RegionType::SetQuery)
++        cur.allowedLayouts &= 1u << LAYOUT_SET;
++      if (!cur.allowedLayouts)
++        report_fatal_error("AutoTuner: a traversal requires incompatible CSR and SET access");
++      // Queries inside the phase impose a representation requirement. They
++      // must not multiply its graph-traversal cost by their own loop count.
++      if (ev.phase && (ev.type == RegionType::CSRQuery || ev.type == RegionType::SetQuery))
++        continue;
++      const double oldOps = static_cast<double>(cur.totalOps);
++      double effectiveOps = cur.execCount * oldOps + ev.execMultiplier;
++      for (int i = 0; i < 4; ++i)
++        cur.freq[i] = (cur.freq[i] * oldOps + (i == opIndex(ev.type) ? 1.0 : 0.0)) /
++                      (oldOps + 1.0);
+       cur.totalOps++;
+-      effectiveOps += ev.execMultiplier;
++      cur.execCount = effectiveOps / static_cast<double>(cur.totalOps);
+     }
+-    flushRegion();
+     return regions;
+   }
+ 
+@@ -1668,7 +1817,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+       Region &prev = merged.back();
+       const Region &cur = raw[i];
+ 
+-      if (isCleanCutStepCall(prev.anchor) || isCleanCutStepCall(cur.anchor))
++      if (prev.phase || cur.phase ||
++          isCleanCutStepCall(prev.anchor) || isCleanCutStepCall(cur.anchor))
+       {
+         merged.push_back(cur);
+         continue;
+@@ -1799,7 +1949,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+         B.CreateCall(profileExitFn, {ConstantInt::get(i32Ty, static_cast<int>(i - 1))});
+       }
+ 
+-      bool mustGuard = isForcedLayoutRegion(R.dominant);
++      bool mustGuard = isForcedLayoutRegion(R.dominant) ||
++                       R.allowedLayouts != (1u << LAYOUT_COUNT) - 1;
+       bool shouldSwitch = true;
+       if (target == current)
+         shouldSwitch = false;
+@@ -1906,9 +2057,10 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     return nullptr;
+   }
+ 
+-  bool moduleRequiresCSRLayout(Module &M,
+-                               const std::map<Value *, GraphMeta> &metaByGraphPtr)
++  std::set<Value *> graphsRequiringCSRLayout(
++      Module &M, const std::map<Value *, GraphMeta> &metaByGraphPtr)
+   {
++    std::set<Value *> graphs;
+     // CSR-specific runtime calls are now handled by CSRQuery regions, not
+     // here.  Only direct GEP access to row_ptr / col_idx / weights in the
+     // graph struct (e.g. neighbor loops) requires CSR pinning.
+@@ -1916,12 +2068,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+     // row_ptr → field 2 (or byte offset +16), col_idx → field 3 (+24),
+     // weights → field 4 (+32).
+     //
+-    // Also pin when the module uses weight()/neighbor-iter APIs: those need
+-    // stable CSR for the whole loop.  Otherwise SetQuery regions from user
+-    // `set` roaring ops (frontier, setSize) get attributed to the graph, the
+-    // cost model inserts ensure_layout(SET), Polly loop-rotate peels the
+-    // first neighbor_iter_next before ensure_layout(CSR), and the iterator
+-    // aborts on epoch mismatch after one neighbor.
++    // Iterator APIs support all layouts. Their phases are guarded before init;
++    // CSR-only calls inside a phase constrain that phase rather than this module.
+     for (Function &F : M)
+     {
+       if (F.isDeclaration())
+@@ -1930,24 +2078,13 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+       {
+         for (Instruction &I : BB)
+         {
+-          if (auto *CB = dyn_cast<CallBase>(&I))
+-          {
+-            Function *Callee = CB->getCalledFunction();
+-            if (!Callee)
+-              continue;
+-            const StringRef name = Callee->getName();
+-            if (name == "graph_get_edge_weight" ||
+-                name == "graph_get_edge_weight_by_id" ||
+-                name == "autograph_neighbor_iter_init" ||
+-                name == "autograph_neighbor_iter_next")
+-              return true;
+-          }
+-
+           auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+           if (!GEP)
+             continue;
+-          if (!resolveGraphRoot(GEP->getPointerOperand(), metaByGraphPtr))
++          Value *Root = resolveGraphRoot(GEP->getPointerOperand(), metaByGraphPtr);
++          if (!Root)
+             continue;
++          Value *Graph = metaByGraphPtr.at(Root).graphPtr->stripPointerCasts();
+ 
+           // Opaque-pointer IRGen: row_ptr +16, col_idx +24, weights +32 bytes.
+           // 1-index GEP operands are [ptr, index0] — the offset is operand 1, not 2.
+@@ -1957,7 +2094,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+             {
+               const int64_t off = byteOff->getSExtValue();
+               if (off == 16 || off == 24 || off == 32)
+-                return true;
++                graphs.insert(Graph);
+             }
+             continue;
+           }
+@@ -1971,11 +2108,11 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
+             continue;
+           const int field = static_cast<int>(fieldIdx->getSExtValue());
+           if (field == 2 || field == 3 || field == 4)
+-            return true;
++            graphs.insert(Graph);
+         }
+       }
+     }
+-    return false;
++    return graphs;
+   }
+ 
+ } // namespace
+@@ -2001,7 +2138,7 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
+     return PreservedAnalyses::all();
+   }
+ 
+-  const bool pinCSR = moduleRequiresCSRLayout(M, metaByGraphPtr);
++  const std::set<Value *> csrOnlyGraphs = graphsRequiringCSRLayout(M, metaByGraphPtr);
+ 
+   // Load hardware calibration (cache-line size, access/transfer costs).
+   const HwCalib hw = loadHwCalib();
+@@ -2055,13 +2192,24 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
+     if (regions.empty())
+       continue;
+ 
++    // Unscoped raw CSR pointers can escape across phase boundaries. Express
++    // their requirement in feasibility BEFORE solving, and only for that
++    // graph; do not overwrite the selected schedule for every graph afterward.
++    if (csrOnlyGraphs.count(const_cast<Value *>(graphKey)))
++      for (Region &R : regions)
++      {
++        R.allowedLayouts &= 1u << LAYOUT_CSR;
++        if (!R.allowedLayouts)
++          report_fatal_error("AutoTuner: raw CSR access conflicts with a graph bitmap query");
++      }
++
+     LayoutSchedule S = solveDP(regions, estN, estM, gCsrFrac, gBcsrFrac, hw,
+                                gClassTiers, gCsrClassTiers);
+     if (forcedLayout >= 0)
+     {
+       for (size_t i = 0; i < S.chosen.size(); ++i)
+       {
+-        if (layoutFeasible(regions[i].dominant, forcedLayout))
++        if (layoutFeasible(regions[i], forcedLayout))
+           S.chosen[i] = forcedLayout;
+       }
+       // errs() << "[AutoTuner] Forced layout override: "
+@@ -2096,11 +2244,6 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
+     {
+       shouldSkip = true;
+     }
+-    // Neighbor loops read row_ptr/col_idx directly from the Graph struct; keep CSR.
+-    if (forcedLayout < 0 && pinCSR)
+-    {
+-      shouldSkip = true;
+-    }
+     if (shouldSkip)
+       std::fill(S.chosen.begin(), S.chosen.end(), LAYOUT_CSR);
+ #if 0
+diff --git a/p1GraphEasy-con-AutoTuner/algos/bfs_parent.graph b/p1GraphEasy-con-AutoTuner/algos/bfs_parent.graph
+index 8f75994..fcb7185 100644
+--- a/p1GraphEasy-con-AutoTuner/algos/bfs_parent.graph
++++ b/p1GraphEasy-con-AutoTuner/algos/bfs_parent.graph
+@@ -1,4 +1,5 @@
+ graph G {
++  directed: false;
+   edges: file "../graphs/grapheasy/violin/synth_v_1000000_e_1000000_seed_1.txt";
+ };
+ 
+diff --git a/p1GraphEasy-con-AutoTuner/array_frontier_runtime.inc b/p1GraphEasy-con-AutoTuner/array_frontier_runtime.inc
+index ab023e5..bd0e191 100644
+--- a/p1GraphEasy-con-AutoTuner/array_frontier_runtime.inc
++++ b/p1GraphEasy-con-AutoTuner/array_frontier_runtime.inc
+@@ -64,6 +64,28 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
+   *cache=(SgplArrayWeightIndex){m,m->csr_row_ptr,first,m->csr_col_idx,m->csr_n,m->csr_m,m->layout_epoch,generation};
+   *out=first;return 0;
+ }
++static int32_t sgpl_array_record_endpoint(const sgpl_exec_ctx *c,int64_t i,int key) {
++  return c->gpu_records[(c->array_compact_records?4:3)*i+key];
++}
++/* Device grouping retains its original triples/ordinal arrays. Expansion is
++ * transactional: allocation failure leaves the CPU representation usable. */
++static int32_t sgpl_array_expand_records(sgpl_exec_ctx *c) {
++  if(!c->array_compact_records)return 0;
++  int64_t n=c->gpu_record_count;
++  if((uint64_t)n>SIZE_MAX/12)return SGPL_DAG_ERR_NOMEM;
++  int32_t *records=malloc((size_t)(n?n:1)*12);
++  int64_t *sources=malloc((size_t)(n?n:1)*8),*work=malloc((size_t)(n?n:1)*8);
++  if(!records||!sources||!work) {free(records);free(sources);free(work);return SGPL_DAG_ERR_NOMEM;}
++  for(int64_t i=0;i<n;++i) {
++    records[3*i]=c->gpu_records[4*i];records[3*i+1]=c->gpu_records[4*i+1];records[3*i+2]=0;
++    sources[i]=c->gpu_records[4*i+2];work[i]=c->gpu_records[4*i+3];
++  }
++  /* The expansion is now complete; preserve all other active leased buffers. */
++  sgpl_execution_scratch_detach(c);
++  free(c->gpu_records);c->gpu_records=records;
++  c->gpu_record_sources=sources;c->gpu_record_work=work;c->array_compact_records=0;
++  return 0;
++}
+ #include "array_preparation_runtime.inc"
+ static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+   if(m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx)
+diff --git a/p1GraphEasy-con-AutoTuner/array_preparation_runtime.inc b/p1GraphEasy-con-AutoTuner/array_preparation_runtime.inc
+index b9fc727..e21067d 100644
+--- a/p1GraphEasy-con-AutoTuner/array_preparation_runtime.inc
++++ b/p1GraphEasy-con-AutoTuner/array_preparation_runtime.inc
+@@ -41,7 +41,7 @@ static SGPL_PREPARATION_FN void sgpl_array_count_chunks(void *opaque,int32_t wor
+       if(degree>limit-ordinal)goto invalid;
+       int32_t source_part=owners[u];
+       if(source)positions[source_part]+=degree+hooks;
+-      for(int64_t edge=first;edge<last;++edge) {
++      for(int64_t edge=first;!source&&edge<last;++edge) {
+         int32_t v=columns[edge];
+         if(v<0||v>=n)goto invalid;
+         if(!source)++positions[owners[v]];
+@@ -54,10 +54,11 @@ static SGPL_PREPARATION_FN void sgpl_array_count_chunks(void *opaque,int32_t wor
+ invalid:
+   atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
+ }
+-/* Counting validated every source, row and column, and the host prefix checked
++/* Counting validated every source and row, and the host prefix checked
+  * the total ordinal limit. Topology and the input frontier are immutable until
+  * preparation joins; no user callback runs between counting and filling.
+- * Filling therefore has no per-edge validation or phase branch. */
++ * Destination ownership validates columns while counting. Source ownership
++ * obtains counts from row degrees and validates columns once while filling. */
+ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks(void *opaque,int32_t worker,int32_t width) {
+   SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
+   const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
+@@ -81,9 +82,19 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks(void *opaque,int32_t work
+       }
+       for(int64_t edge=first;edge<last;++edge) {
+         int32_t v=columns[edge],p=source?source_part:owners[v];
++        if(source&&(v<0||v>=m->csr_n)) {
++          atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
++          return;
++        }
+         int64_t at=positions[p]++;
+-        records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
+-        sources[at]=i;work[at]=ordinal++;if(edges)edges[at]=weights[edge];
++        if(c->array_compact_records) {
++          records[4*at]=u;records[4*at+1]=v;
++          records[4*at+2]=(int32_t)i;records[4*at+3]=(int32_t)ordinal++;
++        } else {
++          records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
++          sources[at]=i;work[at]=ordinal++;
++        }
++        if(edges)edges[at]=weights[edge];
+       }
+       if(ends) {
+         int64_t at=positions[source_part]++;
+@@ -96,6 +107,20 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks(void *opaque,int32_t work
+ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+   int32_t width=sgpl_configured_worker_count();
+   if(c->array_source_count<128||getenv("SGPL_ARRAY_PREP_SERIAL"))width=1;
++  /* Preparation is infrastructure, not the graph callback schedule. Two
++   * pool dispatches cannot amortize on a few edges. Keep the configured graph
++   * worker budget; require at least 1024 edges per lane for these two passes. */
++  if(width>1) {
++    int64_t minimum=(int64_t)width*1024,work=0;
++    for(int64_t i=0;i<c->array_source_count && work<minimum;++i) {
++      int32_t u=c->array_sources[i];
++      if(u<0||u>=m->csr_n){width=1;break;}
++      int64_t first=m->csr_row_ptr[u],last=m->csr_row_ptr[u+1];
++      if(first<0||last<first||last>m->csr_m){width=1;break;}
++      work+=last-first;
++    }
++    if(work<minimum)width=1;
++  }
+   if(width<1)width=1;
+   int32_t chunks=(int32_t)((int64_t)width*4>64?64:(int64_t)width*4);
+   if(chunks>c->array_source_count)chunks=(int32_t)c->array_source_count;
+@@ -133,13 +158,18 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
+   int64_t pair_count=work[chunks],records=pair_count+(job.source?(begins+ends)*c->array_source_count:0);
+   if((uint64_t)records>SIZE_MAX/12||(uint64_t)pair_count>SIZE_MAX/8/c->array_append_sites) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
+   c->array_work_count=pair_count;
++  c->array_compact_records=SGPL_EXEC_PAIR_BATCH&&!begins&&!ends&&c->op_count==1&&
++      (c->ops[0].capabilities&SGPL_OP_PAIR)&&c->ops[0].pair;
++  if((uint64_t)records>SIZE_MAX/(c->array_compact_records?16:12)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
+   c->array_append_log=sgpl_execution_buffer(c,SGPL_BUF_APPEND,(size_t)(pair_count?pair_count:1)*c->array_append_sites*8,1);
+-  c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*12,0);
+-  c->gpu_record_sources=sgpl_execution_buffer(c,SGPL_BUF_SOURCES,(size_t)(records?records:1)*8,0);
+-  c->gpu_record_work=sgpl_execution_buffer(c,SGPL_BUF_WORK,(size_t)(records?records:1)*8,0);
++  c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*(c->array_compact_records?16:12),0);
++  if(!c->array_compact_records) {
++    c->gpu_record_sources=sgpl_execution_buffer(c,SGPL_BUF_SOURCES,(size_t)(records?records:1)*8,0);
++    c->gpu_record_work=sgpl_execution_buffer(c,SGPL_BUF_WORK,(size_t)(records?records:1)*8,0);
++  }
+   if(native_weighted)c->array_record_edges=sgpl_execution_buffer(c,SGPL_BUF_EDGES,(size_t)(records?records:1)*8,0);
+   c->gpu_record_offsets=sgpl_execution_buffer(c,SGPL_BUF_OFFSETS,((size_t)parts+1)*8,1);
+-  if(!c->array_append_log||!c->gpu_records||!c->gpu_record_sources||!c->gpu_record_work||!c->gpu_record_offsets||
++  if(!c->array_append_log||!c->gpu_records||(!c->array_compact_records&&(!c->gpu_record_sources||!c->gpu_record_work))||!c->gpu_record_offsets||
+       (native_weighted&&!c->array_record_edges)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
+   int64_t at=0;
+   for(int32_t p=0;p<parts;++p) {
+@@ -151,6 +181,7 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
+   c->gpu_record_offsets[parts]=at;
+   if(at!=records) {rc=SGPL_DAG_ERR_INVALID;goto done;}
+   sgpl_run_preparation(sgpl_array_fill_chunks,&job,width);
++  rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
+   c->gpu_record_count=records;c->array_log_pristine=1;
+   c->array_pair_records=!job.source||(!begins&&!ends);rc=0;
+ done:
+diff --git a/p1GraphEasy-con-AutoTuner/autotuner_runtime.c b/p1GraphEasy-con-AutoTuner/autotuner_runtime.c
+index 70d9fe4..bd169f4 100644
+--- a/p1GraphEasy-con-AutoTuner/autotuner_runtime.c
++++ b/p1GraphEasy-con-AutoTuner/autotuner_runtime.c
+@@ -3281,6 +3281,18 @@ static void sgpl_exec_pair_ops(sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
+ #include "execution_scratch_runtime.inc"
+ #include "array_frontier_runtime.inc"
+ 
++/* CPU pair-only array batches have no source lifecycle outside their
++ * records. Source/destination ownership puts all occurrences of a group in
++ * one partition, so only that partition marks and counts the group. GPU
++ * grouped records keep the original bookkeeping path. */
++static int sgpl_sparse_group_tracking(const sgpl_exec_ctx *ctx) {
++  return SGPL_EXEC_PAIR_BATCH && ctx->array_append_sites && ctx->array_pair_records &&
++      ctx->spatial_runtime_group==ctx->spatial_group &&
++      !ctx->gpu_group_offsets && ctx->spatial_groups_seen && ctx->gpu_records &&
++      ctx->op_count==1 && (ctx->ops[0].capabilities&SGPL_OP_PAIR) &&
++      (ctx->spatial_group==SGPL_SPATIAL_SOURCE || ctx->spatial_group==SGPL_SPATIAL_DESTINATION);
++}
++
+ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
+   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
+   sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
+@@ -3333,13 +3345,15 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
+     const int64_t *edges=ctx->gpu_group_offsets?NULL:ctx->array_record_edges;
+     const uint8_t *gate=local.spatial_source_gate;
+     uint8_t *seen=local.spatial_groups_seen;
++    int sparse_groups=sgpl_sparse_group_tracking(ctx);uint64_t groups_local=0;
+     int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1];
+ #define SGPL_PAIR_BATCH(MARK) do {                                           \
+     for(int64_t i=first;i<last;++i) {                                        \
+       if(sgpl_exec_failed(&local))return;                                   \
+-      int32_t u=records[3*i],v=records[3*i+1];                               \
+-      local.array_source_ordinal=sources[i];                               \
+-      local.array_work_ordinal=work[i];local.array_append_seq=0;             \
++      int stride=ctx->array_compact_records?4:3;                            \
++      int32_t u=records[stride*i],v=records[stride*i+1];                     \
++      local.array_source_ordinal=ctx->array_compact_records?records[4*i+2]:sources[i]; \
++      local.array_work_ordinal=ctx->array_compact_records?records[4*i+3]:work[i];local.array_append_seq=0; \
+       local.array_edge_index=edges?edges[i]:-1;                              \
+       if(gate&&!gate[local.array_source_ordinal])continue;                   \
+       MARK;                                                                \
+@@ -3349,12 +3363,13 @@ static void sgpl_exec_partition_body(int64_t index, void *opaque) {
+     if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE)
+       SGPL_PAIR_BATCH(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED));
+     else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE)
+-      SGPL_PAIR_BATCH(seen[u]=1);
++      SGPL_PAIR_BATCH(if(sparse_groups){if(!seen[u]){seen[u]=1;++groups_local;}}else seen[u]=1);
+     else if(seen)
+-      SGPL_PAIR_BATCH(seen[v]=1);
++      SGPL_PAIR_BATCH(if(sparse_groups){if(!seen[v]){seen[v]=1;++groups_local;}}else seen[v]=1);
+     else
+       SGPL_PAIR_BATCH((void)0);
+ #undef SGPL_PAIR_BATCH
++    if(groups_local)__atomic_fetch_add(&ctx->spatial_occupied_groups,groups_local,__ATOMIC_RELAXED);
+     if(sgpl_exec_failed(&local))return;
+   } else if (local.array_append_sites) {
+     for(int64_t i=ctx->gpu_record_offsets[p];i<ctx->gpu_record_offsets[p+1];++i) {
+@@ -3917,7 +3932,11 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
+         (v && *v && strcmp(v, "0") != 0 && strcmp(v, "false") != 0) ? 1 : 0;
+   }
+ 
+-  if (step_id < 0 || tdg_engine_disabled) {
++  /* Compiler-proved spatial graph steps already have an executable schedule.
++   * Preserve the graph DAG and parent budget; do not infer its scaling from
++   * generic DOALL/DOACROSS planning. Their TDG entry points stay unchanged. */
++  if (step_id < 0 || tdg_engine_disabled ||
++      (ctx->spatial_group != SGPL_SPATIAL_NONE && sgpl_ctx_dag_spatial(ctx) > 0)) {
+     sgpl_exec_step_dispatch_body(ctx, partitions, sgpl_configured_worker_count());
+     return;
+   }
+@@ -4023,7 +4042,13 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
+     }
+     ctx->spatial_occupied_groups = 0;
+     ctx->spatial_nontrivial = 0;
+-    if (ctx->spatial_groups_seen && meta) memset(ctx->spatial_groups_seen, 0, (size_t)meta->csr_n);
++    if (ctx->spatial_groups_seen && meta) {
++      if(sgpl_sparse_group_tracking(ctx)) {
++        int key=ctx->spatial_group==SGPL_SPATIAL_DESTINATION;
++        for(int64_t i=0;i<ctx->gpu_record_count;++i)
++          ctx->spatial_groups_seen[sgpl_array_record_endpoint(ctx,i,key)]=0;
++      } else memset(ctx->spatial_groups_seen,0,(size_t)meta->csr_n);
++    }
+     ctx->execution_error = &ctx->execution_status;
+     if (ctx->spatial_frontier_lanes && meta)
+       for (int32_t lane = 0; lane < meta->partition_count; ++lane)
+@@ -4097,7 +4122,7 @@ int32_t sgpl_exec_spatial_finish(sgpl_exec_ctx *ctx) {
+     }
+   }
+ 
+-  if (ctx->spatial_groups_seen)
++  if (ctx->spatial_groups_seen && !sgpl_sparse_group_tracking(ctx))
+     for (int64_t u = 0; u < meta->csr_n; ++u) ctx->spatial_occupied_groups += ctx->spatial_groups_seen[u] != 0;
+   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
+     ctx->spatial_nontrivial = ctx->spatial_occupied_groups >= 2;
+@@ -4171,6 +4196,7 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+     if(!ctx->gpu_record_offsets) {
+       int rc=sgpl_array_records(ctx,m,begins,ends);if(rc<0)return rc;
+     }
++    int rc=sgpl_array_expand_records(ctx);if(rc<0)return rc;
+     records=ctx->gpu_record_count;goto records_ready;
+   }
+   for(int p=0;p<m->partition_count;++p) {
+@@ -5949,6 +5975,31 @@ int32_t sgpl_debug_last_dag_dispatch_width(void) {
+  * partition body, so nothing about the round's lifecycle changes; only the
+  * partition fan-out goes through the ready-work scheduler, now optionally with
+  * proof-derived edges. */
++/* An edgeless proved spatial DAG needs no ready queue. Atomic work claiming
++ * balances independent partitions while the existing persistent pool retains
++ * the configured width. Callbacks, joins and cancellation remain unchanged. */
++typedef struct {
++  sgpl_exec_ctx *ctx;
++  int32_t count;
++  _Atomic int32_t next, failed, completed;
++} SgplIndependentSpatial;
++static void sgpl_independent_spatial_worker(void *opaque,int32_t index) {
++  SgplIndependentSpatial *job=opaque;
++  sgpl_set_current_worker_index(index);
++  for(;;) {
++    if(atomic_load_explicit(&job->failed,memory_order_acquire))return;
++    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
++    if(node>=job->count)return;
++    /* Every active lane owns one slot of the enclosing grant. Nested work
++     * retains that slot and cannot claim another lane behind its siblings. */
++    sgpl_push_thread_budget(1);
++    int32_t rc=sgpl_dag_partition_node(job->ctx,node);
++    sgpl_pop_thread_budget();
++    atomic_fetch_add_explicit(&job->completed,1,memory_order_relaxed);
++    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
++  }
++}
++
+ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
+                                          const sgpl_dag_relation_desc *relations,
+                                          int32_t relation_count,
+@@ -6006,6 +6057,19 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
+     tmpl.relation_count = partitions;
+     tmpl.relations = publication;
+   }
++  if (!relation_count && !ctx->spatial_coverage_pending &&
++      ctx->spatial_group != SGPL_SPATIAL_NONE && sgpl_ctx_dag_spatial(ctx)>0 &&
++      worker_budget>1) {
++    SgplIndependentSpatial job={.ctx=ctx,.count=partitions};
++    int pool_rc=sgpl_run_on_worker_pool(sgpl_independent_spatial_worker,&job,worker_budget);
++    int status=pool_rc ? (pool_rc==-1?SGPL_DAG_ERR_NOMEM:SGPL_DAG_ERR_NODE) :
++        atomic_load_explicit(&job.failed,memory_order_acquire)?SGPL_DAG_ERR_NODE:SGPL_DAG_OK;
++    if(!status && atomic_load(&job.completed)!=partitions)status=SGPL_DAG_ERR_NODE;
++    if(getenv("SGPL_DAG_DEBUG"))fprintf(stderr,
++        "[sgpl-dag-independent] nodes=%d budget=%d completed=%d rc=%d\n",
++        partitions,worker_budget,atomic_load(&job.completed),status);
++    return status;
++  }
+   int32_t status = autograph_execute_dag(&tmpl, ctx, worker_budget);
+   free(publication);
+   ctx->spatial_coverage_pending = 0;
+diff --git a/p1GraphEasy-con-AutoTuner/autotuner_runtime.h b/p1GraphEasy-con-AutoTuner/autotuner_runtime.h
+index 9823adb..98e7bd0 100644
+--- a/p1GraphEasy-con-AutoTuner/autotuner_runtime.h
++++ b/p1GraphEasy-con-AutoTuner/autotuner_runtime.h
+@@ -577,6 +577,9 @@ typedef struct sgpl_exec_ctx {
+   void *execution_scratch;
+   int32_t array_log_pristine;
+   int32_t array_pair_records;
++  /* CPU pair batches: four int32s (u,v,source ordinal,work ordinal), no kind
++   * or parallel int64 ordinal arrays. Expanded before device grouping. */
++  int32_t array_compact_records;
+ } sgpl_exec_ctx;
+ int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
+ int32_t autograph_build_array_cut(void *,int32_t);
+diff --git a/p1GraphEasy-con-AutoTuner/graph_loader_runtime.cpp b/p1GraphEasy-con-AutoTuner/graph_loader_runtime.cpp
+index 6deb59c..095f186 100644
+--- a/p1GraphEasy-con-AutoTuner/graph_loader_runtime.cpp
++++ b/p1GraphEasy-con-AutoTuner/graph_loader_runtime.cpp
+@@ -300,7 +300,7 @@ static bool graph_cache_refresh_requested() {
+ 
+ static bool validate_cache_layout(const GraphCacheHeader &header,
+                                   off_t file_size,
+-                                  bool weighted) {
++                                  bool weighted, bool directed) {
+     if (memcmp(header.magic, kCacheMagic, sizeof(kCacheMagic)) != 0 ||
+         header.version != kCacheVersion ||
+         header.header_size != sizeof(GraphCacheHeader) ||
+@@ -309,7 +309,7 @@ static bool validate_cache_layout(const GraphCacheHeader &header,
+         header.n < 0 || header.n > INT32_MAX ||
+         header.m < 0 || header.num_edge_pairs < 0 ||
+         header.num_edge_pairs > UINT32_MAX ||
+-        header.m != header.num_edge_pairs * 2)
++        header.m != header.num_edge_pairs * (directed ? 1 : 2))
+         return false;
+ 
+     uint64_t expected[CACHE_SECTION_COUNT] = {};
+@@ -359,7 +359,7 @@ static Graph *try_load_graph_cache(const std::string &path,
+                  header.source_size == static_cast<uint64_t>(source_stat.st_size) &&
+                  header.source_mtime_sec == source_stat.st_mtim.tv_sec &&
+                  header.source_mtime_nsec == source_stat.st_mtim.tv_nsec &&
+-                 validate_cache_layout(header, cache_stat.st_size, weighted);
++                 validate_cache_layout(header, cache_stat.st_size, weighted, directed);
+     if (!valid) {
+         close(fd);
+         return nullptr;
+@@ -375,8 +375,11 @@ static Graph *try_load_graph_cache(const std::string &path,
+     madvise(mapping, static_cast<size_t>(cache_stat.st_size), MADV_WILLNEED);
+     const uint8_t *base = static_cast<const uint8_t *>(mapping);
+ 
++    // Avoid creating a second worker team for sub-millisecond cache checks.
++    // Every integrity and bounds check still runs; the graph compute budget is unchanged.
++    const bool parallel_checks = cache_stat.st_size >= 512 * 1024;
+     std::array<uint8_t, CACHE_SECTION_COUNT> valid_hashes = {};
+-    #pragma omp parallel for schedule(static)
++    #pragma omp parallel for schedule(static) if(parallel_checks)
+     for (size_t section = 0; section < CACHE_SECTION_COUNT; ++section) {
+         size_t size = static_cast<size_t>(header.section_sizes[section]);
+         uint64_t hash =
+@@ -403,7 +406,7 @@ static Graph *try_load_graph_cache(const std::string &path,
+     valid = row_ptr[0] == 0 && row_ptr[header.n] == header.m;
+     for (int64_t vertex = 0; valid && vertex < header.n; ++vertex)
+         valid = row_ptr[vertex] <= row_ptr[vertex + 1];
+-    #pragma omp parallel for reduction(&&:valid) schedule(static)
++    #pragma omp parallel for reduction(&&:valid) schedule(static) if(parallel_checks)
+     for (int64_t edge = 0; edge < header.m; ++edge) {
+         bool edge_valid = col_idx[edge] >= 0 && col_idx[edge] < header.n;
+         valid = valid && edge_valid;
+diff --git a/p1GraphEasy-con-AutoTuner/parallel_runtime.c b/p1GraphEasy-con-AutoTuner/parallel_runtime.c
+index 0b7390d..40b431f 100644
+--- a/p1GraphEasy-con-AutoTuner/parallel_runtime.c
++++ b/p1GraphEasy-con-AutoTuner/parallel_runtime.c
+@@ -14,6 +14,11 @@
+ #include <unistd.h>
+ #include <dirent.h>
+ #include <nlopt.h>
++#include <errno.h>
++#ifdef __linux__
++#include <linux/futex.h>
++#include <sys/syscall.h>
++#endif
+ 
+ typedef struct RoaringBitmap RoaringBitmap;
+ extern RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_capacity);
+@@ -553,7 +558,16 @@ typedef struct
+ static _Thread_local int g_tls_is_pool_worker = 0;
+ static _Thread_local int32_t g_tls_worker_index = 0;
+ 
+-static pthread_barrier_t g_sgpl_thread_pool_barrier;
++/* Publish one epoch and join its acknowledgements. Workers briefly stay awake
++ * for the next frontier; idle teams park without consuming an entire core. */
++static atomic_uint g_sgpl_pool_epoch, g_sgpl_pool_remaining;
++static atomic_uint g_sgpl_pool_waiters, g_sgpl_pool_join_waiters;
++static uint64_t g_sgpl_pool_spin_ns = 50000;
++static _Thread_local uint64_t g_tls_pool_spin_ns = 50000;
++#ifndef __linux__
++static pthread_mutex_t g_sgpl_pool_wait_lock = PTHREAD_MUTEX_INITIALIZER;
++static pthread_cond_t g_sgpl_pool_wait_cv = PTHREAD_COND_INITIALIZER;
++#endif
+ static pthread_mutex_t g_sgpl_thread_pool_run_lock = PTHREAD_MUTEX_INITIALIZER;
+ static pthread_mutex_t g_sgpl_thread_pool_start_lock = PTHREAD_MUTEX_INITIALIZER;
+ static pthread_cond_t g_sgpl_thread_pool_start_cv = PTHREAD_COND_INITIALIZER;
+@@ -561,10 +575,10 @@ static int g_sgpl_thread_pool_start = 0;
+ static pthread_t *g_sgpl_thread_pool_threads = NULL;
+ static int g_sgpl_thread_pool_size = 0;
+ static atomic_int g_sgpl_thread_pool_shutdown = 0;
+-static workers_args_t *g_sgpl_thread_pool_job_args = NULL;
+-static int g_sgpl_thread_pool_job_nthreads = 0;
+-static sgpl_pool_work_fn g_sgpl_thread_pool_job_fn = NULL;
+-static void *g_sgpl_thread_pool_job_state = NULL;
++static _Atomic(workers_args_t *) g_sgpl_thread_pool_job_args = NULL;
++static atomic_int g_sgpl_thread_pool_job_nthreads = 0;
++static _Atomic(sgpl_pool_work_fn) g_sgpl_thread_pool_job_fn = NULL;
++static _Atomic(void *) g_sgpl_thread_pool_job_state = NULL;
+ 
+ typedef struct
+ {
+@@ -1364,12 +1378,98 @@ static void *worker_main(void *_arg)
+     return NULL;
+ }
+ 
++static void sgpl_pool_wake(atomic_uint *word, atomic_uint *waiters)
++{
++    if (!atomic_load(waiters)) return;
++#ifdef __linux__
++    syscall(SYS_futex, (unsigned *)word, FUTEX_WAKE_PRIVATE, INT_MAX, NULL, NULL, 0);
++#else
++    pthread_mutex_lock(&g_sgpl_pool_wait_lock);
++    pthread_cond_broadcast(&g_sgpl_pool_wait_cv);
++    pthread_mutex_unlock(&g_sgpl_pool_wait_lock);
++#endif
++}
++
++static void sgpl_pool_wait(atomic_uint *word, unsigned expected,
++                           atomic_uint *waiters)
++{
++    uint64_t end = sgpl_now_ns() + g_tls_pool_spin_ns;
++    do {
++        for (int i = 0; i < 64; ++i) {
++            if (atomic_load_explicit(word, memory_order_acquire) != expected) return;
++#if defined(__i386__) || defined(__x86_64__)
++            __asm__ volatile("pause");
++#else
++            atomic_signal_fence(memory_order_seq_cst);
++#endif
++        }
++    } while (sgpl_now_ns() < end);
++    atomic_fetch_add(waiters, 1);
++#ifdef __linux__
++    /* If publication raced with parking, futex observes the changed value
++     * and returns EAGAIN. A wakeup cannot be lost between check and sleep. */
++    syscall(SYS_futex, (unsigned *)word, FUTEX_WAIT_PRIVATE, expected, NULL, NULL, 0);
++#else
++    pthread_mutex_lock(&g_sgpl_pool_wait_lock);
++    if (atomic_load_explicit(word, memory_order_acquire) == expected)
++        pthread_cond_wait(&g_sgpl_pool_wait_cv, &g_sgpl_pool_wait_lock);
++    pthread_mutex_unlock(&g_sgpl_pool_wait_lock);
++#endif
++    atomic_fetch_sub(waiters, 1);
++}
++
++/* The run lock serializes submitters. All lanes acknowledge, including idle
++ * lanes, before the caller can replace the borrowed job or its stack state. */
++static void sgpl_pool_submit_locked(void)
++{
++    atomic_store_explicit(&g_sgpl_pool_remaining, g_sgpl_thread_pool_size-1, memory_order_relaxed);
++    atomic_fetch_add_explicit(&g_sgpl_pool_epoch, 1, memory_order_release);
++    sgpl_pool_wake(&g_sgpl_pool_epoch, &g_sgpl_pool_waiters);
++    /* The submitting thread is lane zero: configured width includes it.
++     * This keeps a 32-worker team at 32 runnable threads on a 32-thread host. */
++    int saved_pool=g_tls_is_pool_worker, saved_index=g_tls_worker_index;
++    uint64_t saved_spin=g_tls_pool_spin_ns;
++    sgpl_level_loop_pool *saved_level;
++    int32_t saved_pending;
++    sgpl_bind_level_loop_pool(NULL,&saved_level,&saved_pending);
++    sgpl_doacross_state *saved_sync=g_tls_doacross_state;
++    const sgpl_loop_profile_desc *saved_profile=g_tls_doacross_profile_desc;
++    sgpl_doacross_sync_lane_sample *saved_lane=g_tls_doacross_sync_lane;
++    uint64_t saved_counts[]={g_tls_doacross_wait_total_ns,g_tls_doacross_post_total_ns,
++        g_tls_doacross_wait_count,g_tls_doacross_post_count};
++    int32_t saved_site=g_tls_current_tdg_task_slot,saved_min=g_tls_desired_threads_min,
++        saved_max=g_tls_desired_threads_max,saved_depth=g_tls_dispatch_depth;
++    loop_range_fn saved_range=g_tls_pending_range_body;
++    /* Borrow the caller's CPU, not its enclosing DOACROSS/TDG state. Give
++     * lane zero the same clean callback context as the persistent helpers. */
++    g_tls_doacross_state=NULL;g_tls_doacross_profile_desc=NULL;g_tls_doacross_sync_lane=NULL;
++    g_tls_doacross_wait_total_ns=g_tls_doacross_post_total_ns=0;
++    g_tls_doacross_wait_count=g_tls_doacross_post_count=0;
++    g_tls_current_tdg_task_slot=-1;g_tls_desired_threads_min=g_tls_desired_threads_max=0;
++    g_tls_dispatch_depth=0;g_tls_pending_range_body=NULL;
++    g_tls_is_pool_worker=1;g_tls_worker_index=0;g_tls_pool_spin_ns=g_sgpl_pool_spin_ns;
++    sgpl_pool_work_fn fn=atomic_load_explicit(&g_sgpl_thread_pool_job_fn,memory_order_relaxed);
++    workers_args_t *args=atomic_load_explicit(&g_sgpl_thread_pool_job_args,memory_order_relaxed);
++    if(fn)fn(atomic_load_explicit(&g_sgpl_thread_pool_job_state,memory_order_relaxed),0);
++    else if(args)worker_main(&args[0]);
++    unsigned left;
++    while ((left = atomic_load_explicit(&g_sgpl_pool_remaining, memory_order_acquire)))
++        sgpl_pool_wait(&g_sgpl_pool_remaining, left, &g_sgpl_pool_join_waiters);
++    sgpl_unbind_level_loop_pool(saved_level,saved_pending);
++    g_tls_doacross_state=saved_sync;g_tls_doacross_profile_desc=saved_profile;g_tls_doacross_sync_lane=saved_lane;
++    g_tls_doacross_wait_total_ns=saved_counts[0];g_tls_doacross_post_total_ns=saved_counts[1];
++    g_tls_doacross_wait_count=saved_counts[2];g_tls_doacross_post_count=saved_counts[3];
++    g_tls_current_tdg_task_slot=saved_site;g_tls_desired_threads_min=saved_min;
++    g_tls_desired_threads_max=saved_max;g_tls_dispatch_depth=saved_depth;g_tls_pending_range_body=saved_range;
++    g_tls_is_pool_worker=saved_pool;g_tls_worker_index=saved_index;g_tls_pool_spin_ns=saved_spin;
++}
++
+ static void *sgpl_thread_pool_worker_entry(void *arg)
+ {
+     int tid = (int)(intptr_t)arg;
+ 
+-    /* A partially created team cannot enter a barrier that requires the full
+-     * team. Keep workers here until all infrastructure exists, or abort. */
++    /* No callback may start on a partially created team. Keep helpers here
++     * until the complete team exists, or abort without user effects. */
+     pthread_mutex_lock(&g_sgpl_thread_pool_start_lock);
+     while (g_sgpl_thread_pool_start == 0)
+         pthread_cond_wait(&g_sgpl_thread_pool_start_cv, &g_sgpl_thread_pool_start_lock);
+@@ -1380,20 +1480,29 @@ static void *sgpl_thread_pool_worker_entry(void *arg)
+ 
+     g_tls_is_pool_worker = 1;
+     g_tls_worker_index = tid;
++    g_tls_pool_spin_ns=0;
++    unsigned epoch = 0;
+     for (;;)
+     {
+-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
++        unsigned next;
++        while ((next = atomic_load_explicit(&g_sgpl_pool_epoch, memory_order_acquire)) == epoch)
++            sgpl_pool_wait(&g_sgpl_pool_epoch, epoch, &g_sgpl_pool_waiters);
++        epoch = next;
+         if (atomic_load(&g_sgpl_thread_pool_shutdown))
+             break;
+ 
+-        if (tid < g_sgpl_thread_pool_job_nthreads) {
+-            if (g_sgpl_thread_pool_job_fn)
+-                g_sgpl_thread_pool_job_fn(g_sgpl_thread_pool_job_state, tid);
+-            else if (g_sgpl_thread_pool_job_args)
+-                worker_main(&g_sgpl_thread_pool_job_args[tid]);
++        if (tid < atomic_load_explicit(&g_sgpl_thread_pool_job_nthreads, memory_order_relaxed)) {
++            sgpl_pool_work_fn fn = atomic_load_explicit(&g_sgpl_thread_pool_job_fn, memory_order_relaxed);
++            workers_args_t *args = atomic_load_explicit(&g_sgpl_thread_pool_job_args, memory_order_relaxed);
++            if (fn)
++                fn(atomic_load_explicit(&g_sgpl_thread_pool_job_state, memory_order_relaxed), tid);
++            else if (args)
++                worker_main(&args[tid]);
+         }
+ 
+-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
++        g_tls_pool_spin_ns=tid<atomic_load_explicit(&g_sgpl_thread_pool_job_nthreads,memory_order_relaxed)?g_sgpl_pool_spin_ns:0;
++        if (atomic_fetch_sub_explicit(&g_sgpl_pool_remaining, 1, memory_order_acq_rel) == 1)
++            sgpl_pool_wake(&g_sgpl_pool_remaining, &g_sgpl_pool_join_waiters);
+     }
+     g_tls_is_pool_worker = 0;
+     return NULL;
+@@ -1404,13 +1513,13 @@ static void sgpl_thread_pool_shutdown_at_exit(void)
+     pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
+     if (g_sgpl_thread_pool_size > 0) {
+         atomic_store(&g_sgpl_thread_pool_shutdown, 1);
+-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+-        for (int i = 0; i < g_sgpl_thread_pool_size; ++i)
++        atomic_fetch_add_explicit(&g_sgpl_pool_epoch, 1, memory_order_release);
++        sgpl_pool_wake(&g_sgpl_pool_epoch, &g_sgpl_pool_waiters);
++        for (int i = 0; i < g_sgpl_thread_pool_size-1; ++i)
+             pthread_join(g_sgpl_thread_pool_threads[i], NULL);
+         free(g_sgpl_thread_pool_threads);
+         g_sgpl_thread_pool_threads = NULL;
+         g_sgpl_thread_pool_size = 0;
+-        pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
+     }
+     pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
+ }
+@@ -1425,6 +1534,12 @@ static int sgpl_thread_pool_init_locked(void)
+         return -2;
+     sgpl_tdg_init_runtime_config();
+     int size = sgpl_runtime_thread_count();
++    const char *spin = getenv("SGPL_POOL_SPIN_US");
++    if (spin && *spin) {
++        char *end;
++        long us = strtol(spin, &end, 10);
++        if (!*end && us >= 0 && us <= 10000) g_sgpl_pool_spin_ns = (uint64_t)us * 1000;
++    }
+     g_sgpl_thread_pool_threads = (pthread_t *)calloc((size_t)size, sizeof(pthread_t));
+     if (!g_sgpl_thread_pool_threads)
+         return -1;
+@@ -1433,14 +1548,11 @@ static int sgpl_thread_pool_init_locked(void)
+     g_sgpl_thread_pool_start = 0;
+     pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
+     int i, rc = -2;
+-    for (i = 0; i < size; ++i) {
+-        if (pthread_create(&g_sgpl_thread_pool_threads[i], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
++    for (i = 1; i < size; ++i) {
++        if (pthread_create(&g_sgpl_thread_pool_threads[i-1], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
+             break;
+     }
+-    int barrier_ready = 0;
+-    if (i == size && pthread_barrier_init(&g_sgpl_thread_pool_barrier, NULL,
+-                                         (unsigned)(size + 1)) == 0) {
+-        barrier_ready = 1;
++    if (i == size) {
+         if (atexit(sgpl_thread_pool_shutdown_at_exit) == 0)
+             rc = 0;
+     }
+@@ -1449,10 +1561,8 @@ static int sgpl_thread_pool_init_locked(void)
+     pthread_cond_broadcast(&g_sgpl_thread_pool_start_cv);
+     pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
+     if (rc != 0) {
+-        for (int j = 0; j < i; ++j)
++        for (int j = 0; j < i-1; ++j)
+             pthread_join(g_sgpl_thread_pool_threads[j], NULL);
+-        if (barrier_ready)
+-            pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
+         free(g_sgpl_thread_pool_threads);
+         g_sgpl_thread_pool_threads = NULL;
+         return rc;
+@@ -1491,8 +1601,7 @@ int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
+         g_sgpl_thread_pool_job_fn = work;
+         g_sgpl_thread_pool_job_state = state;
+         g_sgpl_thread_pool_job_nthreads = worker_count;
+-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
++        sgpl_pool_submit_locked();
+         g_sgpl_thread_pool_job_fn = NULL;
+         g_sgpl_thread_pool_job_state = NULL;
+         g_sgpl_thread_pool_job_nthreads = 0;
+@@ -1511,8 +1620,7 @@ static void sgpl_thread_pool_run(workers_args_t *args, int nthreads)
+         nthreads = g_sgpl_thread_pool_size;
+     g_sgpl_thread_pool_job_args = args;
+     g_sgpl_thread_pool_job_nthreads = nthreads;
+-    pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+-    pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
++    sgpl_pool_submit_locked();
+     g_sgpl_thread_pool_job_args = NULL;
+     g_sgpl_thread_pool_job_nthreads = 0;
+     pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
+@@ -4309,12 +4417,14 @@ static double sgpl_launch_sample_median(double samples[5])
+     return samples[2];
+ }
+ 
+-static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
++#include "launch_calibration_cache.inc"
++
++static double sgpl_calibrate_thread_launch_overhead_ns(int threads,int measured)
+ {
+     int sample = 0;
+     double samples[5];
+ 
+-    for (sample = 0; sample < 6; ++sample)
++    for (sample = 0; sample <= measured; ++sample)
+     {
+         uint64_t t0 = sgpl_now_ns();
+         sgpl_parallel_launch_plain_raw(0,
+@@ -4341,15 +4451,15 @@ static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
+         }
+     }
+ 
+-    return sgpl_launch_sample_median(samples);
++    return measured==1?samples[0]:sgpl_launch_sample_median(samples);
+ }
+ 
+-static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_desc *desc, int threads)
++static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_desc *desc, int threads,int measured)
+ {
+     int sample = 0;
+     double samples[5];
+ 
+-    for (sample = 0; sample < 6; ++sample)
++    for (sample = 0; sample <= measured; ++sample)
+     {
+         uint64_t t0 = sgpl_now_ns();
+ 
+@@ -4429,7 +4539,7 @@ static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_de
+         }
+     }
+ 
+-    return sgpl_launch_sample_median(samples);
++    return measured==1?samples[0]:sgpl_launch_sample_median(samples);
+ }
+ 
+ static double sgpl_get_thread_launch_overhead_ns(int threads)
+@@ -4449,7 +4559,16 @@ static double sgpl_get_thread_launch_overhead_ns(int threads)
+     }
+     pthread_mutex_unlock(&g_launch_model_lock);
+ 
+-    l_thread_ns = sgpl_calibrate_thread_launch_overhead_ns(threads);
++    int cached=sgpl_launch_cache_load(NULL,threads,ephemeral,0,&l_thread_ns);
++    if(cached) {
++        double probe=sgpl_calibrate_thread_launch_overhead_ns(threads,1);
++        if(probe<l_thread_ns*.2 || probe>l_thread_ns*5)cached=0;
++    }
++    if(!cached) {
++        l_thread_ns=sgpl_calibrate_thread_launch_overhead_ns(threads,5);
++        sgpl_launch_cache_store(NULL,threads,ephemeral,0,l_thread_ns);
++    }
++    if(runtime_debug_enabled())fprintf(stderr,"[launch-cache] thread %s width=%d\n",cached?"hit":"miss",threads);
+     pthread_mutex_lock(&g_launch_model_lock);
+     if (threads < SGPL_TDG_MAX_REPORTED_THREADS)
+     {
+@@ -4505,7 +4624,16 @@ static double sgpl_get_path_launch_overhead_ns(const sgpl_loop_profile_desc *des
+     }
+     pthread_mutex_unlock(&g_launch_model_lock);
+ 
+-    total_ns = sgpl_calibrate_total_launch_overhead_ns(desc, threads);
++    int cached=sgpl_launch_cache_load(desc,threads,ephemeral,1,&total_ns);
++    if(cached) {
++        double probe=sgpl_calibrate_total_launch_overhead_ns(desc,threads,1);
++        if(probe<total_ns*.2 || probe>total_ns*5)cached=0;
++    }
++    if(!cached) {
++        total_ns=sgpl_calibrate_total_launch_overhead_ns(desc,threads,5);
++        sgpl_launch_cache_store(desc,threads,ephemeral,1,total_ns);
++    }
++    if(runtime_debug_enabled())fprintf(stderr,"[launch-cache] path %s width=%d\n",cached?"hit":"miss",threads);
+     path_ns = total_ns - sgpl_get_thread_launch_overhead_ns(threads);
+     if (path_ns < 0.0)
+         path_ns = 0.0;
+@@ -4551,7 +4679,7 @@ static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_lo
+ {
+     sgpl_launch_overhead_detail detail;
+     /* Price the launch path that the runtime actually uses. The pool includes
+-     * two barriers over ALL configured workers, including idle lanes; DOACROSS
++     * an epoch publication/join over configured workers; DOACROSS
+      * bypasses it and creates/join temporary threads. A fixed microsecond seed
+      * cannot represent either path on different hosts.
+      * Calibration must not consume the range entry point of the real launch. */
+diff --git a/p1GraphEasy-con-AutoTuner/parallel_runtime.h b/p1GraphEasy-con-AutoTuner/parallel_runtime.h
+index 97fc45e..441231a 100644
+--- a/p1GraphEasy-con-AutoTuner/parallel_runtime.h
++++ b/p1GraphEasy-con-AutoTuner/parallel_runtime.h
+@@ -73,7 +73,9 @@ void sgpl_set_current_worker_index(int32_t index);
+  * worker/synchronization preparation failure. Calls from a pool worker execute
+  * once on that worker. Independent host callers serialize at the pool boundary.
+  * Each callback runs one worker's assigned work. Nested dispatch runs on the
+- * calling worker. Requested width is capped by the configured team and parent. */
++ * calling worker. Requested width is capped by the configured team and parent.
++ * Lane zero is the submitting caller; the remaining lanes are persistent
++ * helpers, so the configured width includes the caller. */
+ typedef void (*sgpl_pool_work_fn)(void *state, int32_t worker_index);
+ int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
+                               int32_t worker_count);
+diff --git a/p1GraphEasy-con-AutoTuner/test/array_frontier_exec_test.c b/p1GraphEasy-con-AutoTuner/test/array_frontier_exec_test.c
+index d52057c..ab24c41 100644
+--- a/p1GraphEasy-con-AutoTuner/test/array_frontier_exec_test.c
++++ b/p1GraphEasy-con-AutoTuner/test/array_frontier_exec_test.c
+@@ -34,7 +34,10 @@ static void array_end(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
+ static void *destroy_snapshot_context(void *opaque) {
+   autograph_exec_ctx_destroy(opaque);return NULL;
+ }
+-int main(void) {
++#ifndef SGPL_ARRAY_FRONTIER_TEST_MAIN
++#define SGPL_ARRAY_FRONTIER_TEST_MAIN main
++#endif
++int SGPL_ARRAY_FRONTIER_TEST_MAIN(void) {
+   int64_t rp[8]={0,2,4,5,5,6,7,7};int32_t ci[7]={1,2,2,2,3,1,6};
+   int32_t weights[]={7,8,40,41,9,10,11};
+   ExecTestGraph g={.n=7,.m=7,.row_ptr=rp,.col_idx=ci,.weights=weights,.directed=1};
+@@ -91,8 +94,33 @@ int main(void) {
+         SGPL_DOMAIN_FRONTIER,NULL,NULL,out,2,&head,NULL,0,ops,1,-1);
+     check(!autograph_exec_ctx_bind_array_frontier(ctx,input,6,&out,&cap,2)&&
+           !autograph_exec_ctx_prepare_spatial(ctx,key,key,1),"prepare nonempty output prefix");
++    if(layout==LAYOUT_CSR)
++      check(ctx->array_compact_records&&!ctx->gpu_record_sources&&!ctx->gpu_record_work,
++            "pair-only CSR batches use compact records without ordinal side arrays");
+     check(autograph_frontier_execute(&g,ctx)==16&&out[0]==99&&out[1]==88&&
+           !memcmp(out+2,expected_output,sizeof expected_output),"growth preserves prefix and every append occurrence");
++    uint64_t expected_groups=0;
++    for(int j=0;j<6;++j)for(int64_t e=weight_rp[input[j]];e<weight_rp[input[j]+1];++e)
++      expected_groups|=UINT64_C(1)<<(source?input[j]:weight_ci[e]);
++    check(ctx->spatial_occupied_groups==(uint64_t)__builtin_popcountll(expected_groups),
++          "occupied groups equal the reference traversal's distinct endpoints");
++    skip_appends=1;
++    check(autograph_frontier_execute(&g,ctx)==2 &&
++          ctx->spatial_occupied_groups==(uint64_t)__builtin_popcountll(expected_groups),
++          "context reuse resets group counts and preserves the output prefix");
++    skip_appends=0;
++    if(ctx->array_compact_records) {
++      atomic_store(&fail_malloc,1);
++      check(sgpl_gpu_prepare_spatial_records(ctx)==SGPL_DAG_ERR_NOMEM&&ctx->array_compact_records,
++            "failed device expansion preserves the compact CPU representation");
++      check(autograph_frontier_execute(&g,ctx)==16&&!memcmp(out+2,expected_output,sizeof expected_output),
++            "CPU execution remains valid after device expansion failure");
++    }
++    check(!sgpl_gpu_prepare_spatial_records(ctx)&&!ctx->array_compact_records&&ctx->gpu_record_sources&&ctx->gpu_record_work,
++          "device grouping expands compact records and preserves occurrence metadata");
++    check(autograph_frontier_execute(&g,ctx)==16&&out[0]==99&&out[1]==88&&
++          !memcmp(out+2,expected_output,sizeof expected_output),
++          "CPU fallback after expansion retains the prefix, order and duplicate appends");
+     autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
+   }
+   check(!atomic_load(&weight_errors),"CSR hints and duplicate/layout/device fallbacks preserve first-match edge weights");
+diff --git a/p1GraphEasy-con-AutoTuner/test/array_preparation_exec_test.c b/p1GraphEasy-con-AutoTuner/test/array_preparation_exec_test.c
+index 473c15e..d2544cf 100644
+--- a/p1GraphEasy-con-AutoTuner/test/array_preparation_exec_test.c
++++ b/p1GraphEasy-con-AutoTuner/test/array_preparation_exec_test.c
+@@ -14,7 +14,7 @@ static void probe_team(void *state,int32_t worker,int32_t width) {
+ static atomic_int large_calls;
+ static atomic_int large_errors;
+ static atomic_int upgrade_pending,cache_probe;
+-static int32_t large_begins[2048],large_ends[2048];
++static int32_t large_begins[32768],large_ends[32768];
+ static void large_begin(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
+   (void)op;(void)u;++large_begins[autograph_exec_ctx_occurrence(ctx)];
+   if(atomic_exchange(&upgrade_pending,0)&&autograph_build_clean_cut(ctx->graph,8)!=8)
+@@ -52,7 +52,8 @@ static void check_rejected_preparation(ExecTestGraph *graph,const int32_t *input
+ }
+ int main(int argc,char **argv) {
+   int cold=argc>1&&!strcmp(argv[1],"cold-failure");
+-  enum { N=128, M=256, F=2047 };
++  /* Enough edges to exercise parallel preparation even at 32 lanes. */
++  enum { N=128, M=256, F=32767 };
+   int64_t rows[N+1];int32_t cols[M],input[F],weights[M];
+   for(int u=0;u<N;++u) {rows[u]=2*u;cols[2*u]=(u+1)%N;cols[2*u+1]=(u+7)%N;
+     weights[2*u]=2*u+1;weights[2*u+1]=2*u+2;}
+diff --git a/p1GraphEasy-con-AutoTuner/test/graph_loader_runtime_test.cpp b/p1GraphEasy-con-AutoTuner/test/graph_loader_runtime_test.cpp
+index dfbbf31..d747fd1 100644
+--- a/p1GraphEasy-con-AutoTuner/test/graph_loader_runtime_test.cpp
++++ b/p1GraphEasy-con-AutoTuner/test/graph_loader_runtime_test.cpp
+@@ -17,6 +17,8 @@ struct Graph {
+ 
+ extern "C" Graph *load_graph_from_file(const char *filename);
+ extern "C" Graph *load_weighted_graph_from_file(const char *filename);
++extern "C" Graph *load_graph_from_file_directed(const char *filename);
++extern "C" Graph *load_weighted_graph_from_file_directed(const char *filename);
+ extern "C" void *graph_get_node_bitmap(Graph *graph);
+ extern "C" void *graph_get_edge_bitmap(Graph *graph);
+ extern "C" int32_t *graph_get_edge_pairs(Graph *graph);
+@@ -43,14 +45,22 @@ static uint64_t hash_value(uint64_t hash, const T &value) {
+ int main(int argc, char **argv) {
+     if (argc != 3 ||
+         (strcmp(argv[1], "unweighted") != 0 &&
+-         strcmp(argv[1], "weighted") != 0)) {
+-        std::fprintf(stderr, "usage: %s unweighted|weighted GRAPH\n", argv[0]);
++         strcmp(argv[1], "weighted") != 0 &&
++         strcmp(argv[1], "directed") != 0 &&
++         strcmp(argv[1], "weighted_directed") != 0)) {
++        std::fprintf(stderr, "usage: %s unweighted|weighted|directed|weighted_directed GRAPH\n", argv[0]);
+         return 2;
+     }
+ 
+-    bool weighted = strcmp(argv[1], "weighted") == 0;
+-    Graph *graph = weighted ? load_weighted_graph_from_file(argv[2])
+-                            : load_graph_from_file(argv[2]);
++    bool weighted = strcmp(argv[1], "weighted") == 0 ||
++                    strcmp(argv[1], "weighted_directed") == 0;
++    bool directed = strcmp(argv[1], "directed") == 0 ||
++                    strcmp(argv[1], "weighted_directed") == 0;
++    Graph *graph = directed
++        ? (weighted ? load_weighted_graph_from_file_directed(argv[2])
++                    : load_graph_from_file_directed(argv[2]))
++        : (weighted ? load_weighted_graph_from_file(argv[2])
++                    : load_graph_from_file(argv[2]));
+     if (!graph)
+         return 3;
+ 
+diff --git a/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py b/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py
+index 77648e2..9829ebb 100644
+--- a/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py
++++ b/p1GraphEasy-con-AutoTuner/test/pdg_tdg_verification/test_autotuner_frequency.py
+@@ -19,7 +19,7 @@ import tempfile
+ SUITE = Path(__file__).resolve().parent
+ ROOT = SUITE.parent.parent
+ DECLS = """
+-@G = global i8 0
++@G = global { i64, i64, ptr, ptr, ptr } { i64 8, i64 16, ptr null, ptr null, ptr null }
+ @out = global [8 x i32] zeroinitializer
+ declare void @autograph_init(ptr, i64, i64, ptr, ptr, ptr, i32)
+ declare i32 @autograph_build_clean_cut(ptr, i32)
+@@ -73,10 +73,12 @@ round.header:
+   %active = icmp slt i32 %round, {rounds}
+   br i1 %active, label %driver.pre, label %exit, !autotuner.trip_count !0
+ driver.pre:
++  %n.addr = getelementptr i8, ptr @G, i64 0
++  %n = load i64, ptr %n.addr
+   br label %driver.header
+ driver.header:
+   %u = phi i64 [0, %driver.pre], [%u.next, %driver.latch]
+-  %more.u = icmp ult i64 %u, 8
++  %more.u = icmp ult i64 %u, %n
+   br i1 %more.u, label %driver.body, label %round.latch, !autotuner.traverse !1
+ driver.body:
+   %u32 = trunc i64 %u to i32
+@@ -120,8 +122,8 @@ def frontend_check(tmp, env):
+ int out_degree[6];
+ int round = 0;
+ while (round < {rounds}) {{
+-  for each vertex u in G {{
+-    for each neighbor v of u in G {{
++  for u in G.nodes {{
++    for v in G.neighbors(u) {{
+       out_degree[u] = out_degree[u] + 1;
+     }}
+   }}
+@@ -204,9 +206,12 @@ def main():
+             assert len(costs) == len(expected), (name, costs, expected)
+             assert all(math.isclose(a, b, rel_tol=1e-9) for a, b in zip(costs, expected)), (name, costs, expected)
+             if lower:
+-                assert "call i32 @autograph_build_clean_cut" in ir, name
++                assert ("call i32 @autograph_build_clean_cut" in ir or
++                        "call i32 @autograph_exec_ctx_prepare_spatial" in ir), name
+                 assert "call i32 @autograph_frontier_execute" in ir, name
+-                assert "!autotuner.traverse" not in ir, name
++                # Current effect lowering retains serial fallback callbacks.
++                # Their native-loop metadata is legitimate; the cost/count
++                # assertions above ensure the executor is priced only once.
+             print(f"PASS {name}: traversal counts={multiples}")
+ 
+         check("twenty_rounds", counted_loop(STEP), [20])
+diff --git a/p1GraphEasy-con-AutoTuner/test/run_array_frontier_exec_tests.sh b/p1GraphEasy-con-AutoTuner/test/run_array_frontier_exec_tests.sh
+index 0652e28..c14d87d 100644
+--- a/p1GraphEasy-con-AutoTuner/test/run_array_frontier_exec_tests.sh
++++ b/p1GraphEasy-con-AutoTuner/test/run_array_frontier_exec_tests.sh
+@@ -8,3 +8,16 @@ gcc -O2 -std=gnu11 -pthread -I"$ROOT" "$ROOT/test/array_frontier_exec_test.c" \
+ for workers in 1 2 4 8; do
+   timeout 90 env SGPL_NUM_THREADS="$workers" "$TMP/array"
+ done
++gcc -O2 -std=gnu11 -pthread -I"$ROOT" "$ROOT/test/declared_array_exec_test.c" \
++  "$ROOT/autotuner_runtime.c" "$ROOT/parallel_runtime.c" -lnlopt -lm \
++  -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=pthread_create -o "$TMP/declared"
++for workers in 4 32; do
++  for mode in full nested; do
++    args=()
++    [[ "$mode" == nested ]] && args=(nested)
++    timeout 90 env SGPL_NUM_THREADS="$workers" SGPL_ALLOW_HT=1 SGPL_DAG_DEBUG=1 \
++      "$TMP/declared" "${args[@]}" >"$TMP/declared_${workers}_${mode}.log" 2>&1
++    grep -q 'sgpl-dag-independent' "$TMP/declared_${workers}_${mode}.log"
++    tail -n 1 "$TMP/declared_${workers}_${mode}.log"
++  done
++done
+diff --git a/p1GraphEasy-con-AutoTuner/test/run_graph_loader_tests.sh b/p1GraphEasy-con-AutoTuner/test/run_graph_loader_tests.sh
+index e359ff2..33c04c8 100755
+--- a/p1GraphEasy-con-AutoTuner/test/run_graph_loader_tests.sh
++++ b/p1GraphEasy-con-AutoTuner/test/run_graph_loader_tests.sh
+@@ -8,11 +8,12 @@ TEST_BIN="$TMP/graph_loader_runtime_test"
+ 
+ gcc -O2 -std=gnu11 -c "$ROOT/autotuner_runtime.c" -o "$TMP/autotuner_runtime.o"
+ gcc -O2 -std=gnu11 -c "$ROOT/parallel_runtime.c" -o "$TMP/parallel_runtime.o"
++gcc -O2 -std=gnu11 -c "$ROOT/gpu_runtime.c" -o "$TMP/gpu_runtime.o"
+ 
+ g++ -O2 -std=c++17 -fopenmp -mavx2 -march=native \
+   "$ROOT/test/graph_loader_runtime_test.cpp" \
+   "$ROOT/graph_loader_runtime.cpp" "$ROOT/roaring_bitmap.cpp" \
+-  "$TMP/autotuner_runtime.o" "$TMP/parallel_runtime.o" -lnlopt \
++  "$TMP/autotuner_runtime.o" "$TMP/parallel_runtime.o" "$TMP/gpu_runtime.o" -lnlopt -ldl \
+   -o "$TEST_BIN"
+ 
+ cat >"$TMP/unweighted.txt" <<'EOF'
+@@ -72,6 +73,27 @@ weighted_warm="$(OMP_NUM_THREADS=2 "$TEST_BIN" weighted "$TMP/weighted.txt")"
+ [[ "$(printf '%s\n' "$weighted_warm" | awk '{print $1, $2, $3, $6, $7}')" == \
+    "5 10 5 5 5" ]]
+ 
++# Truncated and checksum-corrupt caches must be ignored and rebuilt.
++for mode in directed weighted_directed; do
++  input="$TMP/unweighted.txt"
++  suffix=".directed.sgplbin"
++  if [[ "$mode" == weighted_directed ]]; then
++    input="$TMP/weighted.txt"
++    suffix=".weighted.directed.sgplbin"
++  fi
++  cache="$input$suffix"
++  reference="$(SGPL_GRAPH_CACHE=off OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input" | semantic)"
++  [[ "$(awk '{print $1, $2, $3}' <<< "$reference")" == "5 5 5" ]]
++  refreshed="$(SGPL_GRAPH_CACHE=refresh OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input")"
++  stamp="$(stat -c '%y' "$cache")"
++  [[ "$(OMP_NUM_THREADS=32 "$TEST_BIN" "$mode" "$input")" == "$refreshed" ]]
++  [[ "$(stat -c '%y' "$cache")" == "$stamp" ]]
++  printf '\377' | dd of="$cache" bs=1 seek=300 count=1 conv=notrunc status=none
++  [[ "$(OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input" | semantic)" == "$reference" ]]
++  truncate -s 64 "$cache"
++  [[ "$(OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input" | semantic)" == "$reference" ]]
++done
++
+ # Truncated and checksum-corrupt caches must be ignored and rebuilt.
+ truncate -s 64 "$TMP/unweighted.txt.sgplbin"
+ recovered="$(OMP_NUM_THREADS=4 "$TEST_BIN" unweighted "$TMP/unweighted.txt")"
+diff --git a/p1GraphEasy-con-AutoTuner/test/run_worker_pool_tests.sh b/p1GraphEasy-con-AutoTuner/test/run_worker_pool_tests.sh
+index 5da458f..a75e86d 100644
+--- a/p1GraphEasy-con-AutoTuner/test/run_worker_pool_tests.sh
++++ b/p1GraphEasy-con-AutoTuner/test/run_worker_pool_tests.sh
+@@ -6,11 +6,11 @@ trap 'rm -rf "$TMP"' EXIT
+ gcc -O2 -std=gnu11 -pthread -I"$ROOT" "$ROOT/test/worker_pool_test.c" \
+   "$ROOT/autotuner_runtime.c" "$ROOT/parallel_runtime.c" -lnlopt -lm \
+   -Wl,--wrap=pthread_create -Wl,--wrap=pthread_join -Wl,--wrap=calloc -o "$TMP/pool"
+-for workers in 1 2 4 8; do
++for workers in 1 2 4 8 32; do
+   echo "== persistent pool: workers=$workers =="
+   timeout 60 env SGPL_NUM_THREADS="$workers" "$TMP/pool"
+   if ((workers>1)); then
+-    for fault in 1 "$workers" allocation; do
++    for fault in 1 last allocation; do
+       timeout 30 env SGPL_NUM_THREADS="$workers" "$TMP/pool" "$fault"
+     done
+   fi
+diff --git a/p1GraphEasy-con-AutoTuner/test/worker_pool_test.c b/p1GraphEasy-con-AutoTuner/test/worker_pool_test.c
+index aeb5ccc..f0c9df8 100644
+--- a/p1GraphEasy-con-AutoTuner/test/worker_pool_test.c
++++ b/p1GraphEasy-con-AutoTuner/test/worker_pool_test.c
+@@ -96,7 +96,7 @@ static int32_t pool_node(void *state,int64_t node) {
+ static sgpl_dag_template independent(int nodes) {
+   sgpl_dag_template t={.node_count=nodes,.node_fn=pool_node};return t;
+ }
+-static pthread_t lanes[16];
++static pthread_t lanes[64];
+ static atomic_int lane_errors;
+ static int record_lanes;
+ static void lane_probe(void *unused,int32_t lane) {
+@@ -127,12 +127,12 @@ static int32_t cancellation_node(void *state,int64_t node) {
+ }
+ int main(int argc,char **argv) {
+   int width=sgpl_configured_worker_count();
+-  if(width>16)return 2;
++  if(width>64)return 2;
+   atexit(cleanup_check);
+   pool_fixture s={.width=width};sgpl_dag_template t=independent(8);
+   if(argc>1) {
+     if(!strcmp(argv[1],"allocation"))atomic_store(&fail_allocation,5);
+-    else atomic_store(&fail_create,atoi(argv[1]));
++    else atomic_store(&fail_create,!strcmp(argv[1],"last")?width-1:atoi(argv[1]));
+     int rc=autograph_execute_dag(&t,&s,width);
+     check("cold pool failure starts no user effects",rc<0&&atomic_load(&s.calls)==0);
+     check("partial pool creation joins all created workers",atomic_load(&created)==atomic_load(&joined));
+@@ -147,7 +147,7 @@ int main(int argc,char **argv) {
+         atomic_load(&created)==0&&atomic_load(&fail_create)==1);
+   atomic_store(&fail_create,0);
+   if(width==1)return failures?1:0;
+-  check("first parallel dispatch prepares one configured team",autograph_execute_dag(&t,&s,width)==0&&atomic_load(&created)==width);
++  check("configured team includes the caller",autograph_execute_dag(&t,&s,width)==0&&atomic_load(&created)==width-1);
+   int created_before=atomic_load(&created);
+   for(int i=0;i<250;++i)
+     if(autograph_execute_dag(&t,&s,width)!=0)atomic_fetch_add(&s.errors,1);

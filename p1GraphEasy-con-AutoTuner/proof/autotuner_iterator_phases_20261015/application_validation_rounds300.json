@@ -1,0 +1,434 @@
+[
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "CSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "CSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "PCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "PCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "BCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "BCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "SET",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "contact_trace_events300_batch8",
+    "mode": "SET",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "CSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "CSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "PCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "PCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "BCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "BCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "SET",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "service_islands_events300_batch8",
+    "mode": "SET",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "CSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "CSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "PCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "PCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "BCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "BCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "SET",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events300_batch8",
+    "mode": "SET",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "CSR",
+      "PCSR"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "CSR",
+      "PCSR"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "CSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "CSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "PCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "PCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "BCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "BCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "SET",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "route_failover_events300_batch8",
+    "mode": "SET",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "CSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "CSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": []
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "PCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "PCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "PCSR"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "BCSR",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "BCSR",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "BCSR"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "SET",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  },
+  {
+    "case": "trust_audit_events300_batch8",
+    "mode": "SET",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET"
+    ]
+  }
+]

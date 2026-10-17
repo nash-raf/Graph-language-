@@ -1,0 +1,91 @@
+{
+  "AUTO": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "graph_fingerprints_verified": true,
+    "semantic_outputs_verified": true,
+    "iterator_epochs_verified": true,
+    "transitions": [
+      [
+        "CSR",
+        "SET"
+      ],
+      [
+        "SET",
+        "CSR"
+      ]
+    ],
+    "adds": 640000,
+    "removes": 640013,
+    "mutation_effect_samples": 77,
+    "native_mutations": 1280013,
+    "full_native_updates": true
+  },
+  "CSR": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "graph_fingerprints_verified": true,
+    "semantic_outputs_verified": true,
+    "iterator_epochs_verified": true,
+    "transitions": [],
+    "adds": 640000,
+    "removes": 640013,
+    "mutation_effect_samples": 77,
+    "native_mutations": 77,
+    "full_native_updates": false
+  },
+  "PCSR": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "graph_fingerprints_verified": true,
+    "semantic_outputs_verified": true,
+    "iterator_epochs_verified": true,
+    "transitions": [
+      [
+        "CSR",
+        "PCSR"
+      ]
+    ],
+    "adds": 640000,
+    "removes": 640013,
+    "mutation_effect_samples": 77,
+    "native_mutations": 1280013,
+    "full_native_updates": true
+  },
+  "BCSR": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "graph_fingerprints_verified": true,
+    "semantic_outputs_verified": true,
+    "iterator_epochs_verified": true,
+    "transitions": [
+      [
+        "CSR",
+        "BCSR"
+      ]
+    ],
+    "adds": 640000,
+    "removes": 640013,
+    "mutation_effect_samples": 77,
+    "native_mutations": 77,
+    "full_native_updates": false
+  },
+  "SET": {
+    "correct": true,
+    "layouts_checked_on_all_calls": true,
+    "graph_fingerprints_verified": true,
+    "semantic_outputs_verified": true,
+    "iterator_epochs_verified": true,
+    "transitions": [
+      [
+        "CSR",
+        "SET"
+      ]
+    ],
+    "adds": 640000,
+    "removes": 640013,
+    "mutation_effect_samples": 77,
+    "native_mutations": 1280013,
+    "full_native_updates": true
+  }
+}

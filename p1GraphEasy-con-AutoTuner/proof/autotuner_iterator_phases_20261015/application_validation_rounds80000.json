@@ -1,0 +1,102 @@
+[
+  {
+    "case": "contact_trace_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET",
+      "CSR"
+    ]
+  },
+  {
+    "case": "contact_trace_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET",
+      "CSR"
+    ]
+  },
+  {
+    "case": "service_islands_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET",
+      "CSR"
+    ]
+  },
+  {
+    "case": "service_islands_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET",
+      "CSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "SET",
+      "CSR"
+    ]
+  },
+  {
+    "case": "sensor_backbone_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "SET",
+      "CSR"
+    ]
+  },
+  {
+    "case": "route_failover_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "CSR",
+      "SET"
+    ]
+  },
+  {
+    "case": "route_failover_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "CSR",
+      "SET"
+    ]
+  },
+  {
+    "case": "trust_audit_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 1,
+    "correct": true,
+    "schedule": [
+      "CSR",
+      "SET"
+    ]
+  },
+  {
+    "case": "trust_audit_events80000_batch8",
+    "mode": "AUTO",
+    "threads": 4,
+    "correct": true,
+    "schedule": [
+      "CSR",
+      "SET"
+    ]
+  }
+]

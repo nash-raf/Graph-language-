@@ -1,0 +1,379 @@
+% Appendix companion to effect-system-main.tex; insert after the existing \appendix.
+% Requires amsmath, amssymb, booktabs, and tabularx.
+% This file intentionally does not issue \appendix itself.
+
+\section{Effect Extraction, Independence, and Runtime Details}
+\label{app:effects}
+This appendix supplements Section~\ref{sec:effect-system} with effect recognition,
+dependence classification, and runtime realization details.
+
+\subsection{Effect Extraction and Temporal Classification}
+\label{app:effects-extraction}
+\paragraph{Loop identification and provenance.}
+Special graph-neighbor loops are identified by their iterator structure.
+Iterator-less loops are also classified as graph loops when an unseeded
+provenance analysis of their stores finds a graph-data-derived GEP
+subscript used by a store. Provenance propagates through SSA values to a
+fixed point over the region domain
+\[
+\mathrm{Bottom}\sqsubseteq r\sqsubseteq\mathrm{Top},
+\qquad r\in\{U,V,D,G\}.
+\]
+The four intermediate tags denote source, destination, data-derived, and
+global regions. The region domain is an upper-bounded join-semilattice.
+
+\paragraph{Effect atoms and structure.}
+An effect atom is a tuple
+\[
+a=(\kappa,B,r,\omega,\tau,s),
+\]
+where $B$ is a canonical memory base,
+$r\in\{\mathrm{Bottom},U,V,D,G,\mathrm{Top}\}$, and
+$s\in\{\mathrm{Once},\mathrm{PerSource},\mathrm{PerPair}\}$.
+The operation kind is
+\[
+\kappa\in\{R,W,U_f,U_{\oplus},\mathrm{Claim},\mathrm{Activate}\}.
+\]
+The optional $\omega$ identifies the operator of a recognized algebraic
+update $U_{\oplus}$; $U_f$ denotes another old-value-dependent update.
+A claim additionally carries its guard and transition. The annotation
+$\tau$ records derived temporal information. Read analysis also records
+whether the value source is live or a snapshot. Let $\Sigma$ denote the
+finite multiset of primitive effect occurrences in a candidate loop.
+Table~\ref{tab:effect-recognition} summarizes recognition.
+
+The compiler groups occurrences into the preamble, neighbor body, and
+epilogue of Equation~\ref{eq:effect-expr}. The empty effect $\epsilon$ is
+the identity of both sequential composition $\triangleright$ and
+structural unordered composition $\parallel$. For a finite domain
+$H=(i_1,\ldots,i_n)$ in enumeration order,
+\[
+\mathrm{Seq}_{i\in H}X(i)
+=X(i_1)\triangleright\cdots\triangleright X(i_n),
+\]
+with an empty domain yielding $\epsilon$. The domain size need not be
+known at compile time. The binder path and phase identify each atom's
+occurrence scope and position in the loop nest; these facts are retained
+when constructing access footprints.
+
+\begin{table*}[t]
+\small
+\centering
+\caption{Recognition of effect atoms from SSA instructions and provenance.
+Recognition identifies an operation pattern; it does not establish that
+the operation can be reordered or parallelized.}
+\label{tab:effect-recognition}
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Kind} & \textbf{Recognition rule} & \textbf{Provenance and metadata} \\
+\midrule
+$R$
+& A load from an address derived from $\operatorname{GEP}(A,i)$.
+& The canonical base is $A$ and the region is $\pi(i)$. \\
+$W$
+& A store to an address derived from $\operatorname{GEP}(A,i)$.
+& The canonical base is $A$ and the region is $\pi(i)$. \\
+$U_{\oplus}$
+& A store to $A[i]$ combines the previous value loaded from the same
+location with another value using a recognized operator, such as
+$+$, $-$, $\times$, bitwise AND, OR, XOR, or min/max. Guarded min/max
+forms are also recognized.
+& The load and store must refer to the same location. The index supplies
+$r=\pi(i)$ and the recognized operator supplies $\omega$. \\
+$U_f$
+& A store depends on a load from the same location but does not match a
+recognized algebraic-update pattern.
+& The indexed location supplies the region $r$. \\
+$\mathrm{Activate}$
+& A next-frontier insertion. Set-based
+\texttt{roaring\_bitmap\_add} is recognized directly; an array append
+of the form $A[s{+}{+}]=v$ produces an activation atom.
+& Explicit activation uses $\pi(v)$; the recognized array-append form
+is assigned region $V$. \\
+$\mathrm{Claim}$
+& A conditional store of the form
+\texttt{if (A[i] == expected) A[i] = desired}, with distinct expected
+and desired values, is recognized as a first-wins claim pattern.
+& The index supplies $r=\pi(i)$; guard operands and the state transition
+are retained. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\paragraph{Access conflicts and read summaries.}
+For each read, the compiler compares mutations of the same base using
+their regions, the mutation's phase, and the traversal domain. It
+aggregates the comparisons into a four-valued temporal read summary,
+using the highest-ranked relation. This summary is distinct from the
+finer ordered RAW, WAR, and WAW relations used in interference analysis.
+
+Access footprints also include loop-scoped runtime resources. Two
+footprints on the same base or shared resource are potential conflict
+candidates when at least one writes: the modes distinguish RAW, WAR,
+and WAW. Read--read pairs do not conflict. A shared base alone does not
+establish that two accesses reach the same element.
+
+Phase order applies within a source iteration. Within a phase, the effect
+multiset does not retain instruction order, so equal phase labels do not
+establish separation or ordering. The internal read-before-write order
+of a read--modify--write operation is retained explicitly.
+
+\paragraph{Structural temporal classification.}
+For a RAW or WAR candidate, let $r_R$ and $r_W$ be the read and write
+regions and $p_W$ the write's phase. The following cases are applied in
+order:
+\begin{enumerate}
+\item If $r_R=r_W$, classify the pair as \emph{SameRoundRead}.
+\item For opposite endpoint regions $U$ and $V$, a write outside the
+neighbor body gives \emph{SameRoundRead}. A neighbor-body write gives
+\emph{PreviousRoundRead} under frontier traversal and \emph{Carried}
+under all-vertex traversal.
+\item For the remaining combinations, different phases give
+\emph{SameRoundOrdered}; otherwise, this structural classification
+infers no additional temporal relation.
+\end{enumerate}
+These classifications inform subsequent analysis rather than independently
+authorizing a rewrite. In particular, a cross-endpoint relation depends on
+the write's phase even when the read is in the preamble: per-source phase
+order does not separate that read from other sources' neighbor updates.
+
+WAW candidates have no read endpoint and are treated separately. When
+the traversal cannot repeat across rounds, different-phase writes receive
+\emph{SameRoundOrdered} and same-phase writes receive
+\emph{SameRoundWrite}. When repeated rounds are possible, the cross-round
+relation remains unknown until round analysis establishes the necessary
+separation or ordering. This includes distinct dynamic occurrences of
+the same write site.
+
+\subsection{Dependence Relations and the Correctness Obligation}
+\label{app:effects-independence}
+\paragraph{Spatial and temporal footprints.}
+Let $\mathcal L$ be the logical memory locations, including modeled
+runtime resources. A spatial work instance has footprint
+$S_i=(R_i,W_i)$, where $R_i,W_i\subseteq\mathcal L$.
+A temporal execution unit, such as a round or phase component, similarly
+has footprint $T_i=(R_i^T,W_i^T)$. These differ in their execution-unit
+granularity, while using the same memory-conflict criterion.
+
+For ordered units $x_i\prec x_j$, define
+\[
+\begin{split}
+\mathsf{Conflict}(x_i,x_j)\iff{}&
+W_i\cap R_j\ne\varnothing\ \lor\\
+&R_i\cap W_j\ne\varnothing\ \lor\\
+&W_i\cap W_j\ne\varnothing.
+\end{split}
+\]
+The memory-dependence relation contains $(x_i,x_j)$ exactly when
+$x_i\prec x_j$ and this predicate holds; temporal units use their
+corresponding temporal footprints. Compiler approximations must
+conservatively retain possible conflicts. Control-flow and lifecycle
+requirements must also be preserved by the realization.
+
+For a proposed non-trivial partition $\mathcal P$ of the units,
+Equation~\ref{eq:effects-independence} states that no remaining dependence
+crosses parts. Equivalently, an independent partition exists when the
+remaining interference graph has more than one connected component
+after ignoring edge direction. Order within each part remains subject
+to the original dependences. A partition of temporal units and a
+partition of spatial units are separate proof candidates; success for
+one does not remove constraints imposed by the other.
+
+\paragraph{Graph representation.}
+The conceptual spatial graph has a node for each dynamic pair-work
+instance $S(u,v)$ and conflict edges between instances; occurrence scopes
+must additionally account for source-scoped work. At the temporal level,
+phase nodes represent the preamble, body, and epilogue, with RAW, WAR,
+and WAW relations between them. When inter-round interference is uniform,
+the repeated relation can be summarized by one round node with a
+self-loop. This cyclic summary is an interference graph, not an
+execution DAG. Concrete ordered dependence instances and the emitted
+task graph retain their required execution order.
+
+\paragraph{Transformation discharge.}
+For a transformation $L'=\mathcal T(L)$ and a proposed partition
+$\mathcal P$, establishing
+\[
+\mathsf{Dep}_A(L')\cap\mathsf{Cross}(\mathcal P)=\varnothing
+\]
+establishes independence for the analyzed units of $L'$ on axis $A$.
+It does not establish that $L'$ is equivalent to $L$. That is a separate
+obligation under the transformation's applicability conditions, including
+any requirements on update algebra, observations, claims, or snapshots.
+
+\paragraph{Conditional preservation argument.}
+Suppose that (i) the footprints conservatively describe all relevant
+observable effects and shared resources; (ii) the selected transformations
+preserve the original loop's observable sequential behavior; (iii) the
+resulting units satisfy the independence criterion for the proposed
+partition; and (iv) the realization preserves each part's computation,
+required internal order, occurrence counts, and remaining control and
+lifecycle constraints. Under the modeled sequential memory semantics,
+nonconflicting units in different parts commute: neither writes a
+location read or written by the other. A parallel interleaving can
+therefore be rearranged into an execution of the transformed sequential
+loop by exchanging adjacent independent units while preserving required
+orders. Assumption (ii) then relates its result to the original loop.
+This is the argument the analysis and lowering must support; the
+independence equation alone is not a transformation-soundness theorem.
+
+\subsection{Runtime Realization}
+\label{app:effects-runtime}
+\paragraph{Plans, callbacks, and task graphs.}
+The realization $\mathcal R(L,E_t,\mathcal A)=\Pi_t$ is defined when the
+available runtime mechanisms can implement the computation and its
+ordering requirements. The compiler outlines computations into callbacks
+and emits the information needed to instantiate a graph
+$G_{\mathrm{exec}}=(V_{\mathrm{exec}},E_{\mathrm{exec}})$.
+Runtime traversal sizes and partition counts determine the concrete task
+instances. A node identifies an executable computation and its state;
+an edge $x\rightarrow y$ requires $x$ to finish before $y$ starts.
+
+The CPU runtime submits tasks to a common DAG executor. Tasks become
+ready after all predecessors finish, are assigned to available workers,
+and release successors on completion. Dispatch joins before returning
+to its continuation. An edgeless graph represents independent tasks.
+Task nodes can contain many effect occurrences and are not copied
+directly from the interference graph. Phase order in $E_t$ need not
+produce a separate task or stage for every phase.
+
+\paragraph{Spatial execution.}
+The compiler outlines the neighbor body into a pair callback receiving
+the source $u$, destination $v$, and references to captured data,
+including introduced snapshots or private storage. Supported preamble
+and epilogue computations become source-entry and source-completion
+callbacks. Accesses are redirected as required by the justified
+transformations.
+
+The compiler constructs or reuses the CleanCut layout and initializes
+the traversal domain, callback arguments, and required snapshot, claim,
+frontier, or private state. Source ownership places all neighbor work
+for a source in one partition; destination ownership places all pair
+work targeting a destination in one partition. The spatial proof
+determines the required grouping, and CleanCut materializes a supported
+partitioning consistent with it.
+
+In source-owned execution, a partition task performs source entry,
+neighbor computations, and source completion in order, retaining source
+and neighbor enumeration order within the partition. Distinct partitions
+can execute concurrently when their conflicts have been accounted for.
+Destination ownership may split a source's neighbors between partitions,
+so per-source operations cannot simply be repeated in each partition.
+Where supported, source-coverage passes perform source entry before
+pair traversal and source completion afterward, including for sources
+with no neighbor pairs.
+
+Standalone CPU spatial execution uses one task node per partition,
+without precedence edges between independent partition tasks. If
+destination ownership requires source preparation, a preparation node
+precedes every partition task. Round initialization and snapshot
+publication occur before dispatch. After the graph joins, the runtime
+performs any destination-owned source-completion pass, combines private
+results, and completes frontier publication and round finalization.
+Source-owned completion callbacks instead execute inside partition
+tasks. Operation descriptors identify callbacks and their lifecycle
+events; a descriptor is not itself a parallel task.
+
+\paragraph{Temporal execution.}
+Temporal callbacks preserve control flow and instruction order within
+their components. An execution frame stores captured values and local
+state. For source-phase execution, dependent phases remain in one
+component, and each independent component becomes a callback. The
+runtime dispatches active components for the current source and joins
+before advancing to the next source, making source-local state available
+to the continuation.
+
+For round execution, the compiler outlines a complete round body
+parameterized by the round index. Rounds execute sequentially within
+each group, while independent groups may run concurrently. Inputs are
+captured and analysis-designated private state receives local storage.
+Execution joins before leaving the original round loop, including
+publication of the final counter value. Source-phase graphs have one
+node per active component; round graphs have one node per round group.
+Both graphs are edgeless because internal dependences stay within the
+callbacks and the temporal proof establishes independence between nodes.
+
+Supported independent source-owned and destination-owned computations
+may also be emitted as child executions joined before their continuation.
+A supported ordered realization executes the children in sequence.
+
+\paragraph{Combined round and spatial execution.}
+The compiler creates callbacks for reservation, round setup, partition
+work, round finalization, and release. Each active round has its own
+execution frame and mutable auxiliary state; graph layout may be shared.
+For each round $t$, setup $S_t$, partition batches $B_{t,j}$, and
+finalization $F_t$ obey
+\[
+S_t\longrightarrow B_{t,j}\longrightarrow F_t
+\qquad(1\le j\le m).
+\]
+Setup executes the original computation preceding traversal and prepares
+the partition resources. Each batch traverses its assigned partitions.
+Finalization waits for all batches, performs combination and publication,
+and executes the original computation following traversal.
+
+Multiple independent rounds share an execution DAG, allowing overlap
+within and across rounds. The runtime materializes a bounded set of
+rounds and batches partitions according to the execution budget.
+Resources are reserved before dispatch and released after the
+corresponding execution joins. This combination reuses the established
+round and spatial proof requirements; source-phase parallelism retains
+the separate component realization.
+
+\paragraph{Transformation state and lifecycle.}
+Where justified, snapshotting redirects designated reads to a frozen
+copy published before traversal. A staged per-source claim executes once
+for each relevant source and gates its pair computations. Set-valued
+frontiers retain current-frontier membership and suppress duplicate
+activations when constructing the next frontier.
+
+Eligible reductions and privatized updates receive private storage,
+initialization, and combination operations. Partition partials are
+combined in a specified order after parallel work completes; source-local
+accumulations may instead be finalized at source completion. Validity
+depends on the update and observation conditions established by the
+analysis, including a valid combine operation and the absence of
+unsupported observations of uncombined state.
+
+\paragraph{GPU execution.}
+The GPU backend uses the same analysis results and additionally checks
+device support for computations and captured state. Supported callbacks
+are lowered into device functions and kernel entry points. Descriptors
+identify execution frames, referenced buffers, and pointer relocations.
+The task DAG includes host operations, data publication, and kernel
+launches. Device tasks use separate CUDA streams; successors are released
+only after their required predecessors complete. Independent kernels
+may overlap subject to device scheduling. Valid device buffers may be
+reused, with transfers and synchronization performed as required.
+
+For spatial execution, setup and finalization remain on the host. Setup
+prepares state before device publication, spatial kernels execute the
+partition work, and results become available before host finalization.
+Where supported, independent ownership groups are distributed across
+GPU threads while lifecycle and access order within each group are
+preserved. Host finalization performs the required combination and
+frontier publication.
+
+For temporal execution, each independent component becomes a kernel
+task. Currently, a component executes sequentially in one GPU thread,
+so temporal concurrency occurs between component kernels. Source-phase
+execution joins before advancing to the next source, and round execution
+joins before leaving the original round loop.
+
+Combined GPU execution materializes a bounded window of independent
+rounds with separate execution frames. All host setup tasks precede a
+shared upload $U_{\mathrm{pub}}$, which precedes every spatial kernel
+$K_{t,j}$ in the window. A shared download $D_{\mathrm{pub}}$ waits for
+all kernels and precedes every host finalization task. Thus, for every
+active round and batch,
+\[
+S_t\longrightarrow U_{\mathrm{pub}}
+\longrightarrow K_{t,j}\longrightarrow D_{\mathrm{pub}}
+\longrightarrow F_t.
+\]
+Kernels may overlap across rounds and partitions, while shared transfer
+boundaries introduce synchronization across the window. Capability and
+offload selection determine whether this realization is used.
+Unsupported device computations or unavailable offload use a supported
+CPU realization before the affected computation executes.
+

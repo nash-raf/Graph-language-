@@ -34,7 +34,10 @@ static void array_end(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
 static void *destroy_snapshot_context(void *opaque) {
   autograph_exec_ctx_destroy(opaque);return NULL;
 }
-int main(void) {
+#ifndef SGPL_ARRAY_FRONTIER_TEST_MAIN
+#define SGPL_ARRAY_FRONTIER_TEST_MAIN main
+#endif
+int SGPL_ARRAY_FRONTIER_TEST_MAIN(void) {
   int64_t rp[8]={0,2,4,5,5,6,7,7};int32_t ci[7]={1,2,2,2,3,1,6};
   int32_t weights[]={7,8,40,41,9,10,11};
   ExecTestGraph g={.n=7,.m=7,.row_ptr=rp,.col_idx=ci,.weights=weights,.directed=1};
@@ -91,8 +94,33 @@ int main(void) {
         SGPL_DOMAIN_FRONTIER,NULL,NULL,out,2,&head,NULL,0,ops,1,-1);
     check(!autograph_exec_ctx_bind_array_frontier(ctx,input,6,&out,&cap,2)&&
           !autograph_exec_ctx_prepare_spatial(ctx,key,key,1),"prepare nonempty output prefix");
+    if(layout==LAYOUT_CSR)
+      check(ctx->array_compact_records&&!ctx->gpu_record_sources&&!ctx->gpu_record_work,
+            "pair-only CSR batches use compact records without ordinal side arrays");
     check(autograph_frontier_execute(&g,ctx)==16&&out[0]==99&&out[1]==88&&
           !memcmp(out+2,expected_output,sizeof expected_output),"growth preserves prefix and every append occurrence");
+    uint64_t expected_groups=0;
+    for(int j=0;j<6;++j)for(int64_t e=weight_rp[input[j]];e<weight_rp[input[j]+1];++e)
+      expected_groups|=UINT64_C(1)<<(source?input[j]:weight_ci[e]);
+    check(ctx->spatial_occupied_groups==(uint64_t)__builtin_popcountll(expected_groups),
+          "occupied groups equal the reference traversal's distinct endpoints");
+    skip_appends=1;
+    check(autograph_frontier_execute(&g,ctx)==2 &&
+          ctx->spatial_occupied_groups==(uint64_t)__builtin_popcountll(expected_groups),
+          "context reuse resets group counts and preserves the output prefix");
+    skip_appends=0;
+    if(ctx->array_compact_records) {
+      atomic_store(&fail_malloc,1);
+      check(sgpl_gpu_prepare_spatial_records(ctx)==SGPL_DAG_ERR_NOMEM&&ctx->array_compact_records,
+            "failed device expansion preserves the compact CPU representation");
+      check(autograph_frontier_execute(&g,ctx)==16&&!memcmp(out+2,expected_output,sizeof expected_output),
+            "CPU execution remains valid after device expansion failure");
+    }
+    check(!sgpl_gpu_prepare_spatial_records(ctx)&&!ctx->array_compact_records&&ctx->gpu_record_sources&&ctx->gpu_record_work,
+          "device grouping expands compact records and preserves occurrence metadata");
+    check(autograph_frontier_execute(&g,ctx)==16&&out[0]==99&&out[1]==88&&
+          !memcmp(out+2,expected_output,sizeof expected_output),
+          "CPU fallback after expansion retains the prefix, order and duplicate appends");
     autograph_exec_ctx_destroy(ctx);sgpl_frontier_release_buffers();
   }
   check(!atomic_load(&weight_errors),"CSR hints and duplicate/layout/device fallbacks preserve first-match edge weights");

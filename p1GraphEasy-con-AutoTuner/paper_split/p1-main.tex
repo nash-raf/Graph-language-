@@ -1,0 +1,133 @@
+% Main-paper replacement for the supplied P1 section.
+% Requires amsmath and the bibliography entries used in the original text.
+% Include p1-appendix.tex after the paper's existing \appendix command.
+
+\subsection{Dependency-Driven Pipeline (P1)}
+\label{sec:p1}
+P1 discovers parallelism in irregular graph programs by analyzing the
+data, memory, and control dependences of lowered LLVM IR. Its central
+abstraction is a phase- and scope-aware effect representation: it records
+which graph locations a computation accesses and where that computation
+occurs within a traversal. P1 uses this representation to establish
+spatial independence between work partitions or temporal independence
+between rounds or phase components, then constructs an execution plan
+that preserves the remaining dependences.
+
+\paragraph{Graph-loop effects.}
+A canonical graph loop traverses a frontier or the full vertex domain
+$F_t$. For each source $u$, it executes a preamble $P(u)$, a body $B(u,v)$
+for each neighbor $v\in N(u)$, and an epilogue $Q(u)$:
+\begin{equation}
+E_t = \mathrm{Seq}_{u\in F_t}\Bigl(
+P(u)\triangleright
+\bigl(\mathrm{Seq}_{v\in N(u)} B(u,v)\bigr)
+\triangleright Q(u)\Bigr).
+\label{eq:effect-expr}
+\end{equation}
+Here $\mathrm{Seq}$ retains the serial enumeration order and
+$\triangleright$ records phase order within a source iteration. Effects
+within a phase form a multiset, written using structural composition
+$\parallel$; this notation does not assert that those effects can run
+concurrently. Retaining order follows the motivation of sequential
+effect systems~\cite{10.1145/2429069.2429074} and effect
+quantales~\cite{gordon2017genericapproachflowsensitivepolymorphic,10.1145/3450272}.
+
+Each effect atom records an operation kind, canonical memory base,
+index region, and occurrence scope. The kinds distinguish reads, writes,
+old-value-dependent updates, recognized algebraic updates, claims, and
+frontier activations. Regions distinguish source-derived ($U$),
+destination-derived ($V$), data-derived ($D$), and global ($G$) indices;
+scopes distinguish once-only, per-source, and per-pair operations.
+Fixed-point provenance analysis supplies the regions, and subsequent
+analysis annotates reads with temporal information and a live or snapshot
+value source. Region tags describe access provenance; they do not by
+themselves establish disjointness. Unsupported operations prevent the
+parallel rewrite. Appendix~\ref{app:p1-effects} gives the recognition and
+temporal-classification rules.
+
+\paragraph{Establishing independence.}
+P1 constructs conservative RAW, WAR, and WAW conflict relations from
+memory-access footprints, including shared runtime resources. The
+spatial analysis considers work instances and their proposed ownership
+partitions. The temporal analysis considers rounds and components of
+the source phases. These are distinct choices of execution unit, each
+with its own dependence relation.
+
+For either axis $A\in\{S,T\}$, let $X$ be the relevant execution units,
+$\mathsf{Dep}_A$ their remaining dependence relation, and $\mathcal P$ a
+proposed non-trivial partition. The independence criterion is
+\begin{equation}
+\mathsf{Dep}_A\cap\mathsf{Cross}(\mathcal P)=\varnothing,
+\qquad
+\mathsf{Cross}(\mathcal P)=
+\bigcup_{P_i\ne P_j}(P_i\times P_j).
+\label{eq:p1-independence}
+\end{equation}
+Thus, different parts may execute concurrently when no remaining
+dependence crosses the partition. For example, assigning all neighbor
+work for a source to one owner keeps that source's $A[u]$ updates
+together; writes through $A[v]$ can still conflict across source owners
+and require a separate justification. Source ownership alone is therefore
+insufficient to parallelize a loop that also mutates destination state.
+
+P1 may discharge conflicts using applicable transformations, including
+snapshotting, staged claims, and privatized updates or reductions.
+Each transformation has two obligations: it must preserve the original
+loop's observable behavior under its applicability conditions, and its
+resulting effects must justify the proposed concurrency. A snapshot must
+supply the value required by the original computation; a recognized
+update operator alone does not establish that regrouping updates is
+valid. Private updates additionally require a valid combination operation
+and no unsupported observation of uncombined state. Conflict edges are
+removed only when the corresponding obligation has been discharged.
+
+Disconnected components of the remaining interference graph provide
+candidate independent groups. Independence on one axis permits concurrency
+on that axis while retaining the ordering required on the other; it does
+not license arbitrary reordering of the whole loop. The correctness
+argument is conditional on sound effect footprints, behavior-preserving
+transformations, and a realization that preserves all remaining ordering
+and occurrence-scope requirements. Appendix~\ref{app:p1-independence}
+makes these conditions explicit.
+
+\paragraph{Constructing an execution plan.}
+Given the original loop $L$, its effects $E_t$, and the analysis results
+and justified transformations $\mathcal A$, the compiler constructs
+\[
+\mathcal R(L,E_t,\mathcal A)=\Pi_t.
+\]
+The plan identifies executable work units, their domains and state, and
+their ordering constraints. It is emitted only when the runtime supports
+the required realization; otherwise, P1 retains serial execution. Effect
+atoms guide this construction, while the original IR supplies the
+computation and control flow.
+
+Spatial execution groups work by source or destination ownership using
+Graptor's CleanCut layout~\cite{10.1145/3392717.3392753}. Source ownership
+keeps a source's preamble, neighbor work, and epilogue together.
+Destination ownership can split a source's neighbors across partitions;
+where supported, separate source-coverage passes preserve per-source
+operations, including for sources with no neighbors. Temporal execution
+runs independent phase components concurrently within a source iteration,
+or independent groups of rounds concurrently, retaining serial order
+within each component or group.
+
+When both round independence and spatial partitioning are established,
+P1 combines them. For each round $t$, setup $S_t$ precedes every partition
+batch $B_{t,j}$, and finalization $F_t$ follows all batches:
+\[
+S_t\longrightarrow B_{t,j}\longrightarrow F_t.
+\]
+Independent rounds use separate mutable auxiliary state and may overlap.
+The implemented combination supports round parallelism with spatial
+partitioning; source-phase parallelism uses its separate realization.
+
+The runtime instantiates these work units as tasks and schedules them
+subject to the plan's precedence edges. Task nodes may contain many
+effect occurrences; the execution graph is distinct from the interference
+graph used to justify it. CPU and GPU backends consume the same analysis
+results, with additional device-capability checks for GPU execution.
+Currently, each GPU temporal component executes sequentially in one
+thread, exposing temporal concurrency between kernels. Unsupported
+offload uses a supported CPU realization. Appendix~\ref{app:p1-runtime}
+describes callback construction, resource lifetimes, and backend scheduling.

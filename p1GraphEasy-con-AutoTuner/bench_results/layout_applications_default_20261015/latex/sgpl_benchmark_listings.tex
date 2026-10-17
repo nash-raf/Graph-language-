@@ -1,0 +1,396 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=22mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+
+\lstdefinelanguage{SGPL}{
+  morekeywords={graph,edges,file,int,real,bool,set,while,for,in,if,query,of,print,swap},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]"
+}
+\lstset{
+  language=SGPL,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape,
+  numbers=left,
+  numberstyle=\tiny,
+  numbersep=8pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  frame=single,
+  captionpos=t
+}
+
+\begin{document}
+\begin{lstlisting}[caption={Contact tracing},label={lst:contact-tracing}]
+// Sliding contact windows and source-based exposure tracing.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 80000) {
+  G.removeEdges(402->502);
+  G.removeEdges(403->503);
+  G.removeEdges(404->504);
+  G.removeEdges(405->505);
+  G.removeEdges(406->506);
+  G.removeEdges(407->507);
+  G.removeEdges(408->508);
+  G.removeEdges(409->509);
+  G.addEdges(0->256);
+  G.addEdges(13->269);
+  G.addEdges(26->282);
+  G.addEdges(39->295);
+  G.addEdges(52->308);
+  G.addEdges(65->321);
+  G.addEdges(78->334);
+  G.addEdges(91->347);
+  G.removeEdges(0->256);
+  G.removeEdges(13->269);
+  G.removeEdges(26->282);
+  G.removeEdges(39->295);
+  G.removeEdges(52->308);
+  G.removeEdges(65->321);
+  G.removeEdges(78->334);
+  G.removeEdges(91->347);
+  G.addEdges(402->502);
+  G.addEdges(403->503);
+  G.addEdges(404->504);
+  G.addEdges(405->505);
+  G.addEdges(406->506);
+  G.addEdges(407->507);
+  G.addEdges(408->508);
+  G.addEdges(409->509);
+  window = window + 1;
+}
+  G.removeEdges(402->502);
+  G.removeEdges(403->503);
+  G.removeEdges(404->504);
+  G.removeEdges(405->505);
+  G.removeEdges(406->506);
+  G.removeEdges(407->507);
+  G.removeEdges(408->508);
+  G.removeEdges(409->509);
+  G.addEdges(0->256);
+  G.addEdges(13->269);
+  G.addEdges(26->282);
+  G.addEdges(39->295);
+  G.addEdges(52->308);
+  G.addEdges(65->321);
+  G.addEdges(78->334);
+  G.addEdges(91->347);
+query core_snapshot: "bfs_src" 0 of G;
+query edge_snapshot: "bfs_src" 543 of G;
+print core_snapshot; print edge_snapshot;
+// Enumerate the exposure cohort and record its furthest hop.
+int visited[n]; int parent[n]; int frontier[n]; int next_frontier[n];
+int init_i=0;
+while(init_i<n) { visited[init_i]=0; parent[init_i]=-1; init_i=init_i+1; }
+frontier[0]=0; visited[0]=1; parent[0]=0;
+int frontier_size=1; int next_size=0; int hops=0;
+while(frontier_size>0) {
+  next_size=0; int i=0;
+  while(i<frontier_size) {
+    int u=frontier[i];
+    for v in G.neighbors(u) {
+      if(visited[v]==0) {
+        visited[v]=1; parent[v]=u;
+        next_frontier[next_size]=v; next_size=next_size+1;
+      }
+    }
+    i=i+1;
+  }
+  swap(frontier,next_frontier); frontier_size=next_size;
+  if(frontier_size>0) { hops=hops+1; }
+}
+int exposed=0; int v=0;
+while(v<n) { exposed=exposed+visited[v]; v=v+1; }
+print exposed; print hops;
+print numEdges(G);
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[caption={Service islands},label={lst:service-islands}]
+// Service-topology updates followed by connected-component outage detection.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 80000) {
+  G.addEdges(0->256);
+  G.addEdges(13->269);
+  G.addEdges(26->282);
+  G.addEdges(39->295);
+  G.addEdges(52->308);
+  G.addEdges(65->321);
+  G.addEdges(78->334);
+  G.addEdges(91->347);
+  G.removeEdges(0->256);
+  G.removeEdges(13->269);
+  G.removeEdges(26->282);
+  G.removeEdges(39->295);
+  G.removeEdges(52->308);
+  G.removeEdges(65->321);
+  G.removeEdges(78->334);
+  G.removeEdges(91->347);
+  window = window + 1;
+}
+  G.removeEdges(0->512);
+query core_snapshot: "bfs_src" 0 of G;
+query edge_snapshot: "bfs_src" 543 of G;
+print core_snapshot; print edge_snapshot;
+// Label all disconnected service islands; emit the largest island.
+int label[n]; int frontier[n]; int next_frontier[n];
+int frontier_size=n; int next_size=0; int v=0;
+while(v<n) { label[v]=v; frontier[v]=v; v=v+1; }
+while(frontier_size>0) {
+  next_size=0; int i=0;
+  while(i<frontier_size) {
+    int u=frontier[i];
+    for v in G.neighbors(u) {
+      if(label[u]<label[v]) {
+        label[v]=label[u];
+        next_frontier[next_size]=v; next_size=next_size+1;
+      }
+    }
+    i=i+1;
+  }
+  swap(frontier,next_frontier); frontier_size=next_size;
+}
+int count[n]; v=0;
+while(v<n) { count[v]=0; v=v+1; }
+v=0; while(v<n) { count[label[v]]=count[label[v]]+1; v=v+1; }
+int islands=0; int largest=0; v=0;
+while(v<n) { if(count[v]>0) { islands=islands+1; } if(count[v]>largest) { largest=count[v]; } v=v+1; }
+print islands; print largest;
+print numEdges(G);
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[caption={Sensor backbone},label={lst:sensor-backbone}]
+// Radio-link duty cycles followed by a redundant-neighbor k-core audit.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+// Degree cache supplied with the snapshot and maintained with every update.
+int out_degree[544]=[501,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1];
+int window = 0;
+while (window < 80000) {
+  G.removeEdges(402->502);
+  out_degree[402] = out_degree[402] - 1;
+  out_degree[502] = out_degree[502] - 1;
+  G.removeEdges(403->503);
+  out_degree[403] = out_degree[403] - 1;
+  out_degree[503] = out_degree[503] - 1;
+  G.removeEdges(404->504);
+  out_degree[404] = out_degree[404] - 1;
+  out_degree[504] = out_degree[504] - 1;
+  G.removeEdges(405->505);
+  out_degree[405] = out_degree[405] - 1;
+  out_degree[505] = out_degree[505] - 1;
+  G.removeEdges(406->506);
+  out_degree[406] = out_degree[406] - 1;
+  out_degree[506] = out_degree[506] - 1;
+  G.removeEdges(407->507);
+  out_degree[407] = out_degree[407] - 1;
+  out_degree[507] = out_degree[507] - 1;
+  G.removeEdges(408->508);
+  out_degree[408] = out_degree[408] - 1;
+  out_degree[508] = out_degree[508] - 1;
+  G.removeEdges(409->509);
+  out_degree[409] = out_degree[409] - 1;
+  out_degree[509] = out_degree[509] - 1;
+  G.addEdges(402->502);
+  out_degree[402] = out_degree[402] + 1;
+  out_degree[502] = out_degree[502] + 1;
+  G.addEdges(403->503);
+  out_degree[403] = out_degree[403] + 1;
+  out_degree[503] = out_degree[503] + 1;
+  G.addEdges(404->504);
+  out_degree[404] = out_degree[404] + 1;
+  out_degree[504] = out_degree[504] + 1;
+  G.addEdges(405->505);
+  out_degree[405] = out_degree[405] + 1;
+  out_degree[505] = out_degree[505] + 1;
+  G.addEdges(406->506);
+  out_degree[406] = out_degree[406] + 1;
+  out_degree[506] = out_degree[506] + 1;
+  G.addEdges(407->507);
+  out_degree[407] = out_degree[407] + 1;
+  out_degree[507] = out_degree[507] + 1;
+  G.addEdges(408->508);
+  out_degree[408] = out_degree[408] + 1;
+  out_degree[508] = out_degree[508] + 1;
+  G.addEdges(409->509);
+  out_degree[409] = out_degree[409] + 1;
+  out_degree[509] = out_degree[509] + 1;
+  window = window + 1;
+}
+  G.removeEdges(0->1);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[1] = out_degree[1] - 1;
+  G.removeEdges(0->2);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[2] = out_degree[2] - 1;
+  G.removeEdges(0->3);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[3] = out_degree[3] - 1;
+  G.removeEdges(0->4);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[4] = out_degree[4] - 1;
+  G.removeEdges(0->5);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[5] = out_degree[5] - 1;
+  G.removeEdges(0->6);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[6] = out_degree[6] - 1;
+  G.removeEdges(0->7);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[7] = out_degree[7] - 1;
+  G.removeEdges(0->8);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[8] = out_degree[8] - 1;
+  G.removeEdges(0->9);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[9] = out_degree[9] - 1;
+  G.removeEdges(0->10);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[10] = out_degree[10] - 1;
+  G.removeEdges(0->11);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[11] = out_degree[11] - 1;
+  G.removeEdges(0->12);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[12] = out_degree[12] - 1;
+  G.removeEdges(0->512);
+  out_degree[0] = out_degree[0] - 1;
+  out_degree[512] = out_degree[512] - 1;
+query core_snapshot: "bfs_src" 0 of G;
+query edge_snapshot: "bfs_src" 543 of G;
+print core_snapshot; print edge_snapshot;
+// Peel sensors that cannot meet the minimum redundant-neighbor budget.
+int alive[n]; int deg[n]; int frontier[n]; int next_frontier[n];
+int k=490; int frontier_size=0; int next_size=0; int v=0;
+while(v<n) { alive[v]=1; deg[v]=out_degree[v]; if(deg[v]<k) { frontier[frontier_size]=v; frontier_size=frontier_size+1; } v=v+1; }
+while(frontier_size>0) {
+  next_size=0; int i=0;
+  while(i<frontier_size) {
+    int u=frontier[i];
+    if(alive[u]==1) {
+      alive[u]=0;
+      for v in G.neighbors(u) {
+        if(alive[v]==1) {
+          deg[v]=deg[v]-1;
+          if(deg[v]<k) { next_frontier[next_size]=v; next_size=next_size+1; }
+        }
+      }
+    }
+    i=i+1;
+  }
+  swap(frontier,next_frontier); frontier_size=next_size;
+}
+int retained=0; v=0;
+while(v<n) { retained=retained+alive[v]; v=v+1; }
+print retained; print alive[0];
+print numEdges(G);
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[caption={Gateway failover},label={lst:gateway-failover}]
+// Path switching, gateway outage impact, alternate-route commissioning, and recovery checks.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 80000) {
+  G.removeEdges(402->502);
+  G.addEdges(0->256);
+  G.removeEdges(0->256);
+  G.addEdges(402->502);
+  G.removeEdges(403->503);
+  G.addEdges(13->269);
+  G.removeEdges(13->269);
+  G.addEdges(403->503);
+  G.removeEdges(404->504);
+  G.addEdges(26->282);
+  G.removeEdges(26->282);
+  G.addEdges(404->504);
+  G.removeEdges(405->505);
+  G.addEdges(39->295);
+  G.removeEdges(39->295);
+  G.addEdges(405->505);
+  G.removeEdges(406->506);
+  G.addEdges(52->308);
+  G.removeEdges(52->308);
+  G.addEdges(406->506);
+  G.removeEdges(407->507);
+  G.addEdges(65->321);
+  G.removeEdges(65->321);
+  G.addEdges(407->507);
+  G.removeEdges(408->508);
+  G.addEdges(78->334);
+  G.removeEdges(78->334);
+  G.addEdges(408->508);
+  G.removeEdges(409->509);
+  G.addEdges(91->347);
+  G.removeEdges(91->347);
+  G.addEdges(409->509);
+  window = window + 1;
+}
+// Check outage impact, commission the alternate gateway, and verify recovery.
+G.removeEdges(0->512);
+query outage_core: "bfs_src" 0 of G;
+query stranded_clients: "bfs_src" 543 of G;
+print outage_core; print stranded_clients;
+G.addEdges(1->512);
+query recovered: "bfs_src" 0 of G;
+query inspection: "dfs_src" 543 of G;
+print recovered; print inspection;
+print numEdges(G);
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[caption={Trust audit},label={lst:trust-audit}]
+// Short-lived access grants, revocation, and DFS trust-boundary inventories.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 80000) {
+  G.addEdges(0->256);
+  G.removeEdges(0->256);
+  G.addEdges(13->269);
+  G.removeEdges(13->269);
+  G.addEdges(26->282);
+  G.removeEdges(26->282);
+  G.addEdges(39->295);
+  G.removeEdges(39->295);
+  G.addEdges(52->308);
+  G.removeEdges(52->308);
+  G.addEdges(65->321);
+  G.removeEdges(65->321);
+  G.addEdges(78->334);
+  G.removeEdges(78->334);
+  G.addEdges(91->347);
+  G.removeEdges(91->347);
+  window = window + 1;
+}
+  G.removeEdges(0->512);
+// Enumerate both sides of the revoked trust boundary.
+query allowed: "dfs_src" 0 of G;
+query isolated: "dfs_src" 543 of G;
+print allowed; print isolated;
+print numEdges(G);
+\end{lstlisting}
+
+\end{document}

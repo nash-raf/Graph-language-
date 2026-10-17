@@ -1,0 +1,20 @@
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Workers & Valid settings & Mean APE (\%) & Median APE (\%) & Within 20\% \\
+\midrule
+2 & 13 & 17.56 & 21.06 & 6/13 \\
+3 & 13 & 14.40 & 14.55 & 8/13 \\
+4 & 13 & 12.89 & 9.29 & 11/13 \\
+5 & 13 & 14.50 & 11.34 & 8/13 \\
+6 & 12 & 14.89 & 11.31 & 8/12 \\
+7 & 13 & 10.84 & 9.42 & 11/13 \\
+8 & 13 & 18.07 & 18.42 & 8/13 \\
+All & 90 & 14.73 & 14.47 & 60/90 \\
+\bottomrule
+\end{tabular}
+\caption{DOACROSS cost-model validation after removing the separate global dependency charge.}\label{tab:doacross-summary}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Learned synchronization costs. Each completed setting uses three processes and seven holdout timing samples per process. The uneven workload at six workers timed out; it is excluded from accuracy aggregates, not counted as a successful prediction.\end{minipage}
+\end{table}

@@ -1,0 +1,700 @@
+{
+  "installed": false,
+  "all_candidates_rejected": true,
+  "retained_installed_version": "packing_regression_20261017/03_completion_batch",
+  "workers": 32,
+  "repeats": 5,
+  "cases_per_trial": 12,
+  "unique_graphs": 10,
+  "validation_failures": 0,
+  "missing_pairs": 0,
+  "trial_decisions": [
+    {
+      "stage": "01_segment_view",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 0.9514421609000572,
+      "geomean_median_improvement": 0.9784528387656347,
+      "confirmed_regressions": [
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/DSJC1000-5.edges",
+          "ratio": 0.8490333206209494
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "misc/delaunay_n13.edges",
+          "ratio": 0.8494130229851049
+        }
+      ],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 3
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 0.9874824014323168,
+      "geomean_median_improvement": 0.9871683534923821,
+      "confirmed_regressions": [],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 3
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 1.0010244333048646,
+      "geomean_median_improvement": 0.9927230123181564,
+      "confirmed_regressions": [],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 5
+    }
+  ],
+  "reported_trial": "03_view_dispatch_versioning",
+  "reported_trial_status": "Rejected; 0.1% mean geomean gain, 0.7% median geomean regression.",
+  "primary": [
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "road/road-luxembourg-osm.edges",
+      "current_p1_ms": 45.3483338,
+      "candidate_p1_ms": 39.9720878,
+      "graptor_ms": 47.3216504,
+      "current_p1_median_ms": 40.767071,
+      "candidate_p1_median_ms": 39.757512,
+      "graptor_median_ms": 40.899957,
+      "current_over_candidate": 1.1345000047758327,
+      "median_current_over_candidate": 1.0253929119105842,
+      "graptor_over_current": 1.0435146439713294,
+      "graptor_over_candidate": 1.1838673685691246,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "road/road-usroads-48.edges",
+      "current_p1_ms": 95.29047879999999,
+      "candidate_p1_ms": 90.7423804,
+      "graptor_ms": 89.41096660000001,
+      "current_p1_median_ms": 91.692593,
+      "candidate_p1_median_ms": 90.609287,
+      "graptor_median_ms": 79.315103,
+      "current_over_candidate": 1.0501209950626333,
+      "median_current_over_candidate": 1.0119557943326494,
+      "graptor_over_current": 0.9382990591080964,
+      "graptor_over_candidate": 0.9853275416169268,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "soc/soc-epinions.edges",
+      "current_p1_ms": 16.4807858,
+      "candidate_p1_ms": 15.452005600000001,
+      "graptor_ms": 9.3216334,
+      "current_p1_median_ms": 16.258630999999998,
+      "candidate_p1_median_ms": 15.290546,
+      "graptor_median_ms": 9.201508,
+      "current_over_candidate": 1.0665790724279829,
+      "median_current_over_candidate": 1.0633126508366673,
+      "graptor_over_current": 0.5656061254069573,
+      "graptor_over_candidate": 0.6032636565961379,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "cc",
+      "graph": "soc/soc-epinions.edges",
+      "current_p1_ms": 9.422248399999999,
+      "candidate_p1_ms": 9.6930894,
+      "graptor_ms": 6.0629722,
+      "current_p1_median_ms": 9.316135,
+      "candidate_p1_median_ms": 9.715516000000001,
+      "graptor_median_ms": 6.104565999999999,
+      "current_over_candidate": 0.9720583408629244,
+      "median_current_over_candidate": 0.958892456149524,
+      "graptor_over_current": 0.643474035348081,
+      "graptor_over_candidate": 0.6254943031888265,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "pagerank",
+      "graph": "soc/soc-epinions.edges",
+      "current_p1_ms": 18.403696800000002,
+      "candidate_p1_ms": 19.8706004,
+      "graptor_ms": 22.213209000000003,
+      "current_p1_median_ms": 18.352721,
+      "candidate_p1_median_ms": 19.965758,
+      "graptor_median_ms": 17.861054000000003,
+      "current_over_candidate": 0.9261771878820532,
+      "median_current_over_candidate": 0.919209829148485,
+      "graptor_over_current": 1.2069971181007504,
+      "graptor_over_candidate": 1.1178931966242953,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "current_p1_ms": 31.455950000000005,
+      "candidate_p1_ms": 30.9301916,
+      "graptor_ms": 15.998330800000002,
+      "current_p1_median_ms": 31.402945000000003,
+      "candidate_p1_median_ms": 30.491867999999997,
+      "graptor_median_ms": 15.983627,
+      "current_over_candidate": 1.016998226419005,
+      "median_current_over_candidate": 1.029879343567931,
+      "graptor_over_current": 0.5085947428070047,
+      "graptor_over_candidate": 0.5172399514007537,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "current_p1_ms": 20.5433114,
+      "candidate_p1_ms": 20.6188858,
+      "graptor_ms": 9.7479244,
+      "current_p1_median_ms": 20.143358,
+      "candidate_p1_median_ms": 20.804366,
+      "graptor_median_ms": 9.692891,
+      "current_over_candidate": 0.9963347001029512,
+      "median_current_over_candidate": 0.9682274384136483,
+      "graptor_over_current": 0.47450599419916306,
+      "graptor_over_candidate": 0.4727667874274758,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "misc/delaunay_n13.edges",
+      "current_p1_ms": 13.6505302,
+      "candidate_p1_ms": 14.5126528,
+      "graptor_ms": 8.416280599999999,
+      "current_p1_median_ms": 13.546716,
+      "candidate_p1_median_ms": 13.628855,
+      "graptor_median_ms": 8.074072,
+      "current_over_candidate": 0.9405951060856359,
+      "median_current_over_candidate": 0.9939731547514447,
+      "graptor_over_current": 0.6165533848641278,
+      "graptor_over_candidate": 0.5799270964437322,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "ia/ia-email-EU.edges",
+      "current_p1_ms": 13.1370542,
+      "candidate_p1_ms": 13.2109574,
+      "graptor_ms": 15.0078842,
+      "current_p1_median_ms": 12.967379,
+      "candidate_p1_median_ms": 13.129992,
+      "graptor_median_ms": 8.245381,
+      "current_over_candidate": 0.9944059164099645,
+      "median_current_over_candidate": 0.9876151485850105,
+      "graptor_over_current": 1.1424086383079701,
+      "graptor_over_candidate": 1.1360179088912967,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "email/email-enron-large.edges",
+      "current_p1_ms": 21.2635548,
+      "candidate_p1_ms": 22.9431938,
+      "graptor_ms": 11.6800654,
+      "current_p1_median_ms": 21.209972,
+      "candidate_p1_median_ms": 22.821814999999997,
+      "graptor_median_ms": 11.592449,
+      "current_over_candidate": 0.9267914042551477,
+      "median_current_over_candidate": 0.929372707648362,
+      "graptor_over_current": 0.5492997530215409,
+      "graptor_over_candidate": 0.5090862894598397,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "bfs",
+      "graph": "inf/inf-roadNet-CA.edges",
+      "current_p1_ms": 94.42851019999999,
+      "candidate_p1_ms": 91.57730260000001,
+      "graptor_ms": 121.974706,
+      "current_p1_median_ms": 91.441191,
+      "candidate_p1_median_ms": 88.122167,
+      "graptor_median_ms": 121.696477,
+      "current_over_candidate": 1.03113443526999,
+      "median_current_over_candidate": 1.0376638944886591,
+      "graptor_over_current": 1.2917148194084291,
+      "graptor_over_candidate": 1.3319316308405877,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "bfs",
+      "graph": "dimacs10/inf-asia_osm.edges",
+      "current_p1_ms": 1121.8987394,
+      "candidate_p1_ms": 1148.2329104,
+      "graptor_ms": 1580.6141056000001,
+      "current_p1_median_ms": 1137.127522,
+      "candidate_p1_median_ms": 1139.573247,
+      "graptor_median_ms": 1572.4363669999998,
+      "current_over_candidate": 0.9770654796936397,
+      "median_current_over_candidate": 0.9978538237832113,
+      "graptor_over_current": 1.40887412570347,
+      "graptor_over_candidate": 1.3765622734584182,
+      "validated": true,
+      "installed": false
+    }
+  ],
+  "summary": {
+    "bfs": {
+      "cases": 2,
+      "current_over_candidate": 1.0037359521436418,
+      "median_current_over_candidate": 1.0175641920376755,
+      "graptor_over_current": 1.3490231972995372,
+      "graptor_over_candidate": 1.354063083405311
+    },
+    "sssp": {
+      "cases": 8,
+      "current_over_candidate": 1.0138269825200268,
+      "median_current_over_candidate": 1.000468939088748,
+      "graptor_over_current": 0.6905515968842052,
+      "graptor_over_candidate": 0.7000998417434997
+    },
+    "cc": {
+      "cases": 1,
+      "current_over_candidate": 0.9720583408629244,
+      "median_current_over_candidate": 0.958892456149524,
+      "graptor_over_current": 0.643474035348081,
+      "graptor_over_candidate": 0.6254943031888265
+    },
+    "pagerank": {
+      "cases": 1,
+      "current_over_candidate": 0.9261771878820532,
+      "median_current_over_candidate": 0.919209829148485,
+      "graptor_over_current": 1.2069971181007504,
+      "graptor_over_candidate": 1.1178931966242953
+    },
+    "overall": {
+      "cases": 12,
+      "current_over_candidate": 1.0010244333048646,
+      "median_current_over_candidate": 0.9927230123181564,
+      "graptor_over_current": 0.8041191975733396,
+      "graptor_over_candidate": 0.8049429640604148
+    }
+  },
+  "counts": {
+    "validation_cases": 108,
+    "primary_timed_launches": 540,
+    "extra_confirmation_launches": 70
+  },
+  "activation": [
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "descriptor_rounds": 8,
+      "pair_occurrences": 4297058,
+      "descriptors": 1095649,
+      "view_builds": 1
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "descriptor_rounds": 0,
+      "pair_occurrences": 0,
+      "descriptors": 0,
+      "view_builds": 0
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "inf/inf-roadNet-CA.edges",
+      "descriptor_rounds": 0,
+      "pair_occurrences": 0,
+      "descriptors": 0,
+      "view_builds": 0
+    }
+  ],
+  "diagnostic_phases": [
+    {
+      "stage": "00_baseline",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.00458,
+        "finish": 1.343279,
+        "compaction": 1.338628,
+        "dispatch": 4.723117,
+        "records": 8.000633,
+        "weight_indices": 1.70994,
+        "count": 0.755401,
+        "fill": 4.888794,
+        "view_cache": 0.0
+      },
+      "underfilled_rounds": 0,
+      "active_partition_histogram": {
+        "128": 8
+      },
+      "granted_worker_histogram": {
+        "32": 8
+      }
+    },
+    {
+      "stage": "00_baseline",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.054789,
+        "finish": 1.743413,
+        "compaction": 1.735652,
+        "dispatch": 9.043558,
+        "records": 11.91314,
+        "weight_indices": 4.543567,
+        "count": 1.35718,
+        "fill": 4.074418,
+        "view_cache": 0.0
+      },
+      "underfilled_rounds": 3,
+      "active_partition_histogram": {
+        "1": 1,
+        "12": 1,
+        "25": 1,
+        "61": 1,
+        "102": 1,
+        "103": 1,
+        "126": 1,
+        "127": 1,
+        "128": 9
+      },
+      "granted_worker_histogram": {
+        "32": 17
+      }
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.004199,
+        "finish": 1.313829,
+        "compaction": 1.310314,
+        "dispatch": 4.139772,
+        "records": 9.776327,
+        "weight_indices": 2.091131,
+        "view_cache": 4.730541
+      },
+      "underfilled_rounds": 0,
+      "active_partition_histogram": {
+        "128": 8
+      },
+      "granted_worker_histogram": {
+        "32": 8
+      }
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.05681,
+        "finish": 1.612202,
+        "compaction": 1.606175,
+        "dispatch": 8.963346,
+        "records": 11.485536,
+        "weight_indices": 3.586585,
+        "view_cache": 0.0
+      },
+      "underfilled_rounds": 3,
+      "active_partition_histogram": {
+        "1": 1,
+        "12": 1,
+        "25": 1,
+        "61": 1,
+        "102": 1,
+        "103": 1,
+        "126": 1,
+        "127": 1,
+        "128": 9
+      },
+      "granted_worker_histogram": {
+        "32": 17
+      }
+    }
+  ],
+  "dsjc_rss_samples": [
+    {
+      "stage": "01_segment_view",
+      "variant": "baseline",
+      "rss_kib": 60564
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "candidate",
+      "rss_kib": 29120
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "graptor",
+      "rss_kib": 13056
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "candidate",
+      "rss_kib": 29760
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "baseline",
+      "rss_kib": 60124
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "baseline",
+      "rss_kib": 60220
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "candidate",
+      "rss_kib": 29760
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "baseline",
+      "rss_kib": 60248
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "candidate",
+      "rss_kib": 29824
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "graptor",
+      "rss_kib": 13140
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "candidate",
+      "rss_kib": 30280
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "01_segment_view",
+      "variant": "baseline",
+      "rss_kib": 60736
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "baseline",
+      "rss_kib": 61036
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "candidate",
+      "rss_kib": 29784
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "candidate",
+      "rss_kib": 29044
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "baseline",
+      "rss_kib": 59688
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "baseline",
+      "rss_kib": 60588
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "candidate",
+      "rss_kib": 30252
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "baseline",
+      "rss_kib": 60824
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "candidate",
+      "rss_kib": 29312
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "candidate",
+      "rss_kib": 29928
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "02_compact_parallel_view",
+      "variant": "baseline",
+      "rss_kib": 60968
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "baseline",
+      "rss_kib": 60000
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "candidate",
+      "rss_kib": 28588
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "graptor",
+      "rss_kib": 13056
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "candidate",
+      "rss_kib": 29092
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "baseline",
+      "rss_kib": 60568
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "baseline",
+      "rss_kib": 61016
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "candidate",
+      "rss_kib": 30060
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "baseline",
+      "rss_kib": 60824
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "candidate",
+      "rss_kib": 30308
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "graptor",
+      "rss_kib": 13140
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "candidate",
+      "rss_kib": 29528
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "graptor",
+      "rss_kib": 13312
+    },
+    {
+      "stage": "03_view_dispatch_versioning",
+      "variant": "baseline",
+      "rss_kib": 60120
+    }
+  ],
+  "proof_checks": [
+    {
+      "fixture": "positive",
+      "certificate_emitted": true,
+      "operation_calls": [
+        "  %30 = call ptr @autograph_exec_op_create(i64 513, ptr null, ptr nonnull @sgpl_pair_work, ptr null, ptr null, ptr null, ptr null, ptr nonnull @sgpl_res, i32 3)"
+      ]
+    },
+    {
+      "fixture": "opaque",
+      "certificate_emitted": false,
+      "operation_calls": []
+    }
+  ],
+  "abi_checks": {
+    "00_baseline": "568 528 560 368",
+    "03_view_dispatch_versioning": "568 528 560 368"
+  },
+  "timing_policy": "Five fresh whole-process launches per framework/variant; 32 configured graph workers. Include loading, initialization, view/cache construction, execution, teardown and exit. Exclude compilation, separate reference validation, warmup and instrumented profiling. Rotate variant order; retain all samples. Filesystem cache warm; runtime cache starts empty each process.",
+  "proof": "Explicit CPU ordered-array domain, complete spatial proof, one pair operation, no lifecycle/reduction callbacks; callback context accesses only through the opaque record-transparent ABI. Stores require compiler-owned scalar/array provenance; unknown/indirect calls and unresolved bases keep materialization. A general byte-cost gate selects representation.",
+  "semantics": "Stable original source occurrences and native neighbor order; duplicate edges/sources and original append ordinals preserved. First-match weight indices for unsorted/duplicate rows. Reference-counted immutable views survive context overlap, cache eviction and topology publication. No algorithm-name/graph-name dispatch, input rewrite, TDG bypass or reduced graph budget.",
+  "limitations": [
+    "12 cases / 10 distinct graphs; historical 273-graph run not resumed.",
+    "Diagnostic phase timings are separate from benchmark timings; view_cache is nested in records, and weight_indices is nested in view_cache when constructing a weighted view. Do not sum nested times.",
+    "Only DSJC passed the representation cost gate among the activation probes. Slashdot and RoadNet-CA retained the original representation.",
+    "The byte-cost heuristic is experimental; it does not guarantee that cold view construction amortizes for every frontier.",
+    "Initial test-fixture expected source-group count was corrected; initial positive compiler fixture was already unrolled and was replaced by a graph loop that actually reaches spatial lowering. These untimed setup failures are retained and excluded from performance results."
+  ]
+}

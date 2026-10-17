@@ -1,0 +1,100 @@
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop AUTO schedule=['PCSR']
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop CSR schedule=[]
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop PCSR schedule=['PCSR']
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop BCSR schedule=['BCSR']
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop SET schedule=['SET']
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 1/8: 
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 2/8: AUTO=40.995ms CSR=90.718ms PCSR=88.494ms BCSR=237.709ms SET=3299.230ms
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 3/8: AUTO=41.633ms CSR=72.073ms PCSR=69.524ms BCSR=230.475ms SET=3262.738ms
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 4/8: AUTO=42.270ms CSR=56.161ms PCSR=53.907ms BCSR=237.709ms SET=3299.230ms
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 5/8: AUTO=41.917ms CSR=55.035ms PCSR=56.737ms BCSR=238.926ms SET=3268.787ms
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 6/8: AUTO=41.563ms CSR=53.909ms PCSR=58.592ms BCSR=237.709ms SET=3247.189ms
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 7/8: AUTO=41.917ms CSR=53.669ms PCSR=59.079ms BCSR=234.294ms SET=3273.210ms
+bfs_n200_d64_i4_s300_c1_r1000_t4_loop round 8/8: AUTO=41.563ms CSR=53.909ms PCSR=58.592ms BCSR=230.879ms SET=3299.230ms
+RESULT {"AUTO": 41.562942, "CSR": 53.909375, "PCSR": 58.591799, "BCSR": 230.878893, "SET": 3299.22996} best-fixed speedup=1.297x
+AUDIT bfs_n200_d64_i4_s300_c1_r1000_t4_loop/AUTO: transitions=[('CSR', 'PCSR')], 304 correct graph scans
+AUDIT bfs_n200_d64_i4_s300_c1_r1000_t4_loop/CSR: transitions=[], 304 correct graph scans
+AUDIT bfs_n200_d64_i4_s300_c1_r1000_t4_loop/PCSR: transitions=[('CSR', 'PCSR')], 304 correct graph scans
+AUDIT bfs_n200_d64_i4_s300_c1_r1000_t4_loop/BCSR: transitions=[('CSR', 'BCSR')], 304 correct graph scans
+AUDIT bfs_n200_d64_i4_s300_c1_r1000_t4_loop/SET: transitions=[('CSR', 'SET')], 304 correct graph scans
+CONFIRMED 1/5 bfs_n200_d64_i4_s300_c1_r1000_t4_loop: 1.297x
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop AUTO schedule=['CSR', 'CSR', 'CSR', 'CSR', 'PCSR']
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop CSR schedule=[]
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop PCSR schedule=['PCSR']
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop BCSR schedule=['BCSR']
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop SET schedule=['SET']
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 1/8: 
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 2/8: AUTO=65.391ms CSR=98.694ms PCSR=87.987ms BCSR=410.996ms SET=6604.718ms
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 3/8: AUTO=63.293ms CSR=93.819ms PCSR=89.863ms BCSR=403.016ms SET=6590.811ms
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 4/8: AUTO=61.195ms CSR=88.944ms PCSR=87.987ms BCSR=395.035ms SET=6576.903ms
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 5/8: AUTO=62.248ms CSR=86.004ms PCSR=84.458ms BCSR=403.016ms SET=6482.980ms
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 6/8: AUTO=62.402ms CSR=83.063ms PCSR=87.987ms BCSR=410.996ms SET=6392.728ms
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 7/8: AUTO=61.869ms CSR=84.685ms PCSR=88.156ms BCSR=403.016ms SET=6411.952ms
+bfs_n256_d96_i4_s240_c1_r1000_t4_loop round 8/8: AUTO=62.402ms CSR=86.306ms PCSR=88.325ms BCSR=410.996ms SET=6431.177ms
+RESULT {"AUTO": 62.40194, "CSR": 86.306474, "PCSR": 88.324515, "BCSR": 410.996454, "SET": 6431.176711} best-fixed speedup=1.383x
+AUDIT bfs_n256_d96_i4_s240_c1_r1000_t4_loop/AUTO: transitions=[('CSR', 'PCSR'), ('PCSR', 'CSR')], 244 correct graph scans
+AUDIT bfs_n256_d96_i4_s240_c1_r1000_t4_loop/CSR: transitions=[], 244 correct graph scans
+AUDIT bfs_n256_d96_i4_s240_c1_r1000_t4_loop/PCSR: transitions=[('CSR', 'PCSR')], 244 correct graph scans
+AUDIT bfs_n256_d96_i4_s240_c1_r1000_t4_loop/BCSR: transitions=[('CSR', 'BCSR')], 244 correct graph scans
+AUDIT bfs_n256_d96_i4_s240_c1_r1000_t4_loop/SET: transitions=[('CSR', 'SET')], 244 correct graph scans
+CONFIRMED 2/5 bfs_n256_d96_i4_s240_c1_r1000_t4_loop: 1.383x
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop AUTO schedule=['CSR', 'CSR', 'CSR', 'CSR', 'PCSR']
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop CSR schedule=[]
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop PCSR schedule=['PCSR']
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop BCSR schedule=['BCSR']
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop SET schedule=['SET']
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 1/8: 
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 2/8: AUTO=55.799ms CSR=86.428ms PCSR=68.867ms BCSR=377.045ms SET=7051.053ms
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 3/8: AUTO=54.019ms CSR=90.308ms PCSR=68.697ms BCSR=365.017ms SET=6964.597ms
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 4/8: AUTO=53.743ms CSR=94.188ms PCSR=68.527ms BCSR=352.989ms SET=7051.053ms
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 5/8: AUTO=54.771ms CSR=90.308ms PCSR=68.697ms BCSR=365.017ms SET=6964.597ms
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 6/8: AUTO=54.126ms CSR=86.428ms PCSR=68.527ms BCSR=366.007ms SET=7021.776ms
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 7/8: AUTO=54.205ms CSR=88.071ms PCSR=68.697ms BCSR=368.603ms SET=7017.395ms
+bfs_n300_d100_i4_s180_c1_r1000_t4_loop round 8/8: AUTO=54.126ms CSR=89.713ms PCSR=68.867ms BCSR=368.996ms SET=7013.014ms
+RESULT {"AUTO": 54.125709, "CSR": 89.712776, "PCSR": 68.867171, "BCSR": 368.995861, "SET": 7013.014314} best-fixed speedup=1.272x
+AUDIT bfs_n300_d100_i4_s180_c1_r1000_t4_loop/AUTO: transitions=[('CSR', 'PCSR'), ('PCSR', 'CSR')], 184 correct graph scans
+AUDIT bfs_n300_d100_i4_s180_c1_r1000_t4_loop/CSR: transitions=[], 184 correct graph scans
+AUDIT bfs_n300_d100_i4_s180_c1_r1000_t4_loop/PCSR: transitions=[('CSR', 'PCSR')], 184 correct graph scans
+AUDIT bfs_n300_d100_i4_s180_c1_r1000_t4_loop/BCSR: transitions=[('CSR', 'BCSR')], 184 correct graph scans
+AUDIT bfs_n300_d100_i4_s180_c1_r1000_t4_loop/SET: transitions=[('CSR', 'SET')], 184 correct graph scans
+CONFIRMED 3/5 bfs_n300_d100_i4_s180_c1_r1000_t4_loop: 1.272x
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop AUTO schedule=['CSR', 'CSR', 'CSR', 'CSR', 'PCSR']
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop CSR schedule=[]
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop PCSR schedule=['PCSR']
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop BCSR schedule=['BCSR']
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop SET schedule=['SET']
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 1/8: 
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 2/8: AUTO=69.794ms CSR=127.648ms PCSR=87.016ms BCSR=497.845ms SET=11514.001ms
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 3/8: AUTO=68.050ms CSR=130.420ms PCSR=90.215ms BCSR=501.120ms SET=11461.575ms
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 4/8: AUTO=69.794ms CSR=127.648ms PCSR=89.270ms BCSR=503.206ms SET=11409.150ms
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 5/8: AUTO=70.269ms CSR=127.907ms PCSR=91.342ms BCSR=503.801ms SET=11195.463ms
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 6/8: AUTO=69.794ms CSR=128.166ms PCSR=89.270ms BCSR=503.206ms SET=11211.063ms
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 7/8: AUTO=68.646ms CSR=127.907ms PCSR=88.143ms BCSR=500.525ms SET=11139.810ms
+bfs_n384_d128_i4_s140_c1_r1000_t4_loop round 8/8: AUTO=67.497ms CSR=128.166ms PCSR=89.270ms BCSR=497.845ms SET=11211.063ms
+RESULT {"AUTO": 67.497036, "CSR": 128.166069, "PCSR": 89.269578, "BCSR": 497.844633, "SET": 11211.062709} best-fixed speedup=1.323x
+AUDIT bfs_n384_d128_i4_s140_c1_r1000_t4_loop/AUTO: transitions=[('CSR', 'PCSR'), ('PCSR', 'CSR')], 144 correct graph scans
+AUDIT bfs_n384_d128_i4_s140_c1_r1000_t4_loop/CSR: transitions=[], 144 correct graph scans
+AUDIT bfs_n384_d128_i4_s140_c1_r1000_t4_loop/PCSR: transitions=[('CSR', 'PCSR')], 144 correct graph scans
+AUDIT bfs_n384_d128_i4_s140_c1_r1000_t4_loop/BCSR: transitions=[('CSR', 'BCSR')], 144 correct graph scans
+AUDIT bfs_n384_d128_i4_s140_c1_r1000_t4_loop/SET: transitions=[('CSR', 'SET')], 144 correct graph scans
+CONFIRMED 4/5 bfs_n384_d128_i4_s140_c1_r1000_t4_loop: 1.323x
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop AUTO schedule=['CSR', 'CSR', 'CSR', 'CSR', 'PCSR']
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop CSR schedule=[]
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop PCSR schedule=['PCSR']
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop BCSR schedule=['BCSR']
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop SET schedule=['SET']
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 1/8: 
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 2/8: AUTO=90.959ms CSR=215.757ms PCSR=115.256ms BCSR=776.672ms SET=23166.228ms
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 3/8: AUTO=89.737ms CSR=216.542ms PCSR=114.332ms BCSR=767.045ms SET=23844.662ms
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 4/8: AUTO=89.408ms CSR=217.327ms PCSR=115.256ms BCSR=765.089ms SET=23166.228ms
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 5/8: AUTO=90.184ms CSR=220.117ms PCSR=116.962ms BCSR=770.880ms SET=23307.978ms
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 6/8: AUTO=90.959ms CSR=219.483ms PCSR=118.668ms BCSR=772.165ms SET=23166.228ms
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 7/8: AUTO=92.571ms CSR=221.195ms PCSR=119.568ms BCSR=774.419ms SET=23073.756ms
+bfs_n512_d192_i4_s100_c1_r1000_t4_loop round 8/8: AUTO=93.010ms CSR=222.906ms PCSR=120.467ms BCSR=776.672ms SET=23166.228ms
+RESULT {"AUTO": 93.010354, "CSR": 222.906364, "PCSR": 120.467231, "BCSR": 776.671958, "SET": 23166.227802} best-fixed speedup=1.295x
+AUDIT bfs_n512_d192_i4_s100_c1_r1000_t4_loop/AUTO: transitions=[('CSR', 'PCSR'), ('PCSR', 'CSR')], 104 correct graph scans
+AUDIT bfs_n512_d192_i4_s100_c1_r1000_t4_loop/CSR: transitions=[], 104 correct graph scans
+AUDIT bfs_n512_d192_i4_s100_c1_r1000_t4_loop/PCSR: transitions=[('CSR', 'PCSR')], 104 correct graph scans
+AUDIT bfs_n512_d192_i4_s100_c1_r1000_t4_loop/BCSR: transitions=[('CSR', 'BCSR')], 104 correct graph scans
+AUDIT bfs_n512_d192_i4_s100_c1_r1000_t4_loop/SET: transitions=[('CSR', 'SET')], 104 correct graph scans
+CONFIRMED 5/5 bfs_n512_d192_i4_s100_c1_r1000_t4_loop: 1.295x

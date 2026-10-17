@@ -3645,11 +3645,46 @@ llvm::Value *IRGenVisitor::visitVarDecl(VarDeclNode *decl)
             if (sizeVal->getType() != Builder.getInt32Ty())
                 sizeVal = Builder.CreateIntCast(sizeVal, Builder.getInt32Ty(), true);
 
-            llvm::AllocaInst *dataAlloca = Builder.CreateAlloca(elemTy, sizeVal, decl->name + ".data");
-
-            llvm::Value *sizeBytes = Builder.CreateMul(sizeVal, Builder.getInt32(elemBytes), "size_bytes");
-            llvm::Value *sizeBytes64 = Builder.CreateZExt(sizeBytes, Builder.getInt64Ty());
-            Builder.CreateMemSet(dataAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(elemBytes));
+            llvm::Instruction *dataAlloca = nullptr;
+            if (EmittingTopLevel && SelectedIRBackend == "cpu")
+            {
+                /* A top-level array has program lifetime and is published in
+                 * an internal global below. calloc preserves every initial
+                 * zero while allowing unused capacity to remain demand-zero.
+                 * This is lifetime-based storage lowering, not frontier or
+                 * algorithm recognition. Nested/function/device arrays retain
+                 * their existing stack lifetime and stacksave/restore behavior. */
+                auto *i64Ty = Builder.getInt64Ty();
+                auto Allocate = Module.getOrInsertFunction("calloc",
+                    llvm::FunctionType::get(Builder.getPtrTy(), {i64Ty, i64Ty}, false));
+                if (auto *Fn = llvm::dyn_cast<llvm::Function>(Allocate.getCallee()))
+                    Fn->addRetAttr(llvm::Attribute::NoAlias);
+                auto *Ready = llvm::BasicBlock::Create(Context, "array.ready", currentFunction);
+                auto *Failed = llvm::BasicBlock::Create(Context, "array.allocation.failed", currentFunction);
+                auto *AllocateBlock = llvm::BasicBlock::Create(Context, "array.allocate", currentFunction);
+                Builder.CreateCondBr(Builder.CreateICmpSGE(sizeVal, Builder.getInt32(0)), AllocateBlock, Failed);
+                Builder.SetInsertPoint(AllocateBlock);
+                auto *Count = Builder.CreateZExt(sizeVal, i64Ty);
+                auto *Storage = Builder.CreateCall(Allocate,
+                    {Count, Builder.getInt64(elemBytes)}, decl->name + ".data");
+                /* A zero-length allocation may legally return null. */
+                Builder.CreateCondBr(Builder.CreateOr(Builder.CreateIsNotNull(Storage),
+                    Builder.CreateICmpEQ(sizeVal, Builder.getInt32(0))), Ready, Failed);
+                Builder.SetInsertPoint(Failed);
+                Builder.CreateIntrinsic(llvm::Intrinsic::trap, {}, {});
+                Builder.CreateUnreachable();
+                Builder.SetInsertPoint(Ready);
+                Storage->setMetadata("sgpl.array.element", llvm::MDNode::get(Context,
+                    llvm::ConstantAsMetadata::get(llvm::UndefValue::get(elemTy))));
+                dataAlloca = Storage;
+            }
+            else
+            {
+                dataAlloca = Builder.CreateAlloca(elemTy, sizeVal, decl->name + ".data");
+                llvm::Value *sizeBytes = Builder.CreateMul(sizeVal, Builder.getInt32(elemBytes), "size_bytes");
+                llvm::Value *sizeBytes64 = Builder.CreateZExt(sizeBytes, Builder.getInt64Ty());
+                Builder.CreateMemSet(dataAlloca, Builder.getInt8(0), sizeBytes64, llvm::MaybeAlign(elemBytes));
+            }
 
             auto *ptrTy = Builder.getPtrTy();
             llvm::AllocaInst *ptrAlloca = Builder.CreateAlloca(ptrTy, nullptr, decl->name);

@@ -1,0 +1,11 @@
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Source cleancut=Source accesses=2 relations=3 remaining=3 removed=0 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=every surviving relation stays within the symbolic group
+[spatial-runtime] source domain has no complete ascending CleanCut coverage proof
+[temporal] scope=None rounds=not-applicable phases=interfering components=1 realized=0 verdict=interfering
+[temporal] round domain has fewer than two units members=0,
+[temporal] source phases have no non-trivial partition members=4294967295,0,4294967295,
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=source domain has no complete ascending CleanCut coverage proof
+[frontier-cert] hdr=neighbor.header R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=source domain has no complete ascending CleanCut coverage proof
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=driver.header inner=neighbor.header kind=2 red=0 sep=1 data=0 fw=0 env=0 shadow=0 class=sequential  R(out,U):SameRoundRead ⊗ U+(out,U)  temporal=SameRoundRead [refused: source domain has no complete ascending CleanCut coverage proof]

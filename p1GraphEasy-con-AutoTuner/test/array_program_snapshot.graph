@@ -1,0 +1,15 @@
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n=numVertices(G);int cap=64;
+int values[n];int frontier[cap];int next_frontier[cap];
+for v in G.nodes { values[v]=v*2; }
+frontier[0]=0;frontier[1]=1;frontier[2]=1;
+int frontier_size=3;int next_size=0;int round=0;
+while(round<2 && frontier_size>0) {
+ next_size=0;int p=0;
+ while(p<frontier_size) {int u=frontier[p];for v in G.neighbors(u) {
+  int candidate=values[u]+1;
+  if(candidate<values[v]) {values[v]=candidate;next_frontier[next_size]=v;next_size=next_size+1;}
+ } p=p+1;}
+ swap(frontier,next_frontier);frontier_size=next_size;round=round+1;
+}
+for v in G.nodes { print values[v]; }

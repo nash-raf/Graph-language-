@@ -1,0 +1,53 @@
+ M AutoTunerPass.cpp
+ M algos/bfs_parent.graph
+ M array_frontier_runtime.inc
+ M array_preparation_runtime.inc
+ M autotuner_runtime.c
+ M autotuner_runtime.h
+ M graph_loader_runtime.cpp
+ M parallel_runtime.c
+ M parallel_runtime.h
+ M test/array_frontier_exec_test.c
+ M test/array_preparation_exec_test.c
+ M test/graph_loader_runtime_test.cpp
+ M test/pdg_tdg_verification/test_autotuner_frequency.py
+ M test/run_array_frontier_exec_tests.sh
+ M test/run_graph_loader_tests.sh
+ M test/run_worker_pool_tests.sh
+ M test/worker_pool_test.c
+?? bench_results/completed_runs_snapshot_20261015/
+?? bench_results/layout_applications_20261015/
+?? bench_results/layout_applications_default_20261015/
+?? bench_results/layout_switch_20261015/
+?? bench_results/plots_273_20261016/
+?? launch_calibration_cache.inc
+?? paper_split/
+?? proof/autotuner_iterator_phases_20261015/
+?? proof/lab_source_sync_20261017/
+?? proof/latex_validation_2026_10_15/
+?? test/declared_array_exec_test.c
+?? test/launch_calibration_cache_test.c
+?? test/pdg_tdg_verification/iterator_phase_audit.c
+?? test/pdg_tdg_verification/test_autotuner_iterator_phases.py
+?? test/run_launch_calibration_cache_tests.py
+?? tools/audit_layout_applications.py
+?? tools/audit_layout_switch_suite.py
+?? tools/benchmark_default_layout_applications.py
+?? tools/default_layout_application_audit.c
+?? tools/layout_application_audit.c
+?? tools/layout_application_benchmark.py
+?? tools/layout_application_cases.py
+?? tools/layout_switch_audit.c
+?? tools/layout_switch_benchmark.py
+?? tools/prepare_e2e150.py
+?? tools/prepare_next100.py
+?? tools/prepare_weighted_stream.cpp
+?? tools/run_e2e150.py
+?? tools/run_last73.py
+?? tools/run_layout_switch_suite.py
+?? tools/setup_e2e150.py
+?? tools/summarize_e2e273.py
+?? tools/summarize_layout_switch.py
+?? tools/test_e2e150_runner.py
+?? tools/validate_default_layout_report.py
+?? tools/validate_layout_application_report.py

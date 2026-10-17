@@ -1,0 +1,211 @@
+contact_trace_events80000_batch8_default AUTO ['SET', 'CSR']
+contact_trace_events80000_batch8_default CSR []
+contact_trace_events80000_batch8_default PCSR ['PCSR']
+contact_trace_events80000_batch8_default BCSR ['BCSR']
+contact_trace_events80000_batch8_default SET ['SET']
+MEASURED contact_trace_events80000_batch8_default AUTO 682.977ms
+MEASURED contact_trace_events80000_batch8_default PCSR 1596.409ms
+MEASURED contact_trace_events80000_batch8_default BCSR 119100.386ms
+MEASURED contact_trace_events80000_batch8_default SET 2704.815ms
+MEASURED contact_trace_events80000_batch8_default CSR 33331.756ms
+contact_trace_events80000_batch8_default 1/7 {'AUTO': 682.977, 'CSR': 33331.756, 'PCSR': 1596.409, 'BCSR': 119100.386, 'SET': 2704.815}
+MEASURED contact_trace_events80000_batch8_default PCSR 1472.398ms
+MEASURED contact_trace_events80000_batch8_default SET 2753.101ms
+MEASURED contact_trace_events80000_batch8_default AUTO 630.639ms
+contact_trace_events80000_batch8_default 2/7 {'AUTO': 656.808, 'CSR': 33331.756, 'PCSR': 1534.403, 'BCSR': 119100.386, 'SET': 2728.958}
+MEASURED contact_trace_events80000_batch8_default AUTO 610.497ms
+MEASURED contact_trace_events80000_batch8_default PCSR 1468.051ms
+MEASURED contact_trace_events80000_batch8_default SET 2540.270ms
+contact_trace_events80000_batch8_default 3/7 {'AUTO': 630.639, 'CSR': 33331.756, 'PCSR': 1472.398, 'BCSR': 119100.386, 'SET': 2704.815}
+MEASURED contact_trace_events80000_batch8_default SET 2676.939ms
+MEASURED contact_trace_events80000_batch8_default AUTO 594.192ms
+MEASURED contact_trace_events80000_batch8_default PCSR 1387.953ms
+contact_trace_events80000_batch8_default 4/7 {'AUTO': 620.568, 'CSR': 33331.756, 'PCSR': 1470.224, 'BCSR': 119100.386, 'SET': 2690.877}
+MEASURED contact_trace_events80000_batch8_default PCSR 1422.510ms
+MEASURED contact_trace_events80000_batch8_default AUTO 589.049ms
+MEASURED contact_trace_events80000_batch8_default SET 2591.147ms
+contact_trace_events80000_batch8_default 5/7 {'AUTO': 610.497, 'CSR': 33331.756, 'PCSR': 1468.051, 'BCSR': 119100.386, 'SET': 2676.939}
+MEASURED contact_trace_events80000_batch8_default SET 2624.596ms
+MEASURED contact_trace_events80000_batch8_default PCSR 1470.676ms
+MEASURED contact_trace_events80000_batch8_default AUTO 597.466ms
+contact_trace_events80000_batch8_default 6/7 {'AUTO': 603.982, 'CSR': 33331.756, 'PCSR': 1469.364, 'BCSR': 119100.386, 'SET': 2650.768}
+MEASURED contact_trace_events80000_batch8_default SET 2569.625ms
+MEASURED contact_trace_events80000_batch8_default AUTO 623.644ms
+MEASURED contact_trace_events80000_batch8_default PCSR 1612.870ms
+contact_trace_events80000_batch8_default 7/7 {'AUTO': 610.497, 'CSR': 33331.756, 'PCSR': 1470.676, 'BCSR': 119100.386, 'SET': 2624.596}
+RESULT contact_trace_events80000_batch8_default {'AUTO': 610.497283, 'CSR': 33331.756016, 'PCSR': 1470.676136, 'BCSR': 119100.386038, 'SET': 2624.596163} 2.4089806407868974
+DEFAULT RESULT contact_trace 2.4089806407868974
+service_islands_events80000_batch8_default AUTO ['SET', 'CSR']
+service_islands_events80000_batch8_default CSR []
+service_islands_events80000_batch8_default PCSR ['PCSR']
+service_islands_events80000_batch8_default BCSR ['BCSR']
+service_islands_events80000_batch8_default SET ['SET']
+MEASURED service_islands_events80000_batch8_default AUTO 640.952ms
+MEASURED service_islands_events80000_batch8_default PCSR 1026.196ms
+MEASURED service_islands_events80000_batch8_default BCSR 77550.595ms
+MEASURED service_islands_events80000_batch8_default SET 3918.249ms
+MEASURED service_islands_events80000_batch8_default CSR 28611.301ms
+service_islands_events80000_batch8_default 1/7 {'AUTO': 640.952, 'CSR': 28611.301, 'PCSR': 1026.196, 'BCSR': 77550.595, 'SET': 3918.249}
+MEASURED service_islands_events80000_batch8_default PCSR 1044.225ms
+MEASURED service_islands_events80000_batch8_default SET 4078.513ms
+MEASURED service_islands_events80000_batch8_default AUTO 543.510ms
+service_islands_events80000_batch8_default 2/7 {'AUTO': 592.231, 'CSR': 28611.301, 'PCSR': 1035.21, 'BCSR': 77550.595, 'SET': 3998.381}
+MEASURED service_islands_events80000_batch8_default AUTO 531.776ms
+MEASURED service_islands_events80000_batch8_default PCSR 1212.064ms
+MEASURED service_islands_events80000_batch8_default SET 4205.680ms
+service_islands_events80000_batch8_default 3/7 {'AUTO': 543.51, 'CSR': 28611.301, 'PCSR': 1044.225, 'BCSR': 77550.595, 'SET': 4078.513}
+MEASURED service_islands_events80000_batch8_default SET 4100.377ms
+MEASURED service_islands_events80000_batch8_default AUTO 547.777ms
+MEASURED service_islands_events80000_batch8_default PCSR 1079.520ms
+service_islands_events80000_batch8_default 4/7 {'AUTO': 545.644, 'CSR': 28611.301, 'PCSR': 1061.873, 'BCSR': 77550.595, 'SET': 4089.445}
+MEASURED service_islands_events80000_batch8_default PCSR 1104.149ms
+MEASURED service_islands_events80000_batch8_default AUTO 566.642ms
+MEASURED service_islands_events80000_batch8_default SET 4062.367ms
+service_islands_events80000_batch8_default 5/7 {'AUTO': 547.777, 'CSR': 28611.301, 'PCSR': 1079.52, 'BCSR': 77550.595, 'SET': 4078.513}
+MEASURED service_islands_events80000_batch8_default SET 4072.911ms
+MEASURED service_islands_events80000_batch8_default PCSR 1036.113ms
+MEASURED service_islands_events80000_batch8_default AUTO 548.014ms
+service_islands_events80000_batch8_default 6/7 {'AUTO': 547.895, 'CSR': 28611.301, 'PCSR': 1061.873, 'BCSR': 77550.595, 'SET': 4075.712}
+MEASURED service_islands_events80000_batch8_default SET 4485.284ms
+MEASURED service_islands_events80000_batch8_default AUTO 657.761ms
+MEASURED service_islands_events80000_batch8_default PCSR 1130.177ms
+service_islands_events80000_batch8_default 7/7 {'AUTO': 548.014, 'CSR': 28611.301, 'PCSR': 1079.52, 'BCSR': 77550.595, 'SET': 4078.513}
+RESULT service_islands_events80000_batch8_default {'AUTO': 548.013661, 'CSR': 28611.301184, 'PCSR': 1079.520389, 'BCSR': 77550.595343, 'SET': 4078.513448} 1.9698786103801162
+DEFAULT RESULT service_islands 1.9698786103801162
+sensor_backbone_events80000_batch8_default AUTO ['SET', 'CSR']
+sensor_backbone_events80000_batch8_default CSR []
+sensor_backbone_events80000_batch8_default PCSR ['PCSR']
+sensor_backbone_events80000_batch8_default BCSR ['BCSR']
+sensor_backbone_events80000_batch8_default SET ['SET']
+MEASURED sensor_backbone_events80000_batch8_default AUTO 152.589ms
+MEASURED sensor_backbone_events80000_batch8_default PCSR 724.240ms
+MEASURED sensor_backbone_events80000_batch8_default BCSR 34378.765ms
+MEASURED sensor_backbone_events80000_batch8_default SET 1100.407ms
+MEASURED sensor_backbone_events80000_batch8_default CSR 4300.112ms
+sensor_backbone_events80000_batch8_default 1/7 {'AUTO': 152.589, 'CSR': 4300.112, 'PCSR': 724.24, 'BCSR': 34378.765, 'SET': 1100.407}
+MEASURED sensor_backbone_events80000_batch8_default PCSR 661.941ms
+MEASURED sensor_backbone_events80000_batch8_default SET 1185.349ms
+MEASURED sensor_backbone_events80000_batch8_default AUTO 157.659ms
+sensor_backbone_events80000_batch8_default 2/7 {'AUTO': 155.124, 'CSR': 4300.112, 'PCSR': 693.091, 'BCSR': 34378.765, 'SET': 1142.878}
+MEASURED sensor_backbone_events80000_batch8_default AUTO 156.626ms
+MEASURED sensor_backbone_events80000_batch8_default PCSR 688.437ms
+MEASURED sensor_backbone_events80000_batch8_default SET 1184.856ms
+sensor_backbone_events80000_batch8_default 3/7 {'AUTO': 156.626, 'CSR': 4300.112, 'PCSR': 688.437, 'BCSR': 34378.765, 'SET': 1184.856}
+MEASURED sensor_backbone_events80000_batch8_default SET 1102.494ms
+MEASURED sensor_backbone_events80000_batch8_default AUTO 170.702ms
+MEASURED sensor_backbone_events80000_batch8_default PCSR 642.803ms
+sensor_backbone_events80000_batch8_default 4/7 {'AUTO': 157.143, 'CSR': 4300.112, 'PCSR': 675.189, 'BCSR': 34378.765, 'SET': 1143.675}
+MEASURED sensor_backbone_events80000_batch8_default PCSR 670.878ms
+MEASURED sensor_backbone_events80000_batch8_default AUTO 150.874ms
+MEASURED sensor_backbone_events80000_batch8_default SET 1197.964ms
+sensor_backbone_events80000_batch8_default 5/7 {'AUTO': 156.626, 'CSR': 4300.112, 'PCSR': 670.878, 'BCSR': 34378.765, 'SET': 1184.856}
+MEASURED sensor_backbone_events80000_batch8_default SET 1156.569ms
+MEASURED sensor_backbone_events80000_batch8_default PCSR 685.963ms
+MEASURED sensor_backbone_events80000_batch8_default AUTO 149.193ms
+sensor_backbone_events80000_batch8_default 6/7 {'AUTO': 154.608, 'CSR': 4300.112, 'PCSR': 678.421, 'BCSR': 34378.765, 'SET': 1170.712}
+MEASURED sensor_backbone_events80000_batch8_default SET 1196.787ms
+MEASURED sensor_backbone_events80000_batch8_default AUTO 160.900ms
+MEASURED sensor_backbone_events80000_batch8_default PCSR 642.662ms
+sensor_backbone_events80000_batch8_default 7/7 {'AUTO': 156.626, 'CSR': 4300.112, 'PCSR': 670.878, 'BCSR': 34378.765, 'SET': 1184.856}
+RESULT sensor_backbone_events80000_batch8_default {'AUTO': 156.626259, 'CSR': 4300.11231, 'PCSR': 670.877607, 'BCSR': 34378.765315, 'SET': 1184.855553} 4.283302246272766
+DEFAULT RESULT sensor_backbone 4.283302246272766
+route_failover_events80000_batch8_default AUTO ['CSR', 'SET']
+route_failover_events80000_batch8_default CSR []
+route_failover_events80000_batch8_default PCSR ['PCSR']
+route_failover_events80000_batch8_default BCSR ['BCSR']
+route_failover_events80000_batch8_default SET ['SET']
+MEASURED route_failover_events80000_batch8_default AUTO 268.664ms
+MEASURED route_failover_events80000_batch8_default PCSR 1226.296ms
+MEASURED route_failover_events80000_batch8_default BCSR 111343.424ms
+MEASURED route_failover_events80000_batch8_default SET 1090.846ms
+MEASURED route_failover_events80000_batch8_default CSR 31917.882ms
+route_failover_events80000_batch8_default 1/7 {'AUTO': 268.664, 'CSR': 31917.882, 'PCSR': 1226.296, 'BCSR': 111343.424, 'SET': 1090.846}
+MEASURED route_failover_events80000_batch8_default PCSR 1194.302ms
+MEASURED route_failover_events80000_batch8_default SET 1436.675ms
+MEASURED route_failover_events80000_batch8_default AUTO 423.682ms
+route_failover_events80000_batch8_default 2/7 {'AUTO': 346.173, 'CSR': 31917.882, 'PCSR': 1210.299, 'BCSR': 111343.424, 'SET': 1263.76}
+MEASURED route_failover_events80000_batch8_default AUTO 279.891ms
+MEASURED route_failover_events80000_batch8_default PCSR 1346.910ms
+MEASURED route_failover_events80000_batch8_default SET 1151.706ms
+route_failover_events80000_batch8_default 3/7 {'AUTO': 279.891, 'CSR': 31917.882, 'PCSR': 1226.296, 'BCSR': 111343.424, 'SET': 1151.706}
+MEASURED route_failover_events80000_batch8_default SET 1175.230ms
+MEASURED route_failover_events80000_batch8_default AUTO 297.499ms
+MEASURED route_failover_events80000_batch8_default PCSR 1276.210ms
+route_failover_events80000_batch8_default 4/7 {'AUTO': 288.695, 'CSR': 31917.882, 'PCSR': 1251.253, 'BCSR': 111343.424, 'SET': 1163.468}
+MEASURED route_failover_events80000_batch8_default PCSR 1257.533ms
+MEASURED route_failover_events80000_batch8_default AUTO 277.064ms
+MEASURED route_failover_events80000_batch8_default SET 1191.569ms
+route_failover_events80000_batch8_default 5/7 {'AUTO': 279.891, 'CSR': 31917.882, 'PCSR': 1257.533, 'BCSR': 111343.424, 'SET': 1175.23}
+MEASURED route_failover_events80000_batch8_default SET 1131.400ms
+MEASURED route_failover_events80000_batch8_default PCSR 1256.721ms
+MEASURED route_failover_events80000_batch8_default AUTO 278.643ms
+route_failover_events80000_batch8_default 6/7 {'AUTO': 279.267, 'CSR': 31917.882, 'PCSR': 1257.127, 'BCSR': 111343.424, 'SET': 1163.468}
+MEASURED route_failover_events80000_batch8_default SET 1283.547ms
+MEASURED route_failover_events80000_batch8_default AUTO 262.159ms
+MEASURED route_failover_events80000_batch8_default PCSR 1291.469ms
+route_failover_events80000_batch8_default 7/7 {'AUTO': 278.643, 'CSR': 31917.882, 'PCSR': 1257.533, 'BCSR': 111343.424, 'SET': 1175.23}
+RESULT route_failover_events80000_batch8_default {'AUTO': 278.642887, 'CSR': 31917.882278, 'PCSR': 1257.533481, 'BCSR': 111343.424495, 'SET': 1175.229654} 4.217691205589612
+DEFAULT RESULT route_failover 4.217691205589612
+trust_audit_events80000_batch8_default AUTO ['CSR', 'SET']
+trust_audit_events80000_batch8_default CSR []
+trust_audit_events80000_batch8_default PCSR ['PCSR']
+trust_audit_events80000_batch8_default BCSR ['BCSR']
+trust_audit_events80000_batch8_default SET ['SET']
+MEASURED trust_audit_events80000_batch8_default AUTO 154.089ms
+MEASURED trust_audit_events80000_batch8_default PCSR 669.347ms
+MEASURED trust_audit_events80000_batch8_default BCSR 83184.447ms
+MEASURED trust_audit_events80000_batch8_default SET 405.818ms
+MEASURED trust_audit_events80000_batch8_default CSR 28363.849ms
+trust_audit_events80000_batch8_default 1/7 {'AUTO': 154.089, 'CSR': 28363.849, 'PCSR': 669.347, 'BCSR': 83184.447, 'SET': 405.818}
+MEASURED trust_audit_events80000_batch8_default PCSR 553.377ms
+MEASURED trust_audit_events80000_batch8_default SET 439.822ms
+MEASURED trust_audit_events80000_batch8_default AUTO 160.055ms
+trust_audit_events80000_batch8_default 2/7 {'AUTO': 157.072, 'CSR': 28363.849, 'PCSR': 611.362, 'BCSR': 83184.447, 'SET': 422.82}
+MEASURED trust_audit_events80000_batch8_default AUTO 172.858ms
+MEASURED trust_audit_events80000_batch8_default PCSR 551.144ms
+MEASURED trust_audit_events80000_batch8_default SET 458.265ms
+trust_audit_events80000_batch8_default 3/7 {'AUTO': 160.055, 'CSR': 28363.849, 'PCSR': 553.377, 'BCSR': 83184.447, 'SET': 439.822}
+MEASURED trust_audit_events80000_batch8_default SET 443.360ms
+MEASURED trust_audit_events80000_batch8_default AUTO 161.492ms
+MEASURED trust_audit_events80000_batch8_default PCSR 568.016ms
+trust_audit_events80000_batch8_default 4/7 {'AUTO': 160.774, 'CSR': 28363.849, 'PCSR': 560.696, 'BCSR': 83184.447, 'SET': 441.591}
+MEASURED trust_audit_events80000_batch8_default PCSR 561.906ms
+MEASURED trust_audit_events80000_batch8_default AUTO 143.998ms
+MEASURED trust_audit_events80000_batch8_default SET 451.286ms
+trust_audit_events80000_batch8_default 5/7 {'AUTO': 160.055, 'CSR': 28363.849, 'PCSR': 561.906, 'BCSR': 83184.447, 'SET': 443.36}
+MEASURED trust_audit_events80000_batch8_default SET 472.667ms
+MEASURED trust_audit_events80000_batch8_default PCSR 566.958ms
+MEASURED trust_audit_events80000_batch8_default AUTO 167.076ms
+trust_audit_events80000_batch8_default 6/7 {'AUTO': 160.774, 'CSR': 28363.849, 'PCSR': 564.432, 'BCSR': 83184.447, 'SET': 447.323}
+MEASURED trust_audit_events80000_batch8_default SET 441.854ms
+MEASURED trust_audit_events80000_batch8_default AUTO 158.450ms
+MEASURED trust_audit_events80000_batch8_default PCSR 572.497ms
+trust_audit_events80000_batch8_default 7/7 {'AUTO': 160.055, 'CSR': 28363.849, 'PCSR': 566.958, 'BCSR': 83184.447, 'SET': 443.36}
+RESULT trust_audit_events80000_batch8_default {'AUTO': 160.054877, 'CSR': 28363.849193, 'PCSR': 566.957531, 'BCSR': 83184.447472, 'SET': 443.360444} 2.770052698862778
+DEFAULT RESULT trust_audit 2.770052698862778
+AUDIT contact_trace_events80000_batch8 AUTO [('CSR', 'SET'), ('SET', 'CSR')]
+AUDIT contact_trace_events80000_batch8 CSR []
+AUDIT contact_trace_events80000_batch8 PCSR [('CSR', 'PCSR')]
+AUDIT contact_trace_events80000_batch8 BCSR [('CSR', 'BCSR')]
+AUDIT contact_trace_events80000_batch8 SET [('CSR', 'SET')]
+AUDIT service_islands_events80000_batch8 AUTO [('CSR', 'SET'), ('SET', 'CSR')]
+AUDIT service_islands_events80000_batch8 CSR []
+AUDIT service_islands_events80000_batch8 PCSR [('CSR', 'PCSR')]
+AUDIT service_islands_events80000_batch8 BCSR [('CSR', 'BCSR')]
+AUDIT service_islands_events80000_batch8 SET [('CSR', 'SET')]
+AUDIT sensor_backbone_events80000_batch8 AUTO [('CSR', 'SET'), ('SET', 'CSR')]
+AUDIT sensor_backbone_events80000_batch8 CSR []
+AUDIT sensor_backbone_events80000_batch8 PCSR [('CSR', 'PCSR')]
+AUDIT sensor_backbone_events80000_batch8 BCSR [('CSR', 'BCSR')]
+AUDIT sensor_backbone_events80000_batch8 SET [('CSR', 'SET')]
+AUDIT route_failover_events80000_batch8 AUTO [('CSR', 'SET'), ('SET', 'CSR')]
+AUDIT route_failover_events80000_batch8 CSR []
+AUDIT route_failover_events80000_batch8 PCSR [('CSR', 'PCSR')]
+AUDIT route_failover_events80000_batch8 BCSR [('CSR', 'BCSR')]
+AUDIT route_failover_events80000_batch8 SET [('CSR', 'SET')]
+AUDIT trust_audit_events80000_batch8 AUTO [('CSR', 'SET'), ('SET', 'CSR')]
+AUDIT trust_audit_events80000_batch8 CSR []
+AUDIT trust_audit_events80000_batch8 PCSR [('CSR', 'PCSR')]
+AUDIT trust_audit_events80000_batch8 BCSR [('CSR', 'BCSR')]
+AUDIT trust_audit_events80000_batch8 SET [('CSR', 'SET')]
+COMPLETE: five default-backend cases, 115 timed launches, 25 audited variants

@@ -1,0 +1,482 @@
+{
+  "installed": false,
+  "retained_installed_version": "packing_regression_20261017/03_completion_batch",
+  "workers": 32,
+  "primary_repeats": 5,
+  "cases_per_trial": 12,
+  "unique_graphs": 10,
+  "candidate_trials": 4,
+  "validated_framework_cases": 144,
+  "primary_timed_launches": 720,
+  "extra_paired_confirmation_launches": 120,
+  "validation_failures": 0,
+  "missing_pairs": 0,
+  "all_candidates_rejected": true,
+  "decisions": [
+    {
+      "stage": "01_dispatch_cachelines",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 0.9767531517302942,
+      "geomean_median_improvement": 1.0098738016196962,
+      "confirmed_regressions": [],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 4
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 1.0029482783292074,
+      "geomean_median_improvement": 0.9971313798273209,
+      "confirmed_regressions": [],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 3
+    },
+    {
+      "stage": "03_worker_budget_scope",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 0.9795922182961844,
+      "geomean_median_improvement": 0.992638416287834,
+      "confirmed_regressions": [],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 4
+    },
+    {
+      "stage": "04_preparation_team_fusion",
+      "baseline": "00_baseline",
+      "accepted": false,
+      "geomean_improvement": 0.9165423840059219,
+      "geomean_median_improvement": 0.983753739640268,
+      "confirmed_regressions": [
+        {
+          "algorithm": "sssp",
+          "graph": "road/road-usroads-48.edges",
+          "ratio": 0.8897204385759884
+        },
+        {
+          "algorithm": "cc",
+          "graph": "soc/soc-epinions.edges",
+          "ratio": 0.7164461063635841
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-slashdot.edges",
+          "ratio": 0.6814756826531077
+        }
+      ],
+      "rule": "Accept only if both mean- and median-based geomeans improve >1%, with no confirmed >5% per-case regression. Suspected regressions get five additional paired confirmation launches. All timings kept.",
+      "cases": 12,
+      "failed_cases": 0,
+      "missing_pairs": 0,
+      "p1_wins_vs_graptor": 3
+    }
+  ],
+  "reported_trial": "02_preparation_versioning",
+  "reported_trial_status": "Rejected: 0.3% mean improvement, 0.3% median regression; no repeatable overall gain.",
+  "primary": [
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "road/road-luxembourg-osm.edges",
+      "current_p1_ms": 39.7415746,
+      "candidate_p1_ms": 41.342945,
+      "graptor_ms": 56.5023434,
+      "current_p1_median_ms": 39.499139,
+      "candidate_p1_median_ms": 40.775318,
+      "graptor_median_ms": 40.195659,
+      "current_over_candidate": 0.961266174918115,
+      "median_current_over_candidate": 0.9687021692878031,
+      "graptor_over_current": 1.4217439537486267,
+      "graptor_over_candidate": 1.3666743721328996,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "road/road-usroads-48.edges",
+      "current_p1_ms": 98.072726,
+      "candidate_p1_ms": 95.5596848,
+      "graptor_ms": 79.4547136,
+      "current_p1_median_ms": 99.28701500000001,
+      "candidate_p1_median_ms": 94.417208,
+      "graptor_median_ms": 79.45860400000001,
+      "current_over_candidate": 1.0262981319503055,
+      "median_current_over_candidate": 1.0515775365863393,
+      "graptor_over_current": 0.8101611614221879,
+      "graptor_over_candidate": 0.8314668865462813,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "soc/soc-epinions.edges",
+      "current_p1_ms": 15.872696200000002,
+      "candidate_p1_ms": 16.4249718,
+      "graptor_ms": 9.1563756,
+      "current_p1_median_ms": 15.954895,
+      "candidate_p1_median_ms": 16.339228000000002,
+      "graptor_median_ms": 9.12448,
+      "current_over_candidate": 0.9663758570349571,
+      "median_current_over_candidate": 0.9764778972421463,
+      "graptor_over_current": 0.5768632804803508,
+      "graptor_over_candidate": 0.5574667470661959,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "cc",
+      "graph": "soc/soc-epinions.edges",
+      "current_p1_ms": 9.461507399999999,
+      "candidate_p1_ms": 10.159381999999999,
+      "graptor_ms": 8.036516,
+      "current_p1_median_ms": 9.521465,
+      "candidate_p1_median_ms": 10.020077,
+      "graptor_median_ms": 5.609652,
+      "current_over_candidate": 0.9313073767676026,
+      "median_current_over_candidate": 0.9502387057504648,
+      "graptor_over_current": 0.8493906584060803,
+      "graptor_over_candidate": 0.7910437859310734,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "pagerank",
+      "graph": "soc/soc-epinions.edges",
+      "current_p1_ms": 18.8598382,
+      "candidate_p1_ms": 19.4094408,
+      "graptor_ms": 18.0984684,
+      "current_p1_median_ms": 19.35642,
+      "candidate_p1_median_ms": 18.983427,
+      "graptor_median_ms": 17.740741,
+      "current_over_candidate": 0.9716837488692616,
+      "median_current_over_candidate": 1.0196483490573118,
+      "graptor_over_current": 0.959630099053554,
+      "graptor_over_candidate": 0.9324569721761382,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "current_p1_ms": 32.1739892,
+      "candidate_p1_ms": 31.369091600000004,
+      "graptor_ms": 16.1367364,
+      "current_p1_median_ms": 32.182968,
+      "candidate_p1_median_ms": 32.178468,
+      "graptor_median_ms": 16.420945999999997,
+      "current_over_candidate": 1.0256589387497597,
+      "median_current_over_candidate": 1.000139845066583,
+      "graptor_over_current": 0.5015460252594354,
+      "graptor_over_candidate": 0.5144151640017526,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "current_p1_ms": 21.2980072,
+      "candidate_p1_ms": 21.0654556,
+      "graptor_ms": 14.5212848,
+      "current_p1_median_ms": 21.248258999999997,
+      "candidate_p1_median_ms": 21.087578999999998,
+      "graptor_median_ms": 9.54892,
+      "current_over_candidate": 1.0110394764023047,
+      "median_current_over_candidate": 1.0076196513596938,
+      "graptor_over_current": 0.6818142497388207,
+      "graptor_over_candidate": 0.6893411220595675,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "misc/delaunay_n13.edges",
+      "current_p1_ms": 14.0870076,
+      "candidate_p1_ms": 12.9215918,
+      "graptor_ms": 7.800173200000001,
+      "current_p1_median_ms": 12.71481,
+      "candidate_p1_median_ms": 12.862847,
+      "graptor_median_ms": 7.785753000000001,
+      "current_over_candidate": 1.0901913493351492,
+      "median_current_over_candidate": 0.9884911170909519,
+      "graptor_over_current": 0.5537139910395165,
+      "graptor_over_candidate": 0.6036542030371213,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "ia/ia-email-EU.edges",
+      "current_p1_ms": 13.0606882,
+      "candidate_p1_ms": 13.0178398,
+      "graptor_ms": 10.749082999999999,
+      "current_p1_median_ms": 13.132424,
+      "candidate_p1_median_ms": 13.154783,
+      "graptor_median_ms": 7.885228,
+      "current_over_candidate": 1.0032915138500935,
+      "median_current_over_candidate": 0.9983003140378675,
+      "graptor_over_current": 0.8230104597397861,
+      "graptor_over_candidate": 0.8257194100667915,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "sssp",
+      "graph": "email/email-enron-large.edges",
+      "current_p1_ms": 21.6404958,
+      "candidate_p1_ms": 20.929718400000002,
+      "graptor_ms": 16.062047999999997,
+      "current_p1_median_ms": 21.945272,
+      "candidate_p1_median_ms": 21.179231,
+      "graptor_median_ms": 12.372034000000001,
+      "current_over_candidate": 1.033960198910273,
+      "median_current_over_candidate": 1.0361694435458964,
+      "graptor_over_current": 0.7422218117571964,
+      "graptor_over_candidate": 0.7674278121200139,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "bfs",
+      "graph": "inf/inf-roadNet-CA.edges",
+      "current_p1_ms": 99.4899642,
+      "candidate_p1_ms": 98.25214,
+      "graptor_ms": 130.7051012,
+      "current_p1_median_ms": 96.97700300000001,
+      "candidate_p1_median_ms": 97.08303599999999,
+      "graptor_median_ms": 122.519007,
+      "current_over_candidate": 1.012598445183993,
+      "median_current_over_candidate": 0.9989078112472709,
+      "graptor_over_current": 1.313751615562447,
+      "graptor_over_candidate": 1.3303028432764925,
+      "validated": true,
+      "installed": false
+    },
+    {
+      "stage": "02_preparation_versioning",
+      "algorithm": "bfs",
+      "graph": "dimacs10/inf-asia_osm.edges",
+      "current_p1_ms": 1105.034023,
+      "candidate_p1_ms": 1092.8397586,
+      "graptor_ms": 1564.59365,
+      "current_p1_median_ms": 1073.843102,
+      "candidate_p1_median_ms": 1102.647966,
+      "graptor_median_ms": 1560.792762,
+      "current_over_candidate": 1.0111583279287182,
+      "median_current_over_candidate": 0.9738766452320288,
+      "graptor_over_current": 1.41587826024792,
+      "graptor_over_candidate": 1.4316770941829091,
+      "validated": true,
+      "installed": false
+    }
+  ],
+  "summary": {
+    "sssp": {
+      "cases": 8,
+      "current_over_candidate": 1.014047983100554,
+      "median_current_over_candidate": 1.0030891053217226,
+      "graptor_over_current": 0.725618575695587,
+      "graptor_over_candidate": 0.7358120531844066,
+      "current_wins_vs_graptor": 1,
+      "candidate_wins_vs_graptor": 1
+    },
+    "bfs": {
+      "cases": 2,
+      "current_over_candidate": 1.01187813035734,
+      "median_current_over_candidate": 0.9863128246725583,
+      "graptor_over_current": 1.3638593592597632,
+      "graptor_over_candidate": 1.3800594585181287,
+      "current_wins_vs_graptor": 2,
+      "candidate_wins_vs_graptor": 2
+    },
+    "cc": {
+      "cases": 1,
+      "current_over_candidate": 0.9313073767676026,
+      "median_current_over_candidate": 0.9502387057504648,
+      "graptor_over_current": 0.8493906584060803,
+      "graptor_over_candidate": 0.7910437859310734,
+      "current_wins_vs_graptor": 0,
+      "candidate_wins_vs_graptor": 0
+    },
+    "pagerank": {
+      "cases": 1,
+      "current_over_candidate": 0.9716837488692616,
+      "median_current_over_candidate": 1.0196483490573118,
+      "graptor_over_current": 0.959630099053554,
+      "graptor_over_candidate": 0.9324569721761382,
+      "current_wins_vs_graptor": 0,
+      "candidate_wins_vs_graptor": 0
+    },
+    "overall": {
+      "cases": 12,
+      "current_over_candidate": 1.0029482783292074,
+      "median_current_over_candidate": 0.9971313798273209,
+      "graptor_over_current": 0.8359907482634205,
+      "graptor_over_candidate": 0.8384554816699433,
+      "current_wins_vs_graptor": 3,
+      "candidate_wins_vs_graptor": 3
+    }
+  },
+  "diagnostic_phases": [
+    {
+      "stage": "00_baseline",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.003726,
+        "finish": 1.307679,
+        "compaction": 1.303275,
+        "dispatch": 4.090969,
+        "records": 7.857464,
+        "weight_indices": 1.641435,
+        "count": 0.672519,
+        "fill": 4.965801
+      },
+      "record_modes": [
+        0,
+        0,
+        8
+      ],
+      "underfilled_rounds": 0,
+      "active_partition_histogram": {
+        "128": 8
+      },
+      "granted_worker_histogram": {
+        "32": 8
+      }
+    },
+    {
+      "stage": "00_baseline",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.054393,
+        "finish": 1.778689,
+        "compaction": 1.771527,
+        "dispatch": 8.792668,
+        "records": 10.971593,
+        "weight_indices": 3.424591,
+        "count": 1.404401,
+        "fill": 4.172387
+      },
+      "record_modes": [
+        0,
+        0,
+        17
+      ],
+      "underfilled_rounds": 3,
+      "active_partition_histogram": {
+        "1": 1,
+        "12": 1,
+        "25": 1,
+        "61": 1,
+        "102": 1,
+        "103": 1,
+        "126": 1,
+        "127": 1,
+        "128": 9
+      },
+      "granted_worker_histogram": {
+        "32": 17
+      }
+    },
+    {
+      "stage": "04_preparation_team_fusion",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.004391,
+        "finish": 1.41309,
+        "compaction": 1.408979,
+        "dispatch": 4.79449,
+        "records": 9.032562,
+        "weight_indices": 2.06202
+      },
+      "record_modes": [
+        0,
+        0,
+        8
+      ],
+      "underfilled_rounds": 0,
+      "active_partition_histogram": {
+        "128": 8
+      },
+      "granted_worker_histogram": {
+        "32": 8
+      }
+    },
+    {
+      "stage": "04_preparation_team_fusion",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.058218,
+        "finish": 1.820904,
+        "compaction": 1.81395,
+        "dispatch": 8.692633,
+        "records": 11.161049,
+        "weight_indices": 3.39051
+      },
+      "record_modes": [
+        0,
+        0,
+        17
+      ],
+      "underfilled_rounds": 3,
+      "active_partition_histogram": {
+        "1": 1,
+        "12": 1,
+        "25": 1,
+        "61": 1,
+        "102": 1,
+        "103": 1,
+        "126": 1,
+        "127": 1,
+        "128": 9
+      },
+      "granted_worker_histogram": {
+        "32": 17
+      }
+    }
+  ],
+  "installed_audit": {
+    "installed_version_changed": false,
+    "changed_files": [],
+    "installed_core_files_checked": 76,
+    "present_snapshot_files_checked": 106,
+    "benchmark_only_snapshot_files_absent_from_installed_tree": [
+      "monotonic_timer.o"
+    ],
+    "retained_installed_version": "packing_regression_20261017/03_completion_batch",
+    "source_path": "/media/readinggroup/Storage/splash/bench/p1graph_audit/p1GraphEasy-con-AutoTuner",
+    "note": "monotonic_timer.o belongs to the benchmark snapshot and is not an installed-tree file; not treated as a deletion."
+  },
+  "timing_policy": "Five fresh whole-process launches per variant, 32 configured workers. Loading, initialization, computation, worker teardown and process exit included; compilation, untimed reference validation, warmup and instrumented profiles excluded. Variant order rotated. Warm filesystem cache. Every primary sample retained. Extra paired confirmations kept separately.",
+  "semantics": "No algorithm/graph-name dispatch, no input changes, no duplicate suppression, no TDG bypass, and no reduced graph worker budget. Pure preparation uses the existing general grain policy.",
+  "sssp_weights": "Shared deterministic positive integer weights, seed 2358.",
+  "limitations": [
+    "Only the established 12-case suite on 10 graph IDs; not a rerun of all 273 graphs.",
+    "Hardware perf sampling unavailable: perf_event_paranoid=4. Diagnostic timing instrumentation was used instead.",
+    "Instrumented phase times are diagnostic; weight-index construction is nested within record preparation. Fused count/fill phases were not separately instrumented; their absent values do not mean zero cost."
+  ]
+}

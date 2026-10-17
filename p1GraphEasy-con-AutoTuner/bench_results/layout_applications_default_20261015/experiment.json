@@ -1,0 +1,25 @@
+{
+  "backend": "Default; GRAPH_FRONTIER_REWRITE_OFF unset for all variants",
+  "settings": {},
+  "input_sha256": "b391872ae869f1c4ef4921ffb56b447ff6103cda333e807296f1be1644fa5d80",
+  "source_sha256": {
+    "GraphProgram": "c60ddc255905969104ad829619040b3f473fd01ec30ec9640644184818fe3ea8",
+    "AutoTunerPass.cpp": "64b1b28c71f9b8ce63b5373044407f6fde559b603cc8b8f45126cc96d9b7bcc8",
+    "autotuner_runtime.c": "72c4f1faaf1534e5e3d92c3979d19c41233e350d6ce85b2428a6cff98f2445b6",
+    "parallel_runtime.c": "93dbde4fb3ebf4a1be399c4901efb2af62b1b263cf87a50f2eb54067bfc7a6a4",
+    "graph_mutation_runtime.c": "562a944ad33af90f4e288264f32313013b57d776c6abcd4bb7c068ba62c2eecd",
+    "graph_frontier_lowering.cpp": "222cf8240492b6d3a4082ec56cf3834b65341330277364719d8487cc9ea8882e",
+    "bfs_runtime_src.cpp": "f7e97c72672b92af4272704ad876048a3050e9a6eb60ffec4eeb710dd7ef8723",
+    "dfs_runtime_src.cpp": "17d19a8ce4392e4234f0daecd3adc0580f6ee5f0d19daa2c4be7f217af202e0b"
+  },
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "cpu": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        48 bits physical, 48 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               12\nOn-line CPU(s) list:                  0-11\nVendor ID:                            AuthenticAMD\nModel name:                           AMD Ryzen 5 5500\nCPU family:                           25\nModel:                                80\nThread(s) per core:                   2\nCore(s) per socket:                   6\nSocket(s):                            1\nStepping:                             0\nBogoMIPS:                             7186.32\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                       AMD-V\nHypervisor vendor:                    Microsoft\nVirtualization type:                  full\nL1d cache:                            192 KiB (6 instances)\nL1i cache:                            192 KiB (6 instances)\nL2 cache:                             3 MiB (6 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-11\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected\n",
+  "threads": 1,
+  "sampling": {
+    "AUTO": 7,
+    "CSR": 1,
+    "PCSR": 7,
+    "BCSR": 1,
+    "SET": 7
+  }
+}

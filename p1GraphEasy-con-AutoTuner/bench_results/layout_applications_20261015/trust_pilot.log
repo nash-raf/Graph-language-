@@ -1,0 +1,7 @@
+trust_audit_events80000_batch8_motif AUTO ['CSR', 'SET']
+trust_audit_events80000_batch8_motif PCSR ['PCSR']
+trust_audit_events80000_batch8_motif 1/4 {}
+trust_audit_events80000_batch8_motif 2/4 {'AUTO': 155.622, 'PCSR': 580.173}
+trust_audit_events80000_batch8_motif 3/4 {'AUTO': 155.4, 'PCSR': 600.346}
+trust_audit_events80000_batch8_motif 4/4 {'AUTO': 155.178, 'PCSR': 613.432}
+RESULT trust_audit_events80000_batch8_motif {'AUTO': 155.178084, 'PCSR': 613.43221} None

@@ -1,0 +1,140 @@
+{
+  "remote": "graph-downloader:/media/readinggroup/Storage/splash/bench/p1graph_audit/p1GraphEasy-con-AutoTuner",
+  "accepted_stage": "packing_regression_20261017/03_completion_batch",
+  "applied": [
+    {
+      "path": "stable_compaction_runtime.inc",
+      "previous_sha256": null,
+      "sha256": "c3fea4ecff7015ebe333cf840cd71d96297846e99c7f1260ab8112841edea066"
+    },
+    {
+      "path": "autotuner_runtime.h",
+      "previous_sha256": "cdabae75192df9d935d998cca9333a2f8dce6cf99886bedb0f3cd2b3deca6740",
+      "sha256": "c879f7ff63dd9aac11848e41fff98559a5d3bc4ef0b095e3d132e7589480776a"
+    },
+    {
+      "path": "clean_cut_preparation_runtime.inc",
+      "previous_sha256": null,
+      "sha256": "a3f025c1d719b9a2fa5b6c1807af3f869ee3961b372d3a0d22622d87768f4788"
+    },
+    {
+      "path": "main.cpp",
+      "previous_sha256": "6b9c1ec2075a46349dbdcbdc16a339e414e5e3af20c1210f106c238dadf5e217",
+      "sha256": "3a10bb4e0757e7a30ba4f2c321904b0cf9d60dc74ba74d0892402563daf29e04"
+    },
+    {
+      "path": "IRGenVisitor.cpp",
+      "previous_sha256": "9a3dc4fafa32f87b2f02c04535c3db9c4deef65b65dc899d705069a8e371277b",
+      "sha256": "1cc89651bea20e4dce168937adb22345e2b2982f3f8a5d51fc81663fcd933438"
+    },
+    {
+      "path": "graph_frontier_lowering.cpp",
+      "previous_sha256": "222cf8240492b6d3a4082ec56cf3834b65341330277364719d8487cc9ea8882e",
+      "sha256": "1ef0255357bd04978e9eb568e48a1a62d6443a26e412e3ea927c3fabb861fd86"
+    },
+    {
+      "path": "array_preparation_runtime.inc",
+      "previous_sha256": "416404889f24b25f716fb9de2b798c729303e77f8c073081d06d02c9f33c33af",
+      "sha256": "1d3546996afc818c1f9a5bedf39fa86c107000764674dcc385bee27bee753e35"
+    },
+    {
+      "path": "execution_scratch_runtime.inc",
+      "previous_sha256": "4ffe4c88fb4886e6dffdb28b557810996a7485f391d630ec12d7c3dc26c7a617",
+      "sha256": "3ef77fe7eca05f9f323ae954cf4d6c4ff398b8450dc7673ab35e1d7fa1610b7d"
+    },
+    {
+      "path": "autotuner_runtime.c",
+      "previous_sha256": "e2cf50c7ade303d2fe5fb2b130900be541a0be534b57cf4c7c8acec9e35abe91",
+      "sha256": "09e4cc9586cc3775146a0b413d16ef790b74af7836d2f68e164d92b2ea7d692f"
+    },
+    {
+      "path": "frontier_storage_lowering.inc",
+      "previous_sha256": "5502ad93f0c8199d4b44fc5d2ee0cff6904ca33508344b895c517b0d0dbb127a",
+      "sha256": "dd6184ae386b28dc8ae5872631fdc611fbb918c03f46ac4a3531f254bc12a79c"
+    },
+    {
+      "path": "array_frontier_runtime.inc",
+      "previous_sha256": "8a2dad3dd0d264178eb62f7f10d174b50be4e9d653766483eac1dd7810411ed5",
+      "sha256": "f6b6ae806287fdebe9be05cc54875ec04d07add485ed98bdee1bc3b2f7d88621"
+    },
+    {
+      "path": "test/run_array_frontier_lease_tests.sh",
+      "previous_sha256": null,
+      "sha256": "9d2d82c4b0610b92d3ff22b04ec0b227ebb0605f6265304463b58ca4101d55cd"
+    },
+    {
+      "path": "test/zero_program_array.graph",
+      "previous_sha256": null,
+      "sha256": "9566415a1557090a8d9850bdcf2b68898dad122064ad41f9810ff9fd3cb6e93b"
+    },
+    {
+      "path": "test/run_array_append_epoch_tests.sh",
+      "previous_sha256": null,
+      "sha256": "0a8ceb6cca867cbcaee71b8791d3222dc2544884d39569eb145bf955f01da671"
+    },
+    {
+      "path": "test/array_append_epoch_test.c",
+      "previous_sha256": null,
+      "sha256": "79354f0a78ce6ae085de93e71bcb7ce09c6cd4725b74586f7e0aaa0802b49984"
+    },
+    {
+      "path": "test/source_snapshot_contract.c",
+      "previous_sha256": null,
+      "sha256": "e0f06e6c326ed2ba4ab5abf4f1041fa67da4d427c880fd666086363997c32223"
+    },
+    {
+      "path": "test/run_general_frontier_optimization_tests.sh",
+      "previous_sha256": null,
+      "sha256": "428f050ff43af9a2b9bef04e1e4326f8fc7ada1c10ca7e4ae66cc04dcf9ba688"
+    },
+    {
+      "path": "test/run_empty_partition_effects_tests.sh",
+      "previous_sha256": null,
+      "sha256": "e8b74de906d734c5b9ab9c64fc19d82c56bf5edf4577251c63bfd0f227218a65"
+    },
+    {
+      "path": "test/empty_partition_effects_test.c",
+      "previous_sha256": null,
+      "sha256": "9fe84cd4caf9243d70bfd56ab35cf563aee4c90284861609a91bcc2d3b7326cd"
+    },
+    {
+      "path": "test/large_compaction_test.c",
+      "previous_sha256": null,
+      "sha256": "0bb243738e189ecd2a23df66567d0460a212dbbcd8d4ff9413847b94aa525ea5"
+    },
+    {
+      "path": "test/array_program_snapshot.graph",
+      "previous_sha256": null,
+      "sha256": "2f09e9506dd5f1e9604ab95b7d88add50bb2b479128baf6521ee898fa38aa9ae"
+    },
+    {
+      "path": "test/run_stable_compaction_tests.sh",
+      "previous_sha256": null,
+      "sha256": "d711c475d79e37d82ed0af58f0a701e7b8c423d319e0600118e99be7adb7510b"
+    },
+    {
+      "path": "test/array_frontier_lease_test.c",
+      "previous_sha256": null,
+      "sha256": "bbda66b6a8020dc61fcdbe5764e102ae5d1005b30b0029bb0b1c8570f192c0c1"
+    },
+    {
+      "path": "test/stable_compaction_test.c",
+      "previous_sha256": null,
+      "sha256": "422786ba30c2a55a259998c450717a66f02a549f22809b245b5f29a8bea13bef"
+    },
+    {
+      "path": "test/run_program_array_tests.sh",
+      "previous_sha256": null,
+      "sha256": "de7992f9aca6186443a13d134b3dc054a5720b9b8dc559cb05d0b79c7d40abd8",
+      "remote_sha256": "6b71cc293e4d396980ab4baece35b384384a4e9db55074eaa00c1635bcfefe10",
+      "local_adjustment": "Regression test now expects the proven source-domain snapshot entry point emitted by the accepted compiler."
+    }
+  ],
+  "preserved_local_files": [
+    "AutoTunerPass.cpp",
+    "test/pdg_tdg_verification/test_autotuner_frequency.py"
+  ],
+  "rejected_candidates_installed": false,
+  "binaries_copied": false,
+  "parser_note": "Local ANTLR 4.10.1 generated sources preserved; remote uses ANTLR 4.13.1. Grammar token and interpreter data match. Lab compiler validation uses its installed generated parser/toolchain."
+}

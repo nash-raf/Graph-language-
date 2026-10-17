@@ -1,0 +1,49 @@
+{"kind":"table","sheet":"Runtime comparison","address":"H1:N6","rows":6,"cols":7,"values":[["AUTO_total_ms","CSR_total_ms","PCSR_total_ms","BCSR_total_ms","SET_total_ms","best_fixed_layout","speedup_vs_best_fixed"],[610.497283,33331.756016,1470.676136,119100.386038,2624.596163,"PCSR",2.4089806407868974],[548.013661,28611.301184,1079.520389,77550.595343,4078.513448,"PCSR",1.9698786103801162],[156.626259,4300.11231,670.877607,34378.765315,1184.855553,"PCSR",4.283302246272766],[278.642887,31917.882278,1257.533481,111343.424495,1175.229654,"SET",4.217691205589612],[160.054877,28363.849193,566.957531,83184.447472,443.360444,"SET",2.770052698862778]]}
+{"kind":"notice","message":"Cell search matched 0 entries."}
+[
+  {
+    "application": "Contact exposure tracing",
+    "AUTO": 610.497283,
+    "CSR": 33331.756016,
+    "PCSR": 1470.676136,
+    "BCSR": 119100.386038,
+    "SET": 2624.596163,
+    "speedup": 2.4089806407868974
+  },
+  {
+    "application": "Service outage islands",
+    "AUTO": 548.013661,
+    "CSR": 28611.301184,
+    "PCSR": 1079.520389,
+    "BCSR": 77550.595343,
+    "SET": 4078.513448,
+    "speedup": 1.9698786103801162
+  },
+  {
+    "application": "Sensor backbone pruning",
+    "AUTO": 156.626259,
+    "CSR": 4300.11231,
+    "PCSR": 670.877607,
+    "BCSR": 34378.765315,
+    "SET": 1184.855553,
+    "speedup": 4.283302246272766
+  },
+  {
+    "application": "Gateway failover recovery",
+    "AUTO": 278.642887,
+    "CSR": 31917.882278,
+    "PCSR": 1257.533481,
+    "BCSR": 111343.424495,
+    "SET": 1175.229654,
+    "speedup": 4.217691205589612
+  },
+  {
+    "application": "Trust-boundary audit",
+    "AUTO": 160.054877,
+    "CSR": 28363.849193,
+    "PCSR": 566.957531,
+    "BCSR": 83184.447472,
+    "SET": 443.360444,
+    "speedup": 2.770052698862778
+  }
+]

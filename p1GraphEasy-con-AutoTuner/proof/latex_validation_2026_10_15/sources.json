@@ -1,0 +1,9 @@
+[
+  "proof/tdg_joint_schedule/overhead_revision/benchmark.csv",
+  "proof/tdg_allocation_sweep/model_vs_best/model_vs_best.csv",
+  "proof/tdg_diverse_allocations_2026_10_09/model_vs_best/model_vs_best.csv",
+  "proof/tdg_diverse_allocations_2026_10_09/confirmation/paired_summary.csv",
+  "proof/cost_model_audit/raw.csv",
+  "proof/doacross_cost_worker_work_2026_10_09/summary.csv",
+  "proof/doacross_cost_worker_work_2026_10_09/accuracy_by_threads.csv"
+]

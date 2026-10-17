@@ -1,0 +1,103 @@
+--- a/array_preparation_runtime.inc
++++ b/array_preparation_runtime.inc
+@@ -106,52 +106,43 @@
+ }
+ 
+ /* Format versioning is outside the loop; the original filler stays intact. */
+-static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_packed(void *opaque,int32_t worker,int32_t width) {
+-  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
+-  const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
+-  const int32_t chunks=j->chunks,parts=j->parts;
+-  const int64_t count=c->array_source_count;
+-  const int64_t *rows=m->csr_row_ptr,*weights=j->weights;
+-  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
+-  int32_t *records=c->gpu_records;
+-  int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
+-  for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
+-    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
+-    int64_t *positions=j->positions+(size_t)chunk*parts;
+-    int64_t ordinal=j->work[chunk];
+-    for(int64_t i=lo;i<hi;++i) {
+-      int32_t u=input[i],source_part=owners[u];
+-      int64_t first=rows[u],last=rows[u+1];
+-      if(begins) {
+-        int64_t at=positions[source_part]++;
+-        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=1;
+-        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+-      }
+-      for(int64_t edge=first;edge<last;++edge) {
+-        int32_t v=columns[edge],p=source?source_part:owners[v];
+-        if(source&&(v<0||v>=m->csr_n)) {
+-          atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
+-          return;
+-        }
+-        int64_t at=positions[p]++;
+-        if(1) {
+-          records[5*at]=u;records[5*at+1]=v;
+-          records[5*at+2]=(int32_t)i;records[5*at+3]=(int32_t)ordinal++;
+-          records[5*at+4]=(int32_t)weights[edge];
+-        } else {
+-          records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
+-          sources[at]=i;work[at]=ordinal++;
+-        }
+-        if(edges)edges[at]=weights[edge];
+-      }
+-      if(ends) {
+-        int64_t at=positions[source_part]++;
+-        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=2;
+-        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+-      }
+-    }
+-  }
+-}
++/* Pair-only bounded-hint batches cannot carry source hooks. Version the
++ * ownership choice once per invocation; only the matching fixed-layout loop
++ * runs. Ordinals, duplicate occurrences and per-partition order are unchanged.
++ * The inline hint is the sole weight-index representation in this format. */
++#define SGPL_DEFINE_PACKED_FILL(NAME, SOURCE) \
++static SGPL_PREPARATION_FN void NAME(void *opaque,int32_t worker,int32_t width) { \
++  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta; \
++  const int32_t chunks=j->chunks,parts=j->parts; \
++  const int64_t count=c->array_source_count; \
++  const int64_t *rows=m->csr_row_ptr,*weights=j->weights; \
++  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners; \
++  int32_t *records=c->gpu_records; \
++  for(int32_t chunk=worker;chunk<chunks;chunk+=width) { \
++    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks; \
++    int64_t *positions=j->positions+(size_t)chunk*parts; \
++    int64_t ordinal=j->work[chunk]; \
++    for(int64_t i=lo;i<hi;++i) { \
++      int32_t u=input[i],source_part=(SOURCE)?owners[u]:0; \
++      int64_t first=rows[u],last=rows[u+1]; \
++      for(int64_t edge=first;edge<last;++edge) { \
++        int32_t v=columns[edge]; \
++        if((SOURCE)&&(v<0||v>=m->csr_n)) { \
++          atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed); \
++          return; \
++        } \
++        int32_t p=(SOURCE)?source_part:owners[v]; \
++        int64_t at=positions[p]++; \
++        records[5*at]=u;records[5*at+1]=v; \
++        records[5*at+2]=(int32_t)i;records[5*at+3]=(int32_t)ordinal++; \
++        records[5*at+4]=(int32_t)weights[edge]; \
++      } \
++    } \
++  } \
++}
++SGPL_DEFINE_PACKED_FILL(sgpl_array_fill_chunks_packed_source,1)
++SGPL_DEFINE_PACKED_FILL(sgpl_array_fill_chunks_packed_destination,0)
++#undef SGPL_DEFINE_PACKED_FILL
+ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+   int32_t width=sgpl_configured_worker_count();
+   if(c->array_source_count<128||getenv("SGPL_ARRAY_PREP_SERIAL"))width=1;
+@@ -242,7 +233,9 @@
+   }
+   c->gpu_record_offsets[parts]=at;
+   if(at!=records) {rc=SGPL_DAG_ERR_INVALID;goto done;}
+-  sgpl_run_preparation(c->array_compact_records==2?sgpl_array_fill_chunks_packed:sgpl_array_fill_chunks,&job,width);
++  sgpl_run_preparation(c->array_compact_records==2?
++      (job.source?sgpl_array_fill_chunks_packed_source:sgpl_array_fill_chunks_packed_destination):
++      sgpl_array_fill_chunks,&job,width);
+   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
+   c->gpu_record_count=records;c->array_log_pristine=1;
+   c->array_pair_records=!job.source||(!begins&&!ends);rc=0;

@@ -1,0 +1,452 @@
+--- a/generated/BaseVisitor.h
++++ b/generated/BaseVisitor.h
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ #pragma once
+ 
+--- a/generated/BaseListener.h
++++ b/generated/BaseListener.h
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ #pragma once
+ 
+--- a/generated/BaseLexer.cpp
++++ b/generated/BaseLexer.cpp
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ 
+ #include "BaseLexer.h"
+@@ -41,11 +41,20 @@
+   std::unique_ptr<antlr4::atn::ATN> atn;
+ };
+ 
+-std::once_flag baselexerLexerOnceFlag;
++::antlr4::internal::OnceFlag baselexerLexerOnceFlag;
++#if ANTLR4_USE_THREAD_LOCAL_CACHE
++static thread_local
++#endif
+ BaseLexerStaticData *baselexerLexerStaticData = nullptr;
+ 
+ void baselexerLexerInitialize() {
++#if ANTLR4_USE_THREAD_LOCAL_CACHE
++  if (baselexerLexerStaticData != nullptr) {
++    return;
++  }
++#else
+   assert(baselexerLexerStaticData == nullptr);
++#endif
+   auto staticData = std::make_unique<BaseLexerStaticData>(
+     std::vector<std::string>{
+       "T__0", "T__1", "T__2", "T__3", "T__4", "T__5", "T__6", "T__7", "T__8", 
+@@ -426,5 +435,9 @@
+ 
+ 
+ void BaseLexer::initialize() {
+-  std::call_once(baselexerLexerOnceFlag, baselexerLexerInitialize);
+-}
++#if ANTLR4_USE_THREAD_LOCAL_CACHE
++  baselexerLexerInitialize();
++#else
++  ::antlr4::internal::call_once(baselexerLexerOnceFlag, baselexerLexerInitialize);
++#endif
++}
+--- a/generated/BaseBaseListener.h
++++ b/generated/BaseBaseListener.h
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ #pragma once
+ 
+--- a/generated/BaseBaseVisitor.h
++++ b/generated/BaseBaseVisitor.h
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ #pragma once
+ 
+--- a/generated/BaseParser.cpp
++++ b/generated/BaseParser.cpp
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ 
+ #include "BaseListener.h"
+@@ -37,11 +37,20 @@
+   std::unique_ptr<antlr4::atn::ATN> atn;
+ };
+ 
+-std::once_flag baseParserOnceFlag;
++::antlr4::internal::OnceFlag baseParserOnceFlag;
++#if ANTLR4_USE_THREAD_LOCAL_CACHE
++static thread_local
++#endif
+ BaseParserStaticData *baseParserStaticData = nullptr;
+ 
+ void baseParserInitialize() {
++#if ANTLR4_USE_THREAD_LOCAL_CACHE
++  if (baseParserStaticData != nullptr) {
++    return;
++  }
++#else
+   assert(baseParserStaticData == nullptr);
++#endif
+   auto staticData = std::make_unique<BaseParserStaticData>(
+     std::vector<std::string>{
+       "program", "statement", "swapStatement", "graphDef", "graphProperty", 
+@@ -575,33 +584,8 @@
+     _errHandler->sync(this);
+     _la = _input->LA(1);
+     while ((((_la & ~ 0x3fULL) == 0) &&
+-      ((1ULL << _la) & ((1ULL << BaseParser::T__0)
+-      | (1ULL << BaseParser::T__1)
+-      | (1ULL << BaseParser::T__7)
+-      | (1ULL << BaseParser::T__8)
+-      | (1ULL << BaseParser::T__19)
+-      | (1ULL << BaseParser::T__22)
+-      | (1ULL << BaseParser::T__23)
+-      | (1ULL << BaseParser::T__27)
+-      | (1ULL << BaseParser::T__29)
+-      | (1ULL << BaseParser::T__32)
+-      | (1ULL << BaseParser::T__36)
+-      | (1ULL << BaseParser::T__40)
+-      | (1ULL << BaseParser::T__45)
+-      | (1ULL << BaseParser::T__46)
+-      | (1ULL << BaseParser::T__47)
+-      | (1ULL << BaseParser::T__48)
+-      | (1ULL << BaseParser::T__49)
+-      | (1ULL << BaseParser::T__50)
+-      | (1ULL << BaseParser::T__51)
+-      | (1ULL << BaseParser::T__52)
+-      | (1ULL << BaseParser::T__54)
+-      | (1ULL << BaseParser::T__55))) != 0) || ((((_la - 67) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 67)) & ((1ULL << (BaseParser::T__66 - 67))
+-      | (1ULL << (BaseParser::T__70 - 67))
+-      | (1ULL << (BaseParser::GRAPH - 67))
+-      | (1ULL << (BaseParser::SET - 67))
+-      | (1ULL << (BaseParser::ID - 67)))) != 0)) {
++      ((1ULL << _la) & 126032767242732294) != 0) || ((((_la - 67) & ~ 0x3fULL) == 0) &&
++      ((1ULL << (_la - 67)) & 17179874321) != 0)) {
+       setState(138);
+       _errHandler->sync(this);
+       switch (_input->LA(1)) {
+@@ -2383,20 +2367,8 @@
+ 
+     _la = _input->LA(1);
+     if ((((_la & ~ 0x3fULL) == 0) &&
+-      ((1ULL << _la) & ((1ULL << BaseParser::T__2)
+-      | (1ULL << BaseParser::T__5)
+-      | (1ULL << BaseParser::T__22)
+-      | (1ULL << BaseParser::T__23)
+-      | (1ULL << BaseParser::T__32))) != 0) || ((((_la - 75) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 75)) & ((1ULL << (BaseParser::T__74 - 75))
+-      | (1ULL << (BaseParser::T__75 - 75))
+-      | (1ULL << (BaseParser::NOT - 75))
+-      | (1ULL << (BaseParser::TRUE - 75))
+-      | (1ULL << (BaseParser::FALSE - 75))
+-      | (1ULL << (BaseParser::MINUS - 75))
+-      | (1ULL << (BaseParser::ID - 75))
+-      | (1ULL << (BaseParser::INT - 75))
+-      | (1ULL << (BaseParser::REAL - 75)))) != 0)) {
++      ((1ULL << _la) & 8615100488) != 0) || ((((_la - 75) & ~ 0x3fULL) == 0) &&
++      ((1ULL << (_la - 75)) & 469801091) != 0)) {
+       setState(324);
+       expr(0);
+       setState(329);
+@@ -3588,12 +3560,7 @@
+       setState(411);
+       _la = _input->LA(1);
+       if (!(((((_la - 95) & ~ 0x3fULL) == 0) &&
+-        ((1ULL << (_la - 95)) & ((1ULL << (BaseParser::EQUAL - 95))
+-        | (1ULL << (BaseParser::NOTEQUAL - 95))
+-        | (1ULL << (BaseParser::LESSTHAN - 95))
+-        | (1ULL << (BaseParser::GREATERTHAN - 95))
+-        | (1ULL << (BaseParser::LESSEQUAL - 95))
+-        | (1ULL << (BaseParser::GREATEREQUAL - 95)))) != 0))) {
++        ((1ULL << (_la - 95)) & 63) != 0))) {
+       _errHandler->recoverInline(this);
+       }
+       else {
+@@ -4649,12 +4616,7 @@
+         setState(546);
+         _la = _input->LA(1);
+         if (!(((((_la - 95) & ~ 0x3fULL) == 0) &&
+-          ((1ULL << (_la - 95)) & ((1ULL << (BaseParser::EQUAL - 95))
+-          | (1ULL << (BaseParser::NOTEQUAL - 95))
+-          | (1ULL << (BaseParser::LESSTHAN - 95))
+-          | (1ULL << (BaseParser::GREATERTHAN - 95))
+-          | (1ULL << (BaseParser::LESSEQUAL - 95))
+-          | (1ULL << (BaseParser::GREATEREQUAL - 95)))) != 0))) {
++          ((1ULL << (_la - 95)) & 63) != 0))) {
+         _errHandler->recoverInline(this);
+         }
+         else {
+@@ -6044,15 +6006,7 @@
+     setState(711);
+     _la = _input->LA(1);
+     if (!(((((_la - 49) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 49)) & ((1ULL << (BaseParser::T__48 - 49))
+-      | (1ULL << (BaseParser::T__49 - 49))
+-      | (1ULL << (BaseParser::T__50 - 49))
+-      | (1ULL << (BaseParser::T__51 - 49))
+-      | (1ULL << (BaseParser::T__52 - 49))
+-      | (1ULL << (BaseParser::T__53 - 49))
+-      | (1ULL << (BaseParser::T__54 - 49))
+-      | (1ULL << (BaseParser::GRAPH - 49))
+-      | (1ULL << (BaseParser::SET - 49)))) != 0))) {
++      ((1ULL << (_la - 49)) & 1342177407) != 0))) {
+     _errHandler->recoverInline(this);
+     }
+     else {
+@@ -6130,14 +6084,7 @@
+ 
+     _la = _input->LA(1);
+     if (((((_la - 49) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 49)) & ((1ULL << (BaseParser::T__48 - 49))
+-      | (1ULL << (BaseParser::T__49 - 49))
+-      | (1ULL << (BaseParser::T__50 - 49))
+-      | (1ULL << (BaseParser::T__51 - 49))
+-      | (1ULL << (BaseParser::T__52 - 49))
+-      | (1ULL << (BaseParser::T__54 - 49))
+-      | (1ULL << (BaseParser::GRAPH - 49))
+-      | (1ULL << (BaseParser::SET - 49)))) != 0)) {
++      ((1ULL << (_la - 49)) & 1342177375) != 0)) {
+       setState(714);
+       param();
+       setState(719);
+@@ -6289,14 +6236,7 @@
+     setState(729);
+     _la = _input->LA(1);
+     if (!(((((_la - 49) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 49)) & ((1ULL << (BaseParser::T__48 - 49))
+-      | (1ULL << (BaseParser::T__49 - 49))
+-      | (1ULL << (BaseParser::T__50 - 49))
+-      | (1ULL << (BaseParser::T__51 - 49))
+-      | (1ULL << (BaseParser::T__52 - 49))
+-      | (1ULL << (BaseParser::T__54 - 49))
+-      | (1ULL << (BaseParser::GRAPH - 49))
+-      | (1ULL << (BaseParser::SET - 49)))) != 0))) {
++      ((1ULL << (_la - 49)) & 1342177375) != 0))) {
+     _errHandler->recoverInline(this);
+     }
+     else {
+@@ -6394,9 +6334,7 @@
+       _errHandler->sync(this);
+       _la = _input->LA(1);
+       while (((((_la - 58) & ~ 0x3fULL) == 0) &&
+-        ((1ULL << (_la - 58)) & ((1ULL << (BaseParser::T__57 - 58))
+-        | (1ULL << (BaseParser::T__58 - 58))
+-        | (1ULL << (BaseParser::EDGE - 58)))) != 0)) {
++        ((1ULL << (_la - 58)) & 67108867) != 0)) {
+         setState(736);
+         drawOption();
+         setState(741);
+@@ -6511,10 +6449,7 @@
+     _errHandler->sync(this);
+     _la = _input->LA(1);
+     while (((((_la - 58) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 58)) & ((1ULL << (BaseParser::T__57 - 58))
+-      | (1ULL << (BaseParser::T__58 - 58))
+-      | (1ULL << (BaseParser::EDGE - 58))
+-      | (1ULL << (BaseParser::ID - 58)))) != 0)) {
++      ((1ULL << (_la - 58)) & 8796160131075) != 0)) {
+       setState(754);
+       drawMotifOption();
+       setState(759);
+@@ -6641,9 +6576,7 @@
+         _errHandler->sync(this);
+         _la = _input->LA(1);
+         while ((((_la & ~ 0x3fULL) == 0) &&
+-          ((1ULL << _la) & ((1ULL << BaseParser::T__59)
+-          | (1ULL << BaseParser::T__60)
+-          | (1ULL << BaseParser::T__61))) != 0)) {
++          ((1ULL << _la) & 8070450532247928832) != 0)) {
+           setState(770);
+           vertexDrawOption();
+           setState(775);
+@@ -6784,9 +6717,7 @@
+         _errHandler->sync(this);
+         _la = _input->LA(1);
+         while ((((_la & ~ 0x3fULL) == 0) &&
+-          ((1ULL << _la) & ((1ULL << BaseParser::T__59)
+-          | (1ULL << BaseParser::T__60)
+-          | (1ULL << BaseParser::T__61))) != 0)) {
++          ((1ULL << _la) & 8070450532247928832) != 0)) {
+           setState(794);
+           vertexDrawOption();
+           setState(799);
+@@ -7249,10 +7180,7 @@
+     setState(849);
+     _la = _input->LA(1);
+     if (!(((((_la - 65) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 65)) & ((1ULL << (BaseParser::T__64 - 65))
+-      | (1ULL << (BaseParser::T__65 - 65))
+-      | (1ULL << (BaseParser::TRUE - 65))
+-      | (1ULL << (BaseParser::FALSE - 65)))) != 0))) {
++      ((1ULL << (_la - 65)) & 6291459) != 0))) {
+     _errHandler->recoverInline(this);
+     }
+     else {
+@@ -7326,9 +7254,7 @@
+     setState(851);
+     _la = _input->LA(1);
+     if (!((((_la & ~ 0x3fULL) == 0) &&
+-      ((1ULL << _la) & ((1ULL << BaseParser::T__22)
+-      | (1ULL << BaseParser::T__23)
+-      | (1ULL << BaseParser::T__32))) != 0) || _la == BaseParser::ID)) {
++      ((1ULL << _la) & 8615100416) != 0) || _la == BaseParser::ID)) {
+     _errHandler->recoverInline(this);
+     }
+     else {
+@@ -7342,20 +7268,8 @@
+ 
+     _la = _input->LA(1);
+     if ((((_la & ~ 0x3fULL) == 0) &&
+-      ((1ULL << _la) & ((1ULL << BaseParser::T__2)
+-      | (1ULL << BaseParser::T__5)
+-      | (1ULL << BaseParser::T__22)
+-      | (1ULL << BaseParser::T__23)
+-      | (1ULL << BaseParser::T__32))) != 0) || ((((_la - 75) & ~ 0x3fULL) == 0) &&
+-      ((1ULL << (_la - 75)) & ((1ULL << (BaseParser::T__74 - 75))
+-      | (1ULL << (BaseParser::T__75 - 75))
+-      | (1ULL << (BaseParser::NOT - 75))
+-      | (1ULL << (BaseParser::TRUE - 75))
+-      | (1ULL << (BaseParser::FALSE - 75))
+-      | (1ULL << (BaseParser::MINUS - 75))
+-      | (1ULL << (BaseParser::ID - 75))
+-      | (1ULL << (BaseParser::INT - 75))
+-      | (1ULL << (BaseParser::REAL - 75)))) != 0)) {
++      ((1ULL << _la) & 8615100488) != 0) || ((((_la - 75) & ~ 0x3fULL) == 0) &&
++      ((1ULL << (_la - 75)) & 469801091) != 0)) {
+       setState(853);
+       argumentList();
+     }
+@@ -7606,35 +7520,8 @@
+       _errHandler->sync(this);
+       _la = _input->LA(1);
+       while ((((_la & ~ 0x3fULL) == 0) &&
+-        ((1ULL << _la) & ((1ULL << BaseParser::T__0)
+-        | (1ULL << BaseParser::T__1)
+-        | (1ULL << BaseParser::T__7)
+-        | (1ULL << BaseParser::T__8)
+-        | (1ULL << BaseParser::T__19)
+-        | (1ULL << BaseParser::T__22)
+-        | (1ULL << BaseParser::T__23)
+-        | (1ULL << BaseParser::T__27)
+-        | (1ULL << BaseParser::T__29)
+-        | (1ULL << BaseParser::T__32)
+-        | (1ULL << BaseParser::T__36)
+-        | (1ULL << BaseParser::T__40)
+-        | (1ULL << BaseParser::T__45)
+-        | (1ULL << BaseParser::T__46)
+-        | (1ULL << BaseParser::T__48)
+-        | (1ULL << BaseParser::T__49)
+-        | (1ULL << BaseParser::T__50)
+-        | (1ULL << BaseParser::T__51)
+-        | (1ULL << BaseParser::T__52)
+-        | (1ULL << BaseParser::T__54)
+-        | (1ULL << BaseParser::T__55))) != 0) || ((((_la - 67) & ~ 0x3fULL) == 0) &&
+-        ((1ULL << (_la - 67)) & ((1ULL << (BaseParser::T__66 - 67))
+-        | (1ULL << (BaseParser::T__67 - 67))
+-        | (1ULL << (BaseParser::T__68 - 67))
+-        | (1ULL << (BaseParser::T__69 - 67))
+-        | (1ULL << (BaseParser::T__70 - 67))
+-        | (1ULL << (BaseParser::GRAPH - 67))
+-        | (1ULL << (BaseParser::SET - 67))
+-        | (1ULL << (BaseParser::ID - 67)))) != 0)) {
++        ((1ULL << _la) & 125751292266021638) != 0) || ((((_la - 67) & ~ 0x3fULL) == 0) &&
++        ((1ULL << (_la - 67)) & 17179874335) != 0)) {
+         setState(877);
+         _errHandler->sync(this);
+         switch (_input->LA(1)) {
+@@ -9302,9 +9189,7 @@
+           setState(1003);
+           _la = _input->LA(1);
+           if (!(((((_la - 83) & ~ 0x3fULL) == 0) &&
+-            ((1ULL << (_la - 83)) & ((1ULL << (BaseParser::MODULO - 83))
+-            | (1ULL << (BaseParser::TIMES - 83))
+-            | (1ULL << (BaseParser::DIVIDE - 83)))) != 0))) {
++            ((1ULL << (_la - 83)) & 769) != 0))) {
+           _errHandler->recoverInline(this);
+           }
+           else {
+@@ -10006,5 +9891,9 @@
+ }
+ 
+ void BaseParser::initialize() {
+-  std::call_once(baseParserOnceFlag, baseParserInitialize);
+-}
++#if ANTLR4_USE_THREAD_LOCAL_CACHE
++  baseParserInitialize();
++#else
++  ::antlr4::internal::call_once(baseParserOnceFlag, baseParserInitialize);
++#endif
++}
+--- a/generated/BaseLexer.h
++++ b/generated/BaseLexer.h
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ #pragma once
+ 
+--- a/generated/BaseParser.h
++++ b/generated/BaseParser.h
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ #pragma once
+ 
+--- a/generated/BaseVisitor.cpp
++++ b/generated/BaseVisitor.cpp
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ 
+ #include "BaseVisitor.h"
+--- a/generated/BaseBaseListener.cpp
++++ b/generated/BaseBaseListener.cpp
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ 
+ #include "BaseBaseListener.h"
+--- a/generated/BaseBaseVisitor.cpp
++++ b/generated/BaseBaseVisitor.cpp
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ 
+ #include "BaseBaseVisitor.h"
+--- a/generated/BaseListener.cpp
++++ b/generated/BaseListener.cpp
+@@ -1,5 +1,5 @@
+ 
+-// Generated from Base.g4 by ANTLR 4.10.1
++// Generated from Base.g4 by ANTLR 4.13.1
+ 
+ 
+ #include "BaseListener.h"

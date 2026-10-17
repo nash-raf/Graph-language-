@@ -577,6 +577,11 @@ typedef struct sgpl_exec_ctx {
   void *execution_scratch;
   int32_t array_log_pristine;
   int32_t array_pair_records;
+  /* CPU pair batches: mode 1 is four i32s (u,v,source ordinal,work ordinal).
+   * Mode 2 adds an i32 first-match hint after a proven CSR-index range bound.
+   * Mode 0 keeps triples plus i64 side arrays. CPU compact modes expand
+   * transactionally to the legacy representation before device grouping. */
+  int32_t array_compact_records;
 } sgpl_exec_ctx;
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
 int32_t autograph_build_array_cut(void *,int32_t);
@@ -955,8 +960,16 @@ int32_t autograph_exec_ctx_materialize_snapshot(sgpl_exec_ctx *ctx, int32_t slot
  * to prove a unit's dispatch shares the run budget instead of the machine. */
 int32_t sgpl_debug_last_dag_dispatch_width(void);
 
+/* Caller proves that all redirected reads use input-source indices. */
+int32_t autograph_exec_ctx_bind_source_snapshot_range(sgpl_exec_ctx *,int32_t,
+    const void *,int64_t,int64_t);
+
+/* Preparation has already validated every source and counted pair occurrences. */
+int32_t autograph_exec_ctx_reserve_prepared_output(sgpl_exec_ctx *);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* AUTOTUNER_RUNTIME_H */
+

@@ -1,0 +1,58 @@
+--- a/autotuner_runtime.c
++++ b/autotuner_runtime.c
+@@ -6208,15 +6208,17 @@
+   SgplIndependentSpatial *job=opaque;
+   sgpl_set_current_worker_index(index);
+   int32_t completed=0;
++  /* Independent nodes each receive one lane of the enclosing grant. Its
++   * bound is invariant across this worker's claim loop. Keep the same scope
++   * around all callbacks, avoiding repeated TLS stack bookkeeping per node. */
++  sgpl_push_thread_budget(1);
+   for(;;) {
+     if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+     int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+     if(node>=job->count)break;
+     /* Every active lane owns one slot of the enclosing grant. Nested work
+      * retains that slot and cannot claim another lane behind its siblings. */
+-    sgpl_push_thread_budget(1);
+     int32_t rc=sgpl_dag_partition_node(job->ctx,job->nodes?job->nodes[node]:node);
+-    sgpl_pop_thread_budget();
+     ++completed;
+     if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+   }
+@@ -6224,6 +6226,7 @@
+    * lane's completed-node count once, instead of contending on one cache line
+    * for every node. Cancellation is still checked before each claim and
+    * callback errors are still published immediately. */
++  sgpl_pop_thread_budget();
+   if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+ }
+ 
+@@ -6234,15 +6237,17 @@
+   SgplIndependentSpatial *job=opaque;
+   sgpl_set_current_worker_index(index);
+   int32_t completed=0;
++  /* Independent nodes each receive one lane of the enclosing grant. Its
++   * bound is invariant across this worker's claim loop. Keep the same scope
++   * around all callbacks, avoiding repeated TLS stack bookkeeping per node. */
++  sgpl_push_thread_budget(1);
+   for(;;) {
+     if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+     int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+     if(node>=job->count)break;
+     /* Every active lane owns one slot of the enclosing grant. Nested work
+      * retains that slot and cannot claim another lane behind its siblings. */
+-    sgpl_push_thread_budget(1);
+     int32_t rc=sgpl_dag_partition_node_packed(job->ctx,job->nodes?job->nodes[node]:node);
+-    sgpl_pop_thread_budget();
+     ++completed;
+     if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+   }
+@@ -6250,6 +6255,7 @@
+    * lane's completed-node count once, instead of contending on one cache line
+    * for every node. Cancellation is still checked before each claim and
+    * callback errors are still published immediately. */
++  sgpl_pop_thread_budget();
+   if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+ }
+ 

@@ -1,0 +1,22 @@
+=== compiling 17 sources ===
+  skip: main.cpp
+  skip: IRGenVisitor.cpp
+  skip: MotifPattern.cpp
+  skip: MotifIRBuilder.cpp
+  skip: ASTBuilder.cpp
+  skip: pdg.cpp
+  skip: parallel_loop_outline.cpp
+  skip: graph_frontier_lowering.cpp
+  skip: SemanticAnalyzer.cpp
+  skip: roaring_bitmap.cpp
+  cc: AutoTunerPass.cpp
+  skip: generated/BaseBaseListener.cpp
+  skip: generated/BaseBaseVisitor.cpp
+  skip: generated/BaseLexer.cpp
+  skip: generated/BaseListener.cpp
+  skip: generated/BaseParser.cpp
+  skip: generated/BaseVisitor.cpp
+=== linking GraphProgram ===
+>>> p1-AT GraphProgram build complete
+=== compiling semiring_runtime.o ===
+Link user programs with: parallel_runtime_shim.o semiring_runtime.o (and the usual loaders)

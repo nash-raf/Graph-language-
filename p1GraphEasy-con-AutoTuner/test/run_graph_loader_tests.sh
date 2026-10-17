@@ -8,11 +8,12 @@ TEST_BIN="$TMP/graph_loader_runtime_test"
 
 gcc -O2 -std=gnu11 -c "$ROOT/autotuner_runtime.c" -o "$TMP/autotuner_runtime.o"
 gcc -O2 -std=gnu11 -c "$ROOT/parallel_runtime.c" -o "$TMP/parallel_runtime.o"
+gcc -O2 -std=gnu11 -c "$ROOT/gpu_runtime.c" -o "$TMP/gpu_runtime.o"
 
 g++ -O2 -std=c++17 -fopenmp -mavx2 -march=native \
   "$ROOT/test/graph_loader_runtime_test.cpp" \
   "$ROOT/graph_loader_runtime.cpp" "$ROOT/roaring_bitmap.cpp" \
-  "$TMP/autotuner_runtime.o" "$TMP/parallel_runtime.o" -lnlopt \
+  "$TMP/autotuner_runtime.o" "$TMP/parallel_runtime.o" "$TMP/gpu_runtime.o" -lnlopt -ldl \
   -o "$TEST_BIN"
 
 cat >"$TMP/unweighted.txt" <<'EOF'
@@ -71,6 +72,27 @@ weighted_warm="$(OMP_NUM_THREADS=2 "$TEST_BIN" weighted "$TMP/weighted.txt")"
 [[ "$weighted_warm" == "$weighted_refresh" ]]
 [[ "$(printf '%s\n' "$weighted_warm" | awk '{print $1, $2, $3, $6, $7}')" == \
    "5 10 5 5 5" ]]
+
+# Truncated and checksum-corrupt caches must be ignored and rebuilt.
+for mode in directed weighted_directed; do
+  input="$TMP/unweighted.txt"
+  suffix=".directed.sgplbin"
+  if [[ "$mode" == weighted_directed ]]; then
+    input="$TMP/weighted.txt"
+    suffix=".weighted.directed.sgplbin"
+  fi
+  cache="$input$suffix"
+  reference="$(SGPL_GRAPH_CACHE=off OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input" | semantic)"
+  [[ "$(awk '{print $1, $2, $3}' <<< "$reference")" == "5 5 5" ]]
+  refreshed="$(SGPL_GRAPH_CACHE=refresh OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input")"
+  stamp="$(stat -c '%y' "$cache")"
+  [[ "$(OMP_NUM_THREADS=32 "$TEST_BIN" "$mode" "$input")" == "$refreshed" ]]
+  [[ "$(stat -c '%y' "$cache")" == "$stamp" ]]
+  printf '\377' | dd of="$cache" bs=1 seek=300 count=1 conv=notrunc status=none
+  [[ "$(OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input" | semantic)" == "$reference" ]]
+  truncate -s 64 "$cache"
+  [[ "$(OMP_NUM_THREADS=4 "$TEST_BIN" "$mode" "$input" | semantic)" == "$reference" ]]
+done
 
 # Truncated and checksum-corrupt caches must be ignored and rebuilt.
 truncate -s 64 "$TMP/unweighted.txt.sgplbin"

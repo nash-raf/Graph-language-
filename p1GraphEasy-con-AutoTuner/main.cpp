@@ -891,8 +891,9 @@ static llvm::Function *spatialContextAccessor(llvm::Module &M, llvm::Function *O
         auto *Index = Field(B.getInt64Ty(), offsetof(sgpl_exec_ctx, array_edge_index));
         auto *Records = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, array_record_edges));
         auto *Owner = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, graph));
+        auto *Packed = B.CreateICmpEQ(Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, array_compact_records)), B.getInt32(2));
         auto *Native = llvm::BasicBlock::Create(C, "native", Fn);
-        B.CreateCondBr(B.CreateAnd(B.CreateAnd(B.CreateICmpEQ(Graph, Owner), B.CreateIsNotNull(Records)),
+        B.CreateCondBr(B.CreateAnd(B.CreateAnd(B.CreateICmpEQ(Graph, Owner), B.CreateOr(B.CreateIsNotNull(Records), Packed)),
                                   B.CreateAnd(B.CreateICmpSGE(Index, B.getInt64(0)), B.CreateICmpSGE(U, B.getInt32(0)))), Native, Fallback);
         B.SetInsertPoint(Native);
         auto *N = B.CreateLoad(B.getInt64Ty(), Graph);

@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "results": {
+    "compile_main": 0,
+    "compile_IRGenVisitor": 0,
+    "compile_graph_frontier_lowering": 0,
+    "compile_AutoTunerPass": 0,
+    "link_compiler": 0,
+    "run_stable_compaction_tests": 0,
+    "run_array_append_epoch_tests": 0,
+    "run_array_frontier_lease_tests": 0,
+    "run_empty_partition_effects_tests": 0,
+    "run_array_preparation_exec_tests": 0,
+    "run_array_frontier_exec_tests": 0,
+    "run_general_frontier_optimization_tests": 0,
+    "run_program_array_tests": 0,
+    "autotuner_frequency_regressions": 0,
+    "iterator_phase_regressions_default_calibration": 0
+  },
+  "runtime_suites": 8,
+  "compiler_build": "4 modified translation units compiled and compiler linked using lab LLVM/ANTLR toolchain",
+  "notes": [
+    "Initial program-array assertion expected the superseded full snapshot entry point. Updated assertion requires the emitted source-domain snapshot entry point; unchanged execution outputs pass.",
+    "Initial extra tests lacked explicit LLVM_CONFIG. Reran with installed LLVM path.",
+    "Preserved iterator test assumes SET for its automatic fixture. Lab saved hardware calibration picks PCSR; it passes unchanged with compiler-default calibration."
+  ],
+  "installed_source_audit": {
+    "checked_files": 292,
+    "changed_files": []
+  }
+}

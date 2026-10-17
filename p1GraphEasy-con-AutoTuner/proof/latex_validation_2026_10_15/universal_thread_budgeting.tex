@@ -1,0 +1,171 @@
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Policy & Settings & Steady ratio & First-call ratio & 14-call ratio \\
+\midrule
+Ordinary-first reference & 36 & 1.000 & 1.000 & 1.000 \\
+Ordering only & 36 & 0.801 & 1.085 & 0.957 \\
+Joint search only on overload & 36 & 0.800 & 1.085 & 0.962 \\
+Joint allocation and ordering & 36 & 0.777 & 1.092 & 0.943 \\
+\bottomrule
+\end{tabular}
+\caption{Universal thread budgeting ablation: geometric mean runtime ratios relative to the ordinary-first reference.}\label{tab:utb-ablation}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Lower ratios are better. Steady ratios use per-setting process medians; first-call and 14-call ratios use paired process runs. These are historical Phase A measurements, not measurements of the later diverse-allocation revision.\end{minipage}
+\end{table}
+% Requires booktabs; detailed tables also require longtable.
+\begin{center}
+\small
+\begin{longtable}{lrrrrr}
+\caption{Universal budgeting ablation: steady execution time in milliseconds.}\label{tab:utb-ablation-detail}\\
+\toprule
+Workload & $B$ & Ordinary-first & Order only & Overload only & Joint \\
+\midrule
+\endfirsthead
+\toprule
+Workload & $B$ & Ordinary-first & Order only & Overload only & Joint \\
+\midrule
+\endhead
+\bottomrule\endfoot
+fits-mixed & 2 & 3.369 & 3.249 & 3.486 & 3.236 \\
+fits-unequal-loops & 2 & 17.677 & 16.525 & 16.504 & 16.448 \\
+independent-doacross & 2 & 7.666 & 5.266 & 5.526 & 5.189 \\
+many-loops & 2 & 2.368 & 2.429 & 2.463 & 2.393 \\
+ordinary-only & 2 & 5.024 & 5.133 & 4.960 & 4.991 \\
+overflow-all-long & 2 & 13.389 & 13.849 & 13.404 & 13.605 \\
+overflow-one-long & 2 & 10.082 & 6.998 & 6.798 & 6.788 \\
+overflow-short & 2 & 3.540 & 3.815 & 3.377 & 3.517 \\
+overflow-unequal-loops & 2 & 16.823 & 16.622 & 16.986 & 17.035 \\
+sequential-sites & 2 & 15.440 & 16.462 & 16.058 & 16.134 \\
+streaming & 2 & 0.465 & 0.424 & 0.402 & 0.419 \\
+tiny & 2 & 0.156 & 0.039 & 0.039 & 0.039 \\
+fits-mixed & 4 & 1.955 & 1.930 & 1.973 & 1.789 \\
+fits-unequal-loops & 4 & 9.448 & 9.405 & 9.291 & 9.185 \\
+independent-doacross & 4 & 7.190 & 5.208 & 5.499 & 5.094 \\
+many-loops & 4 & 2.617 & 2.557 & 2.930 & 2.653 \\
+ordinary-only & 4 & 6.220 & 5.592 & 5.720 & 5.434 \\
+overflow-all-long & 4 & 11.704 & 13.018 & 12.257 & 10.729 \\
+overflow-one-long & 4 & 7.892 & 8.115 & 7.238 & 6.894 \\
+overflow-short & 4 & 1.465 & 1.532 & 1.511 & 1.482 \\
+overflow-unequal-loops & 4 & 9.275 & 8.891 & 8.800 & 9.247 \\
+sequential-sites & 4 & 6.075 & 5.971 & 5.669 & 5.839 \\
+streaming & 4 & 0.503 & 0.397 & 0.425 & 0.407 \\
+tiny & 4 & 0.212 & 0.039 & 0.040 & 0.040 \\
+fits-mixed & 8 & 1.066 & 0.958 & 1.034 & 0.969 \\
+fits-unequal-loops & 8 & 4.690 & 4.670 & 4.988 & 4.253 \\
+independent-doacross & 8 & 7.961 & 5.558 & 5.368 & 5.253 \\
+many-loops & 8 & 3.707 & 3.880 & 3.794 & 3.701 \\
+ordinary-only & 8 & 5.222 & 5.642 & 5.379 & 5.716 \\
+overflow-all-long & 8 & 12.754 & 14.481 & 13.270 & 12.603 \\
+overflow-one-long & 8 & 7.916 & 7.637 & 8.000 & 7.641 \\
+overflow-short & 8 & 1.245 & 1.236 & 1.163 & 1.206 \\
+overflow-unequal-loops & 8 & 5.041 & 4.812 & 5.433 & 4.618 \\
+sequential-sites & 8 & 4.196 & 3.396 & 3.477 & 3.296 \\
+streaming & 8 & 1.057 & 0.470 & 0.445 & 0.455 \\
+tiny & 8 & 0.436 & 0.045 & 0.045 & 0.045 \\
+\bottomrule
+\end{longtable}
+\end{center}
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Policy & Settings & Mean gap (\%) & Median gap (\%) & Worst gap (\%) \\
+\midrule
+ordinary-first & 53 & 979.43 & 84.66 & 11486.91 \\
+dynamic & 53 & 23.96 & 7.29 & 140.90 \\
+\bottomrule
+\end{tabular}
+\caption{Allocation validation before the diverse-allocation revision: excess runtime relative to the common measured sweep winner.}\label{tab:utb-original-validation}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Gap $=100(T_{\mathrm{model}}/T_{\mathrm{sweep}}-1)$. The oracle is the fastest measured forced policy in the sweep; it is not a proven global optimum.\end{minipage}
+\end{table}
+% Requires booktabs; detailed tables also require longtable.
+\begin{center}
+\small
+\begin{longtable}{lrrrrrr}
+\caption{Diverse-allocation revision: native model decisions versus remeasured prior sweep winners. Times are milliseconds.}\label{tab:utb-diverse-validation}\\
+\toprule
+Workload & $B$ & Model widths & Best widths & Model & Best & Gap (\%) \\
+\midrule
+\endfirsthead
+\toprule
+Workload & $B$ & Model widths & Best widths & Model & Best & Gap (\%) \\
+\midrule
+\endhead
+\bottomrule\endfoot
+balanced\_compute & 2 & (1,1) & (1,1) & 2.754 & 2.609 & +5.54 \\
+balanced\_compute & 4 & (3,3) & (3,3) & 1.989 & 1.950 & +2.00 \\
+balanced\_compute & 6 & (5,5) & (5,5) & 1.248 & 1.241 & +0.62 \\
+balanced\_compute & 8 & (7,7) & (5,6) & 1.403 & 1.210 & +15.94 \\
+chunk\_edge & 2 & (1,1) & (1,1) & 0.013 & 0.012 & +6.98 \\
+chunk\_edge & 4 & (1,1) & (1,1) & 0.013 & 0.012 & +7.22 \\
+chunk\_edge & 6 & (1,1) & (1,1) & 0.013 & 0.012 & +7.06 \\
+chunk\_edge & 8 & (1,1) & (1,1) & 0.013 & 0.012 & +6.74 \\
+large\_arrays & 2 & (1,1) & (1,1) & 6.123 & 6.035 & +1.45 \\
+large\_arrays & 4 & (3,3) & (3,3) & 5.475 & 5.332 & +2.68 \\
+large\_arrays & 6 & (5,5) & (5,3) & 5.315 & 5.626 & -5.53 \\
+large\_arrays & 8 & (7,7) & (5,3) & 7.193 & 5.544 & +29.74 \\
+mixed\_compute & 4 & (3,3) & (3,3) & 0.939 & 0.930 & +1.01 \\
+mixed\_compute & 6 & (5,5) & (5,5) & 0.666 & 0.681 & -2.13 \\
+mixed\_long\_ordinary & 4 & (1,1) & (1,1) & 0.632 & 0.641 & -1.35 \\
+mixed\_loop\_skew & 4 & (3,1) & (3,1) & 0.268 & 0.269 & -0.16 \\
+mixed\_loop\_skew & 6 & (5,1) & (5,1) & 0.219 & 0.214 & +2.25 \\
+mixed\_medium\_ordinary & 4 & (1,1) & (3,3) & 0.271 & 0.252 & +7.46 \\
+mixed\_medium\_ordinary & 6 & (1,1) & (5,5) & 0.279 & 0.329 & -15.12 \\
+mixed\_one\_long\_ordinary & 4 & (1,1) & (1,1) & 0.425 & 0.412 & +3.03 \\
+mixed\_one\_ordinary & 2 & (1,1) & (1,1) & 0.225 & 0.224 & +0.40 \\
+mixed\_one\_ordinary & 4 & (3,3) & (3,1) & 0.223 & 0.217 & +2.86 \\
+mixed\_one\_ordinary & 6 & (1,1) & (5,1) & 0.228 & 0.213 & +6.76 \\
+mixed\_short\_ordinary & 2 & (1,1) & (1,1) & 0.224 & 0.222 & +1.01 \\
+mixed\_short\_ordinary & 4 & (1,1) & (3,1) & 0.226 & 0.217 & +4.17 \\
+mixed\_short\_ordinary & 6 & (1,1) & (5,1) & 0.253 & 0.241 & +5.01 \\
+mixed\_two\_ordinary & 2 & (1,1) & (1,1) & 0.233 & 0.233 & +0.25 \\
+mixed\_two\_ordinary & 4 & (3,3) & (3,1) & 0.242 & 0.287 & -15.70 \\
+mixed\_two\_ordinary & 6 & (1,1) & (5,1) & 0.231 & 0.255 & -9.40 \\
+short & 2 & (1,1) & (1,1) & 0.046 & 0.044 & +3.15 \\
+short & 4 & (1,1) & (1,1) & 0.045 & 0.042 & +6.87 \\
+short & 6 & (1,1) & (1,1) & 0.046 & 0.043 & +7.18 \\
+short & 8 & (1,1) & (1,1) & 0.045 & 0.044 & +3.09 \\
+tiny & 2 & (1,1) & (1,1) & 0.003 & 0.002 & +50.52 \\
+tiny & 4 & (1,1) & (1,1) & 0.003 & 0.002 & +51.47 \\
+tiny & 6 & (1,1) & (1,1) & 0.003 & 0.002 & +51.77 \\
+tiny & 8 & (1,1) & (1,1) & 0.003 & 0.002 & +52.29 \\
+trip\_skew & 2 & (1,1) & (1,1) & 4.359 & 4.345 & +0.32 \\
+trip\_skew & 4 & (3,3) & (3,3) & 1.815 & 1.907 & -4.81 \\
+trip\_skew & 6 & (5,5) & (5,5) & 1.185 & 1.188 & -0.25 \\
+trip\_skew & 8 & (7,7) & (6,5) & 1.681 & 1.591 & +5.69 \\
+uneven\_chunks & 2 & (1,1) & (1,1) & 0.069 & 0.068 & +1.47 \\
+uneven\_chunks & 4 & (1,1) & (1,1) & 0.069 & 0.068 & +1.81 \\
+uneven\_chunks & 6 & (1,1) & (1,1) & 0.069 & 0.068 & +1.78 \\
+uneven\_chunks & 8 & (1,1) & (1,1) & 0.070 & 0.069 & +1.26 \\
+work\_skew & 2 & (1,1) & (1,1) & 6.293 & 6.294 & -0.02 \\
+work\_skew & 4 & (3,3) & (3,3) & 2.413 & 2.406 & +0.30 \\
+work\_skew & 6 & (5,5) & (5,5) & 1.821 & 1.701 & +7.05 \\
+work\_skew & 8 & (7,7) & (6,4) & 1.544 & 1.684 & -8.29 \\
+work\_skew\_reversed & 2 & (1,1) & (1,1) & 6.204 & 6.119 & +1.39 \\
+work\_skew\_reversed & 4 & (3,3) & (3,3) & 2.424 & 2.499 & -3.02 \\
+work\_skew\_reversed & 6 & (5,5) & (5,5) & 1.585 & 1.654 & -4.16 \\
+work\_skew\_reversed & 8 & (7,7) & (3,7) & 1.559 & 1.519 & +2.62 \\
+\bottomrule
+\end{longtable}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Widths are modal loop-worker allocations; width 1 means serial. Times include all observed native decisions. The complete policy also includes executor, order, backfill and parent limit. A negative gap means the model was faster than the remeasured earlier winner; timing variation and the changed policy can cause this.\end{minipage}
+\end{center}
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Workload & $B$ & Before & After & Sweep winner & Change (\%) \\
+\midrule
+large\_arrays & 6 & 5.742 & 5.489 & 5.682 & -4.41 \\
+large\_arrays & 8 & 5.153 & 6.780 & 5.555 & +31.57 \\
+mixed\_short\_ordinary & 6 & 0.225 & 0.225 & 0.240 & +0.05 \\
+mixed\_compute & 6 & 1.430 & 0.689 & 0.703 & -51.78 \\
+mixed\_loop\_skew & 6 & 0.491 & 0.273 & 0.263 & -44.36 \\
+\bottomrule
+\end{tabular}
+\caption{Paired confirmation of diverse allocation seeds. Times are milliseconds.}\label{tab:utb-diverse-confirmation}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Change is after relative to before; negative is faster. The eight-worker large-array case regresses and is retained.\end{minipage}
+\end{table}

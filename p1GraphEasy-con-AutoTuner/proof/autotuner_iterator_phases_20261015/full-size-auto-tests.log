@@ -1,0 +1,6 @@
+PASS audit negative control: conversion during iteration rejected
+PASS default backend contact_trace_events80000_batch8 AUTO ['SET', 'CSR']
+PASS default backend service_islands_events80000_batch8 AUTO ['SET', 'CSR']
+PASS default backend sensor_backbone_events80000_batch8 AUTO ['SET', 'CSR']
+PASS default backend route_failover_events80000_batch8 AUTO ['CSR', 'SET']
+PASS default backend trust_audit_events80000_batch8 AUTO ['CSR', 'SET']

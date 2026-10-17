@@ -73,7 +73,9 @@ void sgpl_set_current_worker_index(int32_t index);
  * worker/synchronization preparation failure. Calls from a pool worker execute
  * once on that worker. Independent host callers serialize at the pool boundary.
  * Each callback runs one worker's assigned work. Nested dispatch runs on the
- * calling worker. Requested width is capped by the configured team and parent. */
+ * calling worker. Requested width is capped by the configured team and parent.
+ * Lane zero is the submitting caller; the remaining lanes are persistent
+ * helpers, so the configured width includes the caller. */
 typedef void (*sgpl_pool_work_fn)(void *state, int32_t worker_index);
 int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
                               int32_t worker_count);

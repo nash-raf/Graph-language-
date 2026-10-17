@@ -1,0 +1,66 @@
+{
+  "case": "bfs_n256_d96_i4_s240_c1_r1000_t4",
+  "config": {
+    "n": 256,
+    "degree": 96,
+    "inserts": 4,
+    "scans": 240,
+    "cycles": 1,
+    "shape": "bfs",
+    "churn": 1000,
+    "tail_scans": 4
+  },
+  "source": "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/layout_switch_20261015/codes/bfs_n256_d96_i4_s240_c1_r1000_t4.sgpl",
+  "expected_stdout": "0\n24576\n",
+  "schedules": {
+    "AUTO": [
+      "CSR",
+      "PCSR"
+    ],
+    "CSR": [],
+    "PCSR": [
+      "PCSR"
+    ],
+    "BCSR": [
+      "BCSR"
+    ],
+    "SET": [
+      "SET"
+    ]
+  },
+  "samples_ms": {
+    "AUTO": [
+      60.88955,
+      61.825916,
+      62.456491
+    ],
+    "CSR": [
+      85.905842,
+      85.939592,
+      85.504605
+    ],
+    "PCSR": [
+      71.544068,
+      69.866163,
+      69.921387
+    ],
+    "BCSR": [
+      373.791824,
+      374.61969,
+      387.175218
+    ],
+    "SET": [
+      6897.536283,
+      7133.973227,
+      6928.894026
+    ]
+  },
+  "medians_ms": {
+    "AUTO": 61.825916,
+    "CSR": 85.905842,
+    "PCSR": 69.921387,
+    "BCSR": 374.61969,
+    "SET": 6928.894026
+  },
+  "speedup_vs_best_fixed": 1.1309397664241643
+}

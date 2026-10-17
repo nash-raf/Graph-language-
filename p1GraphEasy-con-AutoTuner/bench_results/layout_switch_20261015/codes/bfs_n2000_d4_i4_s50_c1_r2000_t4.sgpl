@@ -1,0 +1,77 @@
+// SGPL workload: bfs_n2000_d4_i4_s50_c1_r2000_t4
+// Run all variants on this identical source.
+graph G {
+  edges: file "../graphs/ring_n2000_d4.txt";
+};
+int checksum = 0;
+// Phase 0: initial scans.
+query scan_0_pre_0: "bfs_src" of G;
+query scan_0_pre_1: "bfs_src" of G;
+query scan_0_pre_2: "bfs_src" of G;
+query scan_0_pre_3: "bfs_src" of G;
+query scan_0_pre_4: "bfs_src" of G;
+query scan_0_pre_5: "bfs_src" of G;
+query scan_0_pre_6: "bfs_src" of G;
+query scan_0_pre_7: "bfs_src" of G;
+query scan_0_pre_8: "bfs_src" of G;
+query scan_0_pre_9: "bfs_src" of G;
+query scan_0_pre_10: "bfs_src" of G;
+query scan_0_pre_11: "bfs_src" of G;
+query scan_0_pre_12: "bfs_src" of G;
+query scan_0_pre_13: "bfs_src" of G;
+query scan_0_pre_14: "bfs_src" of G;
+query scan_0_pre_15: "bfs_src" of G;
+query scan_0_pre_16: "bfs_src" of G;
+query scan_0_pre_17: "bfs_src" of G;
+query scan_0_pre_18: "bfs_src" of G;
+query scan_0_pre_19: "bfs_src" of G;
+query scan_0_pre_20: "bfs_src" of G;
+query scan_0_pre_21: "bfs_src" of G;
+query scan_0_pre_22: "bfs_src" of G;
+query scan_0_pre_23: "bfs_src" of G;
+query scan_0_pre_24: "bfs_src" of G;
+query scan_0_pre_25: "bfs_src" of G;
+query scan_0_pre_26: "bfs_src" of G;
+query scan_0_pre_27: "bfs_src" of G;
+query scan_0_pre_28: "bfs_src" of G;
+query scan_0_pre_29: "bfs_src" of G;
+query scan_0_pre_30: "bfs_src" of G;
+query scan_0_pre_31: "bfs_src" of G;
+query scan_0_pre_32: "bfs_src" of G;
+query scan_0_pre_33: "bfs_src" of G;
+query scan_0_pre_34: "bfs_src" of G;
+query scan_0_pre_35: "bfs_src" of G;
+query scan_0_pre_36: "bfs_src" of G;
+query scan_0_pre_37: "bfs_src" of G;
+query scan_0_pre_38: "bfs_src" of G;
+query scan_0_pre_39: "bfs_src" of G;
+query scan_0_pre_40: "bfs_src" of G;
+query scan_0_pre_41: "bfs_src" of G;
+query scan_0_pre_42: "bfs_src" of G;
+query scan_0_pre_43: "bfs_src" of G;
+query scan_0_pre_44: "bfs_src" of G;
+query scan_0_pre_45: "bfs_src" of G;
+query scan_0_pre_46: "bfs_src" of G;
+query scan_0_pre_47: "bfs_src" of G;
+query scan_0_pre_48: "bfs_src" of G;
+query scan_0_pre_49: "bfs_src" of G;
+// Phase 0: insert a batch of absent in-bounds edges.
+int batch_0 = 0;
+while (batch_0 < 2000) {
+G.addEdges(0->35);
+G.removeEdges(0->35);
+G.addEdges(37->72);
+G.removeEdges(37->72);
+G.addEdges(74->109);
+G.removeEdges(74->109);
+G.addEdges(111->146);
+G.removeEdges(111->146);
+  batch_0 = batch_0 + 1;
+}
+// Phase 0: scan the updated graph.
+query scan_0_post_0: "bfs_src" of G;
+query scan_0_post_1: "bfs_src" of G;
+query scan_0_post_2: "bfs_src" of G;
+query scan_0_post_3: "bfs_src" of G;
+print checksum;
+print numEdges(G);

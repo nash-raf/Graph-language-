@@ -1,0 +1,29 @@
+contact_trace_events10000_batch8_motif AUTO ['CSR', 'SET']
+contact_trace_events10000_batch8_motif PCSR ['PCSR']
+contact_trace_events10000_batch8_motif 1/4 {}
+contact_trace_events10000_batch8_motif 2/4 {'AUTO': 79.092, 'PCSR': 157.753}
+contact_trace_events10000_batch8_motif 3/4 {'AUTO': 81.988, 'PCSR': 173.055}
+contact_trace_events10000_batch8_motif 4/4 {'AUTO': 79.092, 'PCSR': 157.753}
+RESULT contact_trace_events10000_batch8_motif {'AUTO': 79.091551, 'PCSR': 157.752517} None
+service_islands_events10000_batch8_motif AUTO ['CSR', 'SET']
+service_islands_events10000_batch8_motif PCSR ['PCSR']
+service_islands_events10000_batch8_motif 1/4 {}
+service_islands_events10000_batch8_motif 2/4 {'AUTO': 65.978, 'PCSR': 100.297}
+service_islands_events10000_batch8_motif 3/4 {'AUTO': 62.752, 'PCSR': 111.024}
+service_islands_events10000_batch8_motif 4/4 {'AUTO': 62.587, 'PCSR': 100.39}
+RESULT service_islands_events10000_batch8_motif {'AUTO': 62.5871, 'PCSR': 100.389771} None
+sensor_backbone_events10000_batch8_motif AUTO ['CSR', 'SET']
+sensor_backbone_events10000_batch8_motif PCSR ['PCSR']
+Traceback (most recent call last):
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/tools/layout_application_benchmark.py", line 117, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/tools/layout_application_benchmark.py", line 115, in main
+    benchmark(item,a.modes.split(','),a.repeats,a.warmups,a.timeout)
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/tools/layout_application_benchmark.py", line 87, in benchmark
+    elapsed=(time.perf_counter_ns()-start)/1e6;verify(cp.stdout,ref)
+                                               ^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/tools/layout_application_benchmark.py", line 72, in verify
+    elif int(line)!=value:raise RuntimeError(f'Output line {i}: got {line}, expected {value}')
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Output line 2: got 0, expected 511

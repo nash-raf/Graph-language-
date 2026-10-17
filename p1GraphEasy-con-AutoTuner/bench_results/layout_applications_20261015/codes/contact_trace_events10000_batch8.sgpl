@@ -1,0 +1,84 @@
+// Sliding contact windows and source-based exposure tracing.
+// Synthetic projected-community fixture shared by all five different programs.
+graph G { edges: file "../graphs/community_projection.txt"; };
+int n=numVertices(G);
+int window = 0;
+while (window < 10000) {
+  G.removeEdges(402->502);
+  G.removeEdges(403->503);
+  G.removeEdges(404->504);
+  G.removeEdges(405->505);
+  G.removeEdges(406->506);
+  G.removeEdges(407->507);
+  G.removeEdges(408->508);
+  G.removeEdges(409->509);
+  G.addEdges(0->256);
+  G.addEdges(13->269);
+  G.addEdges(26->282);
+  G.addEdges(39->295);
+  G.addEdges(52->308);
+  G.addEdges(65->321);
+  G.addEdges(78->334);
+  G.addEdges(91->347);
+  G.removeEdges(0->256);
+  G.removeEdges(13->269);
+  G.removeEdges(26->282);
+  G.removeEdges(39->295);
+  G.removeEdges(52->308);
+  G.removeEdges(65->321);
+  G.removeEdges(78->334);
+  G.removeEdges(91->347);
+  G.addEdges(402->502);
+  G.addEdges(403->503);
+  G.addEdges(404->504);
+  G.addEdges(405->505);
+  G.addEdges(406->506);
+  G.addEdges(407->507);
+  G.addEdges(408->508);
+  G.addEdges(409->509);
+  window = window + 1;
+}
+  G.removeEdges(402->502);
+  G.removeEdges(403->503);
+  G.removeEdges(404->504);
+  G.removeEdges(405->505);
+  G.removeEdges(406->506);
+  G.removeEdges(407->507);
+  G.removeEdges(408->508);
+  G.removeEdges(409->509);
+  G.addEdges(0->256);
+  G.addEdges(13->269);
+  G.addEdges(26->282);
+  G.addEdges(39->295);
+  G.addEdges(52->308);
+  G.addEdges(65->321);
+  G.addEdges(78->334);
+  G.addEdges(91->347);
+query core_snapshot: "bfs_src" 0 of G;
+query edge_snapshot: "bfs_src" 543 of G;
+print core_snapshot; print edge_snapshot;
+// Enumerate the exposure cohort and record its furthest hop.
+int visited[n]; int parent[n]; int frontier[n]; int next_frontier[n];
+int init_i=0;
+while(init_i<n) { visited[init_i]=0; parent[init_i]=-1; init_i=init_i+1; }
+frontier[0]=0; visited[0]=1; parent[0]=0;
+int frontier_size=1; int next_size=0; int hops=0;
+while(frontier_size>0) {
+  next_size=0; int i=0;
+  while(i<frontier_size) {
+    int u=frontier[i];
+    for v in G.neighbors(u) {
+      if(visited[v]==0) {
+        visited[v]=1; parent[v]=u;
+        next_frontier[next_size]=v; next_size=next_size+1;
+      }
+    }
+    i=i+1;
+  }
+  swap(frontier,next_frontier); frontier_size=next_size;
+  if(frontier_size>0) { hops=hops+1; }
+}
+int exposed=0; int v=0;
+while(v<n) { exposed=exposed+visited[v]; v=v+1; }
+print exposed; print hops;
+print numEdges(G);

@@ -49,8 +49,15 @@ static bool frontierMovableSlot(Value *Slot) {
         auto *S=dyn_cast<StoreInst>(U);
         if(!S||S->getPointerOperand()!=Slot)return false;
         Value *V=S->getValueOperand()->stripPointerCasts();
-        if(auto *A=dyn_cast<AllocaInst>(V)) {
-            for(User *AU:A->users())if(AU!=S&&!isa<MemIntrinsic>(AU)) {
+        auto *Allocation=dyn_cast<CallInst>(V);
+        bool ZeroedProgramArray=Allocation&&Allocation->getMetadata("sgpl.language.array")&&
+            Allocation->getCalledFunction()&&Allocation->getCalledFunction()->getName()=="calloc";
+        if(isa<AllocaInst>(V)||ZeroedProgramArray) {
+            for(User *AU:V->users())if(AU!=S&&!isa<MemIntrinsic>(AU)) {
+                if(ZeroedProgramArray)if(auto *Check=dyn_cast<ICmpInst>(AU))
+                    if(Check->isEquality()&&
+                       (isa<ConstantPointerNull>(Check->getOperand(0))||
+                        isa<ConstantPointerNull>(Check->getOperand(1))))continue;
                 auto *DeadStore=dyn_cast<StoreInst>(AU);
                 auto *DeadSlot=DeadStore?dyn_cast<AllocaInst>(DeadStore->getPointerOperand()):nullptr;
                 if(!DeadSlot||!DeadSlot->hasOneUse())return false;

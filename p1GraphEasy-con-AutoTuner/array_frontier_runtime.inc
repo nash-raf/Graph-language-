@@ -64,6 +64,31 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
   *cache=(SgplArrayWeightIndex){m,m->csr_row_ptr,first,m->csr_col_idx,m->csr_n,m->csr_m,m->layout_epoch,generation};
   *out=first;return 0;
 }
+static int32_t sgpl_array_record_endpoint(const sgpl_exec_ctx *c,int64_t i,int key) {
+  return c->gpu_records[(c->array_compact_records==2?5:(c->array_compact_records?4:3))*i+key];
+}
+/* Device grouping retains its original triples/ordinal arrays. Expansion is
+ * transactional: allocation failure leaves the CPU representation usable. */
+static int32_t sgpl_array_expand_records(sgpl_exec_ctx *c) {
+  if(!c->array_compact_records)return 0;
+  int64_t n=c->gpu_record_count;
+  if((uint64_t)n>SIZE_MAX/12)return SGPL_DAG_ERR_NOMEM;
+  int32_t *records=malloc((size_t)(n?n:1)*12);
+  int64_t *sources=malloc((size_t)(n?n:1)*8),*work=malloc((size_t)(n?n:1)*8);
+  int packed=c->array_compact_records==2,stride=packed?5:4;
+  int64_t *edges=packed?malloc((size_t)(n?n:1)*8):NULL;
+  if(!records||!sources||!work||(packed&&!edges)) {free(records);free(sources);free(work);free(edges);return SGPL_DAG_ERR_NOMEM;}
+  for(int64_t i=0;i<n;++i) {
+    records[3*i]=c->gpu_records[stride*i];records[3*i+1]=c->gpu_records[stride*i+1];records[3*i+2]=0;
+    sources[i]=c->gpu_records[stride*i+2];work[i]=c->gpu_records[stride*i+3];
+    if(packed)edges[i]=c->gpu_records[stride*i+4];
+  }
+  /* The expansion is now complete; preserve all other active leased buffers. */
+  sgpl_execution_scratch_detach(c);
+  free(c->gpu_records);c->gpu_records=records;
+  c->gpu_record_sources=sources;c->gpu_record_work=work;if(packed)c->array_record_edges=edges;c->array_compact_records=0;
+  return 0;
+}
 #include "array_preparation_runtime.inc"
 static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
   if(m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx)
@@ -150,7 +175,7 @@ done:
 }
 extern int32_t graph_get_edge_weight(void *,int32_t,int32_t) __attribute__((weak));
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *c,void *graph,int32_t u,int32_t v) {
-  if(c&&c->graph==graph&&c->array_record_edges&&c->array_edge_index>=0&&
+  if(c&&c->graph==graph&&(c->array_record_edges||c->array_compact_records==2)&&c->array_edge_index>=0&&
       u>=0&&u<*(int64_t *)graph) {
     int64_t *rp=*(int64_t **)((char *)graph+16),index=c->array_edge_index;
     int32_t *ci=*(int32_t **)((char *)graph+24),*weights=*(int32_t **)((char *)graph+32);
@@ -158,12 +183,50 @@ int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *c,void *graph,int32_t u,in
   }
   return graph_get_edge_weight?graph_get_edge_weight(graph,u,v):INT32_MAX;
 }
+#include "stable_compaction_runtime.inc"
+typedef struct {
+  const int32_t *log;int32_t *out;int64_t slots,prefix[65];uint32_t epoch;int32_t chunks;
+} SgplParallelCompact;
+static void sgpl_compact_count_chunks(void *opaque,int32_t worker,int32_t width) {
+  SgplParallelCompact *j=opaque;
+  for(int32_t k=worker;k<j->chunks;k+=width) {
+    int64_t lo=j->slots*k/j->chunks,hi=j->slots*(k+1)/j->chunks,n=0;
+    for(int64_t i=lo;i<hi;++i)n+=((const uint32_t*)j->log)[2*i]==j->epoch;
+    j->prefix[k+1]=n;
+  }
+}
+static void sgpl_compact_write_chunks(void *opaque,int32_t worker,int32_t width) {
+  SgplParallelCompact *j=opaque;
+  for(int32_t k=worker;k<j->chunks;k+=width) {
+    int64_t lo=j->slots*k/j->chunks,hi=j->slots*(k+1)/j->chunks;
+    sgpl_append_compact_full(j->log+2*lo,hi-lo,j->epoch,j->out,j->prefix[k]);
+  }
+}
+static int64_t sgpl_append_compact_joined(const int32_t *log,int64_t slots,
+    uint32_t epoch,int32_t *out,int64_t at) {
+  if(sgpl_is_worker_pool_thread())return sgpl_append_compact_full(log,slots,epoch,out,at);
+  int32_t width=sgpl_configured_worker_count(),budget=sgpl_current_thread_budget();
+  if(budget>0&&width>budget)width=budget;
+  int64_t useful=slots/65536;
+  if(width>useful)width=(int32_t)useful;
+  if(width<2)return sgpl_append_compact_full(log,slots,epoch,out,at);
+  if(width>32)width=32;
+  SgplParallelCompact job={.log=log,.out=out,.slots=slots,.epoch=epoch,.chunks=width*2};
+  sgpl_run_preparation(sgpl_compact_count_chunks,&job,width);
+  job.prefix[0]=at;
+  for(int32_t k=0;k<job.chunks;++k)job.prefix[k+1]+=job.prefix[k];
+  sgpl_run_preparation(sgpl_compact_write_chunks,&job,width);
+  return job.prefix[job.chunks];
+}
+
 static int32_t sgpl_array_compact(sgpl_exec_ctx *c) {
   int64_t slots=c->array_work_count*c->array_append_sites,kept=c->initial_next_size;
+  uint32_t epoch=sgpl_array_append_epoch(c);
   /* Normal reservation covers every append slot. Count first only when a
    * caller supplied less space; no user callback is replayed on growth. */
-  if(slots>*c->array_output_capacity-kept) {
-    for(int64_t i=0;i<slots;++i)kept+=c->array_append_log[2*i]!=0;
+  int full_capacity=slots<=*c->array_output_capacity-kept;
+  if(!full_capacity) {
+    for(int64_t i=0;i<slots;++i)kept+=((uint32_t *)c->array_append_log)[2*i]==epoch;
     if(kept>INT32_MAX)return SGPL_DAG_ERR_INVALID;
     int32_t rc=sgpl_frontier_resize(c->array_output_slot,c->array_output_capacity,kept,1);
     if(rc<0)return rc;
@@ -171,7 +234,8 @@ static int32_t sgpl_array_compact(sgpl_exec_ctx *c) {
   c->next_frontier=*c->array_output_slot;
   if(sgpl_gpu_host_access&&kept)sgpl_gpu_host_access(c->next_frontier,(uint64_t)kept*4,1);
   int64_t at=c->initial_next_size;
-  for(int64_t i=0;i<slots;++i)if(c->array_append_log[2*i])c->next_frontier[at++]=c->array_append_log[2*i+1];
+  if(full_capacity)at=sgpl_append_compact_joined(c->array_append_log,slots,epoch,c->next_frontier,at);
+  else for(int64_t i=0;i<slots;++i)if(((uint32_t *)c->array_append_log)[2*i]==epoch)c->next_frontier[at++]=c->array_append_log[2*i+1];
   if(c->append_head)*c->append_head=(int32_t)(at-c->initial_next_size);
   return 0;
 }

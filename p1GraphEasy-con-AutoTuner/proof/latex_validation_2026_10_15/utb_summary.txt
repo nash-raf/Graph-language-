@@ -1,0 +1,16 @@
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Policy & Settings & Steady ratio & First-call ratio & 14-call ratio \\
+\midrule
+Ordinary-first reference & 36 & 1.000 & 1.000 & 1.000 \\
+Ordering only & 36 & 0.801 & 1.085 & 0.957 \\
+Joint search only on overload & 36 & 0.800 & 1.085 & 0.962 \\
+Joint allocation and ordering & 36 & 0.777 & 1.092 & 0.943 \\
+\bottomrule
+\end{tabular}
+\caption{Universal thread budgeting ablation: geometric mean runtime ratios relative to the ordinary-first reference.}\label{tab:utb-ablation}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Lower ratios are better. Steady ratios use per-setting process medians; first-call and 14-call ratios use paired process runs. These are historical Phase A measurements, not measurements of the later diverse-allocation revision.\end{minipage}
+\end{table}

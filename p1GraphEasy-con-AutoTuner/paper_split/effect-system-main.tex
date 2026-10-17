@@ -1,0 +1,128 @@
+% Main-paper replacement for the supplied Effect System subsection.
+% Companion: effect-system-appendix.tex, included after \appendix.
+% These are manuscript fragments; use the paper's existing bibliography.
+
+\subsection{Effect System}
+\label{sec:effect-system}
+Our effect system identifies spatial and temporal parallelism in graph
+loops and guides their realization. Its central abstraction records both
+the locations accessed by a computation and its phase and occurrence
+scope within a traversal. This structure lets the compiler reason about
+ownership of graph work, ordering between phases, and dependences across
+rounds using the same effect representation.
+
+\paragraph{Phase- and scope-aware effects.}
+A canonical graph loop traverses a frontier or the full vertex domain
+$F_t$. For each source $u$, it executes a preamble $P(u)$, a body $B(u,v)$
+for each neighbor $v\in N(u)$, and an epilogue $Q(u)$:
+\begin{equation}
+E_t=\mathrm{Seq}_{u\in F_t}\Bigl(
+P(u)\triangleright
+\bigl(\mathrm{Seq}_{v\in N(u)}B(u,v)\bigr)
+\triangleright Q(u)\Bigr).
+\label{eq:effect-expr}
+\end{equation}
+Here $\mathrm{Seq}$ retains serial enumeration order and
+$\triangleright$ records phase order within a source iteration.
+Within each phase, effects form a multiset, grouped by structural
+composition $\parallel$; this operator does not assert concurrency.
+Our use of sequential composition follows sequential effect
+systems~\cite{10.1145/2429069.2429074} and is inspired by effect
+quantales~\cite{gordon2017genericapproachflowsensitivepolymorphic,10.1145/3450272}.
+
+An atom records an operation kind, canonical memory base, index region,
+and occurrence scope. Kinds distinguish reads, writes, old-value-dependent
+updates, recognized algebraic updates, claims, and frontier activations.
+Regions distinguish source-derived ($U$), destination-derived ($V$),
+data-derived ($D$), and global ($G$) accesses; scopes distinguish
+once-only, per-source, and per-pair operations. Fixed-point provenance
+analysis over SSA values supplies the regions. Region tags alone do not
+prove that accesses are disjoint. Unsupported operations prevent the
+parallel rewrite.
+
+The compiler derives access footprints and ordered RAW, WAR, and WAW
+relations, including conflicts on shared runtime resources. Temporal
+classification uses endpoint provenance, the mutation's phase, and
+whether traversal uses a frontier. Per-source phase order alone cannot
+separate one source's preamble read from another source's neighbor-body
+write. Likewise, effects grouped within a phase remain potentially
+conflicting unless further analysis establishes separation or ordering.
+Appendix~\ref{app:effects-extraction} gives the extraction and
+classification rules.
+
+\paragraph{Independence and correctness.}
+Spatial analysis considers work instances and proposed ownership
+partitions; temporal analysis considers rounds or components of source
+phases. For either axis $A\in\{S,T\}$, let $X$ be the analyzed execution
+units, $\mathsf{Dep}_A$ their remaining dependence relation, and
+$\mathcal P$ a proposed non-trivial partition of $X$. The independence
+criterion is
+\begin{equation}
+\begin{gathered}
+\mathsf{Dep}_A\cap\mathsf{Cross}(\mathcal P)=\varnothing,\\
+\mathsf{Cross}(\mathcal P)=
+\bigcup_{\substack{P_i,P_j\in\mathcal P\\i\ne j}}P_i\times P_j.
+\end{gathered}
+\label{eq:effects-independence}
+\end{equation}
+Thus, no remaining dependence may cross concurrently executed parts.
+For example, source ownership keeps a source's $A[u]$ updates together,
+but updates to $A[v]$ can still conflict across source owners and require
+additional justification.
+
+Applicable transformations, including snapshotting, staged claims, and
+privatized updates or reductions, can discharge conflicts. Each requires
+both preservation of the original observable behavior and independence
+of the resulting work. A snapshot must provide the value required by
+the original computation; recognizing an algebraic update does not by
+itself justify regrouping it. Privatization additionally requires a valid
+combine operation and no unsupported observation of uncombined state.
+The compiler removes a conflict only after establishing the relevant
+transformation conditions.
+
+Disconnected components of the remaining interference graph identify
+independent groups. With conservative footprints and behavior-preserving
+transformations, operations in different groups commute because neither
+writes a location read or written by the other. A realization can
+therefore execute those groups concurrently while preserving each
+group's required order, occurrence counts, and control and lifecycle
+constraints. Independence on one axis permits concurrency along that
+axis while retaining constraints on the other.
+Appendix~\ref{app:effects-independence} states the assumptions and
+expands this conditional preservation argument.
+
+\paragraph{From effects to execution.}
+Given loop $L$, effects $E_t$, and analysis results and justified
+transformations $\mathcal A$, the compiler constructs an execution plan
+$\mathcal R(L,E_t,\mathcal A)=\Pi_t$. The plan specifies work units,
+their domains and state, and precedence constraints. If no supported
+realization satisfies these requirements, execution remains serial.
+
+Spatial realization uses Graptor's CleanCut
+layout~\cite{10.1145/3392717.3392753} to partition work by source or
+destination ownership. Source ownership keeps a source's phases
+together. Destination ownership can split its neighbors across
+partitions; supported source-coverage passes preserve per-source work,
+including for sources with no neighbors. Temporal realization executes
+independent phase components within a source iteration or independent
+groups of rounds, preserving order within each component or group.
+
+When round independence and spatial partitioning both hold, the compiler
+combines them. Each round $t$ has setup $S_t$, partition batches
+$B_{t,j}$, and finalization $F_t$, ordered as
+\[
+S_t\longrightarrow B_{t,j}\longrightarrow F_t.
+\]
+Independent rounds use separate mutable auxiliary state and may overlap.
+The implemented combination supports round and spatial parallelism;
+source-phase parallelism uses its separate realization.
+
+The runtime schedules executable tasks under these precedence
+constraints. A task may contain many effect occurrences: the execution
+DAG is distinct from the interference graph. CPU and GPU backends use
+the same analysis results, with additional device-support checks for
+GPU execution. Currently, each GPU temporal component executes
+sequentially in one thread, exposing temporal concurrency between
+kernels. Unsupported offload uses a supported CPU realization.
+Appendix~\ref{app:effects-runtime} details callbacks, synchronization,
+resource lifetimes, and backend execution.

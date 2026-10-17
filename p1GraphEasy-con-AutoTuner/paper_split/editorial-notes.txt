@@ -1,0 +1,103 @@
+P1 MAIN-PAPER / APPENDIX SPLIT
+
+Editorial premise
+The supplied section presents phase- and scope-aware effects, independence
+analysis along spatial and temporal axes, and proof-directed execution as
+the P1 contribution. The main-paper replacement is organized around that
+argument. This is an editorial judgment based on the supplied section,
+not a claim about an OOPSLA submission rule or a review of the whole paper.
+
+Use
+Replace the supplied section with p1-main.tex. Insert p1-appendix.tex after
+the paper's existing appendix command. The appendix file deliberately
+does not issue that command, so it can coexist with other appendices.
+The files are LaTeX fragments, not standalone documents. Use amsmath,
+amssymb, booktabs, and tabularx, plus the existing bibliography entries.
+The recognition table uses table* to allow the paper's full text width.
+Final pagination must be checked in the actual manuscript template.
+
+Kept in the main paper
+- The problem P1 addresses and its central effect abstraction.
+- The canonical loop expression and the distinction between structural
+  composition and permission to execute concurrently.
+- Effect kinds, region meanings, occurrence scope, and conservative fallback.
+- One shared independence criterion instead of duplicated spatial and
+  temporal definitions.
+- Transformation applicability and semantic-preservation obligations.
+- A brief ownership example explaining why source ownership is insufficient
+  when destination state is also mutated.
+- How analysis becomes executable work, the combined round/partition graph,
+  and the implementation limits needed to interpret evaluation results.
+
+Moved to the appendix
+- Iterator-less loop detection, the provenance domain, full atom fields,
+  finite enumeration semantics, and the instruction recognition table.
+- Read summaries, ordered access relations, RAW/WAR classification cases,
+  WAW treatment, and repeated occurrences of a write site.
+- Detailed footprint and partition definitions and a conditional
+  commutation argument.
+- Callback signatures, frames, descriptors, task readiness, joins,
+  source-coverage passes, initialization, finalization, and resource lifetime.
+- GPU lowering, streams, device buffers, and shared upload/download barriers.
+
+Condensed or corrected rather than merely relocated
+- Removed repeated explanations of atoms versus tasks, joins, and fallback.
+- Folded the two essentially identical footprint definitions and
+  commutativity statements into one parameterized account.
+- Removed the invalid equation that equated a union of effects with final
+  program state. Effects describe accesses; their union is not a state.
+- Replaced the original case-specific discharge theorem with an explicit
+  proof obligation. As supplied, that theorem restates the independence
+  criterion and contains no actual transformation cases or proofs.
+- Replaced the unconditional non-interference corollary with a conditional
+  preservation argument. Independence of transformed effects and
+  equivalence to the original program are separate obligations.
+- Kept the requirement to preserve constraints on the other axis; spatial
+  OR temporal independence must not imply arbitrary whole-loop reordering.
+- Distinguished a cyclic round-summary interference graph from an execution
+  DAG. A self-loop is not a DAG edge.
+- Parenthesized the temporal conflict condition through a shared predicate
+  so sequential order applies to RAW, WAR, and WAW alike.
+- Fixed the unmatched end-definition, the Seq expression, hierarchy of
+  subsections, and inconsistent operator notation in the recognition table.
+
+Items the supplied section does not establish
+1. Actual transformation rules and their applicability conditions are not
+   supplied. If these are the paper's principal novelty, their essential
+   rules must remain in the main paper, with a worked example; only their
+   full proofs should move to the appendix. The new text does not pretend
+   that the generic independence equation supplies these rules.
+2. The four values and ranking of the temporal read summary are unspecified.
+   The appendix retains the description without inventing this enumeration
+   or conflating it with the finer footprint classifications.
+3. The frontier-based PreviousRoundRead classification needs a semantic
+   justification elsewhere; frontier traversal alone does not prove a read
+   obtains an earlier-round value. The draft treats this as a classification,
+   not as permission to snapshot.
+4. Recognition of subtraction or floating-point addition does not establish
+   associative regrouping. Applicable reduction conditions must account for
+   the actual numeric semantics and observable result requirements.
+5. A conditional store recognized as a claim does not by itself establish
+   that parallel first-wins behavior matches serial winner selection.
+   Any such transformation needs its own applicability argument.
+6. The conditional proof sketch assumes complete modeling of observable
+   effects, control requirements, and runtime resources. It is not a machine-
+   checked proof or an implementation audit. No source-code claims were
+   independently verified during this editorial task.
+
+Cross-references
+The original eq:effect-expr and tab:effect-recognition labels are retained.
+The original def:effect-atom, ni, and corol labels are removed because the
+definition/theorem presentation was consolidated or changed. Update any
+references elsewhere in the manuscript to the relevant new section or
+eq:p1-independence; do not leave references calling an equation a theorem.
+All four bibliography keys from the supplied section are retained.
+
+Submission emphasis
+The main paper should let a reviewer understand what is new, why it is
+sound under stated assumptions, and how the evaluation exercises it.
+Runtime mechanics can live in the appendix. Essential transformation
+conditions and limitations that affect the claims should remain visible
+in the main paper. If space remains, use it for one representative graph
+loop traced through effects, conflict discharge, and the resulting plan,
+rather than expanding callback and scheduler descriptions again.

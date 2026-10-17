@@ -1,0 +1,142 @@
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Workers & Valid settings & Mean APE (\%) & Median APE (\%) & Within 20\% \\
+\midrule
+2 & 13 & 17.56 & 21.06 & 6/13 \\
+3 & 13 & 14.40 & 14.55 & 8/13 \\
+4 & 13 & 12.89 & 9.29 & 11/13 \\
+5 & 13 & 14.50 & 11.34 & 8/13 \\
+6 & 12 & 14.89 & 11.31 & 8/12 \\
+7 & 13 & 10.84 & 9.42 & 11/13 \\
+8 & 13 & 18.07 & 18.42 & 8/13 \\
+All & 90 & 14.73 & 14.47 & 60/90 \\
+\bottomrule
+\end{tabular}
+\caption{DOACROSS cost-model validation after removing the separate global dependency charge.}\label{tab:doacross-summary}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Learned synchronization costs. Each completed setting uses three processes and seven holdout timing samples per process. The uneven workload at six workers timed out; it is excluded from accuracy aggregates, not counted as a successful prediction.\end{minipage}
+\end{table}
+% Requires booktabs; detailed tables also require longtable.
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Synchronization inputs & Settings & Mean APE (\%) & Median APE (\%) & Worst APE (\%) \\
+\midrule
+seeded-sync & 90 & 80.11 & 68.05 & 237.17 \\
+learned-sync & 90 & 14.73 & 14.47 & 34.20 \\
+\bottomrule
+\end{tabular}
+\caption{DOACROSS calibration ablation on the same holdout measurements.}\label{tab:doacross-calibration}
+\end{table}
+% Requires booktabs; detailed tables also require longtable.
+\begin{center}
+\small
+\begin{longtable}{lrrrrr}
+\caption{DOACROSS predictions using learned synchronization costs. Times are milliseconds.}\label{tab:doacross-detail}\\
+\toprule
+Workload & $P$ & Predicted & Measured & Error (\%) & APE (\%) \\
+\midrule
+\endfirsthead
+\toprule
+Workload & $P$ & Predicted & Measured & Error (\%) & APE (\%) \\
+\midrule
+\endhead
+\bottomrule\endfoot
+dependent\_compute & 2 & 6.0870 & 7.1094 & -14.38 & 14.38 \\
+dependent\_compute & 3 & 7.1640 & 7.6575 & -6.44 & 6.44 \\
+dependent\_compute & 4 & 7.4508 & 7.6514 & -2.62 & 2.62 \\
+dependent\_compute & 5 & 7.4681 & 7.8457 & -4.81 & 4.81 \\
+dependent\_compute & 6 & 7.8163 & 8.0543 & -2.95 & 2.95 \\
+dependent\_compute & 7 & 8.7182 & 9.3822 & -7.08 & 7.08 \\
+dependent\_compute & 8 & 10.3140 & 8.9700 & +14.98 & 14.98 \\
+independent\_after & 2 & 3.2820 & 3.6351 & -9.71 & 9.71 \\
+independent\_after & 3 & 2.8986 & 3.0698 & -5.58 & 5.58 \\
+independent\_after & 4 & 1.8498 & 1.9467 & -4.98 & 4.98 \\
+independent\_after & 5 & 2.0454 & 2.2958 & -10.91 & 10.91 \\
+independent\_after & 6 & 1.8666 & 2.0697 & -9.81 & 9.81 \\
+independent\_after & 7 & 2.0685 & 2.0908 & -1.07 & 1.07 \\
+independent\_after & 8 & 1.6438 & 1.7470 & -5.91 & 5.91 \\
+independent\_before & 2 & 3.4651 & 3.6269 & -4.46 & 4.46 \\
+independent\_before & 3 & 2.7440 & 2.9948 & -8.38 & 8.38 \\
+independent\_before & 4 & 1.7648 & 1.9455 & -9.29 & 9.29 \\
+independent\_before & 5 & 2.0814 & 2.3475 & -11.34 & 11.34 \\
+independent\_before & 6 & 1.8577 & 2.0039 & -7.30 & 7.30 \\
+independent\_before & 7 & 1.7685 & 1.8039 & -1.96 & 1.96 \\
+independent\_before & 8 & 1.5686 & 1.7371 & -9.70 & 9.70 \\
+large\_arrays & 2 & 41.0913 & 52.2743 & -21.39 & 21.39 \\
+large\_arrays & 3 & 33.2851 & 42.6880 & -22.03 & 22.03 \\
+large\_arrays & 4 & 24.2896 & 30.2923 & -19.82 & 19.82 \\
+large\_arrays & 5 & 22.6803 & 30.4167 & -25.43 & 25.43 \\
+large\_arrays & 6 & 19.0924 & 26.3218 & -27.47 & 27.47 \\
+large\_arrays & 7 & 21.4495 & 25.8933 & -17.16 & 17.16 \\
+large\_arrays & 8 & 13.3232 & 18.5635 & -28.23 & 28.23 \\
+long\_chain & 2 & 18.2477 & 23.1653 & -21.23 & 21.23 \\
+long\_chain & 3 & 22.8888 & 26.7877 & -14.55 & 14.55 \\
+long\_chain & 4 & 26.9862 & 29.1806 & -7.52 & 7.52 \\
+long\_chain & 5 & 28.1777 & 30.9571 & -8.98 & 8.98 \\
+long\_chain & 6 & 30.5549 & 33.0339 & -7.50 & 7.50 \\
+long\_chain & 7 & 39.6849 & 37.7716 & +5.07 & 5.07 \\
+long\_chain & 8 & 36.8232 & 44.4136 & -17.09 & 17.09 \\
+long\_four\_chains & 2 & 8.0709 & 11.0317 & -26.84 & 26.84 \\
+long\_four\_chains & 3 & 8.3102 & 10.9524 & -24.12 & 24.12 \\
+long\_four\_chains & 4 & 5.2551 & 6.4978 & -19.13 & 19.13 \\
+long\_four\_chains & 5 & 5.9345 & 7.8892 & -24.78 & 24.78 \\
+long\_four\_chains & 6 & 4.8519 & 6.5050 & -25.41 & 25.41 \\
+long\_four\_chains & 7 & 8.3324 & 9.2835 & -10.25 & 10.25 \\
+long\_four\_chains & 8 & 5.6018 & 7.5269 & -25.58 & 25.58 \\
+long\_many\_chains & 2 & 7.5373 & 10.8495 & -30.53 & 30.53 \\
+long\_many\_chains & 3 & 10.1434 & 9.7546 & +3.99 & 3.99 \\
+long\_many\_chains & 4 & 5.1049 & 6.5406 & -21.95 & 21.95 \\
+long\_many\_chains & 5 & 4.5916 & 5.9092 & -22.30 & 22.30 \\
+long\_many\_chains & 6 & 4.4179 & 6.0209 & -26.62 & 26.62 \\
+long\_many\_chains & 7 & 4.1275 & 5.5654 & -25.84 & 25.84 \\
+long\_many\_chains & 8 & 3.0228 & 4.4453 & -32.00 & 32.00 \\
+short\_chain & 2 & 2.5797 & 2.6071 & -1.05 & 1.05 \\
+short\_chain & 3 & 2.4887 & 2.7993 & -11.09 & 11.09 \\
+short\_chain & 4 & 2.9890 & 3.2342 & -7.58 & 7.58 \\
+short\_chain & 5 & 3.1908 & 3.3058 & -3.48 & 3.48 \\
+short\_chain & 6 & 3.4456 & 3.6860 & -6.52 & 6.52 \\
+short\_chain & 7 & 4.2004 & 4.0950 & +2.57 & 2.57 \\
+short\_chain & 8 & 4.4275 & 4.6938 & -5.67 & 5.67 \\
+short\_four\_chains & 2 & 0.9265 & 1.1851 & -21.82 & 21.82 \\
+short\_four\_chains & 3 & 1.0822 & 1.3689 & -20.94 & 20.94 \\
+short\_four\_chains & 4 & 0.6719 & 0.7846 & -14.36 & 14.36 \\
+short\_four\_chains & 5 & 1.0125 & 1.0723 & -5.58 & 5.58 \\
+short\_four\_chains & 6 & 0.8785 & 1.0075 & -12.81 & 12.81 \\
+short\_four\_chains & 7 & 1.3431 & 1.3387 & +0.33 & 0.33 \\
+short\_four\_chains & 8 & 0.9720 & 1.1387 & -14.64 & 14.64 \\
+short\_many\_chains & 2 & 0.9442 & 1.1962 & -21.06 & 21.06 \\
+short\_many\_chains & 3 & 0.8898 & 1.1461 & -22.37 & 22.37 \\
+short\_many\_chains & 4 & 0.6803 & 0.8208 & -17.12 & 17.12 \\
+short\_many\_chains & 5 & 0.8341 & 0.9869 & -15.48 & 15.48 \\
+short\_many\_chains & 6 & 0.8434 & 0.8985 & -6.13 & 6.13 \\
+short\_many\_chains & 7 & 0.8488 & 0.9371 & -9.42 & 9.42 \\
+short\_many\_chains & 8 & 0.6657 & 0.8394 & -20.70 & 20.70 \\
+tiny\_chain & 2 & 0.2088 & 0.1929 & +8.26 & 8.26 \\
+tiny\_chain & 3 & 0.2636 & 0.2301 & +14.56 & 14.56 \\
+tiny\_chain & 4 & 0.3077 & 0.2821 & +9.07 & 9.07 \\
+tiny\_chain & 5 & 0.4536 & 0.3609 & +25.70 & 25.70 \\
+tiny\_chain & 6 & 0.5510 & 0.4233 & +30.19 & 30.19 \\
+tiny\_chain & 7 & 0.5998 & 0.5060 & +18.53 & 18.53 \\
+tiny\_chain & 8 & 0.7825 & 0.6607 & +18.42 & 18.42 \\
+two\_streams & 2 & 2.4739 & 3.7596 & -34.20 & 34.20 \\
+two\_streams & 3 & 2.5809 & 3.6256 & -28.81 & 28.81 \\
+two\_streams & 4 & 1.4599 & 2.0112 & -27.41 & 27.41 \\
+two\_streams & 5 & 1.9061 & 2.6148 & -27.11 & 27.11 \\
+two\_streams & 6 & 1.8025 & 2.1450 & -15.97 & 15.97 \\
+two\_streams & 7 & 2.0385 & 2.4489 & -16.76 & 16.76 \\
+two\_streams & 8 & 1.8338 & 2.2845 & -19.73 & 19.73 \\
+uneven & 2 & 0.9469 & 1.0925 & -13.33 & 13.33 \\
+uneven & 3 & 0.6749 & 0.6469 & +4.34 & 4.34 \\
+uneven & 4 & 0.6939 & 0.7437 & -6.69 & 6.69 \\
+uneven & 5 & 0.7432 & 0.7242 & +2.62 & 2.62 \\
+uneven & 7 & 1.2430 & 0.9949 & +24.94 & 24.94 \\
+uneven & 8 & 1.2996 & 1.0627 & +22.29 & 22.29 \\
+uneven & 6 & --- & Timeout & --- & --- \\
+\bottomrule
+\end{longtable}
+\par\medskip\begin{minipage}{0.98\linewidth}\footnotesize Signed error $=100(\widehat T/T-1)$; negative means underprediction. The timeout has no valid prediction-accuracy result.\end{minipage}
+\end{center}

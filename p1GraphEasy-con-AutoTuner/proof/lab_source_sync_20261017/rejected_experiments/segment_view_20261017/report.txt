@@ -1,0 +1,50 @@
+Proof-gated segmented graph views -- 2026-10-17
+
+Result: three candidates rejected. Installed P1 unchanged; 78 compiler/source/runtime hashes verified.
+
+Protocol: Five fresh whole-process launches per framework/variant; 32 configured graph workers. Include loading, initialization, view/cache construction, execution, teardown and exit. Exclude compilation, separate reference validation, warmup and instrumented profiling. Rotate variant order; retain all samples. Filesystem cache warm; runtime cache starts empty each process.
+Scope: 8 SSSP, 2 BFS, 1 CC, 1 PageRank cases across 10 graph IDs. {"validation_cases": 108, "primary_timed_launches": 540, "extra_confirmation_launches": 70}. Zero reference-validation failures; zero missing pairs. Shared deterministic positive SSSP weights, seed 2358.
+
+Trial | current P1 / candidate mean geomean | median geomean | decision
+01_segment_view | 0.9514x | 0.9785x | REJECT
+02_compact_parallel_view | 0.9875x | 0.9872x | REJECT
+03_view_dispatch_versioning | 1.0010x | 0.9927x | REJECT
+
+Above 1x means candidate faster. All candidate columns are rejected prototypes, not installed P1.
+
+Latest trial: algorithm | graph | current P1 ms | candidate ms | Graptor ms
+sssp | road/road-luxembourg-osm.edges | 45.3483 | 39.9721 | 47.3217
+sssp | road/road-usroads-48.edges | 95.2905 | 90.7424 | 89.4110
+sssp | soc/soc-epinions.edges | 16.4808 | 15.4520 | 9.3216
+cc | soc/soc-epinions.edges | 9.4222 | 9.6931 | 6.0630
+pagerank | soc/soc-epinions.edges | 18.4037 | 19.8706 | 22.2132
+sssp | soc/soc-slashdot.edges | 31.4560 | 30.9302 | 15.9983
+sssp | dimacs/DSJC1000-5.edges | 20.5433 | 20.6189 | 9.7479
+sssp | misc/delaunay_n13.edges | 13.6505 | 14.5127 | 8.4163
+sssp | ia/ia-email-EU.edges | 13.1371 | 13.2110 | 15.0079
+sssp | email/email-enron-large.edges | 21.2636 | 22.9432 | 11.6801
+bfs | inf/inf-roadNet-CA.edges | 94.4285 | 91.5773 | 121.9747
+bfs | dimacs10/inf-asia_osm.edges | 1121.8987 | 1148.2329 | 1580.6141
+
+Compiler proof: Explicit CPU ordered-array domain, complete spatial proof, one pair operation, no lifecycle/reduction callbacks; callback context accesses only through the opaque record-transparent ABI. Stores require compiler-owned scalar/array provenance; unknown/indirect calls and unresolved bases keep materialization. A general byte-cost gate selects representation.
+
+Semantics: Stable original source occurrences and native neighbor order; duplicate edges/sources and original append ordinals preserved. First-match weight indices for unsorted/duplicate rows. Reference-counted immutable views survive context overlap, cache eviction and topology publication. No algorithm-name/graph-name dispatch, input rewrite, TDG bypass or reduced graph budget.
+
+DSJC activation: {"algorithm": "sssp", "graph": "dimacs/DSJC1000-5.edges", "descriptor_rounds": 8, "pair_occurrences": 4297058, "descriptors": 1095649, "view_builds": 1}
+Weighted per-frontier record bytes: 85941160 -> 13147788. Cached immutable topology data is additional and its construction is included in end-to-end time.
+
+Final instrumented phases (medians of three diagnostic executions, ms):
+00_baseline dimacs/DSJC1000-5.edges {"begin": 0.00458, "finish": 1.343279, "compaction": 1.338628, "dispatch": 4.723117, "records": 8.000633, "weight_indices": 1.70994, "count": 0.755401, "fill": 4.888794, "view_cache": 0.0}
+00_baseline soc/soc-slashdot.edges {"begin": 0.054789, "finish": 1.743413, "compaction": 1.735652, "dispatch": 9.043558, "records": 11.91314, "weight_indices": 4.543567, "count": 1.35718, "fill": 4.074418, "view_cache": 0.0}
+03_view_dispatch_versioning dimacs/DSJC1000-5.edges {"begin": 0.004199, "finish": 1.313829, "compaction": 1.310314, "dispatch": 4.139772, "records": 9.776327, "weight_indices": 2.091131, "view_cache": 4.730541}
+03_view_dispatch_versioning soc/soc-slashdot.edges {"begin": 0.05681, "finish": 1.612202, "compaction": 1.606175, "dispatch": 8.963346, "records": 11.485536, "weight_indices": 3.586585, "view_cache": 0.0}
+
+Conclusion: record bytes fell substantially, but cold view construction and descriptor preparation offset the execution savings. The refined reader reduced diagnostic dispatch time, but the full process did not show a repeatable benefit. Installed compiler retained.
+
+12 cases / 10 distinct graphs; historical 273-graph run not resumed.
+Diagnostic phase timings are separate from benchmark timings; view_cache is nested in records, and weight_indices is nested in view_cache when constructing a weighted view. Do not sum nested times.
+Only DSJC passed the representation cost gate among the activation probes. Slashdot and RoadNet-CA retained the original representation.
+The byte-cost heuristic is experimental; it does not guarantee that cold view construction amortizes for every frontier.
+Initial test-fixture expected source-group count was corrected; initial positive compiler fixture was already unrolled and was replaced by a graph loop that actually reaches spatial lowering. These untimed setup failures are retained and excluded from performance results.
+
+Remote root: /media/readinggroup/Storage/splash/bench/optimizations/segment_view_20261017

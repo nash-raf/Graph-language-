@@ -1,0 +1,7 @@
+[
+  "bfs_n200_d64_i4_s300_c1_r1000_t4_loop",
+  "bfs_n256_d96_i4_s240_c1_r1000_t4_loop",
+  "bfs_n300_d100_i4_s180_c1_r1000_t4_loop",
+  "bfs_n384_d128_i4_s140_c1_r1000_t4_loop",
+  "bfs_n512_d192_i4_s100_c1_r1000_t4_loop"
+]

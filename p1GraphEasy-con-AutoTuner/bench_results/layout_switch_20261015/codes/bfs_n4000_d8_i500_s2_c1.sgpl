@@ -1,0 +1,22 @@
+// SGPL workload: bfs_n4000_d8_i500_s2_c1
+// Run all variants on this identical source.
+graph G {
+  edges: file "/mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/bench_results/layout_switch_20261015/graphs/ring_n4000_d8.txt";
+};
+int checksum = 0;
+// Phase 0: initial scans.
+query scan_0_pre_0: "bfs" of G;
+query scan_0_pre_1: "bfs" of G;
+// Phase 0: insert a batch of absent in-bounds edges.
+int event_0 = 0;
+while (event_0 < 500) {
+  int src_0 = (event_0 * 37) % 4000;
+  int dst_0 = (src_0 + 39 + event_0 / 4000) % 4000;
+  G.addEdges(src_0->dst_0);
+  event_0 = event_0 + 1;
+}
+// Phase 0: scan the updated graph.
+query scan_0_post_0: "bfs" of G;
+query scan_0_post_1: "bfs" of G;
+print checksum;
+print numEdges(G);

@@ -1,0 +1,9 @@
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int cap=1048577;
+int a[cap]; int b[cap]; real r[cap];
+print a[0]; print a[cap-1]; print b[cap-2]; print r[cap-1];
+for v in G.nodes { a[v]=v+7; }
+print a[1];
+a[3]=7; swap(a,b); print b[3];print a[3];print b[cap-1];
+int i=0;
+while(i<3) { int len=4; int local[len];print local[0];local[0]=99;i=i+1; }

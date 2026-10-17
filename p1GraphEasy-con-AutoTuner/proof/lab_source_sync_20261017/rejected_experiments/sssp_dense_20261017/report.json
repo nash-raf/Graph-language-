@@ -1,0 +1,689 @@
+{
+  "installed": false,
+  "installed_p1_unchanged": true,
+  "retained_installed_version": "packing_regression_20261017/03_completion_batch",
+  "machine": "graph-downloader / shahriarkarim, Intel i9-13900K",
+  "workers": 32,
+  "primary_repeats": 5,
+  "confirmation_repeats": 5,
+  "cases": 12,
+  "unique_graphs": 10,
+  "reference_validated_variants_per_case": 3,
+  "reference_validation_failures": 0,
+  "missing_pairs": 0,
+  "compiler_differential_runs_best_prototype": 36,
+  "timing_policy": "Fresh-process end-to-end mean; loading, initialization, computation, teardown and exit included. Compilation, untimed validation, warmup, and diagnostic profiling excluded. Variant order rotated. Primary and confirmation data kept separately.",
+  "diagnostic_baseline": [
+    {
+      "stage": "00_baseline",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.004534,
+        "finish": 1.40984,
+        "compaction": 1.405686,
+        "dispatch": 4.709622,
+        "records": 7.941057,
+        "weight_indices": 1.966854,
+        "count": 0.635795,
+        "fill": 4.851524
+      },
+      "record_modes": [
+        0,
+        0,
+        8
+      ],
+      "underfilled_rounds": 0,
+      "active_partition_histogram": {
+        "128": 8
+      },
+      "granted_worker_histogram": {
+        "32": 8
+      }
+    },
+    {
+      "stage": "00_baseline",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.054868,
+        "finish": 1.543191,
+        "compaction": 1.537292,
+        "dispatch": 8.683726,
+        "records": 9.893556,
+        "weight_indices": 3.519748,
+        "count": 1.198357,
+        "fill": 3.975458
+      },
+      "record_modes": [
+        0,
+        0,
+        17
+      ],
+      "underfilled_rounds": 3,
+      "active_partition_histogram": {
+        "1": 1,
+        "12": 1,
+        "25": 1,
+        "61": 1,
+        "102": 1,
+        "103": 1,
+        "126": 1,
+        "127": 1,
+        "128": 9
+      },
+      "granted_worker_histogram": {
+        "32": 17
+      }
+    }
+  ],
+  "diagnostic_rejected_prototype": [
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.003365,
+        "finish": 1.408002,
+        "compaction": 1.404596,
+        "dispatch": 4.084751,
+        "records": 6.118913,
+        "weight_indices": 0.357024,
+        "count": 0.62152,
+        "fill": 4.690777
+      },
+      "record_modes": [
+        0,
+        0,
+        8
+      ],
+      "underfilled_rounds": 0,
+      "active_partition_histogram": {
+        "128": 8
+      },
+      "granted_worker_histogram": {
+        "32": 8
+      }
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "median_diagnostic_phases_ms": {
+        "begin": 0.051707,
+        "finish": 1.720966,
+        "compaction": 1.71329,
+        "dispatch": 9.172898,
+        "records": 8.756083,
+        "weight_indices": 1.737312,
+        "count": 1.456076,
+        "fill": 3.938964
+      },
+      "record_modes": [
+        0,
+        0,
+        17
+      ],
+      "underfilled_rounds": 3,
+      "active_partition_histogram": {
+        "1": 1,
+        "12": 1,
+        "25": 1,
+        "61": 1,
+        "102": 1,
+        "103": 1,
+        "126": 1,
+        "127": 1,
+        "128": 9
+      },
+      "granted_worker_histogram": {
+        "32": 17
+      }
+    }
+  ],
+  "native_topology": [
+    {
+      "graph": "road/road-luxembourg-osm.edges",
+      "native_n": 114600,
+      "native_m": 239332,
+      "graptor_m": 239332,
+      "rows_not_strictly_increasing": 890,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/road/road-luxembourg-osm/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "road/road-usroads-48.edges",
+      "native_n": 126147,
+      "native_m": 323900,
+      "graptor_m": 323900,
+      "rows_not_strictly_increasing": 672,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/road/road-usroads-48/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "soc/soc-epinions.edges",
+      "native_n": 26589,
+      "native_m": 200240,
+      "graptor_m": 200240,
+      "rows_not_strictly_increasing": 0,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/soc/soc-epinions/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "soc/soc-slashdot.edges",
+      "native_n": 70069,
+      "native_m": 717294,
+      "graptor_m": 717294,
+      "rows_not_strictly_increasing": 30766,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/soc/soc-slashdot/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "dimacs/DSJC1000-5.edges",
+      "native_n": 1001,
+      "native_m": 499652,
+      "graptor_m": 499652,
+      "rows_not_strictly_increasing": 862,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/dimacs/DSJC1000-5/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "misc/delaunay_n13.edges",
+      "native_n": 8193,
+      "native_m": 49094,
+      "graptor_m": 49094,
+      "rows_not_strictly_increasing": 0,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/misc/delaunay_n13/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "ia/ia-email-EU.edges",
+      "native_n": 32431,
+      "native_m": 108794,
+      "graptor_m": 108794,
+      "rows_not_strictly_increasing": 0,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/ia/ia-email-EU/input.wel.weighted.sgplbin"
+    },
+    {
+      "graph": "email/email-enron-large.edges",
+      "native_n": 33697,
+      "native_m": 361622,
+      "graptor_m": 361622,
+      "rows_not_strictly_increasing": 3843,
+      "duplicate_occurrences": 0,
+      "cache_path": "/media/readinggroup/Storage/splash/bench/optimizations/sssp_general_20261016/optimized/p1/sssp/email/email-enron-large/input.wel.weighted.sgplbin"
+    }
+  ],
+  "trials": [
+    {
+      "stage": "01_identity_hints",
+      "final_accepted": false,
+      "reason": "Primary DSJC and Slashdot were slower, so this is not a suitable fix for the requested targets. Try loop versioning to remove per-edge representation checks.",
+      "primary_cases": 12,
+      "timing_eligible": true,
+      "note": ""
+    },
+    {
+      "stage": "02_identity_fill",
+      "final_accepted": false,
+      "reason": "Sortedness proof fails on actual DSJC/Slashdot CSR. The audit of cached native topology overlapped the end of this exploratory timing block, so its timing comparisons are excluded; no candidate installed.",
+      "primary_cases": 12,
+      "timing_eligible": false,
+      "note": "Stage 02 native-topology audit overlapped late exploratory measurements; excluded from timing conclusions."
+    },
+    {
+      "stage": "03_unique_hints",
+      "final_accepted": false,
+      "reason": "PageRank regressed about 5.6% in pooled means and 6.4% in pooled medians. Do not accept target gains at that cost.",
+      "primary_cases": 12,
+      "timing_eligible": true,
+      "note": ""
+    },
+    {
+      "stage": "04_outlined_hints",
+      "final_accepted": false,
+      "reason": "Full confirmation exposed a US-roads regression: pooled mean ratio 0.974 and median ratio 0.928. Do not install.",
+      "primary_cases": 12,
+      "timing_eligible": true,
+      "note": ""
+    },
+    {
+      "stage": "05_narrow_hints",
+      "final_accepted": false,
+      "reason": "US-roads primary median ratio 0.918 and confirmation mean ratio 0.857; reject the narrowing candidate.",
+      "primary_cases": 12,
+      "timing_eligible": true,
+      "note": ""
+    }
+  ],
+  "reported_prototype": "04_outlined_hints (REJECTED)",
+  "primary": [
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "road/road-luxembourg-osm.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 41.6069974,
+      "candidate_p1_ms": 41.7479812,
+      "graptor_ms": 49.0970514,
+      "current_over_candidate": 0.9966229792208491,
+      "graptor_over_candidate": 1.1760341455744452,
+      "median_current_over_candidate": 1.0580169650852012,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "road/road-usroads-48.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 93.75750959999999,
+      "candidate_p1_ms": 92.57363140000001,
+      "graptor_ms": 87.7460952,
+      "current_over_candidate": 1.0127885034009803,
+      "graptor_over_candidate": 0.947851930112358,
+      "median_current_over_candidate": 0.9650063766128967,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "soc/soc-epinions.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 15.5880542,
+      "candidate_p1_ms": 15.031639,
+      "graptor_ms": 9.255511799999999,
+      "current_over_candidate": 1.0370162694833212,
+      "graptor_over_candidate": 0.6157353699087638,
+      "median_current_over_candidate": 1.059325152449492,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "cc",
+      "graph": "soc/soc-epinions.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 9.618255399999999,
+      "candidate_p1_ms": 9.7112568,
+      "graptor_ms": 6.2339202,
+      "current_over_candidate": 0.9904233404681462,
+      "graptor_over_candidate": 0.6419272323228029,
+      "median_current_over_candidate": 0.9973945963821635,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "pagerank",
+      "graph": "soc/soc-epinions.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 18.2389084,
+      "candidate_p1_ms": 19.3461008,
+      "graptor_ms": 19.9742058,
+      "current_over_candidate": 0.9427692220026064,
+      "graptor_over_candidate": 1.0324667490619093,
+      "median_current_over_candidate": 0.9793778926233025,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 31.3298174,
+      "candidate_p1_ms": 28.872704199999998,
+      "graptor_ms": 16.2438448,
+      "current_over_candidate": 1.0851015957140586,
+      "graptor_over_candidate": 0.562602127167569,
+      "median_current_over_candidate": 1.0744371847648944,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 21.6704206,
+      "candidate_p1_ms": 19.695448000000003,
+      "graptor_ms": 9.7335788,
+      "current_over_candidate": 1.1002755865213119,
+      "graptor_over_candidate": 0.4942044882655119,
+      "median_current_over_candidate": 1.0794031759823606,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "misc/delaunay_n13.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 13.608051399999999,
+      "candidate_p1_ms": 13.0043052,
+      "graptor_ms": 8.03911,
+      "current_over_candidate": 1.0464266403098568,
+      "graptor_over_candidate": 0.6181883519620872,
+      "median_current_over_candidate": 0.9707108393496378,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "ia/ia-email-EU.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 13.2790652,
+      "candidate_p1_ms": 12.6833576,
+      "graptor_ms": 7.954193999999999,
+      "current_over_candidate": 1.046967657838489,
+      "graptor_over_candidate": 0.627136303402815,
+      "median_current_over_candidate": 0.9915059768987362,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "sssp",
+      "graph": "email/email-enron-large.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 21.509047600000002,
+      "candidate_p1_ms": 20.8556344,
+      "graptor_ms": 11.499489,
+      "current_over_candidate": 1.031330296047,
+      "graptor_over_candidate": 0.5513852410071016,
+      "median_current_over_candidate": 1.0939602125142018,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "bfs",
+      "graph": "inf/inf-roadNet-CA.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 95.87095919999999,
+      "candidate_p1_ms": 89.697856,
+      "graptor_ms": 137.15084199999998,
+      "current_over_candidate": 1.0688210786219905,
+      "graptor_over_candidate": 1.5290314408406818,
+      "median_current_over_candidate": 1.1800469543111771,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    },
+    {
+      "stage": "04_outlined_hints",
+      "algorithm": "bfs",
+      "graph": "dimacs10/inf-asia_osm.edges",
+      "workers": 32,
+      "repeats": 5,
+      "current_p1_ms": 1143.0461368,
+      "candidate_p1_ms": 1099.7629268,
+      "graptor_ms": 1551.0197343999998,
+      "current_over_candidate": 1.0393568549595884,
+      "graptor_over_candidate": 1.410321894476867,
+      "median_current_over_candidate": 1.0437939890333725,
+      "reference_validated": true,
+      "timing_eligible": true,
+      "installed": false
+    }
+  ],
+  "pooled_primary_and_confirmation": [
+    {
+      "algorithm": "sssp",
+      "graph": "road/road-luxembourg-osm.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0415214409,
+        "candidate": 0.0408521888,
+        "graptor": 0.0490955856
+      },
+      "medians": {
+        "baseline": 0.04166768,
+        "candidate": 0.039210282,
+        "graptor": 0.0404867905
+      },
+      "current_over_candidate": 1.0163822825571587,
+      "median_current_over_candidate": 1.0626722858050346,
+      "graptor_over_candidate": 1.201785927318538
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "road/road-usroads-48.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0940087996,
+        "candidate": 0.0965099116,
+        "graptor": 0.0838472217
+      },
+      "medians": {
+        "baseline": 0.0888347595,
+        "candidate": 0.0957218235,
+        "graptor": 0.07955327949999999
+      },
+      "current_over_candidate": 0.9740844027464636,
+      "median_current_over_candidate": 0.9280512661775608,
+      "graptor_over_candidate": 0.8687938918389808
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-epinions.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0157918532,
+        "candidate": 0.0151731382,
+        "graptor": 0.0100922918
+      },
+      "medians": {
+        "baseline": 0.0155195205,
+        "candidate": 0.014984715499999999,
+        "graptor": 0.0094306675
+      },
+      "current_over_candidate": 1.0407769962841307,
+      "median_current_over_candidate": 1.035690033621259,
+      "graptor_over_candidate": 0.665142020521503
+    },
+    {
+      "algorithm": "cc",
+      "graph": "soc/soc-epinions.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.009899926199999999,
+        "candidate": 0.009847918399999999,
+        "graptor": 0.0063369716
+      },
+      "medians": {
+        "baseline": 0.009912857,
+        "candidate": 0.0098795,
+        "graptor": 0.0064859110000000005
+      },
+      "current_over_candidate": 1.005281095749128,
+      "median_current_over_candidate": 1.0033763854446076,
+      "graptor_over_candidate": 0.6434833578637289
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "soc/soc-epinions.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0183898213,
+        "candidate": 0.0188494304,
+        "graptor": 0.018942681
+      },
+      "medians": {
+        "baseline": 0.018324939999999998,
+        "candidate": 0.018348010999999997,
+        "graptor": 0.017871598000000002
+      },
+      "current_over_candidate": 0.9756168175776814,
+      "median_current_over_candidate": 0.9987425885018273,
+      "graptor_over_candidate": 1.0049471309223221
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0311516092,
+        "candidate": 0.0281725161,
+        "graptor": 0.0168006285
+      },
+      "medians": {
+        "baseline": 0.0311946585,
+        "candidate": 0.027976845,
+        "graptor": 0.0162368735
+      },
+      "current_over_candidate": 1.105744658710125,
+      "median_current_over_candidate": 1.1150170256867777,
+      "graptor_over_candidate": 0.5963481728208153
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0211624202,
+        "candidate": 0.019427159,
+        "graptor": 0.0096487362
+      },
+      "medians": {
+        "baseline": 0.02091117,
+        "candidate": 0.019172117,
+        "graptor": 0.0095859975
+      },
+      "current_over_candidate": 1.0893214082409066,
+      "median_current_over_candidate": 1.0907074059687827,
+      "graptor_over_candidate": 0.49666223455524305
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "misc/delaunay_n13.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0131963632,
+        "candidate": 0.0130194844,
+        "graptor": 0.0080316845
+      },
+      "medians": {
+        "baseline": 0.0127567925,
+        "candidate": 0.012638309,
+        "graptor": 0.008046417
+      },
+      "current_over_candidate": 1.0135856992923622,
+      "median_current_over_candidate": 1.0093749488163328,
+      "graptor_over_candidate": 0.616897278973659
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "ia/ia-email-EU.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0130420194,
+        "candidate": 0.0126487557,
+        "graptor": 0.0079566919
+      },
+      "medians": {
+        "baseline": 0.012817057,
+        "candidate": 0.0126210325,
+        "graptor": 0.007876032000000002
+      },
+      "current_over_candidate": 1.0310910977591259,
+      "median_current_over_candidate": 1.015531573981764,
+      "graptor_over_candidate": 0.6290493775605137
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "email/email-enron-large.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.0214499599,
+        "candidate": 0.0199422075,
+        "graptor": 0.0114575282
+      },
+      "medians": {
+        "baseline": 0.0212388965,
+        "candidate": 0.0194473455,
+        "graptor": 0.0114499315
+      },
+      "current_over_candidate": 1.0756060932572284,
+      "median_current_over_candidate": 1.09212316405856,
+      "graptor_over_candidate": 0.5745366053382004
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "inf/inf-roadNet-CA.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 0.092224597,
+        "candidate": 0.0908761468,
+        "graptor": 0.1348516455
+      },
+      "medians": {
+        "baseline": 0.088065882,
+        "candidate": 0.089369116,
+        "graptor": 0.1222618205
+      },
+      "current_over_candidate": 1.014838329390964,
+      "median_current_over_candidate": 0.985417400794252,
+      "graptor_over_candidate": 1.48390584601679
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "dimacs10/inf-asia_osm.edges",
+      "launches_per_variant": 10,
+      "means": {
+        "baseline": 1.1466506478,
+        "candidate": 1.1187727262,
+        "graptor": 1.5727550326
+      },
+      "medians": {
+        "baseline": 1.1506697675,
+        "candidate": 1.1111261505,
+        "graptor": 1.583277613
+      },
+      "current_over_candidate": 1.0249183064148244,
+      "median_current_over_candidate": 1.0355887735899343,
+      "graptor_over_candidate": 1.405785997252531
+    }
+  ],
+  "findings": [
+    "DSJC baseline record preparation ~7.94ms, dispatch ~4.71ms, compaction ~1.41ms; weight hints ~1.97ms are nested within record preparation.",
+    "Slashdot baseline record preparation ~9.89ms, dispatch ~8.68ms, compaction ~1.54ms; weight hints ~3.52ms are nested within preparation.",
+    "Actual P1 CSR rows differ in order from the prepared Graptor binary, despite matching vertex/arc counts. The initial sortedness certificate does not apply to DSJC/Slashdot.",
+    "An order-independent uniqueness certificate can remove explicit weight-index maps, preserving first-match lookup via fallback for duplicates and cache invalidation on topology/layout publication.",
+    "Loop versioning removes per-edge representation checks. Weighted preparation outlining prevents proof-code growth inside executor text, but does not guarantee unchanged whole-program code placement.",
+    "The uniqueness prototype improves targets but regresses US-roads; bounded i32 hint entries also regress US-roads. All tested candidates rejected.",
+    "Remaining P1 record construction and dispatch costs remain substantial relative to Graptor direct CSR relaxation. No algorithm-specific transformation, duplicate suppression, input sorting, TDG bypass, or reduced worker setting was introduced."
+  ],
+  "limitations": [
+    "Instrumented phases are diagnostic, not benchmark timings; nested phases must not be added to parents.",
+    "Perf captures include a Python workload wrapper; default displayed percentages are absolute sampled-event shares, not end-to-end time. Use target-filtered profiles for attribution; do not sum them as wall time.",
+    "Preliminary per-stage decision.json reflects a coarse exploratory gate; final_rejection.json and this report are authoritative.",
+    "One stage 02 exploratory timing block is excluded because a topology audit overlapped it; raw artifacts retained."
+  ],
+  "original_273_run_unchanged": true
+}

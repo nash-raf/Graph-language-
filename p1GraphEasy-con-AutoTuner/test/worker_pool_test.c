@@ -96,7 +96,7 @@ static int32_t pool_node(void *state,int64_t node) {
 static sgpl_dag_template independent(int nodes) {
   sgpl_dag_template t={.node_count=nodes,.node_fn=pool_node};return t;
 }
-static pthread_t lanes[16];
+static pthread_t lanes[64];
 static atomic_int lane_errors;
 static int record_lanes;
 static void lane_probe(void *unused,int32_t lane) {
@@ -127,12 +127,12 @@ static int32_t cancellation_node(void *state,int64_t node) {
 }
 int main(int argc,char **argv) {
   int width=sgpl_configured_worker_count();
-  if(width>16)return 2;
+  if(width>64)return 2;
   atexit(cleanup_check);
   pool_fixture s={.width=width};sgpl_dag_template t=independent(8);
   if(argc>1) {
     if(!strcmp(argv[1],"allocation"))atomic_store(&fail_allocation,5);
-    else atomic_store(&fail_create,atoi(argv[1]));
+    else atomic_store(&fail_create,!strcmp(argv[1],"last")?width-1:atoi(argv[1]));
     int rc=autograph_execute_dag(&t,&s,width);
     check("cold pool failure starts no user effects",rc<0&&atomic_load(&s.calls)==0);
     check("partial pool creation joins all created workers",atomic_load(&created)==atomic_load(&joined));
@@ -147,7 +147,7 @@ int main(int argc,char **argv) {
         atomic_load(&created)==0&&atomic_load(&fail_create)==1);
   atomic_store(&fail_create,0);
   if(width==1)return failures?1:0;
-  check("first parallel dispatch prepares one configured team",autograph_execute_dag(&t,&s,width)==0&&atomic_load(&created)==width);
+  check("configured team includes the caller",autograph_execute_dag(&t,&s,width)==0&&atomic_load(&created)==width-1);
   int created_before=atomic_load(&created);
   for(int i=0;i<250;++i)
     if(autograph_execute_dag(&t,&s,width)!=0)atomic_fetch_add(&s.errors,1);

@@ -14,6 +14,11 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <nlopt.h>
+#include <errno.h>
+#ifdef __linux__
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#endif
 
 typedef struct RoaringBitmap RoaringBitmap;
 extern RoaringBitmap *roaring_bitmap_create(size_t arena_size, size_t initial_capacity);
@@ -553,7 +558,16 @@ typedef struct
 static _Thread_local int g_tls_is_pool_worker = 0;
 static _Thread_local int32_t g_tls_worker_index = 0;
 
-static pthread_barrier_t g_sgpl_thread_pool_barrier;
+/* Publish one epoch and join its acknowledgements. Workers briefly stay awake
+ * for the next frontier; idle teams park without consuming an entire core. */
+static atomic_uint g_sgpl_pool_epoch, g_sgpl_pool_remaining;
+static atomic_uint g_sgpl_pool_waiters, g_sgpl_pool_join_waiters;
+static uint64_t g_sgpl_pool_spin_ns = 50000;
+static _Thread_local uint64_t g_tls_pool_spin_ns = 50000;
+#ifndef __linux__
+static pthread_mutex_t g_sgpl_pool_wait_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_sgpl_pool_wait_cv = PTHREAD_COND_INITIALIZER;
+#endif
 static pthread_mutex_t g_sgpl_thread_pool_run_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t g_sgpl_thread_pool_start_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_sgpl_thread_pool_start_cv = PTHREAD_COND_INITIALIZER;
@@ -561,10 +575,10 @@ static int g_sgpl_thread_pool_start = 0;
 static pthread_t *g_sgpl_thread_pool_threads = NULL;
 static int g_sgpl_thread_pool_size = 0;
 static atomic_int g_sgpl_thread_pool_shutdown = 0;
-static workers_args_t *g_sgpl_thread_pool_job_args = NULL;
-static int g_sgpl_thread_pool_job_nthreads = 0;
-static sgpl_pool_work_fn g_sgpl_thread_pool_job_fn = NULL;
-static void *g_sgpl_thread_pool_job_state = NULL;
+static _Atomic(workers_args_t *) g_sgpl_thread_pool_job_args = NULL;
+static atomic_int g_sgpl_thread_pool_job_nthreads = 0;
+static _Atomic(sgpl_pool_work_fn) g_sgpl_thread_pool_job_fn = NULL;
+static _Atomic(void *) g_sgpl_thread_pool_job_state = NULL;
 
 typedef struct
 {
@@ -1364,12 +1378,98 @@ static void *worker_main(void *_arg)
     return NULL;
 }
 
+static void sgpl_pool_wake(atomic_uint *word, atomic_uint *waiters)
+{
+    if (!atomic_load(waiters)) return;
+#ifdef __linux__
+    syscall(SYS_futex, (unsigned *)word, FUTEX_WAKE_PRIVATE, INT_MAX, NULL, NULL, 0);
+#else
+    pthread_mutex_lock(&g_sgpl_pool_wait_lock);
+    pthread_cond_broadcast(&g_sgpl_pool_wait_cv);
+    pthread_mutex_unlock(&g_sgpl_pool_wait_lock);
+#endif
+}
+
+static void sgpl_pool_wait(atomic_uint *word, unsigned expected,
+                           atomic_uint *waiters)
+{
+    uint64_t end = sgpl_now_ns() + g_tls_pool_spin_ns;
+    do {
+        for (int i = 0; i < 64; ++i) {
+            if (atomic_load_explicit(word, memory_order_acquire) != expected) return;
+#if defined(__i386__) || defined(__x86_64__)
+            __asm__ volatile("pause");
+#else
+            atomic_signal_fence(memory_order_seq_cst);
+#endif
+        }
+    } while (sgpl_now_ns() < end);
+    atomic_fetch_add(waiters, 1);
+#ifdef __linux__
+    /* If publication raced with parking, futex observes the changed value
+     * and returns EAGAIN. A wakeup cannot be lost between check and sleep. */
+    syscall(SYS_futex, (unsigned *)word, FUTEX_WAIT_PRIVATE, expected, NULL, NULL, 0);
+#else
+    pthread_mutex_lock(&g_sgpl_pool_wait_lock);
+    if (atomic_load_explicit(word, memory_order_acquire) == expected)
+        pthread_cond_wait(&g_sgpl_pool_wait_cv, &g_sgpl_pool_wait_lock);
+    pthread_mutex_unlock(&g_sgpl_pool_wait_lock);
+#endif
+    atomic_fetch_sub(waiters, 1);
+}
+
+/* The run lock serializes submitters. All lanes acknowledge, including idle
+ * lanes, before the caller can replace the borrowed job or its stack state. */
+static void sgpl_pool_submit_locked(void)
+{
+    atomic_store_explicit(&g_sgpl_pool_remaining, g_sgpl_thread_pool_size-1, memory_order_relaxed);
+    atomic_fetch_add_explicit(&g_sgpl_pool_epoch, 1, memory_order_release);
+    sgpl_pool_wake(&g_sgpl_pool_epoch, &g_sgpl_pool_waiters);
+    /* The submitting thread is lane zero: configured width includes it.
+     * This keeps a 32-worker team at 32 runnable threads on a 32-thread host. */
+    int saved_pool=g_tls_is_pool_worker, saved_index=g_tls_worker_index;
+    uint64_t saved_spin=g_tls_pool_spin_ns;
+    sgpl_level_loop_pool *saved_level;
+    int32_t saved_pending;
+    sgpl_bind_level_loop_pool(NULL,&saved_level,&saved_pending);
+    sgpl_doacross_state *saved_sync=g_tls_doacross_state;
+    const sgpl_loop_profile_desc *saved_profile=g_tls_doacross_profile_desc;
+    sgpl_doacross_sync_lane_sample *saved_lane=g_tls_doacross_sync_lane;
+    uint64_t saved_counts[]={g_tls_doacross_wait_total_ns,g_tls_doacross_post_total_ns,
+        g_tls_doacross_wait_count,g_tls_doacross_post_count};
+    int32_t saved_site=g_tls_current_tdg_task_slot,saved_min=g_tls_desired_threads_min,
+        saved_max=g_tls_desired_threads_max,saved_depth=g_tls_dispatch_depth;
+    loop_range_fn saved_range=g_tls_pending_range_body;
+    /* Borrow the caller's CPU, not its enclosing DOACROSS/TDG state. Give
+     * lane zero the same clean callback context as the persistent helpers. */
+    g_tls_doacross_state=NULL;g_tls_doacross_profile_desc=NULL;g_tls_doacross_sync_lane=NULL;
+    g_tls_doacross_wait_total_ns=g_tls_doacross_post_total_ns=0;
+    g_tls_doacross_wait_count=g_tls_doacross_post_count=0;
+    g_tls_current_tdg_task_slot=-1;g_tls_desired_threads_min=g_tls_desired_threads_max=0;
+    g_tls_dispatch_depth=0;g_tls_pending_range_body=NULL;
+    g_tls_is_pool_worker=1;g_tls_worker_index=0;g_tls_pool_spin_ns=g_sgpl_pool_spin_ns;
+    sgpl_pool_work_fn fn=atomic_load_explicit(&g_sgpl_thread_pool_job_fn,memory_order_relaxed);
+    workers_args_t *args=atomic_load_explicit(&g_sgpl_thread_pool_job_args,memory_order_relaxed);
+    if(fn)fn(atomic_load_explicit(&g_sgpl_thread_pool_job_state,memory_order_relaxed),0);
+    else if(args)worker_main(&args[0]);
+    unsigned left;
+    while ((left = atomic_load_explicit(&g_sgpl_pool_remaining, memory_order_acquire)))
+        sgpl_pool_wait(&g_sgpl_pool_remaining, left, &g_sgpl_pool_join_waiters);
+    sgpl_unbind_level_loop_pool(saved_level,saved_pending);
+    g_tls_doacross_state=saved_sync;g_tls_doacross_profile_desc=saved_profile;g_tls_doacross_sync_lane=saved_lane;
+    g_tls_doacross_wait_total_ns=saved_counts[0];g_tls_doacross_post_total_ns=saved_counts[1];
+    g_tls_doacross_wait_count=saved_counts[2];g_tls_doacross_post_count=saved_counts[3];
+    g_tls_current_tdg_task_slot=saved_site;g_tls_desired_threads_min=saved_min;
+    g_tls_desired_threads_max=saved_max;g_tls_dispatch_depth=saved_depth;g_tls_pending_range_body=saved_range;
+    g_tls_is_pool_worker=saved_pool;g_tls_worker_index=saved_index;g_tls_pool_spin_ns=saved_spin;
+}
+
 static void *sgpl_thread_pool_worker_entry(void *arg)
 {
     int tid = (int)(intptr_t)arg;
 
-    /* A partially created team cannot enter a barrier that requires the full
-     * team. Keep workers here until all infrastructure exists, or abort. */
+    /* No callback may start on a partially created team. Keep helpers here
+     * until the complete team exists, or abort without user effects. */
     pthread_mutex_lock(&g_sgpl_thread_pool_start_lock);
     while (g_sgpl_thread_pool_start == 0)
         pthread_cond_wait(&g_sgpl_thread_pool_start_cv, &g_sgpl_thread_pool_start_lock);
@@ -1380,20 +1480,29 @@ static void *sgpl_thread_pool_worker_entry(void *arg)
 
     g_tls_is_pool_worker = 1;
     g_tls_worker_index = tid;
+    g_tls_pool_spin_ns=0;
+    unsigned epoch = 0;
     for (;;)
     {
-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        unsigned next;
+        while ((next = atomic_load_explicit(&g_sgpl_pool_epoch, memory_order_acquire)) == epoch)
+            sgpl_pool_wait(&g_sgpl_pool_epoch, epoch, &g_sgpl_pool_waiters);
+        epoch = next;
         if (atomic_load(&g_sgpl_thread_pool_shutdown))
             break;
 
-        if (tid < g_sgpl_thread_pool_job_nthreads) {
-            if (g_sgpl_thread_pool_job_fn)
-                g_sgpl_thread_pool_job_fn(g_sgpl_thread_pool_job_state, tid);
-            else if (g_sgpl_thread_pool_job_args)
-                worker_main(&g_sgpl_thread_pool_job_args[tid]);
+        if (tid < atomic_load_explicit(&g_sgpl_thread_pool_job_nthreads, memory_order_relaxed)) {
+            sgpl_pool_work_fn fn = atomic_load_explicit(&g_sgpl_thread_pool_job_fn, memory_order_relaxed);
+            workers_args_t *args = atomic_load_explicit(&g_sgpl_thread_pool_job_args, memory_order_relaxed);
+            if (fn)
+                fn(atomic_load_explicit(&g_sgpl_thread_pool_job_state, memory_order_relaxed), tid);
+            else if (args)
+                worker_main(&args[tid]);
         }
 
-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        g_tls_pool_spin_ns=tid<atomic_load_explicit(&g_sgpl_thread_pool_job_nthreads,memory_order_relaxed)?g_sgpl_pool_spin_ns:0;
+        if (atomic_fetch_sub_explicit(&g_sgpl_pool_remaining, 1, memory_order_acq_rel) == 1)
+            sgpl_pool_wake(&g_sgpl_pool_remaining, &g_sgpl_pool_join_waiters);
     }
     g_tls_is_pool_worker = 0;
     return NULL;
@@ -1404,13 +1513,13 @@ static void sgpl_thread_pool_shutdown_at_exit(void)
     pthread_mutex_lock(&g_sgpl_thread_pool_run_lock);
     if (g_sgpl_thread_pool_size > 0) {
         atomic_store(&g_sgpl_thread_pool_shutdown, 1);
-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
-        for (int i = 0; i < g_sgpl_thread_pool_size; ++i)
+        atomic_fetch_add_explicit(&g_sgpl_pool_epoch, 1, memory_order_release);
+        sgpl_pool_wake(&g_sgpl_pool_epoch, &g_sgpl_pool_waiters);
+        for (int i = 0; i < g_sgpl_thread_pool_size-1; ++i)
             pthread_join(g_sgpl_thread_pool_threads[i], NULL);
         free(g_sgpl_thread_pool_threads);
         g_sgpl_thread_pool_threads = NULL;
         g_sgpl_thread_pool_size = 0;
-        pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
     }
     pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
 }
@@ -1425,6 +1534,12 @@ static int sgpl_thread_pool_init_locked(void)
         return -2;
     sgpl_tdg_init_runtime_config();
     int size = sgpl_runtime_thread_count();
+    const char *spin = getenv("SGPL_POOL_SPIN_US");
+    if (spin && *spin) {
+        char *end;
+        long us = strtol(spin, &end, 10);
+        if (!*end && us >= 0 && us <= 10000) g_sgpl_pool_spin_ns = (uint64_t)us * 1000;
+    }
     g_sgpl_thread_pool_threads = (pthread_t *)calloc((size_t)size, sizeof(pthread_t));
     if (!g_sgpl_thread_pool_threads)
         return -1;
@@ -1433,14 +1548,11 @@ static int sgpl_thread_pool_init_locked(void)
     g_sgpl_thread_pool_start = 0;
     pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
     int i, rc = -2;
-    for (i = 0; i < size; ++i) {
-        if (pthread_create(&g_sgpl_thread_pool_threads[i], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
+    for (i = 1; i < size; ++i) {
+        if (pthread_create(&g_sgpl_thread_pool_threads[i-1], NULL, sgpl_thread_pool_worker_entry, (void *)(intptr_t)i) != 0)
             break;
     }
-    int barrier_ready = 0;
-    if (i == size && pthread_barrier_init(&g_sgpl_thread_pool_barrier, NULL,
-                                         (unsigned)(size + 1)) == 0) {
-        barrier_ready = 1;
+    if (i == size) {
         if (atexit(sgpl_thread_pool_shutdown_at_exit) == 0)
             rc = 0;
     }
@@ -1449,10 +1561,8 @@ static int sgpl_thread_pool_init_locked(void)
     pthread_cond_broadcast(&g_sgpl_thread_pool_start_cv);
     pthread_mutex_unlock(&g_sgpl_thread_pool_start_lock);
     if (rc != 0) {
-        for (int j = 0; j < i; ++j)
+        for (int j = 0; j < i-1; ++j)
             pthread_join(g_sgpl_thread_pool_threads[j], NULL);
-        if (barrier_ready)
-            pthread_barrier_destroy(&g_sgpl_thread_pool_barrier);
         free(g_sgpl_thread_pool_threads);
         g_sgpl_thread_pool_threads = NULL;
         return rc;
@@ -1491,8 +1601,7 @@ int32_t sgpl_run_on_worker_pool(sgpl_pool_work_fn work, void *state,
         g_sgpl_thread_pool_job_fn = work;
         g_sgpl_thread_pool_job_state = state;
         g_sgpl_thread_pool_job_nthreads = worker_count;
-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
-        pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+        sgpl_pool_submit_locked();
         g_sgpl_thread_pool_job_fn = NULL;
         g_sgpl_thread_pool_job_state = NULL;
         g_sgpl_thread_pool_job_nthreads = 0;
@@ -1511,8 +1620,7 @@ static void sgpl_thread_pool_run(workers_args_t *args, int nthreads)
         nthreads = g_sgpl_thread_pool_size;
     g_sgpl_thread_pool_job_args = args;
     g_sgpl_thread_pool_job_nthreads = nthreads;
-    pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
-    pthread_barrier_wait(&g_sgpl_thread_pool_barrier);
+    sgpl_pool_submit_locked();
     g_sgpl_thread_pool_job_args = NULL;
     g_sgpl_thread_pool_job_nthreads = 0;
     pthread_mutex_unlock(&g_sgpl_thread_pool_run_lock);
@@ -4309,12 +4417,14 @@ static double sgpl_launch_sample_median(double samples[5])
     return samples[2];
 }
 
-static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
+#include "launch_calibration_cache.inc"
+
+static double sgpl_calibrate_thread_launch_overhead_ns(int threads,int measured)
 {
     int sample = 0;
     double samples[5];
 
-    for (sample = 0; sample < 6; ++sample)
+    for (sample = 0; sample <= measured; ++sample)
     {
         uint64_t t0 = sgpl_now_ns();
         sgpl_parallel_launch_plain_raw(0,
@@ -4341,15 +4451,15 @@ static double sgpl_calibrate_thread_launch_overhead_ns(int threads)
         }
     }
 
-    return sgpl_launch_sample_median(samples);
+    return measured==1?samples[0]:sgpl_launch_sample_median(samples);
 }
 
-static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_desc *desc, int threads)
+static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_desc *desc, int threads,int measured)
 {
     int sample = 0;
     double samples[5];
 
-    for (sample = 0; sample < 6; ++sample)
+    for (sample = 0; sample <= measured; ++sample)
     {
         uint64_t t0 = sgpl_now_ns();
 
@@ -4429,7 +4539,7 @@ static double sgpl_calibrate_total_launch_overhead_ns(const sgpl_loop_profile_de
         }
     }
 
-    return sgpl_launch_sample_median(samples);
+    return measured==1?samples[0]:sgpl_launch_sample_median(samples);
 }
 
 static double sgpl_get_thread_launch_overhead_ns(int threads)
@@ -4449,7 +4559,16 @@ static double sgpl_get_thread_launch_overhead_ns(int threads)
     }
     pthread_mutex_unlock(&g_launch_model_lock);
 
-    l_thread_ns = sgpl_calibrate_thread_launch_overhead_ns(threads);
+    int cached=sgpl_launch_cache_load(NULL,threads,ephemeral,0,&l_thread_ns);
+    if(cached) {
+        double probe=sgpl_calibrate_thread_launch_overhead_ns(threads,1);
+        if(probe<l_thread_ns*.2 || probe>l_thread_ns*5)cached=0;
+    }
+    if(!cached) {
+        l_thread_ns=sgpl_calibrate_thread_launch_overhead_ns(threads,5);
+        sgpl_launch_cache_store(NULL,threads,ephemeral,0,l_thread_ns);
+    }
+    if(runtime_debug_enabled())fprintf(stderr,"[launch-cache] thread %s width=%d\n",cached?"hit":"miss",threads);
     pthread_mutex_lock(&g_launch_model_lock);
     if (threads < SGPL_TDG_MAX_REPORTED_THREADS)
     {
@@ -4505,7 +4624,16 @@ static double sgpl_get_path_launch_overhead_ns(const sgpl_loop_profile_desc *des
     }
     pthread_mutex_unlock(&g_launch_model_lock);
 
-    total_ns = sgpl_calibrate_total_launch_overhead_ns(desc, threads);
+    int cached=sgpl_launch_cache_load(desc,threads,ephemeral,1,&total_ns);
+    if(cached) {
+        double probe=sgpl_calibrate_total_launch_overhead_ns(desc,threads,1);
+        if(probe<total_ns*.2 || probe>total_ns*5)cached=0;
+    }
+    if(!cached) {
+        total_ns=sgpl_calibrate_total_launch_overhead_ns(desc,threads,5);
+        sgpl_launch_cache_store(desc,threads,ephemeral,1,total_ns);
+    }
+    if(runtime_debug_enabled())fprintf(stderr,"[launch-cache] path %s width=%d\n",cached?"hit":"miss",threads);
     path_ns = total_ns - sgpl_get_thread_launch_overhead_ns(threads);
     if (path_ns < 0.0)
         path_ns = 0.0;
@@ -4551,7 +4679,7 @@ static sgpl_launch_overhead_detail sgpl_get_launch_overhead_detail(const sgpl_lo
 {
     sgpl_launch_overhead_detail detail;
     /* Price the launch path that the runtime actually uses. The pool includes
-     * two barriers over ALL configured workers, including idle lanes; DOACROSS
+     * an epoch publication/join over configured workers; DOACROSS
      * bypasses it and creates/join temporary threads. A fixed microsecond seed
      * cannot represent either path on different hosts.
      * Calibration must not consume the range entry point of the real launch. */

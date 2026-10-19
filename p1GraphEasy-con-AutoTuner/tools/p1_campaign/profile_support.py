@@ -27,7 +27,10 @@ def build_profile_runtime(R,v):
  for fn,i in [('sgpl_array_records',0),('sgpl_array_weight_indices',3),('sgpl_array_compact',5)]:
   text,n=re.subn(r'(\b'+fn+r'\([^;]*?\)\s*\{)',lambda m:m[1]+f' NR({i});',text,count=1);assert n==1,fn
  needle='static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {'
- assert needle in text;text=text.replace(needle,t['work']+'\n'+needle+' WScope ws __attribute__((cleanup(wv_leave)))={c,m};')
+ work=t['work'].replace('static void wv_leave(WScope *s){','static unsigned long long wv_payload_bytes,wv_metadata_bytes;\nstatic void wv_leave(WScope *s){')
+ work=work.replace('sgpl_exec_ctx*c=s->c;AutoGraphMeta*m=s->m;','sgpl_exec_ctx*c=s->c;AutoGraphMeta*m=s->m;\n int format=c->array_compact_records;size_t stride=format==4?16:format==3?12:format==2?20:format?16:12;\n wv_payload_bytes+=(unsigned long long)c->gpu_record_count*stride;\n if(!format)wv_metadata_bytes+=(unsigned long long)c->gpu_record_count*(16+(c->array_record_edges?8:0));')
+ work=work.replace('fclose(f);','fclose(f);\n char bytes_path[4096];if(snprintf(bytes_path,sizeof bytes_path,"%s.bytes.json",p)>=(int)sizeof bytes_path)return;\n f=fopen(bytes_path,"w");if(f){fprintf(f,"{\\\"record_payload_bytes\\\":%llu,\\\"record_metadata_bytes\\\":%llu}\\n",wv_payload_bytes,wv_metadata_bytes);fclose(f);}')
+ assert needle in text;text=text.replace(needle,work+'\n'+needle+' WScope ws __attribute__((cleanup(wv_leave)))={c,m};')
  p.write_text(text)
  p=out/'array_preparation_runtime.inc';text=p.read_text()
  for i,fn in [(1,'sgpl_array_count_chunks'),(2,'sgpl_array_fill_chunks')]:

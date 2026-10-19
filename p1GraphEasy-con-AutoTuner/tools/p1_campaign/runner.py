@@ -230,6 +230,8 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
    for n in ['phases','pool','work']:
     path=Path(str(base)+'.'+n+'.json')
     if path.exists():x[n]=read(path)
+   bytes_path=Path(str(base)+'.work.json.bytes.json')
+   if bytes_path.exists():x['record_bytes']=read(bytes_path)
   if profile in ['perf','futex']:
    path=Path(str(base)+('.perf.csv' if profile=='perf' else '.futex.txt'));x['diagnostic_output']=path.read_text() if path.exists() else ''
   save(record,x);journal(OUT/(attempt+'_measurements.jsonl'),x)

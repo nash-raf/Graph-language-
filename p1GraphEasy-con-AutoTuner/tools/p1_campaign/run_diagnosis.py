@@ -8,11 +8,12 @@ import argparse,json,statistics,sys,time
 from types import SimpleNamespace
 import runner as R
 from profile_support import run_profiles,instrument
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');p.add_argument('--baseline',required=True);p.add_argument('--disable',required=True);p.add_argument('--cases');args=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');p.add_argument('--baseline',required=True);p.add_argument('--disable',required=True);p.add_argument('--cases');p.add_argument('--additional',default='{}',help='JSON label-to-environment component controls');args=p.parse_args()
 R.M=R.bootstrap()
 selected=R.read(args.cases or R.OUT/(args.version+'_diagnostic_cases.json'))
 assert selected,'Run the primary matrix first, or provide an explicit diagnostic case list'
 disable=json.loads(args.disable);assert disable
+additional=json.loads(args.additional)
 with R.locked('diagnose'):
  for v in [args.version,args.baseline]:R.verify_fingerprint(v);instrument(R,v,selected)
  for workers in [1,2,6]:
@@ -32,7 +33,7 @@ with R.locked('diagnose'):
   for x in cases:
    row=next(r for r in R.M.ROWS if r['graph']==x['graph'])
    for workers in [1,2,6]:
-    configs=[('baseline',args.baseline,{}),('candidate',args.version,{}),('disabled',args.version,disable),('aa',args.baseline,{})]
+    configs=[('baseline',args.baseline,{}),('candidate',args.version,{}),('disabled',args.version,disable),('aa',args.baseline,{})]+[(label,args.version,env) for label,env in additional.items()]
     for label,v,extra in configs:R.invoke(args.version,'diagnostic_warmup',v,a,row,0,label=label,workers=workers,extra=extra)
     for rep in range(20):
      shift=rep%len(configs)
@@ -43,7 +44,7 @@ with R.locked('diagnose'):
  for x in selected:
   for workers in [1,2,6]:
    rows=[r for r in records if r['algorithm']==x['algorithm'] and r['graph']==x['graph'] and r['workers']==workers]
-   values={label:{'mean_ms':statistics.mean(r['seconds']*1000 for r in rows if r['label']==label and not r.get('error')),'cpu_ms':statistics.mean((r['user_seconds']+r['system_seconds'])*1000 for r in rows if r['label']==label and not r.get('error')),'voluntary_switches':statistics.mean(r['nvcsw'] for r in rows if r['label']==label and not r.get('error'))} for label in ['baseline','candidate','disabled','aa']}
+   values={label:{'mean_ms':statistics.mean(r['seconds']*1000 for r in rows if r['label']==label and not r.get('error')),'cpu_ms':statistics.mean((r['user_seconds']+r['system_seconds'])*1000 for r in rows if r['label']==label and not r.get('error')),'voluntary_switches':statistics.mean(r['nvcsw'] for r in rows if r['label']==label and not r.get('error'))} for label in ['baseline','candidate','disabled','aa',*additional]}
    summary.append(dict(x,workers=workers,values=values,errors=[r for r in rows if r.get('error')]))
  R.save(R.OUT/(args.version+'_diagnostic_summary.json'),summary)
  print(json.dumps({'version':args.version,'diagnostic_cases':len(selected),'summary':str(R.OUT/(args.version+'_diagnostic_summary.json'))}),flush=True)

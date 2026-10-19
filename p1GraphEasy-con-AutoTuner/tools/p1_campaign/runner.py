@@ -377,7 +377,7 @@ def benchmark(v,baseline=None,confirm=False,block=0):
 
 def contracts(v):
  d=ROOT/'versions'/v;src=d/'src';td=src/'test';records=[x for x in read(OUT/(v+'_contracts.json'),[]) if x.get('passed')]
- tests=['run_worker_pool_tests.sh','run_array_frontier_exec_tests.sh','run_array_append_epoch_tests.sh','run_general_frontier_optimization_tests.sh']
+ tests=['run_worker_pool_tests.sh','run_array_frontier_exec_tests.sh','run_array_append_epoch_tests.sh','run_general_frontier_optimization_tests.sh','run_lean_record_tests.sh','run_direct_traversal_tests.sh','run_fullgraph_tests.sh']
  for name in tests:
   if any(x['test']==name for x in records):continue
   p=td/name
@@ -395,7 +395,7 @@ def contracts(v):
  save(OUT/(v+'_contracts.json'),records);assert all(x['passed'] for x in records)
  # The same contracts are exercised with the version's frozen runtime objects.
  for name in ['graph_storage_layout_test','pool_participation_test']:
-  ext='.cpp' if name.startswith('graph_') else '.c';testsrc=REPO/'test'/(name+ext)
+  ext='.cpp' if name.startswith('graph_') else '.c';testsrc=td/(name+ext)
   if any(x['test']==name and x.get('source_sha256')==sha(testsrc) for x in records):continue
   obj=d/'contracts'/(name+'.o');exe=d/'contracts'/name
   compiler='g++' if ext=='.cpp' else 'gcc'
@@ -418,7 +418,7 @@ def contracts(v):
   for ll in src.glob('*.ll'):
    if not (literal/ll.name).exists():(literal/ll.name).symlink_to(ll)
   e=M.env();e.update(FORCE_CPU='1',DUMP_LLVM_BC_PRE=str(literal/'pre.bc'))
-  checked([d/'GraphProgram','--ir-backend=cpu',REPO/'test/graph_storage_literal.graph'],literal,literal/'compile.log',e)
+  checked([d/'GraphProgram','--ir-backend=cpu',td/'graph_storage_literal.graph'],literal,literal/'compile.log',e)
   checked(['llvm-dis-20',literal/'pre.bc','-o',literal/'pre.ll'],literal,literal/'disassemble.log')
   ir=(literal/'pre.ll').read_text()
   assert re.search(r'%struct.Graph[^=]*= type \{ i64, i64, ptr, ptr, ptr, i32, ptr, ptr \}',ir),'LLVM Graph ABI is incomplete'

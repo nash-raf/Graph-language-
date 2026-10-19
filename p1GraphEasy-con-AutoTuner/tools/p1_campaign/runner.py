@@ -40,8 +40,13 @@ def git(*args):
  # The managed repository metadata uses Windows absolute worktree paths.
  win=subprocess.check_output(['wslpath','-w',str(REPO)],text=True).strip()
  return subprocess.check_output(['/mnt/c/Program Files/Git/cmd/git.exe','-C',win,*args],text=True).strip()
+_status_cache=None
+_status_lock=threading.Lock()
 def state(**kw):
- x=read(OUT/'status.json',{});x.update(kw,updated=time.time());save(OUT/'status.json',x)
+ global _status_cache
+ with _status_lock:
+  x=dict(_status_cache if _status_cache is not None else read(OUT/'status.json',{}))
+  x.update(kw,updated=time.time());save(OUT/'status.json',x);_status_cache=x
 def progress(**kw):
  if kw.get('completed') and kw.get('total'):
   started=read(OUT/'status.json',{}).get('started',time.time())
@@ -74,11 +79,13 @@ def bootstrap():
 
 @contextlib.contextmanager
 def locked(command):
+ global _status_cache
  p=ROOT/'experiment.lock'
  with p.open('a+') as f:
   try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
   except BlockingIOError:raise RuntimeError('Another build, validation, benchmark or profile holds the experiment lock')
-  save(OUT/'status.json',dict(command=command,pid=os.getpid(),started=time.time(),updated=time.time(),active=True,failures=0,error=None,root=str(ROOT),output=str(OUT)))
+  _status_cache=dict(command=command,pid=os.getpid(),started=time.time(),updated=time.time(),active=True,failures=0,error=None,root=str(ROOT),output=str(OUT))
+  save(OUT/'status.json',_status_cache)
   try:yield
   except BaseException as e:
    state(active=False,error=(type(e).__name__+': '+str(e))[:3000]);raise

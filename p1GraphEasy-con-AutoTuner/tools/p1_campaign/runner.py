@@ -221,7 +221,7 @@ def validate_version(v):
    progress(stage='validate',version=v,algorithm=a,completed=i+1,total=61,failures=sum('error' in t for t in records))
  save(OUT/(v+'_validation.json'),records)
  assert all('validation' in x and not x.get('error') for x in records),'Correctness failure; no acceptance timings permitted'
- if v=='B0':
+ if v.startswith('B0'):
   controls=[]
   for a in ALGS:
    for i,r in enumerate(M.ROWS):

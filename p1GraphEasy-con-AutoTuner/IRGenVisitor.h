@@ -34,7 +34,7 @@ public:
         // offsets 16/24/32 stay valid.
         GraphTy = llvm::StructType::create(
             Context,
-            {I64, I64, I64P, I32P, I32P, llvm::Type::getInt32Ty(Context)},
+            {I64, I64, I64P, I32P, I32P, llvm::Type::getInt32Ty(Context), I64P, I32P},
             "struct.Graph");
         // Must mirror MotifMatchesRuntime in runtime.c exactly
         // ({i32 count, i32 var_count, i32* bindings, i32 capacity}, 24 bytes,

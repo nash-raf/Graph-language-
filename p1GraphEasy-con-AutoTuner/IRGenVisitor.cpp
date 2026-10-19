@@ -1574,6 +1574,7 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         llvm::FunctionCallee mallocDecl = Module.getOrInsertFunction("malloc", mallocFT);
         uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
         llvm::Value *newGraphRaw = Builder.CreateCall(mallocDecl, {llvm::ConstantInt::get(i64Ty, graphSize)});
+        Builder.CreateMemSet(newGraphRaw, Builder.getInt8(0), graphSize, llvm::MaybeAlign(8));
         llvm::Value *newGraphPtr = Builder.CreateBitCast(newGraphRaw, graphPtrTy);
 
         Builder.CreateStore(newN, Builder.CreateStructGEP(GraphTy, newGraphPtr, 0));
@@ -1582,6 +1583,8 @@ void IRGenVisitor::visitGraphComprehension(GraphComprehensionNode *GC)
         Builder.CreateStore(newCI, Builder.CreateStructGEP(GraphTy, newGraphPtr, 3));
         Builder.CreateStore(llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(i32Ty)),
                             Builder.CreateStructGEP(GraphTy, newGraphPtr, 4));
+        Builder.CreateStore(Builder.CreateLoad(i32Ty, Builder.CreateStructGEP(GraphTy, srcGraphPtr, 5)),
+                            Builder.CreateStructGEP(GraphTy, newGraphPtr, 5));
         return newGraphPtr;
     };
 
@@ -5937,6 +5940,7 @@ llvm::Value *IRGenVisitor::visitGraphDecl(GraphDeclNode *G)
     uint64_t graphSize = Module.getDataLayout().getTypeAllocSize(GraphTy);
     llvm::Value *rawGraph = Builder.CreateCall(
         mallocFnG, llvm::ConstantInt::get(I64, graphSize), "graph_raw");
+    Builder.CreateMemSet(rawGraph, Builder.getInt8(0), graphSize, llvm::MaybeAlign(8));
     llvm::Value *graphPtr = Builder.CreateBitCast(rawGraph, graphPtrTy, "graph_ptr");
 
     Builder.CreateStore(llvm::ConstantInt::get(I64, G->n),
@@ -6217,6 +6221,7 @@ llvm::Value *IRGenVisitor::visitWeightedGraphDecl(WeightedGraphDeclNode *G)
         mallocFnG,
         graphSizeC,
         "graph_raw");
+    Builder.CreateMemSet(rawGraph, Builder.getInt8(0), graphSize, llvm::MaybeAlign(8));
 
     // Cast i8* → %struct.Graph*
     llvm::Value *graphPtr = Builder.CreateBitCast(

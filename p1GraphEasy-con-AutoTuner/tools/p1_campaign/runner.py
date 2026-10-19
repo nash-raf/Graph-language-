@@ -211,7 +211,10 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
  os.sched_setaffinity(0,CPUS[:workers]);start=time.time()
  try:
   with base.with_suffix('.out').open('w') as f,base.with_suffix('.err').open('w') as g:
-   p=subprocess.run([str(ROOT/'walltime'),str(stamp),*cmd],cwd=cwd,env=e,stdout=f,stderr=g,timeout=190)
+   try:p=subprocess.run([str(ROOT/'walltime'),str(stamp),*cmd],cwd=cwd,env=e,stdout=f,stderr=g,timeout=190)
+   except subprocess.TimeoutExpired:
+    x=dict(version=v,label=name,algorithm=a,graph=r['graph'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,base=str(base),command=cmd,block=repeat_block,error='outer_timeout_190_seconds',seconds=None)
+    save(record,x);journal(OUT/(attempt+'_measurements.jsonl'),x);return x
   x=read(stamp,{'exit_code':p.returncode,'seconds':time.time()-start})
   x.update(version=v,label=name,algorithm=a,graph=r['graph'],cohort=r['cohort'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,base=str(base),command=cmd,block=repeat_block)
   if p.returncode:x['error']=base.with_suffix('.err').read_text()[-3000:]
@@ -220,6 +223,9 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
     arr=np.loadtxt(base.with_suffix('.values'),ndmin=1) if v.startswith('graptor') else np.array(base.with_suffix('.out').read_text().split('VALUES_BEGIN\n',1)[1].split('VALUES_END',1)[0].split(),dtype=float)
     x['validation']=M.validate(a,r,arr,'graptor' if v=='graptor' else 'p1')
    except Exception as ex:x['error']=repr(ex)
+  output=base.with_suffix('.out').read_text(errors='replace')
+  internal=re.search(r'Average\s*:\s*([0-9.eE+-]+)',output) if v.startswith('graptor') else re.search(r'P1_COMPUTE_SECONDS\s+([0-9.eE+-]+)',output)
+  if internal:x['internal_seconds']=float(internal[1])
   if profile=='phases':
    for n in ['phases','pool','work']:
     path=Path(str(base)+'.'+n+'.json')
@@ -235,8 +241,13 @@ def verify_fingerprint(v):
  for n,h in b['executables'].items():assert sha(ROOT/'versions'/v/n)==h,'Executable fingerprint changed: '+n
  return b['fingerprint']
 
+def verify_inputs():
+ manifest=read(OUT/'manifest.json');assert manifest,'Initialize the campaign first'
+ for name,digest in manifest['inputs'].items():assert sha(name)==digest,'Dataset fingerprint changed: '+name
+ for name,digest in manifest['graptor'].items():assert sha(ROOT/'graptor'/name)==digest,'Pinned Graptor changed: '+name
+
 def validate_version(v):
- verify_fingerprint(v);records=[]
+ verify_inputs();verify_fingerprint(v);records=[]
  for a in ALGS:
   for i,r in enumerate(M.ROWS):
    x=invoke(v,'validate',v,a,r,0);records.append(x)
@@ -310,7 +321,7 @@ def regression_tests(records,phase,candidate='candidate',baseline='baseline',rep
  return tests
 
 def benchmark(v,baseline=None,confirm=False,block=0):
- verify_fingerprint(v)
+ verify_inputs();verify_fingerprint(v)
  val=read(OUT/(v+'_validation.json'));assert val and len(val)==244 and all(not x.get('error') for x in val)
  if baseline:verify_fingerprint(baseline)
  records=[];phase='confirmation' if confirm else 'primary';reps=20 if confirm else 5

@@ -1,4 +1,5 @@
 #include "roaring_bitmap.h"
+#include "graph_storage_layout.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -7,18 +8,7 @@
 
 // The Graph struct must match the LLVM IR layout exactly:
 //   { i64 n, i64 m, i64* row_ptr, i32* col_idx, i32* weights }
-struct GraphCSR {
-    int64_t n;           // number of vertices
-    int64_t m;           // number of directed edges (2x for undirected)
-    int64_t *row_ptr;    // size n+1
-    int32_t *col_idx;    // size m
-    int32_t *weights;    // size m (may be null for unweighted)
-    // Appended after the original five fields so the byte offsets that
-    // autotuner_runtime.c hard-codes (16/24/32) stay valid.  Every struct
-    // Graph / GraphCSR declaration in the tree must carry this field, because
-    // subgraphs built here are handed back to code that reads it.
-    int32_t directed;    // 1 = edges stored one-way, 0 = symmetrized
-};
+using GraphCSR = SgplGraphStorage;
 
 // ---------------------------------------------------------------
 // neighbors(G, v) -> roaring bitmap of v's neighbors
@@ -64,7 +54,7 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
     if (k == 0)
     {
         // Empty subgraph
-        auto *sub = reinterpret_cast<GraphCSR *>(malloc(sizeof(GraphCSR)));
+        auto *sub = reinterpret_cast<GraphCSR *>(calloc(1, sizeof(GraphCSR)));
         sub->n = 0;
         sub->m = 0;
         sub->row_ptr = reinterpret_cast<int64_t *>(malloc(sizeof(int64_t)));
@@ -117,7 +107,7 @@ extern "C" void *graph_induced_subgraph(void *graphRaw, void *vertexSetRaw)
     }
 
     // Build CSR
-    auto *sub = reinterpret_cast<GraphCSR *>(malloc(sizeof(GraphCSR)));
+    auto *sub = reinterpret_cast<GraphCSR *>(calloc(1, sizeof(GraphCSR)));
     sub->n = static_cast<int64_t>(k);
     sub->m = totalEdges;
     sub->row_ptr = reinterpret_cast<int64_t *>(malloc(sizeof(int64_t) * (k + 1)));
@@ -194,7 +184,7 @@ extern "C" void *graph_orient(void *graphRaw, int32_t *order)
     }
 
     // Build CSR
-    auto *dag = reinterpret_cast<GraphCSR *>(malloc(sizeof(GraphCSR)));
+    auto *dag = reinterpret_cast<GraphCSR *>(calloc(1, sizeof(GraphCSR)));
     dag->n = n;
     dag->m = totalEdges;
     dag->row_ptr = reinterpret_cast<int64_t *>(malloc(sizeof(int64_t) * (n + 1)));

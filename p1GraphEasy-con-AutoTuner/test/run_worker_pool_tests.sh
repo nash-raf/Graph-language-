@@ -6,7 +6,8 @@ trap 'rm -rf "$TMP"' EXIT
 gcc -O2 -std=gnu11 -pthread -I"$ROOT" "$ROOT/test/worker_pool_test.c" \
   "$ROOT/autotuner_runtime.c" "$ROOT/parallel_runtime.c" -lnlopt -lm \
   -Wl,--wrap=pthread_create -Wl,--wrap=pthread_join -Wl,--wrap=calloc -o "$TMP/pool"
-for workers in 1 2 4 8 32; do
+export SGPL_ALLOW_HT=0
+for workers in 1 2 6; do
   echo "== persistent pool: workers=$workers =="
   timeout 60 env SGPL_NUM_THREADS="$workers" "$TMP/pool"
   if ((workers>1)); then

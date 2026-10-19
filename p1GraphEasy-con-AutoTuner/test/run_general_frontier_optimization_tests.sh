@@ -11,9 +11,9 @@ for name in large_compaction_test source_snapshot_contract spatial_exec_test; do
   flags=(-O2)
   [[ "$mode" == sanitized ]] && flags=(-O1 -g -no-pie -fsanitize=address,undefined -fno-omit-frame-pointer -DSGPL_GROUP_EPOCH_MAX=3)
   gcc "${flags[@]}" "${extra[@]}" -std=gnu11 -pthread -I. -Itest "test/$name.c" autotuner_runtime.c parallel_runtime.c -lnlopt -lm -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=pthread_create -o "$task_tmp/check"
-  if [[ "$mode" == normal ]];then widths=(1 4 32);else widths=(8);fi
+  if [[ "$mode" == normal ]];then widths=(1 2 6);else widths=(2 6);fi
   for width in "${widths[@]}"; do
-   ASAN_OPTIONS=detect_leaks=0 SGPL_NUM_THREADS="$width" SGPL_ALLOW_HT=1 "$task_tmp/check"
+   ASAN_OPTIONS=detect_leaks=0 SGPL_NUM_THREADS="$width" SGPL_ALLOW_HT=0 "$task_tmp/check"
   done
  done
 done

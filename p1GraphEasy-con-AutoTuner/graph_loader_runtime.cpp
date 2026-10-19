@@ -27,6 +27,7 @@ static int omp_get_thread_num() { return 0; }
 
 #include "roaring_bitmap.h"
 #include "autotuner_runtime.h"
+#include "graph_storage_layout.h"
 
 static void pause_idle_loader_team() {
 #if defined(_OPENMP) && defined(__GNUC__) && __GNUC__ >= 9
@@ -37,17 +38,7 @@ static void pause_idle_loader_team() {
 #endif
 }
 
-struct Graph {
-    int64_t n;
-    int64_t m;
-    int64_t *row_ptr;
-    int32_t *col_idx;
-    int32_t *weights;
-    /* Appended after the original five fields on purpose: autotuner_runtime.c
-     * reads row_ptr/col_idx/weights at hard-coded byte offsets 16/24/32, and
-     * appending leaves those offsets unchanged. */
-    int32_t directed;
-};
+using Graph = SgplGraphStorage;
 
 struct GraphExtra {
     int32_t *edge_pairs = nullptr;
@@ -444,7 +435,7 @@ static Graph *try_load_graph_cache(const std::string &path,
         return nullptr;
     }
 
-    Graph *graph = static_cast<Graph *>(malloc(sizeof(Graph)));
+    Graph *graph = static_cast<Graph *>(calloc(1, sizeof(Graph)));
     if (!graph) {
         roaring_bitmap_free(extra.node_bitmap);
         roaring_bitmap_free(extra.edge_bitmap);
@@ -883,7 +874,7 @@ static Graph *build_parallel_csr(const std::vector<ParsedEdge> &edges,
         }
     }
 
-    Graph *graph = static_cast<Graph *>(malloc(sizeof(Graph)));
+    Graph *graph = static_cast<Graph *>(calloc(1, sizeof(Graph)));
     if (!graph)
         abort();
     graph->n = n;

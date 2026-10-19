@@ -7,7 +7,7 @@ def constant(path,name):
   if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id==name for t in node.targets):return ast.literal_eval(node.value)
  raise ValueError(name)
 
-def instrument(R,v):
+def build_profile_runtime(R,v):
  d=R.ROOT/'versions'/v;src=d/'src';out=d/'profile_src'
  if (d/'profile_build.json').exists():return
  out.mkdir(exist_ok=True)
@@ -43,19 +43,25 @@ def instrument(R,v):
  text=text.replace('    atomic_fetch_add(waiters, 1);\n#ifdef __linux__','    dw.park=sgpl_now_ns();\n    atomic_fetch_add(waiters, 1);\n#ifdef __linux__',1);p.write_text(text)
  for name in ['autotuner_runtime','parallel_runtime']:
   R.checked(['gcc','-O3','-g','-fopenmp','-pthread','-c',name+'.c','-o',name+'.o'],out,out/(name+'.build.log'))
- for a in R.ALGS:
-  for r in R.M.ROWS:
-   c=R.case(v,a,r)
-   for mode in ['timed','validate']:
-    libs=[out/(n+'.o') if n in ['autotuner_runtime','parallel_runtime'] else d/(n+'.o') for n in R.OBJECTS]
-    R.checked(['g++','-O3','-fopenmp','-no-pie',c/(mode+'.o'),*libs,R.ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',c/('profile_validate' if mode=='validate' else 'profile')],c,c/(mode+'.profile_link.log'))
  R.save(d/'profile_build.json',{'private':True,'instrumented':True,'template_hash':R.sha(templates)})
+
+def instrument(R,v,selected=None):
+ build_profile_runtime(R,v)
+ d=R.ROOT/'versions'/v;out=d/'profile_src'
+ selected=selected or [{'algorithm':a,'graph':r['graph']} for a in R.ALGS for r in R.M.ROWS]
+ for x in selected:
+  r=next(r for r in R.M.ROWS if r['graph']==x['graph']);c=R.case(v,x['algorithm'],r)
+  for mode in ['timed','validate']:
+   target=c/('profile_validate' if mode=='validate' else 'profile')
+   if target.exists():continue
+   libs=[out/(n+'.o') if n in ['autotuner_runtime','parallel_runtime'] else d/(n+'.o') for n in R.OBJECTS]
+   R.checked(['g++','-O3','-fopenmp','-no-pie',c/(mode+'.o'),*libs,R.ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',target],c,c/(mode+'.profile_link.log'))
 
 def run_profiles(R,args):
  versions=[args.version]+([args.baseline] if args.baseline else [])
  selected=R.read(args.cases) if args.cases else [{'algorithm':a,'graph':r['graph']} for a in R.ALGS for r in R.M.ROWS]
  if args.mode=='phases':
-  for v in versions:instrument(R,v)
+  for v in versions:instrument(R,v,selected)
  records=[];extra=json.loads(args.extra)
  for a in R.ALGS:
   cases=[x for x in selected if x['algorithm']==a]

@@ -14,7 +14,7 @@ selected=R.read(args.cases or R.OUT/(args.version+'_diagnostic_cases.json'))
 assert selected,'Run the primary matrix first, or provide an explicit diagnostic case list'
 disable=json.loads(args.disable);assert disable
 with R.locked('diagnose'):
- for v in [args.version,args.baseline]:R.verify_fingerprint(v);instrument(R,v)
+ for v in [args.version,args.baseline]:R.verify_fingerprint(v);instrument(R,v,selected)
  for workers in [1,2,6]:
   for extra in ['{}',json.dumps(disable)]:
    options=SimpleNamespace(version=args.version,baseline=args.baseline,mode='phases',cases=None,workers=workers,extra=extra)

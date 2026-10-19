@@ -400,9 +400,9 @@ def contracts(v):
     checked([exe,fixture],src,d/'contracts'/(name+'.'+mode+'.log'),e)
   else:
    for workers in [1,2,6]:
-    for legacy,private_wake in [('0','0'),('0','1'),('1','0')]:
-     e=M.env(workers=workers);e.update(SGPL_POOL_LEGACY=legacy,SGPL_POOL_PRIVATE_WAKE=private_wake)
-     checked([exe],src,d/'contracts'/(name+'.w'+str(workers)+'.legacy'+legacy+'.private'+private_wake+'.log'),e,120)
+    for legacy,private_wake,shared_wake in [('0','0','0'),('0','1','0'),('1','0','0'),('0','0','1')]:
+     e=M.env(workers=workers);e.update(SGPL_POOL_LEGACY=legacy,SGPL_POOL_PRIVATE_WAKE=private_wake,SGPL_POOL_SHARED_WAKE=shared_wake)
+     checked([exe],src,d/'contracts'/(name+'.w'+str(workers)+'.legacy'+legacy+'.private'+private_wake+'.shared'+shared_wake+'.log'),e,120)
   records.append({'test':name,'passed':True,'source_sha256':sha(testsrc)})
  save(OUT/(v+'_contracts.json'),records)
  if v!='B0':

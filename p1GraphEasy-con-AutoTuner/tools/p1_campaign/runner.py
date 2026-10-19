@@ -23,7 +23,14 @@ resource.setrlimit(resource.RLIMIT_STACK,(resource.RLIM_INFINITY,resource.RLIM_I
 resource.setrlimit(resource.RLIMIT_CORE,(0,0))
 
 def save(p,x):
- p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);t=p.with_suffix(p.suffix+'.'+str(os.getpid())+'.'+str(threading.get_ident())+'.tmp');t.write_text(json.dumps(x,indent=2));t.replace(p)
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);t=p.with_suffix(p.suffix+'.'+str(os.getpid())+'.'+str(threading.get_ident())+'.tmp');t.write_text(json.dumps(x,indent=2))
+ # Windows readers can briefly hold a DrvFS destination without delete sharing.
+ # Preserve atomic replacement; retry the rename rather than truncate evidence.
+ for retry in range(40):
+  try:t.replace(p);return
+  except PermissionError:
+   if retry==39:raise
+   time.sleep(.05)
 def read(p,default=None):return json.loads(Path(p).read_text()) if Path(p).exists() else default
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def key(x):return hashlib.sha256(json.dumps(x,sort_keys=True).encode()).hexdigest()

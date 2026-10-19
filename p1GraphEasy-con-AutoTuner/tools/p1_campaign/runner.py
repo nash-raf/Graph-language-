@@ -71,7 +71,7 @@ def locked(command):
  with p.open('a+') as f:
   try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
   except BlockingIOError:raise RuntimeError('Another build, validation, benchmark or profile holds the experiment lock')
-  state(command=command,pid=os.getpid(),started=time.time(),active=True,failures=0,error=None)
+  save(OUT/'status.json',dict(command=command,pid=os.getpid(),started=time.time(),updated=time.time(),active=True,failures=0,error=None,root=str(ROOT),output=str(OUT)))
   try:yield
   except BaseException as e:
    state(active=False,error=(type(e).__name__+': '+str(e))[:3000]);raise
@@ -140,6 +140,20 @@ def build(v):
  rows=M.ROWS
  failures=[];completed=set(read(d/'program_builds.json',[]))
  compiler_id=sha(d/'GraphProgram')
+ # Build directories alter DWARF and GNU build IDs even when compiler machine
+ # code is unchanged. Cache programs only when the entire stripped compiler
+ # image matches, retaining original executable hashes for provenance.
+ def compiler_image(path):
+  image=path.with_name('GraphProgram.codegen-image')
+  if not image.exists():checked(['objcopy','--strip-debug','--remove-section=.note.gnu.build-id','--remove-section=.comment',path,image],path.parent,path.parent/'codegen-image.log')
+  return sha(image)
+ image_id=compiler_image(d/'GraphProgram');aliases=read(ROOT/'compiler_cache_aliases.json',{})
+ if image_id not in aliases:
+  for prior in sorted((ROOT/'versions').glob('*/build.json')):
+   prior_compiler=prior.parent/'GraphProgram'
+   if compiler_image(prior_compiler)==image_id:aliases[image_id]=sha(prior_compiler);break
+  aliases.setdefault(image_id,compiler_id);save(ROOT/'compiler_cache_aliases.json',aliases)
+ cache_compiler_id=aliases[image_id]
  program_cache=ROOT/'program_cache';program_cache.mkdir(exist_ok=True)
  for alg in ALGS:
   for r in rows:
@@ -151,7 +165,7 @@ def build(v):
    try:
     for mode in ['timed','validate']:
      text=M.make_source(alg,r,mode=='validate');source=p/(mode+'.graph');source.write_text(text)
-     k=key([compiler_id,text]);obj=program_cache/(k+'.o')
+     k=key([cache_compiler_id,text]);obj=program_cache/(k+'.o')
      if not obj.exists():
       e=M.env();e.update(FORCE_CPU='1',GRAPH_FRONTIER_STATS='1',SGPL_RECORD_LIVENESS_STATS='1')
       checked([d/'GraphProgram','--ir-backend=cpu',source],p,p/(mode+'.compile.log'),e,1200)
@@ -163,7 +177,7 @@ def build(v):
    except Exception as ex:
     failures.append({'case':ck,'error':repr(ex)});save(d/'build_failures.json',failures);raise
  fingerprints={str(p.relative_to(d)):sha(p) for r in rows for a in ALGS for p in [case(v,a,r)/'timed',case(v,a,r)/'validate']}
- save(d/'build.json',{'identity':identity,'compiler':compiler_id,'executables':fingerprints,'fingerprint':key(fingerprints)})
+ save(d/'build.json',{'identity':identity,'compiler':compiler_id,'compiler_codegen_image':image_id,'program_cache_compiler':cache_compiler_id,'executables':fingerprints,'fingerprint':key(fingerprints)})
  progress(stage='build_complete',version=v,completed=244)
 
 def case(v,a,r):return ROOT/'versions'/v/'cases'/a/r['graph'].removesuffix('.edges')
@@ -330,9 +344,10 @@ def benchmark(v,baseline=None,confirm=False,block=0):
   save(OUT/(v+'_decision.json'),result)
 
 def contracts(v):
- d=ROOT/'versions'/v;src=d/'src';td=src/'test';records=[]
+ d=ROOT/'versions'/v;src=d/'src';td=src/'test';records=[x for x in read(OUT/(v+'_contracts.json'),[]) if x.get('passed')]
  tests=['run_worker_pool_tests.sh','run_array_frontier_exec_tests.sh','run_array_append_epoch_tests.sh','run_general_frontier_optimization_tests.sh']
  for name in tests:
+  if any(x['test']==name for x in records):continue
   p=td/name
   if not p.exists():continue
   t=p.read_text();t=re.sub(r'for (workers|threads|width) in [0-9 ]+;\s*do',lambda m:'for '+m[1]+' in 1 2 6; do',t)
@@ -349,6 +364,7 @@ def contracts(v):
  # The same contracts are exercised with the version's frozen runtime objects.
  for name in ['graph_storage_layout_test','pool_participation_test']:
   ext='.cpp' if name.startswith('graph_') else '.c';testsrc=REPO/'test'/(name+ext)
+  if any(x['test']==name and x.get('source_sha256')==sha(testsrc) for x in records):continue
   obj=d/'contracts'/(name+'.o');exe=d/'contracts'/name
   compiler='g++' if ext=='.cpp' else 'gcc'
   checked([compiler,'-O2','-I',src,'-c',testsrc,'-o',obj],src,d/'contracts'/(name+'.compile.log'))
@@ -374,9 +390,15 @@ def contracts(v):
   checked(['llvm-dis-20',literal/'pre.bc','-o',literal/'pre.ll'],literal,literal/'disassemble.log')
   ir=(literal/'pre.ll').read_text()
   assert re.search(r'%struct.Graph[^=]*= type \{ i64, i64, ptr, ptr, ptr, i32, ptr, ptr \}',ir),'LLVM Graph ABI is incomplete'
-  assert re.search(r'call ptr @malloc\(i64 64\)',ir) and re.search(r'@llvm.memset[^\n]*i64 64',ir),'LLVM Graph storage must be allocated and zeroed through byte 63'
+  zeroed=re.search(r'@llvm.memset[^\n]*i64 64',ir)
+  # The current PDG pipeline lowers memset to a byte loop before this dump.
+  if not zeroed:
+   functions=re.findall(r'define internal void @[^\n]+\(ptr %graph_raw\) \{(.*?)\n\}',ir,re.S)
+   zeroed=any('store i8 0' in f and re.search(r'icmp ult i64 [^\n]+, 64',f) for f in functions)
+  assert re.search(r'call ptr @malloc\(i64 64\)',ir) and zeroed,'LLVM Graph storage must be allocated and zeroed through byte 63'
   checked(['g++','-O3','-fopenmp','-no-pie',literal/'program.o',*[d/(n+'.o') for n in OBJECTS],ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',literal/'check'],literal,literal/'link.log')
   checked([literal/'check'],literal,literal/'run.log',M.env())
+  # G.edges visits the two logical undirected edges, not four CSR arcs.
   assert re.search(r'GRAPH_ABI_LITERAL\s+2\b',(literal/'run.log').read_text())
   records.append({'test':'graph_storage_literal_ir_and_execution','passed':True})
   save(OUT/(v+'_contracts.json'),records)
@@ -412,7 +434,8 @@ def main():
   raw=read(OUT/'status.json',{});allowed=['command','pid','started','active','failures','updated','stage','version','algorithm','completed','total','monitor_interval_seconds','elapsed_seconds','block_seconds','expected_completion_unix']
   x={k:raw[k] for k in allowed if k in raw};x['wall_elapsed']=time.time()-raw.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT)
   if raw.get('error'):x['error']=str(raw['error'])[:1000]
-  x['logs']=str(ROOT/'runs'/str(raw.get('version','')))
+  version=str(raw.get('version',''))
+  x['logs']=str(ROOT/'versions'/version/('build_logs' if raw.get('command')=='build' else 'contracts')) if raw.get('command') in ['build','contracts'] else str(ROOT/'runs'/version)
   print(json.dumps(x,indent=2));return
  if args.command=='report':report();return
  global M;M=bootstrap()

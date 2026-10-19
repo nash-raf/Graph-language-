@@ -4,8 +4,9 @@ Only promotion-worthy primary results trigger the expensive full confirmation.
 Rejected/inconclusive candidates retain all data and get diagnostic case lists.
 """
 from pathlib import Path
-import argparse,json,os,subprocess,sys
+import argparse,json,os,subprocess,sys,time
 HERE=Path(__file__).resolve().parent
+os.sched_setaffinity(0,[0,2,4,6,8,10])
 OUT=Path(os.environ.get('P1_CAMPAIGN_OUTPUT','/mnt/c/p1campaign-results'))
 def run(*args):
  log=OUT/(opts.version+'_'+args[0]+('_confirmation' if '--confirmation' in args else '')+'.console.log')
@@ -13,7 +14,9 @@ def run(*args):
   subprocess.run([sys.executable,str(HERE/'runner.py'),*args],stdout=f,stderr=subprocess.STDOUT,check=True)
  print(json.dumps({'completed_command':args[0],'version':opts.version,'log':str(log)}),flush=True)
 def load(p):return json.loads(p.read_text())
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');p.add_argument('--baseline',required=True);opts=p.parse_args();OUT.mkdir(exist_ok=True)
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');p.add_argument('--baseline',required=True);p.add_argument('--wait-baseline',action='store_true');opts=p.parse_args();OUT.mkdir(exist_ok=True)
+if opts.wait_baseline:
+ while load(OUT/'campaign_state.json').get('last_accepted_version')!=opts.baseline:time.sleep(5)
 for command in ['build','contracts','validate']:run(command,opts.version)
 run('benchmark',opts.version,'--baseline',opts.baseline)
 primary=load(OUT/(opts.version+'_primary_summary.json'));g=primary['aggregate']['all']['overall']

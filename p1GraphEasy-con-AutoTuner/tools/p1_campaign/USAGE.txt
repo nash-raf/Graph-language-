@@ -75,3 +75,28 @@ Archive a rejected native patch and its exact source/executable provenance:
   python archive_attempt.py VERSION --baseline ACCEPTED
 Detailed diagnosis console output can be redirected with --console-log PATH.
 Add causal components with --additional '{"label":{"FEATURE_CONTROL":"1"}}'.
+
+The validate command now checks the full 244-case matrix separately at physical
+widths 1, 2 and 6, retaining 732 results in VERSION_validation_workers.json.
+VERSION_validation.json remains the canonical 244-case six-worker gate input.
+The resume command verifies frozen inputs/executables, finishes build/contracts/
+validation, then resumes unfinished benchmark records. Native source changes
+require a new attempt version. Tooling-only repairs preserve native identities.
+
+Run the complete rejection investigation through the common command:
+  python runner.py diagnose VERSION --baseline ACCEPTED --disable '{"FEATURE_DISABLE":"1"}'
+Use profile for an individual phase/PMU/futex/scheduler method and optional case
+selection. Repeated primary/confirmation blocks retain separate summaries.
+
+After a passing gate, commit the trial tree and run:
+  python promote.py VERSION
+This verifies the decision and fingerprints, squashes the final trial delta onto
+the accepted branch, verifies its native identity, then records a tag/checkpoint.
+
+Finalize only after all four recommendations have a recorded outcome:
+  python freeze_protocol.py
+  python final_comparison.py --accepted VERSION
+  python write_final_report.py
+The last command requires a complete valid final A/A block and never overwrites
+an issued final report. It includes whole-process and internal comparisons,
+historical and equal-double PageRank, main50 and duplicate-content sensitivity.

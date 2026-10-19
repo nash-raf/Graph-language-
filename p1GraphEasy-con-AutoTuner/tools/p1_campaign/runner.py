@@ -47,6 +47,7 @@ def git(*args):
  return subprocess.check_output(['/mnt/c/Program Files/Git/cmd/git.exe','-C',win,*args],text=True).strip()
 _status_cache=None
 _status_lock=threading.Lock()
+_experiment_fd=None
 def state(**kw):
  global _status_cache
  with _status_lock:
@@ -84,21 +85,23 @@ def bootstrap():
 
 @contextlib.contextmanager
 def locked(command):
- global _status_cache
+ global _status_cache,_experiment_fd
  p=ROOT/'experiment.lock'
  with p.open('a+') as f:
   try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
   except BlockingIOError:raise RuntimeError('Another build, validation, benchmark or profile holds the experiment lock')
+  _experiment_fd=f.fileno()
   _status_cache=dict(command=command,pid=os.getpid(),started=time.time(),updated=time.time(),active=True,failures=0,error=None,root=str(ROOT),output=str(OUT))
   save(OUT/'status.json',_status_cache)
   try:yield
   except BaseException as e:
    state(active=False,error=(type(e).__name__+': '+str(e))[:3000]);raise
-  finally:state(active=False)
+  finally:
+   state(active=False);_experiment_fd=None
 
 def checked(cmd,cwd,log,env=None,timeout=1800):
  Path(log).parent.mkdir(parents=True,exist_ok=True)
- with open(log,'w') as f:p=subprocess.run(list(map(str,cmd)),cwd=cwd,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=timeout)
+ with open(log,'w') as f:p=subprocess.run(list(map(str,cmd)),cwd=cwd,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=timeout,pass_fds=(_experiment_fd,) if _experiment_fd is not None else ())
  if p.returncode:raise RuntimeError(str(log)+': '+Path(log).read_text()[-2500:])
 
 def local_deps(src,base,seen=None):
@@ -120,7 +123,10 @@ def freeze(v):
  identity['source_hash']=key(contents)
  old=read(d/'identity.json')
  if old:
-  assert old['source_hash']==identity['source_hash'] and old['diff']==identity['diff'],'Version name already belongs to different source; choose a new attempt name'
+  # Tooling-only repairs must not relabel or rebuild a frozen native version.
+  # Every compiler/runtime input is covered by source_hash; retain its original
+  # commit/diff provenance even when current harness files have changed.
+  assert old['source_hash']==identity['source_hash'],'Version name already belongs to different native source; choose a new attempt name'
   identity=old
  else:
   src.mkdir(exist_ok=True)
@@ -213,6 +219,14 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
  d=ROOT/'runs'/attempt/phase/a/r['graph'].removesuffix('.edges');d.mkdir(parents=True,exist_ok=True)
  base=d/tag;stamp=base.with_suffix('.stamp.json');record=base.with_suffix('.record.json')
  if record.exists():return read(record)
+ # A controller can die after its child wrote output but before the atomic
+ # record commit. Keep those incomplete files; resume into a fresh observation.
+ partial=list(d.glob(tag+'.*'))
+ if partial:
+  suffix='.incomplete_'+str(time.time_ns());archived=[]
+  for path in partial:
+   target=path.with_name(tag+suffix+path.name[len(tag):]);path.rename(target);archived.append(str(target))
+  journal(OUT/'interrupted_observations.jsonl',dict(attempt=attempt,phase=phase,version=v,algorithm=a,graph=r['graph'],repeat=rep,workers=workers,reason='output existed without a committed measurement record',preserved=archived,resumed=time.time()))
  validate=phase.startswith('validate')
  cmd,e,cwd=binary_cmd(v,a,r,validate,workers,base.with_suffix('.values'))
  if executable_override:cmd[0]=str(executable_override)
@@ -228,7 +242,7 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
  os.sched_setaffinity(0,CPUS[:workers]);start=time.time()
  try:
   with base.with_suffix('.out').open('w') as f,base.with_suffix('.err').open('w') as g:
-   try:p=subprocess.run([str(ROOT/'walltime'),str(stamp),*cmd],cwd=cwd,env=e,stdout=f,stderr=g,timeout=190)
+   try:p=subprocess.run([str(ROOT/'walltime'),str(stamp),*cmd],cwd=cwd,env=e,stdout=f,stderr=g,timeout=190,pass_fds=(_experiment_fd,) if _experiment_fd is not None else ())
    except subprocess.TimeoutExpired:
     x=dict(version=v,label=name,algorithm=a,graph=r['graph'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,base=str(base),command=cmd,block=repeat_block,error='outer_timeout_190_seconds',seconds=None)
     save(record,x);journal(OUT/(attempt+'_measurements.jsonl'),x);return x
@@ -267,13 +281,16 @@ def verify_inputs():
  for name,digest in manifest['graptor'].items():assert sha(ROOT/'graptor'/name)==digest,'Pinned Graptor changed: '+name
 
 def validate_version(v):
- verify_inputs();verify_fingerprint(v);records=[]
- for a in ALGS:
-  for i,r in enumerate(M.ROWS):
-   x=invoke(v,'validate',v,a,r,0);records.append(x)
-   progress(stage='validate',version=v,algorithm=a,completed=i+1,total=61,failures=sum('error' in t for t in records))
+ verify_inputs();verify_fingerprint(v);records=[];sensitivity=[]
+ for workers in [1,2,6]:
+  for a in ALGS:
+   for i,r in enumerate(M.ROWS):
+    x=invoke(v,'validate',v,a,r,0,workers=workers);sensitivity.append(x)
+    if workers==6:records.append(x)
+    progress(stage='validate_w'+str(workers),version=v,algorithm=a,completed=i+1,total=61,failures=sum('error' in t for t in sensitivity))
+ save(OUT/(v+'_validation_workers.json'),sensitivity)
  save(OUT/(v+'_validation.json'),records)
- assert all('validation' in x and not x.get('error') for x in records),'Correctness failure; no acceptance timings permitted'
+ assert len(sensitivity)==732 and all('validation' in x and not x.get('error') for x in sensitivity),'Correctness failure; no acceptance timings permitted'
  if v.startswith('B0'):
   controls=[]
   for a in ALGS:
@@ -302,7 +319,7 @@ def aggregate(records,phase,base='baseline',candidate='candidate'):
     if a!='overall' and a!=alg:continue
     for r in M.ROWS:
      if cohort=='main50' and r['cohort']!='main50':continue
-     semantic=(alg,r['original_sha256'],r['source'],r['p1_directed'],sha(r['weights_i32']) if alg=='sssp' else '')
+     semantic=(alg,r['original_sha256'],r['source'] if alg in ['bfs','sssp'] else None,r['p1_directed'],sha(r['weights_i32']) if alg=='sssp' else '')
      if cohort=='deduplicated' and semantic in seen:continue
      seen.add(semantic)
      b=samples(records,phase,base,alg,r['graph']);c=samples(records,phase,candidate,alg,r['graph'])
@@ -385,6 +402,7 @@ def benchmark(v,baseline=None,confirm=False,block=0):
   result['aa_tests']=aa_control_tests(records,phase,repetitions=reps)
   result['aa_invalid']=any(x['regression'] for x in result['aa_tests'])
   save(OUT/(v+'_'+phase+'_summary.json'),result)
+  save(OUT/(v+'_'+phase+'_block'+str(block)+'_summary.json'),result)
  if confirm:
   if result['failures']:
    result.update(decision='reject',reason='incomplete_or_failed_confirmation',promotable=False)
@@ -397,6 +415,7 @@ def benchmark(v,baseline=None,confirm=False,block=0):
   result['primary_confirmed_regressions']=primary_result.get('confirmed_regressions',[])
   result['promotable']=not result['failures'] and not result['aa_invalid'] and not primary_result.get('aa_invalid') and not result['confirmed_regressions'] and not result['primary_confirmed_regressions'] and all(x[k]>1.01 for x in [g,primary] for k in ['speedup_mean','speedup_median'])
   result['decision']='invalid_aa' if result['aa_invalid'] else 'accept' if result['promotable'] else 'reject'
+  save(OUT/(v+'_'+phase+'_block'+str(block)+'_summary.json'),result)
   save(OUT/(v+'_decision.json'),result)
 
 def contracts(v):
@@ -406,7 +425,9 @@ def contracts(v):
   if any(x['test']==name for x in records):continue
   p=td/name
   if not p.exists():continue
-  t=p.read_text();t=re.sub(r'for (workers|threads|width) in [0-9 ]+;\s*do',lambda m:'for '+m[1]+' in 1 2 6; do',t)
+  t=p.read_text()
+  if name not in ['run_direct_traversal_tests.sh','run_fullgraph_tests.sh']:
+   t=re.sub(r'for (workers|threads|width) in [0-9 ]+;\s*do',lambda m:'for '+m[1]+' in 1 2 6; do',t)
   t=t.replace('SGPL_ALLOW_HT=1','SGPL_ALLOW_HT=0').replace('widths=(1 4 32)','widths=(1 2 6)').replace('widths=(8)','widths=(2 6)')
   if name=='run_array_frontier_exec_tests.sh':t=t.replace('for workers in 1 2 6; do\n  for mode','for workers in 2 6; do\n  for mode')
   p.write_text(t)
@@ -485,7 +506,7 @@ def report():
  print(json.dumps({k:{'decision':v['decision'],'aggregate':v['aggregate']['all']['overall'],'confirmed_regressions':len(v.get('confirmed_regressions',[]))} for k,v in results.items()},indent=2))
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','build','validate','benchmark','contracts','profile','diagnose','status','resume','report']);p.add_argument('version',nargs='?');p.add_argument('--baseline');p.add_argument('--confirmation',action='store_true');p.add_argument('--repeat-block',type=int,default=0);p.add_argument('--mode',choices=['phases','perf','futex','sched'],default='phases');p.add_argument('--cases',help='JSON list of {algorithm,graph}; default full 244-case matrix');p.add_argument('--workers',type=int,choices=[1,2,6],default=6);p.add_argument('--extra',default='{}');p.add_argument('--exact-floats',action='store_true');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','build','validate','benchmark','contracts','profile','diagnose','status','resume','report']);p.add_argument('version',nargs='?');p.add_argument('--baseline');p.add_argument('--confirmation',action='store_true');p.add_argument('--repeat-block',type=int,default=0);p.add_argument('--mode',choices=['phases','perf','futex','sched'],default='phases');p.add_argument('--cases',help='JSON list of {algorithm,graph}; default full 244-case matrix');p.add_argument('--workers',type=int,choices=[1,2,6],default=6);p.add_argument('--extra',default='{}');p.add_argument('--exact-floats',action='store_true');p.add_argument('--disable',help='Feature-disable JSON for the causal diagnosis command');p.add_argument('--additional',default='{}');args=p.parse_args()
  if args.command=='status':
   raw=read(OUT/'status.json',{});allowed=['command','pid','started','active','failures','updated','stage','version','algorithm','completed','total','monitor_interval_seconds','elapsed_seconds','block_seconds','expected_completion_unix']
   x={k:raw[k] for k in allowed if k in raw};x['wall_elapsed']=time.time()-raw.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT)
@@ -494,6 +515,11 @@ def main():
   x['logs']=str(ROOT/'versions'/version/('build_logs' if raw.get('command')=='build' else 'contracts')) if raw.get('command') in ['build','contracts'] else str(ROOT/'runs'/version)
   print(json.dumps(x,indent=2));return
  if args.command=='report':report();return
+ if args.command=='diagnose':
+  assert args.version and args.baseline and args.disable,'Diagnosis requires version, --baseline and --disable JSON'
+  cmd=[sys.executable,HERE/'run_diagnosis.py',args.version,'--baseline',args.baseline,'--disable',args.disable,'--additional',args.additional]
+  if args.cases:cmd+=['--cases',args.cases]
+  subprocess.run(list(map(str,cmd)),check=True);return
  global M;M=bootstrap()
  with locked(args.command):
   if args.command=='init':init()
@@ -505,8 +531,20 @@ def main():
     assert args.baseline,'Exact floating-point validation needs the accepted baseline'
     from exact_validation import run
     run(sys.modules[__name__],args.version,args.baseline)
-  elif args.command in ['benchmark','resume']:benchmark(args.version,args.baseline,args.confirmation,args.repeat_block)
-  elif args.command in ['profile','diagnose']:
+  elif args.command=='resume':
+   assert args.version,'Resume needs the immutable attempt version'
+   verify_inputs()
+   if not (ROOT/'versions'/args.version/'build.json').exists():build(args.version)
+   else:verify_fingerprint(args.version)
+   contracts(args.version)
+   validate_version(args.version)
+   if args.exact_floats:
+    assert args.baseline,'Exact validation needs the accepted baseline'
+    from exact_validation import run
+    run(sys.modules[__name__],args.version,args.baseline)
+   benchmark(args.version,args.baseline,args.confirmation,args.repeat_block)
+  elif args.command=='benchmark':benchmark(args.version,args.baseline,args.confirmation,args.repeat_block)
+  elif args.command=='profile':
    from profile_support import run_profiles
    run_profiles(sys.modules[__name__],args)
 if __name__=='__main__':main()

@@ -21,7 +21,25 @@ def build_profile_runtime(R,v):
  for p in src.iterdir():
   if p.suffix in ['.c','.h','.inc']:shutil.copy2(p,out/p.name)
  t=R.read(templates)
- (out/'diag.h').write_text(t['phases'])
+ phases=t['phases'].replace('nr_ns[8],nr_calls[8]','nr_ns[12],nr_calls[12]')
+ phases=phases.replace('pthread_equal(nr_main,pthread_self())?nr_now():0','(id>=8||pthread_equal(nr_main,pthread_self()))?nr_now():0')
+ phases=phases.replace('nr_ns[p->id]+=nr_now()-p->start;++nr_calls[p->id];','__atomic_fetch_add(&nr_ns[p->id],nr_now()-p->start,__ATOMIC_RELAXED);__atomic_fetch_add(&nr_calls[p->id],1,__ATOMIC_RELAXED);')
+ phases=phases.replace('"finish"};','"finish","topology_index","descriptors","incoming_index","source_map"};').replace('i<8','i<12')
+ (out/'diag.h').write_text(phases)
+ for name,functions in [('array_direct_runtime.inc',[('sgpl_direct_build_index',8),('sgpl_direct_prepare',9)]),('fullgraph_runtime.inc',[('sgpl_incoming_build',10),('sgpl_fullgraph_prepare_map',11)])]:
+  p=out/name
+  if not p.exists():continue
+  text=p.read_text()
+  for fn,i in functions:
+   text,n=re.subn(r'(\b'+fn+r'\([^;]*?\)\s*\{)',lambda m:m[1]+f' NR({i});',text,count=1);assert n==1,fn
+  p.write_text(text)
+ p=out/'direct_parallel_prepare.inc'
+ if p.exists():
+  text=p.read_text()
+  for fn,i in [('sgpl_direct_count_chunks',1),('sgpl_direct_fill_chunks',2)]:
+   needle='sgpl_run_preparation('+fn+',&job,width);';assert needle in text
+   text=text.replace(needle,'{ NR('+str(i)+'); '+needle+' }',1)
+  p.write_text(text)
  p=out/'autotuner_runtime.c';text=p.read_text();at=text.index('/* Forward declaring external Roaring C API');text=text[:at]+'#include "diag.h"\n'+text[at:]
  for fn,i in [('sgpl_exec_step_dispatch_body',4),('sgpl_exec_spatial_begin',6),('sgpl_exec_spatial_finish',7)]:
   text,n=re.subn(r'(\b'+fn+r'\([^;]*?\)\s*\{)',lambda m:m[1]+f' NR({i});',text,count=1);assert n==1,fn
@@ -33,6 +51,8 @@ def build_profile_runtime(R,v):
  work=t['work'].replace('static void wv_leave(WScope *s){','static unsigned long long wv_payload_bytes,wv_metadata_bytes;\nstatic void wv_leave(WScope *s){')
  work=work.replace('sgpl_exec_ctx*c=s->c;AutoGraphMeta*m=s->m;','sgpl_exec_ctx*c=s->c;AutoGraphMeta*m=s->m;\n int format=c->array_compact_records;size_t stride=format==4?16:format==3?12:format==2?20:format?16:12;\n wv_payload_bytes+=(unsigned long long)c->gpu_record_count*stride;\n if(!format)wv_metadata_bytes+=(unsigned long long)c->gpu_record_count*(16+(c->array_record_edges?8:0));')
  work=work.replace('fclose(f);','fclose(f);\n char bytes_path[4096];if(snprintf(bytes_path,sizeof bytes_path,"%s.bytes.json",p)>=(int)sizeof bytes_path)return;\n f=fopen(bytes_path,"w");if(f){fprintf(f,"{\\\"record_payload_bytes\\\":%llu,\\\"record_metadata_bytes\\\":%llu}\\n",wv_payload_bytes,wv_metadata_bytes);fclose(f);}')
+ if (out/'array_direct_runtime.inc').exists():
+  work=work.replace('wv_payload_bytes+=(unsigned long long)c->gpu_record_count*stride;', 'if(format==5){SgplDirectRound *r=sgpl_direct_round(c);wv_payload_bytes+=(unsigned long long)r->offsets[r->index->parts]*sizeof(SgplDirectDescriptor);wv_metadata_bytes+=((unsigned long long)r->index->parts+1)*16;}else wv_payload_bytes+=(unsigned long long)c->gpu_record_count*stride;')
  assert needle in text;text=text.replace(needle,work+'\n'+needle+' WScope ws __attribute__((cleanup(wv_leave)))={c,m};')
  p.write_text(text)
  p=out/'array_preparation_runtime.inc';text=p.read_text()

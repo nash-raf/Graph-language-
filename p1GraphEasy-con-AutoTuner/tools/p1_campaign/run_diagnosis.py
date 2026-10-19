@@ -32,7 +32,10 @@ with R.locked('diagnose'):
   cases=[x for x in selected if x['algorithm']==a]
   if not cases:continue
   start=time.time()
-  for x in cases:
+  signature=[cases,[1,2,6],20,disable,additional]
+  timing=R.read(R.OUT/'calibration.json',{}).get(R.key([a,'diagnostic_controls',signature]))
+  R.state(stage='diagnostic_controls',algorithm=a,completed=0,total=len(cases),block_started=start,expected_completion_unix=start+timing['seconds'] if timing else None)
+  for completed,x in enumerate(cases,1):
    row=next(r for r in R.M.ROWS if r['graph']==x['graph'])
    for workers in [1,2,6]:
     configs=[('baseline',args.baseline,{}),('candidate',args.version,{}),('disabled',args.version,disable),('aa',args.baseline,{})]+[(label,args.version,env) for label,env in additional.items()]
@@ -40,7 +43,8 @@ with R.locked('diagnose'):
     for rep in range(20):
      shift=rep%len(configs)
      for label,v,extra in configs[shift:]+configs[:shift]:records.append(R.invoke(args.version,'diagnostic_control',v,a,row,rep,label=label,workers=workers,extra=extra))
-  R.calibrate(a,'diagnostic_controls',[cases,[1,2,6],20,disable],start)
+   R.progress(stage='diagnostic_controls',algorithm=a,completed=completed,total=len(cases),elapsed_seconds=time.time()-start)
+  R.calibrate(a,'diagnostic_controls',signature,start)
  R.save(R.OUT/(args.version+'_diagnostic_controls.json'),records)
  summary=[]
  for x in selected:

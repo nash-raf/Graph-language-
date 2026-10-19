@@ -8,7 +8,9 @@ import argparse,json,statistics,sys,time
 from types import SimpleNamespace
 import runner as R
 from profile_support import run_profiles,instrument
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');p.add_argument('--baseline',required=True);p.add_argument('--disable',required=True);p.add_argument('--cases');p.add_argument('--additional',default='{}',help='JSON label-to-environment component controls');args=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');p.add_argument('--baseline',required=True);p.add_argument('--disable',required=True);p.add_argument('--cases');p.add_argument('--additional',default='{}',help='JSON label-to-environment component controls');p.add_argument('--console-log');args=p.parse_args()
+if args.console_log:
+ sys.stdout=open(args.console_log,'a',buffering=1);sys.stderr=sys.stdout
 R.M=R.bootstrap()
 selected=R.read(args.cases or R.OUT/(args.version+'_diagnostic_cases.json'))
 assert selected,'Run the primary matrix first, or provide an explicit diagnostic case list'

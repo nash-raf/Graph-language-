@@ -65,29 +65,60 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
   *out=first;return 0;
 }
 static int32_t sgpl_array_record_endpoint(const sgpl_exec_ctx *c,int64_t i,int key) {
-  return c->gpu_records[(c->array_compact_records==2?5:(c->array_compact_records?4:3))*i+key];
+  return c->gpu_records[(c->array_compact_records==4?4:(c->array_compact_records==3?3:(c->array_compact_records==2?5:(c->array_compact_records?4:3))))*i+key];
 }
 /* Device grouping retains its original triples/ordinal arrays. Expansion is
  * transactional: allocation failure leaves the CPU representation usable. */
 static int32_t sgpl_array_expand_records(sgpl_exec_ctx *c) {
   if(!c->array_compact_records)return 0;
-  int64_t n=c->gpu_record_count;
+  int64_t n=c->gpu_record_count,*prefix=NULL;
   if((uint64_t)n>SIZE_MAX/12)return SGPL_DAG_ERR_NOMEM;
+  int lean=c->array_compact_records==3||c->array_compact_records==4;
+  int packed=c->array_compact_records==2||c->array_compact_records==4;
+  int stride=lean?(packed?4:3):(packed?5:4);
   int32_t *records=malloc((size_t)(n?n:1)*12);
   int64_t *sources=malloc((size_t)(n?n:1)*8),*work=malloc((size_t)(n?n:1)*8);
-  int packed=c->array_compact_records==2,stride=packed?5:4;
   int64_t *edges=packed?malloc((size_t)(n?n:1)*8):NULL;
-  if(!records||!sources||!work||(packed&&!edges)) {free(records);free(sources);free(work);free(edges);return SGPL_DAG_ERR_NOMEM;}
+  int rc=SGPL_DAG_ERR_NOMEM;
+  if(!records||!sources||!work||(packed&&!edges))goto fail;
+  if(lean) {
+    /* Cold consumer boundary only. A certified context does not escape the
+     * compiler's immutable-CSR stage. Recover source occurrence from original
+     * work ordinals, retaining duplicate sources and zero-degree rows.
+     * Regular CPU execution allocates no per-source recovery metadata. */
+    AutoGraphMeta *m=find_meta(c->graph);
+    if(!m||!m->csr_row_ptr||c->array_source_count<0||
+       (uint64_t)c->array_source_count>=SIZE_MAX/8){rc=SGPL_DAG_ERR_INVALID;goto fail;}
+    prefix=malloc(((size_t)c->array_source_count+1)*8);if(!prefix)goto fail;
+    prefix[0]=0;
+    for(int64_t k=0;k<c->array_source_count;++k) {
+      int32_t u=c->array_sources[k];
+      if(u<0||u>=m->csr_n){rc=SGPL_DAG_ERR_INVALID;goto fail;}
+      int64_t first=m->csr_row_ptr[u],last=m->csr_row_ptr[u+1];
+      if(first<0||last<first||last>m->csr_m||last-first>INT32_MAX-prefix[k]){rc=SGPL_DAG_ERR_INVALID;goto fail;}
+      prefix[k+1]=prefix[k]+last-first;
+    }
+    if(prefix[c->array_source_count]!=c->array_work_count){rc=SGPL_DAG_ERR_INVALID;goto fail;}
+  }
   for(int64_t i=0;i<n;++i) {
     records[3*i]=c->gpu_records[stride*i];records[3*i+1]=c->gpu_records[stride*i+1];records[3*i+2]=0;
-    sources[i]=c->gpu_records[stride*i+2];work[i]=c->gpu_records[stride*i+3];
-    if(packed)edges[i]=c->gpu_records[stride*i+4];
+    work[i]=c->gpu_records[stride*i+(lean?2:3)];
+    if(lean) {
+      if(work[i]<0||work[i]>=c->array_work_count){rc=SGPL_DAG_ERR_INVALID;goto fail;}
+      int64_t lo=0,hi=c->array_source_count;
+      while(lo<hi){int64_t mid=lo+(hi-lo)/2;if(prefix[mid+1]<=work[i])lo=mid+1;else hi=mid;}
+      if(lo>=c->array_source_count||c->array_sources[lo]!=records[3*i]){rc=SGPL_DAG_ERR_INVALID;goto fail;}
+      sources[i]=lo;
+    } else sources[i]=c->gpu_records[stride*i+2];
+    if(packed)edges[i]=c->gpu_records[stride*i+(lean?3:4)];
   }
-  /* The expansion is now complete; preserve all other active leased buffers. */
+  free(prefix);
   sgpl_execution_scratch_detach(c);
   free(c->gpu_records);c->gpu_records=records;
   c->gpu_record_sources=sources;c->gpu_record_work=work;if(packed)c->array_record_edges=edges;c->array_compact_records=0;
   return 0;
+fail:
+  free(prefix);free(records);free(sources);free(work);free(edges);return rc;
 }
 #include "array_preparation_runtime.inc"
 static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
@@ -175,7 +206,7 @@ done:
 }
 extern int32_t graph_get_edge_weight(void *,int32_t,int32_t) __attribute__((weak));
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *c,void *graph,int32_t u,int32_t v) {
-  if(c&&c->graph==graph&&(c->array_record_edges||c->array_compact_records==2)&&c->array_edge_index>=0&&
+  if(c&&c->graph==graph&&(c->array_record_edges||c->array_compact_records==2||c->array_compact_records==4)&&c->array_edge_index>=0&&
       u>=0&&u<*(int64_t *)graph) {
     int64_t *rp=*(int64_t **)((char *)graph+16),index=c->array_edge_index;
     int32_t *ci=*(int32_t **)((char *)graph+24),*weights=*(int32_t **)((char *)graph+32);

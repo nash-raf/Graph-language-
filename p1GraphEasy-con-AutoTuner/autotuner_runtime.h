@@ -407,7 +407,8 @@ enum {
   SGPL_OP_ROUND_BEGIN = 1u << 5,
   SGPL_OP_ROUND_END = 1u << 6,
   SGPL_OP_COMBINE = 1u << 7,
-  SGPL_OP_SNAPSHOT = 1u << 8 /* RoundBegin -> Snapshot(A) -> CrossRead(A) */
+  SGPL_OP_SNAPSHOT = 1u << 8, /* RoundBegin -> Snapshot(A) -> CrossRead(A) */
+  SGPL_OP_NO_SOURCE_ORDINAL = 1u << 10 /* compiler proves no source-ordinal or source-gate access in pair body */
 };
 
 /* Resource classes. */
@@ -467,6 +468,9 @@ typedef struct sgpl_runtime_op {
                         int32_t partition_id);
   void (*combine)(void *state, struct sgpl_exec_ctx *);
 } sgpl_runtime_op;
+
+enum { SGPL_EXECUTION_ABI_VERSION = 1 };
+void autograph_execution_abi_check_v1(int32_t version, uint64_t context_bytes, uint64_t operation_bytes);
 
 /* A static witness selects grouping. CleanCut only materializes this rule. */
 enum sgpl_spatial_group {

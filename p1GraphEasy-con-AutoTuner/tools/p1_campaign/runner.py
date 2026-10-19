@@ -6,6 +6,10 @@ Build/validate before benchmark; status is read-only and does not take the lock.
 """
 from pathlib import Path
 import argparse,concurrent.futures,contextlib,fcntl,hashlib,importlib.util,json,math,os,re,resource,shlex,shutil,subprocess,sys,time,traceback,statistics,threading
+CPUS=[0,2,4,6,8,10]
+os.sched_setaffinity(0,CPUS)
+for library_threads in ['OPENBLAS_NUM_THREADS','MKL_NUM_THREADS','NUMEXPR_NUM_THREADS']:
+ os.environ[library_threads]='1'
 import numpy as np
 from scipy.stats import permutation_test
 
@@ -15,8 +19,9 @@ ROOT=Path(os.environ.get('P1_CAMPAIGN_ROOT',str(Path.home()/'p1_campaign_2026101
 OUT=Path(os.environ.get('P1_CAMPAIGN_OUTPUT','/mnt/c/p1campaign-results'))
 OLD=Path.home()/'p1_local_regressions_20261019'
 OLDOUT=Path('/mnt/d/sgpl/p1_local_regressions_20261019')
-ALGS=['bfs','sssp','cc','pagerank'];CPUS=[0,2,4,6,8,10]
+ALGS=['bfs','sssp','cc','pagerank']
 OBJECTS=['runtime','parallel_runtime','gpu_runtime','autotuner_runtime','graph_mutation_runtime','roaring_bitmap','graph_loader_runtime','graph_runtime','semiring_runtime']
+PROFILE_IDS={}
 ROOT.mkdir(exist_ok=True);OUT.mkdir(exist_ok=True)
 os.sched_setaffinity(0,CPUS)
 resource.setrlimit(resource.RLIMIT_STACK,(resource.RLIM_INFINITY,resource.RLIM_INFINITY))
@@ -202,16 +207,21 @@ def binary_cmd(v,a,r,validation,workers,output):
   return cmd,e,ROOT
  return [str(case(v,a,r)/('validate' if validation else 'timed'))],M.env(workers=workers),case(v,a,r)
 
-def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,repeat_block=0):
- name=label or v;tag=key([phase,name,a,r['graph'],rep,workers,extra,profile,repeat_block])[:20]
+def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,repeat_block=0,executable_override=None):
+ profile_identity=PROFILE_IDS.get(v) if profile=='phases' else None
+ name=label or v;tag=key([phase,name,a,r['graph'],rep,workers,extra,profile,repeat_block]+([profile_identity] if profile_identity else [])+([str(executable_override)] if executable_override else []))[:20]
  d=ROOT/'runs'/attempt/phase/a/r['graph'].removesuffix('.edges');d.mkdir(parents=True,exist_ok=True)
  base=d/tag;stamp=base.with_suffix('.stamp.json');record=base.with_suffix('.record.json')
  if record.exists():return read(record)
  validate=phase.startswith('validate')
  cmd,e,cwd=binary_cmd(v,a,r,validate,workers,base.with_suffix('.values'))
+ if executable_override:cmd[0]=str(executable_override)
  if extra:e.update(extra)
+ if profile=='bits':
+  cmd[0]=str(case(v,a,r)/('exact_validate.'+extra['SGPL_BITS_HELPER_ID']));e['SGPL_BITS_OUTPUT']=str(base)+'.bits'
  if profile=='phases':
-  cmd[0]=str(case(v,a,r)/('profile_validate' if validate else 'profile'));e.update(SGPL_PROFILE_JSON=str(base)+'.phases.json',SGPL_POOL_PROFILE_JSON=str(base)+'.pool.json',SGPL_WORK_JSON=str(base)+'.work.json')
+  assert profile_identity,'Instrument the selected version before profiling'
+  cmd[0]=str(case(v,a,r)/(('profile_validate.' if validate else 'profile.')+profile_identity));e.update(SGPL_PROFILE_JSON=str(base)+'.phases.json',SGPL_POOL_PROFILE_JSON=str(base)+'.pool.json',SGPL_WORK_JSON=str(base)+'.work.json')
  if profile=='perf':cmd=['/usr/lib/linux-tools/6.8.0-147-generic/perf','stat','-x,','-e','cycles:u,instructions:u,branches:u,branch-misses:u,cache-references:u,cache-misses:u','-o',str(base)+'.perf.csv','--',*cmd]
  if profile=='futex':cmd=['strace','-f','-c','-e','futex','-o',str(base)+'.futex.txt',*cmd]
  if profile=='sched':cmd=['sudo','-n','-E','/usr/lib/linux-tools/6.8.0-147-generic/perf','record','-a','-C',','.join(map(str,CPUS[:workers])),'-e','sched:sched_switch','-e','sched:sched_wakeup','-o',str(base)+'.sched.data','--',*cmd]
@@ -223,7 +233,7 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
     x=dict(version=v,label=name,algorithm=a,graph=r['graph'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,base=str(base),command=cmd,block=repeat_block,error='outer_timeout_190_seconds',seconds=None)
     save(record,x);journal(OUT/(attempt+'_measurements.jsonl'),x);return x
   x=read(stamp,{'exit_code':p.returncode,'seconds':time.time()-start})
-  x.update(version=v,label=name,algorithm=a,graph=r['graph'],cohort=r['cohort'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,base=str(base),command=cmd,block=repeat_block)
+  x.update(version=v,label=name,algorithm=a,graph=r['graph'],cohort=r['cohort'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,profile_identity=profile_identity,base=str(base),command=cmd,block=repeat_block,executable_override=str(executable_override) if executable_override else None)
   if not stamp.exists():x['error']='missing_monotonic_measurement'
   elif p.returncode:x['error']=base.with_suffix('.err').read_text()[-3000:] or ('exit_code_'+str(p.returncode))
   elif validate:
@@ -306,7 +316,7 @@ def holm(p):
  for rank,i in enumerate(order):prior=max(prior,min(1.,p[i]*(len(p)-rank)));res[i]=prior
  return list(map(float,res))
 
-def regression_tests(records,phase,candidate='candidate',baseline='baseline',repetitions=20):
+def regression_tests(records,phase,candidate='candidate',baseline='baseline',repetitions=20,alternative='greater'):
  rng=np.random.default_rng(2358);tests=[];blocks={}
  for a in ALGS:
   rows=[]
@@ -314,7 +324,7 @@ def regression_tests(records,phase,candidate='candidate',baseline='baseline',rep
    b=np.array(samples(records,phase,baseline,a,r['graph']));c=np.array(samples(records,phase,candidate,a,r['graph']))
    if len(b)!=repetitions or len(c)!=repetitions:raise RuntimeError('Paired test needs complete observations per case')
    diff=c-b
-   p=float(permutation_test((diff,),lambda x,axis=-1:np.mean(x,axis=axis),permutation_type='samples',alternative='greater',n_resamples=100000,batch=512,rng=rng).pvalue) if np.any(diff) else 1.
+   p=float(permutation_test((diff,),lambda x,axis=-1:np.mean(x,axis=axis),permutation_type='samples',alternative=alternative,n_resamples=100000,batch=512,rng=rng).pvalue) if np.any(diff) else 1.
    tests.append({'algorithm':a,'graph':r['graph'],'ratio_candidate_over_baseline':float(c.mean()/b.mean()),'p':p,'kind':'case'})
    rows.append((b,c))
   blocks[a]=rows
@@ -324,10 +334,20 @@ def regression_tests(records,phase,candidate='candidate',baseline='baseline',rep
   while done<100000:
    n=min(256,100000-done);swap=rng.integers(0,2,(n,*b.shape),dtype=np.int8)
    lhs=np.where(swap,c,b).mean(axis=2);rhs=np.where(swap,b,c).mean(axis=2)
-   statistic=np.mean(np.log(rhs/lhs),axis=1);count+=int(np.count_nonzero(statistic>=obs));done+=n
+   statistic=np.mean(np.log(rhs/lhs),axis=1);count+=int(np.count_nonzero(statistic>=obs if alternative=='greater' else statistic<=obs));done+=n
   tests.append({'algorithm':a,'kind':'algorithm','ratio_candidate_over_baseline':math.exp(obs),'p':(count+1)/100001})
  adj=holm([x['p'] for x in tests])
- for x,p in zip(tests,adj):x.update(p_holm=p,regression=p<.05 and x['ratio_candidate_over_baseline']>1)
+ for x,p in zip(tests,adj):x.update(p_holm=p,direction=alternative,regression=p<.05 and (x['ratio_candidate_over_baseline']>1 if alternative=='greater' else x['ratio_candidate_over_baseline']<1))
+ return tests
+
+def aa_control_tests(records,phase,repetitions=20,existing_upper=None):
+ # Identical binaries must have no systematic bias in either direction. Keep
+ # one-sided tests and correct the combined 2*(244+4) control-test family.
+ upper=[x for x in existing_upper if x.get('direction','greater')=='greater'] if existing_upper else regression_tests(records,phase,'aa',repetitions=repetitions)
+ upper=[dict(x,direction='greater') for x in upper]
+ lower=regression_tests(records,phase,'aa',repetitions=repetitions,alternative='less')
+ tests=upper+lower;adjusted=holm([x['p'] for x in tests])
+ for x,p in zip(tests,adjusted):x.update(p_holm=p,regression=p<.05 and (x['ratio_candidate_over_baseline']>1 if x['direction']=='greater' else x['ratio_candidate_over_baseline']<1))
  return tests
 
 def benchmark(v,baseline=None,confirm=False,block=0):
@@ -360,18 +380,22 @@ def benchmark(v,baseline=None,confirm=False,block=0):
  result={'candidate':v,'baseline':baseline,'phase':phase,'block':block,'aggregate':aggregate(records,phase),'graptor':aggregate(records,phase,'graptor','candidate') if not confirm else None,'failures':sum(bool(x.get('error')) for x in records)}
  save(OUT/(v+'_'+phase+'_summary.json'),result)
  if not confirm and not result['failures']:
-  result['aa_tests']=regression_tests(records,phase,'aa',repetitions=reps)
+  result['tests']=regression_tests(records,phase,repetitions=reps)
+  result['confirmed_regressions']=[x for x in result['tests'] if x['regression']]
+  result['aa_tests']=aa_control_tests(records,phase,repetitions=reps)
   result['aa_invalid']=any(x['regression'] for x in result['aa_tests'])
   save(OUT/(v+'_'+phase+'_summary.json'),result)
  if confirm:
   if result['failures']:
    result.update(decision='reject',reason='incomplete_or_failed_confirmation',promotable=False)
    save(OUT/(v+'_decision.json'),result);return
-  result['tests']=regression_tests(records,phase);result['aa_tests']=regression_tests(records,phase,'aa')
+  state(stage='confirmation_statistics',algorithm='all',completed=0,total=744,expected_completion_unix=None)
+  result['tests']=regression_tests(records,phase);result['aa_tests']=aa_control_tests(records,phase)
   result['aa_invalid']=any(x['regression'] for x in result['aa_tests'])
   result['confirmed_regressions']=[x for x in result['tests'] if x['regression']]
-  g=result['aggregate']['all']['overall'];primary=read(OUT/(v+'_primary_summary.json'))['aggregate']['all']['overall']
-  result['promotable']=not result['failures'] and not result['aa_invalid'] and not result['confirmed_regressions'] and all(x[k]>1.01 for x in [g,primary] for k in ['speedup_mean','speedup_median'])
+  g=result['aggregate']['all']['overall'];primary_result=read(OUT/(v+'_primary_summary.json'));primary=primary_result['aggregate']['all']['overall']
+  result['primary_confirmed_regressions']=primary_result.get('confirmed_regressions',[])
+  result['promotable']=not result['failures'] and not result['aa_invalid'] and not primary_result.get('aa_invalid') and not result['confirmed_regressions'] and not result['primary_confirmed_regressions'] and all(x[k]>1.01 for x in [g,primary] for k in ['speedup_mean','speedup_median'])
   result['decision']='invalid_aa' if result['aa_invalid'] else 'accept' if result['promotable'] else 'reject'
   save(OUT/(v+'_decision.json'),result)
 
@@ -454,14 +478,14 @@ def init():
 
 def report():
  results={p.stem:read(p) for p in OUT.glob('*_decision.json')};save(OUT/'campaign_summary.json',results)
- if (OUT/'B0_primary.json').exists():
+ if (OUT/'B0_final_primary.json').exists():
   global M
   if 'M' not in globals():M=bootstrap()
-  save(OUT/'B0_comparison.json',aggregate(read(OUT/'B0_primary.json'),'primary','graptor','candidate'))
+  save(OUT/'B0_final_comparison.json',aggregate(read(OUT/'B0_final_primary.json'),'primary','graptor','candidate'))
  print(json.dumps({k:{'decision':v['decision'],'aggregate':v['aggregate']['all']['overall'],'confirmed_regressions':len(v.get('confirmed_regressions',[]))} for k,v in results.items()},indent=2))
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','build','validate','benchmark','contracts','profile','diagnose','status','resume','report']);p.add_argument('version',nargs='?');p.add_argument('--baseline');p.add_argument('--confirmation',action='store_true');p.add_argument('--repeat-block',type=int,default=0);p.add_argument('--mode',choices=['phases','perf','futex','sched'],default='phases');p.add_argument('--cases',help='JSON list of {algorithm,graph}; default full 244-case matrix');p.add_argument('--workers',type=int,choices=[1,2,6],default=6);p.add_argument('--extra',default='{}');args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','build','validate','benchmark','contracts','profile','diagnose','status','resume','report']);p.add_argument('version',nargs='?');p.add_argument('--baseline');p.add_argument('--confirmation',action='store_true');p.add_argument('--repeat-block',type=int,default=0);p.add_argument('--mode',choices=['phases','perf','futex','sched'],default='phases');p.add_argument('--cases',help='JSON list of {algorithm,graph}; default full 244-case matrix');p.add_argument('--workers',type=int,choices=[1,2,6],default=6);p.add_argument('--extra',default='{}');p.add_argument('--exact-floats',action='store_true');args=p.parse_args()
  if args.command=='status':
   raw=read(OUT/'status.json',{});allowed=['command','pid','started','active','failures','updated','stage','version','algorithm','completed','total','monitor_interval_seconds','elapsed_seconds','block_seconds','expected_completion_unix']
   x={k:raw[k] for k in allowed if k in raw};x['wall_elapsed']=time.time()-raw.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT)
@@ -475,7 +499,12 @@ def main():
   if args.command=='init':init()
   elif args.command=='build':build(args.version)
   elif args.command=='contracts':contracts(args.version)
-  elif args.command=='validate':validate_version(args.version)
+  elif args.command=='validate':
+   validate_version(args.version)
+   if args.exact_floats:
+    assert args.baseline,'Exact floating-point validation needs the accepted baseline'
+    from exact_validation import run
+    run(sys.modules[__name__],args.version,args.baseline)
   elif args.command in ['benchmark','resume']:benchmark(args.version,args.baseline,args.confirmation,args.repeat_block)
   elif args.command in ['profile','diagnose']:
    from profile_support import run_profiles

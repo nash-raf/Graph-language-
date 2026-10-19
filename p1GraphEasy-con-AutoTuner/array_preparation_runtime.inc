@@ -152,6 +152,99 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_packed(void *opaque,int32
     }
   }
 }
+/* Dead source-ordinal layouts: keep pair/work order and original count pass. */
+static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_lean(void *opaque,int32_t worker,int32_t width) {
+  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
+  const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
+  const int32_t chunks=j->chunks,parts=j->parts;
+  const int64_t count=c->array_source_count;
+  const int64_t *rows=m->csr_row_ptr,*weights=j->weights;
+  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
+  int32_t *records=c->gpu_records;
+  int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
+  for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
+    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
+    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t ordinal=j->work[chunk];
+    for(int64_t i=lo;i<hi;++i) {
+      int32_t u=input[i],source_part=owners[u];
+      int64_t first=rows[u],last=rows[u+1];
+      if(begins) {
+        int64_t at=positions[source_part]++;
+        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=1;
+        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+      }
+      for(int64_t edge=first;edge<last;++edge) {
+        int32_t v=columns[edge],p=source?source_part:owners[v];
+        if(source&&(v<0||v>=m->csr_n)) {
+          atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
+          return;
+        }
+        int64_t at=positions[p]++;
+        if(1) {
+          records[3*at]=u;records[3*at+1]=v;
+          records[3*at+2]=(int32_t)ordinal++;
+          
+        } else {
+          records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
+          sources[at]=i;work[at]=ordinal++;
+        }
+        if(edges)edges[at]=weights[edge];
+      }
+      if(ends) {
+        int64_t at=positions[source_part]++;
+        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=2;
+        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+      }
+    }
+  }
+}
+static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_lean_weighted(void *opaque,int32_t worker,int32_t width) {
+  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
+  const int source=j->source,begins=source&&j->begins,ends=source&&j->ends;
+  const int32_t chunks=j->chunks,parts=j->parts;
+  const int64_t count=c->array_source_count;
+  const int64_t *rows=m->csr_row_ptr,*weights=j->weights;
+  const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
+  int32_t *records=c->gpu_records;
+  int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
+  for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
+    int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
+    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t ordinal=j->work[chunk];
+    for(int64_t i=lo;i<hi;++i) {
+      int32_t u=input[i],source_part=owners[u];
+      int64_t first=rows[u],last=rows[u+1];
+      if(begins) {
+        int64_t at=positions[source_part]++;
+        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=1;
+        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+      }
+      for(int64_t edge=first;edge<last;++edge) {
+        int32_t v=columns[edge],p=source?source_part:owners[v];
+        if(source&&(v<0||v>=m->csr_n)) {
+          atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
+          return;
+        }
+        int64_t at=positions[p]++;
+        if(1) {
+          records[4*at]=u;records[4*at+1]=v;
+          records[4*at+2]=(int32_t)ordinal++;
+          records[4*at+3]=(int32_t)weights[edge];
+        } else {
+          records[3*at]=u;records[3*at+1]=v;records[3*at+2]=0;
+          sources[at]=i;work[at]=ordinal++;
+        }
+        if(edges)edges[at]=weights[edge];
+      }
+      if(ends) {
+        int64_t at=positions[source_part]++;
+        records[3*at]=u;records[3*at+1]=-1;records[3*at+2]=2;
+        sources[at]=i;work[at]=-1;if(edges)edges[at]=-1;
+      }
+    }
+  }
+}
 static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
   int32_t width=sgpl_configured_worker_count();
   if(c->array_source_count<128||getenv("SGPL_ARRAY_PREP_SERIAL"))width=1;
@@ -221,7 +314,19 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
    * Lifecycle records retain their original representation. */
   if(c->array_compact_records && native_weighted && m->csr_m>=0 && m->csr_m<=INT32_MAX)
     c->array_compact_records=2;
-  size_t record_bytes=c->array_compact_records==2?20:(c->array_compact_records?16:12);
+  /* The all-ones gate storage exists even without a gate operation. The
+   * compiler proof and lifecycle checks certify absence of observable gating. */
+  int lean=c->array_compact_records && !getenv("SGPL_NO_LEAN_RECORDS") &&
+      !begins && !ends && c->op_count==1 &&
+      c->ops[0].capabilities==(SGPL_OP_PAIR|SGPL_OP_NO_SOURCE_ORDINAL) &&
+      !c->ops[0].round_begin && !c->ops[0].round_end && !c->ops[0].snapshot &&
+      !c->ops[0].source_begin && !c->ops[0].source_end &&
+      !c->ops[0].partition_begin && !c->ops[0].partition_end && !c->ops[0].combine;
+  if(lean)c->array_compact_records=c->array_compact_records==2?4:3;
+  size_t record_bytes=c->array_compact_records==4?16:(c->array_compact_records==3?12:
+      (c->array_compact_records==2?20:(c->array_compact_records?16:12)));
+  if(lean && getenv("SGPL_RECORD_LIVENESS_DEBUG"))
+    fprintf(stderr,"[lean-records] format=%d pairs=%lld bytes=%zu\n",c->array_compact_records,(long long)pair_count,record_bytes*(size_t)records);
   if((uint64_t)records>SIZE_MAX/record_bytes) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
   c->array_append_log=sgpl_execution_buffer(c,SGPL_BUF_APPEND,(size_t)(pair_count?pair_count:1)*c->array_append_sites*8,1);
   c->gpu_records=sgpl_execution_buffer(c,SGPL_BUF_RECORDS,(size_t)(records?records:1)*record_bytes,0);
@@ -229,10 +334,10 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
     c->gpu_record_sources=sgpl_execution_buffer(c,SGPL_BUF_SOURCES,(size_t)(records?records:1)*8,0);
     c->gpu_record_work=sgpl_execution_buffer(c,SGPL_BUF_WORK,(size_t)(records?records:1)*8,0);
   }
-  if(native_weighted&&c->array_compact_records!=2)c->array_record_edges=sgpl_execution_buffer(c,SGPL_BUF_EDGES,(size_t)(records?records:1)*8,0);
+  if(native_weighted&&c->array_compact_records!=2&&c->array_compact_records!=4)c->array_record_edges=sgpl_execution_buffer(c,SGPL_BUF_EDGES,(size_t)(records?records:1)*8,0);
   c->gpu_record_offsets=sgpl_execution_buffer(c,SGPL_BUF_OFFSETS,((size_t)parts+1)*8,1);
   if(!c->array_append_log||!c->gpu_records||(!c->array_compact_records&&(!c->gpu_record_sources||!c->gpu_record_work))||!c->gpu_record_offsets||
-      (native_weighted&&c->array_compact_records!=2&&!c->array_record_edges)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
+      (native_weighted&&c->array_compact_records!=2&&c->array_compact_records!=4&&!c->array_record_edges)) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
   int64_t at=0;
   for(int32_t p=0;p<parts;++p) {
     c->gpu_record_offsets[p]=at;
@@ -242,7 +347,7 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   }
   c->gpu_record_offsets[parts]=at;
   if(at!=records) {rc=SGPL_DAG_ERR_INVALID;goto done;}
-  sgpl_run_preparation(c->array_compact_records==2?sgpl_array_fill_chunks_packed:sgpl_array_fill_chunks,&job,width);
+  sgpl_run_preparation(c->array_compact_records==4?sgpl_array_fill_chunks_lean_weighted:(c->array_compact_records==3?sgpl_array_fill_chunks_lean:(c->array_compact_records==2?sgpl_array_fill_chunks_packed:sgpl_array_fill_chunks)),&job,width);
   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
   c->gpu_record_count=records;c->array_log_pristine=1;
   c->array_pair_records=!job.source||(!begins&&!ends);rc=0;

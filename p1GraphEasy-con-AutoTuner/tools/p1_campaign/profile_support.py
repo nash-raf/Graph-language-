@@ -8,15 +8,18 @@ def constant(path,name):
  raise ValueError(name)
 
 def build_profile_runtime(R,v):
- d=R.ROOT/'versions'/v;src=d/'src';out=d/'profile_src'
- if (d/'profile_build.json').exists():return
- out.mkdir(exist_ok=True)
- for p in src.iterdir():
-  if p.suffix in ['.c','.h','.inc']:shutil.copy2(p,out/p.name)
+ d=R.ROOT/'versions'/v;src=d/'src'
  # Pin the diagnostic templates into this campaign before using them.
  templates=R.ROOT/'support/profile_templates.json'
  if not templates.exists():
   R.save(templates,{'phases':constant(R.OLDOUT/'build_diagnostics.py','header'),'pool':constant(R.OLDOUT/'build_diagnostics.py','pool_header'),'work':constant(R.OLDOUT/'work_volume.py','header')})
+ identity=R.key([R.sha(Path(__file__)),R.sha(templates),R.read(d/'build.json')['fingerprint']])[:16]
+ out=d/('profile_src_'+identity);manifest=d/('profile_build_'+identity+'.json')
+ R.PROFILE_IDS[v]=identity
+ if manifest.exists():return identity
+ out.mkdir(exist_ok=True)
+ for p in src.iterdir():
+  if p.suffix in ['.c','.h','.inc']:shutil.copy2(p,out/p.name)
  t=R.read(templates)
  (out/'diag.h').write_text(t['phases'])
  p=out/'autotuner_runtime.c';text=p.read_text();at=text.index('/* Forward declaring external Roaring C API');text=text[:at]+'#include "diag.h"\n'+text[at:]
@@ -46,19 +49,20 @@ def build_profile_runtime(R,v):
  text=text.replace('    atomic_fetch_add(waiters, 1);\n#ifdef __linux__','    dw.park=sgpl_now_ns();\n    atomic_fetch_add(waiters, 1);\n#ifdef __linux__',1);p.write_text(text)
  for name in ['autotuner_runtime','parallel_runtime']:
   R.checked(['gcc','-O3','-g','-fopenmp','-pthread','-c',name+'.c','-o',name+'.o'],out,out/(name+'.build.log'))
- R.save(d/'profile_build.json',{'private':True,'instrumented':True,'template_hash':R.sha(templates)})
+ R.save(manifest,{'private':True,'instrumented':True,'template_hash':R.sha(templates),'instrumentation_sha256':R.sha(Path(__file__)),'identity':identity})
+ return identity
 
 def instrument(R,v,selected=None):
- build_profile_runtime(R,v)
- d=R.ROOT/'versions'/v;out=d/'profile_src'
+ identity=build_profile_runtime(R,v)
+ d=R.ROOT/'versions'/v;out=d/('profile_src_'+identity)
  selected=selected or [{'algorithm':a,'graph':r['graph']} for a in R.ALGS for r in R.M.ROWS]
  for x in selected:
   r=next(r for r in R.M.ROWS if r['graph']==x['graph']);c=R.case(v,x['algorithm'],r)
   for mode in ['timed','validate']:
-   target=c/('profile_validate' if mode=='validate' else 'profile')
+   target=c/(('profile_validate.' if mode=='validate' else 'profile.')+identity)
    if target.exists():continue
    libs=[out/(n+'.o') if n in ['autotuner_runtime','parallel_runtime'] else d/(n+'.o') for n in R.OBJECTS]
-   R.checked(['g++','-O3','-fopenmp','-no-pie',c/(mode+'.o'),*libs,R.ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',target],c,c/(mode+'.profile_link.log'))
+   R.checked(['g++','-O3','-fopenmp','-no-pie',c/(mode+'.o'),*libs,R.ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',target],c,c/(mode+'.profile_link.'+identity+'.log'))
 
 def run_profiles(R,args):
  versions=[args.version]+([args.baseline] if args.baseline else [])
@@ -78,5 +82,5 @@ def run_profiles(R,args):
     for rep in range(5):
      rec=R.invoke(args.version,'profile_'+args.mode,v,a,r,rep,workers=args.workers,extra=extra,profile=args.mode);records.append(rec)
    R.progress(stage='profile_'+args.mode,version=args.version,algorithm=a,completed=i+1,total=len(cases),failures=sum(bool(x.get('error')) for x in records))
-  R.calibrate(a,'profile_'+args.mode,[selected,len(versions),args.workers,5,extra],start)
- R.save(R.OUT/(args.version+'_profile_'+args.mode+'_w'+str(args.workers)+'_'+R.key([selected,extra])[:8]+'.json'),records)
+  R.calibrate(a,'profile_'+args.mode,[selected,len(versions),args.workers,5,extra,[R.PROFILE_IDS.get(v) for v in versions] if args.mode=='phases' else None],start)
+ R.save(R.OUT/(args.version+'_profile_'+args.mode+'_w'+str(args.workers)+'_'+R.key([selected,extra,[R.PROFILE_IDS.get(v) for v in versions] if args.mode=='phases' else None])[:8]+'.json'),records)

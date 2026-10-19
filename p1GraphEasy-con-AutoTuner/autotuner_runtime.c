@@ -3662,6 +3662,16 @@ static void sgpl_exec_partition_body_packed(int64_t index, void *opaque) {
 #undef SGPL_EXEC_EMIT_PAIR
 }
 
+/* A new compiler must never silently interpret an older execution descriptor. */
+void autograph_execution_abi_check_v1(int32_t version,uint64_t context_bytes,uint64_t operation_bytes) {
+  if(version!=SGPL_EXECUTION_ABI_VERSION || context_bytes!=sizeof(sgpl_exec_ctx) || operation_bytes!=sizeof(sgpl_runtime_op)) {
+    fprintf(stderr,"P1 execution ABI mismatch: version=%d context=%llu operation=%llu\n",
+      version,(unsigned long long)context_bytes,(unsigned long long)operation_bytes);
+    abort();
+  }
+}
+#include "lean_record_execution.inc"
+
 /* Complete source-domain coverage for OWNER_V source lifecycle: a source's
  * arcs are split across destination partitions, so source_begin/source_end
  * cannot be driven by row iteration.  The scan is partition-local: each worker
@@ -3803,7 +3813,7 @@ static void sgpl_exec_step_dispatch_body(sgpl_exec_ctx *ctx, int32_t partitions,
     ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
   }
   else
-    parallel_for_runtime(0, partitions, 1, ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body, ctx, 0, 0);
+    parallel_for_runtime(0, partitions, 1, (ctx->array_compact_records==4?sgpl_exec_partition_body_lean_weighted:(ctx->array_compact_records==3?sgpl_exec_partition_body_lean:(ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body))), ctx, 0, 0);
 }
 
 static void *sgpl_exec_step_task(void *opaque) {
@@ -4369,7 +4379,9 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   if (!ctx || !meta || partition < 0 || partition >= meta->partition_count)
     return SGPL_DAG_ERR_INVALID;
   if (sgpl_exec_failed(ctx)) return ctx->execution_status;
-  if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
+  if(ctx->array_compact_records==4)sgpl_exec_partition_body_lean_weighted(partition,ctx);
+  else if(ctx->array_compact_records==3)sgpl_exec_partition_body_lean(partition,ctx);
+  else if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
   else sgpl_exec_partition_body(partition, ctx);
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
 }
@@ -6185,6 +6197,28 @@ static int32_t sgpl_dag_partition_node_packed(void *state, int64_t instance) {
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
 }
 
+static __attribute__((section(".sgpl_lean_dispatch"))) int32_t sgpl_dag_partition_node_lean(void *state, int64_t instance) {
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)state;
+  if (ctx->execution_error && __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) < 0)
+    return __atomic_load_n(ctx->execution_error, __ATOMIC_RELAXED);
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE && meta && instance == meta->partition_count)
+    sgpl_exec_source_coverage(ctx, /*begin=*/1);
+  else sgpl_exec_partition_body_lean(instance, state);
+  return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
+}
+
+static __attribute__((section(".sgpl_lean_dispatch"))) int32_t sgpl_dag_partition_node_lean_weighted(void *state, int64_t instance) {
+  sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)state;
+  if (ctx->execution_error && __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) < 0)
+    return __atomic_load_n(ctx->execution_error, __ATOMIC_RELAXED);
+  AutoGraphMeta *meta = find_meta(ctx->graph);
+  if (ctx->spatial_group != SGPL_SPATIAL_NONE && meta && instance == meta->partition_count)
+    sgpl_exec_source_coverage(ctx, /*begin=*/1);
+  else sgpl_exec_partition_body_lean_weighted(instance, state);
+  return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : 0;
+}
+
 static _Atomic int32_t g_dag_last_dispatch_width = 0;
 
 int32_t sgpl_debug_last_dag_dispatch_width(void) {
@@ -6253,6 +6287,52 @@ static void sgpl_independent_spatial_worker_packed(void *opaque,int32_t index) {
   if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
 }
 
+static __attribute__((section(".sgpl_lean_dispatch"))) void sgpl_independent_spatial_worker_lean(void *opaque,int32_t index) {
+  SgplIndependentSpatial *job=opaque;
+  sgpl_set_current_worker_index(index);
+  int32_t completed=0;
+  for(;;) {
+    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+    if(node>=job->count)break;
+    /* Every active lane owns one slot of the enclosing grant. Nested work
+     * retains that slot and cannot claim another lane behind its siblings. */
+    sgpl_push_thread_budget(1);
+    int32_t rc=sgpl_dag_partition_node_lean(job->ctx,job->nodes?job->nodes[node]:node);
+    sgpl_pop_thread_budget();
+    ++completed;
+    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+  }
+  /* Completion is consumed only after the worker-pool join. Publish each
+   * lane's completed-node count once, instead of contending on one cache line
+   * for every node. Cancellation is still checked before each claim and
+   * callback errors are still published immediately. */
+  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+}
+
+static __attribute__((section(".sgpl_lean_dispatch"))) void sgpl_independent_spatial_worker_lean_weighted(void *opaque,int32_t index) {
+  SgplIndependentSpatial *job=opaque;
+  sgpl_set_current_worker_index(index);
+  int32_t completed=0;
+  for(;;) {
+    if(atomic_load_explicit(&job->failed,memory_order_acquire))break;
+    int32_t node=atomic_fetch_add_explicit(&job->next,1,memory_order_relaxed);
+    if(node>=job->count)break;
+    /* Every active lane owns one slot of the enclosing grant. Nested work
+     * retains that slot and cannot claim another lane behind its siblings. */
+    sgpl_push_thread_budget(1);
+    int32_t rc=sgpl_dag_partition_node_lean_weighted(job->ctx,job->nodes?job->nodes[node]:node);
+    sgpl_pop_thread_budget();
+    ++completed;
+    if(rc)atomic_store_explicit(&job->failed,1,memory_order_release);
+  }
+  /* Completion is consumed only after the worker-pool join. Publish each
+   * lane's completed-node count once, instead of contending on one cache line
+   * for every node. Cancellation is still checked before each claim and
+   * callback errors are still published immediately. */
+  if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
+}
+
 static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
                                          const sgpl_dag_relation_desc *relations,
                                          int32_t relation_count,
@@ -6283,7 +6363,7 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
   tmpl.node_count = partitions;
   tmpl.relation_count = relation_count;
   tmpl.relations = relation_count > 0 ? relations : NULL;
-  tmpl.node_fn = ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node;
+  tmpl.node_fn = (ctx->array_compact_records==4?sgpl_dag_partition_node_lean_weighted:(ctx->array_compact_records==3?sgpl_dag_partition_node_lean:(ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node)));
   /* Section 15 work estimate: the partition's own pair count -- a measured
    * quantity, not the TDG cost model (which the pod measurements showed
    * mismatched).  It only caps the share; see dag_dispatch_budget. */
@@ -6331,7 +6411,7 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
         atomic_store_explicit(&job.completed,partitions-active,memory_order_relaxed);
       }
     }
-    int pool_rc=sgpl_run_on_worker_pool(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker,&job,worker_budget);
+    int pool_rc=sgpl_run_on_worker_pool((ctx->array_compact_records==4?sgpl_independent_spatial_worker_lean_weighted:(ctx->array_compact_records==3?sgpl_independent_spatial_worker_lean:(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker))),&job,worker_budget);
     if(nodes && nodes!=local_nodes)free(nodes);
     int status=pool_rc ? (pool_rc==-1?SGPL_DAG_ERR_NOMEM:SGPL_DAG_ERR_NODE) :
         atomic_load_explicit(&job.failed,memory_order_acquire)?SGPL_DAG_ERR_NODE:SGPL_DAG_OK;

@@ -870,7 +870,9 @@ static llvm::Function *spatialContextAccessor(llvm::Module &M, llvm::Function *O
     B.CreateCondBr(B.CreateIsNull(Ctx), Fallback, Body);
     B.SetInsertPoint(Body);
     auto Field = [&](llvm::Type *Ty, size_t Offset) {
-        return B.CreateLoad(Ty, B.CreateGEP(B.getInt8Ty(), Ctx, B.getInt64(Offset)));
+        auto *Read = B.CreateLoad(Ty, B.CreateGEP(B.getInt8Ty(), Ctx, B.getInt64(Offset)));
+        Read->setMetadata("sgpl.ctx.accessor", llvm::MDNode::get(C, {llvm::MDString::get(C, Name)}));
+        return Read;
     };
     if (Name == "autograph_exec_ctx_occurrence") {
         auto *Sites = Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, array_append_sites));
@@ -891,7 +893,8 @@ static llvm::Function *spatialContextAccessor(llvm::Module &M, llvm::Function *O
         auto *Index = Field(B.getInt64Ty(), offsetof(sgpl_exec_ctx, array_edge_index));
         auto *Records = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, array_record_edges));
         auto *Owner = Field(B.getPtrTy(), offsetof(sgpl_exec_ctx, graph));
-        auto *Packed = B.CreateICmpEQ(Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, array_compact_records)), B.getInt32(2));
+        auto *Format = Field(B.getInt32Ty(), offsetof(sgpl_exec_ctx, array_compact_records));
+        auto *Packed = B.CreateOr(B.CreateICmpEQ(Format, B.getInt32(2)), B.CreateICmpEQ(Format, B.getInt32(4)));
         auto *Native = llvm::BasicBlock::Create(C, "native", Fn);
         B.CreateCondBr(B.CreateAnd(B.CreateAnd(B.CreateICmpEQ(Graph, Owner), B.CreateOr(B.CreateIsNotNull(Records), Packed)),
                                   B.CreateAnd(B.CreateICmpSGE(Index, B.getInt64(0)), B.CreateICmpSGE(U, B.getInt32(0)))), Native, Fallback);
@@ -1006,6 +1009,8 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)
         }
     }
 }
+
+#include "record_field_liveness.inc"
 
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
@@ -1614,6 +1619,8 @@ int main(int argc, char **argv)
     // profitable SCoPs); otherwise it already ran before the Polly/O3 block.
     if (pollyFirst)
         runPdgAndOutliner(*M, usingGpuIR);
+
+    certifyRecordFieldLiveness(*M);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))
         dumpModuleBitcode(*M, dumpPath);

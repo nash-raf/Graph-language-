@@ -30,6 +30,7 @@ for (a,g,v),values in groups.items():
  item=dict(algorithm=a,graph=g,version=v,phases={n:{k:statistics.mean(x['phases'][n][k] for x in values) for k in ['ms','calls']} for n in names})
  item['work']={k:statistics.mean(x['work'][k] for x in values) for k in values[0].get('work',{})}
  item['pool']={k:statistics.mean(sum(r[k] for r in x.get('pool',[])) for x in values) for k in ['calls','park_calls','wait_ms','park_ms']}
+ if values[0].get('record_bytes'):item['record_bytes']={k:statistics.mean(x['record_bytes'][k] for x in values) for k in values[0]['record_bytes']}
  phase.append(item)
 R.save(R.OUT/(args.version+'_diagnostic_phases.json'),phase)
 print('Diagnostic intervals and phase summaries written for '+args.version)

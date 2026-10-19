@@ -52,6 +52,9 @@ no statistically confirmed case/algorithm loss. One-sided paired permutation
 tests use seed 2358, 100000 resamples, Holm across 244+4 tests, family alpha .05.
 The full 244-case matrix, original main50 and deduplicated views are reported.
 Ratio directions are explicit in each key; speedup is baseline/candidate.
+A/A checks test both directions with one-sided permutations and Holm correction
+across 496 directional control tests. Candidate slowdown tests remain the 248-
+test family. Gate audits preserve previous summaries and all raw observations.
 
 Profiles are never acceptance timings. Nested phase timers and concurrent
 helper waits must not be summed as independent wall-time components. WSL
@@ -61,3 +64,14 @@ Baseline B0 in early artifacts is preliminary: LLVM graph literal/copy storage
 was repaired afterwards. B0_final is the canonical baseline for optimization
 decisions. An interrupted R1a1 setup did not reach acceptance timing and does
 not consume an optimization revision. All old evidence remains preserved.
+
+For a floating-point traversal candidate:
+  python run_attempt.py VERSION --baseline ACCEPTED --exact-floats
+This supplements independent numerical validation with all 61 PageRank vectors
+at 1/2/6 physical workers, comparing each printed double's raw 64 bits. Only
+validation executables link printf/puts interposition; timing executables do not.
+
+Archive a rejected native patch and its exact source/executable provenance:
+  python archive_attempt.py VERSION --baseline ACCEPTED
+Detailed diagnosis console output can be redirected with --console-log PATH.
+Add causal components with --additional '{"label":{"FEATURE_CONTROL":"1"}}'.

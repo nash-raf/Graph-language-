@@ -36,6 +36,10 @@ def git(*args):
 def state(**kw):
  x=read(OUT/'status.json',{});x.update(kw,updated=time.time());save(OUT/'status.json',x)
 def progress(**kw):
+ if kw.get('completed') and kw.get('total'):
+  started=read(OUT/'status.json',{}).get('started',time.time())
+  elapsed=kw.get('elapsed_seconds',time.time()-started)
+  kw['expected_completion_unix']=time.time()+elapsed*(kw['total']-kw['completed'])/kw['completed']
  state(**kw);print(json.dumps(kw),flush=True)
 def cfg(*args):return shlex.split(subprocess.check_output(['llvm-config-20',*args],text=True))
 
@@ -192,7 +196,7 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
   elif validate:
    try:
     arr=np.loadtxt(base.with_suffix('.values'),ndmin=1) if v.startswith('graptor') else np.array(base.with_suffix('.out').read_text().split('VALUES_BEGIN\n',1)[1].split('VALUES_END',1)[0].split(),dtype=float)
-    x['validation']=M.validate(a,r,arr,'graptor' if v.startswith('graptor') else 'p1')
+    x['validation']=M.validate(a,r,arr,'graptor' if v=='graptor' else 'p1')
    except Exception as ex:x['error']=repr(ex)
   if profile=='phases':
    for n in ['phases','pool','work']:
@@ -217,6 +221,14 @@ def validate_version(v):
    progress(stage='validate',version=v,algorithm=a,completed=i+1,total=61,failures=sum('error' in t for t in records))
  save(OUT/(v+'_validation.json'),records)
  assert all('validation' in x and not x.get('error') for x in records),'Correctness failure; no acceptance timings permitted'
+ if v=='B0':
+  controls=[]
+  for a in ALGS:
+   for i,r in enumerate(M.ROWS):
+    for control in (['graptor','graptor_double'] if a=='pagerank' else ['graptor']):controls.append(invoke(v,'validate',control,a,r,0))
+    progress(stage='validate_graptor',version=v,algorithm=a,completed=i+1,total=61,failures=sum(bool(t.get('error')) for t in controls))
+  save(OUT/(v+'_graptor_validation.json'),controls)
+  assert all('validation' in x and not x.get('error') for x in controls),'Pinned Graptor validation failed'
 
 def calibrate(a,mode,signature,started):
  elapsed=time.time()-started;path=OUT/'calibration.json';c=read(path,{})
@@ -289,6 +301,9 @@ def benchmark(v,baseline=None,confirm=False,block=0):
  else:save(path,protocol)
  for a in ALGS:
   start=time.time()
+  signature=[61,reps,[n for n,_ in versions],6]
+  timing=read(OUT/'calibration.json',{}).get(key([a,phase,signature]))
+  state(stage=phase,algorithm=a,completed=0,total=61,monitor_interval_seconds=timing['seconds'] if timing else None,block_started=start)
   for i,r in enumerate(M.ROWS):
    for label,w in versions:invoke(v,phase+'_warmup',w,a,r,0,label=label,repeat_block=block)
    for rep in range(reps):
@@ -296,7 +311,7 @@ def benchmark(v,baseline=None,confirm=False,block=0):
     for label,w in ordered:
      x=invoke(v,phase,w,a,r,rep,label=label,repeat_block=block);records.append(x)
    progress(stage=phase,version=v,baseline=baseline,algorithm=a,completed=i+1,total=61,failures=sum(bool(x.get('error')) for x in records),elapsed_seconds=time.time()-start)
-  calibrate(a,phase,[61,reps,[n for n,_ in versions],6],start)
+  calibrate(a,phase,signature,start)
  save(OUT/(v+'_'+phase+('_repeat' if block else '')+'.json'),records)
  if not baseline:return
  result={'candidate':v,'baseline':baseline,'phase':phase,'block':block,'aggregate':aggregate(records,phase),'graptor':aggregate(records,phase,'graptor','candidate') if not confirm else None,'failures':sum(bool(x.get('error')) for x in records)}
@@ -369,14 +384,19 @@ def init():
 
 def report():
  results={p.stem:read(p) for p in OUT.glob('*_decision.json')};save(OUT/'campaign_summary.json',results)
+ if (OUT/'B0_primary.json').exists():
+  global M
+  if 'M' not in globals():M=bootstrap()
+  save(OUT/'B0_comparison.json',aggregate(read(OUT/'B0_primary.json'),'primary','graptor','candidate'))
  print(json.dumps({k:{'decision':v['decision'],'aggregate':v['aggregate']['all']['overall'],'confirmed_regressions':len(v.get('confirmed_regressions',[]))} for k,v in results.items()},indent=2))
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','build','validate','benchmark','contracts','profile','diagnose','status','resume','report']);p.add_argument('version',nargs='?');p.add_argument('--baseline');p.add_argument('--confirmation',action='store_true');p.add_argument('--repeat-block',type=int,default=0);p.add_argument('--mode',choices=['phases','perf','futex','sched'],default='phases');p.add_argument('--cases',help='JSON list of {algorithm,graph}; default full 244-case matrix');p.add_argument('--workers',type=int,choices=[1,2,6],default=6);p.add_argument('--extra',default='{}');args=p.parse_args()
  if args.command=='status':
-  raw=read(OUT/'status.json',{});allowed=['command','pid','started','active','failures','updated','stage','version','algorithm','completed','total','monitor_interval_seconds','elapsed_seconds','block_seconds']
+  raw=read(OUT/'status.json',{});allowed=['command','pid','started','active','failures','updated','stage','version','algorithm','completed','total','monitor_interval_seconds','elapsed_seconds','block_seconds','expected_completion_unix']
   x={k:raw[k] for k in allowed if k in raw};x['wall_elapsed']=time.time()-raw.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT)
   if raw.get('error'):x['error']=str(raw['error'])[:1000]
+  x['logs']=str(ROOT/'runs'/str(raw.get('version','')))
   print(json.dumps(x,indent=2));return
  if args.command=='report':report();return
  global M;M=bootstrap()

@@ -69,5 +69,5 @@ def run_profiles(R,args):
     for rep in range(5):
      rec=R.invoke(args.version,'profile_'+args.mode,v,a,r,rep,workers=args.workers,extra=extra,profile=args.mode);records.append(rec)
    R.progress(stage='profile_'+args.mode,version=args.version,algorithm=a,completed=i+1,total=len(cases),failures=sum(bool(x.get('error')) for x in records))
-  R.calibrate(a,'profile_'+args.mode,[selected,versions,args.workers,5,extra],start)
+  R.calibrate(a,'profile_'+args.mode,[selected,len(versions),args.workers,5,extra],start)
  R.save(R.OUT/(args.version+'_profile_'+args.mode+'_w'+str(args.workers)+'_'+R.key([selected,extra])[:8]+'.json'),records)

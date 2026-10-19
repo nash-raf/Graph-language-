@@ -217,7 +217,8 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
     save(record,x);journal(OUT/(attempt+'_measurements.jsonl'),x);return x
   x=read(stamp,{'exit_code':p.returncode,'seconds':time.time()-start})
   x.update(version=v,label=name,algorithm=a,graph=r['graph'],cohort=r['cohort'],phase=phase,repeat=rep,workers=workers,extra=extra or {},profile=profile,base=str(base),command=cmd,block=repeat_block)
-  if p.returncode:x['error']=base.with_suffix('.err').read_text()[-3000:]
+  if not stamp.exists():x['error']='missing_monotonic_measurement'
+  elif p.returncode:x['error']=base.with_suffix('.err').read_text()[-3000:] or ('exit_code_'+str(p.returncode))
   elif validate:
    try:
     arr=np.loadtxt(base.with_suffix('.values'),ndmin=1) if v.startswith('graptor') else np.array(base.with_suffix('.out').read_text().split('VALUES_BEGIN\n',1)[1].split('VALUES_END',1)[0].split(),dtype=float)

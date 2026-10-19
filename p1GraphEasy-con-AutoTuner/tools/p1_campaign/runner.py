@@ -278,13 +278,13 @@ def holm(p):
  for rank,i in enumerate(order):prior=max(prior,min(1.,p[i]*(len(p)-rank)));res[i]=prior
  return list(map(float,res))
 
-def regression_tests(records,phase,candidate='candidate',baseline='baseline'):
+def regression_tests(records,phase,candidate='candidate',baseline='baseline',repetitions=20):
  rng=np.random.default_rng(2358);tests=[];blocks={}
  for a in ALGS:
   rows=[]
   for r in M.ROWS:
    b=np.array(samples(records,phase,baseline,a,r['graph']));c=np.array(samples(records,phase,candidate,a,r['graph']))
-   if len(b)!=20 or len(c)!=20:raise RuntimeError('Confirmation needs 20 complete paired observations per case')
+   if len(b)!=repetitions or len(c)!=repetitions:raise RuntimeError('Paired test needs complete observations per case')
    diff=c-b
    p=float(permutation_test((diff,),lambda x,axis=-1:np.mean(x,axis=axis),permutation_type='samples',alternative='greater',n_resamples=100000,batch=512,rng=rng).pvalue) if np.any(diff) else 1.
    tests.append({'algorithm':a,'graph':r['graph'],'ratio_candidate_over_baseline':float(c.mean()/b.mean()),'p':p,'kind':'case'})
@@ -331,6 +331,10 @@ def benchmark(v,baseline=None,confirm=False,block=0):
  if not baseline:return
  result={'candidate':v,'baseline':baseline,'phase':phase,'block':block,'aggregate':aggregate(records,phase),'graptor':aggregate(records,phase,'graptor','candidate') if not confirm else None,'failures':sum(bool(x.get('error')) for x in records)}
  save(OUT/(v+'_'+phase+'_summary.json'),result)
+ if not confirm and not result['failures']:
+  result['aa_tests']=regression_tests(records,phase,'aa',repetitions=reps)
+  result['aa_invalid']=any(x['regression'] for x in result['aa_tests'])
+  save(OUT/(v+'_'+phase+'_summary.json'),result)
  if confirm:
   if result['failures']:
    result.update(decision='reject',reason='incomplete_or_failed_confirmation',promotable=False)

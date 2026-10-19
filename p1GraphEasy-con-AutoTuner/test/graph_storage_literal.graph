@@ -1,0 +1,5 @@
+graph G { directed: true; nodes: 0,1,2; edges: 0 -> 1,1 -> 2; };
+int count=0;
+for (u,v) in G.edges { count=count+1; }
+print "GRAPH_ABI_LITERAL";
+print count;

@@ -101,7 +101,8 @@ def freeze(v):
  identity['source_hash']=key(contents)
  old=read(d/'identity.json')
  if old:
-  assert old==identity,'Version name already belongs to different source; choose a new attempt name'
+  assert old['source_hash']==identity['source_hash'] and old['diff']==identity['diff'],'Version name already belongs to different source; choose a new attempt name'
+  identity=old
  else:
   src.mkdir(exist_ok=True)
   for p in files:
@@ -364,6 +365,21 @@ def contracts(v):
      checked([exe],src,d/'contracts'/(name+'.w'+str(workers)+'.legacy'+legacy+'.log'),e,120)
   records.append({'test':name,'passed':True,'source_sha256':sha(testsrc)})
  save(OUT/(v+'_contracts.json'),records)
+ if v!='B0':
+  literal=d/'contracts/literal';literal.mkdir(exist_ok=True)
+  for ll in src.glob('*.ll'):
+   if not (literal/ll.name).exists():(literal/ll.name).symlink_to(ll)
+  e=M.env();e.update(FORCE_CPU='1',DUMP_LLVM_BC_PRE=str(literal/'pre.bc'))
+  checked([d/'GraphProgram','--ir-backend=cpu',REPO/'test/graph_storage_literal.graph'],literal,literal/'compile.log',e)
+  checked(['llvm-dis-20',literal/'pre.bc','-o',literal/'pre.ll'],literal,literal/'disassemble.log')
+  ir=(literal/'pre.ll').read_text()
+  assert re.search(r'%struct.Graph[^=]*= type \{ i64, i64, ptr, ptr, ptr, i32, ptr, ptr \}',ir),'LLVM Graph ABI is incomplete'
+  assert re.search(r'call ptr @malloc\(i64 64\)',ir) and re.search(r'@llvm.memset[^\n]*i64 64',ir),'LLVM Graph storage must be allocated and zeroed through byte 63'
+  checked(['g++','-O3','-fopenmp','-no-pie',literal/'program.o',*[d/(n+'.o') for n in OBJECTS],ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',literal/'check'],literal,literal/'link.log')
+  checked([literal/'check'],literal,literal/'run.log',M.env())
+  assert re.search(r'GRAPH_ABI_LITERAL\s+2\b',(literal/'run.log').read_text())
+  records.append({'test':'graph_storage_literal_ir_and_execution','passed':True})
+  save(OUT/(v+'_contracts.json'),records)
 
 def init():
  topo=[]

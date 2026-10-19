@@ -1,0 +1,63 @@
+P1 PHYSICAL-CORE CAMPAIGN
+
+Run in Ubuntu WSL with the SciPy-equipped investigation venv:
+  /home/kazi/p1_local_regressions_20261019/venv/bin/python
+
+Default artifacts:
+  /home/kazi/p1_campaign_20261019  (native binaries, snapshots and full logs)
+  C:/p1campaign-results          (journals, decisions and compact status)
+Override before initializing with P1_CAMPAIGN_ROOT / P1_CAMPAIGN_OUTPUT.
+
+Entry points:
+  runner.py init
+  runner.py build VERSION
+  runner.py contracts VERSION
+  runner.py validate VERSION
+  runner.py benchmark VERSION --baseline ACCEPTED
+  runner.py benchmark VERSION --baseline ACCEPTED --confirmation
+  runner.py profile VERSION --baseline ACCEPTED --mode phases --cases cases.json
+  runner.py diagnose VERSION --baseline ACCEPTED --mode perf --cases cases.json
+  runner.py status
+  runner.py resume VERSION --baseline ACCEPTED [--confirmation]
+  runner.py report
+
+Orchestrators:
+  run_baseline.py B0_final [--await-build]
+  run_attempt.py VERSION --baseline ACCEPTED
+  run_diagnosis.py VERSION --baseline ACCEPTED --disable '{"SGPL_POOL_LEGACY":"1"}'
+
+run_attempt performs build, contracts, full correctness and full primary timing.
+It performs 20-pair full confirmation only after both primary aggregate gates
+pass. A failed A/A confirmation repeats once and remains unaccepted if unstable.
+It archives a decision and diagnostic case list; it never installs a candidate.
+run_diagnosis collects private profiles, hardware/futex/scheduler traces and
+20-repetition uninstrumented baseline/candidate/disabled/A/A controls at 1/2/6
+workers. Explicit cases are a JSON list of {"algorithm":"bfs","graph":"..."}.
+No command can run a second build/test/profile/measurement phase while the
+experiment lock is held. status is read-only; it emits a compact progress record.
+
+The first completed algorithm block establishes a monitoring interval for that
+mode, case list, repetition count and configuration. Subsequent matching blocks
+reuse it. Calibration and expected completion are estimates, not timing samples.
+
+Native sources are frozen per version. Changed source needs a new version name.
+The object/program caches use source dependencies and executable fingerprints.
+Resume rechecks executable fingerprints and protocol identity before using old
+records. Failed observations remain records; they cannot count as speedups.
+
+Primary: one warmup + five fresh-process runs/case/variant.
+Confirmation: 20 paired observations/case and an identical-binary A/A control.
+Gate: >1% mean and median aggregate speedup in primary AND confirmation, with
+no statistically confirmed case/algorithm loss. One-sided paired permutation
+tests use seed 2358, 100000 resamples, Holm across 244+4 tests, family alpha .05.
+The full 244-case matrix, original main50 and deduplicated views are reported.
+Ratio directions are explicit in each key; speedup is baseline/candidate.
+
+Profiles are never acceptance timings. Nested phase timers and concurrent
+helper waits must not be summed as independent wall-time components. WSL
+scheduler/counter limitations must be retained in any written diagnosis.
+
+Baseline B0 in early artifacts is preliminary: LLVM graph literal/copy storage
+was repaired afterwards. B0_final is the canonical baseline for optimization
+decisions. An interrupted R1a1 setup did not reach acceptance timing and does
+not consume an optimization revision. All old evidence remains preserved.

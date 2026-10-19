@@ -67,10 +67,10 @@ def locked(command):
  with p.open('a+') as f:
   try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
   except BlockingIOError:raise RuntimeError('Another build, validation, benchmark or profile holds the experiment lock')
-  state(command=command,pid=os.getpid(),started=time.time(),active=True,failures=0)
+  state(command=command,pid=os.getpid(),started=time.time(),active=True,failures=0,error=None)
   try:yield
   except BaseException as e:
-   state(active=False,error=repr(e));raise
+   state(active=False,error=(type(e).__name__+': '+str(e))[:3000]);raise
   finally:state(active=False)
 
 def checked(cmd,cwd,log,env=None,timeout=1800):
@@ -299,9 +299,12 @@ def benchmark(v,baseline=None,confirm=False,block=0):
   calibrate(a,phase,[61,reps,[n for n,_ in versions],6],start)
  save(OUT/(v+'_'+phase+('_repeat' if block else '')+'.json'),records)
  if not baseline:return
- result={'aggregate':aggregate(records,phase),'graptor':aggregate(records,phase,'graptor','candidate') if not confirm else None,'failures':sum(bool(x.get('error')) for x in records)}
+ result={'candidate':v,'baseline':baseline,'phase':phase,'block':block,'aggregate':aggregate(records,phase),'graptor':aggregate(records,phase,'graptor','candidate') if not confirm else None,'failures':sum(bool(x.get('error')) for x in records)}
  save(OUT/(v+'_'+phase+'_summary.json'),result)
  if confirm:
+  if result['failures']:
+   result.update(decision='reject',reason='incomplete_or_failed_confirmation',promotable=False)
+   save(OUT/(v+'_decision.json'),result);return
   result['tests']=regression_tests(records,phase);result['aa_tests']=regression_tests(records,phase,'aa')
   result['aa_invalid']=any(x['regression'] for x in result['aa_tests'])
   result['confirmed_regressions']=[x for x in result['tests'] if x['regression']]
@@ -327,6 +330,25 @@ def contracts(v):
   finally:resource.setrlimit(resource.RLIMIT_STACK,(resource.RLIM_INFINITY,resource.RLIM_INFINITY))
   x={'test':name,'passed':passed,'error':error};records.append(x);progress(stage='contracts',version=v,**x)
  save(OUT/(v+'_contracts.json'),records);assert all(x['passed'] for x in records)
+ # The same contracts are exercised with the version's frozen runtime objects.
+ for name in ['graph_storage_layout_test','pool_participation_test']:
+  ext='.cpp' if name.startswith('graph_') else '.c';testsrc=REPO/'test'/(name+ext)
+  obj=d/'contracts'/(name+'.o');exe=d/'contracts'/name
+  compiler='g++' if ext=='.cpp' else 'gcc'
+  checked([compiler,'-O2','-I',src,'-c',testsrc,'-o',obj],src,d/'contracts'/(name+'.compile.log'))
+  checked(['g++','-fopenmp',obj,*[d/(n+'.o') for n in OBJECTS],'-pthread','-ldl','-lnlopt','-o',exe],src,d/'contracts'/(name+'.link.log'))
+  if ext=='.cpp':
+   fixture=d/'contracts/input.edges';fixture.write_text('0 1 7\n0 1 9\n1 2 3\n2 2 4\n')
+   for mode in ['off','refresh','on']:
+    e=M.env();e['SGPL_GRAPH_CACHE']=mode
+    checked([exe,fixture],src,d/'contracts'/(name+'.'+mode+'.log'),e)
+  else:
+   for workers in [1,2,6]:
+    for legacy in ['0','1']:
+     e=M.env(workers=workers);e['SGPL_POOL_LEGACY']=legacy
+     checked([exe],src,d/'contracts'/(name+'.w'+str(workers)+'.legacy'+legacy+'.log'),e,120)
+  records.append({'test':name,'passed':True,'source_sha256':sha(testsrc)})
+ save(OUT/(v+'_contracts.json'),records)
 
 def init():
  topo=[]
@@ -352,7 +374,10 @@ def report():
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','build','validate','benchmark','contracts','profile','diagnose','status','resume','report']);p.add_argument('version',nargs='?');p.add_argument('--baseline');p.add_argument('--confirmation',action='store_true');p.add_argument('--repeat-block',type=int,default=0);p.add_argument('--mode',choices=['phases','perf','futex','sched'],default='phases');p.add_argument('--cases',help='JSON list of {algorithm,graph}; default full 244-case matrix');p.add_argument('--workers',type=int,choices=[1,2,6],default=6);p.add_argument('--extra',default='{}');args=p.parse_args()
  if args.command=='status':
-  x=read(OUT/'status.json',{});x['wall_elapsed']=time.time()-x.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT);print(json.dumps(x,indent=2));return
+  raw=read(OUT/'status.json',{});allowed=['command','pid','started','active','failures','updated','stage','version','algorithm','completed','total','monitor_interval_seconds','elapsed_seconds','block_seconds']
+  x={k:raw[k] for k in allowed if k in raw};x['wall_elapsed']=time.time()-raw.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT)
+  if raw.get('error'):x['error']=str(raw['error'])[:1000]
+  print(json.dumps(x,indent=2));return
  if args.command=='report':report();return
  global M;M=bootstrap()
  with locked(args.command):

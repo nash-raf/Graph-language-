@@ -7,9 +7,10 @@ rows=R.read(R.OUT/(args.version+'_diagnostic_controls.json'));rng=np.random.defa
 groups=collections.defaultdict(list)
 for x in rows:groups[(x['algorithm'],x['graph'],x['workers'])].append(x)
 for (a,g,w),values in groups.items():
- arrays={label:np.array([x['seconds'] for x in sorted(values,key=lambda x:x['repeat']) if x['label']==label and not x.get('error')]) for label in ['baseline','candidate','disabled','aa']}
+ arrays={label:np.array([x['seconds'] for x in sorted(values,key=lambda x:x['repeat']) if x['label']==label and not x.get('error')]) for label in sorted(set(x['label'] for x in values))}
  entry=dict(algorithm=a,graph=g,workers=w,comparisons={})
- for numerator,denominator in [('candidate','baseline'),('disabled','baseline'),('aa','baseline'),('candidate','disabled')]:
+ comparisons=[('candidate','baseline'),('disabled','baseline'),('aa','baseline'),('candidate','disabled')]+[('candidate',label) for label in arrays if label not in ['baseline','candidate','disabled','aa']]
+ for numerator,denominator in comparisons:
   x=arrays[numerator];y=arrays[denominator]
   assert len(x)==len(y)==20
   index=rng.integers(0,20,(10000,20));ratios=x[index].mean(axis=1)/y[index].mean(axis=1)

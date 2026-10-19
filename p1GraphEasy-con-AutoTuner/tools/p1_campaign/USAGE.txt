@@ -125,3 +125,10 @@ retain those artifacts and use the new method fingerprint for comparisons.
 The final profile audit independently checks all 61 PageRank cases against the
 frozen graph sizes: one degree traversal plus 20 contribution traversals.
 Index/map allocation bytes are separate from record bytes and acceptance time.
+
+If finalization stops after promotion, retain the checkpoint and resume only
+the unfinished stage, for example:
+  finish_campaign.py VERSION --resume-at verify_profile_work
+The resume path verifies a clean accepted branch, native source identity,
+executable fingerprints and frozen inputs before continuing. It does not
+re-promote an already accepted version. Failed diagnostic logs stay on disk.

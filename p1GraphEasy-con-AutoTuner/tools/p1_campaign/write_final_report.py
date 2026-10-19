@@ -61,7 +61,11 @@ for algorithm in R.ALGS:
 lines+=['','Whole-process timing is the primary metric. P1 and Graptor have different',
  'loading/preprocessing paths and reported execution-region boundaries. A',
  'whole-process lead must not be presented as proof of a kernel lead. The',
- 'historical and equal-double PageRank controls are both reported above.','',
+ 'historical and equal-double PageRank controls are both reported above.',
+ 'The audited PageRank profiles retain 21 native-arc traversals (one degree',
+ 'construction and 20 contribution rounds) in both B0 and accepted P1. Both',
+ 'full-graph paths use zero frontier-record bytes. The full-graph gain therefore',
+ 'does not mean those logical edge occurrences were removed.','',
  'Rejected native patches and provenance are in patches/. Trial branches and',
  'frozen source/executable snapshots retain rejected code outside the accepted',
  'chain. Per-rejection causal conclusions and unresolved questions are in:']
@@ -109,6 +113,7 @@ lines+=['','R1 shared-wake regressions were isolated to excluded helpers waking 
  'The final profile also measures 20 source-map allocations per PR process, one',
  'for each contribution context. A general buffer-lease cache could test that',
  'allocation cost without changing arithmetic, ordering or concurrent ownership.',
+ 'Cumulative allocation volume is not peak memory or proof of a time bottleneck.',
  'Keep inactive compiler/runtime paths isolated and require component controls',
  'to reproduce and recover any generic-path loss before another campaign.',
  'Use the internal execution comparison to prioritize kernel work; the primary',
@@ -116,6 +121,8 @@ lines+=['','R1 shared-wake regressions were isolated to excluded helpers waking 
  '', 'The final accepted executable set and repaired B0 were independently checked',
  'on all 244 cases at each of 1, 2 and 6 physical workers (732 results each).',
  '', 'The original production checkout and previous investigation were preserved.',
+ 'preexisting_findings.json records the existing directed-inline-literal issue;',
+ 'campaign benchmarks use file graphs and do not exercise that issue.',
  'Automatic approval review rejected removal of the incomplete D:/p1camp',
  'checkout; it remains in place. The valid campaign worktree is on C:.']
 path=R.OUT/'final_report.txt';assert not path.exists(),'Do not overwrite an issued final report';path.write_text('\n'.join(lines)+'\n');print(path)

@@ -20,7 +20,7 @@ with R.locked('verify_profile_work'):
     for name,value in expected.items():assert x['work'][name]==value and x['full_domain_work'][name]==value,(version,row['graph'],name,value,x['work'],x['full_domain_work'])
     if version=='B0_final':assert x['full_domain_work']['source_map_allocation_bytes']==0
     elif (R.ROOT/'versions'/version/'src/fullgraph_runtime.inc').exists():
-     assert x['full_domain_work']['source_map_allocation_bytes']==max(int(row['vertices']),1)*8
+     assert x['full_domain_work']['source_map_allocation_bytes']==20*max(int(row['vertices']),1)*8
      assert x['full_domain_work']['successful_index_allocation_bytes']>0
    checked.append(dict(version=version,graph=row['graph'],expected=expected,observations=5))
  result=dict(profile=str(path),profile_sha256=R.sha(path),checked=checked,interpretation='Potential logical source/native-arc occurrences before operation gates; PageRank includes one degree-construction traversal and 20 contribution traversals. No record is needed for either full-graph path.')

@@ -16,7 +16,8 @@ Entry points:
   runner.py benchmark VERSION --baseline ACCEPTED
   runner.py benchmark VERSION --baseline ACCEPTED --confirmation
   runner.py profile VERSION --baseline ACCEPTED --mode phases --cases cases.json
-  runner.py diagnose VERSION --baseline ACCEPTED --mode perf --cases cases.json
+  runner.py profile VERSION --baseline ACCEPTED --mode perf --cases cases.json
+  runner.py diagnose VERSION --baseline ACCEPTED --disable '{"FEATURE_DISABLE":"1"}' --cases cases.json
   runner.py status
   runner.py resume VERSION --baseline ACCEPTED [--confirmation]
   runner.py report
@@ -100,3 +101,27 @@ Finalize only after all four recommendations have a recorded outcome:
 The last command requires a complete valid final A/A block and never overwrites
 an issued final report. It includes whole-process and internal comparisons,
 historical and equal-double PageRank, main50 and duplicate-content sensitivity.
+
+Full-graph rejection controls:
+  fullgraph_cross_controls.py VERSION --baseline ACCEPTED --cases cases.json
+  component_controls.py VERSION --baseline ACCEPTED --cases cases.json --controls '{"disabled":{"SGPL_NO_FULLGRAPH":"1"},"legacy_index":{"SGPL_FULL_INDEX_LEGACY":"1"}}'
+Cross-links refuse changed public struct layouts or a reference to the new
+full-graph binder. A version/size wrapper exists only in private control builds.
+The data-section control changes only the two new incoming-cache globals.
+Every control validates at 1/2/6 workers before its 20 paired measurements.
+Protocols and raw observations use immutable method identities.
+
+After a final rejection has its completed investigation, keep the last accepted
+native sources, copy the reusable tools to that branch, commit them, then run:
+  finish_campaign.py REJECTED_VERSION --keep-accepted
+For a passing final trial, commit it and run finish_campaign.py VERSION.
+Both flows validate repaired B0 and accepted R2 at all three widths, profile the
+final accepted version against B0, and collect a fresh Graptor comparison.
+
+Full-domain profiling counts potential source/native-arc occurrences before
+operation gates. It supplements the original frontier-record counters. Old
+full-domain profiles with zero work were uncounted, not zero-work executions;
+retain those artifacts and use the new method fingerprint for comparisons.
+The final profile audit independently checks all 61 PageRank cases against the
+frozen graph sizes: one degree traversal plus 20 contribution traversals.
+Index/map allocation bytes are separate from record bytes and acceptance time.

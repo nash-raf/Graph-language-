@@ -2,6 +2,7 @@
 import argparse
 import runner as R
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('version');args=p.parse_args()
+R.M=R.bootstrap()
 with R.locked('promote'):
  decision=R.read(R.OUT/(args.version+'_decision.json'));assert decision and decision.get('promotable') and decision['decision']=='accept'
  primary=R.read(R.OUT/(args.version+'_primary_summary.json'))

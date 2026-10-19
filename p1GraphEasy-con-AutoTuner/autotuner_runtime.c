@@ -19,6 +19,16 @@
 #include <time.h>
 
 #include "autotuner_runtime.h"
+/* Preserve existing executor-section order when extending the runtime. */
+#if defined(__GNUC__) && defined(__ELF__)
+__asm__(".pushsection .sgpl_cut_preparation,\"ax\",@progbits\n.popsection");
+__asm__(".pushsection .sgpl_compaction,\"ax\",@progbits\n.popsection");
+__asm__(".pushsection .sgpl_preparation,\"ax\",@progbits\n.popsection");
+__asm__(".pushsection .sgpl_lean_records,\"ax\",@progbits\n.popsection");
+__asm__(".pushsection .sgpl_lean_dispatch,\"ax\",@progbits\n.popsection");
+__asm__(".pushsection .sgpl_packed_records,\"ax\",@progbits\n.popsection");
+#endif
+
 #include <stddef.h>
 #include "parallel_runtime.h"
 
@@ -3727,6 +3737,9 @@ static void sgpl_exec_coverage_scan(int64_t index, void *opaque) {
   job->counts[p] = n;
 }
 
+#include "fullgraph_runtime.inc"
+
+static void sgpl_fullgraph_parallel(int64_t,void *);
 static void sgpl_exec_source_coverage(sgpl_exec_ctx *ctx, int begin) {
   AutoGraphMeta *meta = find_meta(ctx->graph);
   SgplCoverageJob job;
@@ -3813,7 +3826,7 @@ static void sgpl_exec_step_dispatch_body(sgpl_exec_ctx *ctx, int32_t partitions,
     ctx->execution_status = sgpl_exec_dag_spatial(ctx, partitions, budget);
   }
   else
-    parallel_for_runtime(0, partitions, 1, (ctx->array_compact_records==4?sgpl_exec_partition_body_lean_weighted:(ctx->array_compact_records==3?sgpl_exec_partition_body_lean:(ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body))), ctx, 0, 0);
+    parallel_for_runtime(0, partitions, 1, ctx->array_compact_records==6?sgpl_fullgraph_parallel:((ctx->array_compact_records==4?sgpl_exec_partition_body_lean_weighted:(ctx->array_compact_records==3?sgpl_exec_partition_body_lean:(ctx->array_compact_records==2?sgpl_exec_partition_body_packed:sgpl_exec_partition_body)))), ctx, 0, 0);
 }
 
 static void *sgpl_exec_step_task(void *opaque) {
@@ -4231,6 +4244,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
 
   if (!ctx)
     return 0;
+  if(ctx->array_compact_records==6){int32_t rc=sgpl_fullgraph_begin(ctx,meta);if(rc<0){ctx->execution_status=rc;return rc;}}
   ctx->graph = graph_ptr;
   if(!ctx->array_append_sites&&meta&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
       !autograph_build_clean_cut(graph_ptr,meta->partition_count))return SGPL_DAG_ERR_NOMEM;
@@ -4286,6 +4300,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
   }
   if (ctx->execution_status < 0) return ctx->execution_status;
 
+  if(ctx->array_compact_records==6&&!ctx->spatial_coverage_pending&&!sgpl_exec_failed(ctx))sgpl_fullgraph_prepare_map(ctx);
   return SGPL_DAG_OK;
 }
 
@@ -4379,6 +4394,7 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   if (!ctx || !meta || partition < 0 || partition >= meta->partition_count)
     return SGPL_DAG_ERR_INVALID;
   if (sgpl_exec_failed(ctx)) return ctx->execution_status;
+  if(ctx->array_compact_records==6&&sgpl_fullgraph_partition(ctx,partition))return ctx->execution_error?__atomic_load_n(ctx->execution_error,__ATOMIC_ACQUIRE):ctx->execution_status;
   if(ctx->array_compact_records==4)sgpl_exec_partition_body_lean_weighted(partition,ctx);
   else if(ctx->array_compact_records==3)sgpl_exec_partition_body_lean(partition,ctx);
   else if(ctx->array_compact_records==2)sgpl_exec_partition_body_packed(partition,ctx);
@@ -4386,6 +4402,7 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
 }
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+  if(ctx&&ctx->array_compact_records==6)sgpl_fullgraph_release(ctx);
   if(ctx)sgpl_execution_scratch_detach(ctx);
   AutoGraphMeta *m=ctx?find_meta(ctx->graph):NULL;
   if(!m||m->partition_count<1||m->csr_n<0) return SGPL_DAG_ERR_INVALID;
@@ -4518,7 +4535,7 @@ records_ready:
 }
 int32_t sgpl_exec_spatial_publish(sgpl_exec_ctx *ctx) {
   if (!ctx) return SGPL_DAG_ERR_INVALID;
-  if (ctx->spatial_coverage_pending) sgpl_exec_source_coverage(ctx, 1);
+  if (ctx->spatial_coverage_pending) {sgpl_exec_source_coverage(ctx, 1);if(ctx->array_compact_records==6&&!sgpl_exec_failed(ctx))sgpl_fullgraph_prepare_map(ctx);}
   ctx->spatial_coverage_pending = 0;
   return ctx->execution_status;
 }
@@ -4834,6 +4851,7 @@ sgpl_exec_ctx *autograph_exec_ctx_create(
 void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
   if (!ctx)
     return;
+  sgpl_fullgraph_release(ctx);
   int scratch_cacheable=ctx->gpu_group_offsets==NULL;
   /* Sparse CPU execution initializes its live endpoint domain in begin().
    * Do not rescan occurrence records just to clear unused cached bytes. */
@@ -6333,6 +6351,7 @@ static __attribute__((section(".sgpl_lean_dispatch"))) void sgpl_independent_spa
   if(completed)atomic_fetch_add_explicit(&job->completed,completed,memory_order_relaxed);
 }
 
+#include "fullgraph_dispatch.inc"
 static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
                                          const sgpl_dag_relation_desc *relations,
                                          int32_t relation_count,
@@ -6363,7 +6382,7 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
   tmpl.node_count = partitions;
   tmpl.relation_count = relation_count;
   tmpl.relations = relation_count > 0 ? relations : NULL;
-  tmpl.node_fn = (ctx->array_compact_records==4?sgpl_dag_partition_node_lean_weighted:(ctx->array_compact_records==3?sgpl_dag_partition_node_lean:(ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node)));
+  tmpl.node_fn = ctx->array_compact_records==6?sgpl_dag_partition_node_full:((ctx->array_compact_records==4?sgpl_dag_partition_node_lean_weighted:(ctx->array_compact_records==3?sgpl_dag_partition_node_lean:(ctx->array_compact_records==2?sgpl_dag_partition_node_packed:sgpl_dag_partition_node))));
   /* Section 15 work estimate: the partition's own pair count -- a measured
    * quantity, not the TDG cost model (which the pod measurements showed
    * mismatched).  It only caps the share; see dag_dispatch_budget. */
@@ -6411,7 +6430,7 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
         atomic_store_explicit(&job.completed,partitions-active,memory_order_relaxed);
       }
     }
-    int pool_rc=sgpl_run_on_worker_pool((ctx->array_compact_records==4?sgpl_independent_spatial_worker_lean_weighted:(ctx->array_compact_records==3?sgpl_independent_spatial_worker_lean:(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker))),&job,worker_budget);
+    int pool_rc=sgpl_run_on_worker_pool(ctx->array_compact_records==6?sgpl_independent_spatial_worker_full:((ctx->array_compact_records==4?sgpl_independent_spatial_worker_lean_weighted:(ctx->array_compact_records==3?sgpl_independent_spatial_worker_lean:(ctx->array_compact_records==2?sgpl_independent_spatial_worker_packed:sgpl_independent_spatial_worker)))),&job,worker_budget);
     if(nodes && nodes!=local_nodes)free(nodes);
     int status=pool_rc ? (pool_rc==-1?SGPL_DAG_ERR_NOMEM:SGPL_DAG_ERR_NODE) :
         atomic_load_explicit(&job.failed,memory_order_acquire)?SGPL_DAG_ERR_NODE:SGPL_DAG_OK;

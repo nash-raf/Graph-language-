@@ -36,6 +36,14 @@ with R.locked('final_comparison'):
    if match:internal.append(dict(item,seconds=float(match[1])))
   result['internal_historical_graptor_over_accepted']=R.aggregate(internal,phase,'graptor','candidate')
   result['internal_equal_double_graptor_over_accepted']=R.aggregate(internal,phase,'graptor_double','candidate')
+  result['per_case']=[]
+  for a in R.ALGS:
+   for row in R.M.ROWS:
+    entry=dict(algorithm=a,graph=row['graph'])
+    for name,source in [('whole_process_ms',records),('internal_ms',internal)]:
+     values={label:R.samples(source,phase,label,a,row['graph']) for label in ['baseline','candidate','aa','graptor','graptor_double']}
+     entry[name]={label:R.statistics.mean(samples)*1000 if samples else None for label,samples in values.items()}
+    result['per_case'].append(entry)
   R.save(R.OUT/(args.attempt+'_block'+str(block)+'_summary.json'),result)
   if not invalid:break
  R.save(R.OUT/(args.attempt+'_summary.json'),result)

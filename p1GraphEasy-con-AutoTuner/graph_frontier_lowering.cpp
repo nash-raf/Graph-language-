@@ -8404,6 +8404,19 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
         ConstantInt::get(I32, NOps), ConstantInt::get(I32, StepId)};
     Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
+    const bool FullCertified=PairPartition&&Traversal==SGPL_TRAVERSE_OWNER_V&&
+        Info.SpatialResult.Group==SpatialGroup::Destination&&
+        !gpuBackendSelected(Mod)&&spatialAllVerticesDomain(Info)&&
+        !Info.MembershipGated&&!WantFt&&!WantEnvelope&&!Info.OrderedArrayFrontier&&
+        !Info.CombinedStage&&!IsRed&&!IsSourceRed&&!IsPriv&&Info.RoundSepBases.empty()&&
+        ClaimOps.empty()&&!SrcBeginCB&&!SrcEndCB&&Info.DriverUStores.empty()&&Info.DriverUClaims.empty();
+    if(FullCertified) {
+        auto Mark=Mod->getOrInsertFunction("sgpl_fullgraph_certificate",
+            FunctionType::get(Type::getVoidTy(Ctx),{I8P,I8P},false));
+        EB.CreateCall(Mark,{ExecCtx,WF});
+    }else if(getenv("SGPL_FULLGRAPH_STATS"))
+        errs()<<"[fullgraph] refuse stage: full domain, destination ownership, alias/effect or lifecycle certificate unavailable\n";
+
     if(gpuBackendSelected(Mod)) {
         SmallVector<Constant *,8> Sizes;
         for(const auto &Slot:Info.Slots) Sizes.push_back(EB.getInt64(Mod->getDataLayout().getTypeAllocSize(Slot.ElemTy)));

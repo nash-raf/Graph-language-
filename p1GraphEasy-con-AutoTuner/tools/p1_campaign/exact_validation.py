@@ -4,7 +4,7 @@ import json,struct,time
 def run(R,candidate,baseline):
  R.verify_inputs()
  fingerprints={v:R.verify_fingerprint(v) for v in [baseline,candidate]}
- helper=R.HERE/'exact_bits.c';identity=R.key([R.sha(helper),fingerprints,'printf-puts-v1'])[:16]
+ helper=R.HERE/'exact_bits.c';identity=R.key([R.sha(helper),fingerprints,'printf-printf_chk-puts-v2'])[:16]
  root=R.ROOT/'exact_validation'/identity;root.mkdir(parents=True,exist_ok=True)
  obj=root/'exact_bits.o'
  if not obj.exists():R.checked(['gcc','-O2','-c',helper,'-o',obj],root,root/'helper.compile.log')
@@ -12,16 +12,18 @@ def run(R,candidate,baseline):
  patterns=[0,0x8000000000000000,0x7ff0000000000000,0xfff0000000000000,0x7ff8000000001234,0x3ff0000000000001]
  test=root/'selftest.c'
  test.write_text('#include <stdio.h>\n#include <stdint.h>\n#include <string.h>\nint main(void){uint64_t raw[]={'+','.join(str(x)+'ULL' for x in patterns)+'};puts("VALUES_BEGIN");for(unsigned i=0;i<sizeof(raw)/8;++i){double x;memcpy(&x,raw+i,8);printf("%.13g\\n",x);}puts("VALUES_END");}\n')
- if not (root/'selftest').exists():R.checked(['gcc','-O2',test,obj,'-Wl,--wrap=printf','-Wl,--wrap=puts','-o',root/'selftest'],root,root/'selftest.compile.log')
- env=R.M.env();env['SGPL_BITS_OUTPUT']=str(root/'selftest.bits')
- R.checked([root/'selftest'],root,root/'selftest.log',env)
- assert (root/'selftest.bits').read_bytes()==b''.join(struct.pack('<Q',x) for x in patterns),'Exact-bit interposition failed selftest'
+ for mode,flags in [('default',[]),('unfortified',['-U_FORTIFY_SOURCE','-D_FORTIFY_SOURCE=0'])]:
+  exe=root/('selftest_'+mode)
+  if not exe.exists():R.checked(['gcc','-O2',*flags,test,obj,'-Wl,--wrap=printf','-Wl,--wrap=__printf_chk','-Wl,--wrap=puts','-o',exe],root,root/('selftest_'+mode+'.compile.log'))
+  env=R.M.env();env['SGPL_BITS_OUTPUT']=str(root/('selftest_'+mode+'.bits'))
+  R.checked([exe],root,root/('selftest_'+mode+'.log'),env)
+  assert (root/('selftest_'+mode+'.bits')).read_bytes()==b''.join(struct.pack('<Q',x) for x in patterns),'Exact-bit interposition failed selftest: '+mode
  executable_hashes={}
  for v in [baseline,candidate]:
   d=R.ROOT/'versions'/v
   for row in R.M.ROWS:
    case=R.case(v,'pagerank',row);exe=case/('exact_validate.'+identity)
-   if not exe.exists():R.checked(['g++','-O3','-fopenmp','-no-pie',case/'validate.o',*[d/(n+'.o') for n in R.OBJECTS],R.ROOT/'monotonic_timer.o',obj,'-Wl,--wrap=timer_runtime','-Wl,--wrap=printf','-Wl,--wrap=puts','-pthread','-ldl','-lnlopt','-o',exe],case,case/('exact_link.'+identity+'.log'))
+   if not exe.exists():R.checked(['g++','-O3','-fopenmp','-no-pie',case/'validate.o',*[d/(n+'.o') for n in R.OBJECTS],R.ROOT/'monotonic_timer.o',obj,'-Wl,--wrap=timer_runtime','-Wl,--wrap=printf','-Wl,--wrap=__printf_chk','-Wl,--wrap=puts','-pthread','-ldl','-lnlopt','-o',exe],case,case/('exact_link.'+identity+'.log'))
    executable_hashes[str(exe)]=R.sha(exe)
  protocol=dict(candidate=candidate,baseline=baseline,fingerprints=fingerprints,helper_sha256=R.sha(helper),executables=executable_hashes,dataset=R.read(R.OUT/'manifest.json')['dataset_hash'])
  path=R.OUT/(candidate+'_exact_bits_'+identity+'_protocol.json')

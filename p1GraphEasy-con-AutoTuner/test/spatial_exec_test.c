@@ -35,7 +35,10 @@ static int32_t pairs[] = {0,1,0,2,1,2,1,2,2,3,4,1,5,6};
 static int32_t shuffled[] = {5,6,1,2,0,1,4,1,1,2,0,2,2,3};
 static int32_t *native_pairs = pairs;
 int32_t *graph_get_edge_pairs(void *g) { (void)g; return native_pairs; }
-int64_t graph_get_num_edge_pairs(void *g) { return ((ExecTestGraph *)g)->m ? 7 : 0; }
+#ifndef SGPL_FIXTURE_EDGE_COUNT
+#define SGPL_FIXTURE_EDGE_COUNT(g) (((ExecTestGraph *)(g))->m?7:0)
+#endif
+int64_t graph_get_num_edge_pairs(void *g) { return SGPL_FIXTURE_EDGE_COUNT(g); }
 static atomic_int fail_malloc,fail_calloc,fail_thread;
 static int fail_countdown(atomic_int *counter) {
   int old=atomic_load(counter);

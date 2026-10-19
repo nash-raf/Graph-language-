@@ -469,7 +469,7 @@ typedef struct sgpl_runtime_op {
   void (*combine)(void *state, struct sgpl_exec_ctx *);
 } sgpl_runtime_op;
 
-enum { SGPL_EXECUTION_ABI_VERSION = 1 };
+enum { SGPL_EXECUTION_ABI_VERSION = 3 };
 void autograph_execution_abi_check_v1(int32_t version, uint64_t context_bytes, uint64_t operation_bytes);
 
 /* A static witness selects grouping. CleanCut only materializes this rule. */

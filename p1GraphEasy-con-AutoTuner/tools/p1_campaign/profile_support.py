@@ -2,6 +2,30 @@
 from pathlib import Path
 import ast,json,re,shutil,time
 
+FULL_WORK=r'''
+static unsigned long long wv_full_calls,wv_full_sources,wv_full_pairs,wv_full_index_bytes,wv_full_map_bytes;
+typedef struct {sgpl_exec_ctx *c;} WFullScope;
+static void wv_full_leave(WFullScope *scope){
+ sgpl_exec_ctx *c=scope->c;
+ if(!c||c->array_append_sites||c->domain_kind!=SGPL_DOMAIN_ALL_VERTICES)return;
+ AutoGraphMeta *m=find_meta(c->graph);if(!m||m->csr_n<0||m->csr_m<0)return;
+ __atomic_fetch_add(&wv_calls,1,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_sources,m->csr_n,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_unique_sources,m->csr_n,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_pairs,m->csr_m,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_unique_pairs,m->csr_m,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_full_calls,1,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_full_sources,m->csr_n,__ATOMIC_RELAXED);
+ __atomic_fetch_add(&wv_full_pairs,m->csr_m,__ATOMIC_RELAXED);
+}
+__attribute__((destructor)) static void wv_full_report(void){
+ const char *p=getenv("SGPL_WORK_JSON");if(!p)return;char path[4096];
+ if(snprintf(path,sizeof path,"%s.full.json",p)>=(int)sizeof path)return;
+ FILE *f=fopen(path,"w");if(!f)return;
+ fprintf(f,"{\"rounds\":%llu,\"source_occurrences\":%llu,\"pair_occurrences\":%llu,\"successful_index_allocation_bytes\":%llu,\"source_map_allocation_bytes\":%llu}\n",wv_full_calls,wv_full_sources,wv_full_pairs,wv_full_index_bytes,wv_full_map_bytes);fclose(f);
+}
+'''
+
 def constant(path,name):
  for node in ast.parse(path.read_text()).body:
   if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id==name for t in node.targets):return ast.literal_eval(node.value)
@@ -53,8 +77,18 @@ def build_profile_runtime(R,v):
  work=work.replace('fclose(f);','fclose(f);\n char bytes_path[4096];if(snprintf(bytes_path,sizeof bytes_path,"%s.bytes.json",p)>=(int)sizeof bytes_path)return;\n f=fopen(bytes_path,"w");if(f){fprintf(f,"{\\\"record_payload_bytes\\\":%llu,\\\"record_metadata_bytes\\\":%llu}\\n",wv_payload_bytes,wv_metadata_bytes);fclose(f);}')
  if (out/'array_direct_runtime.inc').exists():
   work=work.replace('wv_payload_bytes+=(unsigned long long)c->gpu_record_count*stride;', 'if(format==5){SgplDirectRound *r=sgpl_direct_round(c);wv_payload_bytes+=(unsigned long long)r->offsets[r->index->parts]*sizeof(SgplDirectDescriptor);wv_metadata_bytes+=((unsigned long long)r->index->parts+1)*16;}else wv_payload_bytes+=(unsigned long long)c->gpu_record_count*stride;')
+ work+=FULL_WORK
  assert needle in text;text=text.replace(needle,work+'\n'+needle+' WScope ws __attribute__((cleanup(wv_leave)))={c,m};')
  p.write_text(text)
+ p=out/'autotuner_runtime.c';text=p.read_text()
+ text,n=re.subn(r'(\bsgpl_exec_step_dispatch_body\([^;]*?\)\s*\{)',lambda m:m[1]+' WFullScope full_work_scope __attribute__((cleanup(wv_full_leave)))={ctx};',text,count=1);assert n==1
+ p.write_text(text)
+ p=out/'fullgraph_runtime.inc'
+ if p.exists():
+  text=p.read_text();needle='if(!s->incoming_rows||!s->native_rows||!s->sources||!cursor)goto fail;';assert text.count(needle)==1
+  text=text.replace(needle,needle+'\n __atomic_fetch_add(&wv_full_index_bytes,sizeof(*s)+16*(unsigned long long)(s->n+1)+4*(unsigned long long)(s->m?s->m:1)+8*(unsigned long long)(s->n?s->n:1),__ATOMIC_RELAXED);')
+  needle='s->kernel=(SgplFullKernel)kernel;';assert text.count(needle)==1
+  text=text.replace(needle,'__atomic_fetch_add(&wv_full_map_bytes,(unsigned long long)(m->csr_n?m->csr_n:1)*stride,__ATOMIC_RELAXED);\n '+needle);p.write_text(text)
  p=out/'array_preparation_runtime.inc';text=p.read_text()
  for i,fn in [(1,'sgpl_array_count_chunks'),(2,'sgpl_array_fill_chunks')]:
   text,n=re.subn(r'(  sgpl_run_preparation\([^;]*?'+fn+r'[^;]*?;)',lambda m:'{ NR('+str(i)+'); '+m[1]+' }',text,count=1)

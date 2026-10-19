@@ -17,6 +17,7 @@ assert selected,'Run the primary matrix first, or provide an explicit diagnostic
 disable=json.loads(args.disable);assert disable
 additional=json.loads(args.additional)
 with R.locked('diagnose'):
+ R.verify_inputs()
  for v in [args.version,args.baseline]:R.verify_fingerprint(v);instrument(R,v,selected)
  for workers in [1,2,6]:
   for extra in ['{}',json.dumps(disable)]:

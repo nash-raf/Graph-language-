@@ -5,6 +5,7 @@ with R.locked('freeze_protocol'):
  R.verify_inputs();base=R.ROOT/'versions/B0_final'
  sources={a+'/'+row['graph']+'/'+mode:R.sha(R.case('B0_final',a,row)/(mode+'.graph')) for a in R.ALGS for row in R.M.ROWS for mode in ['timed','validate']}
  protocol=dict(input_manifest_sha256=R.sha(R.OUT/'manifest.json'),sources=sources,
+  reference_sha256={str(p.relative_to(R.ROOT)):R.sha(p) for p in (R.ROOT/'references').rglob('*') if p.is_file()},
   source_root=str(base/'cases'),harness_sha256=R.sha(R.ROOT/'support/common.py'),
   compiler_flags=['-O2','-mavx2','-march=native','-std=c++17','-fexceptions','-pthread'],
   runtime_c_flags=['-O3','-g','-fopenmp','-pthread'],runtime_cpp_extra=['-mavx2','-march=native','-std=c++17'],

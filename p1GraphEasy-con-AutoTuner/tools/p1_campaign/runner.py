@@ -192,7 +192,7 @@ def build(v):
      text=M.make_source(alg,r,mode=='validate');source=p/(mode+'.graph');source.write_text(text)
      k=key([cache_compiler_id,text]);obj=program_cache/(k+'.o')
      if not obj.exists():
-      e=M.env();e.update(FORCE_CPU='1',GRAPH_FRONTIER_STATS='1',SGPL_RECORD_LIVENESS_STATS='1')
+      e=M.env();e.update(FORCE_CPU='1',GRAPH_FRONTIER_STATS='1',SGPL_RECORD_LIVENESS_STATS='1',SGPL_FULLGRAPH_STATS='1')
       checked([d/'GraphProgram','--ir-backend=cpu',source],p,p/(mode+'.compile.log'),e,1200)
       shutil.move(p/'program.o',obj)
      target=p/(mode+'.o')
@@ -264,6 +264,8 @@ def invoke(attempt,phase,v,a,r,rep,label=None,workers=6,extra=None,profile=None,
     if path.exists():x[n]=read(path)
    bytes_path=Path(str(base)+'.work.json.bytes.json')
    if bytes_path.exists():x['record_bytes']=read(bytes_path)
+   full_path=Path(str(base)+'.work.json.full.json')
+   if full_path.exists():x['full_domain_work']=read(full_path)
   if profile in ['perf','futex']:
    path=Path(str(base)+('.perf.csv' if profile=='perf' else '.futex.txt'));x['diagnostic_output']=path.read_text() if path.exists() else ''
   save(record,x);journal(OUT/(attempt+'_measurements.jsonl'),x)
@@ -279,6 +281,8 @@ def verify_inputs():
  manifest=read(OUT/'manifest.json');assert manifest,'Initialize the campaign first'
  for name,digest in manifest['inputs'].items():assert sha(name)==digest,'Dataset fingerprint changed: '+name
  for name,digest in manifest['graptor'].items():assert sha(ROOT/'graptor'/name)==digest,'Pinned Graptor changed: '+name
+ for name,digest in manifest.get('support_hashes',{}).items():assert sha(ROOT/name)==digest,'Frozen source-generation support changed: '+name
+ assert M.ROWS==manifest['cases'],'Frozen graph sources/settings changed'
 
 def validate_version(v):
  verify_inputs();verify_fingerprint(v);records=[];sensitivity=[]
@@ -512,7 +516,7 @@ def main():
   x={k:raw[k] for k in allowed if k in raw};x['wall_elapsed']=time.time()-raw.get('started',time.time());x['root']=str(ROOT);x['output']=str(OUT)
   if raw.get('error'):x['error']=str(raw['error'])[:1000]
   version=str(raw.get('version',''))
-  x['logs']=str(ROOT/'versions'/version/('build_logs' if raw.get('command')=='build' else 'contracts')) if raw.get('command') in ['build','contracts'] else str(ROOT/'runs'/version)
+  x['logs']=str(Path(raw['development'])/'logs') if raw.get('development') else str(ROOT/'versions'/version/('build_logs' if raw.get('command')=='build' else 'contracts')) if raw.get('command') in ['build','contracts'] else str(ROOT/'runs'/version)
   print(json.dumps(x,indent=2));return
  if args.command=='report':report();return
  if args.command=='diagnose':
@@ -545,6 +549,8 @@ def main():
    benchmark(args.version,args.baseline,args.confirmation,args.repeat_block)
   elif args.command=='benchmark':benchmark(args.version,args.baseline,args.confirmation,args.repeat_block)
   elif args.command=='profile':
+   verify_inputs();verify_fingerprint(args.version)
+   if args.baseline:verify_fingerprint(args.baseline)
    from profile_support import run_profiles
    run_profiles(sys.modules[__name__],args)
 if __name__=='__main__':main()

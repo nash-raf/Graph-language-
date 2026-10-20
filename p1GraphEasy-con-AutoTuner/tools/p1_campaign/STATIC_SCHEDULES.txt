@@ -157,3 +157,8 @@ builds pre-static accepted P1, the frozen unfixed candidate, repaired P1 and
 Graptor together. It validates all 244 cases, includes separate accepted and
 unfixed A/A controls, and reports incremental and cumulative comparisons.
 Do not infer full-dataset improvement from the targeted diagnostic studies.
+Local CursorAligned1 additionally passes all 732 independent result checks
+(244 cases at each of 1/2/6 physical workers) and 183 full-bit PageRank vectors
+against StaticSchedule3. Cloud kernel p1-cursor-repair-cpu-campaign version 1
+uses a separate private frozen dataset; its full comparison is still required.
+Downloaded results are audited with closeout_cursor_repair.py EVIDENCE OUTPUT.

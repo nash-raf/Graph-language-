@@ -85,3 +85,22 @@ comparison.html is the complete time table; comparison.json and p1-results.tar.g
 preserve measurements and evidence. Setup failures are separate from performance
 regressions. Do not report unmeasured improvements or treat kernel-only gains as
 end-to-end gains.
+
+Completed Kaggle version 3 (2026-10-20):
+  244 cases, 32,025 fresh-process timed observations, stable A/A controls.
+  Correctness at 1/2 physical workers and 122 exact PageRank vector groups pass.
+  Confirmed case regressions: BFS 6, SSSP 4, CC 6, PageRank 0.
+  Sum of case means: accepted 6.473940 s, candidate 6.533303 s (+0.917%).
+  Equal-case mean geometric speedup: 1.022135x. Graptor sum: 2.910285 s.
+The candidate is retained, but does not pass the no-regression promotion gate.
+The largest slowdowns also appear with the schedule disabled; the individual
+common-runtime/compiled-code mechanism has not been causally isolated.
+
+Downloaded evidence: C:\p1-static-schedules-20261020\kaggle-v3
+  final_report.html: every graph/algorithm, whole-process/kernel times and tests.
+  comparison.json / comparison.html: original primary and confirmation reports.
+  p1-results.tar.gz: raw records, manifests, build and validation evidence.
+Rebuild the readable closeout from an extracted archive without new timings:
+  closeout_kaggle.py EXTRACTED_EVIDENCE_DIRECTORY OUTPUT_DIRECTORY
+The full 61-graph result is authoritative. Duplicate-input sensitivity and the
+original 50-graph subset are reported separately; neither removes regressions.

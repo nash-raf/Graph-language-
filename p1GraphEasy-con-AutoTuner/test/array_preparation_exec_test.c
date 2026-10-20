@@ -13,6 +13,21 @@ static void probe_team(void *state,int32_t worker,int32_t width) {
 }
 static atomic_int large_calls;
 static atomic_int large_errors;
+#ifdef SGPL_PREPARATION_TEST
+static int cursor_checks;
+void sgpl_test_preparation_cursors(const int64_t *p,size_t stride,int32_t parts,int32_t chunks,int aligned) {
+  ++cursor_checks;
+  check(stride>=(size_t)(parts?parts:1),"cursor stride contains every logical partition");
+  if(aligned) {
+    check(!((uintptr_t)p%64)&&!(stride*sizeof(*p)%64),"cursor base and row stride are cache-line aligned");
+    for(int32_t k=1;k<chunks;++k)
+      check(((uintptr_t)(p+(k-1)*stride+(parts?parts:1)-1))/64<((uintptr_t)(p+k*stride))/64,
+          "adjacent chunks never share a cursor cache line");
+  } else check(stride==(size_t)(parts?parts:1),"disabled control uses original dense rows");
+  for(int32_t k=0;k<chunks;++k)for(int32_t v=0;v<parts;++v)
+    check(!p[k*stride+v],"fresh and reused cursor live domains start at zero");
+}
+#endif
 static atomic_int upgrade_pending,cache_probe;
 static int32_t large_begins[32768],large_ends[32768];
 static void large_begin(sgpl_runtime_op *op,sgpl_exec_ctx *ctx,int32_t u) {
@@ -60,8 +75,9 @@ int main(int argc,char **argv) {
   rows[N]=M;for(int i=0;i<F;++i)input[i]=(i*13)%N;
   ExecTestGraph graph={.n=N,.m=M,.row_ptr=rows,.col_idx=cols,.weights=weights,.directed=1};
   autograph_init(&graph,N,M,NULL,NULL,NULL);
+  int partitions=getenv("P1_TEST_PARTITIONS")?atoi(getenv("P1_TEST_PARTITIONS")):8;
   for(int source=0;source<2;++source) {
-    check(autograph_build_array_cut(&graph,8)==8,"prepare array-only partition boundaries");
+    check(autograph_build_array_cut(&graph,partitions)==partitions,"prepare array-only partition boundaries");
     int32_t *output=NULL,head=0;int64_t capacity=0;
     memset(large_begins,0,sizeof large_begins);memset(large_ends,0,sizeof large_ends);
     sgpl_runtime_op *op=autograph_exec_op_create(SGPL_OP_PAIR|SGPL_OP_SOURCE_BEGIN|SGPL_OP_SOURCE_END,
@@ -75,7 +91,7 @@ int main(int argc,char **argv) {
         "parallel preparation completes without executing a user callback");
     check(!sgpl_debug_reserved_threads(),"preparation returns every ledger reservation");
     autograph_exec_ctx_set_dag_axes(ctx,1,-1);
-    atomic_store(&upgrade_pending,source);
+    atomic_store(&upgrade_pending,source&&partitions==8);
     check(autograph_frontier_execute(&graph,ctx)==2*F&&atomic_load(&large_calls)==2*F,
         "prepared callbacks run exactly once per pair occurrence");
     int bad=0;for(int i=0;i<F;++i)bad+=output[2*i]!=(input[i]+1)%N||output[2*i+1]!=(input[i]+7)%N;
@@ -138,5 +154,8 @@ int main(int argc,char **argv) {
     check_rejected_preparation(&invalid,input,1,INT32_MAX,source,"row-degree check rejects append ordinal overflow without large allocations");
     check_rejected_preparation(&invalid,input,129,INT32_MAX/256,source,"host prefix rejects aggregate append overflow across individually valid chunks");
   }
+#ifdef SGPL_PREPARATION_TEST
+  check(cursor_checks>0,"cursor geometry observer exercised actual preparation");
+#endif
   printf("parallel array preparation: %d failures\n",failures);return failures?1:0;
 }

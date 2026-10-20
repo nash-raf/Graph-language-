@@ -9,12 +9,21 @@
 #else
 #define SGPL_PREPARATION_FN
 #endif
+/* Separate independently written chunk cursors, without changing logical
+ * partition counts or record order. Override for targets with larger lines. */
+#ifndef SGPL_PREP_CACHE_LINE_BYTES
+#define SGPL_PREP_CACHE_LINE_BYTES 64
+#endif
+_Static_assert(SGPL_PREP_CACHE_LINE_BYTES>=sizeof(int64_t)&&
+    !(SGPL_PREP_CACHE_LINE_BYTES&(SGPL_PREP_CACHE_LINE_BYTES-1)),
+    "preparation cache line must be a power of two containing whole counters");
 typedef struct {
   sgpl_exec_ctx *ctx;
   AutoGraphMeta *meta;
   const int32_t *owners;
   const int64_t *weights;
   int64_t *positions, *work;
+  size_t position_stride;
   int64_t pair_limit;
   int32_t chunks,parts,source,begins,ends;
   _Atomic int32_t error;
@@ -29,7 +38,7 @@ static SGPL_PREPARATION_FN void sgpl_array_count_chunks(void *opaque,int32_t wor
   const int32_t *input=c->array_sources,*columns=m->csr_col_idx,*owners=j->owners;
   for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
     int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
-    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride;
     int64_t ordinal=0;
     for(int64_t i=lo;i<hi;++i) {
       if(atomic_load_explicit(&j->error,memory_order_relaxed))return;
@@ -70,7 +79,7 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks(void *opaque,int32_t work
   int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
   for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
     int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
-    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride;
     int64_t ordinal=j->work[chunk];
     for(int64_t i=lo;i<hi;++i) {
       int32_t u=input[i],source_part=owners[u];
@@ -117,7 +126,7 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_packed(void *opaque,int32
   int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
   for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
     int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
-    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride;
     int64_t ordinal=j->work[chunk];
     for(int64_t i=lo;i<hi;++i) {
       int32_t u=input[i],source_part=owners[u];
@@ -164,7 +173,7 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_lean(void *opaque,int32_t
   int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
   for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
     int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
-    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride;
     int64_t ordinal=j->work[chunk];
     for(int64_t i=lo;i<hi;++i) {
       int32_t u=input[i],source_part=owners[u];
@@ -210,7 +219,7 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_lean_weighted(void *opaqu
   int64_t *sources=c->gpu_record_sources,*work=c->gpu_record_work,*edges=c->array_record_edges;
   for(int32_t chunk=worker;chunk<chunks;chunk+=width) {
     int64_t lo=count*chunk/chunks,hi=count*(chunk+1)/chunks;
-    int64_t *positions=j->positions+(size_t)chunk*parts;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride;
     int64_t ordinal=j->work[chunk];
     for(int64_t i=lo;i<hi;++i) {
       int32_t u=input[i],source_part=owners[u];
@@ -274,13 +283,27 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   if(chunks>c->array_source_count)chunks=(int32_t)c->array_source_count;
   if(chunks<1)chunks=1;
   int32_t parts=m->partition_count,rc=SGPL_DAG_ERR_NOMEM;
-  if(parts<0||(uint64_t)chunks*(uint32_t)parts>SIZE_MAX/8)return SGPL_DAG_ERR_INVALID;
-  int64_t *positions=sgpl_execution_buffer(c,SGPL_BUF_PREP_POSITIONS,
-      (size_t)chunks*(parts?parts:1)*8,1);
+  if(parts<0||(uint64_t)(parts?parts:1)>SIZE_MAX/sizeof(int64_t))return SGPL_DAG_ERR_INVALID;
+  size_t row_bytes=(size_t)(parts?parts:1)*sizeof(int64_t);
+  int align_positions=!getenv("SGPL_NO_CURSOR_ALIGNMENT");
+  if(align_positions) {
+    if(row_bytes>SIZE_MAX-(SGPL_PREP_CACHE_LINE_BYTES-1))return SGPL_DAG_ERR_INVALID;
+    row_bytes=(row_bytes+SGPL_PREP_CACHE_LINE_BYTES-1)&~(size_t)(SGPL_PREP_CACHE_LINE_BYTES-1);
+  }
+  if((size_t)chunks>SIZE_MAX/row_bytes)return SGPL_DAG_ERR_INVALID;
+  void *positions_allocation=NULL;
+  int64_t *positions=align_positions?
+      sgpl_execution_aligned_buffer(c,SGPL_BUF_PREP_POSITIONS,(size_t)chunks*row_bytes,
+          SGPL_PREP_CACHE_LINE_BYTES,1,&positions_allocation):
+      (positions_allocation=sgpl_execution_buffer(c,SGPL_BUF_PREP_POSITIONS,(size_t)chunks*row_bytes,1));
   int64_t *work=sgpl_execution_buffer(c,SGPL_BUF_PREP_WORK,((size_t)chunks+1)*8,1);
   int32_t *owned_map=NULL;
   const int32_t *owners=NULL;
   if(!positions||!work)goto done;
+#ifdef SGPL_PREPARATION_TEST
+  extern void sgpl_test_preparation_cursors(const int64_t *,size_t,int32_t,int32_t,int);
+  sgpl_test_preparation_cursors(positions,row_bytes/sizeof(int64_t),parts,chunks,align_positions);
+#endif
   if(SGPL_EXEC_CACHE_OWNERS) {
     rc=sgpl_array_owner_map(m,&owners);if(rc<0)goto done;
   } else {
@@ -296,7 +319,7 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
       m->csr_col_idx==*(int32_t **)((char *)c->graph+24);
   if(native_weighted) {rc=sgpl_array_weight_indices(m,&weight_indices);if(rc<0)goto done;}
   SgplArrayPreparation job={.ctx=c,.meta=m,.owners=owners,.weights=weight_indices,
-      .positions=positions,.work=work,.chunks=chunks,.parts=parts,
+      .positions=positions,.work=work,.position_stride=row_bytes/sizeof(int64_t),.chunks=chunks,.parts=parts,
       .pair_limit=INT32_MAX/c->array_append_sites,
       .source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U,.begins=begins,.ends=ends};
   sgpl_run_preparation(sgpl_array_count_chunks,&job,width);
@@ -342,7 +365,8 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   for(int32_t p=0;p<parts;++p) {
     c->gpu_record_offsets[p]=at;
     for(int32_t k=0;k<chunks;++k) {
-      int64_t count=positions[(size_t)k*parts+p];positions[(size_t)k*parts+p]=at;at+=count;
+      size_t index=(size_t)k*job.position_stride+p;
+      int64_t count=positions[index];positions[index]=at;at+=count;
     }
   }
   c->gpu_record_offsets[parts]=at;
@@ -352,6 +376,6 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   c->gpu_record_count=records;c->array_log_pristine=1;
   c->array_pair_records=!job.source||(!begins&&!ends);rc=0;
 done:
-  if(!c->execution_scratch){free(positions);free(work);}
+  if(!c->execution_scratch){free(positions_allocation);free(work);}
   free(owned_map);return rc;
 }

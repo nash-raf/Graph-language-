@@ -135,3 +135,25 @@ The general repair is aligned, cache-line-padded chunk cursor rows, with the
 padded stride used consistently by count/fill/prefix operations. No production
 repair was promoted or full 244-case repair benchmark claimed in this follow-up.
 All original static-schedule implementation changes remain in place.
+
+Production cursor repair (new attempt; benchmarks recorded separately):
+  test/run_cursor_alignment_tests.sh
+  prepare_cursor_repair_campaign.py OUTPUT --previous-bundle FROZEN_BUNDLE
+  cursor_repair_campaign.py all
+Preparation now obtains a 64-byte-aligned view of its leased cursor allocation
+and rounds each chunk's counter row to whole cache lines. The logical partition
+count, source/edge occurrence order, weight lookup, effects and DAG are unchanged.
+Only the private preparation descriptor gains a stride; the public execution
+context ABI does not change. SGPL_PREP_CACHE_LINE_BYTES can target larger lines.
+The lease retains the original allocation for freeing, capacity accounting and
+failure recovery, including the uncached path. SGPL_NO_CURSOR_ALIGNMENT=1 is a
+same-binary dense-row control; it does not disable static schedules.
+
+Targeted contracts cover 3/8/12 partitions, 1/2/6 physical cores, raw allocation
+ownership, retained buffers after allocation failure, overflow, source hooks,
+duplicate occurrences, weighted hints, nested budgets and cold-team failure.
+Normal, ASan/UBSan and uncached variants pass locally. The full Kaggle campaign
+builds pre-static accepted P1, the frozen unfixed candidate, repaired P1 and
+Graptor together. It validates all 244 cases, includes separate accepted and
+unfixed A/A controls, and reports incremental and cumulative comparisons.
+Do not infer full-dataset improvement from the targeted diagnostic studies.

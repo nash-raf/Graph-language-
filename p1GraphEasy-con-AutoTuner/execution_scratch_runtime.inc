@@ -86,6 +86,22 @@ static void *sgpl_execution_buffer(sgpl_exec_ctx *c,size_t slot,size_t bytes,int
   if(clear&&bytes&&slot!=SGPL_BUF_APPEND)memset(s->buffers[slot],0,bytes);
   return s->buffers[slot];
 }
+/* Keep the raw pointer in the exclusive lease (or return it to the uncached
+ * caller). Consumers may use an aligned view, but must never free that view.
+ * Extra bytes and retained capacity are accounted for by the ordinary buffer
+ * allocator, including its allocation-before-release failure guarantee. */
+static void *sgpl_execution_aligned_buffer(sgpl_exec_ctx *c,size_t slot,
+    size_t bytes,size_t alignment,int clear,void **allocation) {
+  *allocation=NULL;
+  if(!alignment||(alignment&(alignment-1))||bytes>SIZE_MAX-(alignment-1))return NULL;
+  void *raw=sgpl_execution_buffer(c,slot,bytes+alignment-1,0);
+  if(!raw)return NULL;
+  *allocation=raw;
+  size_t offset=(alignment-((uintptr_t)raw&(alignment-1)))&(alignment-1);
+  void *view=(char *)raw+offset;
+  if(clear&&bytes)memset(view,0,bytes);
+  return view;
+}
 /* Validity is per invocation, never per worker. Each live context owns its
  * lease, and the dispatch joins before its epoch can advance. On wrap, clear
  * the full retained capacity so a later larger view cannot revive old tags. */

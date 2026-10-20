@@ -3,6 +3,7 @@
  * comes from the ordinary spatial analysis. Fail closed on context observers.
  * There is deliberately no new dependency discharge in this pass: it consumes
  * the dependencies remaining after ownership/snapshot/privatization proofs. */
+#include <llvm/Analysis/ValueTracking.h>
 namespace {
 static bool scheduleCallbackContextFree(llvm::Function *F, bool Gate) {
   using namespace llvm;
@@ -10,7 +11,7 @@ static bool scheduleCallbackContextFree(llvm::Function *F, bool Gate) {
   if(!Gate && (F->size()!=1 || !F->getArg(1)->use_empty()))return false;
   for(BasicBlock &BB:*F)for(Instruction &I:BB) {
     for(Value *V:I.operand_values()) {
-      auto *G=dyn_cast<GlobalVariable>(V->stripPointerCasts());
+      auto *G=V->getType()->isPointerTy()?dyn_cast<GlobalVariable>(getUnderlyingObject(V)):nullptr;
       if(G && G->isThreadLocal())return false;
     }
     if(auto *L=dyn_cast<LoadInst>(&I)) {

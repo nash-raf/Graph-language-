@@ -106,7 +106,9 @@ def locked(command):
 def checked(cmd,cwd,log,env=None,timeout=1800):
  Path(log).parent.mkdir(parents=True,exist_ok=True)
  with open(log,'w') as f:p=subprocess.run(list(map(str,cmd)),cwd=cwd,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=timeout,pass_fds=(_experiment_fd,) if _experiment_fd is not None else ())
- if p.returncode:raise RuntimeError(str(log)+': '+Path(log).read_text()[-2500:])
+ if p.returncode:
+  detail=Path(log).read_text();errors=[line for line in detail.splitlines() if re.search(r'error:|fatal error|undefined reference|collect2:',line)]
+  raise RuntimeError(str(log)+': '+ '\n'.join(errors[:8])+'\n'+detail[-2500:])
 
 def local_deps(src,base,seen=None):
  seen=set() if seen is None else seen

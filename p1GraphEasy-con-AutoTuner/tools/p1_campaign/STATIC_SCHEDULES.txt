@@ -28,16 +28,20 @@ are not removed. The change is independent of full-graph kernel lowering.
 
 Local checks (performance is assigned to Kaggle):
   bash test/run_static_schedule_tests.sh
-  runner.py build StaticSchedule2
+  runner.py build StaticSchedule3
   runner.py validate StaticSchedule2
   verify_static_schedule.py
+  attest_static_schedule.py StaticSchedule2 StaticSchedule3
 
 The local candidate passed all 244 result checks at 1/2/6 physical workers,
-normal and ASan/UBSan runtime contracts, 24 compiler activation/refusal fixtures,
+normal and ASan/UBSan runtime contracts, 28 compiler activation/refusal fixtures,
 and 183 exact accepted/candidate/disabled PageRank vector comparisons. The
 compiled schedule activates in 61/244 benchmark programs (PageRank), including
 runtime activation at each tested worker count. Other programs retain their
 existing schedules. Results: C:\p1-static-schedules-20261020.
+The additional TLS-array refusal proof in StaticSchedule3 leaves all 976
+program/object artifacts byte-identical to StaticSchedule2. This is checked
+explicitly, rather than assuming that a compiler-only change is harmless.
 
 Kaggle workflow:
   export_kaggle_campaign.py OUTPUT
@@ -51,9 +55,14 @@ Kaggle workflow:
 The local CLI token is read from P1_KAGGLE_TOKEN_FILE, defaulting to
 C:\Users\kazis\.kaggle\access_token via its WSL mount. It is never included in
 the input bundle or notebook. The private dataset contains only frozen source,
-exact inputs/weights, independent references and the reusable runner. Kaggle
-automatically expands tar.gz inputs; bootstrap verifies the pinned manifest
-and each file hash. Both P1 versions and Graptor are rebuilt on the same host.
+exact inputs/weights, independent references and the reusable runner. Upload
+the compressed archive as p1-campaign.blob to avoid Kaggle auto-expanding it
+into thousands of slow-to-copy input files. Bootstrap verifies the pinned
+manifest and each file hash, extracts to local scratch, and saves compact
+measurement evidence under /kaggle/working. Both P1 versions and Graptor are
+rebuilt on the same host. Graptor uses its original libconfig source commit
+82d21512f46bf7381e50cbc521b3df85d67d15e5 (1.8.3); Ubuntu's older packaged API
+lacks the std::string overloads required by the frozen Graptor source.
 
 Preflight found 4 logical CPUs with SMT pairs (0,2) and (1,3). Use physical
 representatives 0 and 1, not 4 workers. Every session checks topology and quota

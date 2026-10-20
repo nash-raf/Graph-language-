@@ -67,10 +67,12 @@ def graptor(R):
  src=BUNDLE/'graptor_source';out=WORK/'graptor';out.mkdir(exist_ok=True)
  flags=['g++','-fopenmp','-O3','-DNDEBUG','-std=c++23','-DGRAPHTYPE=VEBOGraptorPullDataParCached',
   '-O4','-Wno-ignored-attributes','-ftemplate-backtrace-limit=0','-g','-DLONG','-UNDEBUG','-march=native',
-  '-DMAX_VL=8','-I'+str(src),'-I'+str(src/'include'),'-I'+str(src/'bench')]
+  '-DMAX_VL=8','-I/usr/local/include','-L/usr/local/lib','-Wl,-rpath,/usr/local/lib',
+  '-I'+str(src),'-I'+str(src/'include'),'-I'+str(src/'bench')]
  constants=out/'constants.o'
  if not constants.exists():R.checked([*flags,'-c',src/'src/constants.C','-o',constants],out,out/'constants.log')
  for name,file in [('BFSExport','BFSvExport.C'),('BFExport','BFvExport.C'),('CCv_VEBOGraptorPullDataParCached','CCv.C'),('PRsgpl','PRsgpl.C'),('PRdouble','PRdouble.C')]:
+  R.progress(stage='build_graptor',item=name)
   if not (out/name).exists():R.checked([*flags,src/'bench'/file,constants,'-lconfig++','-o',out/name],out,out/(name+'.build.log'))
  (WORK/'timer.c').write_text('#include <time.h>\ndouble __wrap_timer_runtime(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec*1e-9;}\n')
  R.checked(['gcc','-O2','-c',WORK/'timer.c','-o',WORK/'monotonic_timer.o'],WORK,WORK/'timer.build.log')
@@ -149,6 +151,7 @@ def report(R):
    running=max(running,min(1,t['p']*(len(tests)-rank)));t['holm_p']=running
  def test(x,y,two=False):
   d=np.log(np.asarray(y)/np.asarray(x))
+  if np.all(d==0):return 1.0
   return float(permutation_test((d,),lambda z:np.mean(z),permutation_type='samples',alternative='two-sided' if two else 'greater',n_resamples=100000,random_state=np.random.default_rng(2358)).pvalue)
  results=[];summary={};all_tests=[]
  for phase in ['primary','confirmation','primary_retry1','confirmation_retry1']:
@@ -175,7 +178,7 @@ def report(R):
   for a in ALGS:
    for diffs,target,two in [(alg_diffs,tests,False),(alg_aa,aa,True)]:
     d=np.mean(diffs[a],axis=0)
-    p=float(permutation_test((d,),lambda z:np.mean(z),permutation_type='samples',alternative='two-sided' if two else 'greater',n_resamples=100000,random_state=np.random.default_rng(2358)).pvalue)
+    p=1.0 if np.all(d==0) else float(permutation_test((d,),lambda z:np.mean(z),permutation_type='samples',alternative='two-sided' if two else 'greater',n_resamples=100000,random_state=np.random.default_rng(2358)).pvalue)
     target.append(dict(phase=phase,algorithm=a,kind='algorithm',p=p))
   holm(tests);holm(aa)
   stable=not any(x['holm_p']<.05 for x in aa)

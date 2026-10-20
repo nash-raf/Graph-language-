@@ -162,3 +162,12 @@ Local CursorAligned1 additionally passes all 732 independent result checks
 against StaticSchedule3. Cloud kernel p1-cursor-repair-cpu-campaign version 1
 uses a separate private frozen dataset; its full comparison is still required.
 Downloaded results are audited with closeout_cursor_repair.py EVIDENCE OUTPUT.
+
+Reporting overhead repair (tooling only, after the frozen cloud submission):
+Permutation means are vectorized across resamples; the seed, sample count,
+test tails and Holm correction stay the same. The cursor campaign no longer
+recomputes both reports when no A/A retry was necessary. Validate p-values
+against an existing scalar report with audit_permutation_statistics.py RESULTS
+OUTPUT. All 992 p-values in the original full Kaggle campaign match exactly.
+This does not alter production binaries, measurements or the already-submitted
+cursor-repair kernel version 1; that frozen run retains its original harness.

@@ -37,6 +37,7 @@ def main():
              'graptor_total_speedup':sums['candidate']/sums['graptor'],
              'confirmed_cumulative_regressions':[x for x in cs if x['confirmed_regression']],
              'confirmed_incremental_regressions':[x for x in ins if x['confirmed_regression']],
+             'confirmed_algorithm_regressions':{name:[t for t in source['summary'][phase]['tests'] if t['kind']=='algorithm' and t['holm_p']<.05] if source['summary'][phase]['valid_for_inference'] else [] for name,source in [('cumulative',cumulative),('incremental',incremental)]},
              'by_algorithm':{},'comparisons':{name:{k:s['summary'][phase][k] for k in ['mean_geomean_speedup','median_geomean_speedup','original50_mean_geomean_speedup','duplicate_content_sensitivity','valid_for_inference']} for name,s in [('cumulative',cumulative),('incremental',incremental)]}}
     for alg in ALGS:
         xs=[x for x in cs if x['algorithm']==alg];ys=[x for x in ins if x['algorithm']==alg]
@@ -49,6 +50,17 @@ def main():
             'confirmed_incremental_regressions':sum(x['confirmed_regression'] for x in ys),
             'cumulative_mean_geomean_speedup':gm(x['mean_ms']['accepted']/x['mean_ms']['candidate'] for x in xs),
             'incremental_mean_geomean_speedup':gm(x['mean_ms']['accepted']/x['mean_ms']['candidate'] for x in ys)}
+    unique={}
+    for x in cs:
+        row=next(r for r in manifest['cases'] if r['graph']==x['graph'])
+        key=(x['algorithm'],Path(row['original_file']).name,Path(row['bin']).name,row['p1_directed'],
+             row['source'] if x['algorithm'] in ['bfs','sssp'] else None,
+             Path(row['p1_weighted_file']).name if x['algorithm']=='sssp' else None)
+        unique.setdefault(key,[]).append(x)
+    summary['ordered_input_duplicate_sensitivity']={'unique_cases':len(unique),
+        'totals_ms':{label:sum(statistics.mean(x['mean_ms'][label] for x in group) for group in unique.values()) for label in ['accepted','candidate','graptor']},
+        'unfixed_total_ms':sum(statistics.mean(next(y['mean_ms']['accepted'] for y in ins if y['algorithm']==x['algorithm'] and y['graph']==x['graph']) for x in group) for group in unique.values()),
+        'groups':[[x['graph'] for x in group] for group in unique.values() if len(group)>1]}
     (out/'final_summary.json').write_text(json.dumps(summary,indent=2))
     text=['P1 production cursor alignment repair: full Kaggle results','',
         'The repair and all static-schedule changes are retained. No automatic promotion or reversion.',
@@ -56,11 +68,13 @@ def main():
         f"Summed 244-case means: pre-static accepted {sums['accepted']:.6f} ms; unfixed static candidate {sums['unfixed']:.6f} ms; repaired {sums['candidate']:.6f} ms; Graptor {sums['graptor']:.6f} ms.",
         f"Cumulative change {summary['cumulative_change_percent']:+.3f}%; incremental repair change {summary['incremental_change_percent']:+.3f}%. Negative means faster.",
         f"Confirmed per-case regressions: cumulative {len(summary['confirmed_cumulative_regressions'])}; incremental {len(summary['confirmed_incremental_regressions'])}.",
+        'Confirmed algorithm regressions: '+json.dumps(summary['confirmed_algorithm_regressions']),
         f"Both cumulative and incremental promotion gates satisfied: {promotion}. Separate comparisons use Holm correction over 244 cases and four algorithm tests each.",
         'Whole-process CLOCK_MONOTONIC is primary. Internal kernel timing is separate. One warmup and five primary measurements; independent twenty-pair confirmation. Paired permutation tests: 100,000 resamples, seed 2358. Identical-binary A/A controls, retained retry on instability. PageRank Graptor comparison uses double precision; historical float appears separately.',
         'The repair guarantees a 64-byte cursor base and a cache-line-rounded chunk row stride. It changes no public execution ABI, effects, DAG, callback order, duplicate handling, weight lookup or floating-point evaluation order. Instrumentation is excluded from acceptance timings.',
         'All 244 cases pass independent validation on this host. Contract suites pass. Exact printed PageRank vectors match accepted, unfixed, repaired and disabled builds. Separate local verification passed 732 independent result cases and 183 full-bit PageRank vector comparisons at 1/2/6 physical workers.',
         'These comparisons rebuild every version on one new Kaggle host; do not compare absolute times with earlier virtual machines. Residual regressions remain reported; their causes must not be attributed automatically to cursor false sharing.', '']
+    text.append('Duplicate sensitivity preserves native occurrence order, binary input, direction, source and exact weights: '+json.dumps(summary['ordered_input_duplicate_sensitivity']))
     for alg,v in summary['by_algorithm'].items():text.append(alg+': '+json.dumps(v))
     for kind,key in [('Cumulative','confirmed_cumulative_regressions'),('Incremental','confirmed_incremental_regressions')]:
         text.append('\n'+kind+' confirmed regressions:')

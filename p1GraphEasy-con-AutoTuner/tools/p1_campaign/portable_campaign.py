@@ -142,17 +142,25 @@ def benchmark(R,cpus,phase,reps):
    save(R.OUT/(phase+'.json'),observations)
    R.progress(stage=phase,algorithm=a,completed=i+1,total=61,failures=0)
   save(R.OUT/(phase+'_'+a+'_duration.json'),dict(seconds=time.monotonic()-start,repetitions=reps,workers=w,cases=61))
-def report(R):
+def permutation_pvalue(d,two=False):
  import numpy as np
  from scipy.stats import permutation_test
+ if np.all(d==0):return 1.0
+ # Vectorize across resamples. The seed, sign permutations, arithmetic mean,
+ # tail and sample count are unchanged; avoid 100,000 Python calls per test.
+ return float(permutation_test((d,),lambda z,axis=-1:np.mean(z,axis=axis),
+  permutation_type='samples',alternative='two-sided' if two else 'greater',
+  n_resamples=100000,random_state=np.random.default_rng(2358)).pvalue)
+
+def report(R):
+ import numpy as np
  def holm(tests):
   running=0
   for rank,t in enumerate(sorted(tests,key=lambda x:x['p'])):
    running=max(running,min(1,t['p']*(len(tests)-rank)));t['holm_p']=running
  def test(x,y,two=False):
   d=np.log(np.asarray(y)/np.asarray(x))
-  if np.all(d==0):return 1.0
-  return float(permutation_test((d,),lambda z:np.mean(z),permutation_type='samples',alternative='two-sided' if two else 'greater',n_resamples=100000,random_state=np.random.default_rng(2358)).pvalue)
+  return permutation_pvalue(d,two)
  results=[];summary={};all_tests=[]
  for phase in ['primary','confirmation','primary_retry1','confirmation_retry1']:
   records=R.read(R.OUT/(phase+'.json'),[])
@@ -178,7 +186,7 @@ def report(R):
   for a in ALGS:
    for diffs,target,two in [(alg_diffs,tests,False),(alg_aa,aa,True)]:
     d=np.mean(diffs[a],axis=0)
-    p=1.0 if np.all(d==0) else float(permutation_test((d,),lambda z:np.mean(z),permutation_type='samples',alternative='two-sided' if two else 'greater',n_resamples=100000,random_state=np.random.default_rng(2358)).pvalue)
+    p=permutation_pvalue(d,two)
     target.append(dict(phase=phase,algorithm=a,kind='algorithm',p=p))
   holm(tests);holm(aa)
   stable=not any(x['holm_p']<.05 for x in aa)

@@ -106,8 +106,10 @@ def main():
             elif stage in ['primary','confirmation']:P.benchmark(R,cpus,stage,5 if stage=='primary' else 20)
             else:
                 phases=report(R)
+                repeated=False
                 for phase in ['primary','confirmation']:
                     if phase in phases and any(not s['valid_for_inference'] for s in phases[phase].values()) and phase+'_retry1' not in phases:
                         P.benchmark(R,cpus,phase+'_retry1',5 if phase=='primary' else 20)
-                report(R)
+                        repeated=True
+                if repeated:report(R)
 if __name__=='__main__':main()

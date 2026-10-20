@@ -171,3 +171,29 @@ against an existing scalar report with audit_permutation_statistics.py RESULTS
 OUTPUT. All 992 p-values in the original full Kaggle campaign match exactly.
 This does not alter production binaries, measurements or the already-submitted
 cursor-repair kernel version 1; that frozen run retains its original harness.
+
+Completed production cursor repair: Kaggle kernel version 1, 2026-10-20.
+  Evidence: C:\p1-static-schedules-20261020\cursor-repair-v1
+  Readable full table: final_report.html; raw archive: p1-results.tar.gz.
+  44,225 timed observations audited against distinct raw records and monotonic
+  process stamps. All result validations and contract checks pass. A/A passes.
+  Summed confirmation means (all 244 cases): pre-static accepted 7.677099 s;
+  unfixed static candidate 7.693864 s; repaired 7.284652 s; Graptor 3.469432 s.
+  Repair reduces summed time 5.319% versus unfixed and 5.112% versus accepted.
+  Incremental algorithm sums: BFS -0.961%, SSSP -3.437%, CC -10.229%,
+  PageRank +0.242%. The observed PageRank slowdown is not confirmed after Holm.
+  Zero confirmed case or algorithm regressions in either comparison. Both
+  mean/median geometric gains exceed 1% in primary and confirmation results.
+  Confirmation mean/median speedups: incremental 1.021371x / 1.022086x;
+  cumulative 1.043108x / 1.043317x. The measured checkpoint passes both gates.
+  Luxembourg CC: unfixed 583.369 -> repaired 465.102 ms (-20.273%);
+  same repaired binary with alignment disabled: 567.179 ms.
+  Graptor remains 2.100x faster overall by summed means on this host.
+  Source checkpoint: 6921bf712657c5a7dbfc6186bbbf37371ffdcb5a / CursorAligned1.
+  Source stays on the isolated codex/p1-static-dag-schedules branch.
+  Original checkout and prior investigations are preserved. This run does not
+  retroactively establish every historical regression's individual cause.
+
+The vectorized reporting helper additionally reproduces all 1,984 p-values in
+both new frozen comparisons exactly (plus 992 from the previous campaign).
+It changes no production binaries or captured acceptance timings.

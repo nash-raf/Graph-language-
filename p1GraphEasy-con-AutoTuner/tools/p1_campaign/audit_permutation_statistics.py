@@ -5,7 +5,10 @@ import numpy as np
 from portable_campaign import permutation_pvalue
 def main():
     p=argparse.ArgumentParser();p.add_argument('results');p.add_argument('output');a=p.parse_args()
-    root=Path(a.results);report=json.loads((root/'comparison.json').read_text());manifest=json.loads((root/'manifest.json').read_text())
+    root=Path(a.results);report=json.loads((root/'comparison.json').read_text())
+    manifest_path=root/'manifest.json'
+    if not manifest_path.exists():manifest_path=root.parent/'manifest.json'
+    manifest=json.loads(manifest_path.read_text())
     checked=[];start=time.monotonic()
     for phase,summary in report['summary'].items():
         rows=json.loads((root/(phase+'.json')).read_text());groups={}

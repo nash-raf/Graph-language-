@@ -14,13 +14,21 @@ def main():
     assert read(results/'contracts_passed.json')['passed']
     exact=read(results/'exact_cursor_pagerank_vectors.json')
     assert len(exact)==61*len(set([1,min(2,valid['workers']),valid['workers']])) and all(x['passed'] for x in exact)
-    counts={}
+    counts={};raw_bases=set()
     for phase in cumulative['summary']:
         rows=read(results/(phase+'.json'));n=5 if phase.startswith('primary') else 20
         assert len(rows)==(244*7+61)*n
         assert all(not x.get('error') and x['seconds']>0 and x['workers']==valid['workers'] for x in rows)
         groups=collections.Counter((x['algorithm'],x['graph'],x['label']) for x in rows)
         assert len(groups)==1769 and set(groups.values())=={n}
+        for x in rows:
+            relative=x['base'].split('/p1-campaign/',1)[1]
+            base=root/relative
+            assert str(base) not in raw_bases,'Duplicate observation identity'
+            raw_bases.add(str(base))
+            assert read(base.with_suffix('.record.json'))==x,'Aggregate differs from immutable raw record'
+            stamp=read(base.with_suffix('.stamp.json'))
+            assert stamp['seconds']==x['seconds'] and stamp['exit_code']==0,'Monotonic process stamp mismatch'
         counts[phase]=len(rows)
     chosen={name:(name+'_retry1' if name+'_retry1' in cumulative['summary'] else name) for name in ['primary','confirmation']}
     phase=chosen['confirmation'];cs=[x for x in cumulative['cases'] if x['phase']==phase];ins=[x for x in incremental['cases'] if x['phase']==phase]
@@ -73,7 +81,9 @@ def main():
         'Whole-process CLOCK_MONOTONIC is primary. Internal kernel timing is separate. One warmup and five primary measurements; independent twenty-pair confirmation. Paired permutation tests: 100,000 resamples, seed 2358. Identical-binary A/A controls, retained retry on instability. PageRank Graptor comparison uses double precision; historical float appears separately.',
         'The repair guarantees a 64-byte cursor base and a cache-line-rounded chunk row stride. It changes no public execution ABI, effects, DAG, callback order, duplicate handling, weight lookup or floating-point evaluation order. Instrumentation is excluded from acceptance timings.',
         'All 244 cases pass independent validation on this host. Contract suites pass. Exact printed PageRank vectors match accepted, unfixed, repaired and disabled builds. Separate local verification passed 732 independent result cases and 183 full-bit PageRank vector comparisons at 1/2/6 physical workers.',
-        'These comparisons rebuild every version on one new Kaggle host; do not compare absolute times with earlier virtual machines. Residual regressions remain reported; their causes must not be attributed automatically to cursor false sharing.', '']
+        'These comparisons rebuild every version on one new Kaggle host; do not compare absolute times with earlier virtual machines. Raw slowdowns remain visible even when they are not statistically confirmed. Earlier individual causal attribution remains incomplete; this run does not retroactively explain every historical flag.', '']
+    text.append('Confirmation geometric speedups (mean / median): cumulative '+f"{cumulative['summary'][phase]['mean_geomean_speedup']:.6f}x / {cumulative['summary'][phase]['median_geomean_speedup']:.6f}x; incremental "+f"{incremental['summary'][phase]['mean_geomean_speedup']:.6f}x / {incremental['summary'][phase]['median_geomean_speedup']:.6f}x.")
+    text.append(f"PageRank summed time versus unfixed: {summary['by_algorithm']['pagerank']['incremental_change_percent']:+.3f}% (an observed slowdown, not confirmed after correction). Graptor remains {summary['graptor_total_speedup']:.3f}x faster overall by summed means.")
     text.append('Duplicate sensitivity preserves native occurrence order, binary input, direction, source and exact weights: '+json.dumps(summary['ordered_input_duplicate_sensitivity']))
     for alg,v in summary['by_algorithm'].items():text.append(alg+': '+json.dumps(v))
     for kind,key in [('Cumulative','confirmed_cumulative_regressions'),('Incremental','confirmed_incremental_regressions')]:
@@ -81,9 +91,14 @@ def main():
         for x in summary[key]:text.append(f"{x['algorithm']} | {x['graph']} | {x['change_percent']:+.3f}% | Holm p={x['test']['holm_p']:.6g}")
     (out/'final_report.txt').write_text('\n'.join(text)+'\n')
     body=['<!doctype html><meta charset="utf-8"><title>P1 cursor alignment repair results</title>',
-          '<style>body{font:15px system-ui;margin:24px}pre{white-space:pre-wrap;max-width:1200px}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px;text-align:right}td:first-child{text-align:left}.bad{background:#ffdddd}</style>',
+          '<style>body{font:15px system-ui;margin:24px}pre{white-space:pre-wrap;max-width:1200px}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px;text-align:right}td:first-child{text-align:left}.bad{background:#ffdddd}.observed{background:#fff4d6}</style>',
           '<h1>P1 production cursor alignment repair</h1><pre>'+html.escape('\n'.join(text[:14]))+'</pre>',
-          '<p><a href="cursor_repair_report.html">All primary and confirmation tables</a> · <a href="comparison.html">Cumulative kernel timings and tests</a> · <a href="incremental_comparison.html">Incremental kernel timings and tests</a></p>']
+          '<p><a href="cursor_repair_report.html">All primary and confirmation tables</a> · <a href="comparison.html">Cumulative kernel timings and tests</a> · <a href="incremental_comparison.html">Incremental kernel timings and tests</a></p>',
+          '<p>Yellow indicates a raw slowdown in at least one comparison; red indicates a statistically confirmed slowdown. Negative change means faster. Graptor remains '+f"{summary['graptor_total_speedup']:.3f}x"+' faster overall by summed means.</p>',
+          '<h2>Algorithm totals: sum of 61 case means</h2><table><tr><th>Algorithm</th><th>Unfixed ms</th><th>Repaired ms</th><th>Change %</th><th>Graptor ms</th><th>P1 wins / 61</th></tr>']
+    for alg,v in summary['by_algorithm'].items():
+        ts=v['totals_ms'];body.append('<tr'+(' class="observed"' if v['incremental_change_percent']>0 else '')+'><td>'+alg+'</td>'+''.join('<td>'+val+'</td>' for val in [f"{ts['unfixed']:.6f}",f"{ts['candidate']:.6f}",f"{v['incremental_change_percent']:+.3f}",f"{ts['graptor']:.6f}",str(v['graptor_wins'])])+'</tr>')
+    body.append('</table>')
     for alg in ALGS:
         body.append('<h2>'+alg+'</h2><table><tr><th>Graph</th><th>Pre-static ms</th><th>Unfixed ms</th><th>Repaired ms</th><th>Unaligned ms</th><th>Graptor double ms</th><th>Graptor float ms</th><th>Cumulative %</th><th>Incremental %</th><th>Confirmed regression cumulative / incremental</th></tr>')
         for x in cs:
@@ -91,7 +106,7 @@ def main():
             y=next(z for z in ins if z['algorithm']==alg and z['graph']==x['graph'])
             vals=[html.escape(x['graph'])]+[f'{v:.6f}' for v in [x['mean_ms']['accepted'],y['mean_ms']['accepted'],x['mean_ms']['candidate'],x['mean_ms']['disabled'],x['mean_ms']['graptor']]]
             vals += [f'{x["mean_ms"]["graptor_float"]:.6f}' if alg=='pagerank' else 'n/a',f'{x["change_percent"]:+.3f}',f'{y["change_percent"]:+.3f}',f'{x["confirmed_regression"]} / {y["confirmed_regression"]}']
-            body.append('<tr'+(' class="bad"' if x['confirmed_regression'] or y['confirmed_regression'] else '')+'>'+''.join('<td>'+v+'</td>' for v in vals)+'</tr>')
+            body.append('<tr'+(' class="bad"' if x['confirmed_regression'] or y['confirmed_regression'] else (' class="observed"' if x['change_percent']>0 or y['change_percent']>0 else ''))+'>'+''.join('<td>'+v+'</td>' for v in vals)+'</tr>')
         body.append('</table>')
     (out/'final_report.html').write_text('\n'.join(body))
     for name in ['comparison.html','comparison.json','cursor_repair_report.html','cursor_repair_summary.json']:shutil.copy2(results/name,out/name)

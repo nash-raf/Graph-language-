@@ -104,3 +104,34 @@ Rebuild the readable closeout from an extracted archive without new timings:
   closeout_kaggle.py EXTRACTED_EVIDENCE_DIRECTORY OUTPUT_DIRECTORY
 The full 61-graph result is authoritative. Duplicate-input sensitivity and the
 original 50-graph subset are reported separately; neither removes regressions.
+
+Regression follow-up (2026-10-20):
+  report_static_regression_causes.py RESULTS_ROOT
+  C:\p1-static-schedules-20261020\regression_cause_report.html
+The large Luxembourg CC causal chain is established: the universal context
+growth moved the cached preparation cursors from offset0 to offset16 modulo64.
+Eight partition counters form a 64-byte row. Adjacent rows belong to different
+workers, so a misaligned base makes their independent counters share a line.
+The extra cost is in counting/filling, with unchanged graph work and rounds.
+Inverse controls reproduce the penalty in the old build; aligning cursors
+recovers the candidate while retaining the new context and static schedule.
+
+Three serial Kaggle studies preserve 14,080 component timings, 3,600 native
+alignment timings, and 675 same-binary instrumented observations. The last
+study holds code addresses fixed and changes only cursor/record offsets.
+Cursor offset 16 adds 6.8% BFS, 8.2% SSSP and 16.7% CC time in those diagnostics;
+record-only offset controls do not reproduce the effect. A/A controls pass.
+One-worker observations show no corresponding large penalty. Instrumented
+results are diagnostic only and cannot promote a production repair.
+
+Attribution remains incomplete for some original cases. Seven of 16 flags pass
+strict independent two-block component re-confirmation on the follow-up VM.
+In particular, both original SSSP wing cursor probes have offset 48, so cursor
+movement alone does not explain their complete original relative difference.
+The report retains these limits and every original flag. Hardware cycles were
+denied on Kaggle; logical shared-line writes are not hardware HITM counts.
+
+The general repair is aligned, cache-line-padded chunk cursor rows, with the
+padded stride used consistently by count/fill/prefix operations. No production
+repair was promoted or full 244-case repair benchmark claimed in this follow-up.
+All original static-schedule implementation changes remain in place.

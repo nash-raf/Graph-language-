@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# The campaign allows large compiler stacks. ASan's shadow address layout
+# requires the bounded stack used by the existing full-graph contracts.
+ulimit -s 8192
 task_tmp=$(mktemp -d)
 trap 'rm -rf "$task_tmp"' EXIT
 g++ -O1 -I. test/static_schedule_ir_test.cpp $(llvm-config-20 --cxxflags --ldflags --libs core asmparser --system-libs) -o "$task_tmp/ir-check"

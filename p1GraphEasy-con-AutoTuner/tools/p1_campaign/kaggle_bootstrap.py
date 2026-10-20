@@ -72,7 +72,23 @@ def main():
  (WORK/'dependency-identity.json').write_text(json.dumps(save,indent=2))
  os.environ['P1_PORTABLE_WORK']=str(SCRATCH/'p1-campaign')
  campaign=bundle/'candidate/tools/p1_campaign/portable_campaign.py'
- run([sys.executable,campaign,'all'])
+ # Apply the sanitizer launch limit even to earlier frozen test scripts.
+ # This adapter changes only the contract subprocess, never acceptance runs.
+ launcher=SCRATCH/'launch_campaign.py'
+ launcher.write_text('''import sys
+sys.path.insert(0,'''+repr(str(campaign.parent))+''')
+import portable_campaign as P
+R,cpus=P.setup()
+original=R.checked
+def checked(cmd,cwd,log,env=None,timeout=1800):
+    if any(str(x).endswith('run_static_schedule_tests.sh') for x in cmd):
+        cmd=['bash','-c','ulimit -s 8192; exec "$@"','p1-sanitizer',*map(str,cmd)]
+    return original(cmd,cwd,log,env,timeout)
+R.checked=checked
+sys.argv=['''+repr(str(campaign))+''','all']
+P.main()
+''')
+ run([sys.executable,launcher])
  print('Campaign completed; all changes retained. See p1-campaign/results/comparison.html',flush=True)
 if __name__=='__main__':
  try:main()

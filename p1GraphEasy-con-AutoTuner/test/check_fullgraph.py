@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory() as temporary:
    assert 'sgpl_fullgraph_certificate' not in ir
    if active:assert 'sgpl_full_incoming' in ir and 'autograph_exec_ctx_bind_fullgraph_v1' in ir and 'sgpl_full_source_map' in ir
    exe=d/'check';run(['g++','-O3','-fopenmp','-no-pie',d/'program.o',*objects,'-pthread','-ldl','-lnlopt','-o',exe],d,e)
-   for width in [1,2,6]:
+   for width in [int(w) for w in os.environ.get('P1_TEST_WIDTHS','1 2 6').split()]:
     for disabled in ([False,True] if mode in ['specialized','no_records'] else [False]):
      ee=dict(e,SGPL_NUM_THREADS=str(width),OMP_NUM_THREADS=str(width))
      if disabled:ee['SGPL_NO_FULLGRAPH']='1'
@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory() as temporary:
    base=Path(os.environ.get('P1_CAMPAIGN_ROOT',str(Path.home()/'p1_campaign_20261019')))/'versions'/accepted
    run([base/'GraphProgram','--ir-backend=cpu',program],d,env)
    run(['g++','-O3','-fopenmp','-no-pie',d/'program.o',*[base/p.name for p in objects],'-pthread','-ldl','-lnlopt','-o',exe],d,env)
-   reference=[run(['python3',r/'test/physical_run.py',str(width),exe],d,dict(env,SGPL_NUM_THREADS=str(width),OMP_NUM_THREADS=str(width))).stdout for width in [1,2,6]]
+   reference=[run(['python3',r/'test/physical_run.py',str(width),exe],d,dict(env,SGPL_NUM_THREADS=str(width),OMP_NUM_THREADS=str(width))).stdout for width in [int(w) for w in os.environ.get('P1_TEST_WIDTHS','1 2 6').split()]]
    assert all(x==reference[0] for x in outputs[3:]+reference),(name,outputs,reference)
    (evidence/'alias_reference.json').write_text(json.dumps(dict(accepted=accepted,sequential=outputs[0],generic=outputs[3],accepted_output=reference[0],reason='Existing round snapshot semantics; new full-graph path refused'),indent=2))
   else:assert all(x==outputs[0] for x in outputs),(name,outputs)

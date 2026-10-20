@@ -8414,6 +8414,13 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         auto Mark=Mod->getOrInsertFunction("sgpl_fullgraph_certificate",
             FunctionType::get(Type::getVoidTy(Ctx),{I8P,I8P},false));
         EB.CreateCall(Mark,{ExecCtx,WF});
+        /* This is an effect/ownership certificate, independent of the optional
+         * full-graph kernel transformation. The late schedule pass separately
+         * proves that the outlined callbacks do not observe execution context. */
+        auto ScheduleMark=Mod->getOrInsertFunction("sgpl_schedule_certificate",
+            FunctionType::get(Type::getVoidTy(Ctx),{I8P,I8P,I8P},false));
+        Value *GateFn=GateOp?cast<CallInst>(GateOp)->getArgOperand(4):Null;
+        EB.CreateCall(ScheduleMark,{ExecCtx,WF,GateFn});
     }else if(getenv("SGPL_FULLGRAPH_STATS"))
         errs()<<"[fullgraph] refuse stage: full domain, destination ownership, alias/effect or lifecycle certificate unavailable\n";
 

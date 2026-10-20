@@ -469,7 +469,19 @@ typedef struct sgpl_runtime_op {
   void (*combine)(void *state, struct sgpl_exec_ctx *);
 } sgpl_runtime_op;
 
-enum { SGPL_EXECUTION_ABI_VERSION = 3 };
+enum { SGPL_EXECUTION_ABI_VERSION = 4 };
+
+/* A symbolic effect-derived schedule. The number of owners remains dynamic;
+ * the compiler proves the structure and callback context independence. */
+#define SGPL_STATIC_SCHEDULE_VERSION 1u
+#define SGPL_SCHEDULE_PREPARE_OWNERS_JOIN 1u
+#define SGPL_SCHEDULE_EFFECT_PROOF 0x1u
+#define SGPL_SCHEDULE_CONTEXT_PROOF 0x2u
+typedef struct sgpl_static_schedule_v1 {
+  uint32_t version, kind, proofs, obligations;
+  void *pair;
+  void *source_begin;
+} sgpl_static_schedule_v1;
 void autograph_execution_abi_check_v1(int32_t version, uint64_t context_bytes, uint64_t operation_bytes);
 
 /* A static witness selects grouping. CleanCut only materializes this rule. */
@@ -586,7 +598,10 @@ typedef struct sgpl_exec_ctx {
    * Mode 0 keeps triples plus i64 side arrays. CPU compact modes expand
    * transactionally to the legacy representation before device grouping. */
   int32_t array_compact_records;
+  const sgpl_static_schedule_v1 *static_schedule;
 } sgpl_exec_ctx;
+void autograph_exec_ctx_bind_static_schedule_v1(sgpl_exec_ctx *,
+    const sgpl_static_schedule_v1 *, int32_t, uint64_t, uint64_t);
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);
 int32_t autograph_build_array_cut(void *,int32_t);
 int32_t autograph_exec_ctx_bind_array_frontier(sgpl_exec_ctx *,const int32_t *,int32_t,

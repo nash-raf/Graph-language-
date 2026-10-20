@@ -6352,6 +6352,7 @@ static __attribute__((section(".sgpl_lean_dispatch"))) void sgpl_independent_spa
 }
 
 #include "fullgraph_dispatch.inc"
+#include "static_schedule_runtime.inc"
 static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
                                          const sgpl_dag_relation_desc *relations,
                                          int32_t relation_count,
@@ -6377,6 +6378,8 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
   }
   if (worker_budget > partitions)
     worker_budget = partitions; /* same clamp execute_dag applies */
+  int static_prepared=sgpl_static_prepare_owners(ctx,partitions,relation_count,worker_budget);
+  if(static_prepared && sgpl_exec_failed(ctx))return SGPL_DAG_ERR_NODE;
   atomic_store_explicit(&g_dag_last_dispatch_width, worker_budget,
                         memory_order_relaxed);
   tmpl.node_count = partitions;
@@ -6411,7 +6414,7 @@ static int32_t sgpl_dag_spatial_dispatch(sgpl_exec_ctx *ctx, int32_t partitions,
   }
   if (!relation_count && !ctx->spatial_coverage_pending &&
       ctx->spatial_group != SGPL_SPATIAL_NONE && sgpl_ctx_dag_spatial(ctx)>0 &&
-      worker_budget>1) {
+      (worker_budget>1 || static_prepared)) {
     SgplIndependentSpatial job={.ctx=ctx,.count=partitions};
     /* Empty pair-only partitions have no callback or group effects. Keep
      * their logical completion, but omit context copies and work claiming.

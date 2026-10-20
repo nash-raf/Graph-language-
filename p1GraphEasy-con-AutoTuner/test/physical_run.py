@@ -1,7 +1,7 @@
 """Run a contract on 1/2/6 distinct physical cores from the inherited mask."""
 import os,sys
 from pathlib import Path
-width=int(sys.argv[1]);assert width in [1,2,6]
+width=int(sys.argv[1]);assert 1<=width<=6
 selected=[];seen=set()
 for cpu in sorted(os.sched_getaffinity(0)):
  root=Path('/sys/devices/system/cpu')/('cpu'+str(cpu))/'topology'

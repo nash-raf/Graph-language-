@@ -1,0 +1,78 @@
+Effect-derived static schedules (2026-10-20)
+
+The first supported family is ordered source preparation, independent
+destination-owner work, and joined completion. The compiler's normal spatial
+analysis supplies the ownership, immutable-domain and alias/effect certificate.
+A late pass separately rejects callback context observers, opaque calls,
+volatile/atomic operations and unsupported lifecycle behavior. It emits a
+constant symbolic plan and a named LLVM proof record. Owner cardinality stays
+dynamic. This is schedule lowering; it introduces no new dependency discharge,
+floating-point reassociation, frontier deduplication or algorithm replacement.
+
+The runtime checks descriptor version, callback identities, capabilities and
+current ownership before executing the same source coverage in native order,
+then the existing owner worker team and join. It preserves the preparation
+grant and restores the caller's budget. Unmatched invocations retain generic
+DAG scheduling. Execution ABI version 4 requires a coordinated rebuild.
+
+Controls:
+  SGPL_NO_STATIC_SCHEDULE_LOWERING=1  omit compiler-generated plans
+  SGPL_NO_STATIC_SCHEDULE=1           retain generic scheduling, same binary
+  SGPL_STATIC_SCHEDULE_STATS=1        compiler activation/refusal diagnostics
+  SGPL_STATIC_SCHEDULE_DEBUG=1        diagnostic runtime activation (not timing)
+
+This implementation does not yet lower arbitrary partial DAGs, perform general
+transitive reduction, or fuse arbitrary callback chains. Existing ownership,
+snapshot and privatization proofs remain authoritative. Unknown obligations
+are not removed. The change is independent of full-graph kernel lowering.
+
+Local checks (performance is assigned to Kaggle):
+  bash test/run_static_schedule_tests.sh
+  runner.py build StaticSchedule2
+  runner.py validate StaticSchedule2
+  verify_static_schedule.py
+
+The local candidate passed all 244 result checks at 1/2/6 physical workers,
+normal and ASan/UBSan runtime contracts, 24 compiler activation/refusal fixtures,
+and 183 exact accepted/candidate/disabled PageRank vector comparisons. The
+compiled schedule activates in 61/244 benchmark programs (PageRank), including
+runtime activation at each tested worker count. Other programs retain their
+existing schedules. Results: C:\p1-static-schedules-20261020.
+
+Kaggle workflow:
+  export_kaggle_campaign.py OUTPUT
+  kaggle_cli.py datasets create -p UPLOAD_DIRECTORY
+  kaggle_cli.py kernels push -p NOTEBOOK_DIRECTORY
+  kaggle_cli.py kernels status kazisahib/p1-static-dag-cpu-campaign
+  kaggle_cli.py kernels logs -f kazisahib/p1-static-dag-cpu-campaign
+  kaggle_cli.py kernels output kazisahib/p1-static-dag-cpu-campaign \
+      -p RESULTS --file-pattern 'p1-results.tar.gz|failure.txt|bootstrap.log'
+
+The local CLI token is read from P1_KAGGLE_TOKEN_FILE, defaulting to
+C:\Users\kazis\.kaggle\access_token via its WSL mount. It is never included in
+the input bundle or notebook. The private dataset contains only frozen source,
+exact inputs/weights, independent references and the reusable runner. Kaggle
+automatically expands tar.gz inputs; bootstrap verifies the pinned manifest
+and each file hash. Both P1 versions and Graptor are rebuilt on the same host.
+
+Preflight found 4 logical CPUs with SMT pairs (0,2) and (1,3). Use physical
+representatives 0 and 1, not 4 workers. Every session checks topology and quota
+again and records its host identity. Measurements on this host are not directly
+comparable to six-core local timings. Only one experiment runs per host.
+
+The portable campaign runs correctness first, one warmup and 5 fresh-process
+primary measurements, then independent 20-pair confirmation, across all 244
+cases. It interleaves accepted P1, candidate, identical accepted A/A, same-binary
+disabled candidate, and Graptor. PageRank also includes historical float
+Graptor alongside double Graptor. Whole-process CLOCK_MONOTONIC is primary;
+kernel times are separate. Graptor gettimeofday is sourced from monotonic time.
+
+Reports include every graph/algorithm, raw mean slowdowns and Holm-corrected
+one-sided paired permutation tests (100,000 resamples, fixed seed), algorithm
+tests, A/A checks, original-50 and duplicate-content sensitivity. A/A failure
+invalidates inference for that block and triggers one retained repeat. Repeated
+instability stays explicit. No candidate is automatically reverted or promoted.
+comparison.html is the complete time table; comparison.json and p1-results.tar.gz
+preserve measurements and evidence. Setup failures are separate from performance
+regressions. Do not report unmeasured improvements or treat kernel-only gains as
+end-to-end gains.

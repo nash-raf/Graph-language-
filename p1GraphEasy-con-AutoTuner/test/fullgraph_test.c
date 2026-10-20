@@ -40,7 +40,10 @@ static void full_test_equal(FullTest *a,FullTest *b) {
   check(!memcmp(a->result,b->result,sizeof(a->result)),"exact cancellation, NaN/Inf and signed-zero contribution order");
   check(!memcmp(a->order,b->order,sizeof(a->order))&&!memcmp(a->count,b->count,sizeof(a->count)),"duplicate native incoming occurrence order");
 }
-int main(void) {
+#ifndef SGPL_FULLGRAPH_TEST_MAIN
+#define SGPL_FULLGRAPH_TEST_MAIN main
+#endif
+int SGPL_FULLGRAPH_TEST_MAIN(void) {
   int64_t rows[]={0,2,4,5,6,7,8,8};int32_t columns[]={2,1,1,1,1,3,2,2};
   int32_t pairs[]={0,2,0,1,1,1,1,1,2,1,3,3,4,2,5,2};
   ExecTestGraph g={.n=7,.m=8,.row_ptr=rows,.col_idx=columns,.directed=1};native_pairs=pairs;

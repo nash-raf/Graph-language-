@@ -7,6 +7,9 @@ Build/validate before benchmark; status is read-only and does not take the lock.
 from pathlib import Path
 import argparse,concurrent.futures,contextlib,fcntl,hashlib,importlib.util,json,math,os,re,resource,shlex,shutil,subprocess,sys,time,traceback,statistics,threading
 CPUS=[0,2,4,6,8,10]
+if os.environ.get('P1_CAMPAIGN_CPUS'):
+ CPUS=[int(x) for x in os.environ['P1_CAMPAIGN_CPUS'].split(',')]
+ assert CPUS and len(set(CPUS))==len(CPUS)
 os.sched_setaffinity(0,CPUS)
 for library_threads in ['OPENBLAS_NUM_THREADS','MKL_NUM_THREADS','NUMEXPR_NUM_THREADS']:
  os.environ[library_threads]='1'
@@ -24,7 +27,8 @@ OBJECTS=['runtime','parallel_runtime','gpu_runtime','autotuner_runtime','graph_m
 PROFILE_IDS={}
 ROOT.mkdir(exist_ok=True);OUT.mkdir(exist_ok=True)
 os.sched_setaffinity(0,CPUS)
-resource.setrlimit(resource.RLIMIT_STACK,(resource.RLIM_INFINITY,resource.RLIM_INFINITY))
+_stack_soft,_stack_hard=resource.getrlimit(resource.RLIMIT_STACK)
+resource.setrlimit(resource.RLIMIT_STACK,(_stack_hard,_stack_hard))
 resource.setrlimit(resource.RLIMIT_CORE,(0,0))
 
 def save(p,x):

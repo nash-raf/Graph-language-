@@ -1,1 +1,2 @@
 test/run_static_schedule_tests.sh text eol=lf
+test/run_context_copy_tests.sh text eol=lf

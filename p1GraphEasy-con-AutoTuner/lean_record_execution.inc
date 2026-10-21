@@ -1,3 +1,6 @@
+#undef sgpl_exec_partition_body
+#undef sgpl_exec_partition_body_packed
+#include "execution_partition_bodies.inc"
 
 /* Compiler-certified pair-only layouts. Select formats before entering loops;
  * retain the original failure, group accounting, append and budget contracts. */
@@ -18,7 +21,7 @@
 #define SGPL_DEFINE_LEAN(NAME,STRIDE_ARG,WEIGHTED_ARG) \
 static SGPL_LEAN_FN void NAME(int64_t index,void *opaque) { \
   enum {STRIDE=STRIDE_ARG,WEIGHTED=WEIGHTED_ARG}; \
-  sgpl_exec_ctx *ctx=opaque,local=*ctx;AutoGraphMeta *meta=find_meta(ctx->graph); \
+  sgpl_exec_ctx *ctx=opaque,local;sgpl_exec_context_copy(&local,ctx);AutoGraphMeta *meta=find_meta(ctx->graph); \
   if(!meta||sgpl_exec_failed(&local))return; \
   int32_t p=(int32_t)index;local.spatial_partition=p; \
   if(local.spatial_lane_seen)local.dest_seen=local.spatial_lane_seen+(int64_t)p*meta->csr_n; \

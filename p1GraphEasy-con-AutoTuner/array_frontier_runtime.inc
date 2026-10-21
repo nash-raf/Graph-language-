@@ -270,3 +270,7 @@ static int32_t sgpl_array_compact(sgpl_exec_ctx *c) {
   if(c->append_head)*c->append_head=(int32_t)(at-c->initial_next_size);
   return 0;
 }
+
+/* Select the execution-helper definitions without editing protected ARS code. */
+#define sgpl_exec_partition_body sgpl_exec_partition_body_legacy_context_copy
+#define sgpl_exec_partition_body_packed sgpl_exec_partition_body_packed_legacy_context_copy

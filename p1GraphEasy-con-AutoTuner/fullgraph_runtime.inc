@@ -116,7 +116,7 @@ static SGPL_FULL_FN void sgpl_fullgraph_prepare_map(sgpl_exec_ctx *c) {
 static SGPL_FULL_FN int sgpl_fullgraph_partition(sgpl_exec_ctx *c,int32_t p) {
   SgplFullState *s=sgpl_fullgraph_state(c);if(!s||!s->ready)return 0;
   AutoGraphMeta *m=find_meta(c->graph);if(!m||p<0||p>=m->partition_count)return 0;
-  sgpl_exec_ctx local=*c;local.spatial_partition=p;
+  sgpl_exec_ctx local;sgpl_exec_context_copy(&local,c);local.spatial_partition=p;
   local.partition_state=local.partition_base&&local.partition_stride>0?(char *)local.partition_base+(int64_t)p*local.partition_stride:local.partition_base;
   s->kernel(c->ops[s->pair_slot].state,&local,(int32_t)m->partition_start[p],(int32_t)m->partition_start[p+1],s->index->incoming_rows,s->index->sources,s->values);
   return 1;

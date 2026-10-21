@@ -1,3 +1,4 @@
+#include "execution_context_copy.inc"
 /* Execution storage only: leases never share buffers between live contexts.
  * Retain at most one 64 MiB arena per thread, released at thread exit. */
 #ifndef SGPL_EXEC_REUSE_BUFFERS

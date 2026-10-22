@@ -150,13 +150,21 @@ def report(d):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('stage', choices=['build', 'focused', 'contracts', 'programs', 'detector', 'work', 'report'])
+    parser.add_argument('stage', choices=['build', 'all', 'focused', 'contracts', 'programs', 'detector', 'work', 'report'])
     parser.add_argument('--version', required=True)
     args = parser.parse_args()
     V.prepare()
     with R.locked('relax_correctness_' + args.stage):
         d = V.ROOT / 'versions' / args.version
         if args.stage == 'build': V.build(args.version)
+        elif args.stage == 'all':
+            V.programs(d)
+            focused(d)
+            F.frontier_contracts(d)
+            V.contracts(d)
+            detector(d)
+            work_counts(d)
+            report(d)
         elif args.stage == 'focused': focused(d)
         elif args.stage == 'contracts':
             focused(d)

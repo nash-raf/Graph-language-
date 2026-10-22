@@ -7,6 +7,12 @@ static unsigned mask(Module &M) {
 }
 int main(int argc,char **argv) {
   unsigned Checks=0;
+  {
+    LLVMContext C;Module M("initialization-memory-control",C);IRBuilder<> B(C);
+    auto *F=Function::Create(FunctionType::get(B.getVoidTy(),{B.getPtrTy(),B.getPtrTy()},false),GlobalValue::InternalLinkage,"publish",M);
+    B.SetInsertPoint(BasicBlock::Create(C,"entry",F));B.CreateMemCpy(F->getArg(0),MaybeAlign(8),F->getArg(1),MaybeAlign(8),8);B.CreateRetVoid();
+    SmallPtrSet<Function *,16> Seen;require(!semanticInitClosure(F,Seen),"unknown bulk memory publication refuses initialization summary");++Checks;
+  }
   for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28,30,31,32,33,34,35,36,37,38,39,40,43,44,45,46,47,48,49,50,51}) {
     LLVMContext C;auto M=fixture(C,Negative>=30?0:Negative);
     auto *F=M->getFunction("main");auto *Pair=M->getFunction("pair");
@@ -65,7 +71,7 @@ int main(int argc,char **argv) {
       LoadInst *Source=nullptr;ICmpInst *Cmp=nullptr;
       for(BasicBlock &BB:*Pair)for(Instruction &I:BB){if(auto *X=dyn_cast<LoadInst>(&I))if(X->getName()=="source")Source=X;if(auto *X=dyn_cast<ICmpInst>(&I))if(X->getName()=="less")Cmp=X;}
       auto *Before=Cmp->getParent();auto *Inner=Before->splitBasicBlock(Cmp,"conditional.minimum");Before->getTerminator()->eraseFromParent();IRBuilder<> B(Before);
-      BasicBlock *Done=nullptr;for(BasicBlock &BB:*Pair)if(isa<ReturnInst>(BB.getTerminator()))Done=&BB;
+      BasicBlock *Done=nullptr;for(BasicBlock &BB:*Pair)if(BB.getTerminator()&&isa<ReturnInst>(BB.getTerminator()))Done=&BB;
       B.CreateCondBr(B.CreateICmpSLT(Source,B.getInt32(0)),Inner,Done);Expected&=~2048u;
     }
     if(Negative==51){IRBuilder<> B(cast<CallInst>(Bind->getArgOperand(0)));auto *Saved=B.CreateLoad(B.getInt32Ty(),M->getGlobalVariable("side",true));B.SetInsertPoint(Execute->getParent()->getTerminator());B.CreateStore(Saved,M->getGlobalVariable("side",true));Expected=0;}

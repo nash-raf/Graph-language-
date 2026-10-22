@@ -149,7 +149,11 @@ static bool semanticInitClosure(Function *F,SmallPtrSetImpl<Function *> &Seen) {
     if(auto *Ret=dyn_cast<ReturnInst>(&I))if(Ret->getReturnValue()&&(Ret->getReturnValue()->getType()->isPointerTy()||PointerDerived(Ret->getReturnValue()))&&!isa<ConstantPointerNull>(Ret->getReturnValue()))return false;
     if(auto *C=dyn_cast<CallBase>(&I)) {
       auto *G=C->getCalledFunction();if(!G)return false;
-      if(G->isIntrinsic())continue;
+      if(G->isIntrinsic()) {
+        auto ID=G->getIntrinsicID();
+        if(C->doesNotAccessMemory()||ID==Intrinsic::assume||ID==Intrinsic::lifetime_start||ID==Intrinsic::lifetime_end||ID==Intrinsic::trap)continue;
+        return false; // A bulk memory intrinsic can publish pointer bytes.
+      }
       if(G->hasLocalLinkage()){if(!semanticInitClosure(G,Seen))return false;continue;}
       if(G->getName()=="parallel_for_runtime"||G->getName()=="parallel_for_runtime_ex"||G->getName()=="sgpl_run_tdg_level") {
         for(Value *V:C->args())if(auto *Fn=dyn_cast<Function>(V->stripPointerCasts()))if(!semanticInitClosure(Fn,Seen))return false;

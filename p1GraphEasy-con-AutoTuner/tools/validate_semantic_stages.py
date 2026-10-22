@@ -90,7 +90,7 @@ print "VALUES_BEGIN"; int z = 0; while (z < n) {{ print id[z]; z = z + 1; }} pri
           for width in [1,2,6]:
             env=R.M.env(workers=width);env['SGPL_SEMANTIC_STAGE_STATS']='1'
             env['SGPL_BITS_OUTPUT']=str(case/f'w{width}.bits')
-            p=subprocess.run([str(case/'check')],cwd=case,env=env,capture_output=True,text=True,timeout=60)
+            p=subprocess.run([os.sys.executable,V.REPO/'test/physical_run.py',str(width),str(case/'check')],cwd=case,env=env,capture_output=True,text=True,timeout=60)
             (case/f'w{width}.out').write_text(p.stdout);(case/f'w{width}.err').write_text(p.stderr)
             assert p.returncode==0,(case,width,p.stderr[-1500:])
             vals=p.stdout.split('VALUES_BEGIN\n')[1].split('VALUES_END')[0].split()
@@ -203,12 +203,13 @@ def compile_case(d,graph,algorithm='cc'):
     print((case/'compile.log').read_text()[:2000],flush=True)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','programs','focused','custom','contracts','detector','activation','report','all']);p.add_argument('--version',required=True);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','probe','programs','focused','custom','contracts','detector','activation','report','all']);p.add_argument('--version',required=True);args=p.parse_args()
     V.prepare();d=V.ROOT/'versions'/args.version
     maker=R.M.make_source
     R.M.make_source=lambda algorithm,row,validation:without_timing(maker(algorithm,row,validation))
     with R.locked('semantic_'+args.stage):
-        if args.stage=='probe':
+        if args.stage=='build':V.build(args.version)
+        elif args.stage=='probe':
             compile_case(d,'road/road-usroads-48')
             compile_case(d,'road/road-usroads-48','sssp')
         elif args.stage=='focused':focused(d)

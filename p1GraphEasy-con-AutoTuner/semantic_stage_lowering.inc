@@ -332,6 +332,12 @@ static void lowerSemanticStages(Module &M) {
       if(isa<LoadInst>(I)||isa<StoreInst>(I)||isa<ICmpInst>(I))Tail.push_back(&I);else Valid=false;
     }
     if(!Valid){R.Pair->eraseFromParent();Refuse("unrecognized observable post-execution tail");continue;}
+    SmallPtrSet<Value *,32> Available;Available.insert(Execute);for(PHINode &Phi:Header->phis())Available.insert(&Phi);
+    for(auto *I:Tail) {
+      for(Value *V:I->operand_values())if(auto *Def=dyn_cast<Instruction>(V))if(Def->getParent()==Header&&!Available.count(Def))Valid=false;
+      Available.insert(I);
+    }
+    if(!Valid){R.Pair->eraseFromParent();Refuse("tail depends on skipped infrastructure or user state");continue;}
     for(PHINode &Phi:Header->phis())for(unsigned K=0;K<Phi.getNumIncomingValues();++K)if(Phi.getIncomingBlock(K)==Header) {
       auto *V=dyn_cast<Instruction>(Phi.getIncomingValue(K));
       if(V&&V->getParent()==Header&&V!=Execute&&!isa<PHINode>(V)&&!llvm::is_contained(Tail,V))Valid=false;

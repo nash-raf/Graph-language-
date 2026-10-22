@@ -8496,6 +8496,12 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
                 Value *GateFn=GateOp?cast<CallInst>(GateOp)->getArgOperand(4):Null;
                 ArrayBind->setMetadata("sgpl.append.journal.certificate",MDNode::get(Ctx,{
                     ValueAsMetadata::get(WF),ValueAsMetadata::get(GateFn)}));
+                SmallVector<Metadata *,4> SnapshotBases;
+                for(unsigned S=0;S<Info.RoundSepBases.size();++S)
+                    if(auto *Base=dyn_cast<GlobalVariable>(Info.RoundSepBases[S].Base))
+                        SnapshotBases.push_back(MDNode::get(Ctx,{
+                            ConstantAsMetadata::get(EB.getInt32(S)),ValueAsMetadata::get(const_cast<GlobalVariable *>(Base))}));
+                ArrayBind->setMetadata("sgpl.relax.snapshot.bases",MDNode::get(Ctx,SnapshotBases));
             } else if(std::getenv("SGPL_FUSION_STATS")) {
                 errs()<<"[append-journal] frontend refuse: destination="<<(Info.SpatialResult.Group==SpatialGroup::Destination)
                     <<" array_domain="<<ExplicitArrayDomain<<" source_lifecycle="<<(SrcBeginCB||SrcEndCB)

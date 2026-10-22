@@ -105,7 +105,10 @@ static SGPL_JOURNAL_FN void sgpl_journal_begin(sgpl_exec_ctx *c) {
     if(count<0||count>c->array_work_count||prefix>c->array_work_count*c->array_append_sites-count*c->array_append_sites)goto dense;
     s->owners[owner].first=prefix;s->owners[owner].capacity=count*c->array_append_sites;prefix+=count*c->array_append_sites;
   }
-  if(prefix!=s->slots)goto dense;
+  if(prefix!=s->slots) {
+    SgplRelaxState *relax=sgpl_relax_state(c);
+    if(!relax||!relax->active||prefix!=c->gpu_record_count*c->array_append_sites||prefix>s->slots)goto dense;
+  }
   s->active=1;lease->journal_state=s;lease->append_was_journal=1;
   c->ops[pair_slot].pair=(void (*)(void *,sgpl_exec_ctx *,int32_t,int32_t))p->journal_pair;
   return;

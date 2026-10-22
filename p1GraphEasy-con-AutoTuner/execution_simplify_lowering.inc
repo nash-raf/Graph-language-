@@ -2,6 +2,7 @@
  * Each rule checks its premises; the original kernel remains executable. */
 #include "execution_simplify_plan.h"
 #include "frontier_simplify_plan.h"
+#include "relax_simplify_plan.h"
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Analysis/ValueTracking.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -11,13 +12,14 @@ namespace {
 using namespace llvm;
 static unsigned executionSimplifyRules() {
   const char *E=std::getenv("SGPL_EXEC_SIMPLIFY_RULES");
-  if(!E||StringRef(E)=="all")return 31;
+  if(!E||StringRef(E)=="all")return 255;
   if(StringRef(E)=="none")return 0;
   SmallVector<StringRef,4> Parts;StringRef(E).split(Parts,',');unsigned Mask=0;
   for(auto P:Parts) {
     if(P=="R1")Mask|=1;else if(P=="R2")Mask|=2;else if(P=="R3")Mask|=4;
     else if(P=="R4")Mask|=8;else if(P=="R5")Mask|=16;
-    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3,R4,R5");
+    else if(P=="R6")Mask|=32;else if(P=="R7")Mask|=64;else if(P=="R8")Mask|=128;
+    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3,R4,R5,R6,R7,R8");
   }
   return Mask;
 }

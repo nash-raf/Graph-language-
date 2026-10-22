@@ -24,8 +24,11 @@ typedef struct {
   void (*journal_begin)(sgpl_exec_ctx *);
   void (*journal_release)(void *);
   const void *simplify_plan;
+  const void *relax_plan;
+  void *relax_state;
+  void (*relax_release)(void *);
 } SgplExecutionFusionLease;
-_Static_assert(sizeof(SgplExecutionFusionLease)==56,"private execution lifecycle hooks");
+_Static_assert(sizeof(SgplExecutionFusionLease)==80,"private execution lifecycle hooks");
 enum { SGPL_BUF_APPEND, SGPL_BUF_RECORDS, SGPL_BUF_SOURCES, SGPL_BUF_WORK,
        SGPL_BUF_EDGES, SGPL_BUF_OFFSETS, SGPL_BUF_SOURCE_GATE, SGPL_BUF_GROUPS,
        SGPL_BUF_PREP_POSITIONS, SGPL_BUF_PREP_WORK, SGPL_BUF_SNAPSHOT };
@@ -46,6 +49,7 @@ static void sgpl_execution_scratch_free(void *opaque) {
   SgplExecutionScratch *s=opaque;
   if(!s)return;
   if(s->fusion&&s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);
+  if(s->fusion&&s->fusion->relax_release)s->fusion->relax_release(s->fusion->relax_state);
   free(s->fusion);
   for(size_t i=0;i<s->count;++i)free(s->buffers[i]);
   free(s->group_tags);free(s->buffers);free(s->capacities);free(s);
@@ -67,7 +71,7 @@ static void *sgpl_execution_scratch_acquire(void) {
 static void sgpl_execution_scratch_release(void *opaque,int cacheable) {
   SgplExecutionScratch *s=opaque;
   if(!s)return;
-  if(s->fusion){if(s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);s->fusion->journal_state=NULL;s->fusion->journal_plan=NULL;s->fusion->simplify_plan=NULL;}
+  if(s->fusion){if(s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);s->fusion->journal_state=NULL;s->fusion->journal_plan=NULL;s->fusion->simplify_plan=NULL;s->fusion->relax_plan=NULL;}
   if(!cacheable||s->total>64u*1024u*1024u||sgpl_execution_scratch_key_status||
       pthread_getspecific(sgpl_execution_scratch_key)||pthread_setspecific(sgpl_execution_scratch_key,s))
     sgpl_execution_scratch_free(s);

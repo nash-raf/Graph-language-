@@ -925,6 +925,9 @@ static llvm::Function *spatialContextAccessor(llvm::Module &M, llvm::Function *O
         for (auto &A : Fn->args()) Args.push_back(&A);
         B.CreateRet(B.CreateCall(Original, Args));
     }
+    if (Name == "autograph_exec_ctx_edge_weight")
+        for (auto &BB : *Fn) for (auto &I : BB)
+            I.setMetadata("sgpl.relax.weight.accessor", llvm::MDNode::get(C, {}));
     return Fn;
 }
 
@@ -1016,6 +1019,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)
 #include "static_schedule_lowering.inc"
 #include "execution_simplify_lowering.inc"
 #include "frontier_simplify_lowering.inc"
+#include "relax_simplify_lowering.inc"
 
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
@@ -1630,6 +1634,7 @@ int main(int argc, char **argv)
     lowerAppendJournals(*M);
     lowerStaticSchedules(*M);
     lowerExecutionSimplifications(*M);
+    lowerRelaxationSimplifications(*M);
     lowerFrontierExecutionSimplifications(*M);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))

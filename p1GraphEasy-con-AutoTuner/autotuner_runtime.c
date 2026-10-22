@@ -4244,6 +4244,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
 
   if (!ctx)
     return 0;
+  {int32_t rc=sgpl_relax_refresh(ctx,meta,0);if(rc<0){ctx->execution_status=rc;return rc;}}
   if(ctx->array_compact_records==6){int32_t rc=sgpl_fullgraph_begin(ctx,meta);if(rc<0){ctx->execution_status=rc;return rc;}}
   ctx->graph = graph_ptr;
   if(!ctx->array_append_sites&&meta&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
@@ -4262,6 +4263,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
           ctx->spatial_groups_seen[sgpl_array_record_endpoint(ctx,i,key)]=0;
       } else memset(ctx->spatial_groups_seen,0,(size_t)meta->csr_n);
     }
+    sgpl_relax_begin_groups(ctx,sgpl_sparse_group_tracking(ctx));
     ctx->execution_error = &ctx->execution_status;
     if (ctx->spatial_frontier_lanes && meta)
       for (int32_t lane = 0; lane < meta->partition_count; ++lane)
@@ -4402,6 +4404,7 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
 }
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+  {int32_t rc=sgpl_relax_refresh(ctx,ctx?find_meta(ctx->graph):NULL,1);if(rc<0)return rc;}
   if(ctx&&ctx->array_compact_records==6)sgpl_fullgraph_release(ctx);
   if(ctx)sgpl_execution_scratch_detach(ctx);
   AutoGraphMeta *m=ctx?find_meta(ctx->graph):NULL;

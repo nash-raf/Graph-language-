@@ -203,7 +203,7 @@ def compile_case(d,graph,algorithm='cc'):
     print((case/'compile.log').read_text()[:2000],flush=True)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','probe','programs','focused','custom','contracts','detector','activation','report','all']);p.add_argument('--version',required=True);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','probe','programs','focused','custom','contracts','detector','activation','report','finish','all']);p.add_argument('--version',required=True);args=p.parse_args()
     V.prepare();d=V.ROOT/'versions'/args.version
     maker=R.M.make_source
     R.M.make_source=lambda algorithm,row,validation:without_timing(maker(algorithm,row,validation))
@@ -220,4 +220,7 @@ if __name__=='__main__':
         elif args.stage=='report':report(d)
         elif args.stage=='all':
             V.programs(d);focused(d);custom(d);Old.focused(d);F.frontier_contracts(d);V.contracts(d);detector(d);activation_checks(d);report(d)
+        elif args.stage=='finish':
+            assert R.read(d/'validation/summary.json')['passed']
+            focused(d);custom(d);Old.focused(d);F.frontier_contracts(d);V.contracts(d);detector(d);activation_checks(d);report(d)
         else:V.programs(d)

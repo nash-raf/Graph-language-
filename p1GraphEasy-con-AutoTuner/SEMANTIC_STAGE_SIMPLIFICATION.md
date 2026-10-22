@@ -84,3 +84,27 @@ the frozen 61-graph/four-algorithm corpus at 1/2/6 physical workers, existing
 contracts and instrumented race checks. New validation sources contain no timer
 or warmup blocks. Reports record build/source identities and detector startup
 limitations separately. Accepted binaries and historical reports are preserved.
+
+The frozen `semantic08` build from native source commit `0acf2bd5` passes:
+
+- 2,196 independent corpus checks, 732 exact array groups and 183 PageRank bit groups.
+- 361 compiler checks across all eight new-rule subsets.
+- 3,876 native cases under normal execution and ASan/UBSan.
+- 405 generated-program checks, including exact floating bits and nonfoldable operations.
+- Existing full-graph, frontier, relaxation, context and worker-budget contracts.
+- 30 targeted LLVM/runtime TSan checks, including actual CC and generated floating-point kernels.
+
+The activation checks confirm one whole-loop R12 execution per CC graph and
+R10 execution for SSSP on all 61 graphs each. Weighted SSSP refuses R12. The
+worklist currently uses a single owner; parallel worklist execution is not claimed.
+
+TSan's successful checks used serial auxiliary OpenMP work to isolate the known
+system libgomp barrier-visibility issue while retaining SGPL worker budgets of
+1/2/6. The report retains 54 shadow-mapping startup failures and five empty launch
+crashes separately from the 30 passing checks. An injected LLVM race was detected
+by the positive control. This is evidence for the tested paths, not a proof that
+all programs are race-free.
+
+Machine-readable evidence is in
+`reports/semantic_stage_simplification_correctness.json`. No benchmarks were run
+and no speedup claim is made. ARS-1 remains unchanged.

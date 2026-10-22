@@ -1,6 +1,7 @@
 /* Specialize certified executor implementations, never arbitrary user loops.
  * Each rule checks its premises; the original kernel remains executable. */
 #include "execution_simplify_plan.h"
+#include "frontier_simplify_plan.h"
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <llvm/Analysis/ValueTracking.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -10,12 +11,13 @@ namespace {
 using namespace llvm;
 static unsigned executionSimplifyRules() {
   const char *E=std::getenv("SGPL_EXEC_SIMPLIFY_RULES");
-  if(!E||StringRef(E)=="all")return 7;
+  if(!E||StringRef(E)=="all")return 31;
   if(StringRef(E)=="none")return 0;
   SmallVector<StringRef,4> Parts;StringRef(E).split(Parts,',');unsigned Mask=0;
   for(auto P:Parts) {
     if(P=="R1")Mask|=1;else if(P=="R2")Mask|=2;else if(P=="R3")Mask|=4;
-    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3");
+    else if(P=="R4")Mask|=8;else if(P=="R5")Mask|=16;
+    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3,R4,R5");
   }
   return Mask;
 }
@@ -186,7 +188,7 @@ static Function *executionUnswitch(Function *F,bool Map) {
   return Wrapper;
 }
 static void lowerExecutionSimplifications(Module &M) {
-  unsigned Requested=executionSimplifyRules();bool Stats=std::getenv("SGPL_EXEC_SIMPLIFY_STATS");
+  unsigned Requested=executionSimplifyRules()&7;bool Stats=std::getenv("SGPL_EXEC_SIMPLIFY_STATS");
   SmallVector<CallInst *,8> Binds;
   for(Function &F:M)for(BasicBlock &B:F)for(Instruction &I:B)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()&&Call->getCalledFunction()->getName()=="autograph_exec_ctx_bind_fullgraph_v1")Binds.push_back(Call);
   for(auto *Bind:Binds) {

@@ -66,6 +66,9 @@ static void lowerAppendJournals(llvm::Module &M) {
     Function *Pair=GetFn(0),*Gate=GetFn(1),*Journal=nullptr,*Dense=nullptr,*Sparse=nullptr;
     auto *Sites=C->arg_size()==6?dyn_cast<ConstantInt>(C->getArgOperand(5)):nullptr;
     C->setMetadata("sgpl.append.journal.certificate",nullptr);
+    /* Preserve the frontend's actual ownership/lifecycle witness for the
+     * later executor pass. That pass independently checks the use chain. */
+    C->setMetadata("sgpl.exec.frontier",MD);
     SmallPtrSet<Function *,16> Active;
     const char *Reason="bounded private ordinal journals; certified producer and ordered bitmap merge";
     auto Require=[&](bool Condition,const char *Why){if(!Condition)Reason=Why;return Condition;};

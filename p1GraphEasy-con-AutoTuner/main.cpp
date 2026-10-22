@@ -1015,6 +1015,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)
 #include "append_journal_lowering.inc"
 #include "static_schedule_lowering.inc"
 #include "execution_simplify_lowering.inc"
+#include "frontier_simplify_lowering.inc"
 
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
@@ -1629,6 +1630,7 @@ int main(int argc, char **argv)
     lowerAppendJournals(*M);
     lowerStaticSchedules(*M);
     lowerExecutionSimplifications(*M);
+    lowerFrontierExecutionSimplifications(*M);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))
         dumpModuleBitcode(*M, dumpPath);

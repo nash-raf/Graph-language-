@@ -1,6 +1,7 @@
 #undef sgpl_exec_partition_body
 #undef sgpl_exec_partition_body_packed
 #include "execution_partition_bodies.inc"
+#include "frontier_simplify_runtime.inc"
 
 /* Compiler-certified pair-only layouts. Select formats before entering loops;
  * retain the original failure, group accounting, append and budget contracts. */
@@ -35,6 +36,13 @@ static SGPL_LEAN_FN void NAME(int64_t index,void *opaque) { \
   uint32_t *group_tags=sparse_groups&&group_scratch&&group_scratch->group_capacity>=(size_t)meta->csr_n?group_scratch->group_tags:NULL; \
   uint32_t group_epoch=group_tags?group_scratch->group_epoch:0; \
   int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1]; \
+  sgpl_frontier_simplify_kernel_v1 simplified=sgpl_frontier_simplified_kernel(ctx,WEIGHTED); \
+  if(simplified) { \
+    sgpl_frontier_simplify_args_v1 args={PairState,&local,records,edges,first,last,local.execution_error,seen,group_tags,group_epoch,sparse_groups}; \
+    int64_t groups=simplified(&args); \
+    if(groups>=0&&groups)__atomic_fetch_add(&ctx->spatial_occupied_groups,(uint64_t)groups,__ATOMIC_RELAXED); \
+    return; \
+  } \
   if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE) \
     SGPL_LEAN_LOOP(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED)); \
   else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE) \

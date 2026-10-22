@@ -1020,6 +1020,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)
 #include "execution_simplify_lowering.inc"
 #include "frontier_simplify_lowering.inc"
 #include "relax_simplify_lowering.inc"
+#include "semantic_stage_lowering.inc"
 
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
@@ -1634,6 +1635,7 @@ int main(int argc, char **argv)
     lowerAppendJournals(*M);
     lowerStaticSchedules(*M);
     lowerExecutionSimplifications(*M);
+    if (!usingGpuIR) lowerSemanticStages(*M);
     lowerRelaxationSimplifications(*M);
     lowerFrontierExecutionSimplifications(*M);
 

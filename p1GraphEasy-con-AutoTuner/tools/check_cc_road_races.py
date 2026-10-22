@@ -17,6 +17,8 @@ FROZEN = V.ROOT / 'versions/relax06'
 OUT = Path('/home/kazi/p1_cc_road_race_check_20261023')
 GRAPHS = ['road/road-usroads-48', 'road/road-luxembourg-osm',
           'socfb/socfb-Simmons81']
+DISABLE_ENV = 'SGPL_NO_RELAX_SIMPLIFY'
+EXTRA_ENV = {}
 
 
 def save(name, value):
@@ -89,7 +91,8 @@ def check(serial_openmp=False):
                 for attempt in range(12):
                     env = R.M.env(workers=width)
                     env.update(TSAN_OPTIONS='halt_on_error=1:history_size=7', SGPL_RELAX_SIMPLIFY_STATS='1')
-                    if mode == 'new_rules_disabled': env['SGPL_NO_RELAX_SIMPLIFY'] = '1'
+                    env.update(EXTRA_ENV)
+                    if mode == 'new_rules_disabled': env[DISABLE_ENV] = '1'
                     log = OUT / (key + f'_attempt{attempt}')
                     try:
                         p = subprocess.run(['bash', '-c', 'ulimit -s 8192; ulimit -c 0; exec "$@"',
@@ -127,9 +130,9 @@ def check(serial_openmp=False):
     final = [next((r for r in reversed(results) if r['graph'] == g and r['workers'] == w and r['mode'] == m), None)
              for g in GRAPHS for w in [1, 2, 6] for m in ['enabled', 'new_rules_disabled']]
     save(prefix + 'summary.json', dict(benchmark_runs=0, build=R.read(OUT / 'build.json'),
-                              expected_checks=18, checks=final, attempts=results,
+                              expected_checks=len(GRAPHS)*6, checks=final, attempts=results,
                               all_passed=all(r and r['status'] == 'passed' for r in final),
-                              openmp_serial=serial_openmp, sgpl_workers=[1, 2, 6],
+                              openmp_serial=serial_openmp, sgpl_workers=[1, 2, 6], disable_env=DISABLE_ENV,
                               no_suppressions=True, retries_only_for_detector_startup=True))
 
 

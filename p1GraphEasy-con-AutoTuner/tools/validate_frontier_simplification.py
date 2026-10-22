@@ -155,7 +155,7 @@ def report(d):
                    existing_contracts=existing, validation=validation, exact_printed_array_groups=array_groups,
                    frontier_tsan=detector, existing_tsan=R.read(d / 'tsan/results.json'),
                    runtime_activation=actual_activation,
-                   public_context_header_unchanged=not R.git('diff', 'HEAD', '--', 'autotuner_runtime.h'),
+                   public_context_header_unchanged=not R.git('diff', '2b46cb5ded54132e98dc052bd2caf548d1acfcb4', '--', 'autotuner_runtime.h'),
                    benchmark_runs=0, warmup_runs=0, profiling_runs=0, performance_claim=None,
                    artifact_root=str(d), source_hash=identity['source_hash'])
     names = ['frontier_simplify_ir_test.cpp', 'frontier_simplify_runtime_test.c',

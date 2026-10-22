@@ -74,10 +74,12 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
     if(!KnownWeighted.Array||!KnownWeighted.Weighted||KnownWeighted.Array!=Array)return Fail();R.Weighted=true;R.WeightGraph=KnownWeighted.WeightGraph;
   }
   // Only an exact strict-extremum transfer earns the finite-lattice license.
+  BranchInst *EffectGuard=nullptr;
   if(!R.Weighted&&T->isIntegerTy(32)&&Store->getParent()==Append->getParent()&&Store->comesBefore(Append)&&Store->getParent()->hasNPredecessors(1)) {
     auto *Br=dyn_cast<BranchInst>(Store->getParent()->getSinglePredecessor()->getTerminator());
     auto *Cmp=Br&&Br->isConditional()?dyn_cast<ICmpInst>(Br->getCondition()):nullptr;
     if(Cmp&&Br->getSuccessor(0)==Store->getParent()) {
+      EffectGuard=Br;
       if(Store->getValueOperand()==Source&&Cmp->getOperand(0)==Source&&Cmp->getOperand(1)==Old) {
         if(Cmp->getPredicate()==ICmpInst::ICMP_SLT)R.Join=SGPL_JOIN_SMIN;
         if(Cmp->getPredicate()==ICmpInst::ICMP_SGT)R.Join=SGPL_JOIN_SMAX;
@@ -92,8 +94,7 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
   // A join certificate also requires the entire effect to be exactly that
   // guarded store/notification, with no additional conditional user behavior.
   if(R.Join)for(BasicBlock &BB:*F)if(auto *Br=dyn_cast<BranchInst>(BB.getTerminator()))if(Br->isConditional()) {
-    auto *Cmp=dyn_cast<ICmpInst>(Br->getCondition());
-    if(!Cmp||!(Cmp->getOperand(0)==Source||Cmp->getOperand(0)==Store->getValueOperand()))R.Join=0;
+    if(Br!=EffectGuard)R.Join=0;
   }
   for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *C=dyn_cast<CallInst>(&I))if(C->getCalledFunction()&&C->getCalledFunction()->getName()=="autograph_frontier_activate")
     C->setCalledFunction(F->getParent()->getOrInsertFunction("sgpl_semantic_activate_v1",C->getFunctionType()));

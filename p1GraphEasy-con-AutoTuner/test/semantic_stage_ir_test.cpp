@@ -7,7 +7,7 @@ static unsigned mask(Module &M) {
 }
 int main(int argc,char **argv) {
   unsigned Checks=0;
-  for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28,30,31,32,33,34,35,36,37,38,39,40,43,44,45,46,47,48,49}) {
+  for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28,30,31,32,33,34,35,36,37,38,39,40,43,44,45,46,47,48,49,50}) {
     LLVMContext C;auto M=fixture(C,Negative>=30?0:Negative);
     auto *F=M->getFunction("main");auto *Pair=M->getFunction("pair");
     auto *Capacity=new GlobalVariable(*M,Type::getInt64Ty(C),false,GlobalValue::InternalLinkage,ConstantInt::get(Type::getInt64Ty(C),4),"cap");
@@ -61,6 +61,13 @@ int main(int argc,char **argv) {
     if(Negative==45||Negative==46){for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()->getName()=="autograph_exec_op_create")Call->setArgOperand(Negative==45?2:3,M->getFunction("opaque"));Expected=0;}
     if(Negative==47||Negative==48){for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getName()=="snap")Call->setArgOperand(Negative==47?1:4,ConstantInt::get(Negative==47?Type::getInt32Ty(C):Type::getInt64Ty(C),Negative==47?1:8));Expected=0;}
     if(Negative==49){CallInst *A=nullptr;for(Instruction &I:F->getEntryBlock())if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getName()=="values")A=Call;IRBuilder<> B(F->getEntryBlock().getTerminator());B.CreateCall(M->getFunction("opaque"),{A});Expected&=~2048u;}
+    if(Negative==50) {
+      LoadInst *Source=nullptr;ICmpInst *Cmp=nullptr;
+      for(BasicBlock &BB:*Pair)for(Instruction &I:BB){if(auto *X=dyn_cast<LoadInst>(&I))if(X->getName()=="source")Source=X;if(auto *X=dyn_cast<ICmpInst>(&I))if(X->getName()=="less")Cmp=X;}
+      auto *Before=Cmp->getParent();auto *Inner=Before->splitBasicBlock(Cmp,"conditional.minimum");Before->getTerminator()->eraseFromParent();IRBuilder<> B(Before);
+      BasicBlock *Done=nullptr;for(BasicBlock &BB:*Pair)if(isa<ReturnInst>(BB.getTerminator()))Done=&BB;
+      B.CreateCondBr(B.CreateICmpSLT(Source,B.getInt32(0)),Inner,Done);Expected&=~2048u;
+    }
     std::string Rules;
     for(unsigned I=0;I<3;++I)if(Subset&(1u<<I)){if(!Rules.empty())Rules+=",";Rules+="R"+std::to_string(I+10);}
     setenv("SGPL_EXEC_SIMPLIFY_RULES",Rules.empty()?"none":Rules.c_str(),1);

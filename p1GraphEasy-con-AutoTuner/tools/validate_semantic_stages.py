@@ -121,6 +121,26 @@ def detector(d):
     R.save(T.OUT/'semantic_summary.json',dict(passed=True,checks=checks,positive_control=positive,
              caveat='System libgomp implicit-barrier visibility was isolated with OMP_NUM_THREADS=1; SGPL graph worker budgets remained 1/2/6. No suppressions.',benchmark_runs=0))
 
+def activation_checks(d):
+    out=d/'semantic_activation';out.mkdir(exist_ok=True);results=[]
+    for alg,rule in [('cc','12'),('sssp','10')]:
+      for row in R.M.ROWS:
+        folder=d/'cases'/alg/row['graph'].removesuffix('.edges')
+        env=R.M.env(workers=6);env['SGPL_SEMANTIC_STAGE_STATS']='1'
+        p=subprocess.run([os.sys.executable,V.REPO/'test/physical_run.py','6',folder/'validate'],cwd=folder,env=env,capture_output=True,text=True,timeout=180)
+        stem=out/alg/row['graph'].removesuffix('.edges');stem.parent.mkdir(parents=True,exist_ok=True)
+        stem.with_suffix('.out').write_text(p.stdout);stem.with_suffix('.err').write_text(p.stderr)
+        assert p.returncode==0,(alg,row['graph'],p.stderr[-1000:])
+        values=p.stdout.split('VALUES_BEGIN\n')[1].split('VALUES_END')[0].split()
+        reference=(folder/'baseline_w6.out').read_text().split('VALUES_BEGIN\n')[1].split('VALUES_END')[0].split()
+        assert values==reference,(alg,row['graph'])
+        active=re.findall(r'\[semantic-stage\] R(\d+) complete',p.stderr)
+        assert rule in active,(alg,row['graph'],'certified rule did not activate')
+        if rule=='12':assert active==['12'],(row['graph'],active)
+        results.append(dict(algorithm=alg,graph=row['graph'],rule='R'+rule,invocations=active,exact_array=True))
+    R.save(out/'summary.json',dict(passed=True,checks=results,benchmark_runs=0))
+    print('RUNTIME ACTIVATION PASS',len(results),flush=True)
+
 def report(d):
     build=R.read(d/'correctness_build.json');validation=R.read(d/'validation/summary.json')
     focus=R.read(d/'semantic_contracts/summary.json');customs=R.read(d/'semantic_custom/summary.json')
@@ -135,15 +155,26 @@ def report(d):
     assert all(x['benchmark_runs']==0 for x in [validation,focus,customs,tsan])
     old={name:R.read(d/'contracts'/f'{name}.json') for name in ['simplification','existing','worker_pool']}
     assert all(x['passed'] for x in old.values())
+    arrays=0
+    for alg in R.ALGS:
+      for row in R.M.ROWS:
+       folder=d/'cases'/alg/row['graph'].removesuffix('.edges')
+       for width in [1,2,6]:
+        values=[(folder/f'{mode}_w{width}.out').read_text().split('VALUES_BEGIN\n')[1].split('VALUES_END')[0].split() for mode in ['baseline','enabled','disabled']]
+        assert values[0]==values[1]==values[2],(alg,row['graph'],width)
+        arrays+=1
+    runtime=R.read(d/'semantic_activation/summary.json');assert runtime['passed']
     payload=dict(branch=R.git('branch','--show-current'),source_commit=build['identity']['commit'],
        source_hash=build['identity']['source_hash'],build=build,previous_build=str(V.BASE),
        previous_identity=R.read(V.BASE/'identity.json'),activation_graphs=activation,validation=validation,
-       focused=focus,custom=customs,detector=tsan,existing_contracts=old,
+       focused=focus,custom=customs,detector=tsan,existing_contracts=old,runtime_activation=runtime,exact_array_groups=arrays,
        previous_frontier_contracts=R.read(d/'frontier_contracts/summary.json'),
        previous_relax_contracts=R.read(d/'relax_contracts/summary.json'),
        new_cost_models=0,benchmark_runs=0,performance_claim=None,artifact_root=str(d),
        original_ARS1_unchanged=R.git('rev-parse','ARS-1')=='2b46cb5ded54132e98dc052bd2caf548d1acfcb4',
        public_context_header_unchanged=not R.git('diff','2b46cb5ded54132e98dc052bd2caf548d1acfcb4','--','autotuner_runtime.h'))
+    payload['test_sources']={name:R.sha(V.REPO/'test'/name) for name in ['semantic_stage_ir_test.cpp','semantic_stage_runtime_test.c']}
+    payload['validation_tool_sha256']=R.sha(Path(__file__))
     R.save(d/'semantic_correctness_report.json',payload)
     R.save(V.REPO/'reports/semantic_stage_simplification_correctness.json',payload)
     print(json.dumps(dict(passed=True,activation=activation,validation=validation,focused=focus,benchmark_runs=0),indent=2),flush=True)
@@ -172,7 +203,7 @@ def compile_case(d,graph,algorithm='cc'):
     print((case/'compile.log').read_text()[:2000],flush=True)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','programs','focused','custom','contracts','detector','report','all']);p.add_argument('--version',required=True);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','programs','focused','custom','contracts','detector','activation','report','all']);p.add_argument('--version',required=True);args=p.parse_args()
     V.prepare();d=V.ROOT/'versions'/args.version
     maker=R.M.make_source
     R.M.make_source=lambda algorithm,row,validation:without_timing(maker(algorithm,row,validation))
@@ -184,7 +215,8 @@ if __name__=='__main__':
         elif args.stage=='custom':custom(d)
         elif args.stage=='contracts':Old.focused(d);F.frontier_contracts(d);V.contracts(d)
         elif args.stage=='detector':detector(d)
+        elif args.stage=='activation':activation_checks(d)
         elif args.stage=='report':report(d)
         elif args.stage=='all':
-            V.programs(d);focused(d);custom(d);Old.focused(d);F.frontier_contracts(d);V.contracts(d);detector(d);report(d)
+            V.programs(d);focused(d);custom(d);Old.focused(d);F.frontier_contracts(d);V.contracts(d);detector(d);activation_checks(d);report(d)
         else:V.programs(d)

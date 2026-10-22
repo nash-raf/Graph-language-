@@ -118,3 +118,26 @@ are compiler negatives; existing cancellation contracts continue exercising the
 retained executor. The frozen 61-graph/four-algorithm corpus compares baseline,
 enabled and disabled executions, with independent validators and exact PageRank
 bits. Machine-readable correctness and benchmark reports are separate artifacts.
+
+## Measured outcome of the realized executor
+
+The six-physical-core confirmation campaign compared frozen source
+`a162e9f64002171fad27481c729d47446e28cade` against the previous R1--R5 build,
+on 61 graphs per algorithm with 20 repetitions. Both primary and confirmation
+A/A controls passed. SSSP achieved a 1.3978x end-to-end geometric-mean speedup
+and 17.01% less summed time. CC achieved only 1.0300x geometrically and used
+62.35% more summed time. These rules are therefore not a successful general
+CC optimization. They remain experimental; ARS-1 was not changed or merged.
+Saved Graptor observations were reused without new Graptor launches.
+
+The realized correctness report records 2,196 independent corpus checks,
+732 exact array comparison groups, 183 exact PageRank bit groups, 400 compiler
+checks and 88,290 focused runtime comparisons. ASan/UBSan passed. TSan passed
+at one and two workers after startup retries; six-worker TSan remained
+unresolved after two shadow-memory startup failures and one empty crash.
+That detector limitation is not counted as a passing six-worker check.
+
+Reports: `reports/relax_execution_simplification_realized_correctness.json`
+and `reports/relax_execution_simplification_realized_benchmark.json`.
+The complete local benchmark is retained in
+`C:\p1-relax-realized-simplification-benchmark-20261022\final_report.html`.

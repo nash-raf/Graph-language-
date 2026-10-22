@@ -1,0 +1,317 @@
+{
+  "baseline_commit": "2b46cb5ded54132e98dc052bd2caf548d1acfcb4",
+  "baseline_source_files_verified": 91,
+  "baseline_generated_inputs_verified": [
+    {
+      "path": "generated/BaseBaseListener.cpp",
+      "sha256": "1da98f3f54ac1146db62d22ecbfced94583a26dafb95711c3e38b7752eba59ab"
+    },
+    {
+      "path": "generated/BaseBaseListener.h",
+      "sha256": "1a8ba627540c062c1534d96c0810160786d3c1ca9705c2604f4dc108cc45fd2d"
+    },
+    {
+      "path": "generated/BaseBaseVisitor.cpp",
+      "sha256": "d86ba6ebb4649028a6f75bebe30bd98fd9198e2d73ba3c1e5f79559b002d4351"
+    },
+    {
+      "path": "generated/BaseBaseVisitor.h",
+      "sha256": "739013476ac577801cf5f897a2e9d3910aea73060d81fe5d04ce7a8c09763558"
+    },
+    {
+      "path": "generated/BaseLexer.cpp",
+      "sha256": "5d9e3315e404b32f4cf9d6c6671f00a70e1b35c22368bedf13a85ea24ed3e98e"
+    },
+    {
+      "path": "generated/BaseLexer.h",
+      "sha256": "4b0098ff9a1aace289ffb7a7759e4c147174c778ffde2d8c89930610a69cc821"
+    },
+    {
+      "path": "generated/BaseListener.cpp",
+      "sha256": "5265dde7e07e826fa1ed0426094355c9af409ba6cbc4153e399b794148f5e8d7"
+    },
+    {
+      "path": "generated/BaseListener.h",
+      "sha256": "c6792cd1f92a67a5945101dacd0704c9e807ee1842ead5f4f3d61be5e11df77e"
+    },
+    {
+      "path": "generated/BaseParser.cpp",
+      "sha256": "2baef0d541161abe7e2a41e0437d97bd8ef7b7fb3abd6317356ab6050b6df6fb"
+    },
+    {
+      "path": "generated/BaseParser.h",
+      "sha256": "760224ace26ef5c08899e04f1b4bf50dbb92024e2e98477671eec336b2d98832"
+    },
+    {
+      "path": "generated/BaseVisitor.cpp",
+      "sha256": "8d8932c3eb1cfee533a69aa60d257e11f41602e2ce3e4505528de2457373e405"
+    },
+    {
+      "path": "generated/BaseVisitor.h",
+      "sha256": "c0eaf6717e1eade4fb6b6f07ce60fed6c95dc376fa1744037ba4e7f3dccfe87f"
+    }
+  ],
+  "branch": "codex/proof-gated-execution-simplification",
+  "build": {
+    "identity": {
+      "commit": "2b46cb5ded54132e98dc052bd2caf548d1acfcb4",
+      "diff": "diff --git a/p1GraphEasy-con-AutoTuner/fullgraph_lowering.inc b/p1GraphEasy-con-AutoTuner/fullgraph_lowering.inc\nindex c3db9acf..1c9a9265 100644\n--- a/p1GraphEasy-con-AutoTuner/fullgraph_lowering.inc\n+++ b/p1GraphEasy-con-AutoTuner/fullgraph_lowering.inc\n@@ -94,6 +94,10 @@ static std::pair<Function *,Function *> fullKernels(Module &M,Function *F,unsign\n   PB.registerModuleAnalyses(MAM);PB.registerCGSCCAnalyses(CGAM);PB.registerFunctionAnalyses(FAM);PB.registerLoopAnalyses(LAM);PB.crossRegisterProxies(LAM,FAM,CGAM,MAM);\n   FunctionPassManager FPM;cantFail(PB.parsePassPipeline(FPM,\"dce,simplifycfg,dce\"));FPM.run(*K,FAM);if(Map)FPM.run(*Map,FAM);\n   if(verifyFunction(*K,&errs())||(Map&&verifyFunction(*Map,&errs())))report_fatal_error(\"invalid certified full-graph kernel\");\n+  /* This certificate is produced only by the existing full-domain gate. The\n+   * late simplifier additionally checks the callback and generated CFG. */\n+  K->setMetadata(\"sgpl.exec.fullgraph\",MDNode::get(C,{ValueAsMetadata::get(F)}));\n+  for(BasicBlock &BB:*K)BB.getTerminator()->setMetadata(\"sgpl.exec.role\",MDNode::get(C,{MDString::get(C,BB.getName())}));\n   return {K,Map};\n }\n static void lowerFullGraph(Module &M) {\ndiff --git a/p1GraphEasy-con-AutoTuner/fullgraph_runtime.inc b/p1GraphEasy-con-AutoTuner/fullgraph_runtime.inc\nindex d180812c..c63ca712 100644\n--- a/p1GraphEasy-con-AutoTuner/fullgraph_runtime.inc\n+++ b/p1GraphEasy-con-AutoTuner/fullgraph_runtime.inc\n@@ -16,7 +16,21 @@ typedef struct SgplIncomingIndex {\n typedef struct {\n   SgplFullKernel kernel;SgplFullMap map;size_t stride;\n   SgplIncomingIndex *index;void *values;int ready;unsigned pair_slot;\n+  SgplFullKernel simplified_kernel;SgplFullMap simplified_map;unsigned simplify_rules;\n } SgplFullState;\n+#include \"execution_simplify_plan.h\"\n+/* Bind only to a successfully installed baseline. An invalid extension cannot\n+ * change baseline state or execute user work. Descriptor storage is compiler-owned. */\n+void autograph_exec_ctx_bind_simplified_fullgraph_v1(sgpl_exec_ctx *c,\n+    const sgpl_execution_simplify_plan_v1 *p) {\n+  SgplFullState *s=c&&c->array_compact_records==6?(SgplFullState *)c->gpu_records:NULL;\n+  if(!s||!p||p->version!=SGPL_EXEC_SIMPLIFY_VERSION||p->bytes!=sizeof(*p)||\n+     !p->rules||(p->rules&~7u)||p->reserved||!p->kernel||\n+     p->baseline_kernel!=(void *)s->kernel||p->baseline_map!=(void *)s->map||\n+     (!!p->map!=!!s->map))return;\n+  s->simplified_kernel=(SgplFullKernel)p->kernel;\n+  s->simplified_map=(SgplFullMap)p->map;s->simplify_rules=p->rules;\n+}\n static SGPL_FULL_FN SgplFullState *sgpl_fullgraph_state(const sgpl_exec_ctx *c) {\n   return c&&c->array_compact_records==6?(SgplFullState *)c->gpu_records:NULL;\n }\n@@ -111,7 +125,8 @@ static SGPL_FULL_FN int32_t sgpl_fullgraph_begin(sgpl_exec_ctx *c,AutoGraphMeta\n }\n static SGPL_FULL_FN void sgpl_fullgraph_prepare_map(sgpl_exec_ctx *c) {\n   SgplFullState *s=sgpl_fullgraph_state(c);if(!s||s->ready)return;\n-  if(s->index->n>0&&s->map)s->map(c->ops[s->pair_slot].state,c,s->index->n,s->index->native_rows,c->spatial_source_gate,s->values);\n+  SgplFullMap map=!getenv(\"SGPL_NO_EXEC_SIMPLIFY\")&&s->simplified_map?s->simplified_map:s->map;\n+  if(s->index->n>0&&map)map(c->ops[s->pair_slot].state,c,s->index->n,s->index->native_rows,c->spatial_source_gate,s->values);\n   s->ready=1;\n }\n static SGPL_FULL_FN int sgpl_fullgraph_partition(sgpl_exec_ctx *c,int32_t p) {\n@@ -119,6 +134,7 @@ static SGPL_FULL_FN int sgpl_fullgraph_partition(sgpl_exec_ctx *c,int32_t p) {\n   AutoGraphMeta *m=find_meta(c->graph);if(!m||p<0||p>=m->partition_count)return 0;\n   sgpl_exec_ctx local;sgpl_exec_context_copy(&local,c);local.spatial_partition=p;\n   local.partition_state=local.partition_base&&local.partition_stride>0?(char *)local.partition_base+(int64_t)p*local.partition_stride:local.partition_base;\n-  s->kernel(c->ops[s->pair_slot].state,&local,(int32_t)m->partition_start[p],(int32_t)m->partition_start[p+1],s->index->incoming_rows,s->index->sources,s->values);\n+  SgplFullKernel kernel=!getenv(\"SGPL_NO_EXEC_SIMPLIFY\")&&s->simplified_kernel?s->simplified_kernel:s->kernel;\n+  kernel(c->ops[s->pair_slot].state,&local,(int32_t)m->partition_start[p],(int32_t)m->partition_start[p+1],s->index->incoming_rows,s->index->sources,s->values);\n   return 1;\n }\ndiff --git a/p1GraphEasy-con-AutoTuner/main.cpp b/p1GraphEasy-con-AutoTuner/main.cpp\nindex 19aa6796..aa5849ac 100644\n--- a/p1GraphEasy-con-AutoTuner/main.cpp\n+++ b/p1GraphEasy-con-AutoTuner/main.cpp\n@@ -1014,6 +1014,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)\n #include \"fullgraph_lowering.inc\"\n #include \"append_journal_lowering.inc\"\n #include \"static_schedule_lowering.inc\"\n+#include \"execution_simplify_lowering.inc\"\n \n static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)\n {\n@@ -1627,6 +1628,7 @@ int main(int argc, char **argv)\n     lowerFullGraph(*M);\n     lowerAppendJournals(*M);\n     lowerStaticSchedules(*M);\n+    lowerExecutionSimplifications(*M);\n \n     if (const char *dumpPath = std::getenv(\"DUMP_LLVM_BC_AFTER_OUTLINE\"))\n         dumpModuleBitcode(*M, dumpPath);",
+      "source_hash": "67711d10950cddc961640b84b2eb4c6ae688c048492664da6bba32dd957969f0"
+    },
+    "compiler_sha256": "539b642c7486a0a2880a328ddb728122968096d8e0dfd23cef8304f32c208590",
+    "objects": {
+      "runtime": "e6338fd241bc2c6a6d0235a2e191d727ed86e87f7862883313a070ac530ae47b",
+      "parallel_runtime": "f7111b61b2fcade4dba1826230a890f4a400f86bb5c304fff2bb2674c8f06ace",
+      "gpu_runtime": "84e2d8af2e6dd1239ca6142954434e30381667b86c7d3891549d5d53a4c735dc",
+      "autotuner_runtime": "5ba4b0e7501f0fed73873cec2088b2a646a197efeba0c755a9cf0b72fd0ec99e",
+      "graph_mutation_runtime": "41033da3b13cb511fa501db7702438e1dda2f22afb140f7130c22ecec65f62af",
+      "roaring_bitmap": "493f1d1da2080ba8c0412bf21bec8e864d5bcade00c389f0a24b2a0540a586fa",
+      "graph_loader_runtime": "a09128cea6601825486acece715286309e78d64f525bbf96c69f9881889ba44d",
+      "graph_runtime": "f298039809b7b704692fe250ed0f4e22c63569d9b1c520d73d1c0655f073b46e",
+      "semiring_runtime": "4c805acab1a4110d9d8fe42f7cf3f654ad34ce37782267d1946d120e6ab6a041"
+    },
+    "baseline": "/home/kazi/p1_c3_integration_20261022/versions/C3_integrated",
+    "benchmark_runs": 0
+  },
+  "source_hash": "67711d10950cddc961640b84b2eb4c6ae688c048492664da6bba32dd957969f0",
+  "activation_graphs": {
+    "bfs": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0
+    },
+    "sssp": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0
+    },
+    "cc": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0
+    },
+    "pagerank": {
+      "R1": 61,
+      "R2": 61,
+      "R3": 61
+    }
+  },
+  "contracts": {
+    "simplification": {
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ]
+    },
+    "existing": {
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ]
+    },
+    "worker_pool": {
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ]
+    }
+  },
+  "focused_kernel_comparisons": 4608,
+  "rule_subsets": 8,
+  "negative_fixture_shapes": 11,
+  "validation": {
+    "passed": true,
+    "independent_checks": 2196,
+    "exact_pagerank_groups": 183,
+    "benchmark_runs": 0
+  },
+  "tsan": [
+    {
+      "test": "execution_context_race_test",
+      "workers": 1,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w1_0.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 1,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w1_1.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 1,
+      "attempt": 2,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w1_2.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 2,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w2_0.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 2,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w2_1.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 2,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w2_2.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 6,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w6_0.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 6,
+      "attempt": 1,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_context_race_test_w6_1.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 1,
+      "attempt": 0,
+      "status": "unresolved_launch",
+      "exit_code": -11,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/append_journal_test_w1_0.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 2,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/append_journal_test_w2_0.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 2,
+      "attempt": 1,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/append_journal_test_w2_1.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 6,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/append_journal_test_w6_0.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 6,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/append_journal_test_w6_1.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 6,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/append_journal_test_w6_2.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 1,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w1_0.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 1,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w1_1.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 1,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w1_2.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 2,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w2_0.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 2,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w2_1.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 2,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w2_2.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 6,
+      "attempt": 0,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/candidate03/tsan/execution_simplify_runtime_test_w6_0.log"
+    }
+  ],
+  "protected_ars_unchanged": true,
+  "public_context_abi_unchanged": true,
+  "benchmark_runs": 0,
+  "performance_claim": null,
+  "artifact_root": "/home/kazi/p1_execution_simplification/versions/candidate03",
+  "baseline_compiler_sha256": "8e8b7444b71a0ba802720ec2ddbd8b4fa58c551bcc9b52ccceede477279f1160",
+  "test_sources": {
+    "execution_simplify_ir_test.cpp": "67549bd4c51f26ec64f77fbc6a8b0b91957b71d190f84b4af4893c1776a7095b",
+    "execution_simplify_runtime_test.c": "3a7888f8479dcaf37dd8f0f279b483cc279f60ce4d6dc40c86f17e0a8b78838d",
+    "run_execution_simplify_tests.sh": "d91abb24a865006afa760d9f3b21ae0ccc1aeee8518d2da1344b20e9b9f4dba5"
+  },
+  "calibration_sha256": "a867cfad9b1c288275f6d1220d43130baec654ffe17c7c23c16c621fa932a4ea",
+  "matches_previous_calibration": true
+}

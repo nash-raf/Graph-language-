@@ -1,0 +1,733 @@
+{
+  "branch": "codex/proof-gated-execution-simplification",
+  "source_commit": "59ed121baf07956cf82c272121866a7ed46c43b2",
+  "baseline_commit": "2b46cb5ded54132e98dc052bd2caf548d1acfcb4",
+  "previous_implementation_commit": "027c6397968aa7869f097bbf8434b49c215fa5f3",
+  "build": {
+    "identity": {
+      "commit": "e9a0a20f72811d5bcfdf837fa31c471b889daade",
+      "diff": "diff --git a/p1GraphEasy-con-AutoTuner/append_journal_lowering.inc b/p1GraphEasy-con-AutoTuner/append_journal_lowering.inc\nindex 7e36703e..1117659c 100644\n--- a/p1GraphEasy-con-AutoTuner/append_journal_lowering.inc\n+++ b/p1GraphEasy-con-AutoTuner/append_journal_lowering.inc\n@@ -66,6 +66,9 @@ static void lowerAppendJournals(llvm::Module &M) {\n     Function *Pair=GetFn(0),*Gate=GetFn(1),*Journal=nullptr,*Dense=nullptr,*Sparse=nullptr;\n     auto *Sites=C->arg_size()==6?dyn_cast<ConstantInt>(C->getArgOperand(5)):nullptr;\n     C->setMetadata(\"sgpl.append.journal.certificate\",nullptr);\n+    /* Preserve the frontend's actual ownership/lifecycle witness for the\n+     * later executor pass. That pass independently checks the use chain. */\n+    C->setMetadata(\"sgpl.exec.frontier\",MD);\n     SmallPtrSet<Function *,16> Active;\n     const char *Reason=\"bounded private ordinal journals; certified producer and ordered bitmap merge\";\n     auto Require=[&](bool Condition,const char *Why){if(!Condition)Reason=Why;return Condition;};\ndiff --git a/p1GraphEasy-con-AutoTuner/execution_scratch_runtime.inc b/p1GraphEasy-con-AutoTuner/execution_scratch_runtime.inc\nindex eb0c457f..819bce49 100644\n--- a/p1GraphEasy-con-AutoTuner/execution_scratch_runtime.inc\n+++ b/p1GraphEasy-con-AutoTuner/execution_scratch_runtime.inc\n@@ -23,8 +23,9 @@ typedef struct {\n   unsigned append_was_journal;\n   void (*journal_begin)(sgpl_exec_ctx *);\n   void (*journal_release)(void *);\n+  const void *simplify_plan;\n } SgplExecutionFusionLease;\n-_Static_assert(sizeof(SgplExecutionFusionLease)==48,\"private execution lifecycle hooks\");\n+_Static_assert(sizeof(SgplExecutionFusionLease)==56,\"private execution lifecycle hooks\");\n enum { SGPL_BUF_APPEND, SGPL_BUF_RECORDS, SGPL_BUF_SOURCES, SGPL_BUF_WORK,\n        SGPL_BUF_EDGES, SGPL_BUF_OFFSETS, SGPL_BUF_SOURCE_GATE, SGPL_BUF_GROUPS,\n        SGPL_BUF_PREP_POSITIONS, SGPL_BUF_PREP_WORK, SGPL_BUF_SNAPSHOT };\n@@ -66,7 +67,7 @@ static void *sgpl_execution_scratch_acquire(void) {\n static void sgpl_execution_scratch_release(void *opaque,int cacheable) {\n   SgplExecutionScratch *s=opaque;\n   if(!s)return;\n-  if(s->fusion){if(s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);s->fusion->journal_state=NULL;s->fusion->journal_plan=NULL;}\n+  if(s->fusion){if(s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);s->fusion->journal_state=NULL;s->fusion->journal_plan=NULL;s->fusion->simplify_plan=NULL;}\n   if(!cacheable||s->total>64u*1024u*1024u||sgpl_execution_scratch_key_status||\n       pthread_getspecific(sgpl_execution_scratch_key)||pthread_setspecific(sgpl_execution_scratch_key,s))\n     sgpl_execution_scratch_free(s);\ndiff --git a/p1GraphEasy-con-AutoTuner/execution_simplify_lowering.inc b/p1GraphEasy-con-AutoTuner/execution_simplify_lowering.inc\nindex b9f8c66d..3d6a7f67 100644\n--- a/p1GraphEasy-con-AutoTuner/execution_simplify_lowering.inc\n+++ b/p1GraphEasy-con-AutoTuner/execution_simplify_lowering.inc\n@@ -1,6 +1,7 @@\n /* Specialize certified executor implementations, never arbitrary user loops.\n  * Each rule checks its premises; the original kernel remains executable. */\n #include \"execution_simplify_plan.h\"\n+#include \"frontier_simplify_plan.h\"\n #include <llvm/Transforms/Utils/ValueMapper.h>\n #include <llvm/Analysis/ValueTracking.h>\n #include <llvm/Transforms/Utils/BasicBlockUtils.h>\n@@ -10,12 +11,13 @@ namespace {\n using namespace llvm;\n static unsigned executionSimplifyRules() {\n   const char *E=std::getenv(\"SGPL_EXEC_SIMPLIFY_RULES\");\n-  if(!E||StringRef(E)==\"all\")return 7;\n+  if(!E||StringRef(E)==\"all\")return 31;\n   if(StringRef(E)==\"none\")return 0;\n   SmallVector<StringRef,4> Parts;StringRef(E).split(Parts,',');unsigned Mask=0;\n   for(auto P:Parts) {\n     if(P==\"R1\")Mask|=1;else if(P==\"R2\")Mask|=2;else if(P==\"R3\")Mask|=4;\n-    else report_fatal_error(\"SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3\");\n+    else if(P==\"R4\")Mask|=8;else if(P==\"R5\")Mask|=16;\n+    else report_fatal_error(\"SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3,R4,R5\");\n   }\n   return Mask;\n }\n@@ -186,7 +188,7 @@ static Function *executionUnswitch(Function *F,bool Map) {\n   return Wrapper;\n }\n static void lowerExecutionSimplifications(Module &M) {\n-  unsigned Requested=executionSimplifyRules();bool Stats=std::getenv(\"SGPL_EXEC_SIMPLIFY_STATS\");\n+  unsigned Requested=executionSimplifyRules()&7;bool Stats=std::getenv(\"SGPL_EXEC_SIMPLIFY_STATS\");\n   SmallVector<CallInst *,8> Binds;\n   for(Function &F:M)for(BasicBlock &B:F)for(Instruction &I:B)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()&&Call->getCalledFunction()->getName()==\"autograph_exec_ctx_bind_fullgraph_v1\")Binds.push_back(Call);\n   for(auto *Bind:Binds) {\ndiff --git a/p1GraphEasy-con-AutoTuner/lean_record_execution.inc b/p1GraphEasy-con-AutoTuner/lean_record_execution.inc\nindex cdf10c09..69868be6 100644\n--- a/p1GraphEasy-con-AutoTuner/lean_record_execution.inc\n+++ b/p1GraphEasy-con-AutoTuner/lean_record_execution.inc\n@@ -1,6 +1,7 @@\n #undef sgpl_exec_partition_body\n #undef sgpl_exec_partition_body_packed\n #include \"execution_partition_bodies.inc\"\n+#include \"frontier_simplify_runtime.inc\"\n \n /* Compiler-certified pair-only layouts. Select formats before entering loops;\n  * retain the original failure, group accounting, append and budget contracts. */\n@@ -35,6 +36,13 @@ static SGPL_LEAN_FN void NAME(int64_t index,void *opaque) { \\\n   uint32_t *group_tags=sparse_groups&&group_scratch&&group_scratch->group_capacity>=(size_t)meta->csr_n?group_scratch->group_tags:NULL; \\\n   uint32_t group_epoch=group_tags?group_scratch->group_epoch:0; \\\n   int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1]; \\\n+  sgpl_frontier_simplify_kernel_v1 simplified=sgpl_frontier_simplified_kernel(ctx,WEIGHTED); \\\n+  if(simplified) { \\\n+    sgpl_frontier_simplify_args_v1 args={PairState,&local,records,edges,first,last,local.execution_error,seen,group_tags,group_epoch,sparse_groups}; \\\n+    int64_t groups=simplified(&args); \\\n+    if(groups>=0&&groups)__atomic_fetch_add(&ctx->spatial_occupied_groups,(uint64_t)groups,__ATOMIC_RELAXED); \\\n+    return; \\\n+  } \\\n   if(local.spatial_group==SGPL_SPATIAL_PAIR_OCCURRENCE) \\\n     SGPL_LEAN_LOOP(__atomic_fetch_add(&ctx->spatial_occupied_groups,1,__ATOMIC_RELAXED)); \\\n   else if(seen&&local.spatial_group==SGPL_SPATIAL_SOURCE) \\\ndiff --git a/p1GraphEasy-con-AutoTuner/main.cpp b/p1GraphEasy-con-AutoTuner/main.cpp\nindex aa5849ac..d390f218 100644\n--- a/p1GraphEasy-con-AutoTuner/main.cpp\n+++ b/p1GraphEasy-con-AutoTuner/main.cpp\n@@ -1015,6 +1015,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)\n #include \"append_journal_lowering.inc\"\n #include \"static_schedule_lowering.inc\"\n #include \"execution_simplify_lowering.inc\"\n+#include \"frontier_simplify_lowering.inc\"\n \n static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)\n {\n@@ -1629,6 +1630,7 @@ int main(int argc, char **argv)\n     lowerAppendJournals(*M);\n     lowerStaticSchedules(*M);\n     lowerExecutionSimplifications(*M);\n+    lowerFrontierExecutionSimplifications(*M);\n \n     if (const char *dumpPath = std::getenv(\"DUMP_LLVM_BC_AFTER_OUTLINE\"))\n         dumpModuleBitcode(*M, dumpPath);",
+      "source_hash": "648d1cb75946d238916446ddd2457e18359eceb1e3c4596d80d7382a512462c4"
+    },
+    "compiler_sha256": "8e194ff3e385ade15f56fe176f4f96e6497784699aa0ce41a606fc0b0a13f7e6",
+    "objects": {
+      "runtime": "e6338fd241bc2c6a6d0235a2e191d727ed86e87f7862883313a070ac530ae47b",
+      "parallel_runtime": "f7111b61b2fcade4dba1826230a890f4a400f86bb5c304fff2bb2674c8f06ace",
+      "gpu_runtime": "84e2d8af2e6dd1239ca6142954434e30381667b86c7d3891549d5d53a4c735dc",
+      "autotuner_runtime": "998f0619bd832e0a594bef509aa102b93f49d6c8c648c804f551cca10ac602df",
+      "graph_mutation_runtime": "41033da3b13cb511fa501db7702438e1dda2f22afb140f7130c22ecec65f62af",
+      "roaring_bitmap": "493f1d1da2080ba8c0412bf21bec8e864d5bcade00c389f0a24b2a0540a586fa",
+      "graph_loader_runtime": "a09128cea6601825486acece715286309e78d64f525bbf96c69f9881889ba44d",
+      "graph_runtime": "f298039809b7b704692fe250ed0f4e22c63569d9b1c520d73d1c0655f073b46e",
+      "semiring_runtime": "4c805acab1a4110d9d8fe42f7cf3f654ad34ce37782267d1946d120e6ab6a041"
+    },
+    "baseline": "/home/kazi/p1_c3_integration_20261022/versions/C3_integrated",
+    "benchmark_runs": 0
+  },
+  "activation_graphs": {
+    "bfs": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0,
+      "R4": 61,
+      "R5": 0
+    },
+    "sssp": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0,
+      "R4": 61,
+      "R5": 61
+    },
+    "cc": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0,
+      "R4": 61,
+      "R5": 61
+    },
+    "pagerank": {
+      "R1": 61,
+      "R2": 61,
+      "R3": 61,
+      "R4": 0,
+      "R5": 0
+    }
+  },
+  "focused": {
+    "passed": true,
+    "jit_comparisons": 2880,
+    "native_runs": 9,
+    "workers": [
+      1,
+      2,
+      6
+    ],
+    "modes": [
+      "normal",
+      "ASan/UBSan",
+      "no_scratch"
+    ],
+    "runtime_outcomes": [
+      [
+        "24",
+        "0"
+      ],
+      [
+        "24",
+        "0"
+      ],
+      [
+        "24",
+        "0"
+      ],
+      [
+        "24",
+        "0"
+      ],
+      [
+        "24",
+        "0"
+      ],
+      [
+        "24",
+        "0"
+      ],
+      [
+        "0",
+        "0"
+      ],
+      [
+        "0",
+        "0"
+      ],
+      [
+        "0",
+        "0"
+      ]
+    ],
+    "benchmark_runs": 0
+  },
+  "existing_contracts": {
+    "simplification": {
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ]
+    },
+    "existing": {
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ]
+    },
+    "worker_pool": {
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ]
+    }
+  },
+  "validation": {
+    "passed": true,
+    "independent_checks": 2196,
+    "exact_pagerank_groups": 183,
+    "benchmark_runs": 0
+  },
+  "exact_printed_array_groups": 732,
+  "frontier_tsan": [
+    {
+      "workers": 1,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/frontier_tsan/w1_0.log"
+    },
+    {
+      "workers": 1,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/frontier_tsan/w1_1.log"
+    },
+    {
+      "workers": 1,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/frontier_tsan/w1_2.log"
+    },
+    {
+      "workers": 2,
+      "attempt": 0,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/frontier_tsan/w2_0.log"
+    },
+    {
+      "workers": 6,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/frontier_tsan/w6_0.log"
+    },
+    {
+      "workers": 6,
+      "attempt": 1,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/frontier_tsan/w6_1.log"
+    }
+  ],
+  "existing_tsan": [
+    {
+      "test": "execution_context_race_test",
+      "workers": 1,
+      "attempt": 0,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_context_race_test_w1_0.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 2,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_context_race_test_w2_0.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 2,
+      "attempt": 1,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_context_race_test_w2_1.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 6,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_context_race_test_w6_0.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 6,
+      "attempt": 1,
+      "status": "unresolved_launch",
+      "exit_code": -11,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_context_race_test_w6_1.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 1,
+      "attempt": 0,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/append_journal_test_w1_0.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 2,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/append_journal_test_w2_0.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 2,
+      "attempt": 1,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/append_journal_test_w2_1.log"
+    },
+    {
+      "test": "append_journal_test",
+      "workers": 6,
+      "attempt": 0,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/append_journal_test_w6_0.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 1,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w1_0.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 1,
+      "attempt": 1,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w1_1.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 2,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w2_0.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 2,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w2_1.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 2,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w2_2.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 6,
+      "attempt": 0,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w6_0.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 6,
+      "attempt": 1,
+      "status": "startup_unavailable",
+      "exit_code": 66,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w6_1.log"
+    },
+    {
+      "test": "execution_simplify_runtime_test",
+      "workers": 6,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_simplify_runtime_test_w6_2.log"
+    },
+    {
+      "test": "execution_context_race_test",
+      "workers": 6,
+      "attempt": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "log": "/home/kazi/p1_execution_simplification/versions/frontier01/tsan/execution_context_race_test_w6_2.log"
+    }
+  ],
+  "runtime_activation": {
+    "passed": true,
+    "checks": [
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "journal",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 24,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "plain",
+        "counts": {
+          "bindings": 6,
+          "plain": 24,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "journal",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 27,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "plain",
+        "counts": {
+          "bindings": 6,
+          "plain": 27,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "journal",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 74,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "plain",
+        "counts": {
+          "bindings": 6,
+          "plain": 74,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "bfs",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "journal",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 52
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "plain",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 52,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "journal",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 91
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "plain",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 91,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "journal",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 252
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "plain",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 252,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "sssp",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 13,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "journal",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 24,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "plain",
+        "counts": {
+          "bindings": 6,
+          "plain": 24,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 1,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "journal",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 40,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "plain",
+        "counts": {
+          "bindings": 6,
+          "plain": 40,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 2,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "journal",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 117,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "plain",
+        "counts": {
+          "bindings": 6,
+          "plain": 117,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      },
+      {
+        "algorithm": "cc",
+        "graph": "ia/ia-email-univ.edges",
+        "workers": 6,
+        "mode": "disabled",
+        "counts": {
+          "bindings": 6,
+          "plain": 0,
+          "weighted": 0,
+          "journal_plain": 0,
+          "journal_weighted": 0
+        },
+        "passed": true
+      }
+    ],
+    "benchmark_runs": 0
+  },
+  "public_context_header_unchanged": true,
+  "benchmark_runs": 0,
+  "warmup_runs": 0,
+  "profiling_runs": 0,
+  "performance_claim": null,
+  "artifact_root": "/home/kazi/p1_execution_simplification/versions/frontier01",
+  "source_hash": "648d1cb75946d238916446ddd2457e18359eceb1e3c4596d80d7382a512462c4",
+  "test_sources": {
+    "frontier_simplify_ir_test.cpp": "b196ef2c1e5ef41fcf7d123ad96d9dfc91102b4d046fe90faf5f289f2d2d9375",
+    "frontier_simplify_runtime_test.c": "b58b0d111a47ff3de2d06081b30ecd7aaaebe9f02b087c9fbccf560f4e79fa29",
+    "frontier_simplify_activation.c": "6fd2e2e953ed3d7b5a6b896a6a0e2b76b509fbee87530346b76d5ab688882dfb",
+    "run_frontier_simplify_tests.sh": "8af6e3b82127c232f875930fa1c43c9629affdeec32949b8dcdfe552163075ae"
+  },
+  "calibration_sha256": "a867cfad9b1c288275f6d1220d43130baec654ffe17c7c23c16c621fa932a4ea",
+  "calibration_unchanged": true
+}

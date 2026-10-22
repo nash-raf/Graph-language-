@@ -1012,6 +1012,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)
 
 #include "record_field_liveness.inc"
 #include "fullgraph_lowering.inc"
+#include "append_journal_lowering.inc"
 #include "static_schedule_lowering.inc"
 
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
@@ -1624,6 +1625,7 @@ int main(int argc, char **argv)
 
     certifyRecordFieldLiveness(*M);
     lowerFullGraph(*M);
+    lowerAppendJournals(*M);
     lowerStaticSchedules(*M);
 
     if (const char *dumpPath = std::getenv("DUMP_LLVM_BC_AFTER_OUTLINE"))

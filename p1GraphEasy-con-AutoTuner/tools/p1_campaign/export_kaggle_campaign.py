@@ -6,7 +6,7 @@ OLD=Path.home()/'p1_campaign_20261019'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def copy(p,q):q.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,q)
 def main():
- p=argparse.ArgumentParser();p.add_argument('output');a=p.parse_args();out=Path(a.output)
+ p=argparse.ArgumentParser();p.add_argument('output');p.add_argument('--baseline-source');a=p.parse_args();out=Path(a.output)
  out.mkdir(parents=True,exist_ok=True);stage=out/'bundle'
  if stage.exists():raise FileExistsError('Choose a fresh export directory; existing bundle retained')
  stage.mkdir();paths={};rows=json.loads((OLD/'inputs.json').read_text())
@@ -17,12 +17,15 @@ def main():
    paths[str(src)]=target
  (stage/'input_paths.json').write_text(json.dumps(paths,indent=2))
  copy(OLD/'inputs.json',stage/'original_inputs.json')
- for name,src in [('accepted',OLD/'versions/R4a3/src'),('candidate',REPO)]:
+ baseline=Path(a.baseline_source) if a.baseline_source else OLD/'versions/R4a3/src'
+ for name,src in [('accepted',baseline),('candidate',REPO)]:
   dst=stage/name;dst.mkdir()
   for f in src.iterdir():
    if f.is_file() and f.suffix in ['.c','.cpp','.h','.inc','.ll']:copy(f,dst/f.name)
   shutil.copytree(src/'generated',dst/'generated',ignore=shutil.ignore_patterns('*.o','*.interp','*.tokens'))
   shutil.copytree(src/'test',dst/'test',ignore=shutil.ignore_patterns('__pycache__','*.o'))
+  for script in (dst/'test').rglob('*.sh'):
+   script.write_bytes(script.read_bytes().replace(b'\r\n',b'\n'))
  shutil.copytree(OLD/'references',stage/'references')
  shutil.copytree(OLD/'frozen_reports',stage/'frozen_reports')
  copy(OLD/'historical_harness/p1_bench_snapshot.py',stage/'historical_harness/p1_bench_snapshot.py')
@@ -41,7 +44,7 @@ def main():
  (stage/'graptor_source/bench/PRdouble.C').write_text(text.replace('using FloatTy = float;','using FloatTy = double;',1))
  git='/mnt/c/Program Files/Git/cmd/git.exe'
  win=subprocess.check_output(['wslpath','-w',str(REPO)],text=True).strip()
- provenance={'accepted':json.loads((OLD/'versions/R4a3/identity.json').read_text()),
+ provenance={'accepted':({'source_directory':str(baseline)} if a.baseline_source else json.loads((OLD/'versions/R4a3/identity.json').read_text())),
   'candidate_commit':subprocess.check_output([git,'-C',win,'rev-parse','HEAD'],text=True).strip(),
   'candidate_patch':subprocess.check_output([git,'-C',win,'diff','HEAD','--','.'],text=True),
   'cpu_only':True,'preserve_candidate_on_regression':True,'graphs':61,'cases':244}

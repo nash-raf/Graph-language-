@@ -1,4 +1,5 @@
 #include "execution_context_copy.inc"
+#include "execution_code_layout.inc"
 /* Execution storage only: leases never share buffers between live contexts.
  * Retain at most one 64 MiB arena per thread, released at thread exit. */
 #ifndef SGPL_EXEC_REUSE_BUFFERS
@@ -13,6 +14,17 @@
 #ifndef SGPL_EXEC_PAIR_BATCH
 #define SGPL_EXEC_PAIR_BATCH 1
 #endif
+#include <stddef.h>
+#include "append_journal_plan.h"
+#define SGPL_EXEC_FUSION_LEASE 1
+typedef struct {
+  const void *frontier_plan,*journal_plan;
+  void *journal_state;
+  unsigned append_was_journal;
+  void (*journal_begin)(sgpl_exec_ctx *);
+  void (*journal_release)(void *);
+} SgplExecutionFusionLease;
+_Static_assert(sizeof(SgplExecutionFusionLease)==48,"private execution lifecycle hooks");
 enum { SGPL_BUF_APPEND, SGPL_BUF_RECORDS, SGPL_BUF_SOURCES, SGPL_BUF_WORK,
        SGPL_BUF_EDGES, SGPL_BUF_OFFSETS, SGPL_BUF_SOURCE_GATE, SGPL_BUF_GROUPS,
        SGPL_BUF_PREP_POSITIONS, SGPL_BUF_PREP_WORK, SGPL_BUF_SNAPSHOT };
@@ -23,13 +35,17 @@ typedef struct {
   uint32_t *group_tags;
   size_t group_capacity;
   uint32_t group_epoch;
+  SgplExecutionFusionLease *fusion;
 } SgplExecutionScratch;
+_Static_assert(offsetof(SgplExecutionScratch,fusion)==64&&sizeof(SgplExecutionScratch)==72,"execution fusion adds only one private scratch pointer");
 static pthread_key_t sgpl_execution_scratch_key;
 static pthread_once_t sgpl_execution_scratch_once=PTHREAD_ONCE_INIT;
 static int sgpl_execution_scratch_key_status;
 static void sgpl_execution_scratch_free(void *opaque) {
   SgplExecutionScratch *s=opaque;
   if(!s)return;
+  if(s->fusion&&s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);
+  free(s->fusion);
   for(size_t i=0;i<s->count;++i)free(s->buffers[i]);
   free(s->group_tags);free(s->buffers);free(s->capacities);free(s);
 }
@@ -50,6 +66,7 @@ static void *sgpl_execution_scratch_acquire(void) {
 static void sgpl_execution_scratch_release(void *opaque,int cacheable) {
   SgplExecutionScratch *s=opaque;
   if(!s)return;
+  if(s->fusion){if(s->fusion->journal_release)s->fusion->journal_release(s->fusion->journal_state);s->fusion->journal_state=NULL;s->fusion->journal_plan=NULL;}
   if(!cacheable||s->total>64u*1024u*1024u||sgpl_execution_scratch_key_status||
       pthread_getspecific(sgpl_execution_scratch_key)||pthread_setspecific(sgpl_execution_scratch_key,s))
     sgpl_execution_scratch_free(s);
@@ -127,6 +144,7 @@ static void sgpl_array_begin_append(sgpl_exec_ctx *c) {
   } else if(!SGPL_EXEC_SKIP_FRESH_CLEAR||!c->array_log_pristine)
     memset(c->array_append_log,0,(size_t)c->array_work_count*c->array_append_sites*8);
   c->array_log_pristine=0;
+  if(s&&s->fusion&&s->fusion->journal_begin)s->fusion->journal_begin(c);
 }
 /* Device grouping owns/reorders/frees record arrays. Transfer the active
  * buffers out of the lease before that original ownership path takes over. */

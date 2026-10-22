@@ -20,6 +20,7 @@ typedef struct {
 static SGPL_FULL_FN SgplFullState *sgpl_fullgraph_state(const sgpl_exec_ctx *c) {
   return c&&c->array_compact_records==6?(SgplFullState *)c->gpu_records:NULL;
 }
+#include "append_journal_runtime.inc"
 static pthread_mutex_t sgpl_incoming_lock=PTHREAD_MUTEX_INITIALIZER;
 static SgplIncomingIndex *sgpl_incoming_cache;
 static SGPL_FULL_FN void sgpl_incoming_release(SgplIncomingIndex *s) {

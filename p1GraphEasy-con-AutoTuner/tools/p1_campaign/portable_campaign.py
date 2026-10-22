@@ -29,11 +29,19 @@ def physical_cpus():
  selected=list(unique.values())[:min(6,quota or 6)]
  if not selected:raise RuntimeError('No distinct physical-core representatives are visible')
  return selected,dict(platform=platform.platform(),topology=topology,quota_cores=quota,
+  boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+  cpu_model=next((x for x in Path('/proc/cpuinfo').read_text().splitlines() if x.startswith('model name')),''),
+  cpu_flags=next((x for x in Path('/proc/cpuinfo').read_text().splitlines() if x.startswith('flags')),''),
+  cpu_identity={k:next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if ':' in line and line.split(':',1)[0].strip()==k),None) for k in ['vendor_id','cpu family','model','stepping','microcode']},
   physical_cpus=selected,workers=len(selected),note='Guest-reported topology; one CPU per visible physical core, bounded by CPU quota. Host mapping may be virtualized.')
 def setup():
  manifest=json.loads((BUNDLE/'bundle_manifest.json').read_text())
  for name,h in manifest.items():assert sha(BUNDLE/name)==h,'Bundle mismatch: '+name
  cpus,host=physical_cpus();WORK.mkdir(parents=True,exist_ok=True)
+ identity={'bundle_manifest':sha(BUNDLE/'bundle_manifest.json'),'provenance':sha(BUNDLE/'provenance.json')}
+ frozen=WORK/'campaign-input-identity.json'
+ if frozen.exists():assert json.loads(frozen.read_text())==identity,'Campaign inputs/tooling changed; retain old evidence and start a separate attempt directory'
+ else:save(frozen,identity)
  old=WORK/'host.json'
  if old.exists():assert json.loads(old.read_text())==host,'Host/affinity changed; start a new measurement campaign'
  else:save(old,host)
@@ -81,7 +89,8 @@ def graptor(R):
  shutil.copy2(BUNDLE/'walltime.c',WORK/'walltime.c')
 def build(R):
  graptor(R)
- for v,source in [('Accepted','accepted'),('StaticSchedule','candidate')]:
+ versions=([('OriginB0','origin_b0')] if (BUNDLE/'origin_b0').exists() else [])+[('Accepted','accepted'),('StaticSchedule','candidate')]
+ for v,source in versions:
   R.REPO=BUNDLE/source;R.build(v)
  inputs={str(BUNDLE/name):digest for name,digest in json.loads((BUNDLE/'bundle_manifest.json').read_text()).items()}
  save(R.OUT/'manifest.json',dict(inputs=inputs,cases=R.M.ROWS,dataset_hash=sha(BUNDLE/'input_paths.json'),

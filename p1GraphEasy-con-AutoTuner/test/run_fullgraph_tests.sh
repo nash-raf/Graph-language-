@@ -10,7 +10,7 @@ for mode in normal sanitized no_scratch;do
  [[ "$mode" == no_scratch ]] && flags+=(-DSGPL_EXEC_REUSE_BUFFERS=0)
  flags+=(-DSGPL_CUT_PARALLEL_GRAIN=1)
  gcc "${flags[@]}" -std=gnu11 -fopenmp -pthread -I. -Itest test/fullgraph_test.c autotuner_runtime.c parallel_runtime.c -lnlopt -lm -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=pthread_create -o "$task_tmp/check"
- for width in 1 2 6;do
+ for width in ${P1_TEST_WIDTHS:-1 2 6};do
   for policy in default legacy serial;do
    feature=()
    [[ "$policy" == legacy ]] && feature=(SGPL_FULL_INDEX_LEGACY=1)

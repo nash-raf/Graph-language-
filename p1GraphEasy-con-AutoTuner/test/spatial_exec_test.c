@@ -40,6 +40,9 @@ int32_t *graph_get_edge_pairs(void *g) { (void)g; return native_pairs; }
 #endif
 int64_t graph_get_num_edge_pairs(void *g) { return SGPL_FIXTURE_EDGE_COUNT(g); }
 static atomic_int fail_malloc,fail_calloc,fail_thread;
+/* Optional shape-scoped failures exercise a builder's parallel and serial
+ * allocation recovery without poisoning the reference executor's buffers. */
+static atomic_int fail_calloc_bytes,fail_calloc_matches;
 static int fail_countdown(atomic_int *counter) {
   int old=atomic_load(counter);
   while(old>0)if(atomic_compare_exchange_weak(counter,&old,old-1))return old==1;
@@ -52,12 +55,23 @@ int __wrap_pthread_create(pthread_t *t,const pthread_attr_t *a,void *(*fn)(void 
 }
 void *__real_calloc(size_t,size_t);
 void *__wrap_calloc(size_t n,size_t sz) {
+  if(n*sz==(size_t)atomic_load(&fail_calloc_bytes)&&
+      atomic_load(&fail_calloc_matches)>0) {
+    atomic_fetch_sub(&fail_calloc_matches,1);return NULL;
+  }
   if(fail_countdown(&fail_calloc))return NULL;
   return __real_calloc(n,sz);
 }
 void *__real_malloc(size_t);
+void __sanitizer_print_stack_trace(void) __attribute__((weak));
 void *__wrap_malloc(size_t n) {
-  if (atomic_exchange(&fail_malloc, 0)) return NULL;
+  if (fail_countdown(&fail_malloc)) {
+    if(getenv("SGPL_TEST_ALLOC_STACK")) {
+      fprintf(stderr,"injected malloc failure bytes=%zu\n",n);
+      if(__sanitizer_print_stack_trace)__sanitizer_print_stack_trace();
+    }
+    return NULL;
+  }
   return __real_malloc(n);
 }
 typedef struct {

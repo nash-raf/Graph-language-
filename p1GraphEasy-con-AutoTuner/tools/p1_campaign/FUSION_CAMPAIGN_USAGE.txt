@@ -1,0 +1,76 @@
+Proof-driven execution fusion campaign
+
+Execution boundary
+All native builds, contracts, validation, timing and profiling run on Kaggle.
+Local commands may edit, package, submit, query status and examine results.
+fusion_campaign.py refuses native work outside /kaggle/working and /kaggle/input.
+No local fallback is authorized by a Kaggle failure or session expiry.
+
+Prepare a new immutable attempt (packaging only, in the existing WSL Python):
+  python prepare_fusion_campaign.py OUTPUT --baseline-ref LAST_ACCEPTED --attempt B1 --origin-ref daa63293
+Use an existing frozen base for a source/tool overlay only when it has the
+correct baseline. Explicit manifest removals can drop rejected native/test
+files; the guarded overlay never removes baseline or dataset inputs:
+  python prepare_fusion_overlay.py OUTPUT --parent BASE_EXPORT --attempt A2
+The first attempt letter selects independent runtime disable control A/B/C.
+Fresh exports use the supplied baseline; historical R4a3 is not the baseline.
+If LAST_ACCEPTED differs from B0, the exporter adds a third same-host B0 build
+and measurements. Ten protected ARS files must match the baseline exactly.
+
+Private Kaggle submission with the existing credential-file wrapper:
+  python kaggle_cli.py datasets create -p OUTPUT/upload
+  python kaggle_cli.py datasets status kazisahib/DATASET_ID
+Wait for ready before pushing the notebook. Keep kernel id and title slug
+consistent when reusing a notebook. CPU and private settings are in metadata.
+  python kaggle_cli.py kernels push -p OUTPUT/notebook
+  python kaggle_cli.py kernels status kazisahib/KERNEL_ID
+  python kaggle_cli.py kernels logs kazisahib/KERNEL_ID -f
+  python kaggle_cli.py kernels output kazisahib/KERNEL_ID -p DOWNLOAD_DIRECTORY
+Download and retain completed outputs before submitting another notebook
+version. Never put the API token in chat, a notebook, an export or Git.
+
+Commands inside the verified Kaggle bundle:
+  python candidate/tools/p1_campaign/fusion_campaign.py all
+Other stages: build, contracts, validate, primary, confirmation, profile,
+diagnose, investigate, status, resume, report. profile/diagnose accept
+--cases JSON with [{"algorithm":"pagerank","graph":"exact/manifest.edges"}].
+investigate requires an explicit case list, rebuilds and validates all 244
+cases, then runs diagnostic component controls and phase measurements.
+Instrumented measurements never enter acceptance statistics.
+Passing stages profile the complete 244-case corpus. Rejection investigations
+include every case with a small corrected slowdown p-value, the largest losses
+and improving controls; an invalid A/A block remains invalid in that selection.
+
+One file lock covers native work. Atomic records preserve completed samples;
+incomplete observations are retained separately. A changed input manifest,
+tooling, executable fingerprint, settings or host cannot reuse observations.
+The same Kaggle host may resume unfinished work with matching fingerprints.
+A changed host starts a new directory and rebuilds all comparison binaries.
+Complete algorithm-block durations are retained in calibration.json. Profiling
+and diagnostic methods have separate case/repetition/width/method signatures.
+Use a measured matching block's duration as the monitoring interval; keep
+individual waits bounded and report progress without rereading full logs.
+
+Primary gate: warmup plus five interleaved fresh-process measurements for
+every one of 244 cases. Potential passes require an independent 20-pair run.
+Both mean-based and median-based geometric speedups must exceed 1.01 in both
+blocks, with no Holm-confirmed case or algorithm slowdown. Tests use paired
+permutations, seed 2358, 100000 resamples and 248 tests per family. Retain a
+failed A/A block and repeat it once; repeated instability is inconclusive.
+An unaccepted candidate is never the next stage's baseline.
+
+Evidence to retain
+Private source dataset/overlay and identity.json; user-authored candidate Git
+checkpoint; p1-results.tar.gz; final_report.html; final_summary.json;
+campaign_decision.json; correctness, exact-bit, activation and detector JSON;
+raw runs and measurement JSONL; component/cross-link checks, phase/resource/
+wait counters; protected hashes; calibration-input snapshots; host identity.
+Unavailable PMU counters, traces and race detectors must stay unavailable in
+the report. Passing tests do not replace effect/dependency proof obligations.
+
+Report each implementation/revision separately, including failures, flat
+results and unresolved causes. Full tables include B0, last accepted P1,
+candidate P1, stage-disabled P1, double Graptor, historical float PageRank,
+kernel/end-to-end times and regression status. Preserve full61, original50,
+duplicate-content sensitivity, incremental and cumulative comparisons.
+Do not automatically merge, push or delete unsuccessful changes.

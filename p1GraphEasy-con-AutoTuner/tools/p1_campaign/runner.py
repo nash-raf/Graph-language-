@@ -25,6 +25,7 @@ OLDOUT=Path('/mnt/d/sgpl/p1_local_regressions_20261019')
 ALGS=['bfs','sssp','cc','pagerank']
 OBJECTS=['runtime','parallel_runtime','gpu_runtime','autotuner_runtime','graph_mutation_runtime','roaring_bitmap','graph_loader_runtime','graph_runtime','semiring_runtime']
 PROFILE_IDS={}
+COMPILER_READY_HOOK=None
 ROOT.mkdir(exist_ok=True);OUT.mkdir(exist_ok=True)
 os.sched_setaffinity(0,CPUS)
 _stack_soft,_stack_hard=resource.getrlimit(resource.RLIMIT_STACK)
@@ -52,6 +53,7 @@ def git(*args):
 _status_cache=None
 _status_lock=threading.Lock()
 _experiment_fd=None
+_progress_started={}
 def state(**kw):
  global _status_cache
  with _status_lock:
@@ -59,8 +61,9 @@ def state(**kw):
   x.update(kw,updated=time.time());save(OUT/'status.json',x);_status_cache=x
 def progress(**kw):
  if kw.get('completed') and kw.get('total'):
-  started=read(OUT/'status.json',{}).get('started',time.time())
-  elapsed=kw.get('elapsed_seconds',time.time()-started)
+  block=(kw.get('stage'),kw.get('version'),kw.get('phase'),kw['total'],kw.get('algorithm') if kw['total']==61 else None)
+  now=time.time();started=_progress_started.setdefault(block,now)
+  elapsed=kw.get('elapsed_seconds',now-started);kw['elapsed_seconds']=elapsed
   kw['expected_completion_unix']=time.time()+elapsed*(kw['total']-kw['completed'])/kw['completed']
  state(**kw);print(json.dumps(kw),flush=True)
 def cfg(*args):return shlex.split(subprocess.check_output(['llvm-config-20',*args],text=True))
@@ -168,6 +171,7 @@ def build(v):
   target=d/(name+'.o')
   if not target.exists():target.symlink_to(obj)
  if not (ROOT/'walltime').exists():checked(['gcc','-O2',ROOT/'walltime.c','-o',ROOT/'walltime'],ROOT,logs/'walltime.log')
+ if COMPILER_READY_HOOK is not None:COMPILER_READY_HOOK(v,src)
  rows=M.ROWS
  failures=[];completed=set(read(d/'program_builds.json',[]))
  compiler_id=sha(d/'GraphProgram')
@@ -201,6 +205,10 @@ def build(v):
       e=M.env();e.update(FORCE_CPU='1',GRAPH_FRONTIER_STATS='1',SGPL_RECORD_LIVENESS_STATS='1',SGPL_FULLGRAPH_STATS='1')
       checked([d/'GraphProgram','--ir-backend=cpu',source],p,p/(mode+'.compile.log'),e,1200)
       shutil.move(p/'program.o',obj)
+      shutil.copyfile(p/(mode+'.compile.log'),program_cache/(k+'.compile.log'))
+     elif (program_cache/(k+'.compile.log')).exists():
+      shutil.copyfile(program_cache/(k+'.compile.log'),p/(mode+'.compile.log'))
+      save(p/(mode+'.codegen_reuse.json'),{'object_sha256':sha(obj),'cache_key':k,'compiler':cache_compiler_id})
      target=p/(mode+'.o')
      if not target.exists():target.symlink_to(obj)
      if not (p/mode).exists():checked(['g++','-O3','-fopenmp','-no-pie',obj,*[d/(n+'.o') for n in OBJECTS],ROOT/'monotonic_timer.o','-Wl,--wrap=timer_runtime','-pthread','-ldl','-lnlopt','-o',p/mode],p,p/(mode+'.link.log'))

@@ -1,0 +1,188 @@
+Execution fusion: compiler and runtime obligations
+
+Read these contracts together with the activation diagnostics and immutable
+attempt reports. They describe enabled paths; they do not imply that a stage
+passed performance acceptance. Tests supplement the existing effect proofs.
+
+Common dependence and worker contract
+
+The frontend must already certify a destination-owned independent family.
+Disjoint writes alone are insufficient: conflicting reads must also belong to
+the owner or use the existing certified snapshot/private-state contract.
+Unknown aliases, context observers, lifecycle actions and opaque effects
+retain the original executor. No new dependency inference runs in the runtime.
+
+Late executable rewriting occurs after ARS decisions. Layout choices,
+conversion calls, site identities, canonical arc/partition work inputs, event
+boundaries and the thread-budget ledger remain those of the original program.
+Actual elapsed observations remain real observations; no prediction-accuracy
+gate or replacement ARS cost formula is introduced.
+
+The relevant order remains preparation/snapshots/source publication, then the
+independent owners, then their required join, then ordered output publication.
+There is no cross-round fusion. Runtime plans have explicit versions and sizes.
+Runtime premises must be checked before user effects. Allocation/refusal paths
+retain the generic execution path; partially executed effects are never replayed.
+Compiler and runtime descriptor changes require a coordinated rebuild.
+
+Stage A: source preparation
+
+fusionGateEligible accepts a transparent integer gate whose operation-state
+argument is unused and whose context argument is used only by the source-gate
+setter. Every returning path ends with exactly one setter. Volatile/atomic
+accesses, TLS, other callbacks and floating gate expressions refuse fusion.
+The existing full-graph certificate supplies immutable topology, separated
+stable source reads, destination ownership and the absence of incompatible
+later preparation effects. The extracted source map must not observe context.
+
+fusionInlineSourceGate keeps the original callback intact and makes a private
+clone. Its source calculation is inlined, conditional on the original allowed
+predicate and a nonempty native row. Original source order and the arithmetic
+instruction tree remain unchanged. Multiple consumers retain the source-value
+buffer. The original coverage loop, publication node, grants and joins remain.
+
+The runtime installs the clone only for one matching source callback, the full
+vertex domain, a valid immutable index and available private state. Its view
+captures the pair state before replacing the unused gate-state argument. An
+allocation failure selects the original callback and bulk map before effects.
+The callback/state are restored after preparation, on invalidation and on
+release. The static schedule accepts the clone only through the exact registered
+original/fused callback and private-view identity match.
+
+Stage A: ordered destination accumulator
+
+Before each surviving arithmetic instruction, the private scalar equals the
+value that the original ordered load/store sequence would have left in that
+destination. The initial destination load is lazy: no eligible contribution
+means no destination update. The contribution sequence and arithmetic operand
+order are unchanged. Intermediate stores may be removed only when they have no
+observer, and source reads cannot alias those writes. Cancellation flushes the
+partial accumulator before the existing failure exit. Reassociation, fast-math
+and new fused arithmetic are prohibited.
+
+Stage B: occurrence identity and owner execution
+
+For frontier occurrence i with source u and native edge offset e:
+  work(i,e) = sum(degree(frontier[j]), j<i) + (e - native_row_start(u)).
+Repeated frontier values and parallel native edges are distinct occurrences.
+Descriptors retain i and its degree prefix; native ordinal metadata recovers e.
+The first matching native weight ordinal is separate from the current edge's
+ordinal: parallel edges with different weights keep the original first-match
+lookup. No sorted-neighbor or uniqueness assumption is permitted.
+
+Only immutable native CSR uses this executor. Existing CleanCut rows/columns
+are reused; only occurrence/weight ordinals and publication identity metadata
+are owned privately. Construction validates the native occurrence stream.
+Descriptors are stable within each owner, in original frontier/native order.
+The complete certified local operation chain is inlined, or the path refuses.
+There is no generic per-edge operation callback on the specialized path.
+
+Reusing a different existing owner grouping is legal only for destination-wise
+independent effects with no partition-state observer. Per-destination order,
+snapshots, source coverage, append work ordinals, group accounting and joins
+must remain equivalent. Index validity includes topology generation, layout
+epoch, native pointers, partition boundaries and owner pointer/count identity.
+Unsupported layouts, invalid publications and optional-allocation failures
+retain records before effects. Metadata construction/maintenance are timed.
+
+Stage C: ordered sparse append journals
+
+The complete append chain must have a finite conservative per-work bound and
+no observer of intermediate append state. Unknown contexts and append cycles
+refuse. Capacity is reserved before user effects; append and merge allocate
+nothing. Existing conservative output capacity and failure paths are retained.
+
+Each successful append has the original key (work ordinal, append sequence).
+Each owner has a private journal region and counter. Owner traversal makes its
+keys increasing, and a stable merge after the existing join publishes the same
+global sequence as dense compaction. Duplicate values, initial output contents,
+append count and untouched array tail are preserved. Negative rejected values
+do not consume a successful append sequence position.
+
+Journal storage can reuse the original eight-byte append allocation. A mode
+bit survives private leases so old ordinals are cleared before that allocation
+returns to dense validity tags, including epoch wrap. Optional plans and live
+state are cleared between contexts. B and C share one private scratch pointer;
+C must not enlarge that object again. Public execution-context layout is fixed.
+Alignment for independently written private owner counters is separate from
+padding or aligning the shared execution context.
+
+Evidence and limits
+
+C3 certified producer checks and independent code placement (protocol 3)
+
+Version 3 keeps the 56-byte descriptor shape but replaces its reserved word
+with the compiler's append-site bound. Old versions refuse. Proven plans have
+obligations 5|SGPL_JOURNAL_PROVEN_APPEND; checked internal fixture plans retain
+5 and a zero bound word. Binding AND execution check that a proven plan's bound
+equals the actual context bound before any pair effects begin.
+
+Only the existing full ownership/lifecycle/context-use proof and acyclic,
+fully inlined append-chain proof emit the new bit. Native owner record loops
+provide a valid partition, increasing bounded work ordinals and a zero append
+sequence at each record. Acyclic call-site counts bound all successful appends
+per occurrence. Summing those bounds proves the pre-reserved owner capacity.
+Context/log mutation and observers are refused. Thus ordinal, sequence,
+partition, capacity and prior-key checks are redundant on a certified producer.
+Uncertified plans retain those checks. Negative-value behavior, allocation
+failure publication, post-join key validation, output publication and every
+required join remain unchanged. No effects are replayed.
+
+SGPL_FUSION_C_CHECKED_APPEND restores the checked producer in the same binary.
+Profiles count proven append entries once per batch, avoiding another per-edge
+probe. Generic and proven fixtures exercise duplicates, all layouts, empty and
+partial domains, reuse, allocation failure, refusal and a changed bound after
+binding. Atomic effects, raw ordinal observers and context-bound mutations
+have deliberately refused compiler fixtures.
+
+execution_code_layout.inc separately aligns only the source-gate function to
+32 bytes. SGPL_SOURCE_GATE_ALIGNMENT=16 restores its previous code alignment.
+No public data layout, protected source or ARS formula changes. Diagnostic
+16-byte controls run with both producer modes to distinguish mechanisms. C2's
+native compiler target is Broadwell, so the JCC microcode erratum is NOT an
+established explanation. Code-placement recovery and the hardware mechanism
+remain hypotheses until measured; unavailable PMU data stay unavailable.
+
+C2 private ordinal bitmap merge (protocol version 2)
+
+The descriptor ABI shape stays fixed, while version 2 changes its private
+append payload interpretation. Compiler and runtime rebuild together; runtime
+refuses old versions. Nothing changes in the public execution-context layout.
+
+For S potential append positions, the original 8*S-byte allocation is split
+into S values at their original logical keys and S private owner journal keys.
+Value writes have distinct keys across owners, and journal writes have disjoint
+owner regions. The existing record builder and certified acyclic append bound
+establish these premises; no raw log/context observer is eligible. Duplicate
+values and duplicate frontier occurrences retain different logical keys.
+
+A zeroed ceil(S/64)-word bitmap is reserved before effects, along with the
+original conservative capacities. Failure selects dense execution before any
+user operation. After the original join, one thread marks successful ordinal
+positions. No producer shares bitmap writes or introduces atomic bit updates.
+All keys are checked before output publication. Increasing set-bit traversal
+produces exactly the old global work/append sequence, including duplicate
+values, initial contents, append count and untouched output tail. No allocation
+or effect replay occurs in merge. This bitmap is an append-position index,
+not a graph representation, value deduplicator or frontier deduplicator.
+
+SGPL_FUSION_C_HEAP_MERGE selects a diagnostic heap consumer over the same
+version-2 production format and bitmap marking. It isolates consumer selection
+cost; it does not recreate the old version-1 array-of-records representation.
+Both consumers receive full validations and exact floating-result checks.
+Profiles count remaining bitmap word scans and bitmap reservation separately
+from the eliminated dense append-slot domain. Instrumented per-append timers
+perturb production cost and never enter acceptance timing or additive claims.
+
+Eligible and deliberately refused IR, exact floating order/cancellation,
+duplicates, unsorted first-match weights, append prefix/order/tails, empty
+domains, invalidation, nested budgets, allocation failures and no replay need
+focused contracts in addition to all 244 independent graph validations.
+ASan/UBSan and supported race detectors are supplementary evidence. An
+unavailable detector remains unavailable, and tests alone do not prove race
+freedom. Instrumented timers/counters never enter acceptance measurements.
+
+Every passing timing gate requires valid A/A controls and both specified
+geometric gains in primary and independent confirmation. Invalid A/A blocks
+cannot establish absence of regressions. Rejected candidates retain their code
+and measurements, and unresolved causes must remain explicitly unresolved.

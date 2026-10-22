@@ -250,7 +250,9 @@ static int64_t sgpl_append_compact_joined(const int32_t *log,int64_t slots,
   return job.prefix[job.chunks];
 }
 
+static int sgpl_journal_compact(sgpl_exec_ctx *,int32_t *);
 static int32_t sgpl_array_compact(sgpl_exec_ctx *c) {
+  int32_t journal_result=0;if(sgpl_journal_compact(c,&journal_result))return journal_result;
   int64_t slots=c->array_work_count*c->array_append_sites,kept=c->initial_next_size;
   uint32_t epoch=sgpl_array_append_epoch(c);
   /* Normal reservation covers every append slot. Count first only when a

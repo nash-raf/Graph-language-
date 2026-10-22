@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory() as temporary:
    if mode=='generic':e['SGPL_NO_FULLGRAPH_LOWERING']='1'
    if mode=='no_records':e.update(SGPL_NO_RECORD_LIVENESS='1',SGPL_NO_LEAN_RECORDS='1')
    compiled=run([version/'GraphProgram','--ir-backend=cpu','--emit-ir-to='+str(d/'fixture.ll'),program],d,e)
-   evidence=version/'fullgraph_contract_evidence';evidence.mkdir(exist_ok=True)
+   evidence=Path(os.environ['P1_CAMPAIGN_OUTPUT'])/'fullgraph_frontend';evidence.mkdir(exist_ok=True)
    (evidence/(name+'_'+mode+'.log')).write_text(compiled.stderr)
    (evidence/(name+'_'+mode+'.ll')).write_text((d/'fixture.ll').read_text())
    (evidence/(name+'.graph')).write_text(program.read_text())

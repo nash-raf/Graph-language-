@@ -113,15 +113,16 @@ def holm(tests):
 
 def analyze(phase):
     records=R.read(R.OUT/(phase+'.json'));n=5 if phase.startswith('primary') else 20
-    assert len(records)==(244*5+61)*n
+    expected_groups=sum(61*len(specs(a)) for a in R.ALGS)
+    assert len(records)==expected_groups*n
     groups=collections.defaultdict(list);bases=set()
     for x in records:
-        assert not x.get('error') and x['seconds']>0 and x['workers']==6
+        assert not x.get('error') and x['seconds']>0 and x['workers']==len(R.CPUS)
         assert x['base'] not in bases;bases.add(x['base'])
         base=Path(x['base']);assert R.read(base.with_suffix('.record.json'))==x
         stamp=R.read(base.with_suffix('.stamp.json'));assert stamp['seconds']==x['seconds'] and stamp['exit_code']==0
         groups[(x['algorithm'],x['graph'],x['label'])].append(x)
-    assert len(groups)==1281 and all(len(v)==n for v in groups.values())
+    assert len(groups)==expected_groups and all(len(v)==n for v in groups.values())
     families={k:[] for k in ['code_regressions','graptor_comparison','accepted_AA','candidate_AA']};by_alg={k:{} for k in families}
     rows=[]
     for a in R.ALGS:

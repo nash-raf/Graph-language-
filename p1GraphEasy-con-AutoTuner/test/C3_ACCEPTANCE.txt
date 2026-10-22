@@ -1,0 +1,42 @@
+C3 integration into ARS-1 — 2026-10-22
+
+The user explicitly accepted C3 and requested its integration into ARS-1.
+This supersedes the campaign's performance promotion decision for deployment;
+it does not change or erase the historical measurements or rejection records.
+
+Integrated native checkpoint: e0533170788e24636fa8976b2307df32171eebd8.
+Execution-only baseline: fcc967822fa673d422542db28ec78c9f34ba7622.
+ARS-1 already includes the equivalent context-race repair (445983af), with
+the WSL test-line-ending follow-up (8396e074). Both repairs are preserved.
+The final C3 delta is applied without the rejected Stage A/B native executors.
+
+Accepted behavior: certified bounded owner append journals, stable ordered
+bitmap compaction, proof-gated append-check elimination and the benchmarked
+source-gate code alignment. The private versioned plan remains protocol 3.
+Runtime feature controls SGPL_NO_EFFECT_FUSION and SGPL_NO_FUSION_C retain
+the conservative path. No language syntax or execution-context layout changes.
+
+All ten protected ARS/autotuner/calibration source files remain unchanged.
+No cost formula, layout decision or injected layout conversion is changed.
+
+Known performance tradeoff accepted by the user:
+- Local six-core paired run: 3.27% lower summed end-to-end time overall;
+  CC summed time 1.48% higher (five measurements per case).
+- Kaggle twenty-pair confirmation: four corrected case slowdowns, approximately
+  4.1–7.5%, despite improved aggregate performance. C3 failed the original
+  strict no-regression promotion gate. The original gate is not weakened.
+
+Local contract runs require SGPL_ALLOW_LOCAL_CONTRACT_TESTS=1 and explicit
+P1_TEST_WIDTHS, with an inherited mask containing physical-core representatives.
+The Kaggle campaign execution guard remains unchanged. Integration validation
+does not silently rerun performance acceptance or rewrite past reports.
+
+Integration validation on Ubuntu/WSL passed 1,464 independent graph-result
+checks (244 cases, enabled/disabled, 1/2/6 physical workers) and 183 exact-bit
+PageRank comparisons. Compiler contracts and ASan/UBSan checks passed.
+Append-journal ThreadSanitizer checks passed at 1/2/6 workers; context checks
+passed at 2/6. A single-worker context launch exited with SIGSEGV without
+diagnostics. A later debugger run reached main and completed cleanly, but
+the original launch failure remains unexplained, not counted as a pass.
+Other detector launches reported unsupported startup memory mappings.
+Detailed evidence: C:/p1-c3-integration-20261022/.

@@ -8485,8 +8485,24 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         if(Info.OrderedArrayFrontier) {
             auto BindArray=Mod->getOrInsertFunction("autograph_exec_ctx_bind_array_frontier",
                 FunctionType::get(I32,{I8P,I8P,I32,I8P,I8P,I32},false));
-            EB.CreateCall(Require,{EB.CreateCall(BindArray,{ExecCtx,EB.CreateLoad(I8P,Info.FrontierArrayPtr),
-                EB.CreateLoad(I32,Info.FrontierSizePtr),Info.AppendArrayPtr,frontierCapacitySlot(Info.AppendArrayPtr),EB.getInt32(Info.ArrayAppendSites)})});
+            auto *ArrayBind=EB.CreateCall(BindArray,{ExecCtx,EB.CreateLoad(I8P,Info.FrontierArrayPtr),
+                EB.CreateLoad(I32,Info.FrontierSizePtr),Info.AppendArrayPtr,frontierCapacitySlot(Info.AppendArrayPtr),EB.getInt32(Info.ArrayAppendSites)});
+            EB.CreateCall(Require,{ArrayBind});
+            const bool JournalCertified=PairPartition&&Traversal==SGPL_TRAVERSE_OWNER_V&&
+                Info.SpatialResult.Group==SpatialGroup::Destination&&!gpuBackendSelected(Mod)&&
+                !Info.CombinedStage&&!IsRed&&!IsSourceRed&&!IsPriv&&ExplicitArrayDomain&&
+                ClaimOps.empty()&&!SrcBeginCB&&!SrcEndCB&&Info.DriverUStores.empty()&&Info.DriverUClaims.empty();
+            if(JournalCertified) {
+                Value *GateFn=GateOp?cast<CallInst>(GateOp)->getArgOperand(4):Null;
+                ArrayBind->setMetadata("sgpl.append.journal.certificate",MDNode::get(Ctx,{
+                    ValueAsMetadata::get(WF),ValueAsMetadata::get(GateFn)}));
+            } else if(std::getenv("SGPL_FUSION_STATS")) {
+                errs()<<"[append-journal] frontend refuse: destination="<<(Info.SpatialResult.Group==SpatialGroup::Destination)
+                    <<" array_domain="<<ExplicitArrayDomain<<" source_lifecycle="<<(SrcBeginCB||SrcEndCB)
+                    <<" combined="<<Info.CombinedStage<<" reduction="<<(IsRed||IsSourceRed||IsPriv)
+                    <<" claims="<<!ClaimOps.empty()<<" driver_effects="<<(!Info.DriverUStores.empty()||!Info.DriverUClaims.empty())<<"\n";
+            }
+            /* Metadata preserves the original ARS event/call sequence. */
         }
         EB.CreateCall(Require, {EB.CreateCall(Prepare, {ExecCtx,
             ConstantInt::get(I32, (int)Info.SpatialResult.Group),

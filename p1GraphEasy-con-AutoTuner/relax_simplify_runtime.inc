@@ -7,7 +7,7 @@ typedef struct {
   int32_t *values,*touched;
   uint64_t *first,*best;
   _Atomic uint32_t *tags;
-  size_t capacity;
+  size_t capacity,best_capacity;
   uint32_t epoch;
   _Atomic int64_t touched_count;
   int active,consumed;
@@ -69,14 +69,20 @@ static SgplRelaxState *sgpl_relax_prepare(sgpl_exec_ctx *c,AutoGraphMeta *m,int 
   if(output>SIZE_MAX/4||n>SIZE_MAX/4||a>UINTPTR_MAX-n*4||b>UINTPTR_MAX-output*4||
       (a<b+output*4&&b<a+n*4))return NULL;
   if(s->capacity<n) {
-    if(n>64u*1024u*1024u/24)return NULL;
-    uint64_t *first=calloc(n?n:1,sizeof(*first)),*best=malloc((n?n:1)*sizeof(*best));
+    if(n>64u*1024u*1024u/16)return NULL;
+    uint64_t *first=calloc(n?n:1,sizeof(*first));
     _Atomic uint32_t *tags=calloc(n?n:1,sizeof(*tags));
     int32_t *touched=malloc((n?n:1)*sizeof(*touched));
-    if(!first||!best||!tags||!touched){free(first);free(best);free(tags);free(touched);return NULL;}
-    free(s->first);free(s->best);free(s->tags);free(s->touched);
-    ((SgplExecutionScratch *)c->execution_scratch)->total+=(n-s->capacity)*24;
-    s->first=first;s->best=best;s->tags=tags;s->touched=touched;s->capacity=n;s->epoch=0;
+    if(!first||!tags||!touched){free(first);free(tags);free(touched);return NULL;}
+    free(s->first);free(s->tags);free(s->touched);
+    ((SgplExecutionScratch *)c->execution_scratch)->total+=(n-s->capacity)*16;
+    s->first=first;s->tags=tags;s->touched=touched;s->capacity=n;s->epoch=0;
+  }
+  if((s->plan->rules&SGPL_EXEC_SIMPLIFY_R8)&&s->best_capacity<n) {
+    if(n>64u*1024u*1024u/24)return NULL;
+    uint64_t *best=malloc(n*sizeof(*best));if(!best)return NULL;
+    free(s->best);s->best=best;
+    ((SgplExecutionScratch *)c->execution_scratch)->total+=(n-s->best_capacity)*8;s->best_capacity=n;
   }
   if(++s->epoch==0){if(s->capacity){memset(s->first,0,s->capacity*8);memset(s->tags,0,s->capacity*4);}s->epoch=1;}
   atomic_store_explicit(&s->touched_count,0,memory_order_relaxed);

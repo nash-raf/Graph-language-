@@ -134,6 +134,7 @@ def build():
         assert all('[exec-simplify] R6 activate' in p.read_text() and
                    '[exec-simplify] R7 activate' in p.read_text() and
                    '[exec-simplify] R8 activate' not in p.read_text() for p in logs), alg
+        assert all(('[exec-simplify] R9 activate' in p.read_text()) == (alg == 'cc') for p in logs), alg
 
 
 def report(protocol, results):

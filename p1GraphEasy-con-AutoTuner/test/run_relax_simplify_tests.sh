@@ -14,7 +14,7 @@ for mode in normal sanitized no_scratch; do
   flags=(-O2)
   [[ "$mode" == sanitized ]] && flags=(-O1 -g -no-pie -fsanitize=address,undefined -fno-omit-frame-pointer)
   [[ "$mode" == no_scratch ]] && flags+=(-DSGPL_EXEC_REUSE_BUFFERS=0)
-  gcc "${flags[@]}" -DSGPL_CUT_PARALLEL_GRAIN=1 -std=gnu11 -fopenmp -pthread -I. -Itest test/relax_simplify_runtime_test.c autotuner_runtime.c parallel_runtime.c -lnlopt -lm -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=pthread_create -o "$task_output/runtime-$mode"
+  gcc "${flags[@]}" -DSGPL_RELAX_SIMPLIFY_TEST=1 -DSGPL_CUT_PARALLEL_GRAIN=1 -std=gnu11 -fopenmp -pthread -I. -Itest test/relax_simplify_runtime_test.c autotuner_runtime.c parallel_runtime.c -lnlopt -lm -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=pthread_create -o "$task_output/runtime-$mode"
   for width in ${P1_TEST_WIDTHS:?Select physical test widths}; do
     expected=();[[ "$mode" == no_scratch ]] || expected=(SGPL_TEST_EXPECT_SIMPLIFY=1)
     env "${expected[@]}" ASAN_OPTIONS=detect_leaks=0 python3 test/physical_run.py "$width" "$task_output/runtime-$mode"

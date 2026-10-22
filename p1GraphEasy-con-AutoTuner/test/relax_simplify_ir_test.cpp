@@ -115,6 +115,12 @@ int main(int argc,char **argv) {
     if(Negative==24)Expected&=~256u;
     unsigned Actual=0;
     for(auto &G:M->globals())if(G.getName().starts_with("sgpl.relax.simplification.v2"))Actual=cast<ConstantInt>(cast<ConstantStruct>(G.getInitializer())->getOperand(2))->getZExtValue();
+    unsigned SourceBindings=0;
+    for(Function &F:*M)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))
+      if(Call->getCalledFunction()&&Call->getCalledFunction()->getName()=="sgpl_exec_bind_ordered_source_v1") {
+        ++SourceBindings;require(cast<ConstantInt>(Call->getArgOperand(1))->isZero(),"exact certified source slot");
+      }
+    require(SourceBindings==!!(Actual&256),"R9 carries a source-binding witness");
     if(Actual!=Expected){errs()<<"subset="<<Subset<<" negative="<<Negative<<" expected="<<Expected<<" actual="<<Actual<<"\n";require(false,"rule applicability and independent refusal");}
     require(M->getFunction("pair")&&!M->getFunction("pair")->empty(),"baseline callback retained");
     if(argc>1&&Subset==15){std::error_code E;raw_fd_ostream O(std::string(argv[1])+"/fixture_"+std::to_string(Negative)+".ll",E);M->print(O,nullptr);}

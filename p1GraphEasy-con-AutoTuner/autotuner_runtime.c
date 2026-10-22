@@ -4254,6 +4254,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
     if(ctx->array_append_log)sgpl_array_begin_append(ctx);
     ctx->spatial_occupied_groups = 0;
     ctx->spatial_nontrivial = 0;
+    sgpl_relax_elide_tracking(ctx);
     if (ctx->spatial_groups_seen && meta) {
       if(sgpl_sparse_group_tracking(ctx) && sgpl_group_epoch_begin(ctx,meta)) {
         /* No per-record clear: the exclusive generation defines this round. */
@@ -5098,9 +5099,12 @@ int32_t autograph_exec_ctx_materialize_snapshot(sgpl_exec_ctx *ctx, int32_t slot
 int32_t autograph_exec_ctx_bind_snapshot_range(sgpl_exec_ctx *ctx, int32_t slot,
                                               const void *base, int64_t count,
                                               int64_t elem_bytes) {
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,SGPL_DAG_ERR_INVALID);
   if (count && !base) return SGPL_DAG_ERR_INVALID;
   int32_t status = autograph_exec_ctx_reserve_snapshot(ctx, slot, count, elem_bytes);
-  return status < 0 ? status : autograph_exec_ctx_materialize_snapshot(ctx, slot, base, count * elem_bytes);
+  if(status>=0)status=autograph_exec_ctx_materialize_snapshot(ctx,slot,base,count*elem_bytes);
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,status);
+  return status;
 }
 
 void *autograph_exec_ctx_snapshot(sgpl_exec_ctx *ctx, int32_t slot) {
@@ -6854,6 +6858,7 @@ int32_t sgpl_exec_dag_round_spatial(const sgpl_round_spatial_plan *p,
 
 int32_t autograph_exec_ctx_bind_source_snapshot_range(sgpl_exec_ctx *ctx,int32_t slot,
     const void *base,int64_t count,int64_t elem_bytes) {
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,SGPL_DAG_ERR_INVALID);
   /* Sparse random loads lose to bulk copying for dense source domains. */
   if(!ctx||ctx->array_source_count<0||!ctx->array_sources||ctx->array_source_count>=count/8)
     return autograph_exec_ctx_bind_snapshot_range(ctx,slot,base,count,elem_bytes);
@@ -6870,6 +6875,7 @@ int32_t autograph_exec_ctx_bind_source_snapshot_range(sgpl_exec_ctx *ctx,int32_t
   } else for(int64_t i=0;i<ctx->array_source_count;++i) {
     int64_t u=ctx->array_sources[i];memcpy(out+u*elem_bytes,in+u*elem_bytes,(size_t)elem_bytes);
   }
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,SGPL_DAG_OK);
   return SGPL_DAG_OK;
 }
 

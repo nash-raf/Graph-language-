@@ -211,9 +211,11 @@ static int32_t sgpl_relax_refresh(sgpl_exec_ctx *c,AutoGraphMeta *m,int force) {
   SgplRelaxState *s=sgpl_relax_state(c);if(!s||!s->active)return 0;
   if(!m)return SGPL_DAG_ERR_INVALID;
   const char *gpu=getenv("SGPL_GPU_BACKEND");
-  if(!force&&!s->consumed&&!sgpl_relax_disabled()&&gpu&&!strcmp(gpu,"0")&&
+  int source_ok=!(s->rules&SGPL_EXEC_SIMPLIFY_R9)||s->source_slot<0||s->source_verified;
+  if(!force&&source_ok&&!s->consumed&&!sgpl_relax_disabled()&&gpu&&!strcmp(gpu,"0")&&
       m==s->meta&&m->csr_row_ptr==s->rows&&m->csr_col_idx==s->columns&&
       m->layout_epoch==s->layout_epoch&&s->generation==atomic_load_explicit(&g_cc_topology_generation,memory_order_relaxed))return 0;
+  if(s->tracking_elided){c->spatial_groups_seen=s->saved_seen;s->tracking_elided=0;s->saved_seen=NULL;}
   s->consumed=1;s->active=0;
   return sgpl_array_records(c,m,0,0);
 }

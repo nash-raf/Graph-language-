@@ -57,6 +57,15 @@ does not establish this property for an escaping/cancellable context.
   the first improving edge in the remaining chunk. This retains the exact
   successful notification sequence and needs no whole-frontier consumer proof.
   An unknown order refuses R9 while independently justified rules may continue.
+  Its execution realization additionally verifies the actual snapshot binding
+  (slot, base, extent, element size and successful capture). A selected record
+  must win and is the only record for its destination, so a dedicated copy and
+  notification loop removes the target load, minimum comparison and callback
+  dispatch. The complete context proof makes the visited bitmap unobservable;
+  wordwise mask unions provide the same occupied-group count without bitmap
+  materialization. Reuse and invalidation restore ordinary tracking before
+  rebuilding baseline records. Unknown snapshot bindings select baseline before
+  effects. Original records and callbacks remain usable by the retained path.
 
 R6, R7 and R9 retain the exact sequence of successful frontier notifications. R8
 intentionally changes that sequence only under its additional consumer proof.

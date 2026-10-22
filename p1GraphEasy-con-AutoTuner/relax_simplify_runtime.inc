@@ -8,13 +8,16 @@ typedef struct {
   uint8_t *keep_source;
   size_t seen_capacity,source_capacity,pruned_capacity,best_capacity,improve_capacity,words;
   unsigned rules;
+  int32_t source_slot;
+  int source_verified,tracking_elided;
+  uint8_t *saved_seen;
   int chunks,active,consumed;
   AutoGraphMeta *meta;
   int64_t *rows;
   int32_t *columns;
   int layout_epoch;
   uint64_t generation;
-  int64_t original,retained,unique,value_count;
+  int64_t original,retained,unique,value_count,ordered_groups;
 } SgplRelaxState;
 static void sgpl_relax_release(void *opaque) {
   SgplRelaxState *s=opaque;if(!s)return;
@@ -60,7 +63,27 @@ void sgpl_exec_bind_relax_simplification_v2(sgpl_exec_ctx *c,
   if(!scratch->fusion){scratch->fusion=calloc(1,sizeof(*scratch->fusion));if(!scratch->fusion)return;scratch->total+=sizeof(*scratch->fusion);}
   SgplExecutionFusionLease *lease=scratch->fusion;SgplRelaxState *s=lease->relax_state;
   if(!s){s=calloc(1,sizeof(*s));if(!s)return;lease->relax_state=s;lease->relax_release=sgpl_relax_release;scratch->total+=sizeof(*s);}
-  s->plan=p;s->values=values;s->value_count=value_count;s->active=s->consumed=0;lease->relax_plan=p;
+  s->plan=p;s->values=values;s->value_count=value_count;s->active=s->consumed=0;
+  s->source_slot=-1;s->source_verified=s->tracking_elided=0;s->saved_seen=NULL;lease->relax_plan=p;
+}
+void sgpl_exec_bind_ordered_source_v1(sgpl_exec_ctx *c,int32_t slot) {
+  SgplRelaxState *s=sgpl_relax_state(c);
+  if(s&&!c->gpu_records&&slot>=0&&(s->plan->rules&SGPL_EXEC_SIMPLIFY_R9)&&!s->plan->weighted) {
+    s->source_slot=slot;s->source_verified=0;
+  }
+}
+static void sgpl_relax_note_snapshot(sgpl_exec_ctx *c,int32_t slot,const void *base,
+    int64_t count,int64_t bytes,int status) {
+  SgplRelaxState *s=sgpl_relax_state(c);
+  if(s&&slot==s->source_slot)s->source_verified=status>=0&&s->active&&
+      (s->rules&SGPL_EXEC_SIMPLIFY_R9)&&base==s->values&&count==s->value_count&&bytes==4;
+}
+static void sgpl_relax_elide_tracking(sgpl_exec_ctx *c) {
+  SgplRelaxState *s=sgpl_relax_state(c);
+  if(s&&s->active&&(s->rules&SGPL_EXEC_SIMPLIFY_R9)) {
+    s->saved_seen=c->spatial_groups_seen;s->tracking_elided=1;
+    c->spatial_groups_seen=NULL;c->spatial_occupied_groups=s->ordered_groups;
+  }
 }
 static SgplRelaxState *sgpl_relax_prepare(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
   SgplRelaxState *s=sgpl_relax_state(c);if(s)s->active=0;
@@ -156,7 +179,8 @@ static inline void sgpl_relax_track(SgplRelaxState *s,int32_t v,int chunk) {
 static void sgpl_relax_begin_groups(sgpl_exec_ctx *c,int sparse) {
   SgplRelaxState *s=sgpl_relax_state(c);if(!s||!s->active)return;
   SgplExecutionScratch *scratch=c->execution_scratch;int64_t count=0;
-  for(size_t w=0;w<s->words;++w) {
+  if(s->rules&SGPL_EXEC_SIMPLIFY_R9)count=s->ordered_groups;
+  else for(size_t w=0;w<s->words;++w) {
     uint64_t bits=0;for(int k=0;k<s->chunks;++k)bits|=s->pruned[(size_t)k*s->words+w];
     while(bits){int32_t v=(int32_t)(64*w+__builtin_ctzll(bits));bits&=bits-1;++count;
       if(c->spatial_groups_seen)c->spatial_groups_seen[v]=1;

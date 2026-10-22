@@ -49,7 +49,7 @@ def detector(d):
     src = d / 'src'
     exe = out / 'runtime'
     R.checked(['gcc', '-O1', '-g', '-no-pie', '-fsanitize=thread', '-fno-omit-frame-pointer',
-               '-DSGPL_CUT_PARALLEL_GRAIN=1', '-std=gnu11', '-fopenmp', '-pthread', '-I.', '-Itest',
+               '-DSGPL_RELAX_SIMPLIFY_TEST=1', '-DSGPL_CUT_PARALLEL_GRAIN=1', '-std=gnu11', '-fopenmp', '-pthread', '-I.', '-Itest',
                'test/relax_simplify_runtime_test.c', 'autotuner_runtime.c', 'parallel_runtime.c',
                '-lnlopt', '-lm', '-Wl,--wrap=malloc', '-Wl,--wrap=calloc', '-Wl,--wrap=pthread_create',
                '-o', exe], src, out / 'build.log')
@@ -153,7 +153,7 @@ def report(d):
         artifact_root=str(d), test_sources=test_sources, correctness_tool_sha256=R.sha(Path(__file__)),
         benchmark_runs=0, performance_claim=None)
     R.save(d / 'relax_correctness_report.json', payload)
-    R.save(V.REPO / 'reports/relax_execution_simplification_ordered_correctness.json', payload)
+    R.save(V.REPO / 'reports/relax_execution_simplification_realized_correctness.json', payload)
     print(json.dumps(dict(activation=activation, validation=validation, exact_arrays=groups), indent=2), flush=True)
 
 

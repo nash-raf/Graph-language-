@@ -389,13 +389,16 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
       .source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U,.begins=begins,.ends=ends,.relax=relax};
   sgpl_run_preparation(relax?sgpl_array_count_relax:sgpl_array_count_chunks,&job,width);
   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
+  if(relax)relax->ordered_groups=0;
   if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R9))for(size_t w=0;w<relax->words;++w) {
-    uint64_t taken=0;
+    uint64_t taken=0,touched=0;
     for(int32_t k=0;k<chunks;++k) {
       uint64_t *word=&relax->improve[(size_t)k*relax->words+w],bits=*word&~taken;
+      touched|=*word|relax->pruned[(size_t)k*relax->words+w];
       taken|=*word;*word=bits;
       while(bits){int32_t v=(int32_t)(64*w+__builtin_ctzll(bits));bits&=bits-1;++positions[(size_t)k*job.position_stride+owners[v]];}
     }
+    relax->ordered_groups+=__builtin_popcountll(touched);
   }
   for(int32_t k=0;k<chunks;++k) {
     if(work[k+1]>job.pair_limit-work[k]) {rc=SGPL_DAG_ERR_INVALID;goto done;}

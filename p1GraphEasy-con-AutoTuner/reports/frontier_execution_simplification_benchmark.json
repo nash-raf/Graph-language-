@@ -1,0 +1,304 @@
+{
+  "native_candidate_commit": "59ed121baf07956cf82c272121866a7ed46c43b2",
+  "baseline_commit": "027c6397968aa7869f097bbf8434b49c215fa5f3",
+  "comparison": "Incremental frontier simplification: previous R1--R3 versus current R1--R5.",
+  "candidate_source_hash": "648d1cb75946d238916446ddd2457e18359eceb1e3c4596d80d7382a512462c4",
+  "host": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "cpu_model": "model name\t: AMD Ryzen 5 5500",
+    "physical_cpus": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "workers": 6,
+    "topology": [
+      {
+        "cpu": 0,
+        "package": "0",
+        "core": "0"
+      },
+      {
+        "cpu": 2,
+        "package": "0",
+        "core": "1"
+      },
+      {
+        "cpu": 4,
+        "package": "0",
+        "core": "2"
+      },
+      {
+        "cpu": 6,
+        "package": "0",
+        "core": "3"
+      },
+      {
+        "cpu": 8,
+        "package": "0",
+        "core": "4"
+      },
+      {
+        "cpu": 10,
+        "package": "0",
+        "core": "5"
+      }
+    ],
+    "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b"
+  },
+  "cases": 244,
+  "graphs_per_algorithm": 61,
+  "primary_repetitions": 5,
+  "confirmation_repetitions": 20,
+  "selected_phase": "confirmation_retry1",
+  "timing_observations": 54900,
+  "warmup_launches": 3660,
+  "failed_launches": 0,
+  "graptor_new_launches": 0,
+  "historical_graptor": {
+    "records": "/home/kazi/p1_effect_fusion_local_20261022/results/primary_w6.json",
+    "sha256": "008b32f422981cd9fb4adb1449c13edb4092f47d8f9e76fbe76f6a66f7e14a90",
+    "host": {
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "topology": [
+        {
+          "cpu": 0,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 1,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 2,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 3,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 4,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 5,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 6,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 7,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 8,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 9,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 10,
+          "package": "0",
+          "core": "5"
+        },
+        {
+          "cpu": 11,
+          "package": "0",
+          "core": "5"
+        }
+      ],
+      "quota_cores": null,
+      "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b",
+      "cpu_model": "model name\t: AMD Ryzen 5 5500",
+      "cpu_flags": "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm",
+      "cpu_identity": {
+        "vendor_id": "AuthenticAMD",
+        "cpu family": "25",
+        "model": "80",
+        "stepping": "0",
+        "microcode": "0xffffffff"
+      },
+      "physical_cpus": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "workers": 6,
+      "note": "Guest-reported topology; one CPU per visible physical core, bounded by CPU quota. Host mapping may be virtualized."
+    },
+    "precision": "double PageRank",
+    "note": "Prior same-PC observations; unpaired descriptive comparison only. No Graptor launches."
+  },
+  "paired_controls": {
+    "primary": {
+      "observations": 6100,
+      "AA_stable": true,
+      "AA_failures": [],
+      "confirmed_slowdowns": []
+    },
+    "confirmation": {
+      "observations": 24400,
+      "AA_stable": false,
+      "AA_failures": [
+        {
+          "algorithm": "pagerank",
+          "graph": "dimacs10/inf-luxembourg_osm.edges",
+          "kind": "case",
+          "p": 0.00015999840001599985,
+          "log_ratio": 0.03655133254143073,
+          "holm_p": 0.03967960320396796,
+          "family": "candidate_AA"
+        }
+      ],
+      "confirmed_slowdowns": null
+    },
+    "confirmation_retry1": {
+      "observations": 24400,
+      "AA_stable": false,
+      "AA_failures": [
+        {
+          "algorithm": "cc",
+          "graph": "socfb/socfb-Brandeis99.edges",
+          "kind": "case",
+          "p": 0.00015999840001599985,
+          "log_ratio": 0.07902991091284767,
+          "holm_p": 0.03967960320396796,
+          "family": "baseline_AA"
+        }
+      ],
+      "confirmed_slowdowns": null
+    }
+  },
+  "by_algorithm": {
+    "bfs": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 445.81274786585,
+        "candidate": 443.0038398139,
+        "disabled": 444.69150468695,
+        "baseline_AA": 443.4692052044,
+        "candidate_AA": 440.52844907575
+      },
+      "historical_graptor_total_ms": 482.6739678024,
+      "geomean_speedup_baseline_over_candidate": 1.0083717691129737,
+      "median_geomean_speedup": 1.011777861832552,
+      "summed_time_reduction_percent": 0.6300645428818474,
+      "kernel_geomean_speedup": 1.0117627062068384,
+      "kernel_summed_time_reduction_percent": 0.6774146078185606,
+      "geomean_speedup_disabled_over_candidate": 1.0056660366504866,
+      "candidate_over_historical_graptor_geomean": 0.9747798385675186,
+      "candidate_wins_vs_historical_graptor": 26
+    },
+    "sssp": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 1237.4121828205,
+        "candidate": 1226.67683469555,
+        "disabled": 1240.1619478861,
+        "baseline_AA": 1243.7877493826,
+        "candidate_AA": 1230.6995002705
+      },
+      "historical_graptor_total_ms": 647.4009087548,
+      "geomean_speedup_baseline_over_candidate": 1.0111530082163882,
+      "median_geomean_speedup": 1.0115935628478383,
+      "summed_time_reduction_percent": 0.8675644440868768,
+      "kernel_geomean_speedup": 1.0188259183464827,
+      "kernel_summed_time_reduction_percent": 1.1965583799163682,
+      "geomean_speedup_disabled_over_candidate": 1.0126099986731192,
+      "candidate_over_historical_graptor_geomean": 1.7586968633225997,
+      "candidate_wins_vs_historical_graptor": 7
+    },
+    "cc": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 1521.5827232371,
+        "candidate": 1498.5301661243,
+        "disabled": 1502.3880118999,
+        "baseline_AA": 1503.8370189313998,
+        "candidate_AA": 1505.4894719270999
+      },
+      "historical_graptor_total_ms": 500.8882206882,
+      "geomean_speedup_baseline_over_candidate": 1.002095842929162,
+      "median_geomean_speedup": 1.0046745315347305,
+      "summed_time_reduction_percent": 1.5150380430028032,
+      "kernel_geomean_speedup": 0.9981679029968095,
+      "kernel_summed_time_reduction_percent": 1.8002550706474496,
+      "geomean_speedup_disabled_over_candidate": 0.9982869247831528,
+      "candidate_over_historical_graptor_geomean": 1.3883293866724522,
+      "candidate_wins_vs_historical_graptor": 6
+    },
+    "pagerank": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 817.8749129529,
+        "candidate": 811.46388042485,
+        "disabled": 937.5604975327,
+        "baseline_AA": 815.81679629575,
+        "candidate_AA": 815.0038016788
+      },
+      "historical_graptor_total_ms": 497.3976693242,
+      "geomean_speedup_baseline_over_candidate": 1.0065958889379463,
+      "median_geomean_speedup": 1.0013224130168088,
+      "summed_time_reduction_percent": 0.7838646749664058,
+      "kernel_geomean_speedup": 1.0211733917909762,
+      "kernel_summed_time_reduction_percent": 1.6255821120866765,
+      "geomean_speedup_disabled_over_candidate": 1.2001432746287364,
+      "candidate_over_historical_graptor_geomean": 1.4728027052242172,
+      "candidate_wins_vs_historical_graptor": 1
+    },
+    "overall": {
+      "cases": 244,
+      "totals_ms": {
+        "baseline": 4022.68256687635,
+        "candidate": 3979.6747210586,
+        "disabled": 4124.80196200565,
+        "baseline_AA": 4006.9107698141497,
+        "candidate_AA": 3991.7212229521497
+      },
+      "historical_graptor_total_ms": 2128.3607665696,
+      "geomean_speedup_baseline_over_candidate": 1.0070487445756215,
+      "median_geomean_speedup": 1.0073320221939341,
+      "summed_time_reduction_percent": 1.0691334725709156,
+      "kernel_geomean_speedup": 1.0124426587092707,
+      "kernel_summed_time_reduction_percent": 1.4975139406137927,
+      "geomean_speedup_disabled_over_candidate": 1.0509840336467535,
+      "candidate_over_historical_graptor_geomean": 1.368307332220244,
+      "candidate_wins_vs_historical_graptor": 40
+    }
+  },
+  "confirmed_slowdowns": null,
+  "inference_available": false,
+  "timed_executable_fingerprints_verified": 488,
+  "ratio_direction": "Speedup=previous/current; above one favors current. Graptor ratio=current/saved Graptor; below one favors current.",
+  "historical_comparison_limitation": "Saved same-PC/input six-worker observations from a previous session; descriptive only.",
+  "artifacts": {
+    "root": "/mnt/c/p1-frontier-simplification-benchmark-20261022",
+    "html": "/mnt/c/p1-frontier-simplification-benchmark-20261022/final_report.html",
+    "csv": "/mnt/c/p1-frontier-simplification-benchmark-20261022/per_graph_times.csv",
+    "full_summary": "/mnt/c/p1-frontier-simplification-benchmark-20261022/final_summary.json",
+    "raw_records": "/home/kazi/p1_frontier_simplification_benchmark_20261022/runs/execution_simplification"
+  },
+  "native_changes_during_measurement": false,
+  "merged_into_ARS1": false
+}

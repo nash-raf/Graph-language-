@@ -35,7 +35,8 @@ does not establish this property for an escaping/cancellable context.
   passes. Reads use exact signed comparisons and modular candidate arithmetic;
   no nonnegative-weight or no-overflow assumption is introduced. Removed
   destinations retain their final occupied-group accounting through private
-  preparation witnesses, published before owner execution.
+  chunk bitsets, merged before owner execution. There is no shared per-edge or
+  per-destination atomic counter during preparation.
 * **R8 — reduce a destination to its minimum and one activation.** Additionally
   prove the complete circulating frontier consumer observes only traversal,
   buffer swapping and emptiness. Counts, order, multiplicity and pointer escapes
@@ -63,7 +64,9 @@ A version-1 private descriptor records rule bits, arithmetic recipe, baseline
 callback identity and ABI sizes. Binding validates those fields. Runtime guards
 require the matching CPU CSR pointers, destination ownership, a single pair
 operation, one append site, no lifecycle hooks, and disjoint output/accumulator
-ranges. Optional proof-storage allocation failure selects existing preparation
+ranges. Accumulator storage must also be disjoint from graph headers, CSR rows,
+columns and weights; a frozen source does not make an aliased weight immutable.
+Optional proof-storage allocation failure selects existing preparation
 before effects. Storage is private to an exclusive lease and retains bounded
 capacity. Topology/layout invalidation, runtime disablement after preparation,
 device materialization and context reuse rebuild the baseline before effects.
@@ -73,6 +76,9 @@ device materialization and context reuse rebuild the baseline before effects.
 * R6--R8 off while retaining R1--R5: `SGPL_NO_RELAX_SIMPLIFY=1`.
 * Compiler activation/refusal diagnostics: `SGPL_EXEC_SIMPLIFY_STATS=1`.
 * Validation-only physical record counts: `SGPL_RELAX_SIMPLIFY_STATS=1`.
+* A fixed 4096-edge profitability floor retains ordinary execution on tiny
+  traversals. `SGPL_RELAX_MIN_WORK=0` exercises all supported shapes in focused
+  correctness tests. This control does not weaken any proof premise.
 
 GPU execution, schedule selection, calibration, ARS policy and motif semantics
 retain their existing implementations. Work-count diagnostics are disabled in

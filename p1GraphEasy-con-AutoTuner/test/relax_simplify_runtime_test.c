@@ -39,6 +39,7 @@ static sgpl_exec_ctx *relax_context(ExecTestGraph *g,int32_t *input,int count,in
 }
 int main(void) {
   setenv("SGPL_GPU_BACKEND","0",1);
+  setenv("SGPL_RELAX_MIN_WORK","0",1);
   int64_t rows[]={0,4,8,10,10,12,13,13};int32_t cols[]={1,1,0,6,2,2,0,1,2,3,0,4,6},ep[26];
   int32_t weights[]={1,99,-3,INT32_MAX,-1,100,3,0,INT32_MIN,0,INT32_MAX,2,-7};
   for(int u=0;u<7;++u)for(int64_t e=rows[u];e<rows[u+1];++e){ep[2*e]=u;ep[2*e+1]=cols[e];}
@@ -104,6 +105,33 @@ int main(void) {
   }
   weighted=0;
   {
+    int32_t a[7]={7,6,5,4,3,2,1},b[7],oa[256]={0},ob[256]={0},*pa=oa,*pb=ob,ha=0,hb=0;int64_t ca=256,cb=256;
+    memcpy(b,a,sizeof a);unsetenv("SGPL_RELAX_MIN_WORK");
+    sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+    sgpl_exec_ctx *x=relax_context(&g,input,8,a,&pa,&ca,&ha,NULL,0,0);
+    sgpl_exec_ctx *y=relax_context(&g,input,8,b,&pb,&cb,&hb,&p,0,0);
+    check(x->gpu_record_count==y->gpu_record_count,"small-work profitability refusal retains the baseline");
+    check(autograph_frontier_execute(&g,x)==autograph_frontier_execute(&g,y)&&!memcmp(a,b,sizeof a),"profitability selection preserves values");
+    autograph_exec_ctx_destroy(x);autograph_exec_ctx_destroy(y);setenv("SGPL_RELAX_MIN_WORK","0",1);++checks;
+  }
+  {
+    /* A destination update can change a later weight. A frozen source alone
+     * does not justify replay elimination: this alias must refuse. */
+    weighted=1;
+    int32_t a[13]={3,9,-5,7,2,4,1,4,1,0,2,1,0},b[13],oa[256]={0},ob[256]={0},*pa=oa,*pb=ob,ha=0,hb=0;int64_t ca=256,cb=256;
+    memcpy(b,a,sizeof a);
+    ExecTestGraph gx={.n=7,.m=13,.row_ptr=rows,.col_idx=cols,.weights=a,.directed=1},gy=gx;gy.weights=b;
+    autograph_init(&gx,7,13,NULL,NULL,ep);autograph_build_clean_cut(&gx,6);
+    autograph_init(&gy,7,13,NULL,NULL,ep);autograph_build_clean_cut(&gy,6);
+    sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,1,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+    sgpl_exec_ctx *x=relax_context(&gx,input,8,a,&pa,&ca,&ha,NULL,0,0);
+    sgpl_exec_ctx *y=relax_context(&gy,input,8,b,&pb,&cb,&hb,&p,0,0);
+    check(x->gpu_record_count==y->gpu_record_count,"accumulator/weight alias refuses elimination");
+    int ra=autograph_frontier_execute(&gx,x),rb=autograph_frontier_execute(&gy,y);
+    check(ra==rb&&!memcmp(a,b,sizeof a)&&!memcmp(pa,pb,(size_t)ra*4),"aliased weights retain repeated successful relaxations and notification order");
+    autograph_exec_ctx_destroy(x);autograph_exec_ctx_destroy(y);weighted=0;++checks;
+  }
+  {
     int32_t a[7]={7,6,5,4,3,2,1},b[7],*pa=calloc(1,4),*pb=calloc(1,4),ha=0,hb=0;int64_t ca=1,cb=1;
     memcpy(b,a,sizeof a);pa[0]=pb[0]=777;
     sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
@@ -113,17 +141,19 @@ int main(void) {
     check(autograph_frontier_execute(&g,x)==autograph_frontier_execute(&g,y)&&!memcmp(a,b,sizeof a),"reserved output retains exact execution result");
     autograph_exec_ctx_destroy(x);autograph_exec_ctx_destroy(y);free(pa);free(pb);++checks;
   }
+  static ExecTestGraph empty_graphs[2];
   for(int ncase=0;ncase<2;++ncase) {
     int64_t empty_rows[8]={0};int32_t empty_cols[1]={0};
-    ExecTestGraph empty={.n=ncase?7:0,.m=0,.row_ptr=empty_rows,.col_idx=empty_cols,.directed=1};
-    autograph_init(&empty,empty.n,0,NULL,NULL,ep);
-    if(empty.n)check(autograph_build_clean_cut(&empty,6)>0,"empty topology partitions");
+    ExecTestGraph *empty=&empty_graphs[ncase];
+    *empty=(ExecTestGraph){.n=ncase?7:0,.m=0,.row_ptr=empty_rows,.col_idx=empty_cols,.directed=1};
+    autograph_init(empty,empty->n,0,NULL,NULL,ep);
+    if(empty->n)check(autograph_build_clean_cut(empty,6)>0,"empty topology partitions");
     for(unsigned subset=1;subset<8;++subset) {
       int32_t a[7]={0},b[7]={0},oa[1]={0},ob[1]={0},*pa=oa,*pb=ob,ha=0,hb=0;int64_t ca=1,cb=1;
       sgpl_relax_simplify_plan_v1 p={1,sizeof(p),subset<<5,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
-      sgpl_exec_ctx *x=relax_context(&empty,input,ncase?8:0,a,&pa,&ca,&ha,NULL,0,0);
-      sgpl_exec_ctx *y=relax_context(&empty,input,ncase?8:0,b,&pb,&cb,&hb,&p,0,0);
-      check(!autograph_frontier_execute(&empty,x)&&!autograph_frontier_execute(&empty,y)&&!memcmp(a,b,sizeof a),"empty graph and empty partitions");
+      sgpl_exec_ctx *x=relax_context(empty,input,ncase?8:0,a,&pa,&ca,&ha,NULL,0,0);
+      sgpl_exec_ctx *y=relax_context(empty,input,ncase?8:0,b,&pb,&cb,&hb,&p,0,0);
+      check(!autograph_frontier_execute(empty,x)&&!autograph_frontier_execute(empty,y)&&!memcmp(a,b,sizeof a),"empty graph and empty partitions");
       autograph_exec_ctx_destroy(x);autograph_exec_ctx_destroy(y);++checks;
     }
   }

@@ -93,10 +93,12 @@ def work_counts(d):
             assert p.returncode == 0, (alg, row['graph'], p.stderr[-1000:])
             invocations = [dict(zip(['rules', 'original', 'unique', 'retained', 'groups'], map(int, x)))
                 for x in re.findall(r'\[relax-simplify\] rules=(\d+) original=(\d+) unique=(\d+) retained=(\d+) groups=(\d+)', p.stderr)]
-            assert invocations, (alg, row['graph'], p.stderr[-1000:])
+            baseline_work = list(map(int, re.findall(r'\[relax-simplify\] baseline reason=small-work original=(\d+)', p.stderr)))
+            assert invocations or baseline_work, (alg, row['graph'], p.stderr[-1000:])
             results.append(dict(algorithm=alg, graph=row['graph'], invocations=invocations,
-                                original=sum(x['original'] for x in invocations),
-                                retained=sum(x['retained'] for x in invocations)))
+                                small_work_baseline=baseline_work,
+                                original=sum(x['original'] for x in invocations)+sum(baseline_work),
+                                retained=sum(x['retained'] for x in invocations)+sum(baseline_work)))
         print('WORK COUNTS', alg, flush=True)
     R.save(out / 'summary.json', dict(passed=True, checks=results, benchmark_runs=0))
 
@@ -144,7 +146,7 @@ def report(d):
         artifact_root=str(d), test_sources=test_sources, correctness_tool_sha256=R.sha(Path(__file__)),
         benchmark_runs=0, performance_claim=None)
     R.save(d / 'relax_correctness_report.json', payload)
-    R.save(V.REPO / 'reports/relax_execution_simplification_correctness.json', payload)
+    R.save(V.REPO / 'reports/relax_execution_simplification_bitsets_correctness.json', payload)
     print(json.dumps(dict(activation=activation, validation=validation, exact_arrays=groups), indent=2), flush=True)
 
 

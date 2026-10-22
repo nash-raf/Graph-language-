@@ -43,7 +43,7 @@ static SGPL_PREPARATION_FN void sgpl_array_count_relax(void *opaque,int32_t work
       for(int64_t e=first;e<last;++e) {
         int32_t v=m->csr_col_idx[e];if(v<0||v>=m->csr_n)goto invalid;
         if(s->plan->rules&SGPL_EXEC_SIMPLIFY_R8) {
-          sgpl_relax_track(s,v);
+          sgpl_relax_track(s,v,chunk);
           int32_t candidate=sgpl_relax_candidate(s,m,j->weights,u,v,e);
           if(candidate>=s->values[v])continue;
           uint64_t key=((uint64_t)((uint32_t)candidate^UINT32_C(0x80000000))<<32)|(uint32_t)(row_ordinal+e-first);
@@ -51,7 +51,7 @@ static SGPL_PREPARATION_FN void sgpl_array_count_relax(void *opaque,int32_t work
           if(key<s->best[v])s->best[v]=key;
           continue;
         }
-        if(sgpl_relax_bound(s,m,j->weights,u,v,e)){sgpl_relax_track(s,v);continue;}
+        if(sgpl_relax_bound(s,m,j->weights,u,v,e)){sgpl_relax_track(s,v,chunk);continue;}
         ++positions[j->owners[v]];
       }
     }
@@ -337,6 +337,7 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   if(chunks>c->array_source_count)chunks=(int32_t)c->array_source_count;
   if(chunks<1)chunks=1;
   if(relax&&(relax->plan->rules&SGPL_EXEC_SIMPLIFY_R8))chunks=1;
+  if(relax&&!sgpl_relax_prepare_groups(c,relax,chunks)){relax->active=0;relax=NULL;}
   int32_t parts=m->partition_count,rc=SGPL_DAG_ERR_NOMEM;
   if(parts<0||(uint64_t)(parts?parts:1)>SIZE_MAX/sizeof(int64_t))return SGPL_DAG_ERR_INVALID;
   size_t row_bytes=(size_t)(parts?parts:1)*sizeof(int64_t);
@@ -393,7 +394,7 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
     }
     pair_count=records;relax->retained=records;relax->unique=0;
     if(getenv("SGPL_RELAX_SIMPLIFY_STATS"))for(int64_t i=0;i<c->array_source_count;++i) {
-      int32_t u=c->array_sources[i];if((uint32_t)relax->first[u]==(uint32_t)i)relax->unique+=m->csr_row_ptr[u+1]-m->csr_row_ptr[u];
+      int32_t u=c->array_sources[i];if(relax->keep_source[i])relax->unique+=m->csr_row_ptr[u+1]-m->csr_row_ptr[u];
     }
   }
   if((uint64_t)records>SIZE_MAX/12||(uint64_t)pair_count>SIZE_MAX/8/c->array_append_sites) {rc=SGPL_DAG_ERR_NOMEM;goto done;}

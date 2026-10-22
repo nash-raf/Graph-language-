@@ -202,6 +202,7 @@ static void lowerRelaxationSimplifications(Module &M) {
     if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_relax_simplify_plan_v1))report_fatal_error("relax descriptor mismatch");
     auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_relax_simplify_plan_v1)),B.getInt32(Rules),B.getInt32(Recipe.Weighted),B.getInt64(sizeof(sgpl_exec_ctx)),B.getInt64(sizeof(sgpl_runtime_op)),Pair}),"sgpl.relax.simplification.v1");
     B.CreateCall(M.getOrInsertFunction("sgpl_exec_bind_relax_simplification_v1",FunctionType::get(B.getVoidTy(),{P,P,P},false)),{C->getArgOperand(0),Plan,B.CreateLoad(P,Recipe.Array)});
+    if(verifyModule(M,&errs()))report_fatal_error("invalid minimum-relaxation simplification module");
   }
 }
 }

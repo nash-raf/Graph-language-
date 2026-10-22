@@ -128,7 +128,10 @@ def report(d):
     assert detectors and all(x['status'] != 'failure' for x in detectors)
     work = R.read(d / 'relax_work/summary.json')
     assert work['passed']
-    payload = dict(branch=R.git('branch', '--show-current'), source_commit=R.git('rev-parse', 'HEAD'),
+    names = ['relax_simplify_ir_test.cpp', 'relax_simplify_runtime_test.c', 'run_relax_simplify_tests.sh']
+    test_sources = {name: R.sha(d / 'src/test' / name) for name in names}
+    assert all(test_sources[name] == R.sha(V.REPO / 'test' / name) for name in names)
+    payload = dict(branch=R.git('branch', '--show-current'), source_commit=build['identity']['commit'],
         baseline_commit='2b46cb5ded54132e98dc052bd2caf548d1acfcb4',
         previous_implementation_commit='52841286', previous_build=str(V.BASE),
         previous_source_hash=R.read(V.BASE / 'identity.json')['source_hash'],
@@ -138,7 +141,8 @@ def report(d):
         frontier_contracts=R.read(d / 'frontier_contracts/summary.json'),
         work_counts=work, R8_scope='Restricted complete set-consumer fixtures; unknown initial-buffer or count consumers refuse.',
         public_context_header_unchanged=not R.git('diff', '2b46cb5ded54132e98dc052bd2caf548d1acfcb4', '--', 'autotuner_runtime.h'),
-        artifact_root=str(d), benchmark_runs=0, performance_claim=None)
+        artifact_root=str(d), test_sources=test_sources, correctness_tool_sha256=R.sha(Path(__file__)),
+        benchmark_runs=0, performance_claim=None)
     R.save(d / 'relax_correctness_report.json', payload)
     R.save(V.REPO / 'reports/relax_execution_simplification_correctness.json', payload)
     print(json.dumps(dict(activation=activation, validation=validation, exact_arrays=groups), indent=2), flush=True)

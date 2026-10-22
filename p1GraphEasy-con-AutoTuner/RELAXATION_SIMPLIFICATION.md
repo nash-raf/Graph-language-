@@ -27,8 +27,8 @@ does not establish this property for an escaping/cancellable context.
 * **R6 — omit repeated source traversals.** Preserve the first occurrence of a
   source in each round. A later traversal has exactly the same candidate on
   every edge; destination values have only decreased. It can neither store nor
-  append. Counting and filling skip the later row, but advance its full logical
-  ordinal domain. Duplicate edges in the first row remain ordered and intact.
+  append. Counting and filling skip the later row. Duplicate edges in the first
+  row remain ordered and intact.
 * **R7 — omit relaxations failing the round-start bound.** If the candidate is
   greater than or equal to the destination before traversal, it cannot succeed
   after other minimum updates. Fuse this check into the existing count/fill
@@ -50,9 +50,12 @@ does not establish this property for an escaping/cancellable context.
 
 R6 and R7 retain the exact sequence of successful frontier notifications. R8
 intentionally changes that sequence only under its additional consumer proof.
-The original source frontier, logical work count and append reservation domain
-are retained. Journals retain original keys but allocate owner capacities from
-the smaller physical record counts. No partial work is replayed.
+The original source frontier and output reservation domain are retained.
+Removed records have no notifications, and the complete callback proof excludes
+user observation of work ordinals. Surviving records therefore receive compact
+keys in the same global source/edge order. This removes the unused append-log
+cells and journal bitmap domain as well as the records. Journals retain their
+existing protocol with fewer slots. No partial work is replayed.
 
 ## Binding, fallback and controls
 

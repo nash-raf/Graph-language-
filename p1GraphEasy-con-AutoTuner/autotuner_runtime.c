@@ -6879,6 +6879,8 @@ int32_t autograph_exec_ctx_reserve_prepared_output(sgpl_exec_ctx *c) {
     c->array_work_count>(INT32_MAX-c->initial_next_size)/c->array_append_sites)
    return SGPL_DAG_ERR_INVALID;
  int64_t count=c->initial_next_size+c->array_work_count*c->array_append_sites;
+ SgplRelaxState *relax=sgpl_relax_state(c);
+ if(relax&&relax->active)count=c->initial_next_size+relax->original*c->array_append_sites;
  if(getenv("SGPL_FRONTIER_TEST_UNDERRESERVE"))count=0;
  int32_t rc=sgpl_frontier_resize(c->array_output_slot,c->array_output_capacity,count,0);
  if(rc<0)return rc;c->next_frontier=*c->array_output_slot;return 0;

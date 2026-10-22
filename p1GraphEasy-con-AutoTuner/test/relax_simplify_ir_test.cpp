@@ -30,6 +30,7 @@ declare i32 @autograph_exec_ctx_bind_source_snapshot_range(ptr,i32,ptr,i64,i64)
 declare void @autograph_exec_ctx_destroy(ptr)
 declare i32 @autograph_frontier_execute(ptr,ptr)
 declare i32 @autograph_frontier_activate(ptr,i32)
+declare i32 @autograph_exec_ctx_edge_weight(ptr,ptr,i32,i32)
 declare void @sgpl_exec_require_status(i32)
 declare void @opaque(ptr)
 declare void @observe(i32)
@@ -42,10 +43,16 @@ define internal void @pair(ptr %state,ptr %ctx,i32 %u,i32 %v){
   if(Negative==1)IR+="call void @opaque(ptr null)\n";
   if(Negative==9)IR+="store i32 1,ptr @side\n";
   if(Negative==12)IR+="store i32 0,ptr %sp\n";
+  if(Negative==23)IR+="%ordinalfield=getelementptr i8,ptr %ctx,i64 "+std::to_string(offsetof(sgpl_exec_ctx,array_work_ordinal))+"\n%ordinal=load i64,ptr %ordinalfield\n";
+  if(Negative>=24) {
+    IR+="%wg=load ptr,ptr "+std::string(Negative==25?"@other":"@graph")+"\n";
+    IR+="%weightfield=getelementptr i8,ptr %ctx,i64 "+std::to_string(offsetof(sgpl_exec_ctx,array_edge_index))+"\n%weightindex=load i64,ptr %weightfield,!sgpl.ctx.accessor !1,!sgpl.relax.weight.accessor !0\n";
+    IR+="%choose=icmp eq i32 %u,0\nbr i1 %choose,label %native,label %fallback,!sgpl.relax.weight.accessor !0\nnative:\n%nativeweight=load i32,ptr @side,!sgpl.relax.weight.accessor !0\nbr label %weightjoin\nfallback:\n%lookup=call i32 @autograph_exec_ctx_edge_weight(ptr %ctx,ptr %wg,i32 %u,i32 %v),!sgpl.relax.weight.accessor !0\nbr label %weightjoin\nweightjoin:\n%weight=phi i32 [%nativeweight,%native],[%lookup,%fallback]\n%candidate=add "+std::string(Negative==26?"nsw ":"")+"i32 %source,%weight\n";
+  }
   IR+="%base=load ptr,ptr @array\n%vi=sext i32 %v to i64\n%dp=getelementptr i32,ptr %base,i64 %vi\n%old=load i32,ptr %dp\n";
   if(Negative==5)IR+="%candidate=add i32 %source,%u\n";
-  std::string Candidate=Negative==5?"%candidate":Negative==7?"%old":"%source";
-  IR+="%less=icmp "+std::string(Negative==6?"ult":"slt")+" i32 %source,%old\nbr i1 %less,label %update,label %done\nupdate:\nstore i32 "+Candidate+",ptr %dp\n";
+  std::string Candidate=Negative==5||Negative>=24?"%candidate":Negative==7?"%old":"%source";
+  IR+="%less=icmp "+std::string(Negative==6?"ult":"slt")+" i32 "+(Negative>=24?"%candidate":"%source")+",%old\nbr i1 %less,label %update,label %done\nupdate:\nstore i32 "+Candidate+",ptr %dp\n";
   if(Negative!=8)IR+="%app=call i32 @autograph_frontier_activate(ptr %ctx,i32 %v)\n";
   IR+="br label %done\ndone:\n";
   if(Negative==8)IR+="%app=call i32 @autograph_frontier_activate(ptr %ctx,i32 %v)\n";
@@ -79,6 +86,7 @@ br i1 %more,label %loop,label %exit
 exit: ret i32 0
 }
 !0=!{}
+!1=!{!"autograph_exec_ctx_edge_weight"}
 )IR";
   SMDiagnostic E;auto M=parseAssemblyString(IR,E,C);if(!M)E.print("relax-test",errs());require(!!M,"parse fixture");
   M->setDataLayout("e-p:64:64-i64:64-n8:16:32:64-S128");
@@ -91,14 +99,14 @@ exit: ret i32 0
 }
 int main(int argc,char **argv) {
   unsigned Checks=0;
-  for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22}) {
+  for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26}) {
     std::string Rules;
     for(unsigned I=0;I<3;++I)if(Subset&(1u<<I)){if(!Rules.empty())Rules+=",";Rules+="R"+std::to_string(I+6);}
     setenv("SGPL_EXEC_SIMPLIFY_RULES",Rules.empty()?"none":Rules.c_str(),1);
     LLVMContext C;auto M=fixture(C,Negative);lowerRelaxationSimplifications(*M);
     require(!verifyModule(*M,&errs()),"transformed module verifies");
     unsigned Expected=Subset<<5;
-    if(Negative&&Negative!=16&&Negative!=17&&Negative!=20)Expected=0;
+    if(Negative&&Negative!=16&&Negative!=17&&Negative!=20&&Negative!=24)Expected=0;
     if(Negative==16||Negative==17||Negative==20)Expected&=~128u;
     unsigned Actual=0;
     for(auto &G:M->globals())if(G.getName().starts_with("sgpl.relax.simplification.v1"))Actual=cast<ConstantInt>(cast<ConstantStruct>(G.getInitializer())->getOperand(2))->getZExtValue();

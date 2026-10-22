@@ -77,7 +77,11 @@ int main(void) {
           }
         }
         if(p.rules&128)for(int v=0;v<7;++v)expected+=changed[v];
-        check(after==expected&&x->array_work_count==y->array_work_count,"structural record removal with original logical ordinal domain");
+        check(after==expected&&y->array_work_count==after,"structural record and empty append-slot removal");
+        unsigned char *keys=calloc((size_t)(after?after:1),1);int stride=y->array_compact_records==4?4:3;
+        int dense=1;
+        for(int64_t i=0;i<after;++i){int key=y->gpu_records[stride*i+2];if(key<0||key>=after||keys[key]){dense=0;break;}keys[key]=1;}
+        check(dense,"compacted append keys are unique and cover the complete physical domain");free(keys);
       }
       if(mode==9)setenv("SGPL_NO_EXEC_SIMPLIFY","1",1);
       if(mode==10)autograph_update_csr_pointers(&g,rows,cols);
@@ -99,6 +103,16 @@ int main(void) {
     }
   }
   weighted=0;
+  {
+    int32_t a[7]={7,6,5,4,3,2,1},b[7],*pa=calloc(1,4),*pb=calloc(1,4),ha=0,hb=0;int64_t ca=1,cb=1;
+    memcpy(b,a,sizeof a);pa[0]=pb[0]=777;
+    sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+    sgpl_exec_ctx *x=relax_context(&g,input,8,a,&pa,&ca,&ha,NULL,0,0);
+    sgpl_exec_ctx *y=relax_context(&g,input,8,b,&pb,&cb,&hb,&p,0,0);
+    check(!autograph_exec_ctx_reserve_prepared_output(x)&&!autograph_exec_ctx_reserve_prepared_output(y)&&ca==cb&&pa[0]==pb[0],"original output reservation preserved after private key compaction");
+    check(autograph_frontier_execute(&g,x)==autograph_frontier_execute(&g,y)&&!memcmp(a,b,sizeof a),"reserved output retains exact execution result");
+    autograph_exec_ctx_destroy(x);autograph_exec_ctx_destroy(y);free(pa);free(pb);++checks;
+  }
   for(int ncase=0;ncase<2;++ncase) {
     int64_t empty_rows[8]={0};int32_t empty_cols[1]={0};
     ExecTestGraph empty={.n=ncase?7:0,.m=0,.row_ptr=empty_rows,.col_idx=empty_cols,.directed=1};

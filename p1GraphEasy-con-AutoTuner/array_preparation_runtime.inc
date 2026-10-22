@@ -65,16 +65,16 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_relax(void *opaque,int32_t worke
   int packed=c->array_compact_records==4,stride=packed?4:3;
   for(int32_t chunk=worker;chunk<j->chunks;chunk+=width) {
     int64_t lo=c->array_source_count*chunk/j->chunks,hi=c->array_source_count*(chunk+1)/j->chunks;
-    int64_t *positions=j->positions+(size_t)chunk*j->position_stride,ordinal=j->work[chunk];
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride,ordinal=j->work[chunk],original=0;
     for(int64_t i=lo;i<hi;++i) {
       int32_t u=c->array_sources[i];int64_t first=m->csr_row_ptr[u],last=m->csr_row_ptr[u+1];
-      if(sgpl_relax_replay(s,u,i)){ordinal+=last-first;continue;}
-      for(int64_t e=first;e<last;++e,++ordinal) {
+      if(sgpl_relax_replay(s,u,i)){original+=last-first;continue;}
+      for(int64_t e=first;e<last;++e,++original) {
         int32_t v=m->csr_col_idx[e];
-        if(s->plan->rules&SGPL_EXEC_SIMPLIFY_R8){if(s->best[v]==UINT64_MAX||(uint32_t)s->best[v]!=(uint32_t)ordinal)continue;}
+        if(s->plan->rules&SGPL_EXEC_SIMPLIFY_R8){if(s->best[v]==UINT64_MAX||(uint32_t)s->best[v]!=(uint32_t)original)continue;}
         else if(sgpl_relax_bound(s,m,j->weights,u,v,e))continue;
         int64_t at=positions[j->owners[v]]++;
-        c->gpu_records[stride*at]=u;c->gpu_records[stride*at+1]=v;c->gpu_records[stride*at+2]=(int32_t)ordinal;
+        c->gpu_records[stride*at]=u;c->gpu_records[stride*at+1]=v;c->gpu_records[stride*at+2]=(int32_t)ordinal++;
         if(packed)c->gpu_records[stride*at+3]=(int32_t)j->weights[e];
       }
     }
@@ -386,9 +386,13 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   int64_t pair_count=work[chunks],records=pair_count+(job.source?(begins+ends)*c->array_source_count:0);
   if(relax) {
     records=0;
-    for(int32_t k=0;k<chunks;++k)for(int32_t p=0;p<parts;++p)records+=positions[(size_t)k*job.position_stride+p];
-    relax->original=pair_count;relax->retained=records;relax->unique=0;
-    for(int64_t i=0;i<c->array_source_count;++i) {
+    relax->original=pair_count;work[0]=0;
+    for(int32_t k=0;k<chunks;++k) {
+      for(int32_t p=0;p<parts;++p)records+=positions[(size_t)k*job.position_stride+p];
+      work[k+1]=records;
+    }
+    pair_count=records;relax->retained=records;relax->unique=0;
+    if(getenv("SGPL_RELAX_SIMPLIFY_STATS"))for(int64_t i=0;i<c->array_source_count;++i) {
       int32_t u=c->array_sources[i];if((uint32_t)relax->first[u]==(uint32_t)i)relax->unique+=m->csr_row_ptr[u+1]-m->csr_row_ptr[u];
     }
   }

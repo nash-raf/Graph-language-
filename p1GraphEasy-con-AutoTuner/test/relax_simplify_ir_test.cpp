@@ -91,6 +91,10 @@ exit: ret i32 0
   SMDiagnostic E;auto M=parseAssemblyString(IR,E,C);if(!M)E.print("relax-test",errs());require(!!M,"parse fixture");
   M->setDataLayout("e-p:64:64-i64:64-n8:16:32:64-S128");
   auto *Pair=M->getFunction("pair");Pair->addFnAttr("sgpl.spatial.callback");Pair->addFnAttr("sgpl.record.source_ordinal.dead");
+  if(Negative==28)for(BasicBlock &BB:*M->getFunction("main"))for(Instruction &I:BB)if(auto *Capture=dyn_cast<CallInst>(&I))if(Capture->getName()=="snap") {
+    auto *Extent=new GlobalVariable(*M,Type::getInt64Ty(C),false,GlobalValue::InternalLinkage,ConstantInt::get(Type::getInt64Ty(C),4),"late.extent");
+    IRBuilder<> B(Capture);Capture->setArgOperand(3,B.CreateLoad(B.getInt64Ty(),Extent));
+  }
   for(BasicBlock &BB:*M->getFunction("main"))for(Instruction &I:BB)if(auto *B=dyn_cast<CallInst>(&I))if(B->getName()=="bind") {
     if(Negative!=18)B->setMetadata("sgpl.exec.frontier",MDNode::get(C,{ValueAsMetadata::get(Pair),ConstantAsMetadata::get(Negative==19?cast<Constant>(Pair):ConstantPointerNull::get(PointerType::get(C,0)))}));
     B->setMetadata("sgpl.relax.snapshot.bases",MDNode::get(C,{MDNode::get(C,{ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C),Negative==11?1:0)),ValueAsMetadata::get(M->getGlobalVariable("array",true))})}));
@@ -99,21 +103,22 @@ exit: ret i32 0
 }
 int main(int argc,char **argv) {
   unsigned Checks=0;
-  for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26}) {
+  for(unsigned Subset=0;Subset<16;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28}) {
     std::string Rules;
-    for(unsigned I=0;I<3;++I)if(Subset&(1u<<I)){if(!Rules.empty())Rules+=",";Rules+="R"+std::to_string(I+6);}
+    for(unsigned I=0;I<4;++I)if(Subset&(1u<<I)){if(!Rules.empty())Rules+=",";Rules+="R"+std::to_string(I+6);}
     setenv("SGPL_EXEC_SIMPLIFY_RULES",Rules.empty()?"none":Rules.c_str(),1);
     LLVMContext C;auto M=fixture(C,Negative);lowerRelaxationSimplifications(*M);
     require(!verifyModule(*M,&errs()),"transformed module verifies");
     unsigned Expected=Subset<<5;
     if(Negative&&Negative!=16&&Negative!=17&&Negative!=20&&Negative!=24)Expected=0;
     if(Negative==16||Negative==17||Negative==20)Expected&=~128u;
+    if(Negative==24)Expected&=~256u;
     unsigned Actual=0;
-    for(auto &G:M->globals())if(G.getName().starts_with("sgpl.relax.simplification.v1"))Actual=cast<ConstantInt>(cast<ConstantStruct>(G.getInitializer())->getOperand(2))->getZExtValue();
+    for(auto &G:M->globals())if(G.getName().starts_with("sgpl.relax.simplification.v2"))Actual=cast<ConstantInt>(cast<ConstantStruct>(G.getInitializer())->getOperand(2))->getZExtValue();
     if(Actual!=Expected){errs()<<"subset="<<Subset<<" negative="<<Negative<<" expected="<<Expected<<" actual="<<Actual<<"\n";require(false,"rule applicability and independent refusal");}
     require(M->getFunction("pair")&&!M->getFunction("pair")->empty(),"baseline callback retained");
-    if(argc>1&&Subset==7){std::error_code E;raw_fd_ostream O(std::string(argv[1])+"/fixture_"+std::to_string(Negative)+".ll",E);M->print(O,nullptr);}
+    if(argc>1&&Subset==15){std::error_code E;raw_fd_ostream O(std::string(argv[1])+"/fixture_"+std::to_string(Negative)+".ll",E);M->print(O,nullptr);}
     ++Checks;
   }
-  std::cout<<"PASS relaxation IR checks="<<Checks<<" rule_subsets=8\n";
+  std::cout<<"PASS relaxation IR checks="<<Checks<<" rule_subsets=16\n";
 }

@@ -37,7 +37,7 @@ def focused(d):
     native = re.findall(r'relaxation runtime: (\d+) comparisons, (\d+) reduced preparations, (\d+) failures', text)
     assert len(native) == 9 and all(int(x[0]) > 0 and x[2] == '0' for x in native)
     assert all(int(x[1]) > 0 for x in native[:6])
-    R.save(out / 'summary.json', dict(passed=True, ir_checks=checks, rule_subsets=8,
+    R.save(out / 'summary.json', dict(passed=True, ir_checks=checks, rule_subsets=16,
            native_runs=9, comparisons=sum(int(x[0]) for x in native),
            workers=[1, 2, 6], modes=['normal', 'ASan/UBSan', 'no_scratch'],
            results=native, benchmark_runs=0))
@@ -116,8 +116,9 @@ def report(d):
     assert all(x and x['passed'] for x in existing.values())
     activation = {alg: {rule: sum('[exec-simplify] ' + rule + ' activate' in p.read_text()
                                   for p in (d / 'cases' / alg).rglob('compile.log'))
-                        for rule in ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8']} for alg in R.ALGS}
+                        for rule in ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9']} for alg in R.ALGS}
     assert all(activation[a]['R6'] == activation[a]['R7'] == 61 for a in ['sssp', 'cc']), activation
+    assert activation['cc']['R9'] == 61 and activation['sssp']['R9'] == 0, activation
     groups = 0
     for alg in R.ALGS:
         for case in (d / 'cases' / alg).rglob('validate.graph'):
@@ -130,6 +131,11 @@ def report(d):
     assert detectors and all(x['status'] != 'failure' for x in detectors)
     work = R.read(d / 'relax_work/summary.json')
     assert work['passed']
+    runtime_activation = {alg: {rule: sum(any(x['rules'] & bit for x in row['invocations'])
+                          for row in work['checks'] if row['algorithm'] == alg)
+                          for rule, bit in [('R6', 32), ('R7', 64), ('R8', 128), ('R9', 256)]}
+                          for alg in ['cc', 'sssp']}
+    assert runtime_activation['cc']['R9'] > 0 and runtime_activation['sssp']['R9'] == 0
     names = ['relax_simplify_ir_test.cpp', 'relax_simplify_runtime_test.c', 'run_relax_simplify_tests.sh']
     test_sources = {name: R.sha(d / 'src/test' / name) for name in names}
     assert all(test_sources[name] == R.sha(V.REPO / 'test' / name) for name in names)
@@ -141,12 +147,13 @@ def report(d):
         validation=validation, existing_contracts=existing, activation_graphs=activation,
         exact_printed_array_groups=groups, tsan=detectors,
         frontier_contracts=R.read(d / 'frontier_contracts/summary.json'),
-        work_counts=work, R8_scope='Restricted complete set-consumer fixtures; unknown initial-buffer or count consumers refuse.',
+        work_counts=work, runtime_activation_graphs=runtime_activation, default_minimum_work=4096,
+        R8_scope='Restricted complete set-consumer fixtures; unknown initial-buffer or count consumers refuse.',
         public_context_header_unchanged=not R.git('diff', '2b46cb5ded54132e98dc052bd2caf548d1acfcb4', '--', 'autotuner_runtime.h'),
         artifact_root=str(d), test_sources=test_sources, correctness_tool_sha256=R.sha(Path(__file__)),
         benchmark_runs=0, performance_claim=None)
     R.save(d / 'relax_correctness_report.json', payload)
-    R.save(V.REPO / 'reports/relax_execution_simplification_bitsets_correctness.json', payload)
+    R.save(V.REPO / 'reports/relax_execution_simplification_ordered_correctness.json', payload)
     print(json.dumps(dict(activation=activation, validation=validation, exact_arrays=groups), indent=2), flush=True)
 
 

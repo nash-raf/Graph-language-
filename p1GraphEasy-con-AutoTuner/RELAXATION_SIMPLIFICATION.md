@@ -1,6 +1,6 @@
 # Proof-gated minimum-relaxation work elimination
 
-The experimental branch retains the R1--R5 compiler and runtime paths. R6--R8
+The experimental branch retains the R1--R5 compiler and runtime paths. R6--R9
 operate on certified CPU array-frontier stages, without algorithm-name tests.
 No public execution-context or operation layout changes.
 
@@ -46,10 +46,19 @@ does not establish this property for an escaping/cancellable context.
   final array, changed-vertex set and termination condition are preserved.
   The consumer proof currently requires a directly initialized, nonescaping
   initial buffer. Outlined/opaque initialization is refused. The existing
-  campaign's CC/SSSP programs therefore use R6/R7, while R8 is covered by
+  campaign's CC/SSSP programs therefore use R6/R7 and eligible R9, while R8 is covered by
   positive restricted-consumer fixtures. Extending this proof is separate work.
+* **R9 — omit later destination contributions under ordered candidates.** For
+  an unweighted copy-minimum callback, check that the input source values are
+  nondecreasing in signed order. The first improving contribution to each
+  destination is then its minimum; all later contributions are no-ops. Chunk
+  bitsets identify destinations with an improving candidate. An ordered prefix
+  removes destinations already covered by an earlier chunk, and filling emits
+  the first improving edge in the remaining chunk. This retains the exact
+  successful notification sequence and needs no whole-frontier consumer proof.
+  An unknown order refuses R9 while independently justified rules may continue.
 
-R6 and R7 retain the exact sequence of successful frontier notifications. R8
+R6, R7 and R9 retain the exact sequence of successful frontier notifications. R8
 intentionally changes that sequence only under its additional consumer proof.
 The original source frontier and output reservation domain are retained.
 Removed records have no notifications, and the complete callback proof excludes
@@ -60,8 +69,11 @@ existing protocol with fewer slots. No partial work is replayed.
 
 ## Binding, fallback and controls
 
-A version-1 private descriptor records rule bits, arithmetic recipe, baseline
-callback identity and ABI sizes. Binding validates those fields. Runtime guards
+A version-2 private descriptor records rule bits, arithmetic recipe, baseline
+callback identity and ABI sizes. Binding also takes the actual source-snapshot
+extent; it must cover the graph vertex domain before preparation reads values.
+An unavailable extent refuses the rule. Legacy version-1 bindings keep baseline
+execution. Runtime guards
 require the matching CPU CSR pointers, destination ownership, a single pair
 operation, one append site, no lifecycle hooks, and disjoint output/accumulator
 ranges. Accumulator storage must also be disjoint from graph headers, CSR rows,
@@ -71,9 +83,9 @@ before effects. Storage is private to an exclusive lease and retains bounded
 capacity. Topology/layout invalidation, runtime disablement after preparation,
 device materialization and context reuse rebuild the baseline before effects.
 
-* Compilation: `SGPL_EXEC_SIMPLIFY_RULES=all|none|R1,...,R8`.
+* Compilation: `SGPL_EXEC_SIMPLIFY_RULES=all|none|R1,...,R9`.
 * All execution simplifications off: `SGPL_NO_EXEC_SIMPLIFY=1`.
-* R6--R8 off while retaining R1--R5: `SGPL_NO_RELAX_SIMPLIFY=1`.
+* R6--R9 off while retaining R1--R5: `SGPL_NO_RELAX_SIMPLIFY=1`.
 * Compiler activation/refusal diagnostics: `SGPL_EXEC_SIMPLIFY_STATS=1`.
 * Validation-only physical record counts: `SGPL_RELAX_SIMPLIFY_STATS=1`.
 * A fixed 4096-edge profitability floor retains ordinary execution on tiny
@@ -87,7 +99,7 @@ benchmarks. Historical Graptor observations are reused; Graptor is not rerun.
 ## Correctness evidence
 
 `tools/validate_relax_simplification.py` freezes builds externally, runs all
-eight new rule subsets with compiler refusal controls, checks physical record
+sixteen new rule subsets with compiler refusal controls, checks physical record
 counts, and compares native outputs at 1/2/6 physical workers. Fixtures cover
 duplicates, self-loops, isolated vertices, empty graphs/partitions, signed wrap,
 negative weights, first-match duplicate weights, descriptor refusal, optional

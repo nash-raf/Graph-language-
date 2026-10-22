@@ -12,14 +12,15 @@ namespace {
 using namespace llvm;
 static unsigned executionSimplifyRules() {
   const char *E=std::getenv("SGPL_EXEC_SIMPLIFY_RULES");
-  if(!E||StringRef(E)=="all")return 255;
+  if(!E||StringRef(E)=="all")return 511;
   if(StringRef(E)=="none")return 0;
   SmallVector<StringRef,4> Parts;StringRef(E).split(Parts,',');unsigned Mask=0;
   for(auto P:Parts) {
     if(P=="R1")Mask|=1;else if(P=="R2")Mask|=2;else if(P=="R3")Mask|=4;
     else if(P=="R4")Mask|=8;else if(P=="R5")Mask|=16;
     else if(P=="R6")Mask|=32;else if(P=="R7")Mask|=64;else if(P=="R8")Mask|=128;
-    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3,R4,R5,R6,R7,R8");
+    else if(P=="R9")Mask|=256;
+    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1,R2,R3,R4,R5,R6,R7,R8,R9");
   }
   return Mask;
 }

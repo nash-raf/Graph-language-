@@ -42,7 +42,12 @@ static SGPL_PREPARATION_FN void sgpl_array_count_relax(void *opaque,int32_t work
       if(sgpl_relax_replay(s,u,i))continue;
       for(int64_t e=first;e<last;++e) {
         int32_t v=m->csr_col_idx[e];if(v<0||v>=m->csr_n)goto invalid;
-        if(s->plan->rules&SGPL_EXEC_SIMPLIFY_R8) {
+        if(s->rules&SGPL_EXEC_SIMPLIFY_R9) {
+          if(s->values[u]<s->values[v])s->improve[(size_t)chunk*s->words+((uint32_t)v>>6)]|=UINT64_C(1)<<(v&63);
+          else sgpl_relax_track(s,v,chunk);
+          continue;
+        }
+        if(s->rules&SGPL_EXEC_SIMPLIFY_R8) {
           sgpl_relax_track(s,v,chunk);
           int32_t candidate=sgpl_relax_candidate(s,m,j->weights,u,v,e);
           if(candidate>=s->values[v])continue;
@@ -71,7 +76,11 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_relax(void *opaque,int32_t worke
       if(sgpl_relax_replay(s,u,i)){original+=last-first;continue;}
       for(int64_t e=first;e<last;++e,++original) {
         int32_t v=m->csr_col_idx[e];
-        if(s->plan->rules&SGPL_EXEC_SIMPLIFY_R8){if(s->best[v]==UINT64_MAX||(uint32_t)s->best[v]!=(uint32_t)original)continue;}
+        if(s->rules&SGPL_EXEC_SIMPLIFY_R9) {
+          uint64_t *word=&s->improve[(size_t)chunk*s->words+((uint32_t)v>>6)],mask=UINT64_C(1)<<(v&63);
+          if(!(*word&mask)||s->values[u]>=s->values[v])continue;*word&=~mask;
+        }
+        else if(s->rules&SGPL_EXEC_SIMPLIFY_R8){if(s->best[v]==UINT64_MAX||(uint32_t)s->best[v]!=(uint32_t)original)continue;}
         else if(sgpl_relax_bound(s,m,j->weights,u,v,e))continue;
         int64_t at=positions[j->owners[v]]++;
         c->gpu_records[stride*at]=u;c->gpu_records[stride*at+1]=v;c->gpu_records[stride*at+2]=(int32_t)ordinal++;
@@ -332,11 +341,11 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
     if(useful<width)width=useful;
   }
   if(width<1)width=1;
-  if(relax&&(relax->plan->rules&SGPL_EXEC_SIMPLIFY_R8))width=1;
+  if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R8))width=1;
   int32_t chunks=(int32_t)((int64_t)width*4>64?64:(int64_t)width*4);
   if(chunks>c->array_source_count)chunks=(int32_t)c->array_source_count;
   if(chunks<1)chunks=1;
-  if(relax&&(relax->plan->rules&SGPL_EXEC_SIMPLIFY_R8))chunks=1;
+  if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R8))chunks=1;
   if(relax&&!sgpl_relax_prepare_groups(c,relax,chunks)){relax->active=0;relax=NULL;}
   int32_t parts=m->partition_count,rc=SGPL_DAG_ERR_NOMEM;
   if(parts<0||(uint64_t)(parts?parts:1)>SIZE_MAX/sizeof(int64_t))return SGPL_DAG_ERR_INVALID;
@@ -380,6 +389,14 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
       .source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U,.begins=begins,.ends=ends,.relax=relax};
   sgpl_run_preparation(relax?sgpl_array_count_relax:sgpl_array_count_chunks,&job,width);
   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
+  if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R9))for(size_t w=0;w<relax->words;++w) {
+    uint64_t taken=0;
+    for(int32_t k=0;k<chunks;++k) {
+      uint64_t *word=&relax->improve[(size_t)k*relax->words+w],bits=*word&~taken;
+      taken|=*word;*word=bits;
+      while(bits){int32_t v=(int32_t)(64*w+__builtin_ctzll(bits));bits&=bits-1;++positions[(size_t)k*job.position_stride+owners[v]];}
+    }
+  }
   for(int32_t k=0;k<chunks;++k) {
     if(work[k+1]>job.pair_limit-work[k]) {rc=SGPL_DAG_ERR_INVALID;goto done;}
     work[k+1]+=work[k];

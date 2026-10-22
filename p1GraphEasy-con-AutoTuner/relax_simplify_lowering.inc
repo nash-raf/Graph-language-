@@ -1,7 +1,7 @@
 #include "relax_simplify_plan.h"
 namespace {
 using namespace llvm;
-struct RelaxRecipe {GlobalVariable *Array=nullptr;bool Weighted=false;GlobalVariable *WeightGraph=nullptr;};
+struct RelaxRecipe {GlobalVariable *Array=nullptr;bool Weighted=false;GlobalVariable *WeightGraph=nullptr;unsigned SnapshotSlot=0;};
 /* Prove an entire acyclic callback rather than recognize an algorithm name.
  * Only compiler-authored weight accessor instructions get the trusted leaf
  * summary. The original checked first-match accessor stays in every kernel. */
@@ -66,6 +66,7 @@ static RelaxRecipe relaxRecipe(Function *Pair,MDNode *Origins) {
     Origin|=K&&V&&K->getZExtValue()==(uint64_t)Off/8&&V->getValue()==Slot;
   }
   if(!Origin)return Finish({});
+  R.SnapshotSlot=(unsigned)Off/8;
   if(R.Weighted)for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *C=dyn_cast<CallInst>(&I))
     if(C->getCalledFunction()&&C->getCalledFunction()->getName()=="autograph_exec_ctx_edge_weight") {
       auto *L=dyn_cast<LoadInst>(C->getArgOperand(1));R.WeightGraph=L?dyn_cast<GlobalVariable>(L->getPointerOperand()):nullptr;
@@ -171,7 +172,7 @@ static bool relaxSetConsumer(CallInst *Bind) {
   return Initial&&Back;
 }
 static void lowerRelaxationSimplifications(Module &M) {
-  unsigned Requested=executionSimplifyRules()&224;bool Stats=std::getenv("SGPL_EXEC_SIMPLIFY_STATS");SmallVector<CallInst *,8> Binds;
+  unsigned Requested=executionSimplifyRules()&480;bool Stats=std::getenv("SGPL_EXEC_SIMPLIFY_STATS");SmallVector<CallInst *,8> Binds;
   for(Function &F:M)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *C=dyn_cast<CallInst>(&I))if(C->getMetadata("sgpl.relax.snapshot.bases"))Binds.push_back(C);
   for(auto *C:Binds) {
     auto *Origins=C->getMetadata("sgpl.relax.snapshot.bases"),*Witness=C->getMetadata("sgpl.exec.frontier");
@@ -189,19 +190,33 @@ static void lowerRelaxationSimplifications(Module &M) {
       else {Recipe=relaxRecipe(Pair,Origins);Reason="callback is not one certified signed i32 minimum with immutable candidate";}
     }
     unsigned Rules=Recipe.Array?Requested:0;
+    Value *Extent=nullptr;
+    if(Rules) {
+      DominatorTree DT(*C->getFunction());
+      for(Instruction *I=C->getNextNode();I;I=I->getNextNode())if(auto *Capture=dyn_cast<CallInst>(I))
+        if(auto *F=Capture->getCalledFunction())if(F->getName()=="autograph_exec_ctx_bind_source_snapshot_range"||F->getName()=="autograph_exec_ctx_bind_snapshot_range") {
+          auto *Slot=dyn_cast<ConstantInt>(Capture->getArgOperand(1));auto *Base=dyn_cast<LoadInst>(Capture->getArgOperand(2));
+          auto *Bytes=dyn_cast<ConstantInt>(Capture->getArgOperand(4));
+          Value *Count=Capture->getArgOperand(3);auto *Def=dyn_cast<Instruction>(Count);
+          if(Capture->getArgOperand(0)==C->getArgOperand(0)&&Slot&&Slot->getZExtValue()==Recipe.SnapshotSlot&&
+              Base&&Base->getPointerOperand()==Recipe.Array&&Bytes&&Bytes->equalsInt(4)&&(!Def||DT.dominates(Def,C)))Extent=Count;
+        }
+      if(!Extent){Rules=0;Reason="snapshot extent is unavailable before preparation";}
+    }
     if(Rules&&Recipe.Weighted) {
       auto *Create=cast<CallInst>(C->getArgOperand(0));auto *Graph=dyn_cast<LoadInst>(Create->getArgOperand(0));
       if(!Graph||Graph->getPointerOperand()!=Recipe.WeightGraph){Rules=0;Reason="weight query uses a different or unresolved graph";}
     }
     if((Rules&128)&&!relaxSetConsumer(C))Rules&=~128u;
-    if(Stats)for(unsigned I=5;I<8;++I)if(Requested&(1u<<I))errs()<<"[exec-simplify] R"<<I+1<<" "<<((Rules&(1u<<I))?"activate":"refuse")<<": "<<
-      ((Rules&(1u<<I))?(I==7?"complete set consumer; one minimum/activation per destination":"strict minimum, immutable candidate, private no-error invocation"):
-       (I==7&&Recipe.Array?"frontier count/order/multiplicity or initial-buffer escape is unresolved":Reason))<<"\n";
+    if(Recipe.Weighted)Rules&=~256u;
+    if(Stats)for(unsigned I=5;I<9;++I)if(Requested&(1u<<I))errs()<<"[exec-simplify] R"<<I+1<<" "<<((Rules&(1u<<I))?"activate":"refuse")<<": "<<
+      ((Rules&(1u<<I))?(I==7?"complete set consumer; one minimum/activation per destination":I==8?"exact notification stream under runtime nondecreasing-candidate guard":"strict minimum, immutable candidate, private no-error invocation"):
+       (I==8&&Recipe.Weighted?"weighted contributions have no established total order":I==7&&Recipe.Array?"frontier count/order/multiplicity or initial-buffer escape is unresolved":Reason))<<"\n";
     C->setMetadata("sgpl.relax.snapshot.bases",nullptr);if(!Rules)continue;
     IRBuilder<> B(C->getNextNode());auto *I=B.getInt32Ty(),*L=B.getInt64Ty();auto *P=B.getPtrTy();auto *T=StructType::get(M.getContext(),{I,I,I,I,L,L,P});
     if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_relax_simplify_plan_v1))report_fatal_error("relax descriptor mismatch");
-    auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_relax_simplify_plan_v1)),B.getInt32(Rules),B.getInt32(Recipe.Weighted),B.getInt64(sizeof(sgpl_exec_ctx)),B.getInt64(sizeof(sgpl_runtime_op)),Pair}),"sgpl.relax.simplification.v1");
-    B.CreateCall(M.getOrInsertFunction("sgpl_exec_bind_relax_simplification_v1",FunctionType::get(B.getVoidTy(),{P,P,P},false)),{C->getArgOperand(0),Plan,B.CreateLoad(P,Recipe.Array)});
+    auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(2),B.getInt32(sizeof(sgpl_relax_simplify_plan_v2)),B.getInt32(Rules),B.getInt32(Recipe.Weighted),B.getInt64(sizeof(sgpl_exec_ctx)),B.getInt64(sizeof(sgpl_runtime_op)),Pair}),"sgpl.relax.simplification.v2");
+    B.CreateCall(M.getOrInsertFunction("sgpl_exec_bind_relax_simplification_v2",FunctionType::get(B.getVoidTy(),{P,P,P,L},false)),{C->getArgOperand(0),Plan,B.CreateLoad(P,Recipe.Array),Extent});
     if(verifyModule(M,&errs()))report_fatal_error("invalid minimum-relaxation simplification module");
   }
 }

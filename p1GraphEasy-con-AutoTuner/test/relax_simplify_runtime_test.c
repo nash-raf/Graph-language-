@@ -3,7 +3,7 @@
 #include "spatial_exec_test.c"
 #include "relax_simplify_plan.h"
 #include "append_journal_plan.h"
-extern void sgpl_exec_bind_relax_simplification_v1(sgpl_exec_ctx *,const sgpl_relax_simplify_plan_v1 *,int32_t *);
+extern void sgpl_exec_bind_relax_simplification_v2(sgpl_exec_ctx *,const sgpl_relax_simplify_plan_v2 *,int32_t *,int64_t);
 extern void sgpl_exec_bind_append_journal_v1(sgpl_exec_ctx *,const sgpl_append_journal_plan_v1 *);
 extern int32_t sgpl_frontier_journal_activate_v1(sgpl_exec_ctx *,int32_t);
 static _Atomic unsigned calls;
@@ -28,10 +28,10 @@ static sgpl_exec_ctx *relax_context(ExecTestGraph *g,int32_t *input,int count,in
   sgpl_exec_ctx *c=autograph_exec_ctx_create(g,SGPL_TRAVERSE_OWNER_V,SGPL_DOMAIN_FRONTIER,NULL,NULL,*out,0,head,NULL,0,ops,1,-1);
   check(c!=NULL,"create relaxation context");autograph_exec_ctx_set_dag_axes(c,1,-1);
   check(!autograph_exec_ctx_bind_array_frontier(c,input,count,out,capacity,1),"bind relaxation frontier");
-  if(p){if(fault==1)atomic_store(&fail_calloc,1);sgpl_exec_bind_relax_simplification_v1(c,p,values);atomic_store(&fail_calloc,0);}
+  if(p){if(fault==1)atomic_store(&fail_calloc,1);sgpl_exec_bind_relax_simplification_v2(c,p,values,fault==3?g->n-1:g->n);atomic_store(&fail_calloc,0);}
   static const sgpl_append_journal_plan_v1 jp={SGPL_APPEND_JOURNAL_VERSION,sizeof(jp),5|SGPL_JOURNAL_PROVEN_APPEND,1,pair,journal_pair,NULL,NULL,NULL};
   if(journal)sgpl_exec_bind_append_journal_v1(c,&jp);
-  if(fault==2&&p&&p->rules&&c->execution_scratch)atomic_store(&fail_malloc,3);
+  if(fault==2&&p&&((p->rules&224u)||(!p->weighted&&(p->rules&256u)))&&c->execution_scratch)atomic_store(&fail_malloc,3);
   check(!autograph_exec_ctx_prepare_spatial(c,SGPL_SPATIAL_DESTINATION,SGPL_SPATIAL_DESTINATION,0),"prepare relaxation records");
   atomic_store(&fail_malloc,0);
   check(!autograph_exec_ctx_bind_snapshot_range(c,0,values,g->n,4),"capture immutable round source");
@@ -51,33 +51,40 @@ int main(void) {
   for(weighted=0;weighted<2;++weighted) {
     g.weights=weighted?weights:NULL;
     autograph_init(&g,7,13,NULL,NULL,ep);autograph_ensure_layout(&g,7,13,rows,cols,&fixture_nodes,&fixture_edges,ep,LAYOUT_CSR);autograph_build_clean_cut(&g,6);
-    for(unsigned subset=0;subset<8;++subset)for(int journal=0;journal<2;++journal)
-      for(int data=0;data<3;++data)for(int countCase=0;countCase<4;++countCase)for(int mode=0;mode<13;++mode) {
-      if(countCase==3&&mode)continue;
-      int count=countCase==0?0:countCase==1?1:countCase==2?8:8192;
-      int32_t *sources=countCase==3?large_input:input;
+    for(unsigned subset=0;subset<16;++subset)for(int journal=0;journal<2;++journal)
+      for(int data=0;data<3;++data)for(int countCase=0;countCase<6;++countCase)for(int mode=0;mode<15;++mode) {
+      if(countCase>=3&&mode)continue;
+      int32_t order[7]={0,1,2,3,4,5,6},ordered[8192];
+      for(int i=1;i<7;++i)for(int j=i;j>0&&initial[data][order[j]]<initial[data][order[j-1]];--j){int t=order[j];order[j]=order[j-1];order[j-1]=t;}
+      for(int i=0;i<8192;++i)ordered[i]=order[(int64_t)i*7/8192];
+      if(countCase==4){for(int i=0;i<7;++i)ordered[i]=order[i];ordered[7]=order[6];}
+      int count=countCase==0?0:countCase==1?1:countCase==2||countCase==4?8:8192;
+      int32_t *sources=countCase>=4?ordered:countCase==3?large_input:input;
       int previous_failures=failures;
-      sgpl_relax_simplify_plan_v1 p={1,sizeof(p),subset<<5,(uint32_t)weighted,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+      sgpl_relax_simplify_plan_v1 p={2,sizeof(p),subset<<5,(uint32_t)weighted,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
       if(mode==1)++p.version;if(mode==2)--p.bytes;if(mode==3)--p.context_bytes;if(mode==4)--p.operation_bytes;
-      if(mode==5)p.pair=journal_pair;if(mode==6)p.weighted=2;if(mode==7)p.rules=256;
+      if(mode==5)p.pair=journal_pair;if(mode==6)p.weighted=2;if(mode==7)p.rules=512;if(mode==13)p.version=1;
       int32_t a[7],b[7],oa[256],ob[256],*pa=oa,*pb=ob,ha=0,hb=0;int64_t ca=256,cb=256;
       memcpy(a,initial[data],sizeof a);memcpy(b,a,sizeof a);
       for(int i=0;i<256;++i)oa[i]=ob[i]=1000+i;
       sgpl_exec_ctx *x=relax_context(&g,sources,count,a,&pa,&ca,&ha,NULL,journal,0);
-      sgpl_exec_ctx *y=relax_context(&g,sources,count,b,&pb,&cb,&hb,&p,journal,mode==8?1:mode==12?2:0);
+      sgpl_exec_ctx *y=relax_context(&g,sources,count,b,&pb,&cb,&hb,&p,journal,mode==8?1:mode==12?2:mode==14?3:0);
       int64_t before=x->gpu_record_count,after=y->gpu_record_count;
       if(!mode&&y->execution_scratch&&subset) {
+        unsigned effective=p.rules;int monotone=!weighted;
+        for(int i=1;i<count;++i)if(initial[data][sources[i]]<initial[data][sources[i-1]])monotone=0;
+        if(!monotone)effective&=~256u;
         int first[7]={0},changed[7]={0};int64_t expected=0;
         for(int i=0;i<count;++i) {
-          int u=sources[i];if((p.rules&32)&&first[u]++)continue;
+          int u=sources[i];if((effective&32)&&first[u]++)continue;
           for(int64_t e=rows[u];e<rows[u+1];++e) {
             int v=cols[e];int32_t candidate=initial[data][u];
             if(weighted)candidate=(int32_t)((uint32_t)candidate+(uint32_t)graph_get_edge_weight(&g,u,v));
-            if(p.rules&128){if(candidate<initial[data][v])changed[v]=1;continue;}
-            if(!(p.rules&64)||candidate<initial[data][v])++expected;
+            if(effective&(128|256)){if(candidate<initial[data][v])changed[v]=1;continue;}
+            if(!(effective&64)||candidate<initial[data][v])++expected;
           }
         }
-        if(p.rules&128)for(int v=0;v<7;++v)expected+=changed[v];
+        if(effective&(128|256))for(int v=0;v<7;++v)expected+=changed[v];
         check(after==expected&&y->array_work_count==after,"structural record and empty append-slot removal");
         unsigned char *keys=calloc((size_t)(after?after:1),1);int stride=y->array_compact_records==4?4:3;
         int dense=1;
@@ -107,7 +114,7 @@ int main(void) {
   {
     int32_t a[7]={7,6,5,4,3,2,1},b[7],oa[256]={0},ob[256]={0},*pa=oa,*pb=ob,ha=0,hb=0;int64_t ca=256,cb=256;
     memcpy(b,a,sizeof a);unsetenv("SGPL_RELAX_MIN_WORK");
-    sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+    sgpl_relax_simplify_plan_v1 p={2,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
     sgpl_exec_ctx *x=relax_context(&g,input,8,a,&pa,&ca,&ha,NULL,0,0);
     sgpl_exec_ctx *y=relax_context(&g,input,8,b,&pb,&cb,&hb,&p,0,0);
     check(x->gpu_record_count==y->gpu_record_count,"small-work profitability refusal retains the baseline");
@@ -123,18 +130,24 @@ int main(void) {
     ExecTestGraph gx={.n=7,.m=13,.row_ptr=rows,.col_idx=cols,.weights=a,.directed=1},gy=gx;gy.weights=b;
     autograph_init(&gx,7,13,NULL,NULL,ep);autograph_build_clean_cut(&gx,6);
     autograph_init(&gy,7,13,NULL,NULL,ep);autograph_build_clean_cut(&gy,6);
-    sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,1,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+    sgpl_relax_simplify_plan_v1 p={2,sizeof(p),32|64,1,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
     sgpl_exec_ctx *x=relax_context(&gx,input,8,a,&pa,&ca,&ha,NULL,0,0);
     sgpl_exec_ctx *y=relax_context(&gy,input,8,b,&pb,&cb,&hb,&p,0,0);
+    /* The rejected shape has cross-destination dependencies; its retained
+     * reference must run serially, not claim destination independence. */
+    autograph_exec_ctx_set_dag_axes(x,-1,-1);autograph_exec_ctx_set_dag_axes(y,-1,-1);
     check(x->gpu_record_count==y->gpu_record_count,"accumulator/weight alias refuses elimination");
+    const char *old_dag=getenv("SGPL_DAG_SPATIAL");char *saved_dag=old_dag?strdup(old_dag):NULL;
+    setenv("SGPL_DAG_SPATIAL","0",1);
     int ra=autograph_frontier_execute(&gx,x),rb=autograph_frontier_execute(&gy,y);
+    if(saved_dag){setenv("SGPL_DAG_SPATIAL",saved_dag,1);free(saved_dag);}else unsetenv("SGPL_DAG_SPATIAL");
     check(ra==rb&&!memcmp(a,b,sizeof a)&&!memcmp(pa,pb,(size_t)ra*4),"aliased weights retain repeated successful relaxations and notification order");
     autograph_exec_ctx_destroy(x);autograph_exec_ctx_destroy(y);weighted=0;++checks;
   }
   {
     int32_t a[7]={7,6,5,4,3,2,1},b[7],*pa=calloc(1,4),*pb=calloc(1,4),ha=0,hb=0;int64_t ca=1,cb=1;
     memcpy(b,a,sizeof a);pa[0]=pb[0]=777;
-    sgpl_relax_simplify_plan_v1 p={1,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+    sgpl_relax_simplify_plan_v1 p={2,sizeof(p),32|64,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
     sgpl_exec_ctx *x=relax_context(&g,input,8,a,&pa,&ca,&ha,NULL,0,0);
     sgpl_exec_ctx *y=relax_context(&g,input,8,b,&pb,&cb,&hb,&p,0,0);
     check(!autograph_exec_ctx_reserve_prepared_output(x)&&!autograph_exec_ctx_reserve_prepared_output(y)&&ca==cb&&pa[0]==pb[0],"original output reservation preserved after private key compaction");
@@ -150,7 +163,7 @@ int main(void) {
     if(empty->n)check(autograph_build_clean_cut(empty,6)>0,"empty topology partitions");
     for(unsigned subset=1;subset<8;++subset) {
       int32_t a[7]={0},b[7]={0},oa[1]={0},ob[1]={0},*pa=oa,*pb=ob,ha=0,hb=0;int64_t ca=1,cb=1;
-      sgpl_relax_simplify_plan_v1 p={1,sizeof(p),subset<<5,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
+      sgpl_relax_simplify_plan_v1 p={2,sizeof(p),subset<<5,0,sizeof(sgpl_exec_ctx),sizeof(sgpl_runtime_op),pair};
       sgpl_exec_ctx *x=relax_context(empty,input,ncase?8:0,a,&pa,&ca,&ha,NULL,0,0);
       sgpl_exec_ctx *y=relax_context(empty,input,ncase?8:0,b,&pb,&cb,&hb,&p,0,0);
       check(!autograph_frontier_execute(empty,x)&&!autograph_frontier_execute(empty,y)&&!memcmp(a,b,sizeof a),"empty graph and empty partitions");

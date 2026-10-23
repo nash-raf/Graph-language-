@@ -103,5 +103,59 @@ ordered programs and instrumented race checks. Detector startup failures are
 recorded separately. `tools/benchmark_iteration_memory.py` is a separate entry
 point, freezes timed inputs/binaries and compares accepted, enabled, disabled
 and identical-binary controls. It reads historical double-PageRank Graptor
-observations without launching Graptor. Measurements and final outcomes belong
-to the separate machine-readable reports; this document asserts no speedup.
+observations without launching Graptor. Measurements and final outcomes are
+recorded in the separate machine-readable reports.
+
+## Correctness and measured outcome
+
+Frozen `iteration_memory06`, native source `fc54b6f8`, passes 2,196 independent
+corpus validations, 732 exact array groups and 183 exact PageRank bit groups at
+1/2/6 workers. The 15 generated iteration fixtures pass 135 enabled/disabled/
+baseline comparisons, including NaNs, infinities, signed zero, empty domains,
+partial sweeps, observed intermediate/counter values and destination aliases.
+The structural fixture checks accumulator-load removal, one destination store,
+invariant null-test elimination and five independent LLVM refusal controls.
+The suite also passes 529 semantic IR checks, 6,438 focused normal/ASan/UBSan
+native cases, 30,720 worklist checks, 405 generic generated-program checks,
+24 weighted generated-program checks and the existing contracts.
+
+All 61 PageRank programs execute the seeded/rotating path, all 61 SSSP programs
+execute the R8 set path, and all 61 CC programs retain one R12 closure call.
+All 12 targeted instrumented TSan comparisons pass at 1/2/6 SGPL workers; the
+injected LLVM race positive control is detected. Detector mapping failures and
+empty startup crashes are retained separately. Auxiliary system OpenMP work is
+serialized for these checks; this is not a universal race-absence claim.
+
+The local six-physical-core benchmark compares against accepted ARS-1
+`82509de4` using its frozen `composition01` binaries. It records 30,500 timed
+observations and 2,440 warmups, with five primary and twenty confirmation
+observations per variant/case. Both blocks pass their identical-binary controls;
+there are no failed timed launches or new Graptor launches. Native code,
+calibration and the accepted branch remain fixed during measurement.
+
+| Algorithm | End-to-end geometric speedup | Summed time reduction | Compute geometric speedup | Lower mean vs accepted | Lower mean vs saved Graptor |
+|---|---:|---:|---:|---:|---:|
+| BFS | 1.0018x | 0.04% | 0.9969x | 31/61 | 42/61 |
+| SSSP | 1.1805x | 24.40% | 1.3081x | 59/61 | 35/61 |
+| CC | 0.9964x | -0.24% | 0.9823x | 28/61 | 54/61 |
+| PageRank | 1.1670x | 22.13% | 1.5653x | 56/61 | 8/61 |
+
+Compute brackets the complete algorithm including preparation. Wins are raw
+mean-time comparisons, not counts of statistical significance. No slowdown
+survives the report's Holm correction. The same candidate with the new memory
+paths disabled is 1.1864x slower geometrically for SSSP and 1.2044x slower for
+PageRank. That control retains the accepted mechanisms; its compiled fallback
+need not have identical code placement or optimizer decisions to the separately
+built accepted executable.
+
+Saved Graptor results are historical and unpaired. In this session the accepted
+baseline wins against those saved values on 11 SSSP and 5 PageRank graphs; the
+candidate wins on 35 and 8 respectively. Session-to-session win-count changes
+must not all be attributed to code changes. Graptor still has lower aggregate
+PageRank and SSSP times on these historical comparisons.
+
+Machine reports: `reports/iteration_memory_correctness.json` and
+`reports/iteration_memory_benchmark.json`. Full measurements, per-graph CSV,
+controls and the HTML report are in
+`C:/p1-iteration-memory-benchmark-20261023`. The new implementation is on
+`codex/iteration-memory-simplification`; it has not been merged into ARS-1.

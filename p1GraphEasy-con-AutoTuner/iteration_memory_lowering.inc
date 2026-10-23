@@ -145,7 +145,10 @@ static void certifyIterationMemory(Module &M) {
     auto Roles=K.first?executionRoles(K.first):std::map<std::string,BasicBlock *>{};
     auto *V=K.first?dyn_cast<PHINode>(&Roles["destination"]->front()):nullptr;
     auto A=V?executionAccumulator(K.first,Roles["body"],V):ExecutionAccumulator{};
-    bool Callback=!Proof->hasFnAttribute(Attribute::StrictFP)&&A.Store&&executionArraySlot(A.Store->getPointerOperand())==Init.To&&Fields>0;
+    // Check the unhoisted callback as well: the source map must not conceal
+    // reads of the evolving destination array (including at a source index).
+    auto Original=executionAccumulator(Proof,&Proof->front(),Proof->getArg(3));
+    bool Callback=!Proof->hasFnAttribute(Attribute::StrictFP)&&Original.Load&&A.Store&&executionArraySlot(A.Store->getPointerOperand())==Init.To&&Fields>0;
     bool ReadsSource=false;
     for(BasicBlock &BB:*Proof)for(Instruction &I:BB)if(auto *Load=dyn_cast<LoadInst>(&I)) {
       ReadsSource|=Load->getPointerOperand()==Copy.To;
@@ -214,7 +217,7 @@ static void lowerIterationMemory(Module &M) {
     auto Fail=[&](){if(K.first)K.first->eraseFromParent();if(K.second)K.second->eraseFromParent();if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[iteration-memory] refuse late kernel proof\n";};
     if(!K.first||!K.second){Fail();continue;}
     auto Roles=executionRoles(K.first);auto *V=dyn_cast<PHINode>(&Roles["destination"]->front());auto A=executionAccumulator(K.first,Roles["body"],V);
-    if(!A.Store||executionArraySlot(A.Store->getPointerOperand())!=S->getOperand(5)){Fail();continue;}
+    if(!A.Store||!executionAccumulator(Pair,&Pair->front(),Pair->getArg(3)).Load||executionArraySlot(A.Store->getPointerOperand())!=S->getOperand(5)){Fail();continue;}
     auto *Dest=cast<GlobalVariable>(S->getOperand(5));
     SmallVector<Type *,8> Args;for(auto &Arg:K.first->args())Args.push_back(Arg.getType());Args.push_back(Type::getDoubleTy(M.getContext()));
     auto *F=Function::Create(FunctionType::get(Type::getVoidTy(M.getContext()),Args,false),GlobalValue::InternalLinkage,"sgpl.iteration.seeded_kernel",M);

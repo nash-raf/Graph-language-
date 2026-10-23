@@ -26,5 +26,25 @@ int main(int argc,char **argv) {
     }
     require(Stores==1&&Loads==0,"seed fusion removes destination loads and repeated stores");
   }
+  for(unsigned Negative=0;Negative<5;++Negative) {
+    auto N=parseIRFile(argv[1],E,C);require(!!N,"reload scalar negative fixture");
+    CallInst *Cert=nullptr;
+    for(Function &F:*N)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()&&Call->getCalledFunction()->getName()=="sgpl_fullgraph_certificate")Cert=Call;
+    require(Cert,"negative certificate landmark");auto *Pair=cast<Function>(Cert->getArgOperand(1));
+    auto *Source=N->getGlobalVariable("cur_rank",true),*Dest=N->getGlobalVariable("next_rank",true);
+    require(Source&&Dest,"fixture allocation identities");
+    IRBuilder<> B(Cert);
+    if(Negative==0) {
+      auto *Compare=new ICmpInst(ICmpInst::ICMP_ULT,B.CreateLoad(B.getPtrTy(),Source),B.CreateLoad(B.getPtrTy(),Dest));B.Insert(Compare);
+    }
+    if(Negative==1)B.CreateCall(N->getOrInsertFunction("unknown_publish",FunctionType::get(B.getVoidTy(),{B.getPtrTy()},false)),{B.CreateLoad(B.getPtrTy(),Source)});
+    if(Negative==2)Pair->addFnAttr(Attribute::StrictFP);
+    if(Negative==3)B.CreateStore(B.CreateLoad(B.getPtrTy(),Source),Dest);
+    if(Negative==4) {
+      B.SetInsertPoint(Pair->getEntryBlock().getTerminator());B.CreateStore(B.getDouble(42.0),B.CreateLoad(B.getPtrTy(),Dest));
+    }
+    certifyIterationMemory(*N);unsigned Count=0;for(auto &G:N->globals())Count+=!!G.getMetadata("sgpl.iteration.memory.proof");
+    require(Count==0,"observable identity/escape/strict FP/alias/extra store refuses iteration license");
+  }
   std::cout<<"PASS iteration memory structural certificate and kernels\n";
 }

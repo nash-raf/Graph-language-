@@ -7,7 +7,7 @@ R=B.R;REPO=B.REPO
 ROOT=Path('/home/kazi/p1_iteration_memory_benchmark_20261023')
 OUT=Path('/mnt/c/p1-iteration-memory-benchmark-20261023')
 BASE=Path('/home/kazi/p1_execution_simplification/versions/composition01')
-CAND=Path('/home/kazi/p1_execution_simplification/versions/iteration_memory03')
+CAND=Path('/home/kazi/p1_execution_simplification/versions/iteration_memory04')
 OLD=Path('/home/kazi/p1_execution_composition_benchmark_20261023')
 CORRECT=REPO/'reports/iteration_memory_correctness.json'
 ROOT.mkdir(exist_ok=True);OUT.mkdir(exist_ok=True)

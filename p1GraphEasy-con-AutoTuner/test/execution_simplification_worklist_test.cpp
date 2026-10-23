@@ -25,5 +25,10 @@ int main() {
   auto p=simplify(LocalCallback|StableSnapshot|DestinationOwner|ImmutableMinimumCandidate,
                   512u|96u,definitions);
   assert(p.visits>definitions.size()&&p.rules==(512u|96u));
+  auto chain=simplify(LocalCallback,7,{{4,SourcesPruned,ContributionsPruned},
+      {2,Traversal,SourcesPruned},{1,LocalCallback,Traversal}});
+  assert(chain.rules==7&&(chain.facts&ContributionsPruned)&&chain.rewrites==3);
+  auto cycle=simplify(0,3,{{1,Traversal,SourcesPruned},{2,SourcesPruned,Traversal}});
+  assert(!cycle.rules&&!cycle.rewrites);
   std::cout<<"PASS composition worklist checks="<<checks<<" registration_orders=120 subsets=32\n";
 }

@@ -95,7 +95,7 @@ int main(void) {
   }
   operation=4;int32_t values[5]={5,4,3,2,1},copy[5],*out=NULL;int64_t cap=0;
   sgpl_semantic_stage_plan_v1 plan={SGPL_SEMANTIC_STAGE_VERSION,sizeof(plan),512,0,sizeof(sgpl_exec_ctx),pair,row,4,0,0,0};active=values;
-  for(int fault=0;fault<15;++fault) {
+  for(int fault=0;fault<16;++fault) {
     memcpy(copy,values,sizeof copy);sgpl_semantic_stage_plan_v1 p=plan;
     if(fault==0)++p.version;if(fault==1)--p.bytes;if(fault==2)--p.context_bytes;if(fault==3)p.rules=4096;
     if(fault==4)p.element_bytes=3;if(fault==5)p.snapshot_slot=64;if(fault==6)p.reserved=1;
@@ -104,6 +104,7 @@ int main(void) {
     if(fault==9)atomic_store(&fail_malloc,1);if(fault==10)atomic_store(&fail_calloc,1);
     if(fault==12)p.version=1; /* Old runtime cannot execute the new row ABI contract. */
     if(fault==13)p.version=2;if(fault==14)p.rules=96;
+    if(fault==15){p.rules=608;p.element_bytes=8;}
     int r=sgpl_try_semantic_stage_v1(&graph,&p,sources[0],5,&out,&cap,values,fault==11?4:5);
     check(r==-1&&!memcmp(values,copy,sizeof copy)&&!out&&cap==0,"descriptor/bounds/disable/allocation refusal before effects");
     atomic_store(&fail_malloc,0);atomic_store(&fail_calloc,0);unsetenv("SGPL_NO_EXEC_SIMPLIFY");++checks;
@@ -193,8 +194,26 @@ int main(void) {
       check(got==head&&!memcmp(a,b,sizeof a)&&!memcmp(out,expected,(size_t)head*4),"composed R6/R7 preserve exact weighted minimum notifications and modular overflow");
       check(!atomic_load(&weight_fallbacks),"composed callbacks retain direct first-match weight access");
       if(!data&&!disabled&&(pruning&64))check(!atomic_load(&minimum_calls),"R7 eliminates all ineffective contributions before callback execution");
+      if(!data&&!disabled&&pruning==32&&order==1)check(atomic_load(&minimum_calls)==10,"R6 removes repeated source traversal before key preparation");
+      if(!data&&disabled) {
+        int original=0;for(int i=0;i<counts[order];++i)original+=(int)(wr[sources[order][i]+1]-wr[sources[order][i]]);
+        check(atomic_load(&minimum_calls)==original,"composition disablement retains the original contribution stream");
+      }
       free(out);++checks;
     }
+  }
+  operation=0;
+  for(int allocator=0;allocator<2;++allocator)for(int nth=1;nth<=12;++nth) {
+    int32_t a[]={INT32_MAX,2,-3,0,5},b[5],expected[128];memcpy(b,a,sizeof a);
+    int wanted=reference(&graph,a,sources[1],counts[1],expected);active=b;out=NULL;cap=0;
+    sgpl_semantic_stage_plan_v1 p=plan;p.rules=608;
+    atomic_store(allocator?&fail_calloc:&fail_malloc,nth);
+    int got=sgpl_try_semantic_stage_v1(&graph,&p,sources[1],counts[1],&out,&cap,b,5);
+    atomic_store(&fail_malloc,0);atomic_store(&fail_calloc,0);
+    int32_t initial[]={INT32_MAX,2,-3,0,5};
+    if(got<0)check(!memcmp(b,initial,sizeof b)&&!out&&!cap,"composed preparation allocation refusal is before effects");
+    else check(got==wanted&&!memcmp(a,b,sizeof a)&&!memcmp(out,expected,(size_t)wanted*4),"composed allocation and worker-pool recovery preserve exact results");
+    free(out);++checks;
   }
   printf("semantic runtime: %u cases, %d failures\n",checks,failures);return failures?1:0;
 }

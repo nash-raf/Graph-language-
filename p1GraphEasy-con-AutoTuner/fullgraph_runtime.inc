@@ -16,7 +16,21 @@ typedef struct SgplIncomingIndex {
 typedef struct {
   SgplFullKernel kernel;SgplFullMap map;size_t stride;
   SgplIncomingIndex *index;void *values;int ready;unsigned pair_slot;
+  SgplFullKernel simplified_kernel;SgplFullMap simplified_map;unsigned simplify_rules;
 } SgplFullState;
+#include "execution_simplify_plan.h"
+/* Bind only to a successfully installed baseline. An invalid extension cannot
+ * change baseline state or execute user work. Descriptor storage is compiler-owned. */
+void autograph_exec_ctx_bind_simplified_fullgraph_v1(sgpl_exec_ctx *c,
+    const sgpl_execution_simplify_plan_v1 *p) {
+  SgplFullState *s=c&&c->array_compact_records==6?(SgplFullState *)c->gpu_records:NULL;
+  if(!s||!p||p->version!=SGPL_EXEC_SIMPLIFY_VERSION||p->bytes!=sizeof(*p)||
+     !p->rules||(p->rules&~7u)||p->reserved||!p->kernel||
+     p->baseline_kernel!=(void *)s->kernel||p->baseline_map!=(void *)s->map||
+     (!!p->map!=!!s->map))return;
+  s->simplified_kernel=(SgplFullKernel)p->kernel;
+  s->simplified_map=(SgplFullMap)p->map;s->simplify_rules=p->rules;
+}
 static SGPL_FULL_FN SgplFullState *sgpl_fullgraph_state(const sgpl_exec_ctx *c) {
   return c&&c->array_compact_records==6?(SgplFullState *)c->gpu_records:NULL;
 }
@@ -111,7 +125,8 @@ static SGPL_FULL_FN int32_t sgpl_fullgraph_begin(sgpl_exec_ctx *c,AutoGraphMeta 
 }
 static SGPL_FULL_FN void sgpl_fullgraph_prepare_map(sgpl_exec_ctx *c) {
   SgplFullState *s=sgpl_fullgraph_state(c);if(!s||s->ready)return;
-  if(s->index->n>0&&s->map)s->map(c->ops[s->pair_slot].state,c,s->index->n,s->index->native_rows,c->spatial_source_gate,s->values);
+  SgplFullMap map=!getenv("SGPL_NO_EXEC_SIMPLIFY")&&s->simplified_map?s->simplified_map:s->map;
+  if(s->index->n>0&&map)map(c->ops[s->pair_slot].state,c,s->index->n,s->index->native_rows,c->spatial_source_gate,s->values);
   s->ready=1;
 }
 static SGPL_FULL_FN int sgpl_fullgraph_partition(sgpl_exec_ctx *c,int32_t p) {
@@ -119,6 +134,7 @@ static SGPL_FULL_FN int sgpl_fullgraph_partition(sgpl_exec_ctx *c,int32_t p) {
   AutoGraphMeta *m=find_meta(c->graph);if(!m||p<0||p>=m->partition_count)return 0;
   sgpl_exec_ctx local;sgpl_exec_context_copy(&local,c);local.spatial_partition=p;
   local.partition_state=local.partition_base&&local.partition_stride>0?(char *)local.partition_base+(int64_t)p*local.partition_stride:local.partition_base;
-  s->kernel(c->ops[s->pair_slot].state,&local,(int32_t)m->partition_start[p],(int32_t)m->partition_start[p+1],s->index->incoming_rows,s->index->sources,s->values);
+  SgplFullKernel kernel=!getenv("SGPL_NO_EXEC_SIMPLIFY")&&s->simplified_kernel?s->simplified_kernel:s->kernel;
+  kernel(c->ops[s->pair_slot].state,&local,(int32_t)m->partition_start[p],(int32_t)m->partition_start[p+1],s->index->incoming_rows,s->index->sources,s->values);
   return 1;
 }

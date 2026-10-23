@@ -94,6 +94,10 @@ static std::pair<Function *,Function *> fullKernels(Module &M,Function *F,unsign
   PB.registerModuleAnalyses(MAM);PB.registerCGSCCAnalyses(CGAM);PB.registerFunctionAnalyses(FAM);PB.registerLoopAnalyses(LAM);PB.crossRegisterProxies(LAM,FAM,CGAM,MAM);
   FunctionPassManager FPM;cantFail(PB.parsePassPipeline(FPM,"dce,simplifycfg,dce"));FPM.run(*K,FAM);if(Map)FPM.run(*Map,FAM);
   if(verifyFunction(*K,&errs())||(Map&&verifyFunction(*Map,&errs())))report_fatal_error("invalid certified full-graph kernel");
+  /* This certificate is produced only by the existing full-domain gate. The
+   * late simplifier additionally checks the callback and generated CFG. */
+  K->setMetadata("sgpl.exec.fullgraph",MDNode::get(C,{ValueAsMetadata::get(F)}));
+  for(BasicBlock &BB:*K)BB.getTerminator()->setMetadata("sgpl.exec.role",MDNode::get(C,{MDString::get(C,BB.getName())}));
   return {K,Map};
 }
 static void lowerFullGraph(Module &M) {

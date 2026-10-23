@@ -1,0 +1,1170 @@
+{
+  "native_candidate_commit": "7beb336d4b1b8ab696fdd7585d11e5b4908cdc7b",
+  "baseline_commit": "a162e9f64002171fad27481c729d47446e28cade",
+  "comparison": "Repaired R10/R11 and retained R12 against R1--R9; earlier unrepaired observations descriptive only.",
+  "candidate_source_hash": "4dba5117193ea2902575ffbfd2dd938e7de1949abc3d735630ad6bcc0b8222c0",
+  "host": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "cpu_model": "model name\t: AMD Ryzen 5 5500",
+    "physical_cpus": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "workers": 6,
+    "topology": [
+      {
+        "cpu": 0,
+        "package": "0",
+        "core": "0"
+      },
+      {
+        "cpu": 2,
+        "package": "0",
+        "core": "1"
+      },
+      {
+        "cpu": 4,
+        "package": "0",
+        "core": "2"
+      },
+      {
+        "cpu": 6,
+        "package": "0",
+        "core": "3"
+      },
+      {
+        "cpu": 8,
+        "package": "0",
+        "core": "4"
+      },
+      {
+        "cpu": 10,
+        "package": "0",
+        "core": "5"
+      }
+    ],
+    "boot_id": "956269a7-77b9-4736-a0d3-8649a4e313c8"
+  },
+  "cases": 244,
+  "graphs_per_algorithm": 61,
+  "primary_repetitions": 5,
+  "confirmation_repetitions": 20,
+  "selected_phase": "confirmation",
+  "timing_observations": 30500,
+  "warmup_launches": 2440,
+  "failed_launches": 0,
+  "graptor_new_launches": 0,
+  "historical_graptor": {
+    "records": "/home/kazi/p1_effect_fusion_local_20261022/results/primary_w6.json",
+    "sha256": "008b32f422981cd9fb4adb1449c13edb4092f47d8f9e76fbe76f6a66f7e14a90",
+    "host": {
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "topology": [
+        {
+          "cpu": 0,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 1,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 2,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 3,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 4,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 5,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 6,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 7,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 8,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 9,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 10,
+          "package": "0",
+          "core": "5"
+        },
+        {
+          "cpu": 11,
+          "package": "0",
+          "core": "5"
+        }
+      ],
+      "quota_cores": null,
+      "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b",
+      "cpu_model": "model name\t: AMD Ryzen 5 5500",
+      "cpu_flags": "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm",
+      "cpu_identity": {
+        "vendor_id": "AuthenticAMD",
+        "cpu family": "25",
+        "model": "80",
+        "stepping": "0",
+        "microcode": "0xffffffff"
+      },
+      "physical_cpus": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "workers": 6,
+      "note": "Guest-reported topology; one CPU per visible physical core, bounded by CPU quota. Host mapping may be virtualized."
+    },
+    "precision": "double PageRank",
+    "note": "Prior same-PC observations; unpaired descriptive comparison only. No Graptor launches."
+  },
+  "paired_controls": {
+    "primary": {
+      "observations": 6100,
+      "AA_stable": true,
+      "AA_failures": [],
+      "confirmed_slowdowns": []
+    },
+    "confirmation": {
+      "observations": 24400,
+      "AA_stable": true,
+      "AA_failures": [],
+      "confirmed_slowdowns": [
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/hamming8-2.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.46786350726594633,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/fe-4elt2.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.48852966660200303,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Simmons81.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5194684419074721,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/p-hat300-3.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5223563264129721,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "web/web-spam.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.519968394382429,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/sanr400-0-5.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5550668825744643,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "rand/geo1k_40k.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5301567355978871,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/c-fat500-10.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5962540046844722,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "web/web-indochina-2004.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.4076323606612024,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/fe-sphere.edges",
+          "kind": "case",
+          "p": 5.999940000599994e-05,
+          "log_ratio": 0.3120755574539094,
+          "holm_p": 0.011699883001169989
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "rand/geo1k_50k.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5987007800581717,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tech/tech-as-caida2007.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.3370851345716324,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "ia/ia-email-EU.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.29079532897334204,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/san400-0-7-1.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.657976496746369,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/san400-0-7-3.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.6912958681955701,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tech/tech-WHOIS.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.518887880394679,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Haverford76.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7870811681394418,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-3.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.6856197121284462,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-1.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7288311493043222,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-4.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7197122219301701,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-2.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7229797349040326,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Swarthmore42.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.701931080499331,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/DSJC500-5.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.751841750765233,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-USFCA72.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.669102955527514,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tscc/scc_retweet.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7211138894634364,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/MANN-a27.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7431038576302986,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tscc/scc_fb-forum.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.8645788667725961,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/gen400-p0-9-55.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.8288412959335842,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/wing_nodal.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.7500294431646587,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "bio/bio-WormNet-v3-benchmark.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.8808310788057518,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "labeled/PROTEINS-full.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.13575096573955847,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Mich67.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.840010888544918,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Bowdoin47.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9272442411152984,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tech/tech-internet-as.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.33303966861101386,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Amherst41.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.956958713868746,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Wellesley22.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.8773455490071896,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Hamilton46.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9736181401617559,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Smith60.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9365498628233719,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-epinions.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.49360406190312806,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Trinity100.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.900714075840179,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/C500-9.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9397280173772554,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Williams40.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9602748525462225,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/wing.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.24106547032270925,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Middlebury45.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9994254915177365,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-gemsec-RO.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.36578809573247645,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "labeled/Tox21-aromatase.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.152885601636192,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "labeled/Tox21-MMP.edges",
+          "kind": "case",
+          "p": 4.999950000499995e-05,
+          "log_ratio": 0.1464290185737243,
+          "holm_p": 0.00979990200097999
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "misc/delaunay_n13.edges",
+          "kind": "case",
+          "p": 1.999980000199998e-05,
+          "log_ratio": 0.28870650449237195,
+          "holm_p": 0.003939960600393996
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Brandeis99.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.967015560457557,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Pepperdine86.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.093136506106707,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "email/email-enron-large.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.8087872742603567,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/DSJC1000-5.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.3386913268049536,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-slashdot.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.8102275461602435,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "kind": "algorithm",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5720739880635672,
+          "holm_p": 0.0024799752002479976
+        }
+      ]
+    }
+  },
+  "historical_unrepaired": {
+    "path": "/mnt/c/p1-semantic-stage-benchmark-20261023/final_summary.json",
+    "sha256": "53b5127613007c991d4c738567a534ed9c4a076010c9902a6581a82e84dd0285",
+    "source_commit": "0acf2bd55c0a9716d07e99420d282a8efc7d4440",
+    "note": "Earlier session, descriptive before/after only; no paired inference."
+  },
+  "historical_unrepaired_comparison": {
+    "bfs": {
+      "geomean_unrepaired_over_repaired": 1.018916983296044,
+      "summed_time_reduction_percent": 1.534776988385489,
+      "note": "Different timing sessions; descriptive only, no paired inference."
+    },
+    "sssp": {
+      "geomean_unrepaired_over_repaired": 2.7804117124648795,
+      "summed_time_reduction_percent": 71.79746233246819,
+      "note": "Different timing sessions; descriptive only, no paired inference."
+    },
+    "cc": {
+      "geomean_unrepaired_over_repaired": 1.0157638448162063,
+      "summed_time_reduction_percent": 4.122507592923741,
+      "note": "Different timing sessions; descriptive only, no paired inference."
+    },
+    "pagerank": {
+      "geomean_unrepaired_over_repaired": 1.002569736808869,
+      "summed_time_reduction_percent": 0.6176147852179348,
+      "note": "Different timing sessions; descriptive only, no paired inference."
+    }
+  },
+  "by_algorithm": {
+    "bfs": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 408.6281313,
+        "candidate": 405.08824815,
+        "disabled": 405.60995835,
+        "baseline_AA": 407.60509129999997,
+        "candidate_AA": 405.97305095
+      },
+      "historical_graptor_total_ms": 482.6739678024,
+      "geomean_speedup_baseline_over_candidate": 1.0086495944773033,
+      "median_geomean_speedup": 1.0073115284000844,
+      "summed_time_reduction_percent": 0.8662847412727714,
+      "kernel_geomean_speedup": 1.008936802720549,
+      "kernel_summed_time_reduction_percent": 1.0552180228374453,
+      "geomean_speedup_disabled_over_candidate": 1.0012087753975079,
+      "candidate_over_historical_graptor_geomean": 0.8907163478602733,
+      "candidate_wins_vs_historical_graptor": 46
+    },
+    "sssp": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 952.49405735,
+        "candidate": 1500.55593785,
+        "disabled": 951.9746183000001,
+        "baseline_AA": 957.2061344,
+        "candidate_AA": 1490.7174428
+      },
+      "historical_graptor_total_ms": 647.4009087548,
+      "geomean_speedup_baseline_over_candidate": 0.5648724740485002,
+      "median_geomean_speedup": 0.5629750511931073,
+      "summed_time_reduction_percent": -57.53966402948496,
+      "kernel_geomean_speedup": 0.4266719133325076,
+      "kernel_summed_time_reduction_percent": -75.90177190930594,
+      "geomean_speedup_disabled_over_candidate": 0.5656109681725604,
+      "candidate_over_historical_graptor_geomean": 2.0934311787224753,
+      "candidate_wins_vs_historical_graptor": 7
+    },
+    "cc": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 2389.7213748,
+        "candidate": 417.33187705,
+        "disabled": 2349.07701605,
+        "baseline_AA": 2388.9529297999998,
+        "candidate_AA": 414.4216075
+      },
+      "historical_graptor_total_ms": 500.8882206882,
+      "geomean_speedup_baseline_over_candidate": 1.7229106479316387,
+      "median_geomean_speedup": 1.7223848003558686,
+      "summed_time_reduction_percent": 82.53637928459642,
+      "kernel_geomean_speedup": 3.1398270926549197,
+      "kernel_summed_time_reduction_percent": 91.02483359873781,
+      "geomean_speedup_disabled_over_candidate": 1.729225180395209,
+      "candidate_over_historical_graptor_geomean": 0.7479528879344836,
+      "candidate_wins_vs_historical_graptor": 52
+    },
+    "pagerank": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 763.8637823,
+        "candidate": 766.807235,
+        "disabled": 763.13405295,
+        "baseline_AA": 758.82864635,
+        "candidate_AA": 764.72485605
+      },
+      "historical_graptor_total_ms": 497.3976693242,
+      "geomean_speedup_baseline_over_candidate": 0.9953234220152813,
+      "median_geomean_speedup": 0.9956670186848411,
+      "summed_time_reduction_percent": -0.3853373819003636,
+      "kernel_geomean_speedup": 0.9859432889676862,
+      "kernel_summed_time_reduction_percent": -0.9513766560143688,
+      "geomean_speedup_disabled_over_candidate": 0.9946171484659597,
+      "candidate_over_historical_graptor_geomean": 1.3885759057776415,
+      "candidate_wins_vs_historical_graptor": 6
+    },
+    "overall": {
+      "cases": 244,
+      "totals_ms": {
+        "baseline": 4514.70734575,
+        "candidate": 3089.7832980499998,
+        "disabled": 4469.795645650001,
+        "baseline_AA": 4512.59280185,
+        "candidate_AA": 3075.8369573
+      },
+      "historical_graptor_total_ms": 2128.3607665696,
+      "geomean_speedup_baseline_over_candidate": 0.9942129768218393,
+      "median_geomean_speedup": 0.9930573149054053,
+      "summed_time_reduction_percent": 31.561825353782403,
+      "kernel_geomean_speedup": 1.0744319684586896,
+      "kernel_summed_time_reduction_percent": 42.8517075539992,
+      "geomean_speedup_disabled_over_candidate": 0.9934305034280067,
+      "candidate_over_historical_graptor_geomean": 1.1796698910840158,
+      "candidate_wins_vs_historical_graptor": 111
+    }
+  },
+  "confirmed_slowdowns": [
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/hamming8-2.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.46786350726594633,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/fe-4elt2.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.48852966660200303,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Simmons81.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5194684419074721,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/p-hat300-3.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5223563264129721,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "web/web-spam.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.519968394382429,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/sanr400-0-5.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5550668825744643,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "rand/geo1k_40k.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5301567355978871,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/c-fat500-10.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5962540046844722,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "web/web-indochina-2004.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.4076323606612024,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/fe-sphere.edges",
+      "kind": "case",
+      "p": 5.999940000599994e-05,
+      "log_ratio": 0.3120755574539094,
+      "holm_p": 0.011699883001169989
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "rand/geo1k_50k.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5987007800581717,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tech/tech-as-caida2007.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.3370851345716324,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "ia/ia-email-EU.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.29079532897334204,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/san400-0-7-1.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.657976496746369,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/san400-0-7-3.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.6912958681955701,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tech/tech-WHOIS.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.518887880394679,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Haverford76.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7870811681394418,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-3.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.6856197121284462,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-1.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7288311493043222,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-4.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7197122219301701,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-2.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7229797349040326,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Swarthmore42.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.701931080499331,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC500-5.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.751841750765233,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-USFCA72.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.669102955527514,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tscc/scc_retweet.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7211138894634364,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/MANN-a27.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7431038576302986,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tscc/scc_fb-forum.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.8645788667725961,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/gen400-p0-9-55.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.8288412959335842,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/wing_nodal.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.7500294431646587,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "bio/bio-WormNet-v3-benchmark.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.8808310788057518,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "labeled/PROTEINS-full.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.13575096573955847,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Mich67.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.840010888544918,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Bowdoin47.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9272442411152984,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tech/tech-internet-as.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.33303966861101386,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Amherst41.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.956958713868746,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Wellesley22.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.8773455490071896,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Hamilton46.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9736181401617559,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Smith60.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9365498628233719,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-epinions.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.49360406190312806,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Trinity100.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.900714075840179,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/C500-9.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9397280173772554,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Williams40.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9602748525462225,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/wing.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.24106547032270925,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Middlebury45.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9994254915177365,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-gemsec-RO.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.36578809573247645,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "labeled/Tox21-aromatase.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.152885601636192,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "labeled/Tox21-MMP.edges",
+      "kind": "case",
+      "p": 4.999950000499995e-05,
+      "log_ratio": 0.1464290185737243,
+      "holm_p": 0.00979990200097999
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "misc/delaunay_n13.edges",
+      "kind": "case",
+      "p": 1.999980000199998e-05,
+      "log_ratio": 0.28870650449237195,
+      "holm_p": 0.003939960600393996
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Brandeis99.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.967015560457557,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Pepperdine86.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.093136506106707,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "email/email-enron-large.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.8087872742603567,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.3386913268049536,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.8102275461602435,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "kind": "algorithm",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5720739880635672,
+      "holm_p": 0.0024799752002479976
+    }
+  ],
+  "inference_available": true,
+  "timed_executable_fingerprints_verified": 488,
+  "ratio_direction": "Speedup=previous/current; above one favors current. Graptor ratio=current/saved Graptor; below one favors current.",
+  "historical_comparison_limitation": "Saved same-PC/input six-worker observations from a previous session; descriptive only.",
+  "artifacts": {
+    "root": "/mnt/c/p1-semantic-stage-repair-benchmark-20261023",
+    "html": "/mnt/c/p1-semantic-stage-repair-benchmark-20261023/final_report.html",
+    "csv": "/mnt/c/p1-semantic-stage-repair-benchmark-20261023/per_graph_times.csv",
+    "full_summary": "/mnt/c/p1-semantic-stage-repair-benchmark-20261023/final_summary.json",
+    "raw_records": "/home/kazi/p1_semantic_stage_repair_benchmark_20261023/runs/execution_simplification"
+  },
+  "native_changes_during_measurement": false,
+  "merged_into_ARS1": false
+}

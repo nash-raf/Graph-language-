@@ -27,7 +27,68 @@ typedef struct {
   int64_t pair_limit;
   int32_t chunks,parts,source,begins,ends;
   _Atomic int32_t error;
+  SgplRelaxState *relax;
 } SgplArrayPreparation;
+static SGPL_PREPARATION_FN void sgpl_array_count_relax(void *opaque,int32_t worker,int32_t width) {
+  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;SgplRelaxState *s=j->relax;
+  for(int32_t chunk=worker;chunk<j->chunks;chunk+=width) {
+    int64_t lo=c->array_source_count*chunk/j->chunks,hi=c->array_source_count*(chunk+1)/j->chunks;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride,ordinal=0;
+    for(int64_t i=lo;i<hi;++i) {
+      int32_t u=c->array_sources[i];if(u<0||u>=m->csr_n)goto invalid;
+      int64_t first=m->csr_row_ptr[u],last=m->csr_row_ptr[u+1];
+      if(first<0||last<first||last>m->csr_m||last-first>j->pair_limit-ordinal)goto invalid;
+      int64_t row_ordinal=ordinal;ordinal+=last-first;
+      if(sgpl_relax_replay(s,u,i))continue;
+      for(int64_t e=first;e<last;++e) {
+        int32_t v=m->csr_col_idx[e];if(v<0||v>=m->csr_n)goto invalid;
+        if(s->rules&SGPL_EXEC_SIMPLIFY_R9) {
+          if(s->values[u]<s->values[v])s->improve[(size_t)chunk*s->words+((uint32_t)v>>6)]|=UINT64_C(1)<<(v&63);
+          else sgpl_relax_track(s,v,chunk);
+          continue;
+        }
+        if(s->rules&SGPL_EXEC_SIMPLIFY_R8) {
+          sgpl_relax_track(s,v,chunk);
+          int32_t candidate=sgpl_relax_candidate(s,m,j->weights,u,v,e);
+          if(candidate>=s->values[v])continue;
+          uint64_t key=((uint64_t)((uint32_t)candidate^UINT32_C(0x80000000))<<32)|(uint32_t)(row_ordinal+e-first);
+          if(s->best[v]==UINT64_MAX)++positions[j->owners[v]];
+          if(key<s->best[v])s->best[v]=key;
+          continue;
+        }
+        if(sgpl_relax_bound(s,m,j->weights,u,v,e)){sgpl_relax_track(s,v,chunk);continue;}
+        ++positions[j->owners[v]];
+      }
+    }
+    j->work[chunk+1]=ordinal;
+  }
+  return;
+invalid:atomic_store_explicit(&j->error,SGPL_DAG_ERR_INVALID,memory_order_relaxed);
+}
+static SGPL_PREPARATION_FN void sgpl_array_fill_relax(void *opaque,int32_t worker,int32_t width) {
+  SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;SgplRelaxState *s=j->relax;
+  int packed=c->array_compact_records==4,stride=packed?4:3;
+  for(int32_t chunk=worker;chunk<j->chunks;chunk+=width) {
+    int64_t lo=c->array_source_count*chunk/j->chunks,hi=c->array_source_count*(chunk+1)/j->chunks;
+    int64_t *positions=j->positions+(size_t)chunk*j->position_stride,ordinal=j->work[chunk],original=0;
+    for(int64_t i=lo;i<hi;++i) {
+      int32_t u=c->array_sources[i];int64_t first=m->csr_row_ptr[u],last=m->csr_row_ptr[u+1];
+      if(sgpl_relax_replay(s,u,i)){original+=last-first;continue;}
+      for(int64_t e=first;e<last;++e,++original) {
+        int32_t v=m->csr_col_idx[e];
+        if(s->rules&SGPL_EXEC_SIMPLIFY_R9) {
+          uint64_t *word=&s->improve[(size_t)chunk*s->words+((uint32_t)v>>6)],mask=UINT64_C(1)<<(v&63);
+          if(!(*word&mask)||s->values[u]>=s->values[v])continue;*word&=~mask;
+        }
+        else if(s->rules&SGPL_EXEC_SIMPLIFY_R8){if(s->best[v]==UINT64_MAX||(uint32_t)s->best[v]!=(uint32_t)original)continue;}
+        else if(sgpl_relax_bound(s,m,j->weights,u,v,e))continue;
+        int64_t at=positions[j->owners[v]]++;
+        c->gpu_records[stride*at]=u;c->gpu_records[stride*at+1]=v;c->gpu_records[stride*at+2]=(int32_t)ordinal++;
+        if(packed)c->gpu_records[stride*at+3]=(int32_t)j->weights[e];
+      }
+    }
+  }
+}
 static SGPL_PREPARATION_FN void sgpl_array_count_chunks(void *opaque,int32_t worker,int32_t width) {
   SgplArrayPreparation *j=opaque;sgpl_exec_ctx *c=j->ctx;AutoGraphMeta *m=j->meta;
   const int source=j->source,hooks=j->begins+j->ends;
@@ -255,6 +316,7 @@ static SGPL_PREPARATION_FN void sgpl_array_fill_chunks_lean_weighted(void *opaqu
   }
 }
 static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
+  SgplRelaxState *relax=sgpl_relax_prepare(c,m,begins,ends);
   int32_t width=sgpl_configured_worker_count();
   if(c->array_source_count<128||getenv("SGPL_ARRAY_PREP_SERIAL"))width=1;
   /* Preparation is infrastructure, not the graph callback schedule. Two
@@ -279,9 +341,12 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
     if(useful<width)width=useful;
   }
   if(width<1)width=1;
+  if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R8))width=1;
   int32_t chunks=(int32_t)((int64_t)width*4>64?64:(int64_t)width*4);
   if(chunks>c->array_source_count)chunks=(int32_t)c->array_source_count;
   if(chunks<1)chunks=1;
+  if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R8))chunks=1;
+  if(relax&&!sgpl_relax_prepare_groups(c,relax,chunks)){relax->active=0;relax=NULL;}
   int32_t parts=m->partition_count,rc=SGPL_DAG_ERR_NOMEM;
   if(parts<0||(uint64_t)(parts?parts:1)>SIZE_MAX/sizeof(int64_t))return SGPL_DAG_ERR_INVALID;
   size_t row_bytes=(size_t)(parts?parts:1)*sizeof(int64_t);
@@ -321,14 +386,37 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   SgplArrayPreparation job={.ctx=c,.meta=m,.owners=owners,.weights=weight_indices,
       .positions=positions,.work=work,.position_stride=row_bytes/sizeof(int64_t),.chunks=chunks,.parts=parts,
       .pair_limit=INT32_MAX/c->array_append_sites,
-      .source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U,.begins=begins,.ends=ends};
-  sgpl_run_preparation(sgpl_array_count_chunks,&job,width);
+      .source=c->traversal_kind==SGPL_TRAVERSE_OWNER_U,.begins=begins,.ends=ends,.relax=relax};
+  sgpl_run_preparation(relax?sgpl_array_count_relax:sgpl_array_count_chunks,&job,width);
   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
+  if(relax)relax->ordered_groups=0;
+  if(relax&&(relax->rules&SGPL_EXEC_SIMPLIFY_R9))for(size_t w=0;w<relax->words;++w) {
+    uint64_t taken=0,touched=0;
+    for(int32_t k=0;k<chunks;++k) {
+      uint64_t *word=&relax->improve[(size_t)k*relax->words+w],bits=*word&~taken;
+      touched|=*word|relax->pruned[(size_t)k*relax->words+w];
+      taken|=*word;*word=bits;
+      while(bits){int32_t v=(int32_t)(64*w+__builtin_ctzll(bits));bits&=bits-1;++positions[(size_t)k*job.position_stride+owners[v]];}
+    }
+    relax->ordered_groups+=__builtin_popcountll(touched);
+  }
   for(int32_t k=0;k<chunks;++k) {
     if(work[k+1]>job.pair_limit-work[k]) {rc=SGPL_DAG_ERR_INVALID;goto done;}
     work[k+1]+=work[k];
   }
   int64_t pair_count=work[chunks],records=pair_count+(job.source?(begins+ends)*c->array_source_count:0);
+  if(relax) {
+    records=0;
+    relax->original=pair_count;work[0]=0;
+    for(int32_t k=0;k<chunks;++k) {
+      for(int32_t p=0;p<parts;++p)records+=positions[(size_t)k*job.position_stride+p];
+      work[k+1]=records;
+    }
+    pair_count=records;relax->retained=records;relax->unique=0;
+    if(getenv("SGPL_RELAX_SIMPLIFY_STATS"))for(int64_t i=0;i<c->array_source_count;++i) {
+      int32_t u=c->array_sources[i];if(relax->keep_source[i])relax->unique+=m->csr_row_ptr[u+1]-m->csr_row_ptr[u];
+    }
+  }
   if((uint64_t)records>SIZE_MAX/12||(uint64_t)pair_count>SIZE_MAX/8/c->array_append_sites) {rc=SGPL_DAG_ERR_NOMEM;goto done;}
   c->array_work_count=pair_count;
   c->array_compact_records=SGPL_EXEC_PAIR_BATCH&&!begins&&!ends&&c->op_count==1&&
@@ -371,7 +459,7 @@ static int32_t sgpl_array_records_csr(sgpl_exec_ctx *c,AutoGraphMeta *m,int begi
   }
   c->gpu_record_offsets[parts]=at;
   if(at!=records) {rc=SGPL_DAG_ERR_INVALID;goto done;}
-  sgpl_run_preparation(c->array_compact_records==4?sgpl_array_fill_chunks_lean_weighted:(c->array_compact_records==3?sgpl_array_fill_chunks_lean:(c->array_compact_records==2?sgpl_array_fill_chunks_packed:sgpl_array_fill_chunks)),&job,width);
+  sgpl_run_preparation(relax?sgpl_array_fill_relax:(c->array_compact_records==4?sgpl_array_fill_chunks_lean_weighted:(c->array_compact_records==3?sgpl_array_fill_chunks_lean:(c->array_compact_records==2?sgpl_array_fill_chunks_packed:sgpl_array_fill_chunks))),&job,width);
   rc=atomic_load_explicit(&job.error,memory_order_relaxed);if(rc<0)goto done;
   c->gpu_record_count=records;c->array_log_pristine=1;
   c->array_pair_records=!job.source||(!begins&&!ends);rc=0;

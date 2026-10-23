@@ -1,0 +1,31 @@
+{
+  "source_commit": "d62456b1edddeb5e2c9de6eacddd528633403fcd",
+  "status": "superseded; retained without removing observations",
+  "benchmark_artifacts": "C:/p1-relax-simplification-benchmark-20261022",
+  "benchmark_report": "reports/relax_execution_simplification_benchmark.json",
+  "correctness_report": "reports/relax_execution_simplification_correctness.json",
+  "identical_binary_controls_stable": true,
+  "cc_geometric_mean_e2e_speedup": 0.7555,
+  "sssp_geometric_mean_e2e_speedup": 1.1754,
+  "cc_summed_e2e_time_reduction_percent": -190.70,
+  "sssp_summed_e2e_time_reduction_percent": -20.76,
+  "reason_for_revision": [
+    "Private tracking of omitted destinations used a shared atomic increment. This added contention to preparation even when callback work was cheap.",
+    "Per-source occurrence and group witnesses used unnecessary vertex-sized scalar storage.",
+    "A frozen source does not by itself prove an immutable weighted candidate when destination and graph-weight storage alias. The general proof required an additional runtime address-range guard."
+  ],
+  "replacement": {
+    "source_commit": "002589f0",
+    "changes": [
+      "Chunk-local destination bitsets merged before owner execution, with no shared atomic increment during preparation.",
+      "A source-presence bitset and per-occurrence keep flags.",
+      "A fixed profitability floor with a force-on correctness control.",
+      "Explicit accumulator disjointness checks against graph headers, CSR rows, columns, weights and output storage.",
+      "A counterexample fixture in which a minimum update changes a later edge weight; the simplification must refuse this case."
+    ],
+    "correctness_build": "relax04",
+    "benchmark_artifacts": "C:/p1-relax-bitset-simplification-benchmark-20261022"
+  },
+  "graptor_new_launches": 0,
+  "merged_into_ARS1": false
+}

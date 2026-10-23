@@ -120,6 +120,7 @@ static int32_t sgpl_array_expand_records(sgpl_exec_ctx *c) {
 fail:
   free(prefix);free(records);free(sources);free(work);free(edges);return rc;
 }
+#include "relax_simplify_runtime.inc"
 #include "array_preparation_runtime.inc"
 static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraphMeta *m,int begins,int ends) {
   if(m->current_layout==LAYOUT_CSR&&m->csr_row_ptr&&m->csr_col_idx)
@@ -203,6 +204,20 @@ static SGPL_PREPARATION_FN int32_t sgpl_array_records(sgpl_exec_ctx *c,AutoGraph
   c->array_pair_records=!source||(!begins&&!ends);rc=0;
 done:
   free(counts);free(positions);free(owned_map);return rc;
+}
+/* Re-select before effects if controls/topology changed or a private one-shot
+ * context is reused. Rebuild the retained baseline, never replay user work. */
+static int32_t sgpl_relax_refresh(sgpl_exec_ctx *c,AutoGraphMeta *m,int force) {
+  SgplRelaxState *s=sgpl_relax_state(c);if(!s||!s->active)return 0;
+  if(!m)return SGPL_DAG_ERR_INVALID;
+  const char *gpu=getenv("SGPL_GPU_BACKEND");
+  int source_ok=!(s->rules&SGPL_EXEC_SIMPLIFY_R9)||s->source_slot<0||s->source_verified;
+  if(!force&&source_ok&&!s->consumed&&!sgpl_relax_disabled()&&gpu&&!strcmp(gpu,"0")&&
+      m==s->meta&&m->csr_row_ptr==s->rows&&m->csr_col_idx==s->columns&&
+      m->layout_epoch==s->layout_epoch&&s->generation==atomic_load_explicit(&g_cc_topology_generation,memory_order_relaxed))return 0;
+  if(s->tracking_elided){c->spatial_groups_seen=s->saved_seen;s->tracking_elided=0;s->saved_seen=NULL;}
+  s->consumed=1;s->active=0;
+  return sgpl_array_records(c,m,0,0);
 }
 extern int32_t graph_get_edge_weight(void *,int32_t,int32_t) __attribute__((weak));
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *c,void *graph,int32_t u,int32_t v) {

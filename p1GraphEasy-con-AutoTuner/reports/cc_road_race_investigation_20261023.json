@@ -1,0 +1,1648 @@
+{
+  "source_commit": "a162e9f64002171fad27481c729d47446e28cade",
+  "diagnostic_tool_sha256": "2074e78824db8c949d0459de742be0268760a7e1088d887f5771eceb317e3d8f",
+  "benchmark_runs": 0,
+  "benchmark_units": "milliseconds",
+  "production_sources_changed": false,
+  "conclusion": "No race detected in the tested CC graph-compute paths; not a proof of absence.",
+  "cases": [
+    {
+      "graph": "socfb/socfb-Simmons81.edges",
+      "cc_rounds": 6,
+      "maximum_finite_bfs_distance_from_vertex_zero": 5.0,
+      "original_records": 217227,
+      "retained_records": 3835,
+      "previous_ms": 6.700218553350001,
+      "current_ms": 5.8858528995,
+      "new_rules_disabled_ms": 6.578992307199998,
+      "saved_graptor_ms": 5.672078009
+    },
+    {
+      "graph": "road/road-luxembourg-osm.edges",
+      "cc_rounds": 1035,
+      "maximum_finite_bfs_distance_from_vertex_zero": 1034.0,
+      "original_records": 28209639,
+      "retained_records": 13798860,
+      "previous_ms": 269.89587530255,
+      "current_ms": 636.2791496009,
+      "new_rules_disabled_ms": 269.00172979215006,
+      "saved_graptor_ms": 18.1016821998
+    },
+    {
+      "graph": "road/road-usroads-48.edges",
+      "cc_rounds": 537,
+      "maximum_finite_bfs_distance_from_vertex_zero": 536.0,
+      "original_records": 47568782,
+      "retained_records": 18527953,
+      "previous_ms": 406.06253055160005,
+      "current_ms": 606.72319205185,
+      "new_rules_disabled_ms": 393.52897856745,
+      "saved_graptor_ms": 20.974038006
+    }
+  ],
+  "graph_pool_checks": {
+    "benchmark_runs": 0,
+    "build": {
+      "frozen_identity": {
+        "commit": "a162e9f64002171fad27481c729d47446e28cade",
+        "diff": "",
+        "source_hash": "1e4aef1a1b27be84870c4f189b0869045a83bff0348a652537514326cfbd00bd"
+      },
+      "programs": {
+        "road/road-usroads-48": {
+          "original_ir_sha256": "c3f111e89e43133d856168dbb42c3474d3e269f37ae3c101dbadc557a533962d",
+          "instrumented_ir_sha256": "06e5fe5ec05170f056695c715014e2810bf8a9feafd1d1182382bd099d19e456",
+          "instrumented_access_sites": 674,
+          "executable_sha256": "a0f6aef18768b1d1ad4e0c7e493291a9ea0dc49340612047f7175f090d17039d"
+        },
+        "road/road-luxembourg-osm": {
+          "original_ir_sha256": "d66be9707d7d833bcd809b5a46f443800e80a11926f56727a7341cb8506d589a",
+          "instrumented_ir_sha256": "cba2d3a33d284e05cff00d78f4305bd76e7749c9bee9e14f80da6f619d1736e4",
+          "instrumented_access_sites": 674,
+          "executable_sha256": "d4dab710271a485e2154d340df5879eb71170b734e08821d67d0cba7731fd23a"
+        },
+        "socfb/socfb-Simmons81": {
+          "original_ir_sha256": "8f3235832ef90eead6f8cfd34bd068a2e5bf2c39ee09719a2b961de4db48e07a",
+          "instrumented_ir_sha256": "afd4cf7c34646373025fbeb8575fa3d3c1d1c95b5b5927d9721765fe4055af0b",
+          "instrumented_access_sites": 674,
+          "executable_sha256": "d34ac42781db4b961c3e143ea6b6a583c2fc6ddda3a2aa8d7fb717dd276ed6cc"
+        }
+      },
+      "runtime_objects": {
+        "runtime.o": "7d6c9169808e5b3016f1bad5f29c960e8d083d068efea403c7ea5b6f090db1c1",
+        "parallel_runtime.o": "3e52a456c63cd6c9979d72895dc1aa498a29aa6d6ec66b915f94837b018c556e",
+        "gpu_runtime.o": "250cb732844d1e6e853afe5c3b8a4a499eceeafe5199974c715193ba164f6ea6",
+        "autotuner_runtime.o": "ab20a740cb1a72c0f961e119a7e80dcc85dead6442ed6ac18cc21ccd0d98926e",
+        "graph_mutation_runtime.o": "efd194b4a2d333c8aed979afa5efe09b065f34b483bb2049a2021b8966086ad1",
+        "roaring_bitmap.o": "9c47c35b3ac19cf1b35743bd0948604c6e7456518526ced94f328c09e09fb21c",
+        "graph_loader_runtime.o": "e97eea00fcbc7976e2048fbc9e0516f543fe1f039cb2c451f1c0bb6ba69c6781",
+        "graph_runtime.o": "01bfdd0a86f5b73f2fd42a1ee26109b7de03ae00cce236d3b2583001054dbbc2",
+        "semiring_runtime.o": "c75288ed5b2b4212d028d3270568df08ba697e3381325f2d4f8c094b74541262"
+      }
+    },
+    "expected_checks": 18,
+    "checks": [
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt4.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_enabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 7,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt7.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt7.err"
+      }
+    ],
+    "attempts": [
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_enabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w1_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-usroads-48_w6_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_enabled_attempt4.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w1_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_road_road-luxembourg-osm_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_enabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt3.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_enabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt3.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 5,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt5.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt5.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 6,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt6.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt6.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 7,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt7.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/graph_pool_only_socfb_socfb-Simmons81_w6_new_rules_disabled_attempt7.err"
+      }
+    ],
+    "all_passed": true,
+    "openmp_serial": true,
+    "sgpl_workers": [
+      1,
+      2,
+      6
+    ],
+    "no_suppressions": true,
+    "retries_only_for_detector_startup": true
+  },
+  "original_openmp_checks": {
+    "benchmark_runs": 0,
+    "build": {
+      "frozen_identity": {
+        "commit": "a162e9f64002171fad27481c729d47446e28cade",
+        "diff": "",
+        "source_hash": "1e4aef1a1b27be84870c4f189b0869045a83bff0348a652537514326cfbd00bd"
+      },
+      "programs": {
+        "road/road-usroads-48": {
+          "original_ir_sha256": "c3f111e89e43133d856168dbb42c3474d3e269f37ae3c101dbadc557a533962d",
+          "instrumented_ir_sha256": "06e5fe5ec05170f056695c715014e2810bf8a9feafd1d1182382bd099d19e456",
+          "instrumented_access_sites": 674,
+          "executable_sha256": "a0f6aef18768b1d1ad4e0c7e493291a9ea0dc49340612047f7175f090d17039d"
+        },
+        "road/road-luxembourg-osm": {
+          "original_ir_sha256": "d66be9707d7d833bcd809b5a46f443800e80a11926f56727a7341cb8506d589a",
+          "instrumented_ir_sha256": "cba2d3a33d284e05cff00d78f4305bd76e7749c9bee9e14f80da6f619d1736e4",
+          "instrumented_access_sites": 674,
+          "executable_sha256": "d4dab710271a485e2154d340df5879eb71170b734e08821d67d0cba7731fd23a"
+        },
+        "socfb/socfb-Simmons81": {
+          "original_ir_sha256": "8f3235832ef90eead6f8cfd34bd068a2e5bf2c39ee09719a2b961de4db48e07a",
+          "instrumented_ir_sha256": "afd4cf7c34646373025fbeb8575fa3d3c1d1c95b5b5927d9721765fe4055af0b",
+          "instrumented_access_sites": 674,
+          "executable_sha256": "d34ac42781db4b961c3e143ea6b6a583c2fc6ddda3a2aa8d7fb717dd276ed6cc"
+        }
+      },
+      "runtime_objects": {
+        "runtime.o": "7d6c9169808e5b3016f1bad5f29c960e8d083d068efea403c7ea5b6f090db1c1",
+        "parallel_runtime.o": "3e52a456c63cd6c9979d72895dc1aa498a29aa6d6ec66b915f94837b018c556e",
+        "gpu_runtime.o": "250cb732844d1e6e853afe5c3b8a4a499eceeafe5199974c715193ba164f6ea6",
+        "autotuner_runtime.o": "ab20a740cb1a72c0f961e119a7e80dcc85dead6442ed6ac18cc21ccd0d98926e",
+        "graph_mutation_runtime.o": "efd194b4a2d333c8aed979afa5efe09b065f34b483bb2049a2021b8966086ad1",
+        "roaring_bitmap.o": "9c47c35b3ac19cf1b35743bd0948604c6e7456518526ced94f328c09e09fb21c",
+        "graph_loader_runtime.o": "e97eea00fcbc7976e2048fbc9e0516f543fe1f039cb2c451f1c0bb6ba69c6781",
+        "graph_runtime.o": "01bfdd0a86f5b73f2fd42a1ee26109b7de03ae00cce236d3b2583001054dbbc2",
+        "semiring_runtime.o": "c75288ed5b2b4212d028d3270568df08ba697e3381325f2d4f8c094b74541262"
+      }
+    },
+    "expected_checks": 18,
+    "checks": [
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 5,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt5.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt5.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 11,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt11.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt11.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt3.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt2.err"
+      }
+    ],
+    "attempts": [
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 5,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt5.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w1_new_rules_disabled_attempt5.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-usroads-48",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-usroads-48_w6_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w1_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w2_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_enabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt3.err"
+      },
+      {
+        "graph": "road/road-luxembourg-osm",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/road_road-luxembourg-osm_w6_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt3.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 1,
+        "mode": "new_rules_disabled",
+        "attempt": 4,
+        "status": "passed",
+        "exit_code": 0,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w1_new_rules_disabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt3.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 4,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt4.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt4.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 5,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt5.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt5.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 6,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt6.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt6.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 7,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt7.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt7.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 8,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt8.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt8.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 9,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt9.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt9.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 10,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt10.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt10.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "enabled",
+        "attempt": 11,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt11.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_enabled_attempt11.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 2,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w2_new_rules_disabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 0,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 2,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt2.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "enabled",
+        "attempt": 3,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt3.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_enabled_attempt3.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 0,
+        "status": "empty_launch_crash",
+        "exit_code": -11,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt0.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt0.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 1,
+        "status": "startup_unavailable",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt1.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt1.err"
+      },
+      {
+        "graph": "socfb/socfb-Simmons81",
+        "workers": 6,
+        "mode": "new_rules_disabled",
+        "attempt": 2,
+        "status": "detector_finding",
+        "exit_code": 66,
+        "stdout": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt2.out",
+        "stderr": "/home/kazi/p1_cc_road_race_check_20261023/socfb_socfb-Simmons81_w6_new_rules_disabled_attempt2.err"
+      }
+    ],
+    "all_passed": false,
+    "no_suppressions": true,
+    "retries_only_for_detector_startup": true
+  },
+  "positive_race_control": {
+    "passed": true,
+    "description": "LLVM-instrumented unsynchronized stores in two pthreads",
+    "attempts": [
+      {
+        "attempt": 0,
+        "exit_code": 66,
+        "expected_race_detected": true,
+        "startup_unavailable": false,
+        "empty_launch_crash": false
+      }
+    ]
+  },
+  "legal_openmp_control": {
+    "implicit_barriers_preserved": true,
+    "runtime": "system libgomp, GCC ThreadSanitizer",
+    "attempts": [
+      {
+        "attempt": 0,
+        "exit_code": 66,
+        "finding_on_legal_openmp": true,
+        "startup_unavailable": false
+      }
+    ]
+  },
+  "loader_finding_assessment": "Original findings involve reused main-thread stack capture storage across implicit OpenMP barriers. The same pattern reproduces in a legal standalone OpenMP program using this system libgomp/TSan. No suppressions were added. Auxiliary OpenMP work was serialized for the isolated graph-pool checks, while SGPL retained its configured 1/2/6 physical workers.",
+  "timing_assessment": "Round-separated source snapshots move the minimum label one hop per round. The measured CC rounds equal the saved maximum finite BFS distance plus one for these cases. New rules reduce records inside rounds, retain round count, and add preparation/bitset work. Existing timings establish a regression but do not apportion its overhead without further profiling.",
+  "graptor": {
+    "saved_run_active_options": {
+      "LEVEL_ASYNC": true,
+      "FUSION": true,
+      "PUSH_ZERO": true,
+      "PRESET_ZERO": true,
+      "CONVERGENCE": true
+    },
+    "source": "/mnt/c/p1-effect-fusion-20261021/B3safe2-export/export/bundle/graptor_source/bench/CCv.C",
+    "source_sha256": "f55847c7592ee758a163e37dcbbd824a3eee633218d9e5e4d4c61be6876b7c94",
+    "saved_log": "/home/kazi/p1_effect_fusion_local_20261022/runs/C3_local/primary_w6/cc/road/road-usroads-48/a9068c51c789d5f3f756.err",
+    "note": "Asynchronous label reads, fused sparse propagation and zero-label prioritization are enabled; no Graptor execution was performed."
+  },
+  "artifacts": "/home/kazi/p1_cc_road_race_check_20261023"
+}

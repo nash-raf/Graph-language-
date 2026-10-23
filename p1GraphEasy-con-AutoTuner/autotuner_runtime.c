@@ -4244,6 +4244,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
 
   if (!ctx)
     return 0;
+  {int32_t rc=sgpl_relax_refresh(ctx,meta,0);if(rc<0){ctx->execution_status=rc;return rc;}}
   if(ctx->array_compact_records==6){int32_t rc=sgpl_fullgraph_begin(ctx,meta);if(rc<0){ctx->execution_status=rc;return rc;}}
   ctx->graph = graph_ptr;
   if(!ctx->array_append_sites&&meta&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
@@ -4253,6 +4254,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
     if(ctx->array_append_log)sgpl_array_begin_append(ctx);
     ctx->spatial_occupied_groups = 0;
     ctx->spatial_nontrivial = 0;
+    sgpl_relax_elide_tracking(ctx);
     if (ctx->spatial_groups_seen && meta) {
       if(sgpl_sparse_group_tracking(ctx) && sgpl_group_epoch_begin(ctx,meta)) {
         /* No per-record clear: the exclusive generation defines this round. */
@@ -4262,6 +4264,7 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
           ctx->spatial_groups_seen[sgpl_array_record_endpoint(ctx,i,key)]=0;
       } else memset(ctx->spatial_groups_seen,0,(size_t)meta->csr_n);
     }
+    sgpl_relax_begin_groups(ctx,sgpl_sparse_group_tracking(ctx));
     ctx->execution_error = &ctx->execution_status;
     if (ctx->spatial_frontier_lanes && meta)
       for (int32_t lane = 0; lane < meta->partition_count; ++lane)
@@ -4402,6 +4405,7 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
 }
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+  {int32_t rc=sgpl_relax_refresh(ctx,ctx?find_meta(ctx->graph):NULL,1);if(rc<0)return rc;}
   if(ctx&&ctx->array_compact_records==6)sgpl_fullgraph_release(ctx);
   if(ctx)sgpl_execution_scratch_detach(ctx);
   AutoGraphMeta *m=ctx?find_meta(ctx->graph):NULL;
@@ -5095,9 +5099,12 @@ int32_t autograph_exec_ctx_materialize_snapshot(sgpl_exec_ctx *ctx, int32_t slot
 int32_t autograph_exec_ctx_bind_snapshot_range(sgpl_exec_ctx *ctx, int32_t slot,
                                               const void *base, int64_t count,
                                               int64_t elem_bytes) {
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,SGPL_DAG_ERR_INVALID);
   if (count && !base) return SGPL_DAG_ERR_INVALID;
   int32_t status = autograph_exec_ctx_reserve_snapshot(ctx, slot, count, elem_bytes);
-  return status < 0 ? status : autograph_exec_ctx_materialize_snapshot(ctx, slot, base, count * elem_bytes);
+  if(status>=0)status=autograph_exec_ctx_materialize_snapshot(ctx,slot,base,count*elem_bytes);
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,status);
+  return status;
 }
 
 void *autograph_exec_ctx_snapshot(sgpl_exec_ctx *ctx, int32_t slot) {
@@ -6851,6 +6858,7 @@ int32_t sgpl_exec_dag_round_spatial(const sgpl_round_spatial_plan *p,
 
 int32_t autograph_exec_ctx_bind_source_snapshot_range(sgpl_exec_ctx *ctx,int32_t slot,
     const void *base,int64_t count,int64_t elem_bytes) {
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,SGPL_DAG_ERR_INVALID);
   /* Sparse random loads lose to bulk copying for dense source domains. */
   if(!ctx||ctx->array_source_count<0||!ctx->array_sources||ctx->array_source_count>=count/8)
     return autograph_exec_ctx_bind_snapshot_range(ctx,slot,base,count,elem_bytes);
@@ -6867,6 +6875,7 @@ int32_t autograph_exec_ctx_bind_source_snapshot_range(sgpl_exec_ctx *ctx,int32_t
   } else for(int64_t i=0;i<ctx->array_source_count;++i) {
     int64_t u=ctx->array_sources[i];memcpy(out+u*elem_bytes,in+u*elem_bytes,(size_t)elem_bytes);
   }
+  sgpl_relax_note_snapshot(ctx,slot,base,count,elem_bytes,SGPL_DAG_OK);
   return SGPL_DAG_OK;
 }
 
@@ -6876,7 +6885,10 @@ int32_t autograph_exec_ctx_reserve_prepared_output(sgpl_exec_ctx *c) {
     c->array_work_count>(INT32_MAX-c->initial_next_size)/c->array_append_sites)
    return SGPL_DAG_ERR_INVALID;
  int64_t count=c->initial_next_size+c->array_work_count*c->array_append_sites;
+ SgplRelaxState *relax=sgpl_relax_state(c);
+ if(relax&&relax->active)count=c->initial_next_size+relax->original*c->array_append_sites;
  if(getenv("SGPL_FRONTIER_TEST_UNDERRESERVE"))count=0;
  int32_t rc=sgpl_frontier_resize(c->array_output_slot,c->array_output_capacity,count,0);
  if(rc<0)return rc;c->next_frontier=*c->array_output_slot;return 0;
 }
+#include "semantic_stage_runtime.inc"

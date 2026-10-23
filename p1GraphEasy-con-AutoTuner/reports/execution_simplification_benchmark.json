@@ -1,0 +1,273 @@
+{
+  "native_candidate_commit": "027c6397968aa7869f097bbf8434b49c215fa5f3",
+  "baseline_commit": "2b46cb5ded54132e98dc052bd2caf548d1acfcb4",
+  "candidate_source_hash": "67711d10950cddc961640b84b2eb4c6ae688c048492664da6bba32dd957969f0",
+  "host": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "cpu_model": "model name\t: AMD Ryzen 5 5500",
+    "physical_cpus": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "workers": 6,
+    "topology": [
+      {
+        "cpu": 0,
+        "package": "0",
+        "core": "0"
+      },
+      {
+        "cpu": 2,
+        "package": "0",
+        "core": "1"
+      },
+      {
+        "cpu": 4,
+        "package": "0",
+        "core": "2"
+      },
+      {
+        "cpu": 6,
+        "package": "0",
+        "core": "3"
+      },
+      {
+        "cpu": 8,
+        "package": "0",
+        "core": "4"
+      },
+      {
+        "cpu": 10,
+        "package": "0",
+        "core": "5"
+      }
+    ],
+    "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b"
+  },
+  "cases": 244,
+  "graphs_per_algorithm": 61,
+  "primary_repetitions": 5,
+  "confirmation_repetitions": 20,
+  "timing_observations": 30500,
+  "warmup_launches": 2440,
+  "failed_launches": 0,
+  "graptor_new_launches": 0,
+  "historical_graptor": {
+    "records": "/home/kazi/p1_effect_fusion_local_20261022/results/primary_w6.json",
+    "sha256": "008b32f422981cd9fb4adb1449c13edb4092f47d8f9e76fbe76f6a66f7e14a90",
+    "host": {
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "topology": [
+        {
+          "cpu": 0,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 1,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 2,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 3,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 4,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 5,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 6,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 7,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 8,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 9,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 10,
+          "package": "0",
+          "core": "5"
+        },
+        {
+          "cpu": 11,
+          "package": "0",
+          "core": "5"
+        }
+      ],
+      "quota_cores": null,
+      "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b",
+      "cpu_model": "model name\t: AMD Ryzen 5 5500",
+      "cpu_flags": "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm",
+      "cpu_identity": {
+        "vendor_id": "AuthenticAMD",
+        "cpu family": "25",
+        "model": "80",
+        "stepping": "0",
+        "microcode": "0xffffffff"
+      },
+      "physical_cpus": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "workers": 6,
+      "note": "Guest-reported topology; one CPU per visible physical core, bounded by CPU quota. Host mapping may be virtualized."
+    },
+    "precision": "double PageRank",
+    "note": "Prior local measurements, unpaired with this session; descriptive comparisons only. Graptor is never executed."
+  },
+  "paired_controls": {
+    "primary": {
+      "observations": 6100,
+      "AA_stable": true,
+      "confirmed_slowdowns": []
+    },
+    "confirmation": {
+      "observations": 24400,
+      "AA_stable": true,
+      "confirmed_slowdowns": []
+    }
+  },
+  "by_algorithm": {
+    "bfs": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 451.1623712813,
+        "candidate": 447.91016869245,
+        "disabled": 448.1786355726,
+        "baseline_AA": 449.5160133433,
+        "candidate_AA": 448.61470582215
+      },
+      "historical_graptor_total_ms": 482.6739678024,
+      "geomean_speedup_baseline_over_candidate": 1.0046893053096235,
+      "median_geomean_speedup": 1.005071844919752,
+      "summed_time_reduction_percent": 0.7208496975520728,
+      "kernel_geomean_speedup": 1.0074617145769875,
+      "kernel_summed_time_reduction_percent": 1.177642227848863,
+      "geomean_speedup_disabled_over_candidate": 1.0005688459814992,
+      "candidate_over_historical_graptor_geomean": 0.9928479881136324,
+      "candidate_wins_vs_historical_graptor": 23
+    },
+    "sssp": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 1242.75024892945,
+        "candidate": 1239.7549134705,
+        "disabled": 1234.84985515565,
+        "baseline_AA": 1231.9810781734,
+        "candidate_AA": 1230.6909413918
+      },
+      "historical_graptor_total_ms": 647.4009087548,
+      "geomean_speedup_baseline_over_candidate": 1.0017748945841267,
+      "median_geomean_speedup": 0.9995625860330506,
+      "summed_time_reduction_percent": 0.2410247321640302,
+      "kernel_geomean_speedup": 1.0038788377086125,
+      "kernel_summed_time_reduction_percent": 0.30864527877351167,
+      "geomean_speedup_disabled_over_candidate": 0.997376208091294,
+      "candidate_over_historical_graptor_geomean": 1.7958910060086855,
+      "candidate_wins_vs_historical_graptor": 6
+    },
+    "cc": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 1489.82229350685,
+        "candidate": 1488.98137424915,
+        "disabled": 1501.49602589975,
+        "baseline_AA": 1482.07660500735,
+        "candidate_AA": 1486.58793767415
+      },
+      "historical_graptor_total_ms": 500.8882206882,
+      "geomean_speedup_baseline_over_candidate": 1.0024010419282376,
+      "median_geomean_speedup": 1.0042742593869907,
+      "summed_time_reduction_percent": 0.0564442659614528,
+      "kernel_geomean_speedup": 1.0084157670664942,
+      "kernel_summed_time_reduction_percent": 0.09917890133791518,
+      "geomean_speedup_disabled_over_candidate": 1.000746458716013,
+      "candidate_over_historical_graptor_geomean": 1.4153545612508593,
+      "candidate_wins_vs_historical_graptor": 3
+    },
+    "pagerank": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 937.4765389309,
+        "candidate": 810.90988758295,
+        "disabled": 935.13416549245,
+        "baseline_AA": 937.2125993426,
+        "candidate_AA": 812.0414127797
+      },
+      "historical_graptor_total_ms": 497.3976693242,
+      "geomean_speedup_baseline_over_candidate": 1.199203486500712,
+      "median_geomean_speedup": 1.197931476137173,
+      "summed_time_reduction_percent": 13.50078066937941,
+      "kernel_geomean_speedup": 1.9556258167515952,
+      "kernel_summed_time_reduction_percent": 27.204214228827805,
+      "geomean_speedup_disabled_over_candidate": 1.1978674680757468,
+      "candidate_over_historical_graptor_geomean": 1.4821364061306097,
+      "candidate_wins_vs_historical_graptor": 2
+    },
+    "overall": {
+      "cases": 244,
+      "totals_ms": {
+        "baseline": 4121.2114526485,
+        "candidate": 3987.55634399505,
+        "disabled": 4119.65868212045,
+        "baseline_AA": 4100.78629586665,
+        "candidate_AA": 3977.9349976678
+      },
+      "historical_graptor_total_ms": 2128.3607665696,
+      "geomean_speedup_baseline_over_candidate": 1.0487792317133144,
+      "median_geomean_speedup": 1.0485106637009092,
+      "summed_time_reduction_percent": 3.243102427262168,
+      "kernel_geomean_speedup": 1.1883895108430147,
+      "kernel_summed_time_reduction_percent": 4.836073465206459,
+      "geomean_speedup_disabled_over_candidate": 1.0458266471292357,
+      "candidate_over_historical_graptor_geomean": 1.3906858630556334,
+      "candidate_wins_vs_historical_graptor": 34
+    }
+  },
+  "zero_corrected_slowdowns": true,
+  "timed_executable_fingerprints_verified": 488,
+  "ratio_direction": "Speedup = baseline/candidate; above one favors simplification. Graptor time ratios are candidate/historical Graptor; below one favors candidate.",
+  "historical_comparison_limitation": "Saved Graptor data are same-PC, same-input, six-worker observations from a previous run. No paired or statistical superiority claim is made against them.",
+  "artifacts": {
+    "root": "/mnt/c/p1-execution-simplification-benchmark-20261022",
+    "html": "/mnt/c/p1-execution-simplification-benchmark-20261022/final_report.html",
+    "csv": "/mnt/c/p1-execution-simplification-benchmark-20261022/per_graph_times.csv",
+    "full_summary": "/mnt/c/p1-execution-simplification-benchmark-20261022/final_summary.json",
+    "raw_records": "/home/kazi/p1_execution_simplification_benchmark_20261022/runs/execution_simplification"
+  },
+  "native_changes_during_measurement": false,
+  "merged_into_ARS1": false
+}

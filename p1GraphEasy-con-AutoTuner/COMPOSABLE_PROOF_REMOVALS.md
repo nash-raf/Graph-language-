@@ -2,8 +2,9 @@
 
 Branch: `codex/composable-proof-removals`, based on retained iteration-memory
 checkpoint `a74c93f3`. ARS-1 and the rejected SIMD/team/per-worker-reduction
-experiment are unchanged. These are correctness experiments; performance is
-unmeasured. There are no new cost models or changes to ARS/layout selection.
+experiment are unchanged. Correctness validation and the subsequently authorized
+local benchmark are recorded below. There are no new cost models or changes to
+ARS/layout selection.
 
 ## Composition
 
@@ -121,4 +122,41 @@ All 12 targeted TSan configurations pass, with the injected-race positive contro
 detected. The comparison disables exactly R13/R14/R15. WSL detector startup
 failures and empty startup crashes were retried and are recorded as separate
 attempts. Auxiliary OpenMP runs serially; actual SGPL workers are 1/2/6. These
-checks make no performance claim. Benchmark runs: zero.
+correctness checks contain no benchmark runs and make no performance claim.
+
+## Authorized local benchmark, 2026-10-24
+
+`tools/benchmark_proof_removals.py` compares the frozen retained iteration-memory
+baseline (`fc54b6f8`) with candidate native source `c8d5bbff`, plus candidate with
+R13--R15 disabled and identical-binary controls. ARS-1 remains unchanged.
+The corpus contains 61 graphs and four algorithms at six physical workers on
+this PC. Five primary and twenty independent confirmation observations per
+case/variant produced 30,500 timed observations and 2,440 warmups. Both blocks'
+identical-binary controls passed; no launches failed. The integrity audit passed
+and verified 488 executable fingerprints. No native source changed during timing.
+
+Confirmed geometric-mean speedup (retained baseline / candidate; above 1 wins):
+
+| Algorithm | Whole-process speedup | Whole-algorithm compute speedup | Whole-process wins vs baseline |
+| --- | ---: | ---: | ---: |
+| BFS | 0.997x | 0.994x | 25/61 |
+| SSSP | 1.190x | 1.364x | 60/61 |
+| CC | 0.994x | 0.988x | 26/61 |
+| PageRank | 1.032x | 1.106x | 47/61 |
+
+Compute includes algorithm preparation, not just pair callbacks. R13--R15
+disablement produces consistent SSSP and PageRank comparisons. CC is broadly
+flat, but `dimacs10/wing.edges` has a 7.3% mean whole-process slowdown confirmed
+by the paired permutation test with Holm correction (adjusted p = 0.0223).
+Win counts compare means and do not imply individual statistical significance.
+
+Graptor was not rerun. Comparisons reuse historical observations from this PC
+and are unpaired. Candidate whole-process wins against saved Graptor are BFS
+48/61, SSSP 56/61, CC 54/61 and PageRank 8/61; whole-algorithm compute wins are
+respectively 1/61, 0/61, 1/61 and 5/61. The SSSP compute gap therefore remains.
+
+Machine-readable audit: `reports/proof_removals_benchmark.json`. Full report,
+per-graph CSV, raw observations, executable identities and protocol are retained
+under `C:/p1-proof-removals-benchmark-20261024/`; the report entry point is
+`final_report.html`. Original benchmark reports and accepted binaries were not
+overwritten.

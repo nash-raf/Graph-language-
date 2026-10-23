@@ -3,7 +3,7 @@
 This extends R1â€“R9 on the experimental branch. It adds no cost model, trip
 threshold, sampling, calibration, or adaptive performance selection. All new
 guards concern semantics, representation, explicit disablement, or allocation
-failure. The semantic08 benchmark is retained separately; the subsequent R10/R11 repairs have correctness results only until new benchmarks are requested.
+failure. Correctness and benchmark campaigns use separate frozen versions and retain their evidence below.
 
 The original callbacks, lowered loop, and existing fallback remain present.
 An additive private descriptor and one pre-effect runtime attempt select an
@@ -118,7 +118,7 @@ The internal descriptor now uses version 2 with the same private layout and addi
 
 The frozen repair `semantic_repair01` (native source `7beb336d`) passes 2,196 independent corpus checks, 732 exact array groups, 183 exact PageRank bit groups, 361 IR checks, 4,260 native normal/ASan/UBSan cases, 405 generic generated-program cases, 12 weighted generated-row cases, and the existing contracts. Activation checks verify one topology validation per SSSP graph. All 36 targeted TSan checks passed; 54 mapping startup failures and five empty launch crashes are retained separately. TSan used the auxiliary-OpenMP limitation described above while retaining actual SGPL worker budgets of 1/2/6.
 
-Machine-readable repair evidence is in `reports/semantic_stage_repair_correctness.json`. R10 still requires source snapshots, stable ownership preparation and notification compaction, and does not yet compose all R6–R9 pruning rules. These are remaining costs; correctness results do not establish a performance recovery. No benchmarks were run for the repair.
+Machine-readable repair evidence is in `reports/semantic_stage_repair_correctness.json`. R10 still requires source snapshots, stable ownership preparation and notification compaction, and does not yet compose all R6–R9 pruning rules. These are remaining costs; correctness results do not establish a performance recovery. Those validation runs contained no benchmarks. The subsequent repair campaign is recorded in `reports/semantic_stage_repair_benchmark.json`.
 
 ## Composable execution planning
 
@@ -133,3 +133,9 @@ R10 first removes repeated source occurrences and initially ineffective contribu
 The internal descriptor is version 3. `SGPL_NO_EXEC_COMPOSITION=1` disables composed R6/R7 while retaining R10/R11/R12, enabling a same-binary control. Existing `SGPL_NO_RELAX_SIMPLIFY` also disables composed pruning. Compilation still honors individual R6/R7/R10/R11/R12 selections. Compiler diagnostics use `[exec-compose]`; validation-only runtime diagnostics report original/prepared pair counts. Benchmark runs leave those diagnostics disabled.
 
 `tools/validate_execution_composition.py` preserves previous correctness reports and validates rule-order independence, exact arrays and notifications, generic negative controls, mixed rule subsets, overflow, duplicate weights, allocation refusal, existing contracts, and targeted race checks before any benchmark.
+
+The frozen composition build `composition01` (native source `c59ce911`) passes 2,196 independent corpus checks, 732 exact array groups, 183 exact PageRank bit groups, 529 IR cases, 30,720 worklist cases across 120 registration orders and 32 rule subsets, 5,430 native normal/ASan/UBSan cases, 405 generic generated-program runs, 24 weighted generated-program runs, existing contracts, and 36 targeted TSan checks. The detector report retains 45 mapping startup failures and ten empty launch crashes separately, with the auxiliary-OpenMP limitation described above. Runtime validation confirms composed R6/R7 activation on all 61 SSSP graphs and reduces prepared contributions from 82,550,301 to 11,157,622. The R12 worklist body and public context header are unchanged.
+
+`reports/execution_composition_correctness.json` records the proof/test evidence. `reports/execution_composition_benchmark.json` records the later six-core campaign: 30,500 observations plus 2,440 warmups, stable primary and confirmation controls, no failed launches and no new Graptor launches. Against R1–R9, CC is 1.7342x faster geometrically with 83.13% less summed runtime. SSSP is 4.56% slower geometrically with 0.67% less summed runtime; 16/61 graphs have lower mean time. Composed SSSP is 1.6500x faster than the same binary with composition disabled. BFS and PageRank are effectively unchanged. Composition restores lost pruning but does not establish a universal performance improvement.
+
+The benchmark artifacts are saved separately at `C:/p1-execution-composition-benchmark-20261023`. Native code stayed fixed during measurement, saved Graptor observations were reused, calibration and ARS-1 remained unchanged, and no merge or performance-driven tuning was performed.

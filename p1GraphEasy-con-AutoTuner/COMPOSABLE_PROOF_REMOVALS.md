@@ -102,8 +102,8 @@ limitations separately from passing race checks.
 Run correctness stages with the existing WSL validation venv:
 
 ```
-python tools/validate_proof_removals.py all --version proof_removals02
+python tools/validate_proof_removals.py all --version proof_removals03
 ```
 
 Results: `reports/proof_removals_correctness.json`; external artifacts:
-`/home/kazi/p1_execution_simplification/versions/proof_removals02`.
+`/home/kazi/p1_execution_simplification/versions/proof_removals03`.

@@ -71,8 +71,12 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
       if(Fn->getName()=="autograph_exec_ctx_edge_weight"&&C->getMetadata("sgpl.relax.weight.accessor")){NeedWeighted=true;continue;}
       if(!Fn->isIntrinsic()||(Fn->getIntrinsicID()!=Intrinsic::assume&&Fn->getIntrinsicID()!=Intrinsic::lifetime_start&&Fn->getIntrinsicID()!=Intrinsic::lifetime_end))return Fail();
     }
-    if(auto *Op=dyn_cast<BinaryOperator>(&I))if(Op->getOpcode()==Instruction::SDiv||Op->getOpcode()==Instruction::UDiv||Op->getOpcode()==Instruction::SRem||Op->getOpcode()==Instruction::URem||
-        Op->getOpcode()==Instruction::FDiv||Op->getOpcode()==Instruction::FRem||Op->isShift())return Fail();
+    if(auto *Op=dyn_cast<BinaryOperator>(&I)) {
+      if(Op->getOpcode()==Instruction::SDiv||Op->getOpcode()==Instruction::UDiv||Op->getOpcode()==Instruction::SRem||Op->getOpcode()==Instruction::URem||
+          Op->getOpcode()==Instruction::FDiv||Op->getOpcode()==Instruction::FRem||Op->isShift())return Fail();
+      if((Op->getOpcode()==Instruction::Add||Op->getOpcode()==Instruction::Sub||Op->getOpcode()==Instruction::Mul)&&
+          (Op->hasNoSignedWrap()||Op->hasNoUnsignedWrap())&&!Op->getMetadata("sgpl.relax.weight.accessor"))return Fail();
+    }
   }
   if(!Source||!Old)return Fail();
   auto *SG=cast<GetElementPtrInst>(Source->getPointerOperand());auto *Snapshot=cast<LoadInst>(SG->getPointerOperand());int64_t Off=0;

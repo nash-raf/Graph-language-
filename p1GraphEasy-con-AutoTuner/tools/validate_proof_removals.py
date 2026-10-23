@@ -131,7 +131,7 @@ def report(d):
     print(json.dumps(dict(passed=True,independent_checks=checks['validation']['independent_checks'],exact_pagerank_groups=checks['validation']['exact_pagerank_groups'],benchmark_runs=0)),flush=True)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','structural','native','focused','fixtures','programs','iteration','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='proof_removals02');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','structural','native','focused','fixtures','programs','iteration','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='proof_removals03');a=p.parse_args()
     V.prepare();R.M.make_source_original=R.M.make_source
     R.M.make_source=lambda alg,row,val:S.without_timing(R.M.make_source_original(alg,row,val))
     d=V.ROOT/'versions'/a.version

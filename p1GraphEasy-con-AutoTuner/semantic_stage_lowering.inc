@@ -1,11 +1,12 @@
 /* Separate certificates: callback locality (R10), ordered private accumulator
  * (R11), and complete unobserved convergence with a finite-lattice operation
  * (R12). No algebraic property is inferred from a function/algorithm name. */
+#include "execution_simplification_worklist.h"
 namespace {
 using namespace llvm;
 struct SemanticRecipe {
   Function *Pair=nullptr;GlobalVariable *Array=nullptr,*WeightGraph=nullptr;
-  unsigned Bytes=0,Slot=0,Join=0;bool Weighted=false;
+  unsigned Bytes=0,Slot=0,Join=0;bool Weighted=false,Minimum=false;
 };
 static bool semanticAddress(Value *V,GlobalVariable *Array,Value *Index) {
   auto *G=dyn_cast<GetElementPtrInst>(V);auto *L=G?dyn_cast<LoadInst>(G->getPointerOperand()):nullptr;
@@ -73,6 +74,8 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
   if(NeedWeighted) {
     if(!KnownWeighted.Array||!KnownWeighted.Weighted||KnownWeighted.Array!=Array)return Fail();R.Weighted=true;R.WeightGraph=KnownWeighted.WeightGraph;
   }
+  R.Minimum=KnownWeighted.Array==R.Array&&KnownWeighted.SnapshotSlot==R.Slot&&
+      KnownWeighted.Weighted==R.Weighted&&KnownWeighted.WeightGraph==R.WeightGraph;
   // Only an exact strict-extremum transfer earns the finite-lattice license.
   BranchInst *EffectGuard=nullptr;
   if(!R.Weighted&&T->isIntegerTy(32)&&Store->getParent()==Append->getParent()&&Store->comesBefore(Append)&&Store->getParent()->hasNPredecessors(1)) {
@@ -278,7 +281,7 @@ static bool semanticConvergence(CallInst *Bind,Loop *L,CallInst *Execute,GlobalV
 }
 
 static void lowerSemanticStages(Module &M) {
-  unsigned Requested=executionSimplifyRules()&(512|1024|2048);if(!Requested)return;
+  unsigned Requested=executionSimplifyRules();if(!(Requested&(512|1024|2048)))return;
   SmallVector<CallInst *,8> Binds;
   for(Function &F:M)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *C=dyn_cast<CallInst>(&I))if(C->getMetadata("sgpl.relax.snapshot.bases"))Binds.push_back(C);
   for(auto *Bind:Binds) {
@@ -331,7 +334,12 @@ static void lowerSemanticStages(Module &M) {
     if(R.Weighted) {auto *Graph=dyn_cast<LoadInst>(Create->getArgOperand(0));if(!Graph||Graph->getPointerOperand()!=R.WeightGraph){R.Pair->eraseFromParent();Refuse("weight reads are not from the traversed immutable graph");continue;}}
     auto *CaptureBase=dyn_cast<LoadInst>(Capture->getArgOperand(2));auto *Slot=dyn_cast<ConstantInt>(Capture->getArgOperand(1));auto *Bytes=dyn_cast<ConstantInt>(Capture->getArgOperand(4));
     if(!CaptureBase||CaptureBase->getPointerOperand()!=R.Array||!Slot||Slot->getZExtValue()!=R.Slot||!Bytes||Bytes->getZExtValue()!=R.Bytes){R.Pair->eraseFromParent();Refuse("snapshot identity unavailable");continue;}
-    bool Whole=R.Join&&semanticConvergence(Bind,L,Execute,Capacity,R.Array,Pair,R.Pair);unsigned Rules=Requested&1536;if(Whole)Rules|=Requested&2048;
+    bool Whole=R.Join&&semanticConvergence(Bind,L,Execute,Capacity,R.Array,Pair,R.Pair);
+    uint64_t Facts=sgpl_execution::LocalCallback|sgpl_execution::StableSnapshot|sgpl_execution::DestinationOwner;
+    if(R.Minimum)Facts|=sgpl_execution::ImmutableMinimumCandidate;
+    if(Whole)Facts|=sgpl_execution::WholeClosure;
+    auto Composed=sgpl_execution::simplify(Facts,Requested,sgpl_execution::semanticRules());
+    unsigned Rules=Composed.rules;
     if(!Rules){R.Pair->eraseFromParent();Refuse("whole-loop observation proof unavailable");continue;}
     // Only the recognized buffer-swap tail is duplicated into the handled arm.
     SmallVector<Instruction *,8> Tail;bool After=false,Valid=true;
@@ -368,6 +376,14 @@ static void lowerSemanticStages(Module &M) {
     auto *T=StructType::get(M.getContext(),{I,I,I,I,I64,Ptr,Ptr,I,I,I,I});
     if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_semantic_stage_plan_v1))report_fatal_error("semantic descriptor mismatch");
     auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(SGPL_SEMANTIC_STAGE_VERSION),B.getInt32(sizeof(sgpl_semantic_stage_plan_v1)),B.getInt32(Rules),B.getInt32(R.Join),B.getInt64(sizeof(sgpl_exec_ctx)),R.Pair,Row?static_cast<Constant *>(Row):ConstantPointerNull::get(Ptr),B.getInt32(R.Bytes),B.getInt32(R.Slot),B.getInt32(R.Weighted),B.getInt32(0)}),"sgpl.semantic.stage.v1");
+    M.getOrInsertNamedMetadata("sgpl.execution.compositions")->addOperand(MDNode::get(M.getContext(),{
+      ValueAsMetadata::get(Pair),ConstantAsMetadata::get(B.getInt64(Composed.facts)),
+      ConstantAsMetadata::get(B.getInt32(Composed.rules)),ConstantAsMetadata::get(B.getInt32(Composed.rewrites)),
+      MDString::get(M.getContext(),"immutable callback/snapshot/ownership witnesses; monotone worklist before one lowering; R6/R7 require exact immutable signed-minimum candidate") }));
+    if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS")) {
+      errs()<<"[exec-compose] fixed-point rules="<<Rules<<" rewrites="<<Composed.rewrites<<" visits="<<Composed.visits<<"\n";
+      for(unsigned N:{5u,6u})if(Requested&(1u<<N))errs()<<"[exec-compose] R"<<N+1<<" "<<((Rules&(1u<<N))?"activate":"refuse")<<": immutable minimum candidate and selected traversal required\n";
+    }
     auto *Result=B.CreateCall(M.getOrInsertFunction("sgpl_try_semantic_stage_v1",FunctionType::get(I,{Ptr,Ptr,Ptr,I,Ptr,Ptr,Ptr,I64},false)),{Graph,Plan,Input,Size,Output,Capacity,B.CreateLoad(Ptr,R.Array),Extent},"semantic.result");
     auto *Handled=BasicBlock::Create(M.getContext(),"semantic.handled",Header->getParent());
     auto *Baseline=Header->splitBasicBlock(First,"semantic.baseline");Header->getTerminator()->eraseFromParent();B.SetInsertPoint(Header);B.CreateCondBr(B.CreateICmpSGE(Result,B.getInt32(0)),Handled,Baseline);

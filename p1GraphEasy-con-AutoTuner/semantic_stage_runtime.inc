@@ -133,6 +133,9 @@ typedef struct {
   AutoGraphMeta *meta;
   const int32_t *input,*sources;
   const int64_t *weights;
+  const int32_t *values;
+  uint8_t *keep;
+  uint32_t preparation;
   int32_t count,parts;
   int64_t positions[SGPL_SEMANTIC_LANES*SGPL_SEMANTIC_LANES];
   int64_t work[SGPL_SEMANTIC_LANES+1],offsets[SGPL_SEMANTIC_LANES+1];
@@ -142,14 +145,27 @@ typedef struct {
   const int32_t *row_sources;
   const int64_t *row_edges,*rows;
 } SgplSemanticDispatch;
+static int sgpl_semantic_keep_edge(const SgplSemanticDispatch *j,int32_t u,int64_t edge) {
+  if(!(j->preparation&64u))return 1;
+  int32_t candidate=j->values[u];
+  if(j->plan->weighted)candidate=(int32_t)((uint32_t)candidate+
+      (uint32_t)(j->meta->csr_weights?j->meta->csr_weights[j->weights[edge]]:1));
+  // Only the independently certified strict signed minimum reaches this test.
+  // Target values can only decrease; an initially ineffective candidate stays
+  // ineffective. Candidate arithmetic is the original modular i32 expression.
+  return candidate<j->values[j->meta->csr_col_idx[edge]];
+}
 static void sgpl_semantic_count(void *opaque,int32_t worker,int32_t width) {
   SgplSemanticDispatch *j=opaque;AutoGraphMeta *m=j->meta;
   for(int32_t chunk=worker;chunk<j->parts;chunk+=width) {
     int64_t *positions=j->positions+(size_t)chunk*j->parts,work=0;
     int64_t lo=(int64_t)j->count*chunk/j->parts,hi=(int64_t)j->count*(chunk+1)/j->parts;
     for(int64_t i=lo;i<hi;++i) {
-      int32_t u=j->input[i];work+=m->csr_row_ptr[u+1]-m->csr_row_ptr[u];
-      for(int64_t e=m->csr_row_ptr[u];e<m->csr_row_ptr[u+1];++e)++positions[m->csr_col_idx[e]%j->parts];
+      if(j->keep&&!j->keep[i])continue;
+      int32_t u=j->input[i];
+      for(int64_t e=m->csr_row_ptr[u];e<m->csr_row_ptr[u+1];++e)if(sgpl_semantic_keep_edge(j,u,e)) {
+        ++positions[m->csr_col_idx[e]%j->parts];++work;
+      }
     }
     j->work[chunk+1]=work;
   }
@@ -160,8 +176,9 @@ static void sgpl_semantic_fill(void *opaque,int32_t worker,int32_t width) {
     int64_t *positions=j->positions+(size_t)chunk*j->parts,ordinal=j->work[chunk];
     int64_t lo=(int64_t)j->count*chunk/j->parts,hi=(int64_t)j->count*(chunk+1)/j->parts;
     for(int64_t i=lo;i<hi;++i) {
+      if(j->keep&&!j->keep[i])continue;
       int32_t u=j->input[i];
-      for(int64_t e=m->csr_row_ptr[u];e<m->csr_row_ptr[u+1];++e) {
+      for(int64_t e=m->csr_row_ptr[u];e<m->csr_row_ptr[u+1];++e)if(sgpl_semantic_keep_edge(j,u,e)) {
         j->keys[positions[m->csr_col_idx[e]%j->parts]++]=((uint64_t)ordinal<<32)|(uint32_t)e;
         j->ctx.array_append_log[ordinal++]=-1;
       }
@@ -185,7 +202,8 @@ static void sgpl_semantic_execute(void *opaque,int32_t worker,int32_t width) {
 int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1 *p,
     const int32_t *input,int32_t count,int32_t **output,int64_t *capacity,void *values,int64_t extent) {
   if(!p||p->version!=SGPL_SEMANTIC_STAGE_VERSION||p->bytes!=sizeof(*p)||p->context_bytes!=sizeof(sgpl_exec_ctx)||
-      !p->rules||(p->rules&~(512u|1024u|2048u))||p->reserved||!p->pair||
+      !(p->rules&(512u|1024u|2048u))||(p->rules&~(32u|64u|512u|1024u|2048u))||p->reserved||!p->pair||
+      ((p->rules&SGPL_SEMANTIC_PREPARATION_RULES)&&(!(p->rules&1536u)||p->element_bytes!=4))||
       (p->element_bytes!=4&&p->element_bytes!=8)||p->snapshot_slot>=64||p->weighted>1||
       ((p->rules&2048u)&&(p->join<SGPL_JOIN_SMIN||p->join>SGPL_JOIN_AND||p->weighted||p->element_bytes!=4))||
       count<0||(!input&&count)||!output||!capacity||*capacity<0||extent<0||!values||
@@ -233,25 +251,44 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
     dispatch=calloc(1,sizeof(*dispatch));if(!dispatch)return -1;
     dispatch->meta=m;dispatch->input=input;dispatch->count=count;dispatch->sources=topology->sources;
     dispatch->weights=weight_indices;dispatch->plan=p;
+    dispatch->values=values;
+    dispatch->preparation=(getenv("SGPL_NO_EXEC_COMPOSITION")||getenv("SGPL_NO_RELAX_SIMPLIFY"))?0:p->rules&SGPL_SEMANTIC_PREPARATION_RULES;
+    if(mode==10&&(dispatch->preparation&32u)) {
+      uint64_t *seen=calloc((size_t)((n+63)/64?(n+63)/64:1),8);
+      dispatch->keep=malloc((size_t)(count?count:1));
+      if(!seen||!dispatch->keep){free(seen);goto refuse;}
+      for(int32_t i=0;i<count;++i) {
+        int32_t u=input[i];uint64_t mask=UINT64_C(1)<<(u&63),*word=seen+((uint32_t)u>>6);
+        dispatch->keep[i]=!(*word&mask);*word|=mask;
+      }
+      free(seen);
+    }
     int parts=sgpl_configured_worker_count(),budget=sgpl_current_thread_budget();
     if(budget>0&&parts>budget)parts=budget;
     if(parts<1||sgpl_is_worker_pool_thread())parts=1;
     if(parts>SGPL_SEMANTIC_LANES)parts=SGPL_SEMANTIC_LANES;
     dispatch->parts=parts;
     snapshot=malloc(bytes?bytes:1);snapshots=calloc((size_t)p->snapshot_slot+1,sizeof(void *));
-    log=malloc((size_t)(pairs?pairs:1)*4);
-    if(!snapshot||!snapshots||!log)goto refuse;
+    if(!snapshot||!snapshots)goto refuse;
+    int64_t prepared=pairs;
     if(mode==11) {
+      log=malloc((size_t)(pairs?pairs:1)*4);
       rows=calloc((size_t)n+1,8);pos=calloc((size_t)(n?n:1),4);
-      sources=malloc((size_t)(pairs?pairs:1)*4);edges=malloc((size_t)(pairs?pairs:1)*8);
-      if(!rows||!pos||!sources||!edges||!log)goto refuse;
-      for(int64_t e=0;e<pairs;++e){++rows[m->csr_col_idx[e]+1];log[e]=-1;}
-      for(int64_t v=0;v<n;++v)rows[v+1]+=rows[v];
+      if(!rows||!pos||!log)goto refuse;
+      if(!log)goto refuse;
       for(int32_t u=0;u<n;++u)for(int64_t e=m->csr_row_ptr[u];e<m->csr_row_ptr[u+1];++e) {
-        int32_t v=m->csr_col_idx[e];int64_t at=rows[v]+pos[v]++;sources[at]=u;edges[at]=e;
+        if(sgpl_semantic_keep_edge(dispatch,u,e))++rows[m->csr_col_idx[e]+1];log[e]=-1;
       }
+      for(int64_t v=0;v<n;++v)rows[v+1]+=rows[v];
+      sources=malloc((size_t)(rows[n]?rows[n]:1)*4);edges=malloc((size_t)(rows[n]?rows[n]:1)*8);
+      if(!sources||!edges)goto refuse;
+      for(int32_t u=0;u<n;++u)for(int64_t e=m->csr_row_ptr[u];e<m->csr_row_ptr[u+1];++e) {
+        if(sgpl_semantic_keep_edge(dispatch,u,e)) {
+          int32_t v=m->csr_col_idx[e];int64_t at=rows[v]+pos[v]++;sources[at]=u;edges[at]=e;
+        }
+      }
+      prepared=rows[n];
     } else {
-      dispatch->keys=malloc((size_t)(pairs?pairs:1)*8);if(!dispatch->keys)goto refuse;
       sgpl_run_preparation(sgpl_semantic_count,dispatch,parts);
       for(int chunk=0;chunk<parts;++chunk)dispatch->work[chunk+1]+=dispatch->work[chunk];
       int64_t at=0;
@@ -262,6 +299,10 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
         }
       }
       dispatch->offsets[parts]=at;
+      prepared=at;
+      dispatch->keys=malloc((size_t)(prepared?prepared:1)*8);
+      log=malloc((size_t)(prepared?prepared:1)*4);
+      if(!dispatch->keys||!log)goto refuse;
     }
     /* This is the original worst-case output reservation, before effects. */
     if(sgpl_frontier_resize(output,capacity,pairs,0)<0)goto refuse;
@@ -274,8 +315,9 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
     dispatch->ctx=ctx;dispatch->rows=rows;dispatch->row_sources=sources;dispatch->row_edges=edges;
     if(mode==10)sgpl_run_preparation(sgpl_semantic_fill,dispatch,parts);
     sgpl_run_preparation(sgpl_semantic_execute,dispatch,parts);
-    for(int64_t e=0;e<pairs;++e)if(log[e]>=0)(*output)[head++]=log[e];
-    free(dispatch->keys);free(dispatch);
+    for(int64_t e=0;e<(mode==11?pairs:prepared);++e)if(log[e]>=0)(*output)[head++]=log[e];
+    if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[exec-compose] R%u rules=%u original=%lld prepared=%lld\n",mode,dispatch->preparation,(long long)pairs,(long long)prepared);
+    free(dispatch->keep);free(dispatch->keys);free(dispatch);
     free(snapshot);free(snapshots);free(rows);free(pos);free(sources);free(edges);free(log);
     if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[semantic-stage] R%u complete pairs=%lld output=%d\n",mode,(long long)pairs,head);
     return head;
@@ -284,6 +326,6 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
   if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[semantic-stage] R12 complete (whole fixed point)\n");
   return 0;
 refuse:
-  if(dispatch){free(dispatch->keys);free(dispatch);}
+  if(dispatch){free(dispatch->keep);free(dispatch->keys);free(dispatch);}
   free(snapshot);free(snapshots);free(rows);free(pos);free(sources);free(edges);free(log);free(work);return -1;
 }

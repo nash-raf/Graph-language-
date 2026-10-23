@@ -6,6 +6,16 @@ static int operation;
 static void *active;
 static atomic_int weight_fallbacks;
 static atomic_uint worker_mask;
+static atomic_int minimum_calls;
+static void minimum_pair(void *state,sgpl_exec_ctx *ctx,int32_t u,int32_t v) {
+  (void)state;atomic_fetch_add(&minimum_calls,1);
+  int32_t *a=active,*s=ctx->spatial_snapshots[0];
+  int32_t candidate=(int32_t)((uint32_t)s[u]+(uint32_t)autograph_exec_ctx_edge_weight(ctx,ctx->graph,u,v));
+  if(candidate<a[v]){a[v]=candidate;sgpl_semantic_activate_v1(ctx,v);}
+}
+static void minimum_row(sgpl_exec_ctx *ctx,int32_t v,const int32_t *sources,const int64_t *edges,int64_t first,int64_t last) {
+  for(int64_t e=first;e<last;++e){ctx->array_work_ordinal=edges[e];ctx->array_edge_index=ctx->array_record_edges[edges[e]];minimum_pair(NULL,ctx,sources[e],v);}
+}
 int32_t graph_get_edge_weight(void *opaque,int32_t u,int32_t v) {
   ExecTestGraph *g=opaque;atomic_fetch_add(&weight_fallbacks,1);
   for(int64_t e=g->row_ptr[u];e<g->row_ptr[u+1];++e)if(g->col_idx[e]==v)return g->weights?g->weights[e]:1;
@@ -85,7 +95,7 @@ int main(void) {
   }
   operation=4;int32_t values[5]={5,4,3,2,1},copy[5],*out=NULL;int64_t cap=0;
   sgpl_semantic_stage_plan_v1 plan={SGPL_SEMANTIC_STAGE_VERSION,sizeof(plan),512,0,sizeof(sgpl_exec_ctx),pair,row,4,0,0,0};active=values;
-  for(int fault=0;fault<13;++fault) {
+  for(int fault=0;fault<15;++fault) {
     memcpy(copy,values,sizeof copy);sgpl_semantic_stage_plan_v1 p=plan;
     if(fault==0)++p.version;if(fault==1)--p.bytes;if(fault==2)--p.context_bytes;if(fault==3)p.rules=4096;
     if(fault==4)p.element_bytes=3;if(fault==5)p.snapshot_slot=64;if(fault==6)p.reserved=1;
@@ -93,6 +103,7 @@ int main(void) {
     if(fault==8)setenv("SGPL_NO_EXEC_SIMPLIFY","1",1);
     if(fault==9)atomic_store(&fail_malloc,1);if(fault==10)atomic_store(&fail_calloc,1);
     if(fault==12)p.version=1; /* Old runtime cannot execute the new row ABI contract. */
+    if(fault==13)p.version=2;if(fault==14)p.rules=96;
     int r=sgpl_try_semantic_stage_v1(&graph,&p,sources[0],5,&out,&cap,values,fault==11?4:5);
     check(r==-1&&!memcmp(values,copy,sizeof copy)&&!out&&cap==0,"descriptor/bounds/disable/allocation refusal before effects");
     atomic_store(&fail_malloc,0);atomic_store(&fail_calloc,0);unsetenv("SGPL_NO_EXEC_SIMPLIFY");++checks;
@@ -162,6 +173,27 @@ int main(void) {
           free(out);++checks;
         }
       }
+    }
+    for(unsigned rules=512;rules<2048;rules+=512)for(unsigned pruning=32;pruning<=96;pruning+=32)
+    for(int order=0;order<3;++order)for(int data=0;data<4;++data)for(int disabled=0;disabled<2;++disabled) {
+      if(rules==1024&&order)continue;
+      int32_t a[5],b[5],snapshot[5],expected[128];int head=0;
+      for(int i=0;i<5;++i)a[i]=data==0?INT32_MIN:(int32_t)((uint32_t)data*2654435761u+(uint32_t)i*2246822519u);
+      memcpy(b,a,sizeof a);memcpy(snapshot,a,sizeof a);
+      for(int i=0;i<counts[order];++i)for(int64_t e=wr[sources[order][i]];e<wr[sources[order][i]+1];++e) {
+        int32_t u=sources[order][i],v=wc[e];
+        int32_t candidate=(int32_t)((uint32_t)snapshot[u]+(uint32_t)graph_get_edge_weight(&weighted,u,v));
+        if(candidate<a[v]){a[v]=candidate;expected[head++]=v;}
+      }
+      active=b;out=NULL;cap=0;atomic_store(&minimum_calls,0);atomic_store(&weight_fallbacks,0);
+      if(disabled)setenv("SGPL_NO_EXEC_COMPOSITION","1",1);
+      sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),rules|pruning,0,sizeof(sgpl_exec_ctx),minimum_pair,minimum_row,4,0,1,0};
+      int got=sgpl_try_semantic_stage_v1(&weighted,&p,sources[order],counts[order],&out,&cap,b,5);
+      unsetenv("SGPL_NO_EXEC_COMPOSITION");
+      check(got==head&&!memcmp(a,b,sizeof a)&&!memcmp(out,expected,(size_t)head*4),"composed R6/R7 preserve exact weighted minimum notifications and modular overflow");
+      check(!atomic_load(&weight_fallbacks),"composed callbacks retain direct first-match weight access");
+      if(!data&&!disabled&&(pruning&64))check(!atomic_load(&minimum_calls),"R7 eliminates all ineffective contributions before callback execution");
+      free(out);++checks;
     }
   }
   printf("semantic runtime: %u cases, %d failures\n",checks,failures);return failures?1:0;

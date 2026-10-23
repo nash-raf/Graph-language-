@@ -13,7 +13,8 @@ int main(int argc,char **argv) {
     B.SetInsertPoint(BasicBlock::Create(C,"entry",F));B.CreateMemCpy(F->getArg(0),MaybeAlign(8),F->getArg(1),MaybeAlign(8),8);B.CreateRetVoid();
     SmallPtrSet<Function *,16> Seen;require(!semanticInitClosure(F,Seen),"unknown bulk memory publication refuses initialization summary");++Checks;
   }
-  for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28,30,31,32,33,34,35,36,37,38,39,40,43,44,45,46,47,48,49,50,51}) {
+  for(unsigned Prep=0;Prep<4;++Prep)for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28,30,31,32,33,34,35,36,37,38,39,40,43,44,45,46,47,48,49,50,51}) {
+    if(Prep&&Negative!=0&&Negative!=30&&Negative!=35&&Negative!=37&&Negative!=38&&Negative!=39&&Negative!=50)continue;
     LLVMContext C;auto M=fixture(C,Negative>=30?0:Negative);
     auto *F=M->getFunction("main");auto *Pair=M->getFunction("pair");
     auto *Capacity=new GlobalVariable(*M,Type::getInt64Ty(C),false,GlobalValue::InternalLinkage,ConstantInt::get(Type::getInt64Ty(C),4),"cap");
@@ -77,12 +78,15 @@ int main(int argc,char **argv) {
     if(Negative==51){IRBuilder<> B(cast<CallInst>(Bind->getArgOperand(0)));auto *Saved=B.CreateLoad(B.getInt32Ty(),M->getGlobalVariable("side",true));B.SetInsertPoint(Execute->getParent()->getTerminator());B.CreateStore(Saved,M->getGlobalVariable("side",true));Expected=0;}
     std::string Rules;
     for(unsigned I=0;I<3;++I)if(Subset&(1u<<I)){if(!Rules.empty())Rules+=",";Rules+="R"+std::to_string(I+10);}
+    for(unsigned I=0;I<2;++I)if(Prep&(1u<<I)){if(!Rules.empty())Rules+=",";Rules+="R"+std::to_string(I+6);}
+    if(Negative==0&&(Expected&1536u))Expected|=Prep<<5;
     setenv("SGPL_EXEC_SIMPLIFY_RULES",Rules.empty()?"none":Rules.c_str(),1);
     require(!verifyModule(*M,&errs()),"adapted fixture verifies");lowerSemanticStages(*M);
     require(!verifyModule(*M,&errs()),"semantic transformation verifies");
     unsigned Actual=mask(*M);
     if(Actual!=Expected){errs()<<"subset="<<Subset<<" negative="<<Negative<<" expected="<<Expected<<" actual="<<Actual<<"\n";require(false,"separate rule applicability");}
     require(M->getFunction("pair")&&!M->getFunction("pair")->empty(),"baseline callback retained");
+    if(Actual)require(M->getNamedMetadata("sgpl.execution.compositions")&&M->getNamedMetadata("sgpl.execution.compositions")->getNumOperands()==1,"one proof-carrying fixed-point plan, one lowering");
     if(Actual&1024) {
       Function *Row=nullptr;for(Function &Fn:*M)if(Fn.getName().starts_with("sgpl.semantic.ordered_row"))Row=&Fn;
       require(Row&&!Row->empty(),"ordered row realization exists");

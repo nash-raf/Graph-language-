@@ -9,6 +9,13 @@ PROBE=Path('/home/kazi/p1_iteration_memory_inspect')
 
 def probe(d=None):
     out=PROBE;out.mkdir(exist_ok=True)
+    if not (out/'pre.ll').exists():
+        for ll in (V.BASE/'src').glob('*.ll'):
+            if not (out/ll.name).exists():(out/ll.name).symlink_to(ll)
+        (out/'probe.graph').write_text(R.M.make_source_original('pagerank',R.M.ROWS[0],True))
+        env=R.M.env();env.update(FORCE_CPU='1',DUMP_LLVM_BC_PRE_PDG=str(out/'pre.bc'))
+        R.checked([V.BASE/'GraphProgram','--ir-backend=cpu','--emit-ir-to='+str(out/'original.ll'),out/'probe.graph'],out,out/'original-build.log',env)
+        R.checked(['llvm-dis-20',out/'pre.bc','-o',out/'pre.ll'],out,out/'disassemble.log')
     R.checked(['g++','-O0','-g0','-I.',V.REPO/'test/iteration_memory_ir_test.cpp',
         *R.cfg('--cxxflags'),*R.cfg('--ldflags'),*R.cfg('--libs','all'),*R.cfg('--system-libs'),
         '-o',out/'ir-test'],V.REPO,out/'ir-build.log')
@@ -173,7 +180,7 @@ def report(d):
     print(json.dumps(dict(passed=True,exact_array_groups=arrays,independent_checks=checks['validation']['independent_checks'],exact_pagerank_groups=checks['validation']['exact_pagerank_groups']),indent=2),flush=True)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','native','build','smoke','programs','fixtures','focused','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='iteration_memory05');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','native','build','smoke','programs','fixtures','focused','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='iteration_memory06');a=p.parse_args()
     V.prepare();R.M.make_source_original=R.M.make_source
     R.M.make_source=lambda alg,row,val:S.without_timing(R.M.make_source_original(alg,row,val))
     d=V.ROOT/'versions'/a.version

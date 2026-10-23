@@ -21,7 +21,7 @@ int32_t sgpl_try_iteration_memory_v1(void *graph,const sgpl_iteration_memory_pla
      getenv("SGPL_NO_EXEC_SIMPLIFY")||getenv("SGPL_NO_FULLGRAPH")||getenv("SGPL_NO_ITERATION_MEMORY")||
      (getenv("SGPL_GPU_BACKEND")&&strcmp(getenv("SGPL_GPU_BACKEND"),"0")))return 0;
   AutoGraphMeta *m=find_meta(graph);
-  if(!m||m->current_layout!=LAYOUT_CSR||m->csr_n<0||m->csr_n>INT32_MAX||
+  if(!m||m->current_layout!=LAYOUT_CSR||m->csr_n<0||m->csr_n>INT32_MAX||*(int64_t *)graph!=m->csr_n||
       m->csr_row_ptr!=*(int64_t **)((char *)graph+16)||m->csr_col_idx!=*(int32_t **)((char *)graph+24)||
       (uint64_t)m->csr_n>SIZE_MAX/p->stride||(uint64_t)m->csr_n>SIZE_MAX/8)return 0;
   size_t bytes=(size_t)m->csr_n*8;

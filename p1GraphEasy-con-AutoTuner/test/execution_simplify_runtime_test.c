@@ -17,7 +17,7 @@ static void iteration_kernel(void *state,sgpl_exec_ctx *c,int32_t lo,int32_t hi,
 }
 static void iteration_cases(ExecTestGraph *g) {
   double initial[]={1e16,-1e16,1.0,-0.0,0.0,INFINITY,NAN};
-  for(int data=0;data<4;++data)for(int rounds=1;rounds<=20;rounds+=rounds<3?1:17)for(int failure=0;failure<8;++failure) {
+  for(int data=0;data<4;++data)for(int rounds=1;rounds<=20;rounds+=rounds<3?1:17)for(int failure=0;failure<9;++failure) {
     double a[7],b[7],want[7],next[7];memcpy(a,initial,sizeof a);if(data==1)a[5]=0.0;if(data==2)a[0]=NAN;
     memcpy(want,a,sizeof a);for(int i=0;i<7;++i)b[i]=next[i]=123.0;
     double seed=data==3?-0.0:0.15;
@@ -25,8 +25,10 @@ static void iteration_cases(ExecTestGraph *g) {
     iteration_source=a;iteration_destination=b;
     sgpl_iteration_memory_plan_v1 p={1,sizeof(p),(void *)iteration_kernel,iteration_gate,&iteration_source,&iteration_destination,iteration_kernel,iteration_map,8};
     if(failure==1)++p.version;if(failure==2)--p.bytes;if(failure==3)p.kernel=NULL;
-    if(failure>=4)atomic_store(&fail_malloc,failure-3);
+    if(failure>=4&&failure<8)atomic_store(&fail_malloc,failure-3);
+    if(failure==8)--g->n;
     int result=sgpl_try_iteration_memory_v1(g,&p,seed,rounds);atomic_store(&fail_malloc,0);
+    if(failure==8){++g->n;check(!result,"graph header and certified native extent mismatch refuses before effects");}
     check(iteration_source==a&&iteration_destination==b,"iteration buffer identities are restored");
     if(result)check(!memcmp(a,want,sizeof a)&&!memcmp(b,want,sizeof b),"seed/map/rotation preserve exact bits, empty rows and both final arrays");
     else {double original[7];memcpy(original,initial,sizeof original);if(data==1)original[5]=0.0;if(data==2)original[0]=NAN;check(!memcmp(a,original,sizeof a)&&b[0]==123.0,"iteration descriptor/allocation refusal precedes user effects");}

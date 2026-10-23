@@ -13,6 +13,27 @@ int main(int argc,char **argv) {
     B.SetInsertPoint(BasicBlock::Create(C,"entry",F));B.CreateMemCpy(F->getArg(0),MaybeAlign(8),F->getArg(1),MaybeAlign(8),8);B.CreateRetVoid();
     SmallPtrSet<Function *,16> Seen;require(!semanticInitClosure(F,Seen),"unknown bulk memory publication refuses initialization summary");++Checks;
   }
+  for(unsigned Negative=0;Negative<6;++Negative) {
+    LLVMContext C;auto M=fixture(C,24);auto *Pair=M->getFunction("pair");CallInst *Bind=nullptr,*Weight=nullptr;
+    for(BasicBlock &BB:*M->getFunction("main"))for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getName()=="bind")Bind=Call;
+    StoreInst *Store=nullptr;LoadInst *Old=nullptr;
+    for(BasicBlock &BB:*Pair)for(Instruction &I:BB) {
+      if(auto *S=dyn_cast<StoreInst>(&I))Store=S;
+      if(auto *L=dyn_cast<LoadInst>(&I))if(L->getName()=="old")Old=L;
+      if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()->getName()=="autograph_exec_ctx_edge_weight")Weight=Call;
+    }
+    require(Store&&Old&&Bind&&Weight,"general weighted fixture landmarks");
+    IRBuilder<> B(Store);Store->setOperand(0,B.CreateSub(Old,Store->getValueOperand()));
+    if(Negative==1)Weight->setArgOperand(2,Pair->getArg(3));
+    if(Negative==2)Weight->setMetadata("sgpl.relax.weight.accessor",nullptr);
+    if(Negative==3)M->getGlobalVariable("graph",true)->setLinkage(GlobalValue::ExternalLinkage);
+    if(Negative==4)for(BasicBlock &BB:*Pair)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(L->getName()=="nativeweight")L->setVolatile(true);
+    if(Negative==5)for(BasicBlock &BB:*Pair)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(L->getName()=="nativeweight")L->setMetadata("sgpl.relax.weight.accessor",nullptr);
+    auto R=semanticRecipe(Pair,Bind->getMetadata("sgpl.relax.snapshot.bases"));
+    require(!!R.Pair==(Negative==0),"general weight provenance requires exact args, compiler leaf, private graph and ordinary proven reads");
+    if(R.Pair){require(R.Weighted&&!R.Minimum&&!R.Join,"nonfoldable weighted code earns no minimum/set/fixed-point license");R.Pair->eraseFromParent();}
+    ++Checks;
+  }
   for(unsigned Extra=0;Extra<2;++Extra)for(unsigned Prep=0;Prep<4;++Prep)for(unsigned Subset=0;Subset<8;++Subset)for(unsigned Negative:{0,1,2,3,4,5,6,7,8,9,11,12,13,14,16,17,18,19,20,22,23,24,25,26,28,30,31,32,33,34,35,36,37,38,39,40,43,44,45,46,47,48,49,50,51}) {
     if(Extra&&(Prep||Subset!=1||(Negative!=0&&Negative!=30&&Negative!=31&&Negative!=32&&Negative!=49)))continue;
     if(Prep&&Negative!=0&&Negative!=30&&Negative!=35&&Negative!=37&&Negative!=38&&Negative!=39&&Negative!=50)continue;

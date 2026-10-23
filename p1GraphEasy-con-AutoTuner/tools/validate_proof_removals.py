@@ -68,6 +68,7 @@ while (frontier_size > 0) {{ next_size = 0; int k = 0;
 }}
 print "VALUES_BEGIN"; int z = 0; while (z < n) {{ print value[z]; z = z + 1; }} print "VALUES_END";
 '''
+    sources['weighted_other_graph']=sources['weighted_unique'].replace('int n =',f'graph H {{ directed: true; edges: file "{out / "unique.wel"}"; TRUE }};\nint n =').replace('weight(G,u,v)','weight(H,u,v)')
     for name,source in sources.items():
       reference=None;reference_bits=None
       for subset in range(8):
@@ -123,6 +124,8 @@ def report(d):
         benchmark_runs=0,new_cost_models=0,performance_claim=None,r12_unchanged=True,
         rules=['R13 immutable edge-entailed gate','R14 bounded set output and circulating range induction','R15 topology identity for first-match weights'],
         composition=dict(shared_compiler_and_runtime_worklist=True,missing_facts_refuse=True,runtime_subsets=512,compiler_order_subset_cases=524288),
+        validation_sources={name:R.sha(V.REPO/name) for name in ['tools/validate_proof_removals.py','test/execution_simplification_worklist_test.cpp',
+            'test/iteration_memory_ir_test.cpp','test/semantic_stage_ir_test.cpp','test/execution_simplify_runtime_test.c','test/semantic_stage_runtime_test.c']},
         artifact_root=str(d))
     R.save(d/'proof_removals_correctness.json',payload);R.save(V.REPO/'reports/proof_removals_correctness.json',payload)
     print(json.dumps(dict(passed=True,independent_checks=checks['validation']['independent_checks'],exact_pagerank_groups=checks['validation']['exact_pagerank_groups'],benchmark_runs=0)),flush=True)

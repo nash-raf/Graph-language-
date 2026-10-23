@@ -106,13 +106,17 @@ static int32_t sgpl_semantic_set_round(AutoGraphMeta *m,const sgpl_semantic_stag
   for(int part=0;part<parts;++part){s->offsets[part]=at;for(int chunk=0;chunk<parts;++chunk){int64_t *c=&s->cells[chunk*parts+part],size=*c;*c=at;at+=size;}}
   s->offsets[parts]=at;
   if((uint64_t)at>SIZE_MAX/8||!sgpl_semantic_grow((void **)&s->keys,&s->key_bytes,(size_t)at*8))goto done;
-  // Reserve the original worst-case output before any destination effects.
-  if(sgpl_frontier_resize(output,capacity,pairs,0)<0)goto done;
+  // R14 supplies the vertex bound instead of a degree sum. The retained
+  // candidate count is already available, and is an independent upper bound
+  // on emitted IDs. Intersect the bounds; sparse rounds need no n-sized reserve.
+  int bounded=(p->rules&SGPL_EXEC_R14)&&!getenv("SGPL_NO_PROOF_REMOVALS");
+  int64_t reserve_bound=bounded&&at<pairs?at:pairs;
+  if(sgpl_frontier_resize(output,capacity,reserve_bound,0)<0)goto done;
   sgpl_run_preparation(direct?sgpl_semantic_set_fill_direct:sgpl_semantic_set_fill,s,parts);
   sgpl_run_preparation(sgpl_semantic_set_execute,s,parts);
   result=0;int64_t stride=s->n/parts+1;
   for(int part=0;part<parts;++part)if(s->used[part]){memcpy(*output+result,s->changed+part*stride,(size_t)s->used[part]*4);result+=(int32_t)s->used[part];}
-  if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[iteration-memory] R8 set original=%lld candidates=%lld changed=%d capture=%d\n",(long long)pairs,(long long)at,result,count);
+  if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[iteration-memory] R8 set reserve_bound=%lld candidates=%lld changed=%d capture=%d\n",(long long)reserve_bound,(long long)at,result,count);
   if(getenv("SGPL_SEMANTIC_STAGE_STATS")&&allow_identity)fprintf(stderr,"[proof-removals] R15 %s: %s\n",direct?"activate":"refuse",direct?"first-match identity; direct weight workers":"duplicate neighbors; retain first-match map");
 done:s->busy=0;return result;
 }

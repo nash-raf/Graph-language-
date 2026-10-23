@@ -75,6 +75,13 @@ static void frontier_removal_cases(void) {
   for(int u=0;u<5;++u)for(int64_t e=rows[u];e<rows[u+1];++e){ep[2*e]=u;ep[2*e+1]=cols[e];}
   graph=(ExecTestGraph){.n=5,.m=8,.row_ptr=rows,.col_idx=cols,.weights=weights,.directed=1};
   native_pairs=ep;autograph_init(&graph,5,8,NULL,NULL,ep);autograph_ensure_layout(&graph,5,8,rows,cols,&fixture_nodes,&fixture_edges,ep,LAYOUT_CSR);
+  {
+    int32_t values[]={1,2,3,4,5},isolated=4,*out=NULL;int64_t cap=0;
+    sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),512|128|SGPL_EXEC_R14,0,sizeof(sgpl_exec_ctx),minimum_pair,NULL,4,0,0,0};
+    check(sgpl_try_semantic_stage_v1(&graph,&p,&isolated,1,&out,&cap,values,5)==0&&!out&&!cap&&values[4]==5,
+        "R14 intersects exact bounds: no contribution needs no whole-graph frontier reservation");
+    free(out);
+  }
   for(int duplicate=0;duplicate<2;++duplicate)for(int subset=0;subset<4;++subset)for(int disabled=0;disabled<2;++disabled) {
     cols[1]=duplicate?0:1;autograph_record_adjacency_state(&graph,5,8,rows,cols);
     sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),512|128|(subset&1?SGPL_EXEC_R14:0)|(subset&2?SGPL_EXEC_R15:0),0,sizeof(sgpl_exec_ctx),minimum_pair,NULL,4,0,1,0};

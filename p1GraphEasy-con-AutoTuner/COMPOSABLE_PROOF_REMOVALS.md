@@ -44,7 +44,8 @@ descriptor and callback identities before selecting its clones.
 
 Only R8's separately certified minimum/set producer may establish the bounded
 output fact. It emits at most `n` unique, valid destination IDs, regardless of
-input duplicates or outgoing degree. Reserve against `n` instead of summing
+input duplicates or outgoing degree. Reserve against `min(n, candidates)` using
+the retained contribution count already computed by R8, instead of summing
 input degrees; no other R8 consumer needs that sum. The range check remains for
 the initial input and every input without an inherited producer witness.
 
@@ -102,8 +103,8 @@ limitations separately from passing race checks.
 Run correctness stages with the existing WSL validation venv:
 
 ```
-python tools/validate_proof_removals.py all --version proof_removals03
+python tools/validate_proof_removals.py all --version proof_removals04
 ```
 
 Results: `reports/proof_removals_correctness.json`; external artifacts:
-`/home/kazi/p1_execution_simplification/versions/proof_removals03`.
+`/home/kazi/p1_execution_simplification/versions/proof_removals04`.

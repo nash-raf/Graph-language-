@@ -118,6 +118,11 @@ static Function *semanticRow(Module &M,const SemanticRecipe &R) {
   B.SetInsertPoint(Loop);auto *At=B.CreatePHI(L,2,"incoming.index");At->addIncoming(F->getArg(4),Init);B.CreateCondBr(B.CreateICmpSLT(At,F->getArg(5)),Body,Flush);
   B.SetInsertPoint(Body);auto *U=B.CreateLoad(I,B.CreateGEP(I,F->getArg(2),At));auto *Key=B.CreateLoad(L,B.CreateGEP(L,F->getArg(3),At));
   B.CreateStore(Key,B.CreateGEP(B.getInt8Ty(),F->getArg(0),B.getInt64(offsetof(sgpl_exec_ctx,array_work_ordinal))));
+  if(R.Weighted) {
+    auto *First=B.CreateLoad(P,B.CreateGEP(B.getInt8Ty(),F->getArg(0),B.getInt64(offsetof(sgpl_exec_ctx,array_record_edges))));
+    auto *Index=B.CreateLoad(L,B.CreateGEP(L,First,Key));
+    B.CreateStore(Index,B.CreateGEP(B.getInt8Ty(),F->getArg(0),B.getInt64(offsetof(sgpl_exec_ctx,array_edge_index))));
+  }
   auto *Call=B.CreateCall(R.Pair,{ConstantPointerNull::get(P),F->getArg(0),U,F->getArg(1)});auto *Next=B.CreateAdd(At,B.getInt64(1));B.CreateBr(Loop);At->addIncoming(Next,Body);
   B.SetInsertPoint(Flush);B.CreateCondBr(B.CreateLoad(B.getInt1Ty(),Dirty),Write,Done);
   B.SetInsertPoint(Write);B.CreateStore(B.CreateLoad(T,Acc),Address);B.CreateBr(Done);B.SetInsertPoint(Done);B.CreateRetVoid();
@@ -362,7 +367,7 @@ static void lowerSemanticStages(Module &M) {
     if(GraphSlot)Graph=B.CreateLoad(Ptr,GraphSlot,"semantic.graph");
     auto *T=StructType::get(M.getContext(),{I,I,I,I,I64,Ptr,Ptr,I,I,I,I});
     if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_semantic_stage_plan_v1))report_fatal_error("semantic descriptor mismatch");
-    auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_semantic_stage_plan_v1)),B.getInt32(Rules),B.getInt32(R.Join),B.getInt64(sizeof(sgpl_exec_ctx)),R.Pair,Row?static_cast<Constant *>(Row):ConstantPointerNull::get(Ptr),B.getInt32(R.Bytes),B.getInt32(R.Slot),B.getInt32(R.Weighted),B.getInt32(0)}),"sgpl.semantic.stage.v1");
+    auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(SGPL_SEMANTIC_STAGE_VERSION),B.getInt32(sizeof(sgpl_semantic_stage_plan_v1)),B.getInt32(Rules),B.getInt32(R.Join),B.getInt64(sizeof(sgpl_exec_ctx)),R.Pair,Row?static_cast<Constant *>(Row):ConstantPointerNull::get(Ptr),B.getInt32(R.Bytes),B.getInt32(R.Slot),B.getInt32(R.Weighted),B.getInt32(0)}),"sgpl.semantic.stage.v1");
     auto *Result=B.CreateCall(M.getOrInsertFunction("sgpl_try_semantic_stage_v1",FunctionType::get(I,{Ptr,Ptr,Ptr,I,Ptr,Ptr,Ptr,I64},false)),{Graph,Plan,Input,Size,Output,Capacity,B.CreateLoad(Ptr,R.Array),Extent},"semantic.result");
     auto *Handled=BasicBlock::Create(M.getContext(),"semantic.handled",Header->getParent());
     auto *Baseline=Header->splitBasicBlock(First,"semantic.baseline");Header->getTerminator()->eraseFromParent();B.SetInsertPoint(Header);B.CreateCondBr(B.CreateICmpSGE(Result,B.getInt32(0)),Handled,Baseline);

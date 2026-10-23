@@ -4,6 +4,26 @@
 #include <math.h>
 static int operation;
 static void *active;
+static atomic_int weight_fallbacks;
+static atomic_uint worker_mask;
+int32_t graph_get_edge_weight(void *opaque,int32_t u,int32_t v) {
+  ExecTestGraph *g=opaque;atomic_fetch_add(&weight_fallbacks,1);
+  for(int64_t e=g->row_ptr[u];e<g->row_ptr[u+1];++e)if(g->col_idx[e]==v)return g->weights?g->weights[e]:1;
+  return INT32_MAX;
+}
+static void weighted_pair(void *state,sgpl_exec_ctx *ctx,int32_t u,int32_t v) {
+  (void)state;int32_t *a=active,*s=ctx->spatial_snapshots[0];
+  atomic_fetch_or(&worker_mask,1u<<sgpl_current_worker_index());
+  int32_t w=autograph_exec_ctx_edge_weight(ctx,ctx->graph,u,v);
+  a[v]=(int32_t)((uint32_t)a[v]+(uint32_t)s[u]+(uint32_t)w);
+  sgpl_semantic_activate_v1(ctx,v);
+}
+static void weighted_row(sgpl_exec_ctx *ctx,int32_t v,const int32_t *sources,const int64_t *edges,int64_t first,int64_t last) {
+  for(int64_t e=first;e<last;++e) {
+    ctx->array_work_ordinal=edges[e];ctx->array_edge_index=ctx->array_record_edges[edges[e]];
+    weighted_pair(NULL,ctx,sources[e],v);
+  }
+}
 static int update(void *array,const void *snapshot,int u,int v) {
   if(operation<6) {
     int32_t *a=array;const int32_t *s=snapshot;int32_t old=a[v],next=old;
@@ -47,7 +67,7 @@ int main(void) {
     size_t bytes=operation<6?20:40;memcpy(&a,operation<6?(void *)id[data]:(void *)fd[data],bytes);memcpy(&b,&a,bytes);
     int32_t expected[128],*out=NULL;int64_t cap=0;
     int wanted=reference(&graph,&a,sources[order],counts[order],expected);active=&b;
-    sgpl_semantic_stage_plan_v1 p={1,sizeof(p),rules,0,sizeof(sgpl_exec_ctx),pair,row,operation<6?4:8,0,0,0};
+    sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),rules,0,sizeof(sgpl_exec_ctx),pair,row,operation<6?4:8,0,0,0};
     int got=sgpl_try_semantic_stage_v1(&graph,&p,sources[order],counts[order],&out,&cap,&b,5);
     if(rules==1024&&order){check(got==-1&&!memcmp(&b,operation<6?(void *)id[data]:(void *)fd[data],bytes),"ordered CSR refuses non-full or permuted occurrence stream");}
     else check(got==wanted&&!memcmp(&a,&b,bytes)&&!memcmp(out,expected,(size_t)wanted*4),"generic/nonfoldable and exact floating bits/duplicate notification order");
@@ -59,19 +79,20 @@ int main(void) {
     while(count&&rounds++<1000){count=reference(&graph,a,in,count,outref);check(count<128,"reference bounded frontier");memcpy(in,outref,count*4);}
     check(rounds<1000,"finite lattice converges");
     int32_t *out=NULL;int64_t cap=0;active=b;
-    sgpl_semantic_stage_plan_v1 p={1,sizeof(p),2048,(unsigned)operation+1,sizeof(sgpl_exec_ctx),pair,NULL,4,0,0,0};
+    sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),2048,(unsigned)operation+1,sizeof(sgpl_exec_ctx),pair,NULL,4,0,0,0};
     int got=sgpl_try_semantic_stage_v1(&graph,&p,sources[order],counts[order],&out,&cap,b,5);
     check(got==0&&!memcmp(a,b,sizeof a),"whole fixed point matches round-separated extrema/bitwise joins");free(out);++checks;
   }
   operation=4;int32_t values[5]={5,4,3,2,1},copy[5],*out=NULL;int64_t cap=0;
-  sgpl_semantic_stage_plan_v1 plan={1,sizeof(plan),512,0,sizeof(sgpl_exec_ctx),pair,row,4,0,0,0};active=values;
-  for(int fault=0;fault<12;++fault) {
+  sgpl_semantic_stage_plan_v1 plan={SGPL_SEMANTIC_STAGE_VERSION,sizeof(plan),512,0,sizeof(sgpl_exec_ctx),pair,row,4,0,0,0};active=values;
+  for(int fault=0;fault<13;++fault) {
     memcpy(copy,values,sizeof copy);sgpl_semantic_stage_plan_v1 p=plan;
     if(fault==0)++p.version;if(fault==1)--p.bytes;if(fault==2)--p.context_bytes;if(fault==3)p.rules=4096;
     if(fault==4)p.element_bytes=3;if(fault==5)p.snapshot_slot=64;if(fault==6)p.reserved=1;
     if(fault==7){p.rules=2048;p.join=1;p.weighted=1;}
     if(fault==8)setenv("SGPL_NO_EXEC_SIMPLIFY","1",1);
     if(fault==9)atomic_store(&fail_malloc,1);if(fault==10)atomic_store(&fail_calloc,1);
+    if(fault==12)p.version=1; /* Old runtime cannot execute the new row ABI contract. */
     int r=sgpl_try_semantic_stage_v1(&graph,&p,sources[0],5,&out,&cap,values,fault==11?4:5);
     check(r==-1&&!memcmp(values,copy,sizeof copy)&&!out&&cap==0,"descriptor/bounds/disable/allocation refusal before effects");
     atomic_store(&fail_malloc,0);atomic_store(&fail_calloc,0);unsetenv("SGPL_NO_EXEC_SIMPLIFY");++checks;
@@ -89,7 +110,9 @@ int main(void) {
     int32_t before[5]={5,4,3,2,1},data[5];int32_t bad[]={0,5};memcpy(data,before,sizeof data);active=data;
     check(sgpl_try_semantic_stage_v1(&graph,&plan,bad,2,&out,&cap,data,5)<0&&!memcmp(data,before,sizeof data),"invalid source rejected before effects");
     int saved=columns[0];columns[0]=5;
+    autograph_record_adjacency_state(&graph,5,10,rows,columns);
     check(sgpl_try_semantic_stage_v1(&graph,&plan,sources[0],5,&out,&cap,data,5)<0&&!memcmp(data,before,sizeof data),"invalid destination rejected before effects");columns[0]=saved;
+    autograph_record_adjacency_state(&graph,5,10,rows,columns);
     int32_t *aliased=data;int64_t aliascap=5;
     check(sgpl_try_semantic_stage_v1(&graph,&plan,sources[0],5,&aliased,&aliascap,data,5)<0&&!memcmp(data,before,sizeof data),"output alias rejected before effects");
     check(sgpl_try_semantic_stage_v1(&graph,&plan,sources[0],5,&out,&cap,rows,5)<0,"CSR/target alias rejected");checks+=4;
@@ -106,6 +129,40 @@ int main(void) {
       check(sgpl_try_semantic_stage_v1(&isolated,&p,in,3,&out,&cap,iv,3)==0&&iv[0]==1&&iv[1]==2&&iv[2]==3,"isolated vertices do not read/write an accumulator contribution");checks+=2;
     }
     free(out);
+  }
+  {
+    /* Unequal duplicate weights, repeated/permuted inputs, wraparound, repeat
+     * use, and in-place topology invalidation must retain first-match meaning.
+     * The accessor fallback counter proves adjacency searches disappear. */
+    static ExecTestGraph weighted;
+    int64_t wr[]={0,4,6,9,10,10};int32_t wc[]={1,1,0,2,2,3,3,0,2,3};
+    int32_t ww[]={3,999,INT32_MAX,7,-4,9,2,INT32_MIN,5,6};
+    weighted=(ExecTestGraph){.n=5,.m=10,.row_ptr=wr,.col_idx=wc,.weights=ww,.directed=1};
+    autograph_init(&weighted,5,10,NULL,NULL,ep);
+    autograph_ensure_layout(&weighted,5,10,wr,wc,&fixture_nodes,&fixture_edges,ep,LAYOUT_CSR);
+    for(int mutation=0;mutation<3;++mutation) {
+      if(mutation==1){wc[0]=2;autograph_record_adjacency_state(&weighted,5,10,wr,wc);}
+      if(mutation==2){ww[0]=-9;ww[1]=17;} /* Values change; cached topology reads live weights. */
+      for(unsigned rules=512;rules<2048;rules+=512)for(int order=0;order<3;++order) {
+        if(rules==1024&&order)continue;
+        for(int repeat=0;repeat<3;++repeat) {
+          int32_t a[]={INT32_MAX,2,-3,INT32_MIN,5},b[5],snapshot[5],expected[128];
+          memcpy(b,a,sizeof a);memcpy(snapshot,a,sizeof a);int head=0;
+          for(int i=0;i<counts[order];++i)for(int64_t e=wr[sources[order][i]];e<wr[sources[order][i]+1];++e) {
+            int32_t u=sources[order][i],v=wc[e],w=graph_get_edge_weight(&weighted,u,v);
+            a[v]=(int32_t)((uint32_t)a[v]+(uint32_t)snapshot[u]+(uint32_t)w);expected[head++]=v;
+          }
+          active=b;out=NULL;cap=0;atomic_store(&weight_fallbacks,0);atomic_store(&worker_mask,0);
+          sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),rules,0,sizeof(sgpl_exec_ctx),weighted_pair,weighted_row,4,0,1,0};
+          int got=sgpl_try_semantic_stage_v1(&weighted,&p,sources[order],counts[order],&out,&cap,b,5);
+          check(got==head&&!memcmp(a,b,sizeof a)&&!memcmp(out,expected,(size_t)head*4),"weighted order/duplicates/wraparound and cache invalidation");
+          check(atomic_load(&weight_fallbacks)==0,"weighted R10/R11 use first-match indices without adjacency searches");
+          if(head&&sgpl_configured_worker_count()>1&&!sgpl_is_worker_pool_thread())
+            check((atomic_load(&worker_mask)&(atomic_load(&worker_mask)-1))!=0,"destination-owned callbacks execute on multiple workers");
+          free(out);++checks;
+        }
+      }
+    }
   }
   printf("semantic runtime: %u cases, %d failures\n",checks,failures);return failures?1:0;
 }

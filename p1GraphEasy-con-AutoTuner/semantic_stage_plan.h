@@ -2,6 +2,7 @@
 #define SGPL_SEMANTIC_STAGE_PLAN_H
 #include <stdint.h>
 #include "autotuner_runtime.h"
+#define SGPL_SEMANTIC_STAGE_VERSION 2u
 #define SGPL_EXEC_SIMPLIFY_R10 512u
 #define SGPL_EXEC_SIMPLIFY_R11 1024u
 #define SGPL_EXEC_SIMPLIFY_R12 2048u

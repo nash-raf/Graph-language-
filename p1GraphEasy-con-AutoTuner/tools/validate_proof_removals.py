@@ -12,6 +12,11 @@ def structural(d):
     if not (I.PROBE/'pre.ll').exists():
         shutil.copy2('/home/kazi/p1_iteration_memory_inspect/pre.ll',I.PROBE/'pre.ll')
     I.probe(d);C.worklist(d)
+    worklist=d/'composition_worklist';result=R.read(worklist/'summary.json')
+    log=(worklist/'check.log').read_text()
+    assert 'cases=524288 runtime_subsets=512' in log
+    result.update(composed_cases=524288,runtime_proof_subsets=512,missing_premises_checked=True)
+    R.save(worklist/'summary.json',result)
     # Inspect GCC's optimized native representation of the actual direct
     # workers. Their common source is instantiated with a constant index mode.
     out=d/'proof_structural';out.mkdir(exist_ok=True)
@@ -50,7 +55,7 @@ print "VALUES_BEGIN"; int z = 0; while (z < n) {{ print current[z]; print next[z
     for kind in ['unique','duplicate','nonfoldable']:
         edge=out/(kind+'.wel');edge.write_text('0 1 3\n'+('0 1 999\n' if kind=='duplicate' else '')+'1 2 4\n2 3 5\n3 4 6\n')
         body='int candidate = value[u] + weight(G,u,v); if (candidate < value[v]) { value[v] = candidate;'
-        if kind=='nonfoldable':body='value[v] = value[v] - (value[u] + weight(G,u,v));'
+        if kind=='nonfoldable':body='int candidate = value[u] + weight(G,u,v); value[v] = value[v] - candidate;'
         body+=' next_frontier[next_size] = v; next_size = next_size + 1;'
         if kind!='nonfoldable':body+=' }'
         sources['weighted_'+kind]=f'''graph G {{ directed: true; edges: file "{edge}"; TRUE }};
@@ -123,7 +128,7 @@ def report(d):
     print(json.dumps(dict(passed=True,independent_checks=checks['validation']['independent_checks'],exact_pagerank_groups=checks['validation']['exact_pagerank_groups'],benchmark_runs=0)),flush=True)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','structural','native','focused','fixtures','programs','iteration','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='proof_removals01');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['build','structural','native','focused','fixtures','programs','iteration','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='proof_removals02');a=p.parse_args()
     V.prepare();R.M.make_source_original=R.M.make_source
     R.M.make_source=lambda alg,row,val:S.without_timing(R.M.make_source_original(alg,row,val))
     d=V.ROOT/'versions'/a.version

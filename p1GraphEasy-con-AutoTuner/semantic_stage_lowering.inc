@@ -33,6 +33,17 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
   SmallPtrSet<Value *,4> Alloc;if(!executionArrayAllocations(Array,Alloc))return Fail();
   R.Array=Array;R.Bytes=T->isDoubleTy()?8:4;
   auto KnownWeighted=relaxRecipe(Pair,Origins);
+  // Weight provenance is independent of the operation using the weight. Only
+  // compiler-authored accessor leaves with exact ctx/u/v and graph identities
+  // are admitted; the minimum recipe remains a separate algebraic witness.
+  GlobalVariable *WeightGraph=nullptr;
+  for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *C=dyn_cast<CallInst>(&I))
+    if(C->getCalledFunction()&&C->getCalledFunction()->getName()=="autograph_exec_ctx_edge_weight"&&C->getMetadata("sgpl.relax.weight.accessor")) {
+      if(C->arg_size()!=4||C->getArgOperand(0)!=F->getArg(1)||C->getArgOperand(2)!=F->getArg(2)||C->getArgOperand(3)!=F->getArg(3))return Fail();
+      auto *L=dyn_cast<LoadInst>(C->getArgOperand(1));auto *Slot=L?dyn_cast<GlobalVariable>(L->getPointerOperand()):nullptr;
+      if(!Slot||!Slot->hasLocalLinkage()||Slot->isThreadLocal()||L->isAtomic()||L->isVolatile()||(WeightGraph&&WeightGraph!=Slot))return Fail();
+      WeightGraph=Slot;
+    }
   LoadInst *Source=nullptr,*Old=nullptr;
   const DataLayout &DL=F->getParent()->getDataLayout();
   bool NeedWeighted=false;
@@ -42,7 +53,7 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
     if(auto *L=dyn_cast<LoadInst>(&I)) {
       if(L->isAtomic()||L->isVolatile())return Fail();
       if(L->getPointerOperand()==Array&&L->getType()->isPointerTy())continue;
-      if(KnownWeighted.Array==Array&&KnownWeighted.Weighted&&L->getPointerOperand()==KnownWeighted.WeightGraph&&L->getType()->isPointerTy()){NeedWeighted=true;continue;}
+      if(WeightGraph&&L->getPointerOperand()==WeightGraph&&L->getType()->isPointerTy()){NeedWeighted=true;continue;}
       if(semanticAddress(L->getPointerOperand(),Array,F->getArg(3))&&L->getType()==T){if(Old)return Fail();Old=L;continue;}
       if(frontierSnapshotElement(L,F->getArg(1),F->getArg(2),DL)&&L->getType()==T) {if(Source)return Fail();Source=L;continue;}
       if(frontierCtxField(L->getPointerOperand(),F->getArg(1),offsetof(sgpl_exec_ctx,spatial_snapshots),DL)||
@@ -72,7 +83,7 @@ static SemanticRecipe semanticRecipe(Function *Pair,MDNode *Origins) {
   }
   if(!Origin)return Fail();R.Slot=(unsigned)Off/8;
   if(NeedWeighted) {
-    if(!KnownWeighted.Array||!KnownWeighted.Weighted||KnownWeighted.Array!=Array)return Fail();R.Weighted=true;R.WeightGraph=KnownWeighted.WeightGraph;
+    if(!WeightGraph)return Fail();R.Weighted=true;R.WeightGraph=WeightGraph;
   }
   R.Minimum=KnownWeighted.Array==R.Array&&KnownWeighted.SnapshotSlot==R.Slot&&
       KnownWeighted.Weighted==R.Weighted&&KnownWeighted.WeightGraph==R.WeightGraph;
@@ -345,8 +356,8 @@ static void lowerSemanticStages(Module &M) {
     unsigned Rules=Composed.rules;
     // Independent per-round minimum/set license. This asserts no weighted
     // closure, no sign restriction on weights and no absence of overflow.
-    // R8 produces the set fact; R14/R15 consume it in this same worklist.
-      // Runtime-only range and topology witnesses are checked separately before
+    // R8 produces set output for R14; R15 needs only weighted traversal.
+    // Runtime-only range and topology witnesses are checked separately before
     // those derived eligibility facts can remove executable machinery.
     if(!Rules){R.Pair->eraseFromParent();Refuse("whole-loop observation proof unavailable");continue;}
     // Only the recognized buffer-swap tail is duplicated into the handled arm.

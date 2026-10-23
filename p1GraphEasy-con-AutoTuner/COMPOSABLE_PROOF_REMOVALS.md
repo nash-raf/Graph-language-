@@ -108,3 +108,17 @@ python tools/validate_proof_removals.py all --version proof_removals04
 
 Results: `reports/proof_removals_correctness.json`; external artifacts:
 `/home/kazi/p1_execution_simplification/versions/proof_removals04`.
+
+Validated native source: `c8d5bbff3be010e2c9ca301e3f723021182ce076`.
+The completed checks include 2,196 independent corpus validations, 183 exact
+PageRank bit-comparison groups, 384 generated-program runs across all eight new
+rule subsets, 540 compiler premise checks, the existing contracts, ASan/UBSan,
+and the worklist subset/registration-order checks. Corpus activation is R13 on
+61/61 PageRank cases and R14/R15 on 61/61 SSSP cases; range induction also
+propagates on all 61 SSSP cases.
+
+All 12 targeted TSan configurations pass, with the injected-race positive control
+detected. The comparison disables exactly R13/R14/R15. WSL detector startup
+failures and empty startup crashes were retried and are recorded as separate
+attempts. Auxiliary OpenMP runs serially; actual SGPL workers are 1/2/6. These
+checks make no performance claim. Benchmark runs: zero.

@@ -7,6 +7,13 @@ static void *active;
 static atomic_int weight_fallbacks;
 static atomic_uint worker_mask;
 static atomic_int minimum_calls;
+typedef struct {
+  ExecTestGraph *graph;sgpl_semantic_stage_plan_v1 plan;
+  const int32_t *input;int count;int32_t **output;int64_t *capacity;int32_t *values;int result;
+} SetFailureTask;
+static void *set_failure_thread(void *opaque) {
+  SetFailureTask *t=opaque;t->result=sgpl_try_semantic_stage_v1(t->graph,&t->plan,t->input,t->count,t->output,t->capacity,t->values,5);return NULL;
+}
 static void minimum_pair(void *state,sgpl_exec_ctx *ctx,int32_t u,int32_t v) {
   (void)state;atomic_fetch_add(&minimum_calls,1);
   int32_t *a=active,*s=ctx->spatial_snapshots[0];
@@ -225,6 +232,24 @@ int main(void) {
     }
   }
   operation=0;
+  for(int allocator=0;allocator<2;++allocator)for(int nth=1;nth<=12;++nth) {
+    int32_t a[]={INT32_MAX,2,-3,0,5},b[5],expected[128];memcpy(b,a,sizeof a);
+    int wanted=reference(&graph,a,sources[1],counts[1],expected);unsigned wanted_set=0;
+    for(int i=0;i<wanted;++i)wanted_set|=1u<<expected[i];
+    active=b;out=NULL;cap=0;sgpl_semantic_stage_plan_v1 p=plan;p.rules=512|128;
+    SetFailureTask task={&graph,p,sources[1],counts[1],&out,&cap,b,-1};pthread_t thread;
+    atomic_store(&fail_thread,0);atomic_store(allocator?&fail_calloc:&fail_malloc,nth);
+    // Each fresh thread has an empty exclusive workspace, so allocation
+    // injection exercises preparation buffers rather than a warmed capacity.
+    int started=__real_pthread_create(&thread,NULL,set_failure_thread,&task);
+    if(!started)pthread_join(thread,NULL);
+    atomic_store(&fail_malloc,0);atomic_store(&fail_calloc,0);
+    check(!started,"fresh R8 workspace fixture starts");int got=task.result;
+    int32_t initial[]={INT32_MAX,2,-3,0,5};
+    if(got<0)check(!memcmp(b,initial,sizeof b)&&!out&&!cap,"R8 workspace allocation refusal precedes all destination effects");
+    else {unsigned actual=0;for(int i=0;i<got;++i)actual|=1u<<out[i];check(got==__builtin_popcount(wanted_set)&&actual==wanted_set&&!memcmp(a,b,sizeof a),"R8 allocation recovery retains minimum and changed set");}
+    free(out);++checks;
+  }
   for(int allocator=0;allocator<2;++allocator)for(int nth=1;nth<=12;++nth) {
     int32_t a[]={INT32_MAX,2,-3,0,5},b[5],expected[128];memcpy(b,a,sizeof a);
     int wanted=reference(&graph,a,sources[1],counts[1],expected);active=b;out=NULL;cap=0;

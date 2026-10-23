@@ -172,6 +172,7 @@ def report(d):
     payload=dict(passed=True,branch=R.git('branch','--show-current'),source_commit=build['identity']['commit'],source_hash=source_hash,build=build,
         accepted_ARS1_commit=R.git('rev-parse','ARS-1'),baseline_build=str(V.BASE),baseline_identity=R.read(V.BASE/'identity.json'),checks=checks,
         exact_array_groups=arrays,descriptor_version=4,benchmark_runs=0,new_cost_models=0,r12_unchanged=True,artifact_root=str(d),
+        validation_commit=R.git('rev-parse','HEAD'),test_sources={name:R.sha(V.REPO/'test'/name) for name in ['iteration_memory_ir_test.cpp','semantic_stage_runtime_test.c','execution_simplify_runtime_test.c','semantic_stage_ir_test.cpp']},
         new_licenses=['complete bounded seed/traversal/copy window','restored private buffer identities','parallel disjoint source map cells','exact signed minimum with unobserved circulating frontier'],
         new_realizations=['register seed initialization including empty destinations','buffer rotation and final identity restoration','parallel source preparation',
             'per-round minimum and changed-destination set','active-source capture without full-array copy','exclusive reusable thread workspace'],

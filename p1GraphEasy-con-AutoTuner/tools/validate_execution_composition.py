@@ -22,7 +22,7 @@ def worklist(d):
     assert checks==30720
     R.save(out/'summary.json',dict(passed=True,checks=checks,rule_registration_orders=120,rule_subsets=32,benchmark_runs=0))
 
-def weighted_custom(d):
+def weighted_custom(d, allow_set=False):
     out=d/'semantic_weighted_custom';out.mkdir(exist_ok=True)
     edge=out/'edges.wel';edge.write_text('0 3 3\n0 3 999\n1 3 7\n2 3 4\n')
     source=f'''graph G {{ directed: true; edges: file "{edge}"; TRUE }};
@@ -59,7 +59,7 @@ print "VALUES_BEGIN"; int z = 0; while (z < n) {{ print dist[z]; z = z + 1; }} p
             if reference is None:reference=values
             assert values==reference,(rules,width,values,reference)
             active=re.findall(r'\[semantic-stage\] R(\d+) complete',run.stderr)
-            if rules in ['R11','R6,R7,R11','all']:assert '11' in active,(rules,width,'weighted generated row did not execute')
+            if rules in ['R11','R6,R7,R11','all']:assert '11' in active or (allow_set and rules=='all' and '[iteration-memory] R8 set' in run.stderr),(rules,width,'weighted generated row/set did not execute')
             checks.append(dict(rules=rules,workers=width,activation=active,passed=True))
     R.save(out/'summary.json',dict(passed=True,checks=checks,benchmark_runs=0))
     print('WEIGHTED GENERATED ROW PASS',len(checks),flush=True)

@@ -84,7 +84,10 @@ static bool iterationPrivatePointer(Value *V,GlobalVariable *Slot,SmallPtrSetImp
       if(S->getPointerOperand()==V&&!S->getValueOperand()->getType()->isPointerTy()&&!S->isAtomic()&&!S->isVolatile())continue;
       return false;
     }
-    if(isa<ICmpInst>(U))continue;
+    if(auto *Cmp=dyn_cast<ICmpInst>(U)) {
+      if(Cmp->isEquality()&&(isa<ConstantPointerNull>(Cmp->getOperand(0))||isa<ConstantPointerNull>(Cmp->getOperand(1))))continue;
+      return false; // Pointer ordering/identity may distinguish buffer rotation.
+    }
     return false;
   }return true;
 }
@@ -142,7 +145,7 @@ static void certifyIterationMemory(Module &M) {
     auto Roles=K.first?executionRoles(K.first):std::map<std::string,BasicBlock *>{};
     auto *V=K.first?dyn_cast<PHINode>(&Roles["destination"]->front()):nullptr;
     auto A=V?executionAccumulator(K.first,Roles["body"],V):ExecutionAccumulator{};
-    bool Callback=A.Store&&executionArraySlot(A.Store->getPointerOperand())==Init.To&&Fields>0;
+    bool Callback=!Proof->hasFnAttribute(Attribute::StrictFP)&&A.Store&&executionArraySlot(A.Store->getPointerOperand())==Init.To&&Fields>0;
     bool ReadsSource=false;
     for(BasicBlock &BB:*Proof)for(Instruction &I:BB)if(auto *Load=dyn_cast<LoadInst>(&I)) {
       ReadsSource|=Load->getPointerOperand()==Copy.To;
@@ -207,7 +210,7 @@ static void lowerIterationMemory(Module &M) {
   SmallVector<GlobalVariable *,4> Plans;for(auto &G:M.globals())if(G.getMetadata("sgpl.iteration.memory.proof"))Plans.push_back(&G);
   for(auto *Plan:Plans) {
     auto *S=cast<ConstantStruct>(Plan->getInitializer());auto *Pair=dyn_cast<Function>(S->getOperand(2));unsigned Fields=0;
-    auto K=Pair&&executionCallbackSafe(Pair)?fullKernels(M,Pair,Fields):std::pair<Function *,Function *>{};
+    auto K=Pair&&!Pair->hasFnAttribute(Attribute::StrictFP)&&executionCallbackSafe(Pair)?fullKernels(M,Pair,Fields):std::pair<Function *,Function *>{};
     auto Fail=[&](){if(K.first)K.first->eraseFromParent();if(K.second)K.second->eraseFromParent();if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[iteration-memory] refuse late kernel proof\n";};
     if(!K.first||!K.second){Fail();continue;}
     auto Roles=executionRoles(K.first);auto *V=dyn_cast<PHINode>(&Roles["destination"]->front());auto A=executionAccumulator(K.first,Roles["body"],V);

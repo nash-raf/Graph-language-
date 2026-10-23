@@ -1,0 +1,1142 @@
+{
+  "native_candidate_commit": "0acf2bd55c0a9716d07e99420d282a8efc7d4440",
+  "baseline_commit": "a162e9f64002171fad27481c729d47446e28cade",
+  "comparison": "Incremental semantic-stage simplification: previous R1--R9 versus eligible R10--R12.",
+  "candidate_source_hash": "d264513fd72da6b3163569bf3db540ea4468029f55a779dcc05ab34c977050e2",
+  "host": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "cpu_model": "model name\t: AMD Ryzen 5 5500",
+    "physical_cpus": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "workers": 6,
+    "topology": [
+      {
+        "cpu": 0,
+        "package": "0",
+        "core": "0"
+      },
+      {
+        "cpu": 2,
+        "package": "0",
+        "core": "1"
+      },
+      {
+        "cpu": 4,
+        "package": "0",
+        "core": "2"
+      },
+      {
+        "cpu": 6,
+        "package": "0",
+        "core": "3"
+      },
+      {
+        "cpu": 8,
+        "package": "0",
+        "core": "4"
+      },
+      {
+        "cpu": 10,
+        "package": "0",
+        "core": "5"
+      }
+    ],
+    "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b"
+  },
+  "cases": 244,
+  "graphs_per_algorithm": 61,
+  "primary_repetitions": 5,
+  "confirmation_repetitions": 20,
+  "selected_phase": "confirmation",
+  "timing_observations": 30500,
+  "warmup_launches": 2440,
+  "failed_launches": 0,
+  "graptor_new_launches": 0,
+  "historical_graptor": {
+    "records": "/home/kazi/p1_effect_fusion_local_20261022/results/primary_w6.json",
+    "sha256": "008b32f422981cd9fb4adb1449c13edb4092f47d8f9e76fbe76f6a66f7e14a90",
+    "host": {
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "topology": [
+        {
+          "cpu": 0,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 1,
+          "package": "0",
+          "core": "0"
+        },
+        {
+          "cpu": 2,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 3,
+          "package": "0",
+          "core": "1"
+        },
+        {
+          "cpu": 4,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 5,
+          "package": "0",
+          "core": "2"
+        },
+        {
+          "cpu": 6,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 7,
+          "package": "0",
+          "core": "3"
+        },
+        {
+          "cpu": 8,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 9,
+          "package": "0",
+          "core": "4"
+        },
+        {
+          "cpu": 10,
+          "package": "0",
+          "core": "5"
+        },
+        {
+          "cpu": 11,
+          "package": "0",
+          "core": "5"
+        }
+      ],
+      "quota_cores": null,
+      "boot_id": "e4ada5c3-a0cd-4cbc-b910-37bfe95f7c5b",
+      "cpu_model": "model name\t: AMD Ryzen 5 5500",
+      "cpu_flags": "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm",
+      "cpu_identity": {
+        "vendor_id": "AuthenticAMD",
+        "cpu family": "25",
+        "model": "80",
+        "stepping": "0",
+        "microcode": "0xffffffff"
+      },
+      "physical_cpus": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "workers": 6,
+      "note": "Guest-reported topology; one CPU per visible physical core, bounded by CPU quota. Host mapping may be virtualized."
+    },
+    "precision": "double PageRank",
+    "note": "Prior same-PC observations; unpaired descriptive comparison only. No Graptor launches."
+  },
+  "paired_controls": {
+    "primary": {
+      "observations": 6100,
+      "AA_stable": true,
+      "AA_failures": [],
+      "confirmed_slowdowns": []
+    },
+    "confirmation": {
+      "observations": 24400,
+      "AA_stable": true,
+      "AA_failures": [],
+      "confirmed_slowdowns": [
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/hamming8-2.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.8951197993663969,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/fe-4elt2.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.42743143478571965,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Simmons81.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.1345996476795408,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/p-hat300-3.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.8395674015621553,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "web/web-spam.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.160302294673487,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/sanr400-0-5.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.926538512377388,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "rand/geo1k_40k.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.3225559880925521,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/c-fat500-10.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.014549304959581,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "web/web-indochina-2004.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5960306136903873,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/fe-sphere.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.5189383296341302,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "rand/geo1k_50k.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.568657274751009,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tech/tech-as-caida2007.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.6820923942798882,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "ia/ia-email-EU.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.9961291563351017,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/san400-0-7-1.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.3104662717302014,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/san400-0-7-3.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.4765786720739937,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tech/tech-WHOIS.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.5910259656380044,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Haverford76.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.9374245419183076,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-3.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.5260953262400894,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-1.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.579289433127945,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-4.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.5418275047446444,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/brock400-2.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.5612499809971534,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Swarthmore42.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.888926469122628,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/DSJC500-5.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.470731456280918,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-USFCA72.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.5366554730863267,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tscc/scc_retweet.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.5078690422668473,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/MANN-a27.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.85434581140174,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tscc/scc_fb-forum.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.874589699475678,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/gen400-p0-9-55.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.9007006881941617,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/wing_nodal.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.791700488938642,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "bio/bio-WormNet-v3-benchmark.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.0620996467762884,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Mich67.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.780989785767289,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Bowdoin47.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.1211804328793367,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "tech/tech-internet-as.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.1792232870905623,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Amherst41.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.1698035561731026,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Wellesley22.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.0979124563918035,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Hamilton46.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.249426906924602,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Smith60.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.9857439031069504,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-epinions.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.1281847502475857,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Trinity100.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.1918756936437207,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/C500-9.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 3.259873913633664,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Williams40.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.2283068972733813,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/inf-luxembourg_osm.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.3405984725681799,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "road/road-luxembourg-osm.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.5643816574880485,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs10/wing.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.4324532879472513,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Middlebury45.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.3034039594703772,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "rec/rec-amazon.edges",
+          "kind": "case",
+          "p": 1.999980000199998e-05,
+          "log_ratio": 0.41226078007487316,
+          "holm_p": 0.0038999610003899966
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-gemsec-RO.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.44626282348458296,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Brandeis99.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.3408378193906207,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "socfb/socfb-Pepperdine86.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.5219641280081397,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "road/road-usroads-48.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 0.52105363039066,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "email/email-enron-large.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.168721609653725,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "dimacs/DSJC1000-5.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 3.877267200243324,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "graph": "soc/soc-slashdot.edges",
+          "kind": "case",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 2.0304130801766815,
+          "holm_p": 0.0024799752002479976
+        },
+        {
+          "algorithm": "sssp",
+          "kind": "algorithm",
+          "p": 9.99990000099999e-06,
+          "log_ratio": 1.5930910966632243,
+          "holm_p": 0.0024799752002479976
+        }
+      ]
+    }
+  },
+  "by_algorithm": {
+    "bfs": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 411.13521271045,
+        "candidate": 411.40235685265003,
+        "disabled": 411.34107568075,
+        "baseline_AA": 411.41770583084997,
+        "candidate_AA": 411.32635083675
+      },
+      "historical_graptor_total_ms": 482.6739678024,
+      "geomean_speedup_baseline_over_candidate": 1.0002544277288874,
+      "median_geomean_speedup": 1.0003359021116283,
+      "summed_time_reduction_percent": -0.06497719824065662,
+      "kernel_geomean_speedup": 0.9931281482087588,
+      "kernel_summed_time_reduction_percent": -0.6257852428729338,
+      "geomean_speedup_disabled_over_candidate": 0.9993270959121406,
+      "candidate_over_historical_graptor_geomean": 0.9075660141342595,
+      "candidate_wins_vs_historical_graptor": 38
+    },
+    "sssp": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 941.40533330825,
+        "candidate": 5320.64155197465,
+        "disabled": 943.68930262905,
+        "baseline_AA": 936.11723690825,
+        "candidate_AA": 5326.7585029996
+      },
+      "historical_graptor_total_ms": 647.4009087548,
+      "geomean_speedup_baseline_over_candidate": 0.20365613394180063,
+      "median_geomean_speedup": 0.20418787826697488,
+      "summed_time_reduction_percent": -465.18073179775377,
+      "kernel_geomean_speedup": 0.13665401665773624,
+      "kernel_summed_time_reduction_percent": -652.1129327850092,
+      "geomean_speedup_disabled_over_candidate": 0.202758716809807,
+      "candidate_over_historical_graptor_geomean": 5.820600568559128,
+      "candidate_wins_vs_historical_graptor": 7
+    },
+    "cc": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 2340.2800172834,
+        "candidate": 435.27617021739997,
+        "disabled": 2283.315677929,
+        "baseline_AA": 2320.4236915239003,
+        "candidate_AA": 436.76851199085
+      },
+      "historical_graptor_total_ms": 500.8882206882,
+      "geomean_speedup_baseline_over_candidate": 1.6674051725096273,
+      "median_geomean_speedup": 1.664469973872068,
+      "summed_time_reduction_percent": 81.40067996125228,
+      "kernel_geomean_speedup": 2.933723603578504,
+      "kernel_summed_time_reduction_percent": 89.87696343373919,
+      "geomean_speedup_disabled_over_candidate": 1.6541709699936398,
+      "candidate_over_historical_graptor_geomean": 0.7597435011897161,
+      "candidate_wins_vs_historical_graptor": 51
+    },
+    "pagerank": {
+      "cases": 61,
+      "totals_ms": {
+        "baseline": 772.5007711236,
+        "candidate": 771.57258134105,
+        "disabled": 770.2598907461,
+        "baseline_AA": 768.6367052194499,
+        "candidate_AA": 767.9384065669
+      },
+      "historical_graptor_total_ms": 497.3976693242,
+      "geomean_speedup_baseline_over_candidate": 1.0024904517634439,
+      "median_geomean_speedup": 1.0025543634306198,
+      "summed_time_reduction_percent": 0.12015389721876657,
+      "kernel_geomean_speedup": 1.0009764649758188,
+      "kernel_summed_time_reduction_percent": 0.21017594308255783,
+      "geomean_speedup_disabled_over_candidate": 0.995953892019135,
+      "candidate_over_historical_graptor_geomean": 1.3921441803946268,
+      "candidate_wins_vs_historical_graptor": 3
+    },
+    "overall": {
+      "cases": 244,
+      "totals_ms": {
+        "baseline": 4465.3213344257,
+        "candidate": 6938.89266038575,
+        "disabled": 4408.6059469849,
+        "baseline_AA": 4436.59533948245,
+        "candidate_AA": 6942.7917723941
+      },
+      "historical_graptor_total_ms": 2128.3607665696,
+      "geomean_speedup_baseline_over_candidate": 0.7638926682456704,
+      "median_geomean_speedup": 0.7640819268189261,
+      "summed_time_reduction_percent": -55.39514719556424,
+      "kernel_geomean_speedup": 0.7945435171952792,
+      "kernel_summed_time_reduction_percent": -77.46370469206944,
+      "geomean_speedup_disabled_over_candidate": 0.7601104552975328,
+      "candidate_over_historical_graptor_geomean": 1.5374440071049056,
+      "candidate_wins_vs_historical_graptor": 99
+    }
+  },
+  "confirmed_slowdowns": [
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/hamming8-2.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.8951197993663969,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/fe-4elt2.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.42743143478571965,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Simmons81.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.1345996476795408,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/p-hat300-3.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.8395674015621553,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "web/web-spam.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.160302294673487,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/sanr400-0-5.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.926538512377388,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "rand/geo1k_40k.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.3225559880925521,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/c-fat500-10.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.014549304959581,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "web/web-indochina-2004.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5960306136903873,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/fe-sphere.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.5189383296341302,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "rand/geo1k_50k.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.568657274751009,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tech/tech-as-caida2007.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.6820923942798882,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "ia/ia-email-EU.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.9961291563351017,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/san400-0-7-1.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.3104662717302014,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/san400-0-7-3.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.4765786720739937,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tech/tech-WHOIS.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.5910259656380044,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Haverford76.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.9374245419183076,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-3.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.5260953262400894,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-1.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.579289433127945,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-4.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.5418275047446444,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/brock400-2.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.5612499809971534,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Swarthmore42.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.888926469122628,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC500-5.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.470731456280918,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-USFCA72.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.5366554730863267,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tscc/scc_retweet.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.5078690422668473,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/MANN-a27.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.85434581140174,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tscc/scc_fb-forum.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.874589699475678,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/gen400-p0-9-55.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.9007006881941617,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/wing_nodal.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.791700488938642,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "bio/bio-WormNet-v3-benchmark.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.0620996467762884,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Mich67.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.780989785767289,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Bowdoin47.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.1211804328793367,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "tech/tech-internet-as.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.1792232870905623,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Amherst41.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.1698035561731026,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Wellesley22.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.0979124563918035,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Hamilton46.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.249426906924602,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Smith60.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.9857439031069504,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-epinions.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.1281847502475857,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Trinity100.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.1918756936437207,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/C500-9.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 3.259873913633664,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Williams40.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.2283068972733813,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/inf-luxembourg_osm.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.3405984725681799,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "road/road-luxembourg-osm.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.5643816574880485,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs10/wing.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.4324532879472513,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Middlebury45.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.3034039594703772,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "rec/rec-amazon.edges",
+      "kind": "case",
+      "p": 1.999980000199998e-05,
+      "log_ratio": 0.41226078007487316,
+      "holm_p": 0.0038999610003899966
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-gemsec-RO.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.44626282348458296,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Brandeis99.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.3408378193906207,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "socfb/socfb-Pepperdine86.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.5219641280081397,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "road/road-usroads-48.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 0.52105363039066,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "email/email-enron-large.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.168721609653725,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 3.877267200243324,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "graph": "soc/soc-slashdot.edges",
+      "kind": "case",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 2.0304130801766815,
+      "holm_p": 0.0024799752002479976
+    },
+    {
+      "algorithm": "sssp",
+      "kind": "algorithm",
+      "p": 9.99990000099999e-06,
+      "log_ratio": 1.5930910966632243,
+      "holm_p": 0.0024799752002479976
+    }
+  ],
+  "inference_available": true,
+  "timed_executable_fingerprints_verified": 488,
+  "ratio_direction": "Speedup=previous/current; above one favors current. Graptor ratio=current/saved Graptor; below one favors current.",
+  "historical_comparison_limitation": "Saved same-PC/input six-worker observations from a previous session; descriptive only.",
+  "artifacts": {
+    "root": "/mnt/c/p1-semantic-stage-benchmark-20261023",
+    "html": "/mnt/c/p1-semantic-stage-benchmark-20261023/final_report.html",
+    "csv": "/mnt/c/p1-semantic-stage-benchmark-20261023/per_graph_times.csv",
+    "full_summary": "/mnt/c/p1-semantic-stage-benchmark-20261023/final_summary.json",
+    "raw_records": "/home/kazi/p1_semantic_stage_benchmark_20261023/runs/execution_simplification"
+  },
+  "native_changes_during_measurement": false,
+  "merged_into_ARS1": false
+}

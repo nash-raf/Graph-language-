@@ -6892,3 +6892,4 @@ int32_t autograph_exec_ctx_reserve_prepared_output(sgpl_exec_ctx *c) {
  if(rc<0)return rc;c->next_frontier=*c->array_output_slot;return 0;
 }
 #include "semantic_stage_runtime.inc"
+#include "iteration_memory_runtime.inc"

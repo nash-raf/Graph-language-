@@ -201,6 +201,28 @@ int main(void) {
       }
       free(out);++checks;
     }
+    for(int mutation=0;mutation<2;++mutation)for(int order=0;order<3;++order)
+    for(int data=0;data<12;++data)for(int disabled=0;disabled<2;++disabled) {
+      if(mutation){wc[0]=1;autograph_record_adjacency_state(&weighted,5,10,wr,wc);}
+      int32_t a[5],b[5],snapshot[5];unsigned expected=0;int head=0;
+      for(int i=0;i<5;++i)a[i]=data==0?INT32_MIN:(int32_t)((uint32_t)data*2654435761u+(uint32_t)i*2246822519u);
+      memcpy(b,a,sizeof a);memcpy(snapshot,a,sizeof a);
+      for(int i=0;i<counts[order];++i)for(int64_t e=wr[sources[order][i]];e<wr[sources[order][i]+1];++e) {
+        int32_t u=sources[order][i],v=wc[e],candidate=(int32_t)((uint32_t)snapshot[u]+(uint32_t)graph_get_edge_weight(&weighted,u,v));
+        if(candidate<a[v]){a[v]=candidate;expected|=1u<<v;++head;}
+      }
+      active=b;out=NULL;cap=0;atomic_store(&minimum_calls,0);atomic_store(&weight_fallbacks,0);
+      if(disabled)setenv("SGPL_NO_ITERATION_MEMORY","1",1);
+      sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),512|128,0,sizeof(sgpl_exec_ctx),minimum_pair,NULL,4,0,1,0};
+      int got=sgpl_try_semantic_stage_v1(&weighted,&p,sources[order],counts[order],&out,&cap,b,5);
+      unsetenv("SGPL_NO_ITERATION_MEMORY");unsigned actual=0;int unique=1;
+      if(got>=0)for(int i=0;i<got;++i){if(out[i]<0||out[i]>=5){unique=0;break;}unsigned bit=1u<<out[i];if(actual&bit)unique=0;actual|=bit;}
+      check(got>=0&&!memcmp(a,b,sizeof a)&&actual==expected,"R8 set round preserves signed modular minima and changed set");
+      check(disabled?got==head:unique&&got==__builtin_popcount(expected),"only R8 may collapse unobserved duplicate notifications");
+      check(disabled||!atomic_load(&minimum_calls),"R8 folds before one destination write, no callback replay");
+      check(!atomic_load(&weight_fallbacks),"R8 retains cached first-match duplicate weights");
+      free(out);++checks;
+    }
   }
   operation=0;
   for(int allocator=0;allocator<2;++allocator)for(int nth=1;nth<=12;++nth) {

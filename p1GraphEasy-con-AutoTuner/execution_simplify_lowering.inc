@@ -49,6 +49,15 @@ static bool executionCallbackSafe(Function *F) {
 static bool executionArrayAllocations(GlobalVariable *G,SmallPtrSetImpl<Value *> &Sites) {
   if(!G||!G->hasLocalLinkage()||!G->getMetadata("sgpl.language.array")||G->isThreadLocal())return false;
   for(User *U:G->users()) {
+    // The private iteration certificate restores both identities on return and
+    // permits only exchanging these two independently allocated buffers while
+    // its owned map/kernel phases run. Their mutual disjointness is invariant;
+    // no pointer is published to arbitrary code through this descriptor.
+    if(auto *S=dyn_cast<ConstantStruct>(U)) {
+      bool Private=S->getNumOperands()==9&&(S->getOperand(4)==G||S->getOperand(5)==G)&&!S->use_empty();
+      for(User *Use:S->users()){auto *Plan=dyn_cast<GlobalVariable>(Use);Private&=Plan&&Plan->hasPrivateLinkage()&&Plan->isConstant()&&Plan->getMetadata("sgpl.iteration.memory.proof");}
+      if(Private)continue;
+    }
     if(auto *L=dyn_cast<LoadInst>(U)){if(L->getPointerOperand()!=G||!L->getType()->isPointerTy()||L->isAtomic()||L->isVolatile())return false;continue;}
     auto *S=dyn_cast<StoreInst>(U);
     if(!S||S->getPointerOperand()!=G||S->isAtomic()||S->isVolatile())return false;

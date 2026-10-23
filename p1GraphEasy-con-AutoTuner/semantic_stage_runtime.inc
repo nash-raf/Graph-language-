@@ -199,10 +199,12 @@ static void sgpl_semantic_execute(void *opaque,int32_t worker,int32_t width) {
     }
   }
 }
+#include "semantic_set_runtime.inc"
 int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1 *p,
     const int32_t *input,int32_t count,int32_t **output,int64_t *capacity,void *values,int64_t extent) {
   if(!p||p->version!=SGPL_SEMANTIC_STAGE_VERSION||p->bytes!=sizeof(*p)||p->context_bytes!=sizeof(sgpl_exec_ctx)||
-      !(p->rules&(512u|1024u|2048u))||(p->rules&~(32u|64u|512u|1024u|2048u))||p->reserved||!p->pair||
+      !(p->rules&(512u|1024u|2048u))||(p->rules&~(32u|64u|128u|512u|1024u|2048u))||p->reserved||!p->pair||
+      ((p->rules&128u)&&p->element_bytes!=4)||
       ((p->rules&SGPL_SEMANTIC_PREPARATION_RULES)&&(!(p->rules&1536u)||p->element_bytes!=4))||
       (p->element_bytes!=4&&p->element_bytes!=8)||p->snapshot_slot>=64||p->weighted>1||
       ((p->rules&2048u)&&(p->join<SGPL_JOIN_SMIN||p->join>SGPL_JOIN_AND||p->weighted||p->element_bytes!=4))||
@@ -238,6 +240,8 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
   }
   unsigned mode=(p->rules&2048u)?12:(p->rules&1024u)&&p->row&&full?11:(p->rules&512u)?10:0;
   if(!mode)return -1;
+  if(mode!=12&&(p->rules&128u)&&!getenv("SGPL_NO_ITERATION_MEMORY"))
+    return sgpl_semantic_set_round(m,p,input,count,output,capacity,values,pairs);
   int32_t *work=NULL,*pos=NULL,*sources=NULL,*log=NULL;int64_t *rows=NULL,*edges=NULL;
   void *snapshot=NULL;void **snapshots=NULL;
   SgplSemanticDispatch *dispatch=NULL;const int64_t *weight_indices=NULL;

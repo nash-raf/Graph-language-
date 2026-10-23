@@ -334,12 +334,16 @@ static void lowerSemanticStages(Module &M) {
     if(R.Weighted) {auto *Graph=dyn_cast<LoadInst>(Create->getArgOperand(0));if(!Graph||Graph->getPointerOperand()!=R.WeightGraph){R.Pair->eraseFromParent();Refuse("weight reads are not from the traversed immutable graph");continue;}}
     auto *CaptureBase=dyn_cast<LoadInst>(Capture->getArgOperand(2));auto *Slot=dyn_cast<ConstantInt>(Capture->getArgOperand(1));auto *Bytes=dyn_cast<ConstantInt>(Capture->getArgOperand(4));
     if(!CaptureBase||CaptureBase->getPointerOperand()!=R.Array||!Slot||Slot->getZExtValue()!=R.Slot||!Bytes||Bytes->getZExtValue()!=R.Bytes){R.Pair->eraseFromParent();Refuse("snapshot identity unavailable");continue;}
-    bool Whole=R.Join&&semanticConvergence(Bind,L,Execute,Capacity,R.Array,Pair,R.Pair);
+    bool Unobserved=semanticConvergence(Bind,L,Execute,Capacity,R.Array,Pair,R.Pair);
+    bool Whole=R.Join&&Unobserved;
     uint64_t Facts=sgpl_execution::LocalCallback|sgpl_execution::StableSnapshot|sgpl_execution::DestinationOwner;
     if(R.Minimum)Facts|=sgpl_execution::ImmutableMinimumCandidate;
     if(Whole)Facts|=sgpl_execution::WholeClosure;
     auto Composed=sgpl_execution::simplify(Facts,Requested,sgpl_execution::semanticRules());
     unsigned Rules=Composed.rules;
+    // Independent per-round minimum/set license. This asserts no weighted
+    // closure, no sign restriction on weights and no absence of overflow.
+    if((Requested&128)&&R.Minimum&&Unobserved&&(Rules&1536))Rules|=128;
     if(!Rules){R.Pair->eraseFromParent();Refuse("whole-loop observation proof unavailable");continue;}
     // Only the recognized buffer-swap tail is duplicated into the handled arm.
     SmallVector<Instruction *,8> Tail;bool After=false,Valid=true;
@@ -381,6 +385,7 @@ static void lowerSemanticStages(Module &M) {
       ConstantAsMetadata::get(B.getInt32(Composed.rules)),ConstantAsMetadata::get(B.getInt32(Composed.rewrites)),
       MDString::get(M.getContext(),"immutable callback/snapshot/ownership witnesses; monotone worklist before one lowering; R6/R7 require exact immutable signed-minimum candidate") }));
     if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS")) {
+      if(Requested&128)errs()<<"[exec-compose] R8 "<<((Rules&128)?"activate":"refuse")<<": exact minimum and complete unobserved circulating frontier required\n";
       errs()<<"[exec-compose] fixed-point rules="<<Rules<<" rewrites="<<Composed.rewrites<<" visits="<<Composed.visits<<"\n";
       for(unsigned N:{5u,6u})if(Requested&(1u<<N))errs()<<"[exec-compose] R"<<N+1<<" "<<((Rules&(1u<<N))?"activate":"refuse")<<": immutable minimum candidate and selected traversal required\n";
     }

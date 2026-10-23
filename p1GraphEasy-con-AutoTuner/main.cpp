@@ -1021,6 +1021,7 @@ static void inlineSpatialCallbackTasks(llvm::Module &M)
 #include "frontier_simplify_lowering.inc"
 #include "relax_simplify_lowering.inc"
 #include "semantic_stage_lowering.inc"
+#include "iteration_memory_lowering.inc"
 
 static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
 {
@@ -1054,6 +1055,8 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         FrontMPM.addPass(createModuleToFunctionPassAdaptor(std::move(FrontFPM)));
         FrontMPM.run(M, LocalMAM);
     }
+
+    if (!usingGpuIR) certifyIterationMemory(M);
 
     {
         LoopAnalysisManager LAM;
@@ -1636,6 +1639,7 @@ int main(int argc, char **argv)
     lowerStaticSchedules(*M);
     lowerExecutionSimplifications(*M);
     if (!usingGpuIR) lowerSemanticStages(*M);
+    if (!usingGpuIR) lowerIterationMemory(*M);
     lowerRelaxationSimplifications(*M);
     lowerFrontierExecutionSimplifications(*M);
 

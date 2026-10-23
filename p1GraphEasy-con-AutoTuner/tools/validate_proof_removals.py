@@ -101,10 +101,27 @@ print "VALUES_BEGIN"; int z = 0; while (z < n) {{ print value[z]; z = z + 1; }} 
       print('PROOF FIXTURE PASS',name,flush=True)
     R.save(out/'summary.json',dict(passed=True,checks=checks,rule_subsets=8,benchmark_runs=0))
 
+def record_activation(d):
+    checks=[];totals={alg:{'R13':0,'R14':0,'R15':0,'range_induction':0} for alg in R.ALGS}
+    for alg in R.ALGS:
+      for row in R.M.ROWS:
+        target=d/'iteration_activation'/alg/row['graph'].removesuffix('.edges')
+        log=target.with_suffix('.err').read_text()
+        active={f'R{rule}':f'[proof-removals] R{rule} activate' in log for rule in [13,14,15]}
+        active['range_induction']='input=producer-proven' in log
+        for rule,value in active.items():totals[alg][rule]+=int(value)
+        checks.append(dict(algorithm=alg,graph=row['graph'],workers=6,activation=active))
+    assert totals['pagerank']['R13']==61 and totals['sssp']['R14']==61,totals
+    assert totals['sssp']['range_induction']>0,totals
+    out=d/'proof_activation';out.mkdir(exist_ok=True)
+    R.save(out/'summary.json',dict(passed=True,totals=totals,checks=checks,benchmark_runs=0))
+
 def report(d):
+    record_activation(d)
     paths={'validation':'validation/summary.json','focused':'semantic_contracts/summary.json',
         'iteration_fixtures':'iteration_fixtures/summary.json','structural':'iteration_structural/structural_summary.json',
         'proof_structural':'proof_structural/summary.json','proof_fixtures':'proof_fixtures/summary.json','native':'proof_native/summary.json',
+        'proof_activation':'proof_activation/summary.json',
         'custom':'semantic_custom/summary.json','weighted_custom':'semantic_weighted_custom/summary.json','activation':'iteration_activation/summary.json',
         'worklist':'composition_worklist/summary.json','detector':'iteration_tsan/summary.json',
         'fullgraph':'contracts/simplification.json','existing':'contracts/existing.json','worker_pool':'contracts/worker_pool.json',
@@ -122,6 +139,7 @@ def report(d):
         build=build,baseline=str(V.BASE),baseline_identity=R.read(V.BASE/'identity.json'),checks=checks,
         retained_ARS1_commit=R.git('rev-parse','ARS-1'),validation_commit=R.git('rev-parse','HEAD'),
         benchmark_runs=0,new_cost_models=0,performance_claim=None,r12_unchanged=True,
+        all_race_detector_checks_passed=checks['detector']['all_detector_checks_passed'],
         rules=['R13 immutable edge-entailed gate','R14 bounded set output and circulating range induction','R15 topology identity for first-match weights'],
         composition=dict(shared_compiler_and_runtime_worklist=True,missing_facts_refuse=True,runtime_subsets=512,compiler_order_subset_cases=524288),
         validation_sources={name:R.sha(V.REPO/name) for name in ['tools/validate_proof_removals.py','test/execution_simplification_worklist_test.cpp',

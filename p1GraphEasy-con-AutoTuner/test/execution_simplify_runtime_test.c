@@ -9,11 +9,41 @@ static void iteration_gate(void *state,sgpl_exec_ctx *c,int32_t u) {
 }
 static void iteration_map(void *state,sgpl_exec_ctx *c,int64_t hi,const int64_t *rows,const uint8_t *gate,void *storage,int64_t lo) {
   (void)state;(void)c;double *out=storage,*source=iteration_source;
-  for(int64_t u=lo;u<hi;++u)if(rows[u+1]>rows[u]&&gate[u])out[u]=source[u]/(double)(rows[u+1]-rows[u]);
+  for(int64_t u=lo;u<hi;++u)if(rows[u+1]>rows[u]&&(!gate||gate[u]))out[u]=source[u]/(double)(rows[u+1]-rows[u]);
 }
 static void iteration_kernel(void *state,sgpl_exec_ctx *c,int32_t lo,int32_t hi,const int64_t *rows,const int32_t *sources,const void *storage,double seed) {
   (void)state;const double *map=storage;double *destination=iteration_destination;
-  for(int32_t v=lo;v<hi;++v){double acc=seed;for(int64_t e=rows[v];e<rows[v+1];++e)if(c->spatial_source_gate[sources[e]])acc=map[sources[e]]+acc;destination[v]=acc;}
+  for(int32_t v=lo;v<hi;++v){double acc=seed;for(int64_t e=rows[v];e<rows[v+1];++e)if(!c->spatial_source_gate||c->spatial_source_gate[sources[e]])acc=map[sources[e]]+acc;destination[v]=acc;}
+}
+static atomic_int witness_calls,ungated_calls;
+static int witness_false;
+static void witness_gate(void *state,sgpl_exec_ctx *c,int32_t u) {
+  (void)state;atomic_fetch_add(&witness_calls,1);ExecTestGraph *g=c->graph;
+  /* False on empty sources is harmless. False on source zero must refuse. */
+  autograph_exec_ctx_set_source_gate(c,u,g->row_ptr[u+1]>g->row_ptr[u]&&(!witness_false||u));
+}
+static void ungated_kernel(void *state,sgpl_exec_ctx *c,int32_t lo,int32_t hi,const int64_t *rows,const int32_t *sources,const void *storage,double seed) {
+  check(!c->spatial_source_gate,"R13 drops persistent gate storage before dispatch");atomic_fetch_add(&ungated_calls,1);
+  iteration_kernel(state,c,lo,hi,rows,sources,storage,seed);
+}
+static void gate_removal_cases(ExecTestGraph *g) {
+  for(int data=0;data<3;++data)for(int denial=0;denial<2;++denial)for(int mode=0;mode<8;++mode) {
+    double initial[]={1e16,-1e16,1.0,-0.0,0.0,INFINITY,NAN},a[7],b[7],want[7];
+    if(data==1)initial[0]=NAN;if(data==2)initial[5]=-0.0;
+    memcpy(a,initial,sizeof a);memset(b,0,sizeof b);iteration_source=a;iteration_destination=b;witness_false=denial;
+    sgpl_iteration_memory_plan_v1 p={1,sizeof(p),(void *)iteration_kernel,witness_gate,&iteration_source,&iteration_destination,iteration_kernel,iteration_map,8};
+    check(sgpl_try_iteration_memory_v1(g,&p,-0.0,3)==1,"gate reference bundle executes");memcpy(want,a,sizeof a);
+    memcpy(a,initial,sizeof a);memset(b,0,sizeof b);atomic_store(&witness_calls,0);atomic_store(&ungated_calls,0);
+    sgpl_iteration_gate_plan_v1 extra={1,sizeof(extra),SGPL_EXEC_R13,0,&p,p.baseline_pair,ungated_kernel,iteration_map};
+    if(mode==1)++extra.version;if(mode==2)--extra.bytes;if(mode==3)extra.reserved=1;
+    if(mode==4)extra.baseline=NULL;if(mode==5)extra.baseline_pair=NULL;if(mode==6)extra.map=NULL;
+    if(mode==7)setenv("SGPL_NO_PROOF_REMOVALS","1",1);
+    check(sgpl_try_iteration_gate_v1(g,&p,&extra,-0.0,3)==1,"invalid gate extension retains working baseline bundle");
+    unsetenv("SGPL_NO_PROOF_REMOVALS");
+    check(!memcmp(a,want,sizeof a)&&!memcmp(b,want,sizeof b),"R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays");
+    check((atomic_load(&ungated_calls)>0)==(!mode&&!denial),"R13 witness, compatibility, identity and disable gates selection");
+    check(atomic_load(&witness_calls)==(!mode?7+(denial?21:0):21),"R13 evaluates immutable gate only once when entailed");
+  }
 }
 static void iteration_cases(ExecTestGraph *g) {
   double initial[]={1e16,-1e16,1.0,-0.0,0.0,INFINITY,NAN};
@@ -49,6 +79,7 @@ int main(void) {
   ExecTestGraph g={.n=7,.m=8,.row_ptr=rows,.col_idx=columns,.directed=1};native_pairs=pairs;
   autograph_init(&g,7,8,NULL,NULL,pairs);autograph_ensure_layout(&g,7,8,rows,columns,&fixture_nodes,&fixture_edges,pairs,LAYOUT_CSR);autograph_build_clean_cut(&g,6);
   iteration_cases(&g);
+  gate_removal_cases(&g);
   for(int mode=0;mode<10;++mode) {
     FullTest a,b;sgpl_exec_ctx *x=full_test_context(&g,&a,1,0),*y=full_test_context(&g,&b,1,0);
     sgpl_execution_simplify_plan_v1 plan={1,sizeof(plan),7,0,(void *)full_test_kernel,(void *)full_test_map,(void *)optimized_kernel,(void *)optimized_map};

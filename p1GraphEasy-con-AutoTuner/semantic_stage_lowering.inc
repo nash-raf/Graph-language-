@@ -339,11 +339,15 @@ static void lowerSemanticStages(Module &M) {
     uint64_t Facts=sgpl_execution::LocalCallback|sgpl_execution::StableSnapshot|sgpl_execution::DestinationOwner;
     if(R.Minimum)Facts|=sgpl_execution::ImmutableMinimumCandidate;
     if(Whole)Facts|=sgpl_execution::WholeClosure;
+    if(Unobserved)Facts|=sgpl_execution::UnobservedFrontier|sgpl_execution::CirculatingFrontier;
+    if(R.Weighted)Facts|=sgpl_execution::WeightedTraversal;
     auto Composed=sgpl_execution::simplify(Facts,Requested,sgpl_execution::semanticRules());
     unsigned Rules=Composed.rules;
     // Independent per-round minimum/set license. This asserts no weighted
     // closure, no sign restriction on weights and no absence of overflow.
-    if((Requested&128)&&R.Minimum&&Unobserved&&(Rules&1536))Rules|=128;
+    // R8 produces the set fact; R14/R15 consume it in this same worklist.
+      // Runtime-only range and topology witnesses are checked separately before
+    // those derived eligibility facts can remove executable machinery.
     if(!Rules){R.Pair->eraseFromParent();Refuse("whole-loop observation proof unavailable");continue;}
     // Only the recognized buffer-swap tail is duplicated into the handled arm.
     SmallVector<Instruction *,8> Tail;bool After=false,Valid=true;
@@ -389,7 +393,19 @@ static void lowerSemanticStages(Module &M) {
       errs()<<"[exec-compose] fixed-point rules="<<Rules<<" rewrites="<<Composed.rewrites<<" visits="<<Composed.visits<<"\n";
       for(unsigned N:{5u,6u})if(Requested&(1u<<N))errs()<<"[exec-compose] R"<<N+1<<" "<<((Rules&(1u<<N))?"activate":"refuse")<<": immutable minimum candidate and selected traversal required\n";
     }
-    auto *Result=B.CreateCall(M.getOrInsertFunction("sgpl_try_semantic_stage_v1",FunctionType::get(I,{Ptr,Ptr,Ptr,I,Ptr,Ptr,Ptr,I64},false)),{Graph,Plan,Input,Size,Output,Capacity,B.CreateLoad(Ptr,R.Array),Extent},"semantic.result");
+    Value *ProofKey=nullptr;
+    if(Rules&SGPL_EXEC_R14) {
+      IRBuilder<> Entry(&*Header->getParent()->getEntryBlock().getFirstInsertionPt());
+      ProofKey=Entry.CreateAlloca(Entry.getInt8Ty(),nullptr,"frontier.proof.key");
+      SmallVector<BasicBlock *,4> Preds;for(BasicBlock *Pred:predecessors(Header))if(!L->contains(Pred))Preds.push_back(Pred);
+      auto *Pre=SplitBlockPredecessors(Header,Preds,".frontier.proof",&DT,&LI);
+      IRBuilder<> Reset(Pre->getTerminator());Reset.CreateCall(M.getOrInsertFunction("sgpl_semantic_frontier_reset_v1",FunctionType::get(Reset.getVoidTy(),{Ptr},false)),{ProofKey});
+    }
+    SmallVector<Type *,9> Args{Ptr,Ptr,Ptr,I,Ptr,Ptr,Ptr,I64};
+    SmallVector<Value *,9> Operands{Graph,Plan,Input,Size,Output,Capacity,B.CreateLoad(Ptr,R.Array),Extent};
+    if(ProofKey){Args.push_back(Ptr);Operands.push_back(ProofKey);}
+    auto *Result=B.CreateCall(M.getOrInsertFunction(ProofKey?"sgpl_try_semantic_stage_facts_v1":"sgpl_try_semantic_stage_v1",FunctionType::get(I,Args,false)),Operands,"semantic.result");
+    if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))for(unsigned N:{13u,14u})if(Requested&(1u<<N))errs()<<"[proof-removals] R"<<N+1<<" "<<((Rules&(1u<<N))?"certify":"refuse")<<": "<<(N==13?"private circulating set producer; range induction and bounded output":"weighted traversal; runtime topology identity witness required")<<"\n";
     auto *Handled=BasicBlock::Create(M.getContext(),"semantic.handled",Header->getParent());
     auto *Baseline=Header->splitBasicBlock(First,"semantic.baseline");Header->getTerminator()->eraseFromParent();B.SetInsertPoint(Header);B.CreateCondBr(B.CreateICmpSGE(Result,B.getInt32(0)),Handled,Baseline);
     ValueToValueMapTy VM;VM[Execute]=Result;B.SetInsertPoint(Handled);

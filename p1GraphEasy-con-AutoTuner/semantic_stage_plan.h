@@ -2,6 +2,7 @@
 #define SGPL_SEMANTIC_STAGE_PLAN_H
 #include <stdint.h>
 #include "autotuner_runtime.h"
+#include "execution_proof_worklist.h"
 #define SGPL_SEMANTIC_STAGE_VERSION 4u
 #define SGPL_SEMANTIC_SET_FRONTIER 128u
 #define SGPL_SEMANTIC_PREPARATION_RULES (32u|64u)
@@ -23,4 +24,9 @@ typedef struct {
 int32_t sgpl_semantic_activate_v1(sgpl_exec_ctx *,int32_t);
 int32_t sgpl_try_semantic_stage_v1(void *,const sgpl_semantic_stage_plan_v1 *,
     const int32_t *,int32_t,int32_t **,int64_t *,void *,int64_t);
+/* Only compiler-certified, unobserved circulating frontiers use the additive
+ * entry point. reset starts a fresh invocation even when a stack key is reused. */
+void sgpl_semantic_frontier_reset_v1(void *);
+int32_t sgpl_try_semantic_stage_facts_v1(void *,const sgpl_semantic_stage_plan_v1 *,
+    const int32_t *,int32_t,int32_t **,int64_t *,void *,int64_t,void *);
 #endif

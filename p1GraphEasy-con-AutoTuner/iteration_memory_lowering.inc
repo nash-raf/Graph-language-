@@ -131,6 +131,27 @@ static bool iterationGateSafe(Function *Gate,GlobalVariable *Destination,Loop *O
   DominatorTree GateDT(*F);LoopInfo GateLI(GateDT);Safe&=GateLI.empty();
   F->eraseFromParent();return Safe&&Sets>0;
 }
+static bool iterationGateImmutable(Function *Gate,GlobalVariable *Source,GlobalVariable *Destination,Loop *Outer,DominatorTree &DT) {
+  if(!Gate)return true;
+  SmallPtrSet<Value *,4> Mutable;
+  if(!executionArrayAllocations(Source,Mutable)||!executionArrayAllocations(Destination,Mutable))return false;
+  for(BasicBlock &BB:*Gate)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I)) {
+    if(L->isAtomic()||L->isVolatile())return false;
+    if(auto *G=dyn_cast<GlobalVariable>(L->getPointerOperand())) {
+      if(!iterationStableSlot(G,Outer,DT))return false;
+    } else {
+      auto *Slot=executionArraySlot(L->getPointerOperand());SmallPtrSet<Value *,4> Sites;
+      if(!Slot||!iterationStableSlot(Slot,Outer,DT)||!iterationPrivateArray(Slot)||!executionArrayAllocations(Slot,Sites))return false;
+      for(Value *Site:Sites)if(Mutable.count(Site))return false;
+      // The complete window already admits only the selected pair (one store
+      // to Destination), seed/copy, the read-only gate, and checked runtime
+      // infrastructure. No other private-array writer can run in that window.
+      for(BasicBlock *B:Outer->blocks())for(Instruction &J:*B)if(auto *S=dyn_cast<StoreInst>(&J))
+        if(executionArraySlot(S->getPointerOperand())==Slot)return false;
+    }
+  }
+  return true;
+}
 static void certifyIterationMemory(Module &M) {
   if((executionSimplifyRules()&7)!=7||std::getenv("SGPL_NO_ITERATION_MEMORY_LOWERING"))return;
   SmallVector<CallInst *,8> Certificates;
@@ -211,6 +232,9 @@ static void certifyIterationMemory(Module &M) {
     IRBuilder<> B(Pre->getTerminator());auto *I=B.getInt32Ty();auto *P=B.getPtrTy();auto *T=StructType::get(M.getContext(),{I,I,P,P,P,P,P,P,B.getInt64Ty()});
     auto *Plan=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_iteration_memory_plan_v1)),Pair,Gate?static_cast<Constant *>(Gate):ConstantPointerNull::get(P),Copy.To,Init.To,ConstantPointerNull::get(P),ConstantPointerNull::get(P),B.getInt64(0)}),"sgpl.iteration.memory.v1");
     Plan->setMetadata("sgpl.iteration.memory.proof",MDNode::get(M.getContext(),{MDString::get(M.getContext(),"scalar full-domain seed and copy; disjoint ordered accumulator; bounded private iteration; no user effects between phases")}));
+    if((executionSimplifyRules()&SGPL_EXEC_R13)&&iterationGateImmutable(Gate,Copy.To,Init.To,Outer,DT))
+      Plan->setMetadata("sgpl.iteration.gate.immutable",MDNode::get(M.getContext(),{}));
+    else if((executionSimplifyRules()&SGPL_EXEC_R13)&&std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[proof-removals] R13 refuse: gate reads mutable, aliased or unresolved data\n";
     auto *Result=B.CreateCall(M.getOrInsertFunction("sgpl_try_iteration_memory_v1",FunctionType::get(I,{P,P,B.getDoubleTy(),I},false)),{B.CreateLoad(P,Graph),Plan,B.CreateLoad(B.getDoubleTy(),Init.Seed),Limit});
     auto *Done=BasicBlock::Create(M.getContext(),"iteration.memory.handled",Main,Outer->getExitBlock());IRBuilder<> D(Done);D.CreateStore(Limit,Counter);D.CreateBr(Outer->getExitBlock());
     Pre->getTerminator()->eraseFromParent();B.SetInsertPoint(Pre);B.CreateCondBr(B.CreateICmpNE(Result,B.getInt32(0)),Done,Header);
@@ -246,8 +270,27 @@ static void lowerIterationMemory(Module &M) {
     if(Starts!=1)report_fatal_error("invalid generated source range");iterationNonnullGate(Map,true);executionCleanup(Map);Map->setSection(".sgpl_iteration_memory");
     SmallVector<Constant *,9> Values;for(unsigned N=0;N<9;++N)Values.push_back(cast<Constant>(S->getOperand(N)));Values[6]=F;Values[7]=Map;Values[8]=ConstantInt::get(B.getInt64Ty(),Fields*8);
     Plan->setInitializer(ConstantStruct::get(cast<StructType>(S->getType()),Values));
+    if(Plan->getMetadata("sgpl.iteration.gate.immutable")&&(executionSimplifyRules()&SGPL_EXEC_R13)) {
+      ValueToValueMapTy GateVM;auto *Ungated=CloneFunction(F,GateVM);Ungated->setName("sgpl.iteration.ungated_kernel");
+      for(BasicBlock &BB:*Ungated)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(L->getType()->isIntegerTy(8))
+        if(executionPointerKind(getUnderlyingObject(L->getPointerOperand()),Ungated,false)==0)L->replaceAllUsesWith(ConstantInt::get(L->getType(),1));
+      iterationCanonicalize(Ungated);
+      GateVM.clear();auto *UngatedMap=CloneFunction(Map,GateVM);UngatedMap->setName("sgpl.iteration.ungated_map");
+      for(BasicBlock &BB:*UngatedMap)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(L->getType()->isIntegerTy(8)&&getUnderlyingObject(L->getPointerOperand())==UngatedMap->getArg(4))L->replaceAllUsesWith(ConstantInt::get(L->getType(),1));
+      iterationCanonicalize(UngatedMap);
+      auto *T=StructType::get(M.getContext(),{B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy()});
+      if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_iteration_gate_plan_v1))report_fatal_error("gate descriptor mismatch");
+      auto *Extra=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_iteration_gate_plan_v1)),B.getInt32(SGPL_EXEC_R13),B.getInt32(0),Plan,Pair,Ungated,UngatedMap}),"sgpl.iteration.gate.v1");
+      SmallVector<CallInst *,4> Calls;for(User *U:Plan->users())if(auto *C=dyn_cast<CallInst>(U))if(C->getCalledFunction()&&C->getCalledFunction()->getName()=="sgpl_try_iteration_memory_v1")Calls.push_back(C);
+      for(auto *C:Calls) {
+        IRBuilder<> Call(C);auto *Result=Call.CreateCall(M.getOrInsertFunction("sgpl_try_iteration_gate_v1",FunctionType::get(B.getInt32Ty(),{B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getDoubleTy(),B.getInt32Ty()},false)),{C->getArgOperand(0),Plan,Extra,C->getArgOperand(2),C->getArgOperand(3)});
+        C->replaceAllUsesWith(Result);C->eraseFromParent();
+      }
+      if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[proof-removals] R13 certify: immutable private gate; pre-effect edge implication witness; ungated clones\n";
+    }
     K.first->eraseFromParent();K.second->eraseFromParent();
     if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[iteration-memory] activate seeded accumulator, empty destinations, rotating buffers, range source map\n";
   }
+  if(verifyModule(M,&errs()))report_fatal_error("invalid proof-removal kernels");
 }
 }

@@ -12,6 +12,7 @@ int32_t autograph_exec_ctx_bind_array_frontier(sgpl_exec_ctx *c,const int32_t *i
 int64_t autograph_exec_ctx_occurrence(sgpl_exec_ctx *c) {
   return c&&c->array_append_sites?c->array_source_ordinal:0;
 }
+#include "execution_proof_worklist.h"
 /* First-match indices are topology, not an independence certificate. Cache
  * them per preparation thread; a context copies its hints before dispatch.
  * Thread exit releases the cache, and mutation/layout changes invalidate it. */
@@ -22,6 +23,7 @@ typedef struct {
   int64_t n,m;
   int32_t epoch;
   uint64_t generation;
+  int identity;
 } SgplArrayWeightIndex;
 static pthread_key_t sgpl_array_weight_key;
 static pthread_once_t sgpl_array_weight_once=PTHREAD_ONCE_INIT;
@@ -32,7 +34,7 @@ static void sgpl_array_weight_destroy(void *opaque) {
 static void sgpl_array_weight_key_init(void) {
   sgpl_array_weight_key_status=pthread_key_create(&sgpl_array_weight_key,sgpl_array_weight_destroy);
 }
-static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
+static int sgpl_array_weight_view(AutoGraphMeta *m,const int64_t **out,int allow_identity) {
   pthread_once(&sgpl_array_weight_once,sgpl_array_weight_key_init);
   if(sgpl_array_weight_key_status)return SGPL_DAG_ERR_NOMEM;
   SgplArrayWeightIndex *cache=pthread_getspecific(sgpl_array_weight_key);
@@ -43,11 +45,12 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
   uint64_t generation=atomic_load_explicit(&g_cc_topology_generation,memory_order_relaxed);
   if(cache->meta==m&&cache->rp==m->csr_row_ptr&&cache->ci==m->csr_col_idx&&
       cache->n==m->csr_n&&cache->m==m->csr_m&&cache->epoch==m->layout_epoch&&cache->generation==generation) {
-    *out=cache->first;return 0;
+    goto ready;
   }
-  if(m->csr_m<0||(uint64_t)m->csr_m>SIZE_MAX/8||(uint64_t)m->csr_n>SIZE_MAX/8)return SGPL_DAG_ERR_NOMEM;
-  int64_t *first=malloc((size_t)(m->csr_m?m->csr_m:1)*8),*seen=malloc((size_t)(m->csr_n?m->csr_n:1)*8);
-  if(!first||!seen) {free(first);free(seen);return SGPL_DAG_ERR_NOMEM;}
+  if(m->csr_n<0||m->csr_m<0||(uint64_t)m->csr_m>SIZE_MAX/8||(uint64_t)m->csr_n>SIZE_MAX/8)return SGPL_DAG_ERR_NOMEM;
+  if(!m->csr_row_ptr||(!m->csr_col_idx&&m->csr_m)||m->csr_row_ptr[0]||m->csr_row_ptr[m->csr_n]!=m->csr_m)return SGPL_DAG_ERR_INVALID;
+  int64_t *first=NULL,*seen=malloc((size_t)(m->csr_n?m->csr_n:1)*8);
+  if(!seen)return SGPL_DAG_ERR_NOMEM;
   memset(seen,255,(size_t)m->csr_n*8);
   for(int64_t u=0;u<m->csr_n;++u) {
     if(m->csr_row_ptr[u]<0||m->csr_row_ptr[u+1]<m->csr_row_ptr[u]||m->csr_row_ptr[u+1]>m->csr_m) {
@@ -57,12 +60,33 @@ static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
       int32_t v=m->csr_col_idx[j];
       if(v<0||v>=m->csr_n) {free(first);free(seen);return SGPL_DAG_ERR_INVALID;}
       if(seen[v]<m->csr_row_ptr[u])seen[v]=j;
-      first[j]=seen[v];
+      if(seen[v]!=j&&!first) {
+        first=malloc((size_t)(m->csr_m?m->csr_m:1)*8);
+        if(!first){free(seen);return SGPL_DAG_ERR_NOMEM;}
+        for(int64_t e=0;e<j;++e)first[e]=e;
+      }
+      if(first)first[j]=seen[v];
     }
   }
   free(seen);free(cache->first);
-  *cache=(SgplArrayWeightIndex){m,m->csr_row_ptr,first,m->csr_col_idx,m->csr_n,m->csr_m,m->layout_epoch,generation};
-  *out=first;return 0;
+  *cache=(SgplArrayWeightIndex){m,m->csr_row_ptr,first,m->csr_col_idx,m->csr_n,m->csr_m,m->layout_epoch,generation,!first};
+ready:
+  if(allow_identity) {
+    uint64_t facts=SGPL_FACT_WEIGHT_FIRST_MATCH|(cache->identity?SGPL_FACT_TOPOLOGY_UNIQUE:0);
+    SgplProofPlan plan=sgpl_proof_removals(facts,SGPL_EXEC_R15);
+    if(plan.rules&SGPL_EXEC_R15){*out=NULL;return 0;}
+  }
+  /* Old callers still receive an actual map. Materialize identity lazily only
+   * for a consumer which needs that representation. */
+  if(!cache->first) {
+    cache->first=malloc((size_t)(m->csr_m?m->csr_m:1)*8);
+    if(!cache->first)return SGPL_DAG_ERR_NOMEM;
+    for(int64_t e=0;e<m->csr_m;++e)cache->first[e]=e;
+  }
+  *out=cache->first;return 0;
+}
+static int sgpl_array_weight_indices(AutoGraphMeta *m,const int64_t **out) {
+  return sgpl_array_weight_view(m,out,0);
 }
 static int32_t sgpl_array_record_endpoint(const sgpl_exec_ctx *c,int64_t i,int key) {
   return c->gpu_records[(c->array_compact_records==4?4:(c->array_compact_records==3?3:(c->array_compact_records==2?5:(c->array_compact_records?4:3))))*i+key];

@@ -68,6 +68,40 @@ static int reference(ExecTestGraph *g,void *array,const int32_t *input,int count
     if(update(array,snapshot,input[i],g->col_idx[e]))out[head++]=g->col_idx[e];
   return head;
 }
+static void frontier_removal_cases(void) {
+  static ExecTestGraph graph;
+  int64_t rows[]={0,3,5,7,8,8};int32_t cols[]={0,1,2,2,3,3,4,4};
+  int32_t weights[]={INT32_MAX,4,7,-3,5,2,9,0},ep[16];
+  for(int u=0;u<5;++u)for(int64_t e=rows[u];e<rows[u+1];++e){ep[2*e]=u;ep[2*e+1]=cols[e];}
+  graph=(ExecTestGraph){.n=5,.m=8,.row_ptr=rows,.col_idx=cols,.weights=weights,.directed=1};
+  native_pairs=ep;autograph_init(&graph,5,8,NULL,NULL,ep);autograph_ensure_layout(&graph,5,8,rows,cols,&fixture_nodes,&fixture_edges,ep,LAYOUT_CSR);
+  for(int duplicate=0;duplicate<2;++duplicate)for(int subset=0;subset<4;++subset)for(int disabled=0;disabled<2;++disabled) {
+    cols[1]=duplicate?0:1;autograph_record_adjacency_state(&graph,5,8,rows,cols);
+    sgpl_semantic_stage_plan_v1 p={SGPL_SEMANTIC_STAGE_VERSION,sizeof(p),512|128|(subset&1?SGPL_EXEC_R14:0)|(subset&2?SGPL_EXEC_R15:0),0,sizeof(sgpl_exec_ctx),minimum_pair,NULL,4,0,1,0};
+    int32_t a[]={0,INT32_MAX,INT32_MAX,INT32_MAX,INT32_MAX},b[5],inputbuf[]={0,0,1,2,3,4};memcpy(b,a,sizeof a);
+    int32_t *input=inputbuf,*out=NULL;int64_t cap=0;int count=6;char proof_key;
+    sgpl_semantic_frontier_reset_v1(&proof_key);
+    if(disabled)setenv("SGPL_NO_PROOF_REMOVALS","1",1);
+    for(int round=0;round<4;++round) {
+      int32_t snapshot[5];memcpy(snapshot,a,sizeof a);unsigned expected=0;
+      for(int i=0;i<count;++i)for(int64_t e=rows[input[i]];e<rows[input[i]+1];++e) {
+        int32_t v=cols[e],candidate=(int32_t)((uint32_t)snapshot[input[i]]+(uint32_t)graph_get_edge_weight(&graph,input[i],v));
+        if(candidate<a[v]){a[v]=candidate;expected|=1u<<v;}
+      }
+      active=b;int got=sgpl_try_semantic_stage_facts_v1(&graph,&p,input,count,&out,&cap,b,5,&proof_key);
+      unsigned actual=0;if(got>=0)for(int i=0;i<got;++i){check(out[i]>=0&&out[i]<5,"set output IDs valid");actual|=1u<<out[i];}
+      check(got==__builtin_popcount(expected)&&expected==actual&&!memcmp(a,b,sizeof a),"R14/R15 independent/composed exact modular updates and unique set");
+      if(round>0)free(input);input=out;out=NULL;cap=0;count=got;
+      if(round==1){weights[2]=-11;autograph_update_csr_pointers(&graph,rows,cols);} /* live weight and topology invalidation */
+    }
+    free(input);unsetenv("SGPL_NO_PROOF_REMOVALS");
+    int32_t bad[]={5},before[5];memcpy(before,b,sizeof b);out=NULL;cap=0;
+    check(sgpl_try_semantic_stage_v1(&graph,&p,bad,1,&out,&cap,b,5)<0&&!memcmp(before,b,sizeof b),"R14 descriptor alone never licenses an invalid initial input");
+    sgpl_semantic_frontier_reset_v1(&proof_key);
+    check(sgpl_try_semantic_stage_facts_v1(&graph,&p,bad,1,&out,&cap,b,5,&proof_key)<0&&!memcmp(before,b,sizeof b),"fresh/reset induction never trusts arbitrary input");
+    free(out);
+  }
+}
 int main(void) {
   setenv("SGPL_GPU_BACKEND","0",1);
   int64_t rows[]={0,4,6,9,10,10};int32_t columns[]={1,1,0,2,2,3,3,0,2,3},ep[20];
@@ -262,5 +296,6 @@ int main(void) {
     else check(got==wanted&&!memcmp(a,b,sizeof a)&&!memcmp(out,expected,(size_t)wanted*4),"composed allocation and worker-pool recovery preserve exact results");
     free(out);++checks;
   }
+  frontier_removal_cases();
   printf("semantic runtime: %u cases, %d failures\n",checks,failures);return failures?1:0;
 }

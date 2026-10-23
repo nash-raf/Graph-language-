@@ -149,7 +149,7 @@ static int sgpl_semantic_keep_edge(const SgplSemanticDispatch *j,int32_t u,int64
   if(!(j->preparation&64u))return 1;
   int32_t candidate=j->values[u];
   if(j->plan->weighted)candidate=(int32_t)((uint32_t)candidate+
-      (uint32_t)(j->meta->csr_weights?j->meta->csr_weights[j->weights[edge]]:1));
+      (uint32_t)(j->meta->csr_weights?j->meta->csr_weights[j->weights?j->weights[edge]:edge]:1));
   // Only the independently certified strict signed minimum reaches this test.
   // Target values can only decrease; an initially ineffective candidate stays
   // ineffective. Candidate arithmetic is the original modular i32 expression.
@@ -200,10 +200,24 @@ static void sgpl_semantic_execute(void *opaque,int32_t worker,int32_t width) {
   }
 }
 #include "semantic_set_runtime.inc"
-int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1 *p,
-    const int32_t *input,int32_t count,int32_t **output,int64_t *capacity,void *values,int64_t extent) {
+typedef struct {
+  void *key;const sgpl_semantic_stage_plan_v1 *plan;AutoGraphMeta *meta;
+  const int64_t *rows;const int32_t *columns,*input;
+  int64_t n,m;int32_t count,epoch;uint64_t generation;int valid;
+} SgplFrontierProof;
+static _Thread_local SgplFrontierProof sgpl_frontier_proof;
+void sgpl_semantic_frontier_reset_v1(void *key) {
+  memset(&sgpl_frontier_proof,0,sizeof(sgpl_frontier_proof));sgpl_frontier_proof.key=key;
+}
+int32_t sgpl_try_semantic_stage_facts_v1(void *graph,const sgpl_semantic_stage_plan_v1 *p,
+    const int32_t *input,int32_t count,int32_t **output,int64_t *capacity,void *values,int64_t extent,void *proof_key) {
+  SgplFrontierProof previous=sgpl_frontier_proof;
+  /* Every refusal destroys the induction fact before baseline can run. */
+  sgpl_frontier_proof.valid=0;
   if(!p||p->version!=SGPL_SEMANTIC_STAGE_VERSION||p->bytes!=sizeof(*p)||p->context_bytes!=sizeof(sgpl_exec_ctx)||
-      !(p->rules&(512u|1024u|2048u))||(p->rules&~(32u|64u|128u|512u|1024u|2048u))||p->reserved||!p->pair||
+      !(p->rules&(512u|1024u|2048u))||(p->rules&~(32u|64u|128u|512u|1024u|2048u|SGPL_EXEC_R14|SGPL_EXEC_R15))||p->reserved||!p->pair||
+      ((p->rules&SGPL_EXEC_R14)&&(!(p->rules&128u)||!(p->rules&512u)))||
+      ((p->rules&SGPL_EXEC_R15)&&!p->weighted)||
       ((p->rules&128u)&&p->element_bytes!=4)||
       ((p->rules&SGPL_SEMANTIC_PREPARATION_RULES)&&(!(p->rules&1536u)||p->element_bytes!=4))||
       (p->element_bytes!=4&&p->element_bytes!=8)||p->snapshot_slot>=64||p->weighted>1||
@@ -233,6 +247,27 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
     for(int64_t u=0;u<n;++u)if(m->csr_row_ptr[u]<0||m->csr_row_ptr[u+1]<m->csr_row_ptr[u]||m->csr_row_ptr[u+1]>m->csr_m)return -1;
     for(int64_t e=0;e<m->csr_m;++e)if(m->csr_col_idx[e]<0||m->csr_col_idx[e]>=n)return -1;
   } else if(!(topology=sgpl_semantic_topology(m)))return -1;
+  if(!(p->rules&2048u)&&(p->rules&SGPL_EXEC_R14)&&
+      !getenv("SGPL_NO_ITERATION_MEMORY")&&!getenv("SGPL_NO_PROOF_REMOVALS")) {
+    uint64_t generation=atomic_load_explicit(&g_cc_topology_generation,memory_order_relaxed);
+    int inherited=proof_key&&previous.valid&&previous.key==proof_key&&previous.plan==p&&previous.meta==m&&
+        previous.rows==m->csr_row_ptr&&previous.columns==m->csr_col_idx&&previous.n==n&&previous.m==m->csr_m&&
+        previous.epoch==m->layout_epoch&&previous.generation==generation&&previous.input==input&&previous.count==count&&count<=n;
+    if(!inherited)for(int32_t i=0;i<count;++i)if(input[i]<0||input[i]>=n)return -1;
+    SgplProofPlan plan=sgpl_proof_removals(SGPL_FACT_SET_OUTPUT|SGPL_FACT_VALID_INPUT,SGPL_EXEC_R14);
+    if(plan.rules&SGPL_EXEC_R14) {
+      /* The set producer emits at most n valid, unique IDs, independent of
+       * edge multiplicity. Neither reserve nor any other consumer needs the
+       * input degree sum. Initial/uncertified inputs still get range checks. */
+      int32_t result=sgpl_semantic_set_round(m,p,input,count,output,capacity,values,n);
+      if(result>=0&&proof_key&&sgpl_frontier_proof.key==proof_key) {
+        sgpl_frontier_proof=(SgplFrontierProof){proof_key,p,m,m->csr_row_ptr,m->csr_col_idx,*output,
+            n,m->csr_m,result,m->layout_epoch,generation,1};
+      }
+      if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[proof-removals] R14 %s: input=%s; degree_scan=removed; output_bound=%lld\n",result>=0?"activate":"refuse",inherited?"producer-proven":"range-checked",(long long)n);
+      return result;
+    }
+  }
   int full=count==n;
   for(int32_t i=0;i<count;++i) {
     int32_t u=input[i];if(u<0||u>=n)return -1;full&=u==i;
@@ -251,7 +286,9 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
     sgpl_semantic_fixed_point(m,input,count,values,p->join,work,pos);
   } else {
     if((uint64_t)pairs>SIZE_MAX/8)return -1;
-    if(p->weighted&&sgpl_array_weight_indices(m,&weight_indices)<0)return -1;
+    int identity_eligible=mode==10&&(p->rules&SGPL_EXEC_R15)&&!getenv("SGPL_NO_PROOF_REMOVALS");
+    if(p->weighted&&sgpl_array_weight_view(m,&weight_indices,identity_eligible)<0)return -1;
+    if(getenv("SGPL_SEMANTIC_STAGE_STATS")&&(p->rules&SGPL_EXEC_R15))fprintf(stderr,"[proof-removals] R15 %s: generic ordered pair traversal\n",identity_eligible&&!weight_indices?"activate":"refuse");
     dispatch=calloc(1,sizeof(*dispatch));if(!dispatch)return -1;
     dispatch->meta=m;dispatch->input=input;dispatch->count=count;dispatch->sources=topology->sources;
     dispatch->weights=weight_indices;dispatch->plan=p;
@@ -332,4 +369,8 @@ int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1
 refuse:
   if(dispatch){free(dispatch->keep);free(dispatch->keys);free(dispatch);}
   free(snapshot);free(snapshots);free(rows);free(pos);free(sources);free(edges);free(log);free(work);return -1;
+}
+int32_t sgpl_try_semantic_stage_v1(void *graph,const sgpl_semantic_stage_plan_v1 *p,
+    const int32_t *input,int32_t count,int32_t **output,int64_t *capacity,void *values,int64_t extent) {
+  return sgpl_try_semantic_stage_facts_v1(graph,p,input,count,output,capacity,values,extent,NULL);
 }

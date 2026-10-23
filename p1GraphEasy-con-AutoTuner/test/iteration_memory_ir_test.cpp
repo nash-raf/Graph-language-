@@ -14,6 +14,15 @@ int main(int argc,char **argv) {
   // lowering. Apply only the same non-arithmetic cleanup for this fixture.
   for(Function &F:*M)if(F.hasLocalLinkage()&&!F.isDeclaration())iterationCanonicalize(&F);
   lowerIterationMemory(*M);require(!verifyModule(*M,&errs()),"generated seeded/range kernels verify");
+  unsigned Ungated=0;
+  for(Function &F:*M)if(F.getName().starts_with("sgpl.iteration.ungated_")) {
+    ++Ungated;
+    for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I)) {
+      require(!L->getType()->isIntegerTy(8),"entailed gate clones have no bitmap element reads");
+      require(executionPointerKind(L,&F,false)!=0,"entailed kernel has no context gate pointer load");
+    }
+  }
+  require(Ungated==2,"immutable gate yields both ungated clones");
   for(auto &G:M->globals())if(G.getMetadata("sgpl.iteration.memory.proof")) {
     auto *S=cast<ConstantStruct>(G.getInitializer());require(!S->getOperand(6)->isNullValue()&&!S->getOperand(7)->isNullValue(),"seeded and source range kernels installed");
     auto *F=cast<Function>(S->getOperand(6));DominatorTree DT(*F);LoopInfo LI(DT);
@@ -46,6 +55,22 @@ int main(int argc,char **argv) {
     }
     certifyIterationMemory(*N);unsigned Count=0;for(auto &G:N->globals())Count+=!!G.getMetadata("sgpl.iteration.memory.proof");
     require(Count==0,"observable identity/escape/strict FP/alias/extra store refuses iteration license");
+  }
+  for(unsigned Negative=0;Negative<4;++Negative) {
+    auto N=parseIRFile(argv[1],E,C);require(!!N,"reload gate proof negative");
+    Function *Gate=nullptr;GlobalVariable *Degree=N->getGlobalVariable("out_degree",true);
+    for(Function &F:*N)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()&&Call->getCalledFunction()->getName()=="autograph_exec_ctx_set_source_gate")Gate=&F;
+    require(Gate&&Degree,"gate and allocation provenance landmarks");
+    if(Negative==0) {
+      // Same callback shape, but the predicate now reads the rotating source.
+      for(BasicBlock &BB:*Gate)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(L->getPointerOperand()==Degree)L->setOperand(0,N->getGlobalVariable("cur_rank",true));
+    }
+    if(Negative==1)for(BasicBlock &BB:*Gate)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(L->getType()->isIntegerTy(32))L->setVolatile(true);
+    if(Negative==2)setenv("SGPL_EXEC_SIMPLIFY_RULES","R1,R2,R3",1);
+    if(Negative==3)setenv("SGPL_EXEC_SIMPLIFY_RULES","none",1);
+    certifyIterationMemory(*N);
+    for(auto &G:N->globals())require(!G.getMetadata("sgpl.iteration.gate.immutable"),"mutable/volatile/disabled conditions never assert gate immutability");
+    setenv("SGPL_EXEC_SIMPLIFY_RULES","all",1);
   }
   std::cout<<"PASS iteration memory structural certificate and kernels\n";
 }

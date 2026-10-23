@@ -19,6 +19,7 @@ int main(int argc,char **argv) {
     auto *F=cast<Function>(S->getOperand(6));DominatorTree DT(*F);LoopInfo LI(DT);
     unsigned Stores=0,Loads=0;
     for(BasicBlock &BB:*F)for(Instruction &I:BB) {
+      if(auto *Cmp=dyn_cast<ICmpInst>(&I))if(isa<ConstantPointerNull>(Cmp->getOperand(1)))require(executionPointerKind(Cmp->getOperand(0),F,false)<0,"private kernel retains R1 null-test elimination");
       if(auto *Load=dyn_cast<LoadInst>(&I))Loads+=executionArraySlot(Load->getPointerOperand())==S->getOperand(5);
       if(auto *Store=dyn_cast<StoreInst>(&I))if(executionArraySlot(Store->getPointerOperand())==S->getOperand(5)) {
         ++Stores;require(!LI.getLoopFor(&BB)||!LI.getLoopFor(&BB)->getParentLoop(),"one store outside incoming loop");
@@ -41,7 +42,7 @@ int main(int argc,char **argv) {
     if(Negative==2)Pair->addFnAttr(Attribute::StrictFP);
     if(Negative==3)B.CreateStore(B.CreateLoad(B.getPtrTy(),Source),Dest);
     if(Negative==4) {
-      B.SetInsertPoint(Pair->getEntryBlock().getTerminator());B.CreateStore(B.getDouble(42.0),B.CreateLoad(B.getPtrTy(),Dest));
+      B.SetInsertPoint(Pair->getEntryBlock().getTerminator());B.CreateStore(ConstantFP::get(B.getDoubleTy(),42.0),B.CreateLoad(B.getPtrTy(),Dest));
     }
     certifyIterationMemory(*N);unsigned Count=0;for(auto &G:N->globals())Count+=!!G.getMetadata("sgpl.iteration.memory.proof");
     require(Count==0,"observable identity/escape/strict FP/alias/extra store refuses iteration license");

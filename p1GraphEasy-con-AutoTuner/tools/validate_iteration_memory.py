@@ -7,13 +7,16 @@ S=C.S; V=C.V; R=C.R
 V.BASE=V.ROOT/'versions/composition01'
 PROBE=Path('/home/kazi/p1_iteration_memory_inspect')
 
-def probe():
+def probe(d=None):
     out=PROBE;out.mkdir(exist_ok=True)
     R.checked(['g++','-O0','-g0','-I.',V.REPO/'test/iteration_memory_ir_test.cpp',
         *R.cfg('--cxxflags'),*R.cfg('--ldflags'),*R.cfg('--libs','all'),*R.cfg('--system-libs'),
         '-o',out/'ir-test'],V.REPO,out/'ir-build.log')
     R.checked([out/'ir-test',out/'pre.ll'],V.REPO,out/'ir-test.log')
     R.save(out/'structural_summary.json',dict(passed=True,fixture_sha256=R.sha(out/'pre.ll'),test_sha256=R.sha(V.REPO/'test/iteration_memory_ir_test.cpp'),benchmark_runs=0))
+    if d:
+        target=d/'iteration_structural';target.mkdir(exist_ok=True)
+        for name in ['pre.ll','ir-test.log','ir-build.log','structural_summary.json']:shutil.copy2(out/name,target/name)
     print((out/'ir-test.log').read_text(),flush=True)
 
 def native(out):
@@ -138,6 +141,7 @@ def detector(d):
 def report(d):
     build=R.read(d/'correctness_build.json')
     paths={'validation':'validation/summary.json','focused':'semantic_contracts/summary.json','iteration_fixtures':'iteration_fixtures/summary.json',
+        'structural':'iteration_structural/structural_summary.json',
         'custom':'semantic_custom/summary.json','weighted_custom':'semantic_weighted_custom/summary.json','activation':'iteration_activation/summary.json',
         'worklist':'composition_worklist/summary.json','detector':'iteration_tsan/summary.json',
         'fullgraph':'contracts/simplification.json','existing':'contracts/existing.json','worker_pool':'contracts/worker_pool.json',
@@ -169,7 +173,7 @@ def report(d):
     print(json.dumps(dict(passed=True,exact_array_groups=arrays,independent_checks=checks['validation']['independent_checks'],exact_pagerank_groups=checks['validation']['exact_pagerank_groups']),indent=2),flush=True)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','native','build','smoke','programs','fixtures','focused','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='iteration_memory04');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['probe','native','build','smoke','programs','fixtures','focused','existing','custom','activation','detector','report','all']);p.add_argument('--version',default='iteration_memory05');a=p.parse_args()
     V.prepare();R.M.make_source_original=R.M.make_source
     R.M.make_source=lambda alg,row,val:S.without_timing(R.M.make_source_original(alg,row,val))
     d=V.ROOT/'versions'/a.version
@@ -188,7 +192,7 @@ def main():
         elif a.stage=='detector':detector(d)
         elif a.stage=='report':report(d)
         else:
-            iteration_fixtures(d);V.programs(d);S.focused(d);C.worklist(d)
+            probe(d);iteration_fixtures(d);V.programs(d);S.focused(d);C.worklist(d)
             S.Old.focused(d);S.F.frontier_contracts(d);V.contracts(d)
             S.custom(d);C.weighted_custom(d,allow_set=True);activation(d);detector(d);report(d)
 if __name__=='__main__':main()

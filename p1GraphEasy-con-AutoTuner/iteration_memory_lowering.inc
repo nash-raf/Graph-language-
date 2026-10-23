@@ -14,6 +14,15 @@ static void iterationCanonicalize(Function *F) {
   PB.registerModuleAnalyses(MAM);PB.registerCGSCCAnalyses(CGAM);PB.registerFunctionAnalyses(FAM);PB.registerLoopAnalyses(LAM);PB.crossRegisterProxies(LAM,FAM,CGAM,MAM);
   FunctionPassManager PM;cantFail(PB.parsePassPipeline(PM,"instcombine,early-cse,simplifycfg,dce"));PM.run(*F,FAM);
 }
+static void iterationNonnullGate(Function *F,bool Map) {
+  // Both generated functions are invoked only with the private, successfully
+  // allocated gate buffer. Preserve element reads; specialize nullness only.
+  for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *Cmp=dyn_cast<ICmpInst>(&I))
+    if(Cmp->isEquality()&&isa<ConstantPointerNull>(Cmp->getOperand(1))) {
+      if(executionPointerKind(Cmp->getOperand(0),F,Map)==0)Cmp->replaceAllUsesWith(ConstantInt::get(Cmp->getType(),Cmp->getPredicate()==ICmpInst::ICMP_NE));
+      else if(isa<ConstantPointerNull>(Cmp->getOperand(0)))Cmp->replaceAllUsesWith(ConstantInt::get(Cmp->getType(),Cmp->getPredicate()==ICmpInst::ICMP_EQ));
+    }
+}
 static Value *iterationIndex(Value *V) {
   if(auto *C=dyn_cast<TruncInst>(V))V=C->getOperand(0);
   return V;
@@ -223,18 +232,18 @@ static void lowerIterationMemory(Module &M) {
     auto *F=Function::Create(FunctionType::get(Type::getVoidTy(M.getContext()),Args,false),GlobalValue::InternalLinkage,"sgpl.iteration.seeded_kernel",M);
     ValueToValueMapTy VM;unsigned J=0;for(auto &Arg:K.first->args())VM[&Arg]=F->getArg(J++);SmallVector<ReturnInst *,4> Returns;CloneFunctionInto(F,K.first,VM,CloneFunctionChangeType::LocalChangesOnly,Returns);
     auto *Entry=cast<BasicBlock>(VM[&K.first->getEntryBlock()]),*Row=cast<BasicBlock>(VM[Roles["row"]]),*Next=cast<BasicBlock>(VM[Roles["next.destination"]]);
-    IRBuilder<> B(&*Entry->getFirstInsertionPt());auto *Acc=B.CreateAlloca(B.getDoubleTy());
+    IRBuilder<> B(&*Entry->getFirstInsertionPt());auto *Acc=B.CreateAlloca(B.getDoubleTy());auto *DestinationBase=B.CreateLoad(B.getPtrTy(),Dest);
     B.SetInsertPoint(Row->getTerminator());B.CreateStore(F->getArg(7),Acc);
     cast<LoadInst>(VM[A.Load])->setOperand(0,Acc);cast<StoreInst>(VM[A.Store])->setOperand(1,Acc);
-    B.SetInsertPoint(Next->getTerminator());B.CreateStore(B.CreateLoad(B.getDoubleTy(),Acc),B.CreateGEP(B.getDoubleTy(),B.CreateLoad(B.getPtrTy(),Dest),B.CreateSExt(cast<Value>(VM[V]),B.getInt64Ty())));
+    B.SetInsertPoint(Next->getTerminator());B.CreateStore(B.CreateLoad(B.getDoubleTy(),Acc),B.CreateGEP(B.getDoubleTy(),DestinationBase,B.CreateSExt(cast<Value>(VM[V]),B.getInt64Ty())));
     for(BasicBlock &BB:*F)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))if(executionPointerKind(L,F,false)==1||executionPointerKind(L,F,false)==2)L->replaceAllUsesWith(ConstantPointerNull::get(B.getPtrTy()));
-    executionCleanup(F);F->setMetadata("sgpl.exec.fullgraph",nullptr);F->setSection(".sgpl_iteration_memory");
+    iterationNonnullGate(F,false);executionCleanup(F);F->setMetadata("sgpl.exec.fullgraph",nullptr);F->setSection(".sgpl_iteration_memory");
     Args.clear();for(auto &Arg:K.second->args())Args.push_back(Arg.getType());Args.push_back(B.getInt64Ty());
     auto *Map=Function::Create(FunctionType::get(B.getVoidTy(),Args,false),GlobalValue::InternalLinkage,"sgpl.iteration.source_range",M);
     VM.clear();J=0;for(auto &Arg:K.second->args())VM[&Arg]=Map->getArg(J++);Returns.clear();CloneFunctionInto(Map,K.second,VM,CloneFunctionChangeType::LocalChangesOnly,Returns);
     auto *MapEntry=cast<BasicBlock>(VM[&K.second->getEntryBlock()]);unsigned Starts=0;
     for(BasicBlock &BB:*Map)for(PHINode &Phi:BB.phis())if(Phi.getType()->isIntegerTy(64)) {int N=Phi.getBasicBlockIndex(MapEntry);if(N>=0&&match(Phi.getIncomingValue(N),m_Zero())){Phi.setIncomingValue(N,Map->getArg(6));++Starts;}}
-    if(Starts!=1)report_fatal_error("invalid generated source range");executionCleanup(Map);Map->setSection(".sgpl_iteration_memory");
+    if(Starts!=1)report_fatal_error("invalid generated source range");iterationNonnullGate(Map,true);executionCleanup(Map);Map->setSection(".sgpl_iteration_memory");
     SmallVector<Constant *,9> Values;for(unsigned N=0;N<9;++N)Values.push_back(cast<Constant>(S->getOperand(N)));Values[6]=F;Values[7]=Map;Values[8]=ConstantInt::get(B.getInt64Ty(),Fields*8);
     Plan->setInitializer(ConstantStruct::get(cast<StructType>(S->getType()),Values));
     K.first->eraseFromParent();K.second->eraseFromParent();

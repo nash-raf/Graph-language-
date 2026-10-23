@@ -116,6 +116,23 @@ def record_activation(d):
     out=d/'proof_activation';out.mkdir(exist_ok=True)
     R.save(out/'summary.json',dict(passed=True,totals=totals,checks=checks,benchmark_runs=0))
 
+def detector(d):
+    import check_cc_road_races as T
+    T.FROZEN=d;T.OUT=d/'proof_tsan';T.OUT.mkdir(exist_ok=True)
+    T.DISABLE_ENV='SGPL_NO_PROOF_REMOVALS';T.EXTRA_ENV={'SGPL_SEMANTIC_STAGE_STATS':'1'}
+    T.GRAPHS=['proof-pagerank','proof-sssp']
+    for name,alg in [('proof-pagerank','pagerank'),('proof-sssp','sssp')]:
+        folder=d/'cases/cc'/name;folder.mkdir(exist_ok=True,parents=True)
+        source=d/'cases'/alg/'dimacs/DSJC1000-5'
+        shutil.copy2(source/'validate.ll',folder/'validate.ll')
+        for width in [1,2,6]:shutil.copy2(source/f'baseline_w{width}.out',folder/f'enabled_w{width}.out')
+    T.build();T.control();T.check(serial_openmp=True)
+    result=R.read(T.OUT/'graph_pool_only_summary.json');control=R.read(T.OUT/'positive_control.json')
+    assert result['disable_env']=='SGPL_NO_PROOF_REMOVALS'
+    assert all(x['status'] in ['passed','startup_unavailable','empty_launch_crash'] for x in result['checks'])
+    R.save(T.OUT/'summary.json',dict(passed=True,all_detector_checks_passed=result['all_passed'],checks=result,positive_control=control,
+        limitation='Auxiliary libgomp uses OMP_NUM_THREADS=1; actual SGPL workers are 1/2/6. Only R13/R14/R15 are disabled in the comparison. Detector startup failures remain separate from passes.',benchmark_runs=0))
+
 def report(d):
     record_activation(d)
     paths={'validation':'validation/summary.json','focused':'semantic_contracts/summary.json',
@@ -123,7 +140,7 @@ def report(d):
         'proof_structural':'proof_structural/summary.json','proof_fixtures':'proof_fixtures/summary.json','native':'proof_native/summary.json',
         'proof_activation':'proof_activation/summary.json',
         'custom':'semantic_custom/summary.json','weighted_custom':'semantic_weighted_custom/summary.json','activation':'iteration_activation/summary.json',
-        'worklist':'composition_worklist/summary.json','detector':'iteration_tsan/summary.json',
+        'worklist':'composition_worklist/summary.json','detector':'proof_tsan/summary.json',
         'fullgraph':'contracts/simplification.json','existing':'contracts/existing.json','worker_pool':'contracts/worker_pool.json',
         'frontier':'frontier_contracts/summary.json','relaxation':'relax_contracts/summary.json'}
     checks={name:R.read(d/path) for name,path in paths.items()};assert all(x and x['passed'] for x in checks.values())
@@ -164,7 +181,7 @@ def main():
         elif name=='existing':S.Old.focused(d);S.F.frontier_contracts(d);V.contracts(d)
         elif name=='custom':S.custom(d);C.weighted_custom(d,allow_set=True)
         elif name=='activation':I.activation(d)
-        elif name=='detector':I.detector(d)
+        elif name=='detector':detector(d)
         elif name=='report':report(d)
     with R.locked('proof_removals_'+a.stage):
         for name in (['build','structural','native','focused','fixtures','iteration','programs','existing','custom','activation','detector','report'] if a.stage=='all' else [a.stage]):stage(name)

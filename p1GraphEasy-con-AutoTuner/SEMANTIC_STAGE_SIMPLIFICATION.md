@@ -3,7 +3,7 @@
 This extends R1â€“R9 on the experimental branch. It adds no cost model, trip
 threshold, sampling, calibration, or adaptive performance selection. All new
 guards concern semantics, representation, explicit disablement, or allocation
-failure. Performance is unmeasured until the user authorizes benchmarks.
+failure. The semantic08 benchmark is retained separately; the subsequent R10/R11 repairs have correctness results only until new benchmarks are requested.
 
 The original callbacks, lowered loop, and existing fallback remain present.
 An additive private descriptor and one pre-effect runtime attempt select an
@@ -29,9 +29,9 @@ contribution order and successful notification order are retained.
 
 The runtime validates native CPU CSR, array extent, all endpoint bounds and
 disjoint storage, reserves the original worst-case output capacity, freezes
-the source, then invokes the original arithmetic directly in source/edge order.
-There are no per-edge input records, partition count/fill passes, or append
-journal. This realization is serial; it makes no parallel speedup claim.
+the source, then executes destination-owned partitions on the existing worker pool. Stable chunk prefixes retain original per-destination contribution order; separate notification slots restore global source/edge order. R10 uses eight-byte edge/occurrence keys rather than redundant source/destination/weight records. It retains count/fill preparation needed for ownership, and removes the general append journal. No associativity is assumed.
+
+Native topology validation and source indices are cached per preparation thread and invalidated by the existing mutation generation, layout epoch, pointer and size identity. First-match weight indices reuse the existing topology cache. Every callback receives the first matching edge index, including duplicate edges with different weights; weight values remain live. No full topology scan is repeated for an unchanged graph on each frontier round.
 
 **R11: ordered destination state promotion.** The runtime additionally proves
 that the frontier is exactly the unique ordered full domain 0..n-1. A CSR
@@ -39,7 +39,7 @@ transpose built in source/edge order therefore retains each destination's
 original arithmetic sequence. A generated row function promotes the private
 destination state to SSA, initializes only a nonempty row, and flushes once
 only if an original store executed. Exact edge keys restore the original
-global notification order after destination traversal.
+global notification order after destination traversal. Different destinations execute on the existing worker pool; their private arithmetic sequences remain unchanged.
 
 Associativity, commutativity, reassociation and idempotence are not assumed.
 Nonassociative integer subtraction and cancellation-sensitive floating-point
@@ -106,5 +106,16 @@ by the positive control. This is evidence for the tested paths, not a proof that
 all programs are race-free.
 
 Machine-readable evidence is in
-`reports/semantic_stage_simplification_correctness.json`. No benchmarks were run
-and no speedup claim is made. ARS-1 remains unchanged.
+`reports/semantic_stage_simplification_correctness.json`. Those correctness runs contained no benchmarks. The later semantic08 performance campaign is recorded in `reports/semantic_stage_simplification_benchmark.json`; its SSSP regression motivated the repair below. ARS-1 remains unchanged.
+
+## R10/R11 repair after semantic08 measurements
+
+The frozen semantic08 benchmark showed an R10 SSSP regression and an R12 CC improvement. Its sources, binaries and reports remain unchanged. The repair removes repeated adjacency searches for weights, repeated validation of unchanged topology, and forced serial destination execution. It adds no cost model. It does not claim a measured speedup before a new benchmark.
+
+The internal descriptor now uses version 2 with the same private layout and additive entry point. A previous runtime rejects the new descriptor before effects and enters the retained baseline. This prevents a new generated weighted row from assuming a first-match index table supplied only by the repaired runtime. Public execution context layouts and APIs remain unchanged.
+
+`tools/validate_semantic_repair.py` compares the repair against semantic08 and disabled execution, without timer or warmup blocks. Native controls count weight-access fallback calls (required zero), check multi-worker execution, preserve unequal duplicate-weight semantics, and exercise cache invalidation. The original R12 worklist body is retained.
+
+The frozen repair `semantic_repair01` (native source `7beb336d`) passes 2,196 independent corpus checks, 732 exact array groups, 183 exact PageRank bit groups, 361 IR checks, 4,260 native normal/ASan/UBSan cases, 405 generic generated-program cases, 12 weighted generated-row cases, and the existing contracts. Activation checks verify one topology validation per SSSP graph. All 36 targeted TSan checks passed; 54 mapping startup failures and five empty launch crashes are retained separately. TSan used the auxiliary-OpenMP limitation described above while retaining actual SGPL worker budgets of 1/2/6.
+
+Machine-readable repair evidence is in `reports/semantic_stage_repair_correctness.json`. R10 still requires source snapshots, stable ownership preparation and notification compaction, and does not yet compose all R6–R9 pruning rules. These are remaining costs; correctness results do not establish a performance recovery. No benchmarks were run for the repair.

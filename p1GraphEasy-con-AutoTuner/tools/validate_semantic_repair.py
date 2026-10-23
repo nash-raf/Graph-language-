@@ -6,11 +6,55 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
+import sys
 import validate_semantic_stages as S
 
 V=S.V
 R=S.R
 V.BASE=V.ROOT/'versions/semantic08'
+
+def weighted_custom(d):
+    out=d/'semantic_weighted_custom';out.mkdir(exist_ok=True)
+    edge=out/'edges.wel';edge.write_text('0 3 3\n0 3 999\n1 3 7\n2 3 4\n')
+    source=f'''graph G {{ directed: true; edges: file "{edge}"; TRUE }};
+int n = numVertices(G); int cap = 64;
+int dist[n]; int frontier[cap]; int next_frontier[cap];
+dist[0] = 2147483646; dist[1] = 0; dist[2] = 8; dist[3] = 2147483647;
+frontier[0] = 0; frontier[1] = 1; frontier[2] = 2; frontier[3] = 3;
+int frontier_size = 4; int next_size = 0;
+while (frontier_size > 0) {{
+ next_size = 0; int k = 0;
+ while (k < frontier_size) {{ int u = frontier[k];
+  for v in G.neighbors(u) {{ int nd = dist[u] + weight(G,u,v);
+   if (nd < dist[v]) {{ dist[v] = nd; next_frontier[next_size] = v; next_size = next_size + 1; }}
+  }} k = k + 1;
+ }} swap(frontier,next_frontier); frontier_size = next_size;
+}}
+print "VALUES_BEGIN"; int z = 0; while (z < n) {{ print dist[z]; z = z + 1; }} print "VALUES_END";
+'''
+    reference=None;checks=[]
+    for rules in ['none','R10','R11','all']:
+        case=out/rules;case.mkdir(exist_ok=True)
+        for ll in (d/'src').glob('*.ll'):
+            if not (case/ll.name).exists():(case/ll.name).symlink_to(ll)
+        (case/'source.graph').write_text(source)
+        env=R.M.env();env.update(FORCE_CPU='1',SGPL_EXEC_SIMPLIFY_STATS='1',SGPL_EXEC_SIMPLIFY_RULES=rules)
+        R.checked([d/'GraphProgram','--ir-backend=cpu','--emit-ir-to='+str(case/'source.ll'),case/'source.graph'],case,case/'compile.log',env)
+        R.checked(['g++','-O3','-no-pie','-fopenmp','-pthread',case/'program.o',*[d/(n+'.o') for n in R.OBJECTS],'-ldl','-lnlopt','-o',case/'check'],case,case/'link.log')
+        for width in [1,2,6]:
+            env=R.M.env(workers=width);env['SGPL_SEMANTIC_STAGE_STATS']='1'
+            run=subprocess.run([sys.executable,V.REPO/'test/physical_run.py',str(width),case/'check'],cwd=case,env=env,capture_output=True,text=True,timeout=60)
+            (case/f'w{width}.out').write_text(run.stdout);(case/f'w{width}.err').write_text(run.stderr)
+            assert run.returncode==0,(rules,width,run.stderr[-1000:])
+            values=run.stdout.split('VALUES_BEGIN\n')[1].split('VALUES_END')[0].split()
+            if reference is None:reference=values
+            assert values==reference,(rules,width,values,reference)
+            active=re.findall(r'\[semantic-stage\] R(\d+) complete',run.stderr)
+            if rules in ['R11','all']:assert '11' in active,(rules,width,'weighted generated row did not execute')
+            checks.append(dict(rules=rules,workers=width,activation=active,passed=True))
+    R.save(out/'summary.json',dict(passed=True,checks=checks,benchmark_runs=0))
+    print('WEIGHTED GENERATED ROW PASS',len(checks),flush=True)
 
 def activation(d):
     S.activation_checks(d)
@@ -46,12 +90,18 @@ def detector(d):
 
 def report(d):
     build=R.read(d/'correctness_build.json')
+    def fixed_point(path):
+        text=path.read_text();start=text.index('static void sgpl_semantic_fixed_point(')
+        return text[start:text.index('\n}\n',start)+3]
+    old_worklist=fixed_point(V.BASE/'src/semantic_stage_runtime.inc')
+    new_worklist=fixed_point(d/'src/semantic_stage_runtime.inc')
+    assert old_worklist==new_worklist,'Retain the accepted R12 worklist'
     files=[p for p in V.REPO.iterdir() if p.is_file() and p.suffix in {'.c','.cpp','.h','.inc','.ll'}]
     files += [p for p in (V.REPO/'generated').glob('*') if p.suffix in {'.cpp','.h'}]
     assert R.key({str(p.relative_to(V.REPO)):hashlib.sha256(p.read_text().encode()).hexdigest() for p in files})==build['identity']['source_hash']
     evidence={name:R.read(d/path) for name,path in {
         'validation':'validation/summary.json','focused':'semantic_contracts/summary.json',
-        'custom':'semantic_custom/summary.json','activation':'semantic_activation/summary.json',
+        'custom':'semantic_custom/summary.json','weighted_custom':'semantic_weighted_custom/summary.json','activation':'semantic_activation/summary.json',
         'detector':'semantic_tsan/semantic_summary.json','fullgraph':'contracts/simplification.json',
         'existing':'contracts/existing.json','worker_pool':'contracts/worker_pool.json',
         'frontier':'frontier_contracts/summary.json','relaxation':'relax_contracts/summary.json'}.items()}
@@ -72,7 +122,12 @@ def report(d):
                'destination-owned parallel callbacks with stable contribution/notification order',
                '8-byte occurrence/edge keys replace redundant endpoint/weight input fields'],
         descriptor_version=2,new_cost_models=0,benchmark_runs=0,performance_claim=None,
-        r12_worklist_unchanged=True,artifact_root=str(d),
+        remaining_costs=['required source snapshots','stable ownership preparation and notification compaction',
+                         'R10 does not yet compose all R6--R9 pruning rules'],
+        test_sources={name:R.sha(V.REPO/'test'/name) for name in ['semantic_stage_ir_test.cpp','semantic_stage_runtime_test.c']},
+        validation_tool_sha256=R.sha(Path(__file__)),
+        r12_worklist_unchanged=True,r12_worklist_sha256=hashlib.sha256(new_worklist.encode()).hexdigest(),artifact_root=str(d),
+        public_context_header_unchanged=not R.git('diff','2b46cb5ded54132e98dc052bd2caf548d1acfcb4','--','autotuner_runtime.h'),
         ARS1_unchanged=R.git('rev-parse','ARS-1')=='2b46cb5ded54132e98dc052bd2caf548d1acfcb4')
     R.save(d/'semantic_repair_correctness.json',payload)
     R.save(V.REPO/'reports/semantic_stage_repair_correctness.json',payload)
@@ -80,7 +135,7 @@ def report(d):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('stage',choices=['build','programs','focused','custom','contracts','activation','detector','report','all'])
+    parser.add_argument('stage',choices=['build','programs','focused','custom','weighted','contracts','activation','detector','report','all'])
     parser.add_argument('--version',required=True);args=parser.parse_args()
     V.prepare();d=V.ROOT/'versions'/args.version
     maker=R.M.make_source;R.M.make_source=lambda a,r,v:S.without_timing(maker(a,r,v))
@@ -89,11 +144,12 @@ if __name__=='__main__':
         elif args.stage=='programs':V.programs(d)
         elif args.stage=='focused':S.focused(d)
         elif args.stage=='custom':S.custom(d)
+        elif args.stage=='weighted':weighted_custom(d)
         elif args.stage=='contracts':S.Old.focused(d);S.F.frontier_contracts(d);V.contracts(d)
         elif args.stage=='activation':activation(d)
         elif args.stage=='detector':detector(d)
         elif args.stage=='report':report(d)
         else:
-            V.programs(d);S.focused(d);S.custom(d)
+            V.programs(d);S.focused(d);S.custom(d);weighted_custom(d)
             S.Old.focused(d);S.F.frontier_contracts(d);V.contracts(d)
             activation(d);detector(d);report(d)

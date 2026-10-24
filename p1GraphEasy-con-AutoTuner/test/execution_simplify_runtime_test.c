@@ -72,7 +72,10 @@ static void optimized_kernel(void *state,sgpl_exec_ctx *ctx,int32_t lo,int32_t h
 static void optimized_map(void *state,sgpl_exec_ctx *ctx,int64_t n,const int64_t *rp,const uint8_t *gate,void *map) {
   atomic_fetch_add(&optimized_maps,1);full_test_map(state,ctx,n,rp,gate,map);
 }
-int main(void) {
+#ifndef SGPL_SIMPLIFICATION_TEST_MAIN
+#define SGPL_SIMPLIFICATION_TEST_MAIN main
+#endif
+int SGPL_SIMPLIFICATION_TEST_MAIN(void) {
   if(baseline_fullgraph_contracts())return 1;
   int64_t rows[]={0,2,4,5,6,7,8,8};int32_t columns[]={2,1,1,1,1,3,2,2};
   int32_t pairs[]={0,2,0,1,1,1,1,1,2,1,3,3,4,2,5,2};

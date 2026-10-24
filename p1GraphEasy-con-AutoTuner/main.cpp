@@ -1056,7 +1056,7 @@ static void runPdgAndOutliner(llvm::Module &M, bool usingGpuIR)
         FrontMPM.run(M, LocalMAM);
     }
 
-    if (!usingGpuIR) certifyIterationMemory(M);
+    if (!usingGpuIR) { certifySourceCounts(M); certifyIterationMemory(M); }
 
     {
         LoopAnalysisManager LAM;

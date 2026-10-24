@@ -13,7 +13,7 @@ namespace {
 using namespace llvm;
 static unsigned executionSimplifyRules() {
   const char *E=std::getenv("SGPL_EXEC_SIMPLIFY_RULES");
-  if(!E||StringRef(E)=="all")return 32767;
+  if(!E||StringRef(E)=="all")return 262143;
   if(StringRef(E)=="none")return 0;
   SmallVector<StringRef,4> Parts;StringRef(E).split(Parts,',');unsigned Mask=0;
   for(auto P:Parts) {
@@ -23,7 +23,8 @@ static unsigned executionSimplifyRules() {
     else if(P=="R9")Mask|=256;
     else if(P=="R10")Mask|=512;else if(P=="R11")Mask|=1024;else if(P=="R12")Mask|=2048;
     else if(P=="R13")Mask|=4096;else if(P=="R14")Mask|=8192;else if(P=="R15")Mask|=16384;
-    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1 through R15");
+    else if(P=="R16")Mask|=32768;else if(P=="R17")Mask|=65536;else if(P=="R18")Mask|=131072;
+    else report_fatal_error("SGPL_EXEC_SIMPLIFY_RULES expects all, none, or R1 through R18");
   }
   return Mask;
 }
@@ -50,6 +51,10 @@ static bool executionCallbackSafe(Function *F) {
 static bool executionArrayAllocations(GlobalVariable *G,SmallPtrSetImpl<Value *> &Sites) {
   if(!G||!G->hasLocalLinkage()||!G->getMetadata("sgpl.language.array")||G->isThreadLocal())return false;
   for(User *U:G->users()) {
+    // R16's compiler-certified count helper consumes the private slot without
+    // retaining/publishing it. It writes the same source-local count locations.
+    if(auto *C=dyn_cast<CallInst>(U))if(C->getMetadata("sgpl.source.count.proof")&&C->getCalledFunction()&&
+        C->getCalledFunction()->getName()=="sgpl_try_source_count_v1"&&C->arg_size()==2&&C->getArgOperand(1)==G)continue;
     // The private iteration certificate restores both identities on return and
     // permits only exchanging these two independently allocated buffers while
     // its owned map/kernel phases run. Their mutual disjointness is invariant;

@@ -18,8 +18,28 @@ static void sgpl_iteration_destinations(void *opaque,int32_t worker,int32_t widt
   j->kernel(NULL,&j->ctx,(int32_t)(j->index->n*worker/width),(int32_t)(j->index->n*(worker+1)/width),
       j->index->incoming_rows,j->index->sources,j->values,j->seed);
 }
-int32_t sgpl_try_iteration_gate_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,
-    const sgpl_iteration_gate_plan_v1 *extra,double seed,int32_t rounds) {
+int32_t sgpl_try_source_count_v1(void *graph,void **slot) {
+  if(!slot||getenv("SGPL_NO_ITERATION_LIFETIMES")||getenv("SGPL_NO_EXEC_SIMPLIFY")||
+      (getenv("SGPL_GPU_BACKEND")&&strcmp(getenv("SGPL_GPU_BACKEND"),"0")))return 0;
+  AutoGraphMeta *m=find_meta(graph);
+  if(!m||m->current_layout!=LAYOUT_CSR||m->csr_n<0||m->csr_n>INT32_MAX||m->csr_m<0||
+     *(int64_t *)graph!=m->csr_n||m->csr_row_ptr!=*(int64_t **)((char *)graph+16)||
+     m->csr_col_idx!=*(int32_t **)((char *)graph+24)||!m->csr_row_ptr||(m->csr_m&&!m->csr_col_idx)||(!*slot&&m->csr_n))return 0;
+  const int64_t *row=m->csr_row_ptr;
+  // Validate the entire witness before any array effect. No incoming index,
+  // allocation, neighbor visits, deduplication or inferred positivity.
+  if(row[0]!=0||row[m->csr_n]!=m->csr_m)return 0;
+  for(int64_t u=0;u<m->csr_n;++u)if(row[u]<0||row[u+1]<row[u]||row[u+1]>m->csr_m)return 0;
+  for(int64_t u=0;u<m->csr_n;++u)if(row[u+1]!=row[u]) {
+    uint32_t value;memcpy(&value,(char *)*slot+4*u,4);
+    value+=(uint32_t)((uint64_t)row[u+1]-(uint64_t)row[u]);
+    memcpy((char *)*slot+4*u,&value,4);
+  }
+  if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[iteration-lifetime] R16 activate: modular row counts; no neighbor traversal\n");
+  return 1;
+}
+static int32_t sgpl_iteration_execute(void *graph,const sgpl_iteration_memory_plan_v1 *p,
+    const sgpl_iteration_gate_plan_v1 *extra,const sgpl_iteration_storage_plan_v1 *storage,double seed,int32_t rounds) {
   if(!p||p->version!=1||p->bytes!=sizeof(*p)||!p->baseline_pair||!p->kernel||!p->map||
      !p->source||!p->destination||p->source==p->destination||!p->stride||p->stride>128||rounds<=0||
      getenv("SGPL_NO_EXEC_SIMPLIFY")||getenv("SGPL_NO_FULLGRAPH")||getenv("SGPL_NO_ITERATION_MEMORY")||
@@ -32,10 +52,20 @@ int32_t sgpl_try_iteration_gate_v1(void *graph,const sgpl_iteration_memory_plan_
   void *original_source=*p->source,*original_destination=*p->destination;
   if((bytes&&(!original_source||!original_destination))||
      sgpl_relax_overlap((uintptr_t)original_source,bytes,(uintptr_t)original_destination,bytes))return 0;
+  uint32_t live=3;int reuse=0;
+  if(storage&&storage->version==1&&storage->bytes==sizeof(*storage)&&storage->baseline==p&&
+      storage->baseline_pair==p->baseline_pair&&!(storage->rules&~(SGPL_EXEC_R17|SGPL_EXEC_R18))&&
+      storage->rules&&!(storage->live_arrays&~3u)&&!getenv("SGPL_NO_ITERATION_LIFETIMES")) {
+    uint64_t facts=SGPL_FACT_FINAL_USES;
+    if(p->stride==8)facts|=SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT;
+    SgplProofPlan composed=sgpl_iteration_lifetimes(facts,storage->rules);
+    if(composed.rules&SGPL_EXEC_R17)live=storage->live_arrays;
+    reuse=!!(composed.rules&SGPL_EXEC_R18);
+  }
   SgplIncomingIndex *index=sgpl_incoming_acquire(m);if(!index)return 0;
-  void *values=malloc((size_t)(m->csr_n?m->csr_n:1)*p->stride);
+  void *values=reuse?original_source:malloc((size_t)(m->csr_n?m->csr_n:1)*p->stride);
   uint8_t *gates=malloc((size_t)(m->csr_n?m->csr_n:1));
-  if(!values||!gates){free(values);free(gates);sgpl_incoming_release(index);return 0;}
+  if((!values&&m->csr_n)||!gates){if(!reuse)free(values);free(gates);sgpl_incoming_release(index);return 0;}
   int parts=sgpl_configured_worker_count(),budget=sgpl_current_thread_budget();
   if(budget>0&&parts>budget)parts=budget;if(parts<1||sgpl_is_worker_pool_thread())parts=1;
   SgplIterationJob j={.plan=p,.index=index,.values=values,.gates=gates,.seed=seed,.kernel=p->kernel,.map=p->map};
@@ -58,16 +88,33 @@ int32_t sgpl_try_iteration_gate_v1(void *graph,const sgpl_iteration_memory_plan_
   // No fallible preparation remains. Independent map cells precede all owned
   // destination writes; the join precedes buffer rotation and the next round.
   for(int32_t round=0;round<rounds;++round) {
+    if(reuse)j.values=*p->source;
     sgpl_run_preparation(sgpl_iteration_sources,&j,parts);
     sgpl_run_preparation(sgpl_iteration_destinations,&j,parts);
     void *old=*p->source;*p->source=*p->destination;*p->destination=old;
   }
   void *final=*p->source;
-  if(bytes&&final!=original_source)memcpy(original_source,final,bytes);
-  if(bytes&&final!=original_destination)memcpy(original_destination,final,bytes);
+  if(bytes&&(live&1)&&final!=original_source)memcpy(original_source,final,bytes);
+  if(bytes&&(live&2)&&final!=original_destination)memcpy(original_destination,final,bytes);
   *p->source=original_source;*p->destination=original_destination;
   if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[iteration-memory] seed/rotate/map rounds=%d vertices=%lld\n",rounds,(long long)m->csr_n);
-  free(values);free(gates);sgpl_incoming_release(index);return 1;
+  if(getenv("SGPL_SEMANTIC_STAGE_STATS")) {
+    if(live!=3)fprintf(stderr,"[iteration-lifetime] R17 activate: live-array mask=%u; unobserved restoration omitted\n",live);
+    if(reuse)fprintf(stderr,"[iteration-lifetime] R18 activate: source-local contribution storage; no scratch allocation\n");
+  }
+  if(!reuse)free(values);free(gates);sgpl_incoming_release(index);return 1;
+}
+int32_t sgpl_try_iteration_gate_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,
+    const sgpl_iteration_gate_plan_v1 *extra,double seed,int32_t rounds) {
+  return sgpl_iteration_execute(graph,p,extra,NULL,seed,rounds);
+}
+int32_t sgpl_try_iteration_storage_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,
+    const sgpl_iteration_storage_plan_v1 *storage,double seed,int32_t rounds) {
+  const sgpl_iteration_gate_plan_v1 *gate=NULL;
+  if(storage&&storage->version==1&&storage->bytes==sizeof(*storage)&&storage->baseline==p&&
+      p&&storage->baseline_pair==p->baseline_pair&&!(storage->rules&~(SGPL_EXEC_R17|SGPL_EXEC_R18))&&
+      !(storage->live_arrays&~3u))gate=storage->gate;
+  return sgpl_iteration_execute(graph,p,gate,storage,seed,rounds);
 }
 int32_t sgpl_try_iteration_memory_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,double seed,int32_t rounds) {
   return sgpl_try_iteration_gate_v1(graph,p,NULL,seed,rounds);

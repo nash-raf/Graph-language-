@@ -26,4 +26,15 @@ typedef struct {
 } sgpl_iteration_gate_plan_v1;
 int32_t sgpl_try_iteration_gate_v1(void *,const sgpl_iteration_memory_plan_v1 *,
     const sgpl_iteration_gate_plan_v1 *,double,int32_t);
+/* Additive, internal proof bundle. Existing descriptors and ABI stay intact.
+ * live_arrays: bit 0 source, bit 1 destination; unknown bits refuse. */
+typedef struct {
+  uint32_t version,bytes,rules,live_arrays;
+  const sgpl_iteration_memory_plan_v1 *baseline;
+  void *baseline_pair;
+  const sgpl_iteration_gate_plan_v1 *gate;
+} sgpl_iteration_storage_plan_v1;
+int32_t sgpl_try_iteration_storage_v1(void *,const sgpl_iteration_memory_plan_v1 *,
+    const sgpl_iteration_storage_plan_v1 *,double,int32_t);
+int32_t sgpl_try_source_count_v1(void *,void **);
 #endif

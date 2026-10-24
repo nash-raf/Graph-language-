@@ -26,6 +26,25 @@ static inline SgplProofPlan sgpl_proof_simplify(uint64_t facts,uint32_t requeste
 #define SGPL_EXEC_R13 4096u
 #define SGPL_EXEC_R14 8192u
 #define SGPL_EXEC_R15 16384u
+#define SGPL_EXEC_R16 32768u
+#define SGPL_EXEC_R17 65536u
+#define SGPL_EXEC_R18 131072u
+#define SGPL_FACT_COUNT_PURE (UINT64_C(1)<<28)
+#define SGPL_FACT_CSR_COUNT (UINT64_C(1)<<29)
+#define SGPL_FACT_FINAL_USES (UINT64_C(1)<<30)
+#define SGPL_FACT_RESTORE_SELECTED (UINT64_C(1)<<31)
+#define SGPL_FACT_MAP_LOCAL (UINT64_C(1)<<32)
+#define SGPL_FACT_GATE_DISJOINT (UINT64_C(1)<<33)
+#define SGPL_FACT_MAP_INPLACE (UINT64_C(1)<<34)
+static inline SgplProofPlan sgpl_iteration_lifetimes(uint64_t facts,uint32_t requested) {
+  /* Consumers first: restore selection and map reuse are independent. Reuse
+   * never invalidates liveness; all observed outputs are restored afterward. */
+  const SgplProofRule rules[]={
+    {SGPL_EXEC_R18,SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT,SGPL_FACT_MAP_INPLACE},
+    {SGPL_EXEC_R17,SGPL_FACT_FINAL_USES,SGPL_FACT_RESTORE_SELECTED},
+    {SGPL_EXEC_R16,SGPL_FACT_COUNT_PURE,SGPL_FACT_CSR_COUNT}};
+  return sgpl_proof_simplify(facts,requested,rules,3);
+}
 /* Internal producer IDs do not appear in descriptors or user controls. */
 #define SGPL_PROOF_GATE (1u<<24)
 #define SGPL_PROOF_FRONTIER (1u<<25)

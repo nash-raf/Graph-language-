@@ -58,5 +58,16 @@ int main() {
     assert(got.rewrites<=6);
   }
   std::cout<<"PASS composable proof removals cases="<<composed<<" runtime_subsets=512\n";
+  for(unsigned facts=0;facts<16;++facts)for(unsigned subset=0;subset<8;++subset) {
+    uint64_t f=0;const uint64_t premises[]={SGPL_FACT_COUNT_PURE,SGPL_FACT_FINAL_USES,SGPL_FACT_MAP_LOCAL,SGPL_FACT_GATE_DISJOINT};
+    for(unsigned i=0;i<4;++i)if(facts&(1u<<i))f|=premises[i];
+    unsigned wanted=(subset&1?SGPL_EXEC_R16:0)|(subset&2?SGPL_EXEC_R17:0)|(subset&4?SGPL_EXEC_R18:0);
+    auto got=sgpl_iteration_lifetimes(f,wanted);
+    assert(!!(got.rules&SGPL_EXEC_R16)==!!((subset&1)&&(facts&1)));
+    assert(!!(got.rules&SGPL_EXEC_R17)==!!((subset&2)&&(facts&2)));
+    assert(!!(got.rules&SGPL_EXEC_R18)==!!((subset&4)&&((facts&12)==12)));
+    assert(got.rewrites<=3);
+  }
+  std::cout<<"PASS iteration lifetime worklist premise_subsets=128\n";
   std::cout<<"PASS composition worklist checks="<<checks<<" registration_orders=120 subsets=32\n";
 }

@@ -1,0 +1,106 @@
+{
+  "passed": true,
+  "diagnostic_only": true,
+  "not_performance_samples": true,
+  "native_changes": false,
+  "checks": [
+    {
+      "graph": "protein/DD_g422.edges",
+      "variant": "baseline",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/baseline_protein_DD_g422.edges.log",
+      "timed_executable_sha256": "e3cce4fc7da07b954d759425b0bbe9797d156e35677333ba569109e28ab288ee"
+    },
+    {
+      "graph": "protein/DD_g422.edges",
+      "variant": "candidate",
+      "pool_initialization_phase": 1,
+      "before_compute_timer": false,
+      "inside_compute_timer": true,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/candidate_protein_DD_g422.edges.log",
+      "timed_executable_sha256": "3472291feb3dc2fafaa37aad251c2b7e10e7fe606857ec58bf1d7715757c7a8a"
+    },
+    {
+      "graph": "protein/DD_g422.edges",
+      "variant": "disabled",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/disabled_protein_DD_g422.edges.log",
+      "timed_executable_sha256": "3472291feb3dc2fafaa37aad251c2b7e10e7fe606857ec58bf1d7715757c7a8a"
+    },
+    {
+      "graph": "ia/ia-email-univ.edges",
+      "variant": "baseline",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/baseline_ia_ia-email-univ.edges.log",
+      "timed_executable_sha256": "649ae7829b100d1ed567d32fbbd93ef4f72142be39fb3839e35d7cd2066410fc"
+    },
+    {
+      "graph": "ia/ia-email-univ.edges",
+      "variant": "candidate",
+      "pool_initialization_phase": 1,
+      "before_compute_timer": false,
+      "inside_compute_timer": true,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/candidate_ia_ia-email-univ.edges.log",
+      "timed_executable_sha256": "6f68d93bd016a3d73cddd31ffbea45cfb53bb98cd7bddd82213aaf3ace4930d2"
+    },
+    {
+      "graph": "ia/ia-email-univ.edges",
+      "variant": "disabled",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/disabled_ia_ia-email-univ.edges.log",
+      "timed_executable_sha256": "6f68d93bd016a3d73cddd31ffbea45cfb53bb98cd7bddd82213aaf3ace4930d2"
+    },
+    {
+      "graph": "dimacs/DSJC1000-5.edges",
+      "variant": "baseline",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/baseline_dimacs_DSJC1000-5.edges.log",
+      "timed_executable_sha256": "82a1fb3fdc366f3191a8e7b398f38a58b52ce5d0c0d94dccd754256ec5f547dc"
+    },
+    {
+      "graph": "dimacs/DSJC1000-5.edges",
+      "variant": "candidate",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/candidate_dimacs_DSJC1000-5.edges.log",
+      "timed_executable_sha256": "68cb371b9b9ffcd224759b7aefb92e61450a997bbfb1efbcafb046a96164e01f"
+    },
+    {
+      "graph": "dimacs/DSJC1000-5.edges",
+      "variant": "disabled",
+      "pool_initialization_phase": 0,
+      "before_compute_timer": true,
+      "inside_compute_timer": false,
+      "log": "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/disabled_dimacs_DSJC1000-5.edges.log",
+      "timed_executable_sha256": "68cb371b9b9ffcd224759b7aefb92e61450a997bbfb1efbcafb046a96164e01f"
+    }
+  ],
+  "note": "GDB records first SGPL pool initialization relative to the existing timer calls. No traced durations enter benchmark summaries.",
+  "source_files_sha256": {
+    "startup_trace.gdb": "c9eac52673759943dc5da71517a0d36d5f3c1f939cd28298bd228fa1652790b7",
+    "trace_startup.py": "8f3f1c8c2fa9c3ccb5885a60c125bfd707755559f130d0a4744eaf469a2a1132"
+  },
+  "logs_sha256": {
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/baseline_protein_DD_g422.edges.log": "a4ffe2b4d0771ff2816508b4a6bced700720e0e8007d680c022c0b274a4f2ae9",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/candidate_protein_DD_g422.edges.log": "1575daf67d605390dd4f17a33c839dcd9494a39fb39e8fc7b972cb501c8601da",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/disabled_protein_DD_g422.edges.log": "35ccd631cc64ee4c125fe0793a487515207f042c99ef68e71ac44fafc73a3ff4",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/baseline_ia_ia-email-univ.edges.log": "5a16f2b7f6dc1868e8f7736eb4027c020aacd54dce80b020ee579ca0f9d27783",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/candidate_ia_ia-email-univ.edges.log": "c90e46720fe3a527717b72ce4a296d91aae6149f707d6d23c7182353651e5e9b",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/disabled_ia_ia-email-univ.edges.log": "fb7ed704d686db9b5365188963388c21d20a6132c39b6cdce82c1723d7e8c7da",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/baseline_dimacs_DSJC1000-5.edges.log": "4f4f62deea7e17d821eefb6208a382bab9da4baab2d52cd38df933d600c4407a",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/candidate_dimacs_DSJC1000-5.edges.log": "3672c6087339799f18e1c4d282e03b0c92a7f164f175ea639fa606265f241cfd",
+    "/home/kazi/p1_iteration_lifetimes_benchmark_20261024/startup_diagnostic/disabled_dimacs_DSJC1000-5.edges.log": "9fde44191f5261b86fc7bd210752b72a3ccc0540f1089fe7b2ef2ced3c1d03c1"
+  },
+  "interpretation": "Nine untimed GDB traces confirm a timing-boundary shift: on protein/DD_g422.edges and ia/ia-email-univ.edges, the retained baseline and rules-disabled build initialize the SGPL worker pool before the compute timer; the enabled build initializes it inside that timer. On the larger dimacs/DSJC1000-5.edges case all three initialize it beforehand. R16 removes the degree traversal that previously triggered early pool startup. The recorded compute ratios therefore include startup moving across the timer boundary on these small cases; they do not isolate steady traversal cost. All benchmark observations, reported ratios and statistical tests are unchanged. Diagnostic durations are not performance samples."
+}

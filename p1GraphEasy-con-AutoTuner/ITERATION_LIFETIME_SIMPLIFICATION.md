@@ -110,3 +110,44 @@ and recorded separately. Auxiliary libgomp is serial in these detector checks;
 actual SGPL workers are 1/2/6. This is not a universal absence-of-races claim.
 
 Machine-readable correctness evidence: `reports/iteration_lifetimes_correctness.json`.
+
+## Authorized local benchmark, 2026-10-24
+
+Against frozen R1--R15 native source `c8d5bbff`, the six-physical-core campaign
+records 30,500 timed observations and 2,440 warmups across 61 graphs and four
+algorithms. Five primary and twenty confirmation observations use the previous
+executable baseline, candidate, candidate with only R16--R18 disabled, and two
+identical-binary controls. Both blocks' controls pass; no launches fail. The
+integrity audit verifies 488 executable fingerprints, fixed inputs/calibration,
+and unchanged compiler/runtime source throughout measurement. ARS-1 is unchanged.
+
+Confirmation geometric-mean speedup (baseline / candidate; above one is faster):
+
+| Algorithm | End-to-end | Instrumented compute region |
+| --- | ---: | ---: |
+| BFS | 1.0072x | 1.0068x |
+| SSSP | 1.0045x | 1.0041x |
+| CC | 1.0020x | 0.9994x |
+| PageRank | 1.0358x | 0.8985x |
+
+PageRank wins on 55/61 graphs versus the retained baseline end-to-end; summed
+end-to-end time falls 3.92%. The same candidate with R16--R18 disabled is 1.0421x
+slower geometrically end-to-end. No end-to-end case slowdown survives Holm
+correction. These are modest improvements and do not establish a broad PageRank
+win over Graptor: comparisons with saved historical results give 8/61 end-to-end
+wins and 2/61 instrumented-compute wins. Graptor was not rerun.
+
+The compute timer begins **after degree construction**. Nine untimed GDB traces
+confirm that R16 shifts SGPL worker-pool startup across this boundary on two small
+cases: `protein/DD_g422.edges` and `ia/ia-email-univ.edges`. The baseline and
+rules-disabled executable initialize the pool before the timer; the enabled
+executable first initializes it inside the timer. On the larger
+`dimacs/DSJC1000-5.edges` all three initialize it before the timer. Thus the
+geometric-mean compute slowdown includes shifted startup; it does not isolate
+steady traversal. Summed compute time across the corpus falls 0.98%. No timed
+observations or ratios were altered; debugger durations are excluded.
+
+Machine evidence: `reports/iteration_lifetimes_benchmark.json` and
+`reports/iteration_lifetimes_startup_diagnostic.json`. Full report, CSV, raw
+observations, fixed protocol and diagnostic scripts/logs are retained under
+`C:/p1-iteration-lifetimes-benchmark-20261024/`, entry point `final_report.html`.

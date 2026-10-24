@@ -86,3 +86,27 @@ allocation failures, normal/ASan/UBSan contracts, targeted TSan and the frozen
 `tools/benchmark_iteration_lifetimes.py` is a separate, authorized benchmark
 entry point. It retains previous executables/reports and reuses saved Graptor
 observations without launching Graptor.
+
+## Correctness outcome
+
+Frozen native source `27f4d11b`, external build `iteration_lifetimes02`, passes
+2,196 independent corpus validations and 183 exact PageRank bit-comparison groups
+at 1/2/6 physical workers. R16, R17 and R18 activate on 61/61 PageRank programs;
+the other three algorithms retain their preceding implementations. The CC R12
+closure body is unchanged from the frozen baseline.
+
+All 768 generated-program comparisons pass across eight new-rule subsets, R13
+enabled/disabled, and 1/2/6 workers. Structural checks include ten count-premise
+negative controls and six storage/liveness controls, including remaining kernel
+rank reads. The worklist checks 256 lifetime-premise/subset combinations in
+addition to its existing composition tests. Normal and ASan/UBSan runtime suites
+pass, including 13,824 exact storage comparisons across final-use masks, odd/even
+rounds, descriptor refusals and allocation failures. Existing fullgraph, frontier,
+relaxation, context, scheduling and worker-pool contracts pass.
+
+All twelve targeted TSan configurations pass and the injected-race positive
+control is detected. WSL mapping failures and empty startup crashes were retried
+and recorded separately. Auxiliary libgomp is serial in these detector checks;
+actual SGPL workers are 1/2/6. This is not a universal absence-of-races claim.
+
+Machine-readable correctness evidence: `reports/iteration_lifetimes_correctness.json`.

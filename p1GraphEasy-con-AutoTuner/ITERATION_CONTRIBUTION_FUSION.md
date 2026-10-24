@@ -101,3 +101,39 @@ at 1/2/6 workers. This is not a universal proof of race absence. The machine
 report is `reports/iteration_fusion_correctness.json`. The earlier frozen
 `iteration_fusion01` is superseded by the explicit separation of static
 eligibility and dynamic gate entailment; it was not benchmarked.
+
+## Confirmed local performance
+
+The six-physical-core campaign collected 30,500 timed observations and 2,440
+warmups, with five primary and twenty confirmation observations per variant
+and graph. Both blocks passed their identical-binary controls, with zero failed
+launches and zero new Graptor launches. The audit verified all 488 timed
+executable fingerprints and unchanged native sources, inputs and calibration.
+
+| Algorithm | E2E geometric speedup vs accepted | Compute geometric speedup | E2E wins vs accepted | E2E wins vs saved Graptor |
+| --- | ---: | ---: | ---: | ---: |
+| BFS | 0.9961x | 0.9945x | 26/61 | 30/61 |
+| SSSP | 0.9975x | 0.9964x | 28/61 | 46/61 |
+| CC | 0.9976x | 0.9823x | 27/61 | 53/61 |
+| PageRank | 1.0054x | 1.0205x | 36/61 | 8/61 |
+
+Values greater than one favor the candidate. These are measured geometric
+ratios, not guarantees of improvement. No end-to-end slowdown survives Holm
+correction. PageRank's summed E2E time decreases 0.8066%, and summed compute
+time decreases 3.2007%. The same candidate with R19 disabled is 1.0280x slower
+end-to-end geometrically, but the net gain against the accepted executable is
+only 1.0054x. The difference between these controls has not been attributed to
+specific code-placement, dispatch or instruction effects.
+
+Both the accepted and candidate executables win 8/61 PageRank graphs against
+the same saved Graptor E2E means in this campaign; the candidate wins 4/61
+recorded compute comparisons. Saved Graptor is 1.1422x faster geometrically
+end-to-end and 1.6057x faster in the recorded compute region. These historical
+comparisons do not isolate steady traversal throughput or establish an exact
+cause of the residual gap. R19 removes the intended repeated phase, but the
+measured benefit remains small; it does not demonstrate broad PageRank wins.
+
+Full report: `C:/p1-iteration-fusion-benchmark-20261024/final_report.html`.
+Machine report: `reports/iteration_fusion_benchmark.json`. The experimental
+branch retains the complete change and fallback; accepted ARS-1 remains at
+`7df87a26` pending a separate acceptance decision.

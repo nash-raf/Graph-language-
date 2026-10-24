@@ -7,7 +7,7 @@ R=B.R;REPO=B.REPO
 ROOT=Path('/home/kazi/p1_iteration_fusion_benchmark_20261024')
 OUT=Path('/mnt/c/p1-iteration-fusion-benchmark-20261024')
 BASE=Path('/home/kazi/p1_execution_simplification/versions/iteration_lifetimes02')
-CAND=Path('/home/kazi/p1_execution_simplification/versions/iteration_fusion01')
+CAND=Path('/home/kazi/p1_execution_simplification/versions/iteration_fusion02')
 OLD=Path('/home/kazi/p1_iteration_lifetimes_benchmark_20261024')
 CORRECT=REPO/'reports/iteration_fusion_correctness.json'
 ROOT.mkdir(exist_ok=True);OUT.mkdir(exist_ok=True)

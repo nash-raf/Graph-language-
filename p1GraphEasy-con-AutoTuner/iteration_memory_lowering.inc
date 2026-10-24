@@ -342,13 +342,9 @@ static void lowerIterationMemory(Module &M) {
       if(Extra&&LocalMap&&KernelDisjoint&&(Facts&SGPL_FACT_GATE_DISJOINT)) {
         auto *GateS=cast<ConstantStruct>(Extra->getInitializer());
         Fused=iterationFusedKernel(M,cast<Function>(GateS->getOperand(6)),cast<Function>(GateS->getOperand(7)),Source,Dest);
-        if(Fused)FusionFacts|=SGPL_FACT_GATE_ENTAILED|SGPL_FACT_FUSION_SHAPE;
+        if(Fused)FusionFacts|=SGPL_FACT_GATE_STABLE|SGPL_FACT_FUSION_SHAPE;
       }
-      auto Fusion=sgpl_iteration_fusion(FusionFacts,executionSimplifyRules());
-      if(std::getenv("SGPL_FUSION_DEBUG")) {
-        errs()<<"fusion facts="<<FusionFacts<<" local="<<LocalMap<<" disjoint="<<KernelDisjoint<<" extra="<<!!Extra<<" generated="<<!!Fused<<"\n";
-        if(Extra){auto *X=cast<ConstantStruct>(Extra->getInitializer());cast<Function>(X->getOperand(6))->print(errs());cast<Function>(X->getOperand(7))->print(errs());}
-      }
+      auto Fusion=sgpl_iteration_fusion_candidate(FusionFacts,executionSimplifyRules());
       if(Fusion.rules&SGPL_EXEC_R19) {
         auto *T=StructType::get(M.getContext(),{B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy()});
         if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_iteration_fusion_plan_v1))report_fatal_error("fusion descriptor mismatch");

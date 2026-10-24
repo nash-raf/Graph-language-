@@ -32,6 +32,7 @@ static inline SgplProofPlan sgpl_proof_simplify(uint64_t facts,uint32_t requeste
 #define SGPL_EXEC_R19 262144u
 #define SGPL_FACT_FUSION_SHAPE (UINT64_C(1)<<36)
 #define SGPL_FACT_FUSED_CONTRIBUTIONS (UINT64_C(1)<<37)
+#define SGPL_FACT_FUSION_CANDIDATE (UINT64_C(1)<<38)
 #define SGPL_FACT_COUNT_PURE (UINT64_C(1)<<28)
 #define SGPL_FACT_CSR_COUNT (UINT64_C(1)<<29)
 #define SGPL_FACT_FINAL_USES (UINT64_C(1)<<30)
@@ -79,6 +80,14 @@ static inline SgplProofPlan sgpl_iteration_fusion(uint64_t facts,uint32_t reques
   const SgplProofRule rules[]={
     {SGPL_EXEC_R19,SGPL_FACT_GATE_ENTAILED|SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT|
       SGPL_FACT_KERNEL_DISJOINT|SGPL_FACT_FUSION_SHAPE,SGPL_FACT_FUSED_CONTRIBUTIONS}};
+  return sgpl_proof_simplify(facts,requested,rules,1);
+}
+/* Compilation proves a conditional candidate, not the dynamic gate witness.
+ * Runtime must still establish GATE_ENTAILED before executing this candidate. */
+static inline SgplProofPlan sgpl_iteration_fusion_candidate(uint64_t facts,uint32_t requested) {
+  const SgplProofRule rules[]={
+    {SGPL_EXEC_R19,SGPL_FACT_GATE_STABLE|SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT|
+      SGPL_FACT_KERNEL_DISJOINT|SGPL_FACT_FUSION_SHAPE,SGPL_FACT_FUSION_CANDIDATE}};
   return sgpl_proof_simplify(facts,requested,rules,1);
 }
 #endif

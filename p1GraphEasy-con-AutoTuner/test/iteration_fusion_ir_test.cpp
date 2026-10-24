@@ -16,7 +16,6 @@ int main(int argc,char **argv) {
     std::string rules="R1,R2,R3";const unsigned ids[]={13,16,17,18,19};
     for(unsigned i=0;i<5;++i)if(subset&(1u<<i))rules+=",R"+std::to_string(ids[i]);
     setenv("SGPL_EXEC_SIMPLIFY_RULES",rules.c_str(),1);certifySourceCounts(*M);certifyIterationMemory(*M);
-    if(subset==17)setenv("SGPL_FUSION_DEBUG","1",1);else unsetenv("SGPL_FUSION_DEBUG");
     for(Function &F:*M)if(F.hasLocalLinkage()&&!F.isDeclaration())iterationCanonicalize(&F);
     lowerIterationMemory(*M);require(!verifyModule(*M,&errs()),"fusion subset verifies");
     bool expected=(subset&17)==17;
@@ -67,6 +66,9 @@ int main(int argc,char **argv) {
     for(unsigned i=0;i<5;++i)if(subset&(1u<<i))facts|=premises[i];
     require(!!(sgpl_iteration_fusion(facts,SGPL_EXEC_R19).rules&SGPL_EXEC_R19)==(subset==31),"all fusion premises necessary");
     require(!sgpl_iteration_fusion(facts,0).rules,"disabled rule cannot fire");
+    uint64_t candidate=(facts&~SGPL_FACT_GATE_ENTAILED)|((subset&1)?SGPL_FACT_GATE_STABLE:0);
+    require(!!sgpl_iteration_fusion_candidate(candidate,SGPL_EXEC_R19).rules==(subset==31),"compiler requires all static candidate premises");
+    require(!sgpl_iteration_fusion(candidate,SGPL_EXEC_R19).rules,"static gate stability never supplies runtime entailment");
   }
   std::cout<<"PASS fusion structural subsets=32 negative_premises=7 worklist_subsets=64\n";
   return 0;

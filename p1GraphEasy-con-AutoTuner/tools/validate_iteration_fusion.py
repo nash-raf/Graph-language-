@@ -114,7 +114,7 @@ def report(d):
 
 def main():
     stages=['build','structural','native','fixtures','iteration','programs','existing','activation','detector','report']
-    p=argparse.ArgumentParser();p.add_argument('stage',choices=[*stages,'all']);p.add_argument('--version',default='iteration_fusion01');p.add_argument('--from-stage',choices=stages,default='build');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=[*stages,'all']);p.add_argument('--version',default='iteration_fusion02');p.add_argument('--from-stage',choices=stages,default='build');a=p.parse_args()
     V.prepare();original=R.M.make_source;R.M.make_source=lambda alg,row,val:S.without_timing(original(alg,row,val));d=V.ROOT/'versions'/a.version
     def stage(n):
         if n=='build':V.build(a.version)

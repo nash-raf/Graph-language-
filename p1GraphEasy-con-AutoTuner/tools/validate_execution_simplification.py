@@ -54,7 +54,7 @@ def contracts(d):
         print('CONTRACTS',name,flush=True);R.checked(cmd,src,out/(name+'.log'),env,timeout=1800)
         R.save(out/(name+'.json'),{'passed':True,'workers':[1,2,6]})
 
-def programs(d):
+def programs(d,disable_env='SGPL_NO_EXEC_SIMPLIFY'):
     records=[];bit_checks=[];src=d/'src';out=d/'validation';out.mkdir(exist_ok=True)
     helper=d/'exact_bits.o';R.checked(['gcc','-O2','-c',REPO/'tools/p1_campaign/exact_bits.c','-o',helper],d,out/'bits_build.log')
     for alg in R.ALGS:
@@ -70,7 +70,7 @@ def programs(d):
             R.checked(['g++','-O3','-fopenmp','-no-pie',case/'validate.o',*[d/(n+'.o') for n in R.OBJECTS],helper,'-Wl,--wrap=printf','-Wl,--wrap=puts','-Wl,--wrap=__printf_chk','-pthread','-ldl','-lnlopt','-o',case/'validate'],case,case/'link.log')
         for width in [1,2,6]:
             hashes=[]
-            for label,exe,extra in [('baseline',BASE/'cases'/alg/row['graph'].removesuffix('.edges')/'validate',{}),('enabled',case/'validate',{}),('disabled',case/'validate',{'SGPL_NO_EXEC_SIMPLIFY':'1'})]:
+            for label,exe,extra in [('baseline',BASE/'cases'/alg/row['graph'].removesuffix('.edges')/'validate',{}),('enabled',case/'validate',{}),('disabled',case/'validate',{disable_env:'1'})]:
                 runenv=R.M.env(workers=width);runenv.update(extra)
                 bits=case/(label+'_w'+str(width)+'.bits')
                 if alg=='pagerank':

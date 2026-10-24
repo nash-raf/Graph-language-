@@ -156,6 +156,7 @@ static bool iterationGateImmutable(Function *Gate,GlobalVariable *Source,GlobalV
   return true;
 }
 #include "iteration_lifetime_lowering.inc"
+#include "iteration_fusion_lowering.inc"
 static void certifyIterationMemory(Module &M) {
   if((executionSimplifyRules()&7)!=7||std::getenv("SGPL_NO_ITERATION_MEMORY_LOWERING"))return;
   SmallVector<CallInst *,8> Certificates;
@@ -320,10 +321,11 @@ static void lowerIterationMemory(Module &M) {
       errs()<<"[iteration-lifetime] R17 "<<(Rules&SGPL_EXEC_R17?"certify":"refuse")<<": final live-array mask="<<Observed<<"\n";
       errs()<<"[iteration-lifetime] R18 "<<(Rules&SGPL_EXEC_R18?"certify":"refuse")<<": one local map field, disjoint gate and no remaining kernel rank reads required\n";
     }
+    GlobalVariable *Storage=nullptr;
     if(Rules) {
       auto *T=StructType::get(M.getContext(),{B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy()});
       if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_iteration_storage_plan_v1))report_fatal_error("storage descriptor mismatch");
-      auto *Storage=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_iteration_storage_plan_v1)),B.getInt32(Rules),B.getInt32(Observed),Plan,Pair,Extra?static_cast<Constant *>(Extra):ConstantPointerNull::get(B.getPtrTy())}),"sgpl.iteration.storage.v1");
+      Storage=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_iteration_storage_plan_v1)),B.getInt32(Rules),B.getInt32(Observed),Plan,Pair,Extra?static_cast<Constant *>(Extra):ConstantPointerNull::get(B.getPtrTy())}),"sgpl.iteration.storage.v1");
       SmallVector<CallInst *,4> Calls;
       for(User *U:Plan->users())if(auto *C=dyn_cast<CallInst>(U))if(C->getCalledFunction()) {
         auto N=C->getCalledFunction()->getName();if(N=="sgpl_try_iteration_gate_v1"||N=="sgpl_try_iteration_memory_v1")Calls.push_back(C);
@@ -333,6 +335,35 @@ static void lowerIterationMemory(Module &M) {
         auto *Result=Call.CreateCall(M.getOrInsertFunction("sgpl_try_iteration_storage_v1",FunctionType::get(B.getInt32Ty(),{B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getDoubleTy(),B.getInt32Ty()},false)),{C->getArgOperand(0),Plan,Storage,C->getArgOperand(GateCall?3:2),C->getArgOperand(GateCall?4:3)});
         C->replaceAllUsesWith(Result);C->eraseFromParent();
       }
+    }
+    if(executionSimplifyRules()&SGPL_EXEC_R19) {
+      Function *Fused=nullptr;
+      uint64_t FusionFacts=Facts;
+      if(Extra&&LocalMap&&KernelDisjoint&&(Facts&SGPL_FACT_GATE_DISJOINT)) {
+        auto *GateS=cast<ConstantStruct>(Extra->getInitializer());
+        Fused=iterationFusedKernel(M,cast<Function>(GateS->getOperand(6)),cast<Function>(GateS->getOperand(7)),Source,Dest);
+        if(Fused)FusionFacts|=SGPL_FACT_GATE_ENTAILED|SGPL_FACT_FUSION_SHAPE;
+      }
+      auto Fusion=sgpl_iteration_fusion(FusionFacts,executionSimplifyRules());
+      if(std::getenv("SGPL_FUSION_DEBUG")) {
+        errs()<<"fusion facts="<<FusionFacts<<" local="<<LocalMap<<" disjoint="<<KernelDisjoint<<" extra="<<!!Extra<<" generated="<<!!Fused<<"\n";
+        if(Extra){auto *X=cast<ConstantStruct>(Extra->getInitializer());cast<Function>(X->getOperand(6))->print(errs());cast<Function>(X->getOperand(7))->print(errs());}
+      }
+      if(Fusion.rules&SGPL_EXEC_R19) {
+        auto *T=StructType::get(M.getContext(),{B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy()});
+        if(M.getDataLayout().getTypeAllocSize(T)!=sizeof(sgpl_iteration_fusion_plan_v1))report_fatal_error("fusion descriptor mismatch");
+        auto *Descriptor=new GlobalVariable(M,T,true,GlobalValue::PrivateLinkage,ConstantStruct::get(T,{B.getInt32(1),B.getInt32(sizeof(sgpl_iteration_fusion_plan_v1)),B.getInt32(SGPL_EXEC_R19),B.getInt32(0),Plan,Pair,Extra,Storage?static_cast<Constant *>(Storage):ConstantPointerNull::get(B.getPtrTy()),Fused}),"sgpl.iteration.fusion.v1");
+        SmallVector<CallInst *,4> Calls;
+        for(User *U:Plan->users())if(auto *C=dyn_cast<CallInst>(U))if(C->getCalledFunction()) {
+          auto N=C->getCalledFunction()->getName();if(N=="sgpl_try_iteration_storage_v1"||N=="sgpl_try_iteration_gate_v1"||N=="sgpl_try_iteration_memory_v1")Calls.push_back(C);
+        }
+        for(auto *C:Calls) {
+          unsigned Tail=C->arg_size()==5?3:2;IRBuilder<> Call(C);
+          auto *Result=Call.CreateCall(M.getOrInsertFunction("sgpl_try_iteration_fusion_v1",FunctionType::get(B.getInt32Ty(),{B.getPtrTy(),B.getPtrTy(),B.getPtrTy(),B.getDoubleTy(),B.getInt32Ty()},false)),{C->getArgOperand(0),Plan,Descriptor,C->getArgOperand(Tail),C->getArgOperand(Tail+1)});
+          C->replaceAllUsesWith(Result);C->eraseFromParent();
+        }
+      } else if(Fused)Fused->eraseFromParent();
+      if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[iteration-fusion] R19 "<<(Fusion.rules&SGPL_EXEC_R19?"certify":"refuse")<<": local pure map, immutable edge-entailed gate, rank-disjoint kernel and singleton map shape required\n";
     }
     K.first->eraseFromParent();K.second->eraseFromParent();
     if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS"))errs()<<"[iteration-memory] activate seeded accumulator, empty destinations, rotating buffers, range source map\n";

@@ -29,6 +29,9 @@ static inline SgplProofPlan sgpl_proof_simplify(uint64_t facts,uint32_t requeste
 #define SGPL_EXEC_R16 32768u
 #define SGPL_EXEC_R17 65536u
 #define SGPL_EXEC_R18 131072u
+#define SGPL_EXEC_R19 262144u
+#define SGPL_FACT_FUSION_SHAPE (UINT64_C(1)<<36)
+#define SGPL_FACT_FUSED_CONTRIBUTIONS (UINT64_C(1)<<37)
 #define SGPL_FACT_COUNT_PURE (UINT64_C(1)<<28)
 #define SGPL_FACT_CSR_COUNT (UINT64_C(1)<<29)
 #define SGPL_FACT_FINAL_USES (UINT64_C(1)<<30)
@@ -71,5 +74,11 @@ static inline SgplProofPlan sgpl_proof_removals(uint64_t facts,uint32_t requeste
     {SGPL_PROOF_FRONTIER,SGPL_FACT_SET_OUTPUT|SGPL_FACT_VALID_INPUT,SGPL_FACT_BOUNDED_OUTPUT},
     {SGPL_PROOF_WEIGHT,SGPL_FACT_TOPOLOGY_UNIQUE|SGPL_FACT_WEIGHT_FIRST_MATCH,SGPL_FACT_WEIGHT_IDENTITY}};
   return sgpl_proof_simplify(facts,requested|SGPL_PROOF_GATE|SGPL_PROOF_FRONTIER|SGPL_PROOF_WEIGHT,rules,6);
+}
+static inline SgplProofPlan sgpl_iteration_fusion(uint64_t facts,uint32_t requested) {
+  const SgplProofRule rules[]={
+    {SGPL_EXEC_R19,SGPL_FACT_GATE_ENTAILED|SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT|
+      SGPL_FACT_KERNEL_DISJOINT|SGPL_FACT_FUSION_SHAPE,SGPL_FACT_FUSED_CONTRIBUTIONS}};
+  return sgpl_proof_simplify(facts,requested,rules,1);
 }
 #endif

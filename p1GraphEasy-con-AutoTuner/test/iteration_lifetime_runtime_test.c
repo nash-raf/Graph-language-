@@ -56,7 +56,10 @@ static void count_cases(ExecTestGraph *g) {
     autograph_update_csr_pointers(g,g->row_ptr,g->col_idx);
   }
 }
-int main(void) {
+#ifndef SGPL_LIFETIME_TEST_MAIN
+#define SGPL_LIFETIME_TEST_MAIN main
+#endif
+int SGPL_LIFETIME_TEST_MAIN(void) {
   if(previous_simplification_main())return 1;
   int64_t rows[]={0,2,4,5,6,7,8,8};int32_t columns[]={2,1,1,1,1,3,2,2};
   int32_t pairs[]={0,2,0,1,1,1,1,1,2,1,3,3,4,2,5,2};

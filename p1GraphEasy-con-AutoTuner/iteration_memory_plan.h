@@ -37,4 +37,18 @@ typedef struct {
 int32_t sgpl_try_iteration_storage_v1(void *,const sgpl_iteration_memory_plan_v1 *,
     const sgpl_iteration_storage_plan_v1 *,double,int32_t);
 int32_t sgpl_try_source_count_v1(void *,void **);
+/* R19: contribution-producing kernel adds the stable native source rows.
+ * The existing kernel remains the last-round rank-producing kernel. */
+typedef void (*sgpl_iteration_fused_kernel)(void *,sgpl_exec_ctx *,int32_t,int32_t,
+    const int64_t *,const int32_t *,const void *,double,const int64_t *);
+typedef struct {
+  uint32_t version,bytes,rules,reserved;
+  const sgpl_iteration_memory_plan_v1 *baseline;
+  void *baseline_pair;
+  const sgpl_iteration_gate_plan_v1 *gate;
+  const sgpl_iteration_storage_plan_v1 *storage;
+  sgpl_iteration_fused_kernel kernel;
+} sgpl_iteration_fusion_plan_v1;
+int32_t sgpl_try_iteration_fusion_v1(void *,const sgpl_iteration_memory_plan_v1 *,
+    const sgpl_iteration_fusion_plan_v1 *,double,int32_t);
 #endif

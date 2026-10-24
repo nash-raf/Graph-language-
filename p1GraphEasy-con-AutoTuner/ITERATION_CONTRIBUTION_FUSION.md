@@ -1,0 +1,83 @@
+# Exact producer-map fusion (R19)
+
+This experiment starts from accepted ARS-1 `7df87a26` and retains R1--R18.
+It adds no cost model, threshold, calibration, SIMD, asynchronous traversal,
+or algorithm-name eligibility test. ARS-1 is the frozen reference.
+
+## Transformation and proof
+
+The existing complete, bounded seed/traversal/copy certificate must hold.
+R19 additionally requires a single double map field, source-local rank reads,
+immutable disjoint gate inputs, and no remaining old-rank reads in the
+destination kernel. The generated map must have a checked canonical range
+loop and a single map-element store. Volatile/atomic operations, opaque calls,
+nonlocal rank reads, constrained/strict floating point, intermediate observers,
+and unproved aliases refuse the corresponding prerequisite.
+
+Let `q = map(rank)` and let `fold(q, v)` be the existing ordered destination
+calculation including its original seed. Initially compute `q0 = map(rank0)`.
+For each nonfinal round, calculate `rank_next[v] = fold(q, v)` in the original
+edge order, then immediately compute and store `map(rank_next[v])` in the other
+buffer. The last round stores the actual rank using the retained kernel.
+The map's original arithmetic, operands, flags, zero-outdegree guard and
+duplicate-edge order remain intact. No reciprocal replacement, reassociation,
+contraction or floating reduction is introduced. A singleton clone of the
+original map is inlined at the destination producer's store; its source rank
+loads are replaced with the just-produced scalar rank.
+
+The complete window proves the absence of intermediate observers and other
+writes to map/gate inputs. Thus shifting a next-round map calculation to the
+end of the preceding producer does not change its inputs or observable effects.
+Each destination still belongs to one worker. Current contributions and next
+contributions use separate buffers. The existing destination join publishes
+all produced cells before rotation; no new barrier or worker-team mechanism
+is introduced. Zero-outdegree vertices need no intermediate contribution,
+but the final kernel still calculates and stores their actual ranks.
+
+The initial source map is retained. Remaining rounds omit the separate source
+map dispatch/join, rank materialization and subsequent rank reread. The runtime
+executes one initial map sweep and exactly the original number of destination
+sweeps. One-round execution remains one map and one rank-producing traversal.
+
+## Composition, selection and fallback
+
+The allocation-free proof worklist records every required premise. R19 needs
+R13's compiler certificate and successful pre-effect dynamic gate witness.
+A false immutable gate on any edge-bearing source retains the accepted gated
+iteration. R16, R17 and R18 are independently selectable; R18 allows in-place
+initial mapping, while all subsequent fused rounds use distinct buffers.
+R17's liveness mask controls final restoration, and all original array pointer
+identities are restored. Observed arrays retain exact final rank contents.
+
+An additive versioned private fusion descriptor identifies the original plan,
+pair, optional storage descriptor, R13 descriptor and fused kernel. Existing
+descriptors, entry points and public context layouts remain intact. Version,
+size, rule, reserved bits and baseline identities are checked before selection.
+All index acquisition, allocations and gate witnesses finish before effects.
+Allocation or topology refusal returns to the original loop before effects;
+an unsupported extension retains accepted iteration execution. There is no
+fallback by replaying partial work. Existing index cache invalidation applies.
+
+## Controls and evidence
+
+- `SGPL_NO_ITERATION_FUSION=1` retains accepted R1--R18 execution at runtime.
+- `SGPL_EXEC_SIMPLIFY_RULES=all|none|R1,...,R19` selects compiler rules.
+- `SGPL_EXEC_SIMPLIFY_STATS=1` emits compiler activation/refusal diagnostics.
+- `SGPL_SEMANTIC_STAGE_STATS=1` reports runtime activation and sweep counts.
+
+Correctness: `tools/validate_iteration_fusion.py` freezes an external build,
+checks 32 compiler rule subsets, negative premises, retained contracts, native
+normal/ASan/UBSan execution and exact generated-program floating-point bits at
+1/2/6 physical workers. It compares the frozen 61-graph/four-algorithm corpus
+against the accepted baseline and a same-candidate R19-disabled control.
+Targeted instrumented TSan execution records detector startup failures
+separately and uses an injected-race positive control.
+
+Benchmark: `tools/benchmark_iteration_fusion.py` is a separate entry point and
+refuses measurement before correctness passes. It reuses hash-verified accepted
+timed executables, measures candidate/disabled/identical-binary controls, and
+reads saved same-PC six-worker Graptor observations without running Graptor.
+Compute starts after degree construction and includes preparation first needed
+inside that region; it does not isolate steady edge-loop throughput. Historical
+Graptor win counts are descriptive cross-session comparisons. Results and any
+regressions are recorded after the full campaign; no speedup is presumed.

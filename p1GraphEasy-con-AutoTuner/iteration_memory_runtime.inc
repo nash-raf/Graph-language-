@@ -4,6 +4,7 @@ typedef struct {
   SgplIncomingIndex *index;sgpl_exec_ctx ctx;
   void *values;uint8_t *gates;double seed;
   sgpl_iteration_kernel kernel;sgpl_iteration_map map;
+  sgpl_iteration_fused_kernel fused;
 } SgplIterationJob;
 static void sgpl_iteration_sources(void *opaque,int32_t worker,int32_t width) {
   SgplIterationJob *j=opaque;int64_t lo=j->index->n*worker/width,hi=j->index->n*(worker+1)/width;
@@ -15,8 +16,9 @@ static void sgpl_iteration_sources(void *opaque,int32_t worker,int32_t width) {
 }
 static void sgpl_iteration_destinations(void *opaque,int32_t worker,int32_t width) {
   SgplIterationJob *j=opaque;
-  j->kernel(NULL,&j->ctx,(int32_t)(j->index->n*worker/width),(int32_t)(j->index->n*(worker+1)/width),
-      j->index->incoming_rows,j->index->sources,j->values,j->seed);
+  int32_t lo=(int32_t)(j->index->n*worker/width),hi=(int32_t)(j->index->n*(worker+1)/width);
+  if(j->fused)j->fused(NULL,&j->ctx,lo,hi,j->index->incoming_rows,j->index->sources,j->values,j->seed,j->index->native_rows);
+  else j->kernel(NULL,&j->ctx,lo,hi,j->index->incoming_rows,j->index->sources,j->values,j->seed);
 }
 int32_t sgpl_try_source_count_v1(void *graph,void **slot) {
   if(!slot||getenv("SGPL_NO_ITERATION_LIFETIMES")||getenv("SGPL_NO_EXEC_SIMPLIFY")||
@@ -39,7 +41,8 @@ int32_t sgpl_try_source_count_v1(void *graph,void **slot) {
   return 1;
 }
 static int32_t sgpl_iteration_execute(void *graph,const sgpl_iteration_memory_plan_v1 *p,
-    const sgpl_iteration_gate_plan_v1 *extra,const sgpl_iteration_storage_plan_v1 *storage,double seed,int32_t rounds) {
+    const sgpl_iteration_gate_plan_v1 *extra,const sgpl_iteration_storage_plan_v1 *storage,
+    const sgpl_iteration_fusion_plan_v1 *fusion,double seed,int32_t rounds) {
   if(!p||p->version!=1||p->bytes!=sizeof(*p)||!p->baseline_pair||!p->kernel||!p->map||
      !p->source||!p->destination||p->source==p->destination||!p->stride||p->stride>128||rounds<=0||
      getenv("SGPL_NO_EXEC_SIMPLIFY")||getenv("SGPL_NO_FULLGRAPH")||getenv("SGPL_NO_ITERATION_MEMORY")||
@@ -87,11 +90,21 @@ static int32_t sgpl_iteration_execute(void *graph,const sgpl_iteration_memory_pl
     }
     if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[proof-removals] R13 %s: immutable gate %s on edge-bearing sources; rewrites=%u\n",entailed?"activate":"refuse",entailed?"entailed":"false",composed.rewrites);
   }
+  int fused=fusion&&fusion->version==1&&fusion->bytes==sizeof(*fusion)&&fusion->rules==SGPL_EXEC_R19&&
+    !fusion->reserved&&fusion->baseline==p&&fusion->baseline_pair==p->baseline_pair&&fusion->kernel&&
+    fusion->gate==extra&&extra&&p->stride==8&&j.gates==NULL&&j.kernel==extra->kernel&&j.map==extra->map&&
+    !getenv("SGPL_NO_ITERATION_FUSION");
+  uint64_t fusion_facts=SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT|SGPL_FACT_KERNEL_DISJOINT|SGPL_FACT_FUSION_SHAPE;
+  if(fused)fusion_facts|=SGPL_FACT_GATE_ENTAILED;
+  fused=fused&&!!(sgpl_iteration_fusion(fusion_facts,SGPL_EXEC_R19).rules&SGPL_EXEC_R19);
   // No fallible preparation remains. Independent map cells precede all owned
   // destination writes; the join precedes buffer rotation and the next round.
   for(int32_t round=0;round<rounds;++round) {
-    if(reuse)j.values=*p->source;
-    sgpl_run_preparation(sgpl_iteration_sources,&j,parts);
+    if(!fused||round==0) {
+      if(reuse)j.values=*p->source;
+      sgpl_run_preparation(sgpl_iteration_sources,&j,parts);
+    } else j.values=*p->source;
+    j.fused=fused&&round+1<rounds?fusion->kernel:NULL;
     sgpl_run_preparation(sgpl_iteration_destinations,&j,parts);
     void *old=*p->source;*p->source=*p->destination;*p->destination=old;
   }
@@ -100,6 +113,7 @@ static int32_t sgpl_iteration_execute(void *graph,const sgpl_iteration_memory_pl
   if(bytes&&(live&2)&&final!=original_destination)memcpy(original_destination,final,bytes);
   *p->source=original_source;*p->destination=original_destination;
   if(getenv("SGPL_SEMANTIC_STAGE_STATS"))fprintf(stderr,"[iteration-memory] seed/rotate/map rounds=%d vertices=%lld\n",rounds,(long long)m->csr_n);
+  if(getenv("SGPL_SEMANTIC_STAGE_STATS")&&fusion)fprintf(stderr,"[iteration-fusion] R19 %s: source sweeps=%d destination sweeps=%d; original last-round ranks restored\n",fused?"activate":"refuse",fused?1:rounds,rounds);
   if(getenv("SGPL_SEMANTIC_STAGE_STATS")) {
     if(live!=3)fprintf(stderr,"[iteration-lifetime] R17 activate: live-array mask=%u; unobserved restoration omitted\n",live);
     if(reuse)fprintf(stderr,"[iteration-lifetime] R18 activate: source-local contribution storage; no scratch allocation\n");
@@ -108,7 +122,7 @@ static int32_t sgpl_iteration_execute(void *graph,const sgpl_iteration_memory_pl
 }
 int32_t sgpl_try_iteration_gate_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,
     const sgpl_iteration_gate_plan_v1 *extra,double seed,int32_t rounds) {
-  return sgpl_iteration_execute(graph,p,extra,NULL,seed,rounds);
+  return sgpl_iteration_execute(graph,p,extra,NULL,NULL,seed,rounds);
 }
 int32_t sgpl_try_iteration_storage_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,
     const sgpl_iteration_storage_plan_v1 *storage,double seed,int32_t rounds) {
@@ -116,7 +130,16 @@ int32_t sgpl_try_iteration_storage_v1(void *graph,const sgpl_iteration_memory_pl
   if(storage&&storage->version==1&&storage->bytes==sizeof(*storage)&&storage->baseline==p&&
       p&&storage->baseline_pair==p->baseline_pair&&!(storage->rules&~(SGPL_EXEC_R17|SGPL_EXEC_R18))&&
       !(storage->live_arrays&~3u))gate=storage->gate;
-  return sgpl_iteration_execute(graph,p,gate,storage,seed,rounds);
+  return sgpl_iteration_execute(graph,p,gate,storage,NULL,seed,rounds);
+}
+int32_t sgpl_try_iteration_fusion_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,
+    const sgpl_iteration_fusion_plan_v1 *fusion,double seed,int32_t rounds) {
+  const sgpl_iteration_storage_plan_v1 *storage=NULL;const sgpl_iteration_gate_plan_v1 *gate=NULL;
+  if(fusion&&fusion->version==1&&fusion->bytes==sizeof(*fusion)&&fusion->rules==SGPL_EXEC_R19&&
+      !fusion->reserved&&fusion->baseline==p&&p&&fusion->baseline_pair==p->baseline_pair&&fusion->kernel) {
+    storage=fusion->storage;gate=fusion->gate;
+  }
+  return sgpl_iteration_execute(graph,p,gate,storage,fusion,seed,rounds);
 }
 int32_t sgpl_try_iteration_memory_v1(void *graph,const sgpl_iteration_memory_plan_v1 *p,double seed,int32_t rounds) {
   return sgpl_try_iteration_gate_v1(graph,p,NULL,seed,rounds);

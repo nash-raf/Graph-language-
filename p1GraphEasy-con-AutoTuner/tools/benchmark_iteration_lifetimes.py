@@ -113,13 +113,23 @@ def report(protocol,results):
     lines+=['','Speedup is retained baseline / candidate; greater than 1 favors R16--R18.',
         'All observations and any control-failure retries are retained. Paired permutation tests use Holm correction; saved Graptor means are descriptive cross-session comparisons.',
         f"Corrected slowdowns: {len(summary['confirmed_slowdowns']) if summary['AA_stable'] else 'inference unavailable: stability control failed'}. No compiler/runtime changes or merge are performed during this campaign."]
+    slowdowns=[]
+    if summary['AA_stable']:
+        for test in summary['confirmed_slowdowns']:
+            if test['kind']!='case':continue
+            row=next(x for x in rows if x['algorithm']==test['algorithm'] and x['graph']==test['graph'])
+            slowdown=100*(row['mean_ms']['candidate']/row['mean_ms']['baseline']-1)
+            slowdowns.append(f"{test['algorithm']} {test['graph']}: {slowdown:+.2f}% end-to-end time; Holm p={test['holm_p']:.6g}")
+    lines.extend(slowdowns)
     R.save(OUT/'summary_metrics.json',dict(by_algorithm=summary['by_algorithm'],win_counts=counts))
     (OUT/'final_report.txt').write_text('\n'.join(lines)+'\n')
     body='<h1>Composable iteration lifetime simplification (R16--R18)</h1>'+''.join('<p>'+html.escape(x)+'</p>' for x in lines[2:9])
     body+='<table><thead><tr>'+''.join('<th>'+html.escape(x)+'</th>' for x in lines[10].split(' | '))+'</tr></thead><tbody>'
     body+=''.join('<tr>'+''.join('<td>'+html.escape(v)+'</td>' for v in row)+'</tr>' for row in table)+'</tbody></table>'
-    body+='<p><a href="per_graph_times.csv">Per-graph CSV</a> · <a href="final_summary.json">Full machine-readable report</a> · <a href="integrity_audit.json">Integrity audit</a></p><h2>Per-graph mean end-to-end times (ms)</h2><table><tr><th>Algorithm</th><th>Graph</th><th>Retained baseline</th><th>Candidate</th><th>Disabled</th><th>Saved Graptor</th></tr>'
-    for x in rows:body+='<tr>'+''.join('<td>'+html.escape(v)+'</td>' for v in [x['algorithm'],x['graph'],*[f'{x["mean_ms"][v]:.5f}' for v in ['baseline','candidate','disabled']],f'{x["historical_graptor_ms"]:.5f}'])+'</tr>'
+    body+='<p><a href="per_graph_times.csv">Per-graph CSV</a> · <a href="final_summary.json">Full machine-readable report</a> · <a href="integrity_audit.json">Integrity audit</a></p>'
+    body+='<p>'+html.escape(lines[-1-len(slowdowns)])+'</p>'+''.join('<p>'+html.escape(x)+'</p>' for x in slowdowns)
+    body+='<h2>Per-graph mean times (ms)</h2><table><tr><th>Algorithm</th><th>Graph</th><th>Baseline E2E</th><th>Candidate E2E</th><th>Disabled E2E</th><th>Saved Graptor E2E</th><th>Baseline compute</th><th>Candidate compute</th><th>Saved Graptor compute</th></tr>'
+    for x in rows:body+='<tr>'+''.join('<td>'+html.escape(v)+'</td>' for v in [x['algorithm'],x['graph'],*[f'{x["mean_ms"][v]:.5f}' for v in ['baseline','candidate','disabled']],f'{x["historical_graptor_ms"]:.5f}',*[f'{x["kernel_mean_ms"][v]:.5f}' for v in ['baseline','candidate']],f'{x["historical_graptor_kernel_ms"]:.5f}'])+'</tr>'
     body+='</table>'
     (OUT/'final_report.html').write_text('<!doctype html><meta charset="utf-8"><title>Composable iteration-lifetime benchmark</title><style>body{font:15px system-ui;margin:32px;color:#18212c}table{border-collapse:collapse;margin:24px 0}th,td{padding:8px 12px;border-bottom:1px solid #dce2e8;text-align:right}th:first-child,td:first-child,td:nth-child(2){text-align:left}thead,th{background:#eef3f8}h1{font-size:28px}</style>'+body)
     return data

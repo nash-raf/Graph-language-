@@ -85,6 +85,22 @@ static bool iterationMapLocal(Function *Map,GlobalVariable *Source) {
   }
   return Reads>0&&Stores==1;
 }
+static bool iterationKernelDisjoint(Function *Kernel,GlobalVariable *Source) {
+  // Locality of the map alone is insufficient: a contribution can contain
+  // both source-indexed reads (hoisted) and destination-indexed reads (left
+  // in the kernel). Only the explicit map-value argument may alias old ranks.
+  SmallPtrSet<Value *,4> Sites;if(!executionArrayAllocations(Source,Sites))return false;
+  for(BasicBlock &BB:*Kernel)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I)) {
+    if(L->isAtomic()||L->isVolatile())return false;
+    if(L->getType()->isPointerTy())continue;
+    if(auto *Slot=executionArraySlot(L->getPointerOperand())) {
+      if(Slot==Source)return false;
+      SmallPtrSet<Value *,4> Other;if(!executionArrayAllocations(Slot,Other))return false;
+      for(Value *Site:Other)if(Sites.count(Site))return false;
+    }
+  }
+  return true;
+}
 static void certifySourceCounts(Module &M) {
   if(!(executionSimplifyRules()&SGPL_EXEC_R16))return;
   SmallVector<CallInst *,8> Executes;

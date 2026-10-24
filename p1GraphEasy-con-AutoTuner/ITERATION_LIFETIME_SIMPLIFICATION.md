@@ -46,6 +46,10 @@ current source index, and all other contribution arrays disjoint from the source
 allocation. The gate must be immutable and disjoint from both rotating arrays,
 even when R13 is disabled or its dynamic implication witness fails. Opaque,
 atomic/volatile, nonlocal and unresolved reads refuse reuse.
+The realized destination kernel must also have no remaining reads of the old
+rank allocation, except through its explicit contribution-map argument. A
+mixed source/destination-indexed expression cannot acquire a reuse license just
+because its hoisted source portion is local.
 
 Each source-map worker reads its own old rank and writes its contribution to
 that same cell. The map join still precedes every destination traversal. The

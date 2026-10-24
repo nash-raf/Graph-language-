@@ -51,7 +51,7 @@ int main(int argc,char **argv) {
       }
     certifySourceCounts(*M);require(!countCalls(*M,"sgpl_try_source_count_v1"),"count premise violation refuses");
   }
-  for(unsigned Negative=0;Negative<5;++Negative) {
+  for(unsigned Negative=0;Negative<6;++Negative) {
     auto M=parseIRFile(argv[1],E,C);CallInst *Cert=nullptr;
     for(Function &F:*M)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *Call=dyn_cast<CallInst>(&I))if(Call->getCalledFunction()&&Call->getCalledFunction()->getName()=="sgpl_fullgraph_certificate")Cert=Call;
     auto *Pair=cast<Function>(Cert->getArgOperand(1));auto *Source=M->getGlobalVariable("cur_rank",true),*Dest=M->getGlobalVariable("next_rank",true);
@@ -73,8 +73,13 @@ int main(int argc,char **argv) {
     } else if(Negative==3) {
       for(Function &F:*M)for(BasicBlock &BB:F)for(Instruction &I:BB)if(auto *L=dyn_cast<LoadInst>(&I))
         if(F.getName().contains("source_gate")&&L->getPointerOperand()==M->getGlobalVariable("out_degree",true))L->setOperand(0,Source);
-    } else {
+    } else if(Negative==4) {
       setenv("SGPL_EXEC_SIMPLIFY_RULES","none",1);
+    } else {
+      StoreInst *Write=nullptr;for(BasicBlock &BB:*Pair)for(Instruction &I:BB)if(auto *S=dyn_cast<StoreInst>(&I))if(executionArraySlot(S->getPointerOperand())==Dest)Write=S;
+      require(Write,"destination update landmark");auto *Add=cast<BinaryOperator>(Write->getValueOperand());IRBuilder<> B(Add);
+      auto *Extra=B.CreateLoad(B.getDoubleTy(),B.CreateGEP(B.getDoubleTy(),B.CreateLoad(B.getPtrTy(),Source),Pair->getArg(3)));
+      Add->setOperand(1,B.CreateFAdd(Add->getOperand(1),Extra));
     }
     certifyIterationMemory(*M);
     for(Function &F:*M)if(F.hasLocalLinkage()&&!F.isDeclaration())iterationCanonicalize(&F);
@@ -82,10 +87,10 @@ int main(int argc,char **argv) {
     for(auto &G:M->globals())if(G.getName().starts_with("sgpl.iteration.storage.v1")) {
       auto Bits=cast<ConstantInt>(cast<ConstantStruct>(G.getInitializer())->getOperand(2))->getZExtValue();
       if(Negative<2)require(!(Bits&SGPL_EXEC_R17),"post-loop observations retain restoration");
-      if(Negative==2||Negative==3)require(!(Bits&SGPL_EXEC_R18),"nonlocal reads or mutable gates retain separate scratch");
+      if(Negative==2||Negative==3||Negative==5)require(!(Bits&SGPL_EXEC_R18),"nonlocal reads, kernel rank reads or mutable gates retain separate scratch");
     }
     if(Negative==4)require(!countCalls(*M,"sgpl_try_iteration_storage_v1"),"none disables additions");
     setenv("SGPL_EXEC_SIMPLIFY_RULES","all",1);
   }
-  std::cout<<"PASS iteration lifetime structural subsets=8 count_negatives=10 storage_negatives=5\n";
+  std::cout<<"PASS iteration lifetime structural subsets=8 count_negatives=10 storage_negatives=6\n";
 }

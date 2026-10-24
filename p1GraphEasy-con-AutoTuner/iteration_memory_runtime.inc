@@ -57,7 +57,9 @@ static int32_t sgpl_iteration_execute(void *graph,const sgpl_iteration_memory_pl
       storage->baseline_pair==p->baseline_pair&&!(storage->rules&~(SGPL_EXEC_R17|SGPL_EXEC_R18))&&
       storage->rules&&!(storage->live_arrays&~3u)&&!getenv("SGPL_NO_ITERATION_LIFETIMES")) {
     uint64_t facts=SGPL_FACT_FINAL_USES;
-    if(p->stride==8)facts|=SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT;
+    // Compatible compiler descriptors carry all three static reuse premises;
+    // stride is also checked here before selecting the aliased map storage.
+    if(p->stride==8)facts|=SGPL_FACT_MAP_LOCAL|SGPL_FACT_GATE_DISJOINT|SGPL_FACT_KERNEL_DISJOINT;
     SgplProofPlan composed=sgpl_iteration_lifetimes(facts,storage->rules);
     if(composed.rules&SGPL_EXEC_R17)live=storage->live_arrays;
     reuse=!!(composed.rules&SGPL_EXEC_R18);

@@ -282,7 +282,9 @@ static void lowerIterationMemory(Module &M) {
     if(Starts!=1)report_fatal_error("invalid generated source range");iterationNonnullGate(Map,true);iterationCanonicalize(Map);Map->setSection(".sgpl_iteration_memory");
     // Check provenance before replacing the initializer: LLVM may retain its
     // now-unused constant until module cleanup, which is not an escape.
-    bool LocalMap=Fields==1&&iterationMapLocal(Map,cast<GlobalVariable>(S->getOperand(4)));
+    auto *Source=cast<GlobalVariable>(S->getOperand(4));
+    bool LocalMap=Fields==1&&iterationMapLocal(Map,Source);
+    bool KernelDisjoint=iterationKernelDisjoint(F,Source);
     SmallVector<Constant *,9> Values;for(unsigned N=0;N<9;++N)Values.push_back(cast<Constant>(S->getOperand(N)));Values[6]=F;Values[7]=Map;Values[8]=ConstantInt::get(B.getInt64Ty(),Fields*8);
     Plan->setInitializer(ConstantStruct::get(cast<StructType>(S->getType()),Values));
     GlobalVariable *Extra=nullptr;
@@ -310,12 +312,13 @@ static void lowerIterationMemory(Module &M) {
       if(Observed!=3)Facts|=SGPL_FACT_FINAL_USES;
     }
     if(LocalMap)Facts|=SGPL_FACT_MAP_LOCAL;
+    if(KernelDisjoint)Facts|=SGPL_FACT_KERNEL_DISJOINT;
     if(std::getenv("SGPL_LIFETIME_DEBUG")&&(executionSimplifyRules()&SGPL_EXEC_R18)&&!(Facts&SGPL_FACT_MAP_LOCAL)){errs()<<"map locality refuses fields="<<Fields<<"\n";Map->print(errs());}
     if(Plan->getMetadata("sgpl.iteration.map.gate.disjoint"))Facts|=SGPL_FACT_GATE_DISJOINT;
     auto Life=sgpl_iteration_lifetimes(Facts,executionSimplifyRules());unsigned Rules=Life.rules&(SGPL_EXEC_R17|SGPL_EXEC_R18);
     if(std::getenv("SGPL_EXEC_SIMPLIFY_STATS")) {
       errs()<<"[iteration-lifetime] R17 "<<(Rules&SGPL_EXEC_R17?"certify":"refuse")<<": final live-array mask="<<Observed<<"\n";
-      errs()<<"[iteration-lifetime] R18 "<<(Rules&SGPL_EXEC_R18?"certify":"refuse")<<": one local map field and disjoint gate required\n";
+      errs()<<"[iteration-lifetime] R18 "<<(Rules&SGPL_EXEC_R18?"certify":"refuse")<<": one local map field, disjoint gate and no remaining kernel rank reads required\n";
     }
     if(Rules) {
       auto *T=StructType::get(M.getContext(),{B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getInt32Ty(),B.getPtrTy(),B.getPtrTy(),B.getPtrTy()});

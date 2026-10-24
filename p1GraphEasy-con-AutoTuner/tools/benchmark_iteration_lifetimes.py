@@ -7,7 +7,7 @@ R=B.R;REPO=B.REPO
 ROOT=Path('/home/kazi/p1_iteration_lifetimes_benchmark_20261024')
 OUT=Path('/mnt/c/p1-iteration-lifetimes-benchmark-20261024')
 BASE=Path('/home/kazi/p1_execution_simplification/versions/proof_removals04')
-CAND=Path('/home/kazi/p1_execution_simplification/versions/iteration_lifetimes01')
+CAND=Path('/home/kazi/p1_execution_simplification/versions/iteration_lifetimes02')
 OLD=Path('/home/kazi/p1_proof_removals_benchmark_20261024')
 CORRECT=REPO/'reports/iteration_lifetimes_correctness.json'
 ROOT.mkdir(exist_ok=True);OUT.mkdir(exist_ok=True)

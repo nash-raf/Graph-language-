@@ -81,3 +81,23 @@ Compute starts after degree construction and includes preparation first needed
 inside that region; it does not isolate steady edge-loop throughput. Historical
 Graptor win counts are descriptive cross-session comparisons. Results and any
 regressions are recorded after the full campaign; no speedup is presumed.
+
+## Correctness outcome
+
+Frozen `iteration_fusion02`, native source `a3108f93`, passes 2,196 independent
+corpus validations and 183 exact PageRank bit groups at 1/2/6 physical workers.
+R19 activates on all 61 PageRank programs and none of the BFS/SSSP/CC programs.
+All 960 new generated-program comparisons pass, including gate refusal,
+intermediate observers, remaining kernel rank reads, empty graphs, one-round
+execution and special floating-point values. The 32 compiler subsets, negative
+premises, runtime descriptor faults, allocation refusal, repeated topology
+registration and final liveness masks pass. Native normal and ASan/UBSan
+checks pass at all three widths, alongside the retained execution contracts.
+
+All 12 targeted TSan configurations pass after separately recorded WSL mapping
+startup retries; the positive control detects its intentionally injected race.
+Auxiliary system OpenMP work is serialized for these checks, while SGPL runs
+at 1/2/6 workers. This is not a universal proof of race absence. The machine
+report is `reports/iteration_fusion_correctness.json`. The earlier frozen
+`iteration_fusion01` is superseded by the explicit separation of static
+eligibility and dynamic gate entailment; it was not benchmarked.

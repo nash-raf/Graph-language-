@@ -74,3 +74,40 @@ Artifacts are external: `C:/p1-graptor-backends-benchmark-20261026` and
 `/home/kazi/p1_graptor_backends_20261026`. The machine-readable protocol records
 all graph, source, configuration, library and executable identities. Performance
 outcomes are added only after measurement and the final integrity audit.
+
+## Confirmed outcome
+
+The confirmation block completed with stable identical-binary controls. The
+experiment collected 30,500 timed observations and 2,440 warmups with no timed
+launch failures. The final audit verified all 12 executable fingerprints and
+305 input fingerprints, with frozen sources unchanged.
+
+The following are geometric means of per-graph mean-time ratios across 61
+graphs. Each ratio is OpenMP time divided by Cilk time: above one favors Cilk.
+Compute means Graptor's recorded region; end-to-end includes the whole process.
+
+| Algorithm | Saved OpenMP / Cilk E2E | Saved OpenMP / Cilk compute | Rebuilt OpenMP / Cilk E2E | Rebuilt OpenMP / Cilk compute | Cilk raw E2E wins |
+|---|---:|---:|---:|---:|---:|
+| BFS | 0.9037 | 1.3206 | 0.8998 | 1.2347 | 16/61 |
+| SSSP | 0.8974 | 1.0570 | 0.8983 | 1.1273 | 11/61 |
+| CC | 0.8310 | 1.1183 | 0.8362 | 1.1042 | 5/61 |
+| PageRank | 0.8511 | 0.9398 | 0.8300 | 0.8693 | 8/61 |
+
+Cilk's end-to-end time is approximately 10.7%, 11.4%, 20.3% and 17.5%
+higher than saved OpenMP for BFS, SSSP, CC and PageRank respectively. The
+algorithm-level end-to-end differences pass the recorded paired permutation
+tests against both OpenMP controls (Holm-adjusted p = 0.00496). Raw graph wins
+are descriptive and are not counts of statistically significant wins.
+
+Cilk improves the recorded compute region for BFS, SSSP and CC, but the
+whole-process result is slower for every algorithm. PageRank is slower in both
+regions. These observations do not isolate the cause among backend scheduling,
+initialization, preprocessing and upstream serial helper loops. No profiling or
+backend tuning was performed. Both blocks and all raw observations remain in
+the external report directory; the table uses the prespecified confirmation
+block. SGPL was not remeasured, so these results do not establish a new paired
+SGPL-versus-Cilk ratio.
+
+The local HTML report is `C:/p1-graptor-backends-benchmark-20261026/final_report.html`.
+The repository record is `reports/graptor_backends_benchmark.json`; its protocol,
+correctness evidence and audit identify the measured builds and inputs.

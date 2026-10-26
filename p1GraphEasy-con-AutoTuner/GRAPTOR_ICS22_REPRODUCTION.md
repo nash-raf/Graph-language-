@@ -88,3 +88,35 @@ External artifacts: `/home/kazi/p1_graptor_ics22_20261026` and
 `C:/p1-graptor-ics22-benchmark-20261026`. Build logs and any compatibility failures
 remain there. Results are appended after the corresponding stages complete;
 preparing a protocol does not establish a successful build or benchmark.
+
+## Completed results
+
+The CC and FP64 PageRank programs passed 732 independent full-vector checks:
+61 graphs, two backends and 1/2/6 workers. All 183 exported array comparisons
+per algorithm matched between backends. Both primary and confirmation A/A
+controls passed. There were 12,200 timed observations and 976 warmups, with no
+timed launch failures. The following table uses the prespecified twenty-repeat
+confirmation block and geometric means of per-graph mean times.
+
+| Algorithm | OpenMP / Cilk whole process | OpenMP / Cilk recorded compute | Raw Cilk whole-process wins |
+|---|---:|---:|---:|
+| CC | 0.9628 | 1.0083 | 13/61 |
+| FP64 PageRank | 0.9760 | 1.1315 | 15/61 |
+
+Above one favors Cilk. Cilk whole-process time is approximately 3.9% higher for
+CC and 2.5% higher for PageRank. Its recorded compute time is approximately
+unchanged for CC and 1.13 times faster for PageRank. Raw wins are descriptive,
+not counts of statistically significant wins. No cause is assigned to the
+whole-process difference without profiling.
+
+This establishes a working GCC 7.2 Cilk Plus reproduction for the supported
+historical programs on this PC. It does not establish an exact paper-hardware
+reproduction, a valid historical BFS/SSSP timing comparison, or a new
+SGPL-versus-Graptor ratio. No numerical or compiler source fixes were made to
+extend eligibility. The original saved executables and accepted SGPL code are
+preserved.
+
+The report is `C:/p1-graptor-ics22-benchmark-20261026/final_report.html`.
+Machine-readable outcomes are in `reports/graptor_ics22_benchmark.json`, with a
+separate `reports/graptor_ics22_integrity.json` audit of source preservation,
+binary identities, correctness counts and measured observations.

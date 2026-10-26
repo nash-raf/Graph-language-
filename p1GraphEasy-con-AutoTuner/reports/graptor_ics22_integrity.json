@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "gcc_source_unchanged": true,
+  "graptor_source_unchanged": true,
+  "compiler_binary_unchanged": true,
+  "prior_executables_preserved": 12,
+  "validation_checks": 732,
+  "observations": 12200,
+  "warmups": 976,
+  "selected_phase": "confirmation",
+  "AA_stable": true,
+  "failed_timed_launches": 0,
+  "implementation_commit": "9d0fc4838fb198c9166e6e2e81ee852710f3a48c",
+  "excluded_algorithms": {
+    "bfs": "Default historical BFS failed independent shortest-path parent validation; documented UNCOND_EXEC=0 alternative fails compilation in the unchanged historical source.",
+    "sssp": "Historical BFv aborts with active frontier mismatch on the first corpus graph, even with one OpenMP worker. No timings accepted."
+  }
+}

@@ -155,6 +155,15 @@ static void autograph_profile_report(void) {
   double predicted_totals[3] = {0.0, 0.0, 0.0};
   uint64_t measured_totals[3] = {0, 0, 0};
 
+  /* Optional machine-readable dump. Conversion time is reported separately
+   * so region measured_ns excludes layout conversion (enter runs after
+   * ensure_layout). */
+  const char *dump_path = getenv("AUTOTUNER_PROFILE_DUMP");
+  FILE *dump = NULL;
+  if (dump_path && dump_path[0]) {
+    dump = fopen(dump_path, "a");
+  }
+
   fprintf(stderr, "[AutoTunerProfile] predicted_vs_measured_region_times\n");
   for (int i = 0; i < AUTOGRAPH_MAX_PROFILE_REGIONS; ++i) {
     AutoProfileRegion *region = &g_profile_regions[i];
@@ -172,6 +181,16 @@ static void autograph_profile_report(void) {
             (unsigned long long)region->visits, region->predicted_ns,
             (unsigned long long)region->measured_ns, region->predicted_ns / 1.0e6,
             (double)region->measured_ns / 1.0e6);
+    if (dump) {
+      fprintf(dump,
+              "{\"region_id\":%d,\"kind\":\"%s\",\"layout\":\"%s\","
+              "\"visits\":%llu,\"predicted_ns\":%.3f,\"measured_ns\":%llu,"
+              "\"conversion_ns\":%llu,\"conversions_injected\":%d}\n",
+              i, profile_kind_name(region->kind), profile_layout_name(region->layout),
+              (unsigned long long)region->visits, region->predicted_ns,
+              (unsigned long long)region->measured_ns,
+              (unsigned long long)g_conversion_ns, g_conversions_injected);
+    }
   }
 
   for (int kind = 0; kind < 3; ++kind) {
@@ -189,6 +208,12 @@ static void autograph_profile_report(void) {
 
   fprintf(stderr, "[AutoTunerProfile] injected %d layout conversions total, conversion_ns=%llu\n",
           g_conversions_injected, (unsigned long long)g_conversion_ns);
+  if (dump) {
+    fprintf(dump,
+            "{\"summary\":true,\"conversions_injected\":%d,\"conversion_ns\":%llu}\n",
+            g_conversions_injected, (unsigned long long)g_conversion_ns);
+    fclose(dump);
+  }
 #endif
 }
 

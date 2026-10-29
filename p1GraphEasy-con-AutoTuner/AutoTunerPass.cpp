@@ -24,11 +24,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -501,12 +503,8 @@ namespace
     }
   }
 
-  int forcedLayoutFromEnv()
+  int parseLayoutToken(std::string value)
   {
-    const char *raw = std::getenv("AUTOTUNER_FORCE_LAYOUT");
-    if (!raw || !*raw)
-      return -1;
-    std::string value(raw);
     std::transform(value.begin(), value.end(), value.begin(),
                    [](unsigned char c)
                    { return static_cast<char>(std::toupper(c)); });
@@ -519,6 +517,54 @@ namespace
     if (value == "SET")
       return LAYOUT_SET;
     return -1;
+  }
+
+  int forcedLayoutFromEnv()
+  {
+    const char *raw = std::getenv("AUTOTUNER_FORCE_LAYOUT");
+    if (!raw || !*raw)
+      return -1;
+    return parseLayoutToken(raw);
+  }
+
+  // AUTOTUNER_LAYOUT_PLAN=r0:CSR,r1:BCSR,... forces a per-region layout after
+  // the DP so end-to-end plans from an external cost model can be measured.
+  // Returns true when a plan was present (even if some region ids were skipped).
+  bool applyLayoutPlanFromEnv(std::vector<int> &chosen)
+  {
+    const char *raw = std::getenv("AUTOTUNER_LAYOUT_PLAN");
+    if (!raw || !*raw)
+      return false;
+    std::string plan(raw);
+    std::stringstream ss(plan);
+    std::string item;
+    while (std::getline(ss, item, ','))
+    {
+      if (item.empty())
+        continue;
+      // Accept "r0:CSR" or "0:CSR".
+      auto colon = item.find(':');
+      if (colon == std::string::npos)
+        continue;
+      std::string key = item.substr(0, colon);
+      std::string val = item.substr(colon + 1);
+      if (!key.empty() && (key[0] == 'r' || key[0] == 'R'))
+        key = key.substr(1);
+      int rid = -1;
+      try
+      {
+        rid = std::stoi(key);
+      }
+      catch (...)
+      {
+        continue;
+      }
+      int layout = parseLayoutToken(val);
+      if (rid < 0 || rid >= static_cast<int>(chosen.size()) || layout < 0)
+        continue;
+      chosen[static_cast<size_t>(rid)] = layout;
+    }
+    return true;
   }
 
   bool layoutFeasible(RegionType type, int layout)
@@ -1887,6 +1933,61 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     return merged;
   }
 
+  // AUTOTUNER_PREDICTION_DUMP=path writes one JSON object per region (kernel
+  // costs for all layouts, local argmin, DP choice, installed layout).
+  void dumpPredictionJson(const char *path, size_t regionId, const Region &R,
+                          const GraphMeta &G, double estN, double estM,
+                          const HwCalib &hw, int current, int target,
+                          int actualLayout, bool shouldSwitch)
+  {
+    if (!path || !*path)
+      return;
+    std::ofstream out(path, std::ios::app);
+    if (!out)
+      return;
+
+    double costs[LAYOUT_COUNT];
+    int localArgmin = -1;
+    double bestCost = kInf;
+    for (int l = 0; l < LAYOUT_COUNT; ++l)
+    {
+      if (!layoutFeasible(R, l))
+      {
+        costs[l] = -1.0;
+        continue;
+      }
+      costs[l] = operationCost(R, l, estN, estM, G.csrFrac, G.bcsrFrac, hw,
+                               G.hasClassTiers ? G.classTiers.data() : nullptr,
+                               G.hasCsrClassTiers ? G.csrClassTiers.data() : nullptr);
+      if (costs[l] < bestCost)
+      {
+        bestCost = costs[l];
+        localArgmin = l;
+      }
+    }
+
+    out << "{\"region_id\":" << regionId
+        << ",\"dominant\":\"" << regionTypeName(R.dominant) << "\""
+        << ",\"freq_T\":" << R.freq[0]
+        << ",\"freq_I\":" << R.freq[1]
+        << ",\"freq_SetQ\":" << R.freq[2]
+        << ",\"freq_CSRQ\":" << R.freq[3]
+        << ",\"totalOps\":" << R.totalOps
+        << ",\"execCount\":" << R.execCount
+        << ",\"n\":" << estN
+        << ",\"m\":" << estM
+        << ",\"cost_CSR\":" << costs[LAYOUT_CSR]
+        << ",\"cost_PCSR\":" << costs[LAYOUT_PCSR]
+        << ",\"cost_BCSR\":" << costs[LAYOUT_BCSR]
+        << ",\"cost_SET\":" << costs[LAYOUT_SET]
+        << ",\"local_argmin\":\"" << layoutName(localArgmin) << "\""
+        << ",\"dp_chosen\":\"" << layoutName(target) << "\""
+        << ",\"current\":\"" << layoutName(current) << "\""
+        << ",\"installed\":\"" << layoutName(actualLayout) << "\""
+        << ",\"should_switch\":" << (shouldSwitch ? "true" : "false")
+        << "}\n";
+  }
+
   int injectConversions(Module &M, const std::vector<Region> &regions, const LayoutSchedule &S,
                         const std::map<Value *, GraphMeta> &metaByGraphPtr, double estN,
                         double estM, const HwCalib &hw)
@@ -1980,6 +2081,10 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
                                                  G.csrFrac, G.bcsrFrac, hw,
                                                  G.hasClassTiers ? G.classTiers.data() : nullptr,
                                                  G.hasCsrClassTiers ? G.csrClassTiers.data() : nullptr);
+
+      if (const char *dumpPath = std::getenv("AUTOTUNER_PREDICTION_DUMP"))
+        dumpPredictionJson(dumpPath, i, R, G, estN, estM, hw, current, target,
+                           actualLayout, shouldSwitch);
 
       if (shouldSwitch)
       {
@@ -2246,6 +2351,8 @@ PreservedAnalyses AutoTunerModulePass::run(Module &M, ModuleAnalysisManager &MAM
     }
     if (shouldSkip)
       std::fill(S.chosen.begin(), S.chosen.end(), LAYOUT_CSR);
+    // Optional per-region override for external plan measurement.
+    (void)applyLayoutPlanFromEnv(S.chosen);
 #if 0
     errs() << "[AutoTuner] Cost-model profile for graph " << graphKey
            << " (estN=" << estN << ", estM=" << estM << ")\n";

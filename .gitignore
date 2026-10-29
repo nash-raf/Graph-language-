@@ -162,3 +162,19 @@ algo_validation/race_demo
 
 # sweep/emit temp logs (check_graphs.sh, sweep_certificates.sh)
 *.graph.err
+
+# ---- WACO vs AutoTuner harness (regenerate locally; see waco_compare/HANDOFF.md) ----
+waco_compare/data/
+waco_compare/third_party/
+waco_compare/__pycache__/
+waco_compare/**/__pycache__/
+waco_compare/results/*.pt
+waco_compare/results/ground_truth*.csv
+waco_compare/results/autotuner_pred.csv
+waco_compare/results/wacog_pred.csv
+waco_compare/results/wacog_plans.json
+waco_compare/results/waco_artifact_pred.csv
+# keep comparison_report.* as sample / template from last pilot if committed
+p1GraphEasy-con-AutoTuner/.deps/
+p1GraphEasy-con-AutoTuner/generated_bak_*/
+p1GraphEasy-con-AutoTuner/kernels.ptx

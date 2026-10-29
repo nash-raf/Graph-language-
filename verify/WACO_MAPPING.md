@@ -66,3 +66,21 @@ the forced layout, while regions whose layout the operations require
 would be a correctness bug, not a schedule.  After the fix, `FORCE_LAYOUT=BCSR`
 emits `autograph_ensure_layout(..., i32 2)` and the runtime reports a real
 conversion.
+
+## Region-level WACO comparison harness (`waco_compare/`)
+
+A paper-oriented apple-to-apple study lives in [`../waco_compare/`](../waco_compare/).
+It freezes the AutoTuner commit, builds a synthetic corpus (ER/BA/RMAT),
+measures per-region times under `AUTOTUNER_FORCE_LAYOUT`, dumps AutoTuner
+predictions via `AUTOTUNER_PREDICTION_DUMP`, trains **WACO-G** (WACO method on
+CSR/PCSR/BCSR/SET), runs a Track-2 CSR/BCSR overlap study, and emits agreement /
+oracle-accuracy / regret / McNemar metrics in
+`waco_compare/results/comparison_report.md`.
+
+New env gates (default behaviour unchanged):
+
+* `AUTOTUNER_PREDICTION_DUMP=path` — JSONL region costs + local/DP choice
+* `AUTOTUNER_PROFILE_DUMP=path` — JSONL measured region ns (conversion separate)
+* `AUTOTUNER_LAYOUT_PLAN=r0:CSR,r1:BCSR,...` — force an end-to-end layout plan
+
+Run: `cd waco_compare && LIMIT_GRAPHS=48 LIMIT_CASES=16 ./run_pipeline.sh`.

@@ -1,0 +1,95 @@
+{
+  "n_regions": 5,
+  "layouts": [
+    "CSR",
+    "PCSR",
+    "BCSR",
+    "SET"
+  ],
+  "agreement": {
+    "match_rate": 0.2,
+    "cohen_kappa": 0.16666666666666669,
+    "confusion": {
+      "CSR->BCSR": 4,
+      "PCSR->PCSR": 1
+    }
+  },
+  "autotuner_vs_oracle": {
+    "top1": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "top2": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "kendall_tau_mean": 0.8,
+    "regret_geomean": 1.0038060675554215,
+    "regret_cdf": [
+      1.0,
+      1.0115054510093064,
+      1.015340601345742
+    ],
+    "speedup_vs_csr_geomean": 1.1373194481287556
+  },
+  "wacog_vs_oracle": {
+    "top1": [
+      0.4,
+      0.0,
+      0.8
+    ],
+    "top2": [
+      0.8,
+      0.4,
+      1.0
+    ],
+    "kendall_tau_mean": 0.2,
+    "regret_geomean": 1.0836953310105648,
+    "regret_cdf": [
+      1.113169215672954,
+      1.1501319539800663,
+      1.1502845134823034
+    ],
+    "speedup_vs_csr_geomean": 1.0534770521857113
+  },
+  "mcnemar": {
+    "n01": 0,
+    "n10": 3,
+    "chi2": 1.3333333333333333,
+    "p_approx": 0.24821307898992362
+  },
+  "breakdowns": {
+    "family:er": {
+      "at_top1": 1.0,
+      "wacog_top1": 0.4,
+      "n": 5
+    },
+    "kind:Traverse": {
+      "at_top1": 1.0,
+      "wacog_top1": 0.25,
+      "n": 4
+    },
+    "kind:Insert": {
+      "at_top1": 1.0,
+      "wacog_top1": 1.0,
+      "n": 1
+    }
+  },
+  "track2_overlap": {
+    "n": 6,
+    "top1_csr_bcsr": [
+      0.3333333333333333,
+      0.0,
+      0.6666666666666666
+    ]
+  },
+  "threats_to_validity": [
+    "WACO-G uses a WACONet-inspired CNN without MinkowskiEngine sparse convolution; results are methodological, not a bit-exact WACO reproduction.",
+    "Corpus is synthetic (ER/BA/RMAT) resized for laptop GPU/CPU limits, smaller than WACO's 726 SuiteSparse test matrices.",
+    "Track 2 format mapping from SuperSchedule level formats to CSR/BCSR is approximate.",
+    "AutoTuner conversion costs in end-to-end DP use the compiler's analytic model; WACO-G DP uses a proxy conversion term.",
+    "Hardware is AMD Ryzen 7 4800H; WACO paper used Xeon+icc \u2014 models are retrained here."
+  ]
+}

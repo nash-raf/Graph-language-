@@ -1,0 +1,33 @@
+graph G {
+  directed: false;
+  edges: file "__EDGE_FILE__";
+};
+
+int n = numVertices(G);
+int label[n];
+int i = 0;
+while (i < n) {
+  label[i] = i;
+  i = i + 1;
+}
+
+int changed = 1;
+int rounds = 0;
+while (changed != 0) {
+  changed = 0;
+  rounds = rounds + 1;
+  for v in G.nodes {
+    for u in G.neighbors(v) {
+      if (label[u] < label[v]) {
+        label[v] = label[u];
+        changed = 1;
+      }
+    }
+  }
+  if (rounds > __MAX_ROUNDS__) {
+    changed = 0;
+  }
+}
+
+print label[0];
+print rounds;

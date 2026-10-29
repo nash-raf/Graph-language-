@@ -1,0 +1,25 @@
+graph G {
+  directed: false;
+  edges: file "__EDGE_FILE__";
+};
+
+__INSERT_BLOCK__
+
+int n = numVertices(G);
+int seen[n];
+int i = 0;
+while (i < n) {
+  seen[i] = 0;
+  i = i + 1;
+}
+
+int count = 0;
+for v in G.nodes {
+  for u in G.neighbors(v) {
+    count = count + 1;
+    seen[v] = 1;
+  }
+}
+
+print count;
+print seen[0];

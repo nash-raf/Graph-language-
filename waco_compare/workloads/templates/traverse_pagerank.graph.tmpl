@@ -1,0 +1,47 @@
+graph G {
+  directed: false;
+  edges: file "__EDGE_FILE__";
+};
+
+int n = numVertices(G);
+real damp = 0.85;
+real one_over_n = 1.0 / n;
+real beta = (1.0 - damp) / n;
+real cur_rank[n];
+real next_rank[n];
+int out_degree[n];
+int round = 0;
+int max_rounds = __MAX_ROUNDS__;
+
+for v in G.nodes {
+  cur_rank[v] = one_over_n;
+  next_rank[v] = beta;
+  out_degree[v] = 0;
+}
+
+for u in G.nodes {
+  for v in G.neighbors(u) {
+    out_degree[u] = out_degree[u] + 1;
+  }
+}
+
+while (round < max_rounds) {
+  round = round + 1;
+  for v in G.nodes {
+    next_rank[v] = beta;
+  }
+  for u in G.nodes {
+    real contrib = 0.0;
+    if (out_degree[u] > 0) {
+      contrib = damp * cur_rank[u] / out_degree[u];
+    }
+    for v in G.neighbors(u) {
+      next_rank[v] = next_rank[v] + contrib;
+    }
+  }
+  for v in G.nodes {
+    cur_rank[v] = next_rank[v];
+  }
+}
+
+print cur_rank[0];

@@ -5,11 +5,61 @@ typedef struct gpu_resident {
     uintptr_t lo, hi;
     CUdeviceptr device;
     unsigned char *content;
-    int immutable, valid, device_dirty;
+    int immutable, valid, device_dirty, quiescent;
+    uint64_t active_uses; /* nested invocations can share this TLS allocation */
+    size_t capacity;int leased; /* mode 3: exclusive transient capacity */
     struct gpu_resident *next;
 } gpu_resident;
 static _Thread_local gpu_resident *gpu_residents;
 static _Thread_local unsigned gpu_residency_depth;
+static _Thread_local size_t gpu_capacity_bytes;
+static _Thread_local unsigned gpu_capacity_entries;
+static int gpu_capacity_enabled(void) {
+    const char *v=getenv("SGPL_GPU_REUSE_CAPACITY");return !v||strcmp(v,"0");
+}
+static int gpu_capacity_purge_idle(void) {
+    int purged=0;gpu_resident **link=&gpu_residents;
+    while(*link) {
+        gpu_resident *r=*link;
+        if(r->immutable!=3||r->leased){link=&r->next;continue;}
+        *link=r->next;gpu_capacity_bytes-=r->capacity;--gpu_capacity_entries;
+        p_cuMemFree(r->device);free(r->content);free(r);purged=1;
+    }
+    return purged;
+}
+static CUresult gpu_device_allocate(CUdeviceptr *pointer,size_t bytes) {
+    CUresult rc=p_cuMemAlloc(pointer,bytes);
+    // Optional idle capacity must not force a device out-of-memory fallback.
+    if(rc==2&&gpu_capacity_purge_idle())rc=p_cuMemAlloc(pointer,bytes);
+    return rc;
+}
+static gpu_resident *gpu_capacity_acquire(size_t bytes) {
+    if(!gpu_residency_depth||!gpu_capacity_enabled()||!bytes||bytes>64u*1024*1024)return NULL;
+    gpu_resident *best=NULL;
+    for(gpu_resident *r=gpu_residents;r;r=r->next)
+        if(r->immutable==3&&!r->leased&&r->quiescent&&r->capacity>=bytes&&(!best||r->capacity<best->capacity))best=r;
+    if(best){best->leased=1;best->quiescent=0;return best;}
+    if(gpu_capacity_entries>=32||bytes>64u*1024*1024-gpu_capacity_bytes)return NULL;
+    gpu_resident *r=calloc(1,sizeof(*r));if(!r)return NULL;
+    r->content=malloc(bytes);
+    if(!r->content&&gpu_capacity_purge_idle())r->content=malloc(bytes);
+    if(!r->content){free(r);return NULL;}
+    if(gpu_device_allocate(&r->device,bytes)!=CUDA_SUCCESS){free(r->content);free(r);return NULL;}
+    r->immutable=3;r->capacity=bytes;r->leased=1;r->next=gpu_residents;gpu_residents=r;
+    gpu_capacity_bytes+=bytes;++gpu_capacity_entries;return r;
+}
+static void gpu_capacity_release(gpu_resident *r,int reusable) {
+    if(!r)return;
+    if(reusable){r->leased=0;r->quiescent=1;return;}
+    gpu_resident **link=&gpu_residents;while(*link&&*link!=r)link=&(*link)->next;
+    if(*link)*link=r->next;
+    gpu_capacity_bytes-=r->capacity;--gpu_capacity_entries;
+    p_cuMemFree(r->device);free(r->content);free(r);
+}
+static int gpu_sync_elide_enabled(void) {
+    const char *value=getenv("SGPL_GPU_SYNC_ELIDE");
+    return !value||strcmp(value,"0");
+}
 typedef struct gpu_language_region {void *base;int64_t bytes;int stack;} gpu_language_region;
 static _Thread_local gpu_language_region gpu_resident_regions[GPUB_MAX_BUFFERS];
 static _Thread_local unsigned gpu_resident_region_count;
@@ -22,6 +72,15 @@ static int gpu_registered_range(uintptr_t lo,uintptr_t hi,uintptr_t *base,uintpt
         if(lo>=b&&hi<=e) {*base=b;*end=e;found=1;}
     }
     return found;
+}
+static int gpu_range_has_live_language(uintptr_t lo,uintptr_t hi) {
+    for(unsigned i=0;i<gpu_resident_region_count;++i) {
+        uintptr_t base=(uintptr_t)gpu_resident_regions[i].base,end=base+gpu_resident_regions[i].bytes;
+        if(lo<end&&base<hi)return 1;
+    }
+    for(gpu_resident *r=gpu_residents;r;r=r->next)
+        if(!r->immutable&&lo<r->hi&&r->lo<hi)return 1;
+    return 0;
 }
 void sgpl_gpu_residency_begin(void) {++gpu_residency_depth;}
 static void gpu_register_language_buffer(void *base,uint64_t bytes,int stack) {
@@ -58,7 +117,9 @@ void sgpl_gpu_host_access(void *address,uint64_t bytes,int32_t write) {
     uintptr_t lo=(uintptr_t)address,hi=bytes>UINTPTR_MAX-lo?UINTPTR_MAX:lo+bytes;
     for(gpu_resident *r=gpu_residents;r;r=r->next) if(!r->immutable&&lo<r->hi&&r->lo<hi) {
         if(r->device_dirty) {
-            if(p_cuCtxSetCurrent(g_context)!=CUDA_SUCCESS||p_cuCtxSynchronize()!=CUDA_SUCCESS||
+            int wait=!gpu_sync_elide_enabled()||!r->quiescent||r->active_uses;
+            if(getenv("SGPL_GPU_SYNC_STATS")) fprintf(stderr,"[gpu-sync-resident] wait=%d\n",wait);
+            if(p_cuCtxSetCurrent(g_context)!=CUDA_SUCCESS||(wait&&p_cuCtxSynchronize()!=CUDA_SUCCESS)||
                p_cuMemcpyDtoH((void*)r->lo,r->device,r->hi-r->lo)!=CUDA_SUCCESS) gpu_coherence_failure();
             r->device_dirty=0;
             if(getenv("SGPL_GPU_DEBUG")) fprintf(stderr,"[gpu-resident] host-read bytes=%llu\n",(unsigned long long)(r->hi-r->lo));
@@ -77,7 +138,9 @@ void sgpl_gpu_unregister_buffer(void *base) {
     while(*link) {
         gpu_resident *r=*link;
         if(!r->immutable&&r->lo==(uintptr_t)base) {
-            if(p_cuCtxSetCurrent(g_context)!=CUDA_SUCCESS||p_cuCtxSynchronize()!=CUDA_SUCCESS) gpu_coherence_failure();
+            int wait=!gpu_sync_elide_enabled()||!r->quiescent||r->active_uses;
+            if(getenv("SGPL_GPU_SYNC_STATS")) fprintf(stderr,"[gpu-sync-unregister] wait=%d\n",wait);
+            if(p_cuCtxSetCurrent(g_context)!=CUDA_SUCCESS||(wait&&p_cuCtxSynchronize()!=CUDA_SUCCESS)) gpu_coherence_failure();
             *link=r->next;p_cuMemFree(r->device);free(r->content);free(r);
         } else link=&r->next;
     }
@@ -96,12 +159,13 @@ void sgpl_gpu_residency_end(void) {
         p_cuMemFree(r->device);free(r->content);free(r);
     }
     gpu_resident_region_count=0;
+    gpu_capacity_bytes=0;gpu_capacity_entries=0;
 }
 static gpu_resident *gpu_resident_acquire(uintptr_t lo,uintptr_t hi,int immutable) {
     if(!gpu_residency_depth) return NULL;
     unsigned immutable_entries=0;
     for(gpu_resident *r=gpu_residents;r;r=r->next) {
-        immutable_entries+=r->immutable!=0;
+        immutable_entries+=r->immutable==1||r->immutable==2;
         if(r->immutable!=immutable||r->hi-r->lo!=hi-lo) continue;
         if(immutable?((immutable==2||r->lo==lo)&&memcmp(r->content,(void*)lo,hi-lo)==0):r->lo==lo) return r;
     }
@@ -111,6 +175,6 @@ static gpu_resident *gpu_resident_acquire(uintptr_t lo,uintptr_t hi,int immutabl
     gpu_resident *r=calloc(1,sizeof(*r));if(!r) return NULL;
     r->lo=lo;r->hi=hi;r->immutable=immutable;
     if(immutable) {r->content=malloc(hi-lo);if(!r->content){free(r);return NULL;}memcpy(r->content,(void*)lo,hi-lo);}
-    if(p_cuMemAlloc(&r->device,hi-lo)!=CUDA_SUCCESS) {free(r->content);free(r);return NULL;}
+    if(gpu_device_allocate(&r->device,hi-lo)!=CUDA_SUCCESS) {free(r->content);free(r);return NULL;}
     r->next=gpu_residents;gpu_residents=r;return r;
 }

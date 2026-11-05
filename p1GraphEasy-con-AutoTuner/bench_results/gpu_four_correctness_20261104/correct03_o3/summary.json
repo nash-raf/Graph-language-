@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "correctness_only": true,
+  "benchmarks_run": false,
+  "profiling_run": false,
+  "algorithm_graph_cases": 244,
+  "independent_validation_runs": 488,
+  "controls": [
+    "SGPL_GPU_REUSE_RECORDS",
+    "SGPL_GPU_EARLY_REJECT",
+    "SGPL_GPU_TRANSFER_REDUCE",
+    "SGPL_GPU_REUSE_CAPACITY"
+  ],
+  "template_hits": 1102,
+  "early_refusals": 4471,
+  "native_flags": [
+    "-O3",
+    "-g",
+    "-fopenmp",
+    "-pthread"
+  ],
+  "offload_selection_matches": true,
+  "matches_O2_execution_counts": true,
+  "focused_comparisons": 160,
+  "gpu_cases": 165
+}

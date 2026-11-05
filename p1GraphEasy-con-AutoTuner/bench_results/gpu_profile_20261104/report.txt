@@ -1,0 +1,104 @@
+Current GPU execution: measured timing breakdown, 2026-11-04
+
+Six selected cases, three alternating baseline/profile repetitions each. All six profiled validation programs passed independent output checks.
+Instrumentation exists only in isolated profiling builds. Production execution/model sources and GPU objects were not changed.
+Host buckets are exclusive main-thread CLOCK_MONOTONIC wall times; phase times include waits for CPU workers. They add to main/compute duration.
+CUDA API time includes blocking within that API; it is not a pure bandwidth or hardware execution measurement.
+GPU event intervals come from one separate diagnostic run and overlap host buckets: do not add them to the CPU wall-time stack.
+Event intervals include stream scheduling and host-submission gaps. Nsight Systems was not installed.
+Outside-main time includes loader/exit and report I/O; it was not attributed specifically to CUDA teardown.
+Only six representative cases were profiled; these are descriptive results, not a full-corpus performance/significance claim. The GPU serves the Windows desktop.
+
+PR / hamming8-2
+  baseline process 415.029 ms; baseline compute 41.812 ms; profiled compute 42.857 ms (delta +2.50%)
+  separately measured device stream interval 4.557 ms within compute; launches 21
+  CUDA initialization              0.000 ms (  0.0%)
+  CPU preparation/finalize        10.000 ms ( 23.3%)
+  Transfer calls                  18.862 ms ( 44.0%)
+  Staging/cache                    3.649 ms (  8.5%)
+  Allocation/streams               1.050 ms (  2.5%)
+  Submission/completion            8.108 ms ( 18.9%)
+  Other host/runtime               1.188 ms (  2.8%)
+PR / Slashdot
+  baseline process 867.046 ms; baseline compute 462.541 ms; profiled compute 477.939 ms (delta +3.33%)
+  separately measured device stream interval 49.164 ms within compute; launches 21
+  CUDA initialization              0.000 ms (  0.0%)
+  CPU preparation/finalize       255.150 ms ( 53.4%)
+  Transfer calls                  30.536 ms (  6.4%)
+  Staging/cache                   53.456 ms ( 11.2%)
+  Allocation/streams               2.882 ms (  0.6%)
+  Submission/completion           52.918 ms ( 11.1%)
+  Other host/runtime              82.998 ms ( 17.4%)
+BFS / Slashdot
+  baseline process 522.586 ms; baseline compute 423.720 ms; profiled compute 429.086 ms (delta +1.27%)
+  separately measured device stream interval 2.052 ms within compute; launches 4
+  CUDA initialization            261.338 ms ( 60.9%)
+  CPU preparation/finalize        94.457 ms ( 22.0%)
+  Transfer calls                  19.798 ms (  4.6%)
+  Staging/cache                   36.413 ms (  8.5%)
+  Allocation/streams               6.460 ms (  1.5%)
+  Submission/completion            3.273 ms (  0.8%)
+  Other host/runtime               7.348 ms (  1.7%)
+CC / fe-4elt2
+  baseline process 783.667 ms; baseline compute 698.453 ms; profiled compute 697.628 ms (delta -0.12%)
+  separately measured device stream interval 3.798 ms within compute; launches 92
+  CUDA initialization            241.974 ms ( 34.7%)
+  CPU preparation/finalize       183.838 ms ( 26.4%)
+  Transfer calls                 182.846 ms ( 26.2%)
+  Staging/cache                   27.094 ms (  3.9%)
+  Allocation/streams              29.285 ms (  4.2%)
+  Submission/completion           21.002 ms (  3.0%)
+  Other host/runtime              11.589 ms (  1.7%)
+CC / Luxembourg
+  baseline process 11182.638 ms; baseline compute 11088.050 ms; profiled compute 10949.047 ms (delta -1.25%)
+  separately measured device stream interval 36.414 ms within compute; launches 750
+  CUDA initialization            239.557 ms (  2.2%)
+  CPU preparation/finalize      6545.255 ms ( 59.8%)
+  Transfer calls                2640.490 ms ( 24.1%)
+  Staging/cache                  408.800 ms (  3.7%)
+  Allocation/streams             805.924 ms (  7.4%)
+  Submission/completion          173.877 ms (  1.6%)
+  Other host/runtime             135.144 ms (  1.2%)
+SSSP / Slashdot (CPU)
+  baseline process 102.788 ms; baseline compute 56.516 ms; profiled compute 55.146 ms (delta -2.43%)
+  separately measured device stream interval 0.000 ms within compute; launches 0
+  CUDA initialization              0.000 ms (  0.0%)
+  CPU preparation/finalize        34.972 ms ( 63.4%)
+  Transfer calls                   0.000 ms (  0.0%)
+  Staging/cache                    0.000 ms (  0.0%)
+  Allocation/streams               0.000 ms (  0.0%)
+  Submission/completion            0.000 ms (  0.0%)
+  Other host/runtime              20.173 ms ( 36.6%)
+
+CPU preparation drill-down: one separate profiled observation per case, exclusive named preparation functions. It is not an average of the three-repetition campaign.
+pagerank / soc/soc-slashdot.edges
+  prep_clean_cut                   0.026 ms; entries 20
+  prep_records                   243.945 ms; entries 40
+  prep_snapshot                    0.000 ms; entries 0
+  prep_context                     0.284 ms; entries 40
+  prep_frontier                    0.000 ms; entries 0
+  prep_begin                       0.094 ms; entries 20
+  prep_publish                    38.691 ms; entries 20
+cc / dimacs10/inf-luxembourg_osm.edges
+  prep_clean_cut                   0.000 ms; entries 0
+  prep_records                  6301.114 ms; entries 2070
+  prep_snapshot                   37.755 ms; entries 1035
+  prep_context                   266.039 ms; entries 2070
+  prep_frontier                    0.000 ms; entries 0
+  prep_begin                      16.525 ms; entries 1035
+  prep_publish                     0.023 ms; entries 750
+
+Strategies constrained to existing model and proofs (proposals only):
+1. Prepared-record realization: sgpl_gpu_prepare_spatial_records is the principal CPU preparation cost (about 244 ms on PR Slashdot and 6.30 s on CC Luxembourg in the drill-down).
+   Reuse invariant full-domain records only under existing stable topology/layout, traversal/owner identity and valid lifetime guarantees. Use current invalidation and exclusive scratch leases.
+   CC has a changing frontier: do not reuse its previous active records. Preserve multiplicity, occurrence identity, per-owner order and error boundaries. Reuse only existing-lifetime storage and invariant metadata; use current touched-group/epoch mechanisms where their existing contracts apply.
+2. Earlier existing rejection checks: the current cost threshold runs after record/descriptor preparation. Hoist only when existing exact counts or eligibility facts prove the SAME decision, including fallback. Leave uncertain cases unchanged. This is not a new cost model.
+3. Transfer/staging reduction: consume current effect/liveness/read-only/snapshot certificates to omit unnecessary host/device observations and copies; pack compatible existing transfers within the same transfer epoch using the existing relocation/alias contract.
+   Keep every host read, mutation, join and status boundary required by current proofs. Reuse existing R1/R4/R5 premises only when they actually cover the GPU path; do not infer a new license from a kernel name.
+4. Reuse allocation capacity through existing exclusive scratch/residency lifetimes; prioritize long CC where allocation/free is measurable. Do not introduce a new global resource pool or scheduling policy.
+5. Existing certified stage removal/fusion may apply only to already licensed shapes and observations. Preserve round dependence; GPU kernel micro-optimization is low priority given the small device intervals.
+CUDA context initialization is a cold-process external runtime cost. An execution rewrite cannot erase it. Existing CPU/GPU placement can avoid paying it for jobs the current model rejects; this proposal adds no persistent service, CUDA Graph mechanism, algorithm or model axiom.
+
+Acceptance for any later implementation: same program observations, exact occurrence/order requirements, ownership, joins, cancellation/error behavior and fallback; retain a disable control and revalidate before timing.
+Methodological correction: run02 timed every host-access hook and more than doubled large PR compute time. Its timings were rejected. Its >11 million hook entries are a diagnostic count only. run03 omits per-access timing and shows compute deltas between -2.43% and +3.33%.
+Event timing contract: https://docs.nvidia.com/cuda/cuda-driver-api/cuda_driver_api/group__CUDA__EVENT.html

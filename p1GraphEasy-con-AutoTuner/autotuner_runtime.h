@@ -608,6 +608,9 @@ int32_t autograph_exec_ctx_bind_array_frontier(sgpl_exec_ctx *,const int32_t *,i
                                                int32_t **,int64_t *,int32_t);
 int64_t autograph_exec_ctx_occurrence(sgpl_exec_ctx *);
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx);
+/* Existing capability refusal, and an exact pre-materialization record count
+ * when available. work=-1 means unknown: the original late gate must decide. */
+int32_t sgpl_gpu_spatial_preflight(const sgpl_exec_ctx *,int64_t *work);
 int32_t sgpl_frontier_ensure_i32(int32_t **slot, int64_t *capacity, int64_t index);
 int32_t sgpl_frontier_reserve_i32(void *graph, const int32_t *input, int32_t count,
                                  int32_t **slot, int64_t *capacity, int32_t sites,int32_t prefix);

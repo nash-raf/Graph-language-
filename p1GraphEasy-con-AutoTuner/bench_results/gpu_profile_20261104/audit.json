@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "main_cases": 6,
+  "preparation_drill_cases": 2,
+  "observations_checked": 40,
+  "validation_failures": 0,
+  "all_exclusive_bucket_sums_match": true,
+  "event_intervals_collected": 888,
+  "unmeasured_worker_gpu_calls": 0,
+  "production_model_sources_unchanged": true,
+  "reused_gpu_program_objects_sha256": {
+    "/home/kazi/p1_gpu_batch_20261104/benchmark/cases/pagerank/dimacs/hamming8-2/timed.o": "a0f9bbb4ab37abc8f74c576ebdcdea15ad0efbd59c59081722568a09051ee5e0",
+    "/home/kazi/p1_gpu_batch_20261104/benchmark/cases/pagerank/soc/soc-slashdot/timed.o": "105e93ac26ce51cffa083f28197e0186868b67785a7953736fe7ae90be51ce6c",
+    "/home/kazi/p1_gpu_batch_20261104/benchmark/cases/bfs/soc/soc-slashdot/timed.o": "2b19ee0e6f655540a98d5323f86056e9379ce23696e9d463d2690775f437c981",
+    "/home/kazi/p1_gpu_batch_20261104/benchmark/cases/cc/dimacs10/fe-4elt2/timed.o": "395808112b9121e0dc129b74c9e917a44d987deb0be76ed342ce72babc8cc8a4",
+    "/home/kazi/p1_gpu_batch_20261104/benchmark/cases/cc/dimacs10/inf-luxembourg_osm/timed.o": "e5fad202f7e0fc6a3ed1973b0a3e85bfe79a284e569802448b0595a73a1fc6c9",
+    "/home/kazi/p1_gpu_batch_20261104/benchmark/cases/sssp/soc/soc-slashdot/timed.o": "119a7c45ddef8148a95bde3fe2a8a67ef7dda05784452d870bf1cf5469765323"
+  },
+  "note": "run02 per-access timings rejected for perturbation; run03 main report, prep04 diagnostic refinement. Device intervals are separate nonadditive observations.",
+  "events_add_no_explicit_completion_wait": true
+}

@@ -1,0 +1,11 @@
+PASS spatial_source: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_destination: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_snapshot: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_source_acc: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_d_private: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_claim_destination: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_global_fold: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_source_frontier: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS gpu_resident_iterations: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS gpu_resident_swap: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS early existing threshold and post-setup launch failure without replay

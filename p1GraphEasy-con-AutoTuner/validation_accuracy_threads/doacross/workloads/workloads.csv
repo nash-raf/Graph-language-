@@ -1,0 +1,14 @@
+name,label,trips,distance,dependent,independent,after,streams
+tiny_chain,Tiny chain,257,1,0,0,0,1
+short_chain,Short chain,20000,1,0,0,0,1
+short_four_chains,"Short, four chains",20000,4,0,0,0,1
+short_many_chains,"Short, 64 chains",20000,64,0,0,0,1
+long_chain,Long chain,200000,1,0,0,0,1
+long_four_chains,"Long, four chains",200000,4,0,0,0,1
+long_many_chains,"Long, 64 chains",200000,64,0,0,0,1
+dependent_compute,Compute in dependency,32768,1,16,0,0,1
+independent_before,Compute before wait,32768,4,0,16,0,1
+independent_after,Compute after post,32768,4,0,16,1,1
+two_streams,Two dependent streams,32768,4,0,0,0,2
+uneven,Uneven lanes + compute,8193,3,4,8,0,1
+large_arrays,"Large arrays, 64 chains",1000000,64,0,0,0,1

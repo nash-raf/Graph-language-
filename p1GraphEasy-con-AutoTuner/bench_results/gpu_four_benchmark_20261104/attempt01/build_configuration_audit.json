@@ -1,0 +1,16 @@
+{
+  "saved_performance": {
+    "gpu_runtime": "<d>   DW_AT_producer    : (indirect string, offset: 0x104): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -O3 -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection",
+    "autotuner_runtime": "<e>   DW_AT_producer    : (indirect string, offset: 0x4d29): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -O3 -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection"
+  },
+  "first_matched": {
+    "gpu_runtime": "<d>   DW_AT_producer    : (indirect string, offset: 0x1c63): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -O2 -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection",
+    "autotuner_runtime": "<e>   DW_AT_producer    : (indirect string, offset: 0x3256): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -O2 -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection"
+  },
+  "production_flags": {
+    "gpu_runtime": "<d>   DW_AT_producer    : (indirect string, offset: 0x113): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -O3 -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection",
+    "autotuner_runtime": "<e>   DW_AT_producer    : (indirect string, offset: 0x4edc): GNU C17 13.3.0 -mtune=generic -march=x86-64 -g -O3 -fopenmp -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection"
+  },
+  "bfs_slashdot_embedded_ptx_sha256": "36ed7e239ececc30dfbf0356f8b0bac234dbec79b7869717680dc6753f85b72d",
+  "saved_binary_and_benchmark_timed_object_ptx_identical": true
+}

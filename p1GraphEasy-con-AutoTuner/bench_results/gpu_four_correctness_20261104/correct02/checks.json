@@ -1,0 +1,86 @@
+{
+  "correctness_only": true,
+  "benchmarks_run": false,
+  "profiling_run": false,
+  "checks": [
+    {
+      "name": "Focused CPU equivalence",
+      "passed": true,
+      "fixtures": 10,
+      "feature_subsets": 16,
+      "comparisons": 160,
+      "driver_fallback_checks": 10,
+      "early_threshold": true,
+      "post_setup_failure_no_replay": true,
+      "log": "focused02.checks.txt"
+    },
+    {
+      "name": "GPU invocation and coherence regressions",
+      "passed": true,
+      "workers": [
+        1,
+        4
+      ],
+      "alias_relocation": true,
+      "transfer_epochs": true,
+      "failure_propagation": true,
+      "log": "invocation02.checks.txt"
+    },
+    {
+      "name": "CPU array/frontier regressions",
+      "passed": true,
+      "workers": [
+        1,
+        2,
+        6
+      ],
+      "declared_worker_variants": [
+        2,
+        6
+      ],
+      "log": "array02.checks.txt"
+    },
+    {
+      "name": "Preparation and storage contracts",
+      "passed": true,
+      "sanitizers": [
+        "AddressSanitizer",
+        "UndefinedBehaviorSanitizer"
+      ],
+      "allocation_failure_injection": true,
+      "command": "SGPL_TEST_SANITIZE=1 bash test/run_gpu_storage_tests.sh /home/kazi/p1_gpu_four_correctness_20261104/correct02/native",
+      "log": "contracts_final.checks.txt",
+      "same_count_partition_boundary_change": true
+    },
+    {
+      "name": "Synchronization contracts",
+      "passed": true,
+      "pending_query_error_missing_query": true,
+      "nested_resident_owners": true,
+      "command": "bash test/run_gpu_sync_tests.sh /home/kazi/p1_gpu_four_correctness_20261104/correct02/native"
+    },
+    {
+      "name": "Partition boundaries",
+      "passed": true,
+      "partitions": [
+        1,
+        3,
+        64,
+        65
+      ],
+      "workers": [
+        1,
+        4
+      ],
+      "early_reject_disabled_to_check_retained_late_path": true,
+      "command": "SGPL_GPU_EARLY_REJECT=0 bash test/run_gpu_batch_tests.sh /home/kazi/p1_gpu_four_correctness_20261104/correct02/native large"
+    }
+  ],
+  "test_sources_sha256": {
+    "test/gpu_preparation_reuse_test.c": "3a9af8d18e3088d50b2a7d0efd9b68bbcabdbff359d614e0497403372b13a869",
+    "test/gpu_storage_transfer_test.c": "b6b99c9a3abae44b2d56a12b7a1e92e79b01985874738593cc214985c6590be3",
+    "test/run_gpu_storage_tests.sh": "a40069f4bd013e4f8a5e37fa9652c4f25d11f642291cf0b911bbee008ca59054",
+    "test/run_gpu_four_tests.sh": "ff1a0c8449aa9fa7a363e68ca630383308a5333e783b016e8621ff0e7c692dd6",
+    "tools/check_gpu_four.py": "8717b9717419693550ed945ff29bf1967ae8054bf8872e558bfdabc7dbeda5ab"
+  }
+}

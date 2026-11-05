@@ -1,0 +1,9 @@
+{
+  "stage": "timing",
+  "updated_utc": "2026-11-04T19:03:30Z",
+  "case": 35,
+  "algorithm": "cc",
+  "graph": "web/web-indochina-2004.edges",
+  "mode": "previous",
+  "repeat": 5
+}

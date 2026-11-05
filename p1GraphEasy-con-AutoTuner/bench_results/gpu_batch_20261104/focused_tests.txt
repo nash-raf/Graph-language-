@@ -1,0 +1,9 @@
+PASS batching spatial_source: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_destination: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_snapshot: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_source_acc: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_d_private: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_claim_destination: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_global_fold: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching spatial_source_frontier: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback
+PASS batching large: exact output, partitions=1,3,64,65 workers=1,4, launch reduction and driver fallback

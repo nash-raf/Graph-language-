@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "validation_cases": 244,
+  "output_failures": 0,
+  "offload_or_launch_changes": 0,
+  "selected_control_cases": 4,
+  "timed_samples": 40,
+  "debug_disabled_for_timing": true,
+  "explicit_poll_waits": 0,
+  "explicit_release_waits": 0,
+  "poll_waits_removed": 3988,
+  "release_waits_removed": 3988,
+  "resident_waits_removed": 4118,
+  "resident_waits_retained": 2828,
+  "completion_and_nested_contracts": true,
+  "hardware_invocation_contracts_workers": [
+    1,
+    4
+  ]
+}

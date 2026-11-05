@@ -178,12 +178,15 @@ typedef struct {
   int32_t count;
   int64_t *boundaries;
   int32_t *owners;
+  void *gpu_preparation;
+  void (*gpu_preparation_free)(void *);
 } SgplOwnerMap;
 static pthread_key_t sgpl_owner_map_key;
 static pthread_once_t sgpl_owner_map_once=PTHREAD_ONCE_INIT;
 static int sgpl_owner_map_key_status;
 static void sgpl_owner_map_free(void *opaque) {
   SgplOwnerMap *s=opaque;if(!s)return;
+  if(s->gpu_preparation_free)s->gpu_preparation_free(s->gpu_preparation);
   free(s->boundaries);free(s->owners);free(s);
 }
 static void sgpl_owner_map_key_init(void) {
@@ -216,7 +219,7 @@ static int sgpl_array_owner_map(AutoGraphMeta *m,const int32_t **out) {
     for(int64_t u=bounds[p];u<bounds[p+1];++u)owners[u]=p;
   }
   free(s->owners);free(s->boundaries);
-  *s=(SgplOwnerMap){m,m->csr_n,m->partition_count,bounds,owners};
+  s->meta=m;s->n=m->csr_n;s->count=m->partition_count;s->boundaries=bounds;s->owners=owners;
   *out=owners;return 0;
 invalid:
   free(owners);free(bounds);return SGPL_DAG_ERR_INVALID;

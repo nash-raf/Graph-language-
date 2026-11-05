@@ -1,0 +1,4882 @@
+[
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/hamming8-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 1,
+    "wait_totals": [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 2,
+    "executable_sha256": "0de30944d8ff993ccb352e9218690fb62afa5e0c307c54fc2848648f053132d9"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/hamming8-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "25920e5be3a88dd2ff437d4db0799b33ce15e483ff934d89b89f7d4506fc2973"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/hamming8-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 2,
+    "executable_sha256": "a5a64bf27c126bf9e0dad6f8e267ce640de9a61933b2d86ee0036e71b729c853"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "84066c36578ef774d5e0d749f0ebf22b82b3d5565669e2d5b0c46defb331582c"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "04ee18e21ddef538ee2ed106bde8914b6bc4423d995a618ec97c3d55c61c71ad"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "6c884e843d5afbad9e6dea949682a771715dccd85a75709650ff18432637cab0"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 92,
+    "wait_totals": [
+      0,
+      92,
+      0,
+      92,
+      0
+    ],
+    "resident_waits": 92,
+    "resident_elided": 92,
+    "executable_sha256": "992dfba9d9e7a30244f5d592a5ff2ce17fb7ae7426cadc277e8c70f3e08eb3f3"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "cb72d18a8a01d77229ffc2983776ba647372d76f0dff25b0d0bf38b82a5b0366"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "651143c98ef969c37d2d3c92d0fe9ee568a2702197dcc9b2c4e1d9e0ebd2ee86"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "0cc93ad5d90a1dd14bfb9a0ecfcdeba74243821f8afe02788fe8391d47ecfb56"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "2965fa08d40e148aba45f75b0ddaae67dd45e9c873beadb25b799b7425990ca5"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "3ec95ed1185f190f25911b027d5f9f243a754b79add3f8524f127a5abbc401fd"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/p-hat300-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "1df33d6bf0631b3b2a9d5ff872a3c74610f4ed2784d0d14eae1c7fe591a94a80"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/p-hat300-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "2e9fe373f79da5f26c3543b14361fa53727a6e71d5a6eaaa9202cc403e2bd84a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/p-hat300-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "f235d251e12c0363b5a75abc74be21419f711c9c790fe4e9b7ef8ab5071c7765"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/p-hat300-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "5520070ce39abeb03faee0566ddc4b8b7ee16a53ecc83d36bd189d413fee5080"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-spam.edges",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "537cda1f3a50f7989a8f16edf225ef8f162a7a5007beada3b1371a5d264819d7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-spam.edges",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "9ce06ec7d3c62431f7a973bf9a87f2349966a67bb6c0858103710a9ff2c74e99"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-spam.edges",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "b3b974a9d5ebdebd8becf581770543327be59248c9bd8cef4cf85252f0cd7935"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-spam.edges",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "e0c89d6b21e1701ed6b19f0750c414c327a1f907b416a147d408f32b8ea949d8"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "154552068c4462772c33e73f7d84dd8fb203af2a1356d7404505675ea41547ec"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "023d72e5ae9e59e0e84a0b7fb3ea68abfc552f7c7f49eefac031fe21b76c6436"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "6d3a20d54fc53b0b9edd8573eab2bf2ce6bc538bf9c4bdbcfdf30546df4e0341"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "cbabb1e7f023542a99b6e0f6a5aaec03d0fb3d01436f737581b1e58c879db6a2"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_40k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "dcb40c0007092523e2518bc99ee222003882e76428130b40705a9a4af8341e74"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_40k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "979ad52325c207d79997756e4f029b7913c288d0a526db7e7b61599e5d652d6f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_40k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "ef7f9d8988b4de5c086e39b196bdfb9017bc26c22657118c82284454bb2cbada"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_40k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "edf930ea821d2a2c2122a029719b66746ec01b635bfff6f3a46f56bf4619b844"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/c-fat500-10.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "3d005a18d4514c6cac11fc0dbb1b3184958037b182be0563961907fc3c7eaee2"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/c-fat500-10.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "f1e73002fe42a0cceeb95ecc84d0b0e33d5018f8c60e0846a459fb38e6a2aa37"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/c-fat500-10.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "7ffa1be2c3f8ce5c45a09cac0cc08b17fd76e335e899f8c2aa14ae72a251c7f6"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/c-fat500-10.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "3d105cb4a5a466b95268863be77de078887ce33373e147dbd5869177a6cd7f97"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-indochina-2004.edges",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "wait_totals": [
+      0,
+      6,
+      0,
+      6,
+      0
+    ],
+    "resident_waits": 6,
+    "resident_elided": 12,
+    "executable_sha256": "8dc85bd788287e20752736dded809e650710c21e7d65037d4f9055b4c03e7356"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-indochina-2004.edges",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "715c94bdbcc16efe96b5ccd99047f03e1b8f10c41e590f17c7659a17ae5dc7b7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-indochina-2004.edges",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 8,
+    "wait_totals": [
+      0,
+      8,
+      0,
+      8,
+      0
+    ],
+    "resident_waits": 8,
+    "resident_elided": 8,
+    "executable_sha256": "06c4ffcb3833e9e072f8407e5e31cd98ad6062d8fcab754de67b4a5de7b2cce3"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-indochina-2004.edges",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "a63614b06a88da4654966dec74edd08c996693376afdc14cf0b147fc5bf3e925"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-sphere.edges",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "08303c87dc91b09999a08b746f297e2289b946a2f013b24f3135d71838d837c1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-sphere.edges",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "5ef16efe3f4948794ac781ff75437df3bf4390a7a1d1ffe62a8da5ec3f0b085e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-sphere.edges",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 111,
+    "wait_totals": [
+      0,
+      111,
+      0,
+      111,
+      0
+    ],
+    "resident_waits": 111,
+    "resident_elided": 111,
+    "executable_sha256": "2687fff486c22a2f5879fde0f9c865c06e94ae7f346143f18ff2a513d0854b9e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-sphere.edges",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "efaf641bdbf8e353698fcc927d54582a897906be5be226084878dde7bf14ef44"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_50k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "9964dc9b3af52e7c2930b3f7aa1e32066d11dd0c5e2884b3685bfc1db370b939"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_50k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "ab2fbfff19951d5baf07b6ec5e81fdb85b80afd8f4cc3969101fc8820b02e45f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_50k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "1acf005ada7296ce8fde35113506af569542871c65e4696d22cb0262f91e5bc6"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_50k.edges",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "c0b6bfc812fbaf7da21371884b2cbd97bec3c66da50f78882d191d7adb3aa0a4"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-as-caida2007.edges",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "0db28084994cd1bbfd9e46aef46385d161ffe530df86bbe3d0727c98c1d1e0c0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-as-caida2007.edges",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "816ae2e87942a8d800557a32908003879550560f647f01191fb598abffc917ed"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-as-caida2007.edges",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "a166c9112e7862e88c2f64b72671cda3390e67a154d7d705a47e4768723a5e05"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-as-caida2007.edges",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "98a0c1067d09880a7db316efc36b65d56e83a20677835332c227b96e6a583b3b"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-EU.edges",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "4352b1fd935bd9f127f2ba3f265bb2a029b03d4ab89dee639d4059e48a3b15ba"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-EU.edges",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "128075db7ea91ff2023eca7bda1ee62211c7c0386682e7ab087ad39c5a254fca"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-EU.edges",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "2febdb899cd204ea06e6eeff4e6917e0d18adc91a9ced8ad3b4144a3729b8ffe"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-EU.edges",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "293d24d514c9ce929eae9eefc71df993d0833c9ce48d780cac79ce87cccd5f67"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "f42216b1698fe2de084ce01d2ae22c9c261ff5c5edd204e4d6314f1e5ad67231"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "a7bcd67335de171f17836c1ddc604e2941eff979adaa2534726f9bf67468baa1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "0ec7f6b2705154f6090ff863e5c7a7cc3f0718c8c0cda68db88e81e2f5166b42"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "7e8641d8a5a7cc10bffc16590ea3a16b0ff31991210bda0aa7bf6c296d019ef7"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "702807625c8d3d79043c5ba898cc69f86f85c3dc38793012885528bde09c8130"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "7182e63ed7f51e9dd62f3fa0af6299b47bfdd7114cb48ed2a8e5c5a000c678c4"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "5d7f2765e1f846d89772e5affde2bc78fb65614e71881ab5c07cae15842a119f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "98adc721c1dd6bbbf3a48ed75308b876dffa79a3f357954cad5a99c0ad08b8ac"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-WHOIS.edges",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "bd8153c427b3dab9a71694fb9f49b31cbb3a7d1a76abee1a8a1dc13a9a3e0259"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-WHOIS.edges",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b7f8133062d9dc8bcaa85dc5e35cf5957dda305ab52cf2c64e2fdf87ab2fb7fd"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-WHOIS.edges",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "c95cf9ecd2f788551ea206898ebae7ea0280c8f7edf59914842bd04223682a15"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-WHOIS.edges",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "6bc93a98565e13fe7140fece28bfe6cb21ef05879d161b8e8a3e2c037b76e7a1"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "122379ee61f5617c5be2e87fa8e18af1e5141f0e65ef4fe1911867f6748ef311"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "f954db839ef5c551014db2ad4f4882932329de5cb40b9511e80d49f1307e018e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "7629315b3818705e6265d3e24ca08083730c5e457fce72df186a81f4086f9ecd"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "6c49ebbc04b770c8c09d68c9c128cf115921eb10a9ed8b42eab4202782b9d092"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "bb6279f6de17b4a14844a9c108f414c7607fbe589dc240d2dce021e2ebaa0f05"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "e5dad3f204ef923d55fd18f5d3c292ed4f39af5f46e337d980a302d661deff0e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "b1336619f04f1e3a71502d38e29d1fdad30241cad8d94bbd63b7188247bc871c"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-3.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "5fd6bdcebf55131dad67c9692b2f1c59b8d89fa6d662346bc87e5601ac706caf"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "77bbbf1677b717d0b92d56329ec5a94013742c44a63afacc598a262ca1d5f8ae"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "ebc25a22b1a6987c1be7534be470cf714c5ca0b73bf7568f1f52de1aa77383e5"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "ee8720e59bc8ea5b54e10c096991b3652a2e6bad866a7f091e709d6f783330d7"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-1.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "68590f74bc5e9497a32092a3031a921790f02373b6dbdfe4bcf97f5eea34c889"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-4.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "172c5822ba2f0b9307e2b273a89436e717d4e812a26369b0c51561d9ae9f7f41"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-4.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "c11a42f1cdea99fccd9192731b5ccc4e17e7fed267ee394b858550505065016b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-4.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "16434959a7384414e707ef40bc901512b26a296cc6b8cd23fac58ac02373a357"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-4.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "5cfb10f0957a582804caffed68aa36a541fd8d1f1e5614af283c2be7755c897c"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "43102a3744f6f1d1c827c996bfed914b8c1746501e1812d889ecfd80c9dfcf5d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "75da288923bb95c0f5edbc84a1461e45198c243d334af8dd1247142afa643472"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "53edc5b25e7672012b6f1781c014e674f21481972bb5363e64ae0053d327b364"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-2.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "300052190fc53716e04f537f620753f06fb02f37f3b77f2295d2f7cb9fe52390"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "c9df17a184d6c9e11d99dc2a083b85ec05ff8ce538a9e648c6c7ace4ee3dfc8e"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "9eb6272edfb9f7a2658a0262bcb306d3db832d74e4d5b1b5bdd195a57147a4dd"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "a6e9be98e93dd2bcb0449715c1dab2954ce0d820eb79f8075b4f6e5d013203cf"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "2c1e27e2ea2750afc75bde5d9f029ccd2df50b7b90d5be64a8d9437b42c49bbc"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC500-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "e267418c52bec791684a41e2930d318a2d37a276acb29c84328e4acb9eb33c57"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC500-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "cf8bcfac4e9950de2a8853de363f2cb3814630fb3626da9592907723572f2823"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC500-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "9182206276b3a993822a8b26ec24e5547f10a8e9d0cc4b32e12a06b914cdd0b2"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC500-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "de006d2f5526eb421e634a8aa7a2a1d089f8cd6a593e1230eb39b7b9709f1380"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "00119dd375a2f9f6d3e495abb09ec6263dd0a27889ac24e1bee658036fe06ea7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "7d1cc53b3f698dabeb0eb2fca7c24b124a36f358961f590273b273d439c17d26"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "eeb9e67f62ad5d51e1004320c9e9719c2c7f03d4177813ea8e4b3e72c9af00a0"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "2fe4764e6449bc6963fd6abeba489ffada6f44707665c819efb098bca303bff1"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_retweet.edges",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "3d3fa16c23f547d3f5b24ee06856e552e6858b300078984354718e39e47e9de4"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_retweet.edges",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "5739d6faa615105eda060b4161fd37b33dd9e66a185baf8578332f3be9835b54"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_retweet.edges",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "602a614b74939377843d80443311414bed48a065abfce61336ed4b2a03a8a60a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_retweet.edges",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "fdcc30d6530358e8c007d480cef13a44ee7d674ba718c155765243ab5468f309"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/MANN-a27.edges",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "d64866fe04e2479d23f36bbbbf67d65cbd7c565bb7b84681ae9f3519fb03a843"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/MANN-a27.edges",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b6a350a7bf333214e1f926c3b94903bcf63f80ccf83e87c358dab57d2c3cf04a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/MANN-a27.edges",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "8cd79537cd131a5ab8321b5f620ba8c300805141a352940cdfee6cdb78b9576a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/MANN-a27.edges",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "ffa2bb89d940367d1abcf9d0b37c0237c36d31934a65113e10d4dafac8ba9ddb"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_fb-forum.edges",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 1,
+    "wait_totals": [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 2,
+    "executable_sha256": "597ac0cb91b8c2685509e3a09e941370ea9dae255cfff328bd1805820d3a9a90"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_fb-forum.edges",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "6a6af17463a65d38b8fefc166acf4830e1089c32263e720dfac94a77d77383a5"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_fb-forum.edges",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 2,
+    "executable_sha256": "c295b93614071afe2e064ed0775a9029e7f80be62da8ada2eab5be64ff569bde"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_fb-forum.edges",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "b2e23908d7062726944fa8abedaad3fbbc6be2bb4f64161e838e87c056073325"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "55abeaec7f4c037eeb0046739bad0e7a2b3553111f8c80e5835ac32940e39b47"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "57002591d7e589e3cfd56fade46cc78b9a05445a99d97e88a5968b9ca5b76691"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "7dd8f2b9ced4d67d2bfe56b9287ec1cefbe36fed12eb06ac9c15124b860d4cb4"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "1a1d7ac82782410c4600167babab4a5d34d2da6fdc91f90207a09d91335930f0"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing_nodal.edges",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 10,
+    "wait_totals": [
+      0,
+      10,
+      0,
+      10,
+      0
+    ],
+    "resident_waits": 10,
+    "resident_elided": 20,
+    "executable_sha256": "cebc8d7dc3d6905ed638563b4df0846fc4558209042dd5d3038e66fde4051d25"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing_nodal.edges",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "98de86a4239a8171b70a2371b113547ed2bcb981c98ef77c7a367bb775d9f10b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing_nodal.edges",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 21,
+    "resident_elided": 21,
+    "executable_sha256": "cb6a8994c17c5d7ae213e97a13cefc08d74262cd9c3fe294787455ae7a24c0fd"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing_nodal.edges",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "9259923abb621eedd88dbf4e03795f2984f00cc1882ef08b5309dc95610f89e4"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "4f4a97673e625fb58d581b53bfa4145366915663896173a73d8f3f3509dba5f3"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "82244b33d56d3a23db831f16dc6da04388a29a92fc5cfa2f3827f614e31f1931"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "wait_totals": [
+      0,
+      6,
+      0,
+      6,
+      0
+    ],
+    "resident_waits": 6,
+    "resident_elided": 6,
+    "executable_sha256": "f4f4956b2a1fab79b4201f89233a1f49f8019243f8f427a657f7fae2d9dc43b8"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "216fea37b5262010c20ce21074859842e83bac68fc6b8112995d681ef24125f9"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/PROTEINS-full.edges",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "9afc1daa143057c5873e9b30ddd01de1e08917927ee98d9d836c9e7c462389e5"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/PROTEINS-full.edges",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "ebf5ccc0948a3ac4bc6910f8bbe2e2d3b606f3cea216da90265ff0270f631b7d"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/PROTEINS-full.edges",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 26,
+    "wait_totals": [
+      0,
+      26,
+      0,
+      26,
+      0
+    ],
+    "resident_waits": 26,
+    "resident_elided": 26,
+    "executable_sha256": "fa96f0ff73615495e09e36d59e2aeb3684165bd7bd76d25dedac140e2a965c7b"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/PROTEINS-full.edges",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "b7a3d921e47fb727ad2d743f3d1c4aa856208089706e9fad384e089c69f69e6a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Mich67.edges",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "9abf098c7626a93f5daee91ca4ac31791ed67da0791700896ec273dcae246819"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Mich67.edges",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "d3d70ac4ab00f7cce664cda55cb01b4ffd240eb0708c2ecd07d98ae3b0156b8e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Mich67.edges",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "64884618266fd4b83b1046b0f0a2f1e4c55cf2f349fd73eb12f981bb79a3cf77"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Mich67.edges",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "9308e6f8b516c472b103236bbbfb7077444b3cf7227611339b4bd2e709c54889"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "08a69e974bc71f0cccc439bc3cf175b087c4103d9407f056355b4d1562e4a709"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "94d923542e5eea28450a818fbbcacbea4baa5c5331a476ebb294fce751401ed2"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "9a25c4849e46df08c9f07c2805b6bd4dce1bc8b5f34df2e3c71671b8a71eca14"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "af672c85a33c9acfe19cc1c5307eed53208783ca4e82a4379a9af58a2920f329"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-internet-as.edges",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "f2b8b59edc3f9fe85147b6f4a96b58f093dfc159ef0f6c0191407b8c40d1caf0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-internet-as.edges",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b58933165dc60ac5c5caf381f4ac76a0f09e27ae33d8d1be974062bce5cbe29e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-internet-as.edges",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "wait_totals": [
+      0,
+      6,
+      0,
+      6,
+      0
+    ],
+    "resident_waits": 6,
+    "resident_elided": 6,
+    "executable_sha256": "228f65a11900c4f0510fe143978874df820b4437b6ab71f36e5b6e3326bb9012"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-internet-as.edges",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "3fb1ea02e78194331d02c2f441be19c85c3c177d6d9c72bcfa6f70308ad2b52a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "b883037b3cf914153f9563fb675e5b3a928a75fdb4475e72a3ad37d43dfbcab1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "11b08106c0100b960ad3ce0793e695fd6e8984d5ae19f9b9ec415c9840e9b116"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "9f5db6d6643933acc2a27ae917da047313bf75b2bd970277e1b1f72d7f9f0c2e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "882442bab6b11a317282f15d51f958c099a66514a9f90749524d8896690cf0ad"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "ad79f433fa8a8c0a2022b0f80cd8dcc5c8724a5b69ebe4594b8636634678799b"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "69452b54cffa1725acf4614076678d3501ea96e066ec062baee2a7134121289e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "264efddf1f07e8a020f491aa7cf173fdb71d4b043072fa62eeda75ca3bac2f0f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "fef6bcd0142927065bfcd365312bf12e97bdfd5c5206f95d68b5a51aeb251301"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "10a296505aff530c340e66f8d91ccaf0d30379d8197bb231c5ff13e09fe70537"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "727f239ee3fc630643167a0e4d7e26f73b76c499a1a7033b6f71ac9bfbec465f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "eb09834ed70209dc7ae08a95f390ab5e3b16c7226e769287caf568082c08bbf1"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "f5ff0490efb2325f46491439cc4b57b9393e027e707674921fcac1495e9f96ef"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Smith60.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "864a29ae714ca63e782a2796ea51618c68c53ef22c67980afb9779c5d17bc2f8"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Smith60.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "24d5b96381d584bf4b99a055aff7835a5ed079dec5f9dd909e8147093a4fe24e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Smith60.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "dea91ecb83a85354694d0e1f672229229b73a792986fcc0f3eebe5010245bc04"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Smith60.edges",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "2e5e86efd71adb51d89812565ffe189c5fb34b6e955c93b946edb2f1fdc5cec2"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-epinions.edges",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 10,
+    "executable_sha256": "8dfc6afbd69559ae2bdba2a2be6a657bc29802993d2d977c1fb0e7714aec4573"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-epinions.edges",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "ad07b498a2609e6755c4444934287c07ab69b80dd74f70038365cbdfe14048e5"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-epinions.edges",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "wait_totals": [
+      0,
+      6,
+      0,
+      6,
+      0
+    ],
+    "resident_waits": 6,
+    "resident_elided": 6,
+    "executable_sha256": "0b2c9b4b7c951281fae1ba9905a1d529e460f71457a4cbd1acc17f9c4a0143ac"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-epinions.edges",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "9fe0e68bfb8d6e9555751b5115721f9f77f09b9f29fa1c607fb09de20fe789a5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "a7bbed94a92701d8ff8d5354787ca564165fed15e68ca857833c19e9e3e5d4a0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "eaeabf9a3a04c91e5eaecc37a59e8811a8028f50b9e752bec760dbd8fea0d39b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "6307c1ef6e5737f855ca405f47c2725b688a25620b86809506296a747ba40207"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "d100393080208a3cf7fd61269baf65751831ae382e7f3f79f4860d3d4267485a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/C500-9.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "cb42ffece58f4027dcb87c8d3c3b173092ae87856842875273f467c5af02ed43"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/C500-9.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "62a7b5f21fe3fc55c9c5447d10dbfb9fa2d1f5f436e2bbb74125f888fa43fbf1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/C500-9.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "2fd276f76a1e4a5c5d826966a9f7ff9341706e5f18b44084f61258d298a79a8b"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/C500-9.edges",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "5735ad9c485bbf4a5f63eda6d48c6b3065cccdac024e41fa0e25fe0e764523f5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Williams40.edges",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "dcec67f1a10f9a363ac0762e3a934997a5c85ddf3770fa256636aa33f20c0705"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Williams40.edges",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b495aca9afbd81f79f41daca0977feafdb32cff5a47a8e1d4e60808ab832b16e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Williams40.edges",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "26a112fc9ada209fd5d9279373f8d9b79294e1f677073b71b1c66b07ea9b6708"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Williams40.edges",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "8c5302dffd7ae3677bfa06dc89ba86feded1397e12d3477bce4ce3a55f6cef9e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "19b0fb64002a436604f8f0ddaedc997c6826598cfe52a63c290f0aad39ae7cc2"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "802ce905ddea3e96df4155e58c392198f40f86307cc0dcbff862cbd9066356f1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 750,
+    "wait_totals": [
+      0,
+      750,
+      0,
+      750,
+      0
+    ],
+    "resident_waits": 750,
+    "resident_elided": 750,
+    "executable_sha256": "291e3f73f779bf9e33afb6c108fd568f80c60613014c3d3189305ff0740122d3"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "9b27056a37449d55ff7e751e0dfaa400409fbf5f252146682385a8e5b1b5204f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-luxembourg-osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "e8247ca2d46e3c1309196694f64d66ae45f449b491d4954b4f47ecfcea9590f4"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-luxembourg-osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "e1976e0425df07255c7892774673bc938767711c0172add9dd356ed8e66d0d40"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-luxembourg-osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 750,
+    "wait_totals": [
+      0,
+      750,
+      0,
+      750,
+      0
+    ],
+    "resident_waits": 750,
+    "resident_elided": 750,
+    "executable_sha256": "327fa8d0c04819db89f79e8fadfd17b42b710d57fb316d1fa8db689c474f1d4c"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-luxembourg-osm.edges",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "0bf7bd5e202c771594c44eebe258c0518cb45099d14fad64d36b345c307440f5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing.edges",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 25,
+    "wait_totals": [
+      0,
+      25,
+      0,
+      25,
+      0
+    ],
+    "resident_waits": 25,
+    "resident_elided": 50,
+    "executable_sha256": "8956f53b97f730d4c17edf281f9a654d57150ea62e80e20284857d84653772b8"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing.edges",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "5255c6d665ef88a4f4269116fa432ea940be87a4ede8f15254ff393e9cec5ac1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing.edges",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 82,
+    "wait_totals": [
+      0,
+      82,
+      0,
+      82,
+      0
+    ],
+    "resident_waits": 82,
+    "resident_elided": 82,
+    "executable_sha256": "754e020ea9da9eca6af20c127a2f0e3ead3d6587da8c81d8b8e3b1b2a716d53d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing.edges",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "2adeb28eba9390ae653966d141e71f85f753822e6fdbd04618c4fe0c9c54e832"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "816942a16115772bec9168ef8027872a332905ec77b224b7ce648144ab6dea9a"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "eef4e4672548aef85294aa7bb05e87141e8fd50ff5b956e679bd67ecf905086b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "3e21c8a64c4c0c41222632bd87749c1a4fcd299edd3d108cc5c9547a183b5206"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "44edc29b96df79652d6351d6a7dbb0748c26af747c05c33cfbf97cf5f285113d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rec/rec-amazon.edges",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 26,
+    "wait_totals": [
+      0,
+      26,
+      0,
+      26,
+      0
+    ],
+    "resident_waits": 26,
+    "resident_elided": 52,
+    "executable_sha256": "f826c337ee758a455f0aef44e658d5abb8770806e5711228d866f60d6dc5298c"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rec/rec-amazon.edges",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b38d2732551fa68f0284e2d471a05ea3fe6f045296bb3d78df4dc923db01c119"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rec/rec-amazon.edges",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 102,
+    "wait_totals": [
+      0,
+      102,
+      0,
+      102,
+      0
+    ],
+    "resident_waits": 102,
+    "resident_elided": 102,
+    "executable_sha256": "4d9d07e8dc155797740cc70da64928a5dfc23db99b1f5f61b3eeb45d32ca18d1"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rec/rec-amazon.edges",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "1ba197f8da85c5e903ab9598e7e09b9e8bebce480c5b3e148eadf20edc49d4a0"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 10,
+    "executable_sha256": "e64491d2f42130f1b7d6a5890214a86c4517eb8360c77b29a1557ce62f440f8c"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "92f765b56c5c1b716ba8f3417f252d0010c199703d6fec8683af8ead5d31a38b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 9,
+    "wait_totals": [
+      0,
+      9,
+      0,
+      9,
+      0
+    ],
+    "resident_waits": 9,
+    "resident_elided": 9,
+    "executable_sha256": "6c912031eddd169764b0886fe5a9ef62ab022f79b16bfb163225f392e9da57ea"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "01d03abe0a4f31b0b7a1d4be867cefdb2ca6bcdb25fda568b691e040a8259242"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "6db509dcb2d97690042a06414d54a6d7bb08a69868fb05351de4770c025b1ab5"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "d15631abe03d28c28ac76549ba08a6431874b9f9403d9a4325f329088947b203"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 16,
+    "wait_totals": [
+      0,
+      16,
+      0,
+      16,
+      0
+    ],
+    "resident_waits": 16,
+    "resident_elided": 16,
+    "executable_sha256": "d42c132a8eb05abfeab50c66a9fc92c698715647f0cf89203814e9665d731bbd"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "15439dd85e8b37ee0c2a75f4cc910a9cf313cece6efdb176aa179df4c9093c94"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-MMP.edges",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "574012468edde23c71597191d6e4979333ff25c7a41f25c47ca2fed7cd472a89"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-MMP.edges",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "63df14730aec16aa98e86a1da6feb4955070402a92cf2fe9eeae165645af23a8"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-MMP.edges",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 17,
+    "wait_totals": [
+      0,
+      17,
+      0,
+      17,
+      0
+    ],
+    "resident_waits": 17,
+    "resident_elided": 17,
+    "executable_sha256": "9f35b6cb42d59785e38cf2a920543d7054835aeb18b472d1c5fd1afc2ed1ccb9"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-MMP.edges",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "715e07bca3ce28e6ffc6276211cb67a5a1822d6273af9d0789ced92dfe7e9747"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "protein/DD_g422.edges",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "e90dec5c03d70392965655c8962a1ccc08b67dc76052cdf6e1662f74fd9f1a28"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "protein/DD_g422.edges",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "db4832c0478f418d4283d391b875064e882c54ac6bd4faa7ab81ad6f1ec9c5e9"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "protein/DD_g422.edges",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "ddc54ca9adb5433a081c5da830f640602c4f9a8e1b73c03e761ff025ed24184a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "protein/DD_g422.edges",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "33d497a242d00a5fa850f954ff37be875c775f9284dc771a8d0a002d310602d5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "bf8b2ef9b497995c949176a682e91d8206c35fafaebdb35ca8e496ff480a7af7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "31a1ebd189379812f328f8b44fad388c88da5fc4d84af563ee4c9606c4704b02"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "697cda2ab7c5d23de601dc4c89e602c10ccb2e857d504330dc45518932990845"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "6b649eed47243fe815a9417af506d45cf3bd643ca9cd6b3e97388fb842852437"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/G12.edges",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "71849c40f0cb4585093ef6c9f9af1be39b87b31b55cdd4310e0dabc21ddc5a7e"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/G12.edges",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "e29370318bfd49934c564b9a19e7efd88707f1b755927dda4138cffbf7feb2ef"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/G12.edges",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "d846b2403214e550050c44340a149022dfedabdfe080c0659eed6b6bfa6d6617"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/G12.edges",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "faa3c4afa4c977cbcd53b62c5659423e8440af5e9fd005a08613f3b471bd68c4"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-univ.edges",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "b2bceebb58a04d21c7b192a451923dfe072879700a0d291cc73c23f735a0f4e8"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-univ.edges",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "fba78730e77bcd9c52eeebfa1b3ed35068b2263754a13c26045d4a0b95011fa3"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-univ.edges",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "124898d7165bd43b2ddcdd9c7b598e7af93b7882f4c8c8301900c27265786b69"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-univ.edges",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "3eb6fb59184b2c06cc97c4bb8bedf20804d653a62541ba8933908fdff65110d9"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/delaunay_n13.edges",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "097e63176f92f9365e845329834b9ab82aef16ca4d065a9a8bb5e0a025101b1a"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/delaunay_n13.edges",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b2ef836ca796d76907707e8c95fd126787fc24ef4183c51f4f1bb469a6265a4d"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/delaunay_n13.edges",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 30,
+    "wait_totals": [
+      0,
+      30,
+      0,
+      30,
+      0
+    ],
+    "resident_waits": 30,
+    "resident_elided": 30,
+    "executable_sha256": "f3a605ef4c7e829f06aaba37776cbdbe96f8b81d15a8c3b267af5c255270ae91"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/delaunay_n13.edges",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "5f7f37c64f973f72e6755819fdb4bd92190c505e8dfb1fb0646c45826833c58b"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 6,
+    "executable_sha256": "cf829ca0995801a68ba0e6b31c5c71d303cd8a270b810ca48e4315750306c548"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "9117b77d8870b4ec678dcda4e40c9204080a820f32f929fd48b0dbb17bbc9636"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "aa44ba242b83caea80731ea4ced7b9cb839fe93321fc7d3fc3d1a5c060ac3632"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "ad84cc924fef22fad870b6596505eae90ee18f95198522abc41d37528b83a405"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "24c73915c5bd5da709bee509b080a0e90f5fd0a9dc758eed4afeb4a1e0550634"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "7bed4766db6470b50dc9ad49e045ae8c80b20a8f61795f518926878b69042250"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 4,
+    "executable_sha256": "d9701cdb96faf452c43631e728894eb3e65ffb4387c4e12a7bb4b72a9aa52ca8"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "c0b31766972cae5e7dae77ada2b89a882dfd0b391fae5cd51a02e1a9ce2c31f7"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-usroads-48.edges",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "0cfa5ba5fdb79e8c97672daef56e58ea83210f01587a77559ce5c118f2f15fd0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-usroads-48.edges",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "0607127b01e00047772a8f0c36f014a3fd8f9fbcff768cf12fa5acf17296d83f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-usroads-48.edges",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 391,
+    "wait_totals": [
+      0,
+      391,
+      0,
+      391,
+      0
+    ],
+    "resident_waits": 391,
+    "resident_elided": 391,
+    "executable_sha256": "37eec733bf5903f51a5de5635eacec5e88210d2f928565e2a2aa5d5fc2110411"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-usroads-48.edges",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "26d07e7ecc8cc4a388db733ce6cdda933d722f02050c113955443c28d819cdc0"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "email/email-enron-large.edges",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "3687cb1b7312ac7d180bd8d205b3480b149f6f9753da181d467c2f5a076c0a44"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "email/email-enron-large.edges",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "546f1a1c91bce8cfbbdbbe6e4247a064f391df2c5c819466bc6da21f763482bc"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "email/email-enron-large.edges",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 7,
+    "wait_totals": [
+      0,
+      7,
+      0,
+      7,
+      0
+    ],
+    "resident_waits": 7,
+    "resident_elided": 7,
+    "executable_sha256": "88ff66e23731945be3f973e895701c44fe713da60530fcd282298980e49b18bc"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "email/email-enron-large.edges",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "06cf955c5ae173ccddad09699c40bb4ab5f374c024a9fc0fa33ace2d09ee8253"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "wait_totals": [
+      0,
+      2,
+      0,
+      2,
+      0
+    ],
+    "resident_waits": 2,
+    "resident_elided": 4,
+    "executable_sha256": "09cbc625037dd222ea2a3a076a75bb795ff08d56b4a0dc9b3eaae2f2fda9a7cd"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "b21e6e784e904f4efc8ce1f2a4c392ddae52698d3f9ef93708984ec6e6ff14ec"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "wait_totals": [
+      0,
+      3,
+      0,
+      3,
+      0
+    ],
+    "resident_waits": 3,
+    "resident_elided": 3,
+    "executable_sha256": "635539fad5129eedce7541cbe7e64f4cdb7cd2e095e45c76e339e94b29f29747"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "00fea68108a9500aabdc16271f6decead2fe633ec40b85c40d4329c2da7aaad6"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "wait_totals": [
+      0,
+      4,
+      0,
+      4,
+      0
+    ],
+    "resident_waits": 4,
+    "resident_elided": 8,
+    "executable_sha256": "7ac310434107713ebd3a8d8078af1627e07896f43203f067d7c2270b6d20ff32"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "wait_totals": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "resident_waits": 0,
+    "resident_elided": 0,
+    "executable_sha256": "442855f4c20ae8b426315bd47789a4efeb3faf46f299dc069ace6ace6fbd3e44"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-slashdot.edges",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "wait_totals": [
+      0,
+      5,
+      0,
+      5,
+      0
+    ],
+    "resident_waits": 5,
+    "resident_elided": 5,
+    "executable_sha256": "bb8aa500e8b5c04d2044cb98ddbb9edec391410af54a02f9baff94760a797317"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "wait_totals": [
+      0,
+      21,
+      0,
+      21,
+      0
+    ],
+    "resident_waits": 1,
+    "resident_elided": 20,
+    "executable_sha256": "dcda17630311377528b9f0635f3cb44b2eb93e03fb13a1a10068ab05464ce6ec"
+  }
+]

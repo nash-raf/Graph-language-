@@ -1,0 +1,6152 @@
+[
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "validation_passed": true,
+    "samples": [
+      {
+        "seconds": 0.435661735,
+        "exit_code": 0,
+        "rss_kib": 110476,
+        "user_seconds": 0.067853,
+        "system_seconds": 0.178115,
+        "nvcsw": 554,
+        "nivcsw": 1,
+        "minflt": 26010,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 0,
+        "compute_ms": 48.81736199999
+      },
+      {
+        "seconds": 0.445465606,
+        "exit_code": 0,
+        "rss_kib": 110152,
+        "user_seconds": 0.050103,
+        "system_seconds": 0.200413,
+        "nvcsw": 551,
+        "nivcsw": 1,
+        "minflt": 25987,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 0,
+        "compute_ms": 44.444309999990004,
+        "profile": {
+          "main_ms": 351.519341,
+          "compute_ms": 44.44431,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.725624,
+          "launches": 21,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 1.733277,
+              "compute_ms": 0.415929,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 14.925229,
+              "compute_ms": 10.938419,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 0.191788,
+              "compute_ms": 0.035209,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.160429,
+              "compute_ms": 0.51281,
+              "calls": 63,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 2.836814,
+              "compute_ms": 1.836464,
+              "calls": 165,
+              "compute_calls": 160,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 3.241133,
+              "compute_ms": 2.571051,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.029595,
+              "compute_ms": 0.027584,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 0.004532,
+              "compute_ms": 0.000231,
+              "calls": 17,
+              "compute_calls": 1,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.041444,
+              "compute_ms": 0.039673,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 7.647164,
+              "compute_ms": 7.412009,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.026565,
+              "compute_ms": 0.025055,
+              "calls": 62,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 290.774646,
+              "compute_ms": 0.0,
+              "calls": 4,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 2.95086,
+              "compute_ms": 0.103198,
+              "calls": 22,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 1.232992,
+              "compute_ms": 0.537983,
+              "calls": 198,
+              "compute_calls": 186,
+              "bytes": 1555730,
+              "compute_bytes": 791584
+            },
+            "device_free": {
+              "main_ms": 0.794801,
+              "compute_ms": 0.410641,
+              "calls": 198,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 12.718495,
+              "compute_ms": 11.622631,
+              "calls": 237,
+              "compute_calls": 225,
+              "bytes": 1634886,
+              "compute_bytes": 870740
+            },
+            "device_to_host": {
+              "main_ms": 6.221816,
+              "compute_ms": 5.972014,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 70286,
+              "compute_bytes": 68040
+            },
+            "status_download": {
+              "main_ms": 1.261157,
+              "compute_ms": 1.188605,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 84,
+              "compute_bytes": 80
+            },
+            "stream_management": {
+              "main_ms": 0.52424,
+              "compute_ms": 0.140343,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.001734,
+              "compute_ms": 0.182777,
+              "calls": 189,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.046622,
+              "compute_ms": 0.04373,
+              "calls": 62,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 1.149287,
+              "compute_ms": 0.423803,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.004721,
+              "compute_ms": 0.004151,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.446421754,
+        "exit_code": 0,
+        "rss_kib": 110340,
+        "user_seconds": 0.070563,
+        "system_seconds": 0.181979,
+        "nvcsw": 549,
+        "nivcsw": 1,
+        "minflt": 26003,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 1,
+        "compute_ms": 46.752469999999995,
+        "profile": {
+          "main_ms": 357.439781,
+          "compute_ms": 46.75247,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.927862,
+          "launches": 21,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 1.596701,
+              "compute_ms": 0.440278,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 14.682718,
+              "compute_ms": 9.944388,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 0.202528,
+              "compute_ms": 0.034986,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.194608,
+              "compute_ms": 0.466388,
+              "calls": 63,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 2.765235,
+              "compute_ms": 1.879142,
+              "calls": 165,
+              "compute_calls": 160,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 2.383938,
+              "compute_ms": 1.877048,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.031297,
+              "compute_ms": 0.027912,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 0.005938,
+              "compute_ms": 0.00024,
+              "calls": 17,
+              "compute_calls": 1,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.040534,
+              "compute_ms": 0.037059,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 8.349203,
+              "compute_ms": 8.109257,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.063003,
+              "compute_ms": 0.0437,
+              "calls": 61,
+              "compute_calls": 59,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 294.548576,
+              "compute_ms": 0.0,
+              "calls": 4,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 2.025019,
+              "compute_ms": 0.134373,
+              "calls": 22,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 1.038905,
+              "compute_ms": 0.549038,
+              "calls": 198,
+              "compute_calls": 186,
+              "bytes": 1555730,
+              "compute_bytes": 791584
+            },
+            "device_free": {
+              "main_ms": 0.896647,
+              "compute_ms": 0.426913,
+              "calls": 198,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 14.595167,
+              "compute_ms": 13.466446,
+              "calls": 237,
+              "compute_calls": 225,
+              "bytes": 1634886,
+              "compute_bytes": 870740
+            },
+            "device_to_host": {
+              "main_ms": 7.58067,
+              "compute_ms": 7.149357,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 70286,
+              "compute_bytes": 68040
+            },
+            "status_download": {
+              "main_ms": 1.551363,
+              "compute_ms": 1.415308,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 84,
+              "compute_bytes": 80
+            },
+            "stream_management": {
+              "main_ms": 0.513563,
+              "compute_ms": 0.134166,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.022931,
+              "compute_ms": 0.19703,
+              "calls": 188,
+              "compute_calls": 179,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.048517,
+              "compute_ms": 0.044753,
+              "calls": 61,
+              "compute_calls": 59,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 1.298475,
+              "compute_ms": 0.371134,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.004245,
+              "compute_ms": 0.003554,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.415911909,
+        "exit_code": 0,
+        "rss_kib": 110224,
+        "user_seconds": 0.062394,
+        "system_seconds": 0.167685,
+        "nvcsw": 551,
+        "nivcsw": 3,
+        "minflt": 26008,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 1,
+        "compute_ms": 39.377382000000004
+      },
+      {
+        "seconds": 0.393512836,
+        "exit_code": 0,
+        "rss_kib": 110260,
+        "user_seconds": 0.046426,
+        "system_seconds": 0.16636,
+        "nvcsw": 550,
+        "nivcsw": 3,
+        "minflt": 25999,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 2,
+        "compute_ms": 37.24057400001
+      },
+      {
+        "seconds": 0.394554699,
+        "exit_code": 0,
+        "rss_kib": 110640,
+        "user_seconds": 0.041596,
+        "system_seconds": 0.178865,
+        "nvcsw": 551,
+        "nivcsw": 1,
+        "minflt": 26010,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 2,
+        "compute_ms": 37.374535,
+        "profile": {
+          "main_ms": 308.812915,
+          "compute_ms": 37.374535,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.669051,
+          "launches": 21,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 1.40869,
+              "compute_ms": 0.377153,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 12.801465,
+              "compute_ms": 9.01291,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 0.19438,
+              "compute_ms": 0.033714,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 1.657633,
+              "compute_ms": 0.339983,
+              "calls": 63,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 1.946366,
+              "compute_ms": 1.368055,
+              "calls": 165,
+              "compute_calls": 160,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 1.850576,
+              "compute_ms": 1.332794,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.028741,
+              "compute_ms": 0.026339,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 0.004838,
+              "compute_ms": 0.000231,
+              "calls": 17,
+              "compute_calls": 1,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.035086,
+              "compute_ms": 0.033553,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 7.671594,
+              "compute_ms": 7.472765,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.028615,
+              "compute_ms": 0.027134,
+              "calls": 62,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 257.848599,
+              "compute_ms": 0.0,
+              "calls": 4,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.973891,
+              "compute_ms": 0.103482,
+              "calls": 22,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 0.940736,
+              "compute_ms": 0.458433,
+              "calls": 198,
+              "compute_calls": 186,
+              "bytes": 1555730,
+              "compute_bytes": 791584
+            },
+            "device_free": {
+              "main_ms": 0.750938,
+              "compute_ms": 0.377581,
+              "calls": 198,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 10.195325,
+              "compute_ms": 9.070192,
+              "calls": 237,
+              "compute_calls": 225,
+              "bytes": 1634886,
+              "compute_bytes": 870740
+            },
+            "device_to_host": {
+              "main_ms": 5.774698,
+              "compute_ms": 5.524484,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 70286,
+              "compute_bytes": 68040
+            },
+            "status_download": {
+              "main_ms": 1.25191,
+              "compute_ms": 1.175494,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 84,
+              "compute_bytes": 80
+            },
+            "stream_management": {
+              "main_ms": 0.467179,
+              "compute_ms": 0.115881,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 0.956336,
+              "compute_ms": 0.170434,
+              "calls": 189,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.042164,
+              "compute_ms": 0.039979,
+              "calls": 62,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 0.979452,
+              "compute_ms": 0.310641,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.003703,
+              "compute_ms": 0.003303,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      }
+    ],
+    "events": {
+      "main_ms": 343.897531,
+      "compute_ms": 40.021024,
+      "timer_calls": 2,
+      "other_thread_entries": 0,
+      "first_launch_api_ms": 0.409525,
+      "launches": 21,
+      "event_ms": 5.087679997,
+      "event_compute_ms": 4.557248011,
+      "event_count": 21,
+      "event_collected": 21,
+      "event_errors": 0,
+      "buckets": {
+        "other_host": {
+          "main_ms": 2.202996,
+          "compute_ms": 0.370531,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_preparation": {
+          "main_ms": 13.328668,
+          "compute_ms": 9.529484,
+          "calls": 147,
+          "compute_calls": 140,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_finalize": {
+          "main_ms": 0.156296,
+          "compute_ms": 0.030504,
+          "calls": 42,
+          "compute_calls": 40,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "plan_and_descriptors": {
+          "main_ms": 1.837707,
+          "compute_ms": 0.355505,
+          "calls": 63,
+          "compute_calls": 60,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "resident_cache": {
+          "main_ms": 2.659129,
+          "compute_ms": 1.75311,
+          "calls": 165,
+          "compute_calls": 160,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "upload_staging": {
+          "main_ms": 2.537354,
+          "compute_ms": 1.836725,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "download_publication": {
+          "main_ms": 0.027923,
+          "compute_ms": 0.026539,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_coherence": {
+          "main_ms": 0.004388,
+          "compute_ms": 0.00024,
+          "calls": 17,
+          "compute_calls": 1,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cleanup": {
+          "main_ms": 0.03934,
+          "compute_ms": 0.037928,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "execute_wait_and_scheduler": {
+          "main_ms": 8.236601,
+          "compute_ms": 8.037528,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "poll_cpu": {
+          "main_ms": 0.031317,
+          "compute_ms": 0.029674,
+          "calls": 60,
+          "compute_calls": 58,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_init": {
+          "main_ms": 287.414245,
+          "compute_ms": 0.0,
+          "calls": 4,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_module_and_lookup": {
+          "main_ms": 2.13051,
+          "compute_ms": 0.088642,
+          "calls": 22,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_allocation": {
+          "main_ms": 1.013675,
+          "compute_ms": 0.492841,
+          "calls": 198,
+          "compute_calls": 186,
+          "bytes": 1555730,
+          "compute_bytes": 791584
+        },
+        "device_free": {
+          "main_ms": 0.704754,
+          "compute_ms": 0.367818,
+          "calls": 198,
+          "compute_calls": 180,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_to_device": {
+          "main_ms": 9.890537,
+          "compute_ms": 8.705424,
+          "calls": 237,
+          "compute_calls": 225,
+          "bytes": 1634886,
+          "compute_bytes": 870740
+        },
+        "device_to_host": {
+          "main_ms": 5.998034,
+          "compute_ms": 5.750778,
+          "calls": 147,
+          "compute_calls": 140,
+          "bytes": 70286,
+          "compute_bytes": 68040
+        },
+        "status_download": {
+          "main_ms": 1.667459,
+          "compute_ms": 1.576299,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 84,
+          "compute_bytes": 80
+        },
+        "stream_management": {
+          "main_ms": 0.508048,
+          "compute_ms": 0.110059,
+          "calls": 42,
+          "compute_calls": 40,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "context_set": {
+          "main_ms": 1.230283,
+          "compute_ms": 0.1829,
+          "calls": 187,
+          "compute_calls": 178,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_query": {
+          "main_ms": 0.039915,
+          "compute_ms": 0.038071,
+          "calls": 60,
+          "compute_calls": 58,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "explicit_sync": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "launch_api": {
+          "main_ms": 0.673879,
+          "compute_ms": 0.264514,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "profiler_events": {
+          "main_ms": 1.564473,
+          "compute_ms": 0.43591,
+          "calls": 42,
+          "compute_calls": 40,
+          "bytes": 0,
+          "compute_bytes": 0
+        }
+      },
+      "other_thread_buckets": {
+        "other_host": 0,
+        "cpu_preparation": 0,
+        "cpu_finalize": 0,
+        "plan_and_descriptors": 0,
+        "resident_cache": 0,
+        "upload_staging": 0,
+        "download_publication": 0,
+        "host_coherence": 0,
+        "cleanup": 0,
+        "execute_wait_and_scheduler": 0,
+        "poll_cpu": 0,
+        "cuda_init": 0,
+        "cuda_module_and_lookup": 0,
+        "device_allocation": 0,
+        "device_free": 0,
+        "host_to_device": 0,
+        "device_to_host": 0,
+        "status_download": 0,
+        "stream_management": 0,
+        "context_set": 0,
+        "stream_query": 0,
+        "explicit_sync": 0,
+        "launch_api": 0,
+        "profiler_events": 0
+      }
+    },
+    "baseline_sha256": "1fb6e082de743a60d1b89d7b6c08ed232ffd8406fbd891b0ad9ce1409109b195",
+    "profile_sha256": "492693ebdcdb9d46d1540ed6d67b9ad475981b31da81536360c6731142867ae6"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "validation_passed": true,
+    "samples": [
+      {
+        "seconds": 0.875286856,
+        "exit_code": 0,
+        "rss_kib": 163708,
+        "user_seconds": 0.427605,
+        "system_seconds": 0.238399,
+        "nvcsw": 831,
+        "nivcsw": 2,
+        "minflt": 41417,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 0,
+        "compute_ms": 460.259327
+      },
+      {
+        "seconds": 0.868192684,
+        "exit_code": 0,
+        "rss_kib": 163340,
+        "user_seconds": 0.453153,
+        "system_seconds": 0.20944,
+        "nvcsw": 844,
+        "nivcsw": 2,
+        "minflt": 41389,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 0,
+        "compute_ms": 473.118441,
+        "profile": {
+          "main_ms": 779.142148,
+          "compute_ms": 473.118441,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 1.121633,
+          "launches": 21,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 83.555997,
+              "compute_ms": 80.342918,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 285.520522,
+              "compute_ms": 255.216394,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 1.957634,
+              "compute_ms": 0.547824,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.26695,
+              "compute_ms": 0.771598,
+              "calls": 63,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 29.709734,
+              "compute_ms": 22.531569,
+              "calls": 165,
+              "compute_calls": 160,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 33.599771,
+              "compute_ms": 26.575612,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.289418,
+              "compute_ms": 0.27735,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 3.309219,
+              "compute_ms": 0.000245,
+              "calls": 17,
+              "compute_calls": 1,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.079939,
+              "compute_ms": 0.077928,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 52.923501,
+              "compute_ms": 51.973441,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.073048,
+              "compute_ms": 0.070331,
+              "calls": 317,
+              "compute_calls": 311,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 241.914898,
+              "compute_ms": 0.0,
+              "calls": 4,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.736808,
+              "compute_ms": 0.164266,
+              "calls": 22,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 3.084416,
+              "compute_ms": 1.958563,
+              "calls": 198,
+              "compute_calls": 186,
+              "bytes": 22140058,
+              "compute_bytes": 12549800
+            },
+            "device_free": {
+              "main_ms": 1.615345,
+              "compute_ms": 0.566797,
+              "calls": 198,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 22.574601,
+              "compute_ms": 19.798545,
+              "calls": 237,
+              "compute_calls": 225,
+              "bytes": 43721310,
+              "compute_bytes": 34131052
+            },
+            "device_to_host": {
+              "main_ms": 8.915495,
+              "compute_ms": 8.54441,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 14451558,
+              "compute_bytes": 14030440
+            },
+            "status_download": {
+              "main_ms": 1.557258,
+              "compute_ms": 1.470072,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 84,
+              "compute_bytes": 80
+            },
+            "stream_management": {
+              "main_ms": 0.648672,
+              "compute_ms": 0.261884,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.549482,
+              "compute_ms": 0.835984,
+              "calls": 444,
+              "compute_calls": 431,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.551777,
+              "compute_ms": 0.546967,
+              "calls": 317,
+              "compute_calls": 311,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 1.698598,
+              "compute_ms": 0.577138,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.009065,
+              "compute_ms": 0.008605,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.948109818,
+        "exit_code": 0,
+        "rss_kib": 163840,
+        "user_seconds": 0.487736,
+        "system_seconds": 0.241885,
+        "nvcsw": 841,
+        "nivcsw": 1,
+        "minflt": 41403,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 1,
+        "compute_ms": 508.09938700000004,
+        "profile": {
+          "main_ms": 862.917935,
+          "compute_ms": 508.099387,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.964379,
+          "launches": 21,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 91.504214,
+              "compute_ms": 88.288786,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 300.141942,
+              "compute_ms": 270.901668,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 2.467762,
+              "compute_ms": 0.541957,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.402584,
+              "compute_ms": 0.882128,
+              "calls": 63,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 36.977747,
+              "compute_ms": 26.876924,
+              "calls": 165,
+              "compute_calls": 160,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 42.371156,
+              "compute_ms": 30.246481,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.331559,
+              "compute_ms": 0.316077,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 2.836522,
+              "compute_ms": 0.000307,
+              "calls": 17,
+              "compute_calls": 1,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.080883,
+              "compute_ms": 0.07734,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 54.382186,
+              "compute_ms": 53.181375,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.07753,
+              "compute_ms": 0.073304,
+              "calls": 312,
+              "compute_calls": 306,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 280.617199,
+              "compute_ms": 0.0,
+              "calls": 4,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 2.021339,
+              "compute_ms": 0.164016,
+              "calls": 22,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 3.219324,
+              "compute_ms": 2.105163,
+              "calls": 198,
+              "compute_calls": 186,
+              "bytes": 22140058,
+              "compute_bytes": 12549800
+            },
+            "device_free": {
+              "main_ms": 2.481876,
+              "compute_ms": 0.575302,
+              "calls": 198,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 25.138709,
+              "compute_ms": 21.418457,
+              "calls": 237,
+              "compute_calls": 225,
+              "bytes": 43721310,
+              "compute_bytes": 34131052
+            },
+            "device_to_host": {
+              "main_ms": 9.386974,
+              "compute_ms": 8.842209,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 14451558,
+              "compute_bytes": 14030440
+            },
+            "status_download": {
+              "main_ms": 1.744056,
+              "compute_ms": 1.608386,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 84,
+              "compute_bytes": 80
+            },
+            "stream_management": {
+              "main_ms": 0.780059,
+              "compute_ms": 0.283956,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 2.189306,
+              "compute_ms": 0.920815,
+              "calls": 439,
+              "compute_calls": 426,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.162136,
+              "compute_ms": 0.156518,
+              "calls": 312,
+              "compute_calls": 306,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 1.5936,
+              "compute_ms": 0.629365,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.009272,
+              "compute_ms": 0.008853,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.880158626,
+        "exit_code": 0,
+        "rss_kib": 163400,
+        "user_seconds": 0.469605,
+        "system_seconds": 0.206168,
+        "nvcsw": 848,
+        "nivcsw": 4,
+        "minflt": 41388,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 1,
+        "compute_ms": 476.89034200000003
+      },
+      {
+        "seconds": 0.845692657,
+        "exit_code": 0,
+        "rss_kib": 163688,
+        "user_seconds": 0.446463,
+        "system_seconds": 0.206996,
+        "nvcsw": 844,
+        "nivcsw": 3,
+        "minflt": 41394,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 2,
+        "compute_ms": 450.474489
+      },
+      {
+        "seconds": 0.836723878,
+        "exit_code": 0,
+        "rss_kib": 163688,
+        "user_seconds": 0.414275,
+        "system_seconds": 0.238403,
+        "nvcsw": 836,
+        "nivcsw": 2,
+        "minflt": 41401,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 2,
+        "compute_ms": 452.599814,
+        "profile": {
+          "main_ms": 753.491886,
+          "compute_ms": 452.599814,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.758287,
+          "launches": 21,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 77.662709,
+              "compute_ms": 74.57127,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 266.44644,
+              "compute_ms": 237.750594,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 1.761937,
+              "compute_ms": 0.492709,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.203694,
+              "compute_ms": 0.791143,
+              "calls": 63,
+              "compute_calls": 60,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 32.740375,
+              "compute_ms": 24.255503,
+              "calls": 165,
+              "compute_calls": 160,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 37.36589,
+              "compute_ms": 28.981417,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.316399,
+              "compute_ms": 0.305199,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 2.629715,
+              "compute_ms": 0.000221,
+              "calls": 17,
+              "compute_calls": 1,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.084095,
+              "compute_ms": 0.082323,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 51.791459,
+              "compute_ms": 50.76029,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.072483,
+              "compute_ms": 0.069969,
+              "calls": 307,
+              "compute_calls": 300,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 236.454284,
+              "compute_ms": 0.0,
+              "calls": 4,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.835037,
+              "compute_ms": 0.163367,
+              "calls": 22,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 3.285216,
+              "compute_ms": 2.053985,
+              "calls": 198,
+              "compute_calls": 186,
+              "bytes": 22140058,
+              "compute_bytes": 12549800
+            },
+            "device_free": {
+              "main_ms": 1.595771,
+              "compute_ms": 0.574091,
+              "calls": 198,
+              "compute_calls": 180,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 22.756571,
+              "compute_ms": 19.674985,
+              "calls": 237,
+              "compute_calls": 225,
+              "bytes": 43721310,
+              "compute_bytes": 34131052
+            },
+            "device_to_host": {
+              "main_ms": 8.859774,
+              "compute_ms": 8.50661,
+              "calls": 147,
+              "compute_calls": 140,
+              "bytes": 14451558,
+              "compute_bytes": 14030440
+            },
+            "status_download": {
+              "main_ms": 1.829167,
+              "compute_ms": 1.744563,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 84,
+              "compute_bytes": 80
+            },
+            "stream_management": {
+              "main_ms": 0.765537,
+              "compute_ms": 0.265528,
+              "calls": 42,
+              "compute_calls": 40,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.551635,
+              "compute_ms": 0.83476,
+              "calls": 434,
+              "compute_calls": 420,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.16182,
+              "compute_ms": 0.157897,
+              "calls": 307,
+              "compute_calls": 300,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 1.314071,
+              "compute_ms": 0.556024,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.007807,
+              "compute_ms": 0.007366,
+              "calls": 21,
+              "compute_calls": 20,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      }
+    ],
+    "events": {
+      "main_ms": 780.512616,
+      "compute_ms": 478.086361,
+      "timer_calls": 2,
+      "other_thread_entries": 0,
+      "first_launch_api_ms": 0.434174,
+      "launches": 21,
+      "event_ms": 50.36118412,
+      "event_compute_ms": 49.164128065,
+      "event_count": 21,
+      "event_collected": 21,
+      "event_errors": 0,
+      "buckets": {
+        "other_host": {
+          "main_ms": 83.814507,
+          "compute_ms": 80.507313,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_preparation": {
+          "main_ms": 282.146825,
+          "compute_ms": 251.505575,
+          "calls": 147,
+          "compute_calls": 140,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_finalize": {
+          "main_ms": 1.867677,
+          "compute_ms": 0.489791,
+          "calls": 42,
+          "compute_calls": 40,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "plan_and_descriptors": {
+          "main_ms": 2.253313,
+          "compute_ms": 0.843025,
+          "calls": 63,
+          "compute_calls": 60,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "resident_cache": {
+          "main_ms": 32.979065,
+          "compute_ms": 26.151637,
+          "calls": 165,
+          "compute_calls": 160,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "upload_staging": {
+          "main_ms": 37.274652,
+          "compute_ms": 29.442483,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "download_publication": {
+          "main_ms": 0.336251,
+          "compute_ms": 0.324429,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_coherence": {
+          "main_ms": 2.803432,
+          "compute_ms": 0.00042,
+          "calls": 17,
+          "compute_calls": 1,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cleanup": {
+          "main_ms": 0.081018,
+          "compute_ms": 0.078967,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "execute_wait_and_scheduler": {
+          "main_ms": 51.782361,
+          "compute_ms": 50.898277,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "poll_cpu": {
+          "main_ms": 0.070209,
+          "compute_ms": 0.066635,
+          "calls": 312,
+          "compute_calls": 306,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_init": {
+          "main_ms": 237.213941,
+          "compute_ms": 0.0,
+          "calls": 4,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_module_and_lookup": {
+          "main_ms": 1.707022,
+          "compute_ms": 0.224752,
+          "calls": 22,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_allocation": {
+          "main_ms": 3.104943,
+          "compute_ms": 2.09942,
+          "calls": 198,
+          "compute_calls": 186,
+          "bytes": 22140058,
+          "compute_bytes": 12549800
+        },
+        "device_free": {
+          "main_ms": 2.080979,
+          "compute_ms": 1.011684,
+          "calls": 198,
+          "compute_calls": 180,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_to_device": {
+          "main_ms": 24.673035,
+          "compute_ms": 21.620215,
+          "calls": 237,
+          "compute_calls": 225,
+          "bytes": 43721310,
+          "compute_bytes": 34131052
+        },
+        "device_to_host": {
+          "main_ms": 9.320259,
+          "compute_ms": 8.947337,
+          "calls": 147,
+          "compute_calls": 140,
+          "bytes": 14451558,
+          "compute_bytes": 14030440
+        },
+        "status_download": {
+          "main_ms": 1.60939,
+          "compute_ms": 1.501592,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 84,
+          "compute_bytes": 80
+        },
+        "stream_management": {
+          "main_ms": 0.661178,
+          "compute_ms": 0.262138,
+          "calls": 42,
+          "compute_calls": 40,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "context_set": {
+          "main_ms": 1.632573,
+          "compute_ms": 0.92091,
+          "calls": 439,
+          "compute_calls": 426,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_query": {
+          "main_ms": 0.147168,
+          "compute_ms": 0.142044,
+          "calls": 312,
+          "compute_calls": 306,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "explicit_sync": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "launch_api": {
+          "main_ms": 0.844159,
+          "compute_ms": 0.410456,
+          "calls": 21,
+          "compute_calls": 20,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "profiler_events": {
+          "main_ms": 2.108659,
+          "compute_ms": 0.637261,
+          "calls": 42,
+          "compute_calls": 40,
+          "bytes": 0,
+          "compute_bytes": 0
+        }
+      },
+      "other_thread_buckets": {
+        "other_host": 0,
+        "cpu_preparation": 0,
+        "cpu_finalize": 0,
+        "plan_and_descriptors": 0,
+        "resident_cache": 0,
+        "upload_staging": 0,
+        "download_publication": 0,
+        "host_coherence": 0,
+        "cleanup": 0,
+        "execute_wait_and_scheduler": 0,
+        "poll_cpu": 0,
+        "cuda_init": 0,
+        "cuda_module_and_lookup": 0,
+        "device_allocation": 0,
+        "device_free": 0,
+        "host_to_device": 0,
+        "device_to_host": 0,
+        "status_download": 0,
+        "stream_management": 0,
+        "context_set": 0,
+        "stream_query": 0,
+        "explicit_sync": 0,
+        "launch_api": 0,
+        "profiler_events": 0
+      }
+    },
+    "baseline_sha256": "43a4de0baa8dbe9527285c3d0178fb3e98203d88e043ef41af65a9adff362393",
+    "profile_sha256": "1991092bede4ff8ea5e9d2eccd4074cb2dd7aa3385998894e3d48ae78b58832d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "validation_passed": true,
+    "samples": [
+      {
+        "seconds": 0.557278507,
+        "exit_code": 0,
+        "rss_kib": 163472,
+        "user_seconds": 0.140716,
+        "system_seconds": 0.238435,
+        "nvcsw": 639,
+        "nivcsw": 2,
+        "minflt": 42574,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 0,
+        "compute_ms": 457.50769
+      },
+      {
+        "seconds": 0.547946174,
+        "exit_code": 0,
+        "rss_kib": 163252,
+        "user_seconds": 0.119969,
+        "system_seconds": 0.247679,
+        "nvcsw": 632,
+        "nivcsw": 1,
+        "minflt": 42550,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 0,
+        "compute_ms": 443.996257,
+        "profile": {
+          "main_ms": 451.797119,
+          "compute_ms": 443.996257,
+          "timer_calls": 2,
+          "other_thread_entries": 148,
+          "first_launch_api_ms": 0.845652,
+          "launches": 4,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 5.818011,
+              "compute_ms": 2.81735,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 96.160753,
+              "compute_ms": 96.160753,
+              "calls": 49,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 1.44862,
+              "compute_ms": 1.44862,
+              "calls": 18,
+              "compute_calls": 18,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.053348,
+              "compute_ms": 2.053348,
+              "calls": 22,
+              "compute_calls": 22,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 12.441157,
+              "compute_ms": 12.441157,
+              "calls": 36,
+              "compute_calls": 36,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 24.567769,
+              "compute_ms": 24.567769,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.820609,
+              "compute_ms": 0.820609,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 1.753024,
+              "compute_ms": 0.024399,
+              "calls": 279,
+              "compute_calls": 260,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.023297,
+              "compute_ms": 0.023297,
+              "calls": 9,
+              "compute_calls": 9,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 2.271352,
+              "compute_ms": 2.271352,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.007002,
+              "compute_ms": 0.007002,
+              "calls": 16,
+              "compute_calls": 16,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 271.340667,
+              "compute_ms": 271.340667,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.2901,
+              "compute_ms": 1.2901,
+              "calls": 5,
+              "compute_calls": 5,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 5.435348,
+              "compute_ms": 5.435348,
+              "calls": 77,
+              "compute_calls": 77,
+              "bytes": 32008490,
+              "compute_bytes": 32008490
+            },
+            "device_free": {
+              "main_ms": 3.899115,
+              "compute_ms": 0.844134,
+              "calls": 77,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 12.517927,
+              "compute_ms": 12.517927,
+              "calls": 84,
+              "compute_calls": 84,
+              "bytes": 35252394,
+              "compute_bytes": 35252394
+            },
+            "device_to_host": {
+              "main_ms": 7.148431,
+              "compute_ms": 7.148431,
+              "calls": 56,
+              "compute_calls": 56,
+              "bytes": 14247434,
+              "compute_bytes": 14247434
+            },
+            "status_download": {
+              "main_ms": 0.263736,
+              "compute_ms": 0.263736,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 16,
+              "compute_bytes": 16
+            },
+            "stream_management": {
+              "main_ms": 0.514823,
+              "compute_ms": 0.514823,
+              "calls": 8,
+              "compute_calls": 8,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.034047,
+              "compute_ms": 1.017452,
+              "calls": 52,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.013947,
+              "compute_ms": 0.013947,
+              "calls": 16,
+              "compute_calls": 16,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.039532,
+              "compute_ms": 0.039532,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 0.93338,
+              "compute_ms": 0.93338,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.001124,
+              "compute_ms": 0.001124,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 148,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.565958067,
+        "exit_code": 0,
+        "rss_kib": 163916,
+        "user_seconds": 0.131655,
+        "system_seconds": 0.259438,
+        "nvcsw": 636,
+        "nivcsw": 4,
+        "minflt": 42580,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 1,
+        "compute_ms": 459.470738,
+        "profile": {
+          "main_ms": 466.263685,
+          "compute_ms": 459.470738,
+          "timer_calls": 2,
+          "other_thread_entries": 152,
+          "first_launch_api_ms": 1.050014,
+          "launches": 4,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 5.866069,
+              "compute_ms": 2.953416,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 100.693893,
+              "compute_ms": 100.693893,
+              "calls": 49,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 1.569298,
+              "compute_ms": 1.569298,
+              "calls": 18,
+              "compute_calls": 18,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 2.055254,
+              "compute_ms": 2.055254,
+              "calls": 22,
+              "compute_calls": 22,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 14.193541,
+              "compute_ms": 14.193541,
+              "calls": 36,
+              "compute_calls": 36,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 26.961543,
+              "compute_ms": 26.961543,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.901851,
+              "compute_ms": 0.901851,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 1.720151,
+              "compute_ms": 0.02468,
+              "calls": 275,
+              "compute_calls": 256,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.025203,
+              "compute_ms": 0.025203,
+              "calls": 9,
+              "compute_calls": 9,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 2.505866,
+              "compute_ms": 2.505866,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.009173,
+              "compute_ms": 0.009173,
+              "calls": 17,
+              "compute_calls": 17,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 275.787346,
+              "compute_ms": 275.787346,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.293549,
+              "compute_ms": 1.293549,
+              "calls": 5,
+              "compute_calls": 5,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 5.280845,
+              "compute_ms": 5.280845,
+              "calls": 77,
+              "compute_calls": 77,
+              "bytes": 32008490,
+              "compute_bytes": 32008490
+            },
+            "device_free": {
+              "main_ms": 3.064931,
+              "compute_ms": 0.894523,
+              "calls": 77,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 12.961417,
+              "compute_ms": 12.961417,
+              "calls": 84,
+              "compute_calls": 84,
+              "bytes": 35252394,
+              "compute_bytes": 35252394
+            },
+            "device_to_host": {
+              "main_ms": 8.151293,
+              "compute_ms": 8.151293,
+              "calls": 56,
+              "compute_calls": 56,
+              "bytes": 14247434,
+              "compute_bytes": 14247434
+            },
+            "status_download": {
+              "main_ms": 0.27674,
+              "compute_ms": 0.27674,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 16,
+              "compute_bytes": 16
+            },
+            "stream_management": {
+              "main_ms": 0.388509,
+              "compute_ms": 0.388509,
+              "calls": 8,
+              "compute_calls": 8,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.405465,
+              "compute_ms": 1.39105,
+              "calls": 53,
+              "compute_calls": 50,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.013831,
+              "compute_ms": 0.013831,
+              "calls": 17,
+              "compute_calls": 17,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.016779,
+              "compute_ms": 0.016779,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 1.11966,
+              "compute_ms": 1.11966,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.001478,
+              "compute_ms": 0.001478,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 152,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.516645188,
+        "exit_code": 0,
+        "rss_kib": 163576,
+        "user_seconds": 0.121424,
+        "system_seconds": 0.230707,
+        "nvcsw": 628,
+        "nivcsw": 1,
+        "minflt": 42565,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 1,
+        "compute_ms": 416.27630300000004
+      },
+      {
+        "seconds": 0.493832965,
+        "exit_code": 0,
+        "rss_kib": 163796,
+        "user_seconds": 0.110196,
+        "system_seconds": 0.232637,
+        "nvcsw": 631,
+        "nivcsw": 3,
+        "minflt": 42580,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 2,
+        "compute_ms": 397.37738900000005
+      },
+      {
+        "seconds": 0.478951686,
+        "exit_code": 0,
+        "rss_kib": 163900,
+        "user_seconds": 0.093533,
+        "system_seconds": 0.246589,
+        "nvcsw": 627,
+        "nivcsw": 1,
+        "minflt": 42577,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 2,
+        "compute_ms": 383.792096,
+        "profile": {
+          "main_ms": 390.799668,
+          "compute_ms": 383.792096,
+          "timer_calls": 2,
+          "other_thread_entries": 152,
+          "first_launch_api_ms": 0.669687,
+          "launches": 4,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 5.329628,
+              "compute_ms": 2.598713,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 82.098833,
+              "compute_ms": 82.098833,
+              "calls": 49,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 1.398555,
+              "compute_ms": 1.398555,
+              "calls": 18,
+              "compute_calls": 18,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 1.758231,
+              "compute_ms": 1.758231,
+              "calls": 22,
+              "compute_calls": 22,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 10.585994,
+              "compute_ms": 10.585994,
+              "calls": 36,
+              "compute_calls": 36,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 17.734427,
+              "compute_ms": 17.734427,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.963057,
+              "compute_ms": 0.963057,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 2.107419,
+              "compute_ms": 0.020041,
+              "calls": 275,
+              "compute_calls": 256,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.022399,
+              "compute_ms": 0.022399,
+              "calls": 9,
+              "compute_calls": 9,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 2.116546,
+              "compute_ms": 2.116546,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.006474,
+              "compute_ms": 0.006474,
+              "calls": 16,
+              "compute_calls": 16,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 236.885216,
+              "compute_ms": 236.885216,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.964687,
+              "compute_ms": 1.964687,
+              "calls": 5,
+              "compute_calls": 5,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 4.809514,
+              "compute_ms": 4.809514,
+              "calls": 77,
+              "compute_calls": 77,
+              "bytes": 32008490,
+              "compute_bytes": 32008490
+            },
+            "device_free": {
+              "main_ms": 3.0278,
+              "compute_ms": 0.849012,
+              "calls": 77,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 11.003493,
+              "compute_ms": 11.003493,
+              "calls": 84,
+              "compute_calls": 84,
+              "bytes": 35252394,
+              "compute_bytes": 35252394
+            },
+            "device_to_host": {
+              "main_ms": 6.828586,
+              "compute_ms": 6.828586,
+              "calls": 56,
+              "compute_calls": 56,
+              "bytes": 14247434,
+              "compute_bytes": 14247434
+            },
+            "status_download": {
+              "main_ms": 0.242612,
+              "compute_ms": 0.242612,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 16,
+              "compute_bytes": 16
+            },
+            "stream_management": {
+              "main_ms": 0.364567,
+              "compute_ms": 0.364567,
+              "calls": 8,
+              "compute_calls": 8,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 0.78526,
+              "compute_ms": 0.774769,
+              "calls": 52,
+              "compute_calls": 49,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.011913,
+              "compute_ms": 0.011913,
+              "calls": 16,
+              "compute_calls": 16,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.014184,
+              "compute_ms": 0.014184,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 0.738576,
+              "compute_ms": 0.738576,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.001697,
+              "compute_ms": 0.001697,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 152,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      }
+    ],
+    "events": {
+      "main_ms": 409.414044,
+      "compute_ms": 403.238635,
+      "timer_calls": 2,
+      "other_thread_entries": 151,
+      "first_launch_api_ms": 0.277088,
+      "launches": 4,
+      "event_ms": 2.052096009,
+      "event_compute_ms": 2.052096009,
+      "event_count": 4,
+      "event_collected": 4,
+      "event_errors": 0,
+      "buckets": {
+        "other_host": {
+          "main_ms": 5.584029,
+          "compute_ms": 2.799829,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_preparation": {
+          "main_ms": 85.88351,
+          "compute_ms": 85.88351,
+          "calls": 49,
+          "compute_calls": 49,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_finalize": {
+          "main_ms": 1.340999,
+          "compute_ms": 1.340999,
+          "calls": 18,
+          "compute_calls": 18,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "plan_and_descriptors": {
+          "main_ms": 1.99124,
+          "compute_ms": 1.99124,
+          "calls": 22,
+          "compute_calls": 22,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "resident_cache": {
+          "main_ms": 14.392937,
+          "compute_ms": 14.392937,
+          "calls": 36,
+          "compute_calls": 36,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "upload_staging": {
+          "main_ms": 24.548238,
+          "compute_ms": 24.548238,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "download_publication": {
+          "main_ms": 0.74159,
+          "compute_ms": 0.74159,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_coherence": {
+          "main_ms": 1.627128,
+          "compute_ms": 0.027564,
+          "calls": 276,
+          "compute_calls": 257,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cleanup": {
+          "main_ms": 0.01706,
+          "compute_ms": 0.01706,
+          "calls": 9,
+          "compute_calls": 9,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "execute_wait_and_scheduler": {
+          "main_ms": 2.100574,
+          "compute_ms": 2.100574,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "poll_cpu": {
+          "main_ms": 0.007683,
+          "compute_ms": 0.007683,
+          "calls": 16,
+          "compute_calls": 16,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_init": {
+          "main_ms": 242.849995,
+          "compute_ms": 242.849995,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_module_and_lookup": {
+          "main_ms": 1.064666,
+          "compute_ms": 1.064666,
+          "calls": 5,
+          "compute_calls": 5,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_allocation": {
+          "main_ms": 4.267733,
+          "compute_ms": 4.267733,
+          "calls": 77,
+          "compute_calls": 77,
+          "bytes": 32008490,
+          "compute_bytes": 32008490
+        },
+        "device_free": {
+          "main_ms": 2.463955,
+          "compute_ms": 0.682908,
+          "calls": 77,
+          "compute_calls": 49,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_to_device": {
+          "main_ms": 10.568375,
+          "compute_ms": 10.568375,
+          "calls": 84,
+          "compute_calls": 84,
+          "bytes": 35252394,
+          "compute_bytes": 35252394
+        },
+        "device_to_host": {
+          "main_ms": 6.37252,
+          "compute_ms": 6.37252,
+          "calls": 56,
+          "compute_calls": 56,
+          "bytes": 14247434,
+          "compute_bytes": 14247434
+        },
+        "status_download": {
+          "main_ms": 0.285385,
+          "compute_ms": 0.285385,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 16,
+          "compute_bytes": 16
+        },
+        "stream_management": {
+          "main_ms": 0.371785,
+          "compute_ms": 0.371785,
+          "calls": 8,
+          "compute_calls": 8,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "context_set": {
+          "main_ms": 0.815938,
+          "compute_ms": 0.80534,
+          "calls": 52,
+          "compute_calls": 49,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_query": {
+          "main_ms": 0.008901,
+          "compute_ms": 0.008901,
+          "calls": 16,
+          "compute_calls": 16,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "explicit_sync": {
+          "main_ms": 0.013298,
+          "compute_ms": 0.013298,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "launch_api": {
+          "main_ms": 0.343334,
+          "compute_ms": 0.343334,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "profiler_events": {
+          "main_ms": 1.753171,
+          "compute_ms": 1.753171,
+          "calls": 8,
+          "compute_calls": 8,
+          "bytes": 0,
+          "compute_bytes": 0
+        }
+      },
+      "other_thread_buckets": {
+        "other_host": 0,
+        "cpu_preparation": 0,
+        "cpu_finalize": 0,
+        "plan_and_descriptors": 0,
+        "resident_cache": 0,
+        "upload_staging": 0,
+        "download_publication": 0,
+        "host_coherence": 151,
+        "cleanup": 0,
+        "execute_wait_and_scheduler": 0,
+        "poll_cpu": 0,
+        "cuda_init": 0,
+        "cuda_module_and_lookup": 0,
+        "device_allocation": 0,
+        "device_free": 0,
+        "host_to_device": 0,
+        "device_to_host": 0,
+        "status_download": 0,
+        "stream_management": 0,
+        "context_set": 0,
+        "stream_query": 0,
+        "explicit_sync": 0,
+        "launch_api": 0,
+        "profiler_events": 0
+      }
+    },
+    "baseline_sha256": "23a1b3b022aa02eb8dab9ea8130588899d017e7cce5357290c65f2f753c44c93",
+    "profile_sha256": "ea66095d64fedec91deae565e5f1efcda16e2bb0f8593dd4f2eba64794065fc7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "validation_passed": true,
+    "samples": [
+      {
+        "seconds": 0.786695358,
+        "exit_code": 0,
+        "rss_kib": 122696,
+        "user_seconds": 0.458014,
+        "system_seconds": 0.218502,
+        "nvcsw": 1360,
+        "nivcsw": 2,
+        "minflt": 29682,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 0,
+        "compute_ms": 703.390458
+      },
+      {
+        "seconds": 0.791560611,
+        "exit_code": 0,
+        "rss_kib": 122752,
+        "user_seconds": 0.47441,
+        "system_seconds": 0.212666,
+        "nvcsw": 1365,
+        "nivcsw": 2,
+        "minflt": 29668,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 0,
+        "compute_ms": 703.800567,
+        "profile": {
+          "main_ms": 707.468062,
+          "compute_ms": 703.800567,
+          "timer_calls": 2,
+          "other_thread_entries": 44073,
+          "first_launch_api_ms": 0.676548,
+          "launches": 92,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 4.841345,
+              "compute_ms": 3.702136,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 180.552341,
+              "compute_ms": 180.552341,
+              "calls": 734,
+              "compute_calls": 734,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 5.343569,
+              "compute_ms": 5.343569,
+              "calls": 214,
+              "compute_calls": 214,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 3.657037,
+              "compute_ms": 3.657037,
+              "calls": 306,
+              "compute_calls": 306,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 4.682012,
+              "compute_ms": 4.682012,
+              "calls": 736,
+              "compute_calls": 736,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 19.365154,
+              "compute_ms": 19.365154,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 2.855517,
+              "compute_ms": 2.855517,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 1.772381,
+              "compute_ms": 1.069868,
+              "calls": 5579,
+              "compute_calls": 5560,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.40163,
+              "compute_ms": 0.40163,
+              "calls": 107,
+              "compute_calls": 107,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 17.542837,
+              "compute_ms": 17.542837,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.092594,
+              "compute_ms": 0.092594,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 247.789802,
+              "compute_ms": 247.789802,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.375978,
+              "compute_ms": 1.375978,
+              "calls": 93,
+              "compute_calls": 93,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 18.494452,
+              "compute_ms": 18.494452,
+              "calls": 1750,
+              "compute_calls": 1750,
+              "bytes": 130075216,
+              "compute_bytes": 130075216
+            },
+            "device_free": {
+              "main_ms": 11.450317,
+              "compute_ms": 9.646306,
+              "calls": 1750,
+              "compute_calls": 1715,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 116.17328,
+              "compute_ms": 116.17328,
+              "calls": 1931,
+              "compute_calls": 1931,
+              "bytes": 157074612,
+              "compute_bytes": 157074612
+            },
+            "device_to_host": {
+              "main_ms": 60.15827,
+              "compute_ms": 60.15827,
+              "calls": 1288,
+              "compute_calls": 1288,
+              "bytes": 63754180,
+              "compute_bytes": 63754180
+            },
+            "status_download": {
+              "main_ms": 4.528,
+              "compute_ms": 4.528,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 368,
+              "compute_bytes": 368
+            },
+            "stream_management": {
+              "main_ms": 1.266234,
+              "compute_ms": 1.266234,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 2.041943,
+              "compute_ms": 2.020181,
+              "calls": 831,
+              "compute_calls": 828,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.144582,
+              "compute_ms": 0.144582,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.25533,
+              "compute_ms": 0.25533,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 2.665974,
+              "compute_ms": 2.665974,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.017483,
+              "compute_ms": 0.017483,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 44073,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.784814542,
+        "exit_code": 0,
+        "rss_kib": 122800,
+        "user_seconds": 0.472187,
+        "system_seconds": 0.206825,
+        "nvcsw": 1368,
+        "nivcsw": 2,
+        "minflt": 29690,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 1,
+        "compute_ms": 700.250632,
+        "profile": {
+          "main_ms": 703.471042,
+          "compute_ms": 700.250632,
+          "timer_calls": 2,
+          "other_thread_entries": 42925,
+          "first_launch_api_ms": 0.703794,
+          "launches": 92,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 5.203198,
+              "compute_ms": 4.04162,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 178.098275,
+              "compute_ms": 178.098275,
+              "calls": 734,
+              "compute_calls": 734,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 5.405839,
+              "compute_ms": 5.405839,
+              "calls": 214,
+              "compute_calls": 214,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 4.258349,
+              "compute_ms": 4.258349,
+              "calls": 306,
+              "compute_calls": 306,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 4.541601,
+              "compute_ms": 4.541601,
+              "calls": 736,
+              "compute_calls": 736,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 18.362949,
+              "compute_ms": 18.362949,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 2.869021,
+              "compute_ms": 2.869021,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 1.888606,
+              "compute_ms": 1.183851,
+              "calls": 6727,
+              "compute_calls": 6708,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.399659,
+              "compute_ms": 0.399659,
+              "calls": 107,
+              "compute_calls": 107,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 17.724318,
+              "compute_ms": 17.724318,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.09579,
+              "compute_ms": 0.09579,
+              "calls": 183,
+              "compute_calls": 183,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 239.904165,
+              "compute_ms": 239.904165,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.062181,
+              "compute_ms": 1.062181,
+              "calls": 93,
+              "compute_calls": 93,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 18.166601,
+              "compute_ms": 18.166601,
+              "calls": 1750,
+              "compute_calls": 1750,
+              "bytes": 130075216,
+              "compute_bytes": 130075216
+            },
+            "device_free": {
+              "main_ms": 11.039298,
+              "compute_ms": 9.698743,
+              "calls": 1750,
+              "compute_calls": 1715,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 121.06294,
+              "compute_ms": 121.06294,
+              "calls": 1931,
+              "compute_calls": 1931,
+              "bytes": 157074612,
+              "compute_bytes": 157074612
+            },
+            "device_to_host": {
+              "main_ms": 61.932817,
+              "compute_ms": 61.932817,
+              "calls": 1288,
+              "compute_calls": 1288,
+              "bytes": 63754180,
+              "compute_bytes": 63754180
+            },
+            "status_download": {
+              "main_ms": 4.856974,
+              "compute_ms": 4.856974,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 368,
+              "compute_bytes": 368
+            },
+            "stream_management": {
+              "main_ms": 1.342486,
+              "compute_ms": 1.342486,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 1.986517,
+              "compute_ms": 1.972995,
+              "calls": 830,
+              "compute_calls": 827,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.150667,
+              "compute_ms": 0.150667,
+              "calls": 183,
+              "compute_calls": 183,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.283021,
+              "compute_ms": 0.283021,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 2.81329,
+              "compute_ms": 2.81329,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.02248,
+              "compute_ms": 0.02248,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 42925,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.794977769,
+        "exit_code": 0,
+        "rss_kib": 122800,
+        "user_seconds": 0.444623,
+        "system_seconds": 0.235389,
+        "nvcsw": 1347,
+        "nivcsw": 3,
+        "minflt": 29701,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 1,
+        "compute_ms": 707.488614
+      },
+      {
+        "seconds": 0.769328884,
+        "exit_code": 0,
+        "rss_kib": 122692,
+        "user_seconds": 0.456917,
+        "system_seconds": 0.21835,
+        "nvcsw": 1370,
+        "nivcsw": 1,
+        "minflt": 29684,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 2,
+        "compute_ms": 684.479589
+      },
+      {
+        "seconds": 0.774086397,
+        "exit_code": 0,
+        "rss_kib": 122680,
+        "user_seconds": 0.469158,
+        "system_seconds": 0.208514,
+        "nvcsw": 1358,
+        "nivcsw": 3,
+        "minflt": 29686,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 2,
+        "compute_ms": 688.8342680000001,
+        "profile": {
+          "main_ms": 691.897058,
+          "compute_ms": 688.834268,
+          "timer_calls": 2,
+          "other_thread_entries": 42968,
+          "first_launch_api_ms": 0.893667,
+          "launches": 92,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 4.751811,
+              "compute_ms": 3.724931,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 176.597886,
+              "compute_ms": 176.597886,
+              "calls": 734,
+              "compute_calls": 734,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 5.516968,
+              "compute_ms": 5.516968,
+              "calls": 214,
+              "compute_calls": 214,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 4.237235,
+              "compute_ms": 4.237235,
+              "calls": 306,
+              "compute_calls": 306,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 4.596591,
+              "compute_ms": 4.596591,
+              "calls": 736,
+              "compute_calls": 736,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 17.553267,
+              "compute_ms": 17.553267,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 3.062672,
+              "compute_ms": 3.062672,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 1.780951,
+              "compute_ms": 1.1404,
+              "calls": 6684,
+              "compute_calls": 6665,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.439151,
+              "compute_ms": 0.439151,
+              "calls": 107,
+              "compute_calls": 107,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 17.577903,
+              "compute_ms": 17.577903,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.093554,
+              "compute_ms": 0.093554,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 238.2288,
+              "compute_ms": 238.2288,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 1.281871,
+              "compute_ms": 1.281871,
+              "calls": 93,
+              "compute_calls": 93,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 17.177796,
+              "compute_ms": 17.177796,
+              "calls": 1750,
+              "compute_calls": 1750,
+              "bytes": 130075216,
+              "compute_bytes": 130075216
+            },
+            "device_free": {
+              "main_ms": 12.257123,
+              "compute_ms": 10.876584,
+              "calls": 1750,
+              "compute_calls": 1715,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 115.718658,
+              "compute_ms": 115.718658,
+              "calls": 1931,
+              "compute_calls": 1931,
+              "bytes": 157074612,
+              "compute_bytes": 157074612
+            },
+            "device_to_host": {
+              "main_ms": 58.971722,
+              "compute_ms": 58.971722,
+              "calls": 1288,
+              "compute_calls": 1288,
+              "bytes": 63754180,
+              "compute_bytes": 63754180
+            },
+            "status_download": {
+              "main_ms": 5.136391,
+              "compute_ms": 5.136391,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 368,
+              "compute_bytes": 368
+            },
+            "stream_management": {
+              "main_ms": 1.184769,
+              "compute_ms": 1.184769,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 2.144151,
+              "compute_ms": 2.129331,
+              "calls": 831,
+              "compute_calls": 828,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.148402,
+              "compute_ms": 0.148402,
+              "calls": 184,
+              "compute_calls": 184,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.281256,
+              "compute_ms": 0.281256,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 3.136816,
+              "compute_ms": 3.136816,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.021314,
+              "compute_ms": 0.021314,
+              "calls": 92,
+              "compute_calls": 92,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 42968,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      }
+    ],
+    "events": {
+      "main_ms": 700.004221,
+      "compute_ms": 696.406329,
+      "timer_calls": 2,
+      "other_thread_entries": 43730,
+      "first_launch_api_ms": 0.320604,
+      "launches": 92,
+      "event_ms": 3.797951994,
+      "event_compute_ms": 3.797951994,
+      "event_count": 92,
+      "event_collected": 92,
+      "event_errors": 0,
+      "buckets": {
+        "other_host": {
+          "main_ms": 5.06795,
+          "compute_ms": 3.854405,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_preparation": {
+          "main_ms": 184.409592,
+          "compute_ms": 184.409592,
+          "calls": 734,
+          "compute_calls": 734,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_finalize": {
+          "main_ms": 5.411146,
+          "compute_ms": 5.411146,
+          "calls": 214,
+          "compute_calls": 214,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "plan_and_descriptors": {
+          "main_ms": 4.043028,
+          "compute_ms": 4.043028,
+          "calls": 306,
+          "compute_calls": 306,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "resident_cache": {
+          "main_ms": 4.506305,
+          "compute_ms": 4.506305,
+          "calls": 736,
+          "compute_calls": 736,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "upload_staging": {
+          "main_ms": 16.379337,
+          "compute_ms": 16.379337,
+          "calls": 92,
+          "compute_calls": 92,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "download_publication": {
+          "main_ms": 2.811397,
+          "compute_ms": 2.811397,
+          "calls": 92,
+          "compute_calls": 92,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_coherence": {
+          "main_ms": 1.888778,
+          "compute_ms": 1.158345,
+          "calls": 5922,
+          "compute_calls": 5903,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cleanup": {
+          "main_ms": 0.387519,
+          "compute_ms": 0.387519,
+          "calls": 107,
+          "compute_calls": 107,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "execute_wait_and_scheduler": {
+          "main_ms": 17.525322,
+          "compute_ms": 17.525322,
+          "calls": 92,
+          "compute_calls": 92,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "poll_cpu": {
+          "main_ms": 0.103545,
+          "compute_ms": 0.103545,
+          "calls": 184,
+          "compute_calls": 184,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_init": {
+          "main_ms": 237.597141,
+          "compute_ms": 237.597141,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_module_and_lookup": {
+          "main_ms": 1.221528,
+          "compute_ms": 1.221528,
+          "calls": 93,
+          "compute_calls": 93,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_allocation": {
+          "main_ms": 17.954705,
+          "compute_ms": 17.954705,
+          "calls": 1750,
+          "compute_calls": 1750,
+          "bytes": 130075216,
+          "compute_bytes": 130075216
+        },
+        "device_free": {
+          "main_ms": 11.454652,
+          "compute_ms": 9.820654,
+          "calls": 1750,
+          "compute_calls": 1715,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_to_device": {
+          "main_ms": 114.246283,
+          "compute_ms": 114.246283,
+          "calls": 1931,
+          "compute_calls": 1931,
+          "bytes": 157074612,
+          "compute_bytes": 157074612
+        },
+        "device_to_host": {
+          "main_ms": 61.404796,
+          "compute_ms": 61.404796,
+          "calls": 1288,
+          "compute_calls": 1288,
+          "bytes": 63754180,
+          "compute_bytes": 63754180
+        },
+        "status_download": {
+          "main_ms": 4.680398,
+          "compute_ms": 4.680398,
+          "calls": 92,
+          "compute_calls": 92,
+          "bytes": 368,
+          "compute_bytes": 368
+        },
+        "stream_management": {
+          "main_ms": 1.113781,
+          "compute_ms": 1.113781,
+          "calls": 184,
+          "compute_calls": 184,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "context_set": {
+          "main_ms": 2.247461,
+          "compute_ms": 2.227545,
+          "calls": 831,
+          "compute_calls": 828,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_query": {
+          "main_ms": 0.139475,
+          "compute_ms": 0.139475,
+          "calls": 184,
+          "compute_calls": 184,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "explicit_sync": {
+          "main_ms": 0.263801,
+          "compute_ms": 0.263801,
+          "calls": 92,
+          "compute_calls": 92,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "launch_api": {
+          "main_ms": 2.028462,
+          "compute_ms": 2.028462,
+          "calls": 92,
+          "compute_calls": 92,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "profiler_events": {
+          "main_ms": 3.117819,
+          "compute_ms": 3.117819,
+          "calls": 184,
+          "compute_calls": 184,
+          "bytes": 0,
+          "compute_bytes": 0
+        }
+      },
+      "other_thread_buckets": {
+        "other_host": 0,
+        "cpu_preparation": 0,
+        "cpu_finalize": 0,
+        "plan_and_descriptors": 0,
+        "resident_cache": 0,
+        "upload_staging": 0,
+        "download_publication": 0,
+        "host_coherence": 43730,
+        "cleanup": 0,
+        "execute_wait_and_scheduler": 0,
+        "poll_cpu": 0,
+        "cuda_init": 0,
+        "cuda_module_and_lookup": 0,
+        "device_allocation": 0,
+        "device_free": 0,
+        "host_to_device": 0,
+        "device_to_host": 0,
+        "status_download": 0,
+        "stream_management": 0,
+        "context_set": 0,
+        "stream_query": 0,
+        "explicit_sync": 0,
+        "launch_api": 0,
+        "profiler_events": 0
+      }
+    },
+    "baseline_sha256": "bff8352ad7165f3c35a7f00226d79e97af304b10ec9298d20d70d5b753e84119",
+    "profile_sha256": "091fa8914337541f09a9c5fcc7b73aa938aa465c398e63b2b6c1ac332be2303f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "validation_passed": true,
+    "samples": [
+      {
+        "seconds": 10.968999917,
+        "exit_code": 0,
+        "rss_kib": 171460,
+        "user_seconds": 10.394868,
+        "system_seconds": 0.618789,
+        "nvcsw": 12935,
+        "nivcsw": 12,
+        "minflt": 43048,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 0,
+        "compute_ms": 10875.925844
+      },
+      {
+        "seconds": 11.143033536,
+        "exit_code": 0,
+        "rss_kib": 171400,
+        "user_seconds": 10.819373,
+        "system_seconds": 0.580905,
+        "nvcsw": 12973,
+        "nivcsw": 30,
+        "minflt": 43051,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 0,
+        "compute_ms": 11049.338802,
+        "profile": {
+          "main_ms": 11055.606658,
+          "compute_ms": 11049.338802,
+          "timer_calls": 2,
+          "other_thread_entries": 1229113,
+          "first_launch_api_ms": 0.814521,
+          "launches": 750,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 93.731427,
+              "compute_ms": 91.535201,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 6519.182287,
+              "compute_ms": 6519.182287,
+              "calls": 6960,
+              "compute_calls": 6960,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 72.972467,
+              "compute_ms": 72.972467,
+              "calls": 2070,
+              "compute_calls": 2070,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 23.626458,
+              "compute_ms": 23.626458,
+              "calls": 2820,
+              "compute_calls": 2820,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 18.084051,
+              "compute_ms": 18.084051,
+              "calls": 6000,
+              "compute_calls": 6000,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 285.964684,
+              "compute_ms": 285.964684,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 90.395523,
+              "compute_ms": 90.395523,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 21.451986,
+              "compute_ms": 21.42977,
+              "calls": 111951,
+              "compute_calls": 111932,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 4.770199,
+              "compute_ms": 4.770199,
+              "calls": 1035,
+              "compute_calls": 1035,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 152.60453,
+              "compute_ms": 152.60453,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 1.05201,
+              "compute_ms": 1.05201,
+              "calls": 1514,
+              "compute_calls": 1514,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 246.061541,
+              "compute_ms": 246.061541,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 2.648963,
+              "compute_ms": 2.648963,
+              "calls": 751,
+              "compute_calls": 751,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 482.609368,
+              "compute_ms": 482.609368,
+              "calls": 14253,
+              "compute_calls": 14253,
+              "bytes": 1990185651,
+              "compute_bytes": 1990185651
+            },
+            "device_free": {
+              "main_ms": 307.36221,
+              "compute_ms": 303.324294,
+              "calls": 14253,
+              "compute_calls": 14218,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 1649.831854,
+              "compute_ms": 1649.831854,
+              "calls": 15750,
+              "compute_calls": 15750,
+              "bytes": 3039283203,
+              "compute_bytes": 3039283203
+            },
+            "device_to_host": {
+              "main_ms": 994.493402,
+              "compute_ms": 994.493402,
+              "calls": 10500,
+              "compute_calls": 10500,
+              "bytes": 2146234415,
+              "compute_bytes": 2146234415
+            },
+            "status_download": {
+              "main_ms": 40.458651,
+              "compute_ms": 40.458651,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 3000,
+              "compute_bytes": 3000
+            },
+            "stream_management": {
+              "main_ms": 9.381008,
+              "compute_ms": 9.381008,
+              "calls": 1500,
+              "compute_calls": 1500,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 17.004899,
+              "compute_ms": 16.993401,
+              "calls": 6767,
+              "compute_calls": 6764,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 1.601962,
+              "compute_ms": 1.601962,
+              "calls": 1514,
+              "compute_calls": 1514,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 2.550061,
+              "compute_ms": 2.550061,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 17.082149,
+              "compute_ms": 17.082149,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.684968,
+              "compute_ms": 0.684968,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 1229113,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 10.899662814,
+        "exit_code": 0,
+        "rss_kib": 171628,
+        "user_seconds": 10.491705,
+        "system_seconds": 0.638482,
+        "nvcsw": 12894,
+        "nivcsw": 17,
+        "minflt": 43049,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 1,
+        "compute_ms": 10804.684323,
+        "profile": {
+          "main_ms": 10811.709105,
+          "compute_ms": 10804.684323,
+          "timer_calls": 2,
+          "other_thread_entries": 1229714,
+          "first_launch_api_ms": 0.611978,
+          "launches": 750,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 90.489509,
+              "compute_ms": 88.20639,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 6365.721892,
+              "compute_ms": 6365.721892,
+              "calls": 6960,
+              "compute_calls": 6960,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 73.838836,
+              "compute_ms": 73.838836,
+              "calls": 2070,
+              "compute_calls": 2070,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 22.028733,
+              "compute_ms": 22.028733,
+              "calls": 2820,
+              "compute_calls": 2820,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 18.416976,
+              "compute_ms": 18.416976,
+              "calls": 6000,
+              "compute_calls": 6000,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 269.81237,
+              "compute_ms": 269.81237,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 87.559242,
+              "compute_ms": 87.559242,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 20.872199,
+              "compute_ms": 20.848572,
+              "calls": 111350,
+              "compute_calls": 111331,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 5.035508,
+              "compute_ms": 5.035508,
+              "calls": 1035,
+              "compute_calls": 1035,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 152.274509,
+              "compute_ms": 152.274509,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.88031,
+              "compute_ms": 0.88031,
+              "calls": 1526,
+              "compute_calls": 1526,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 238.120961,
+              "compute_ms": 238.120961,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 2.53941,
+              "compute_ms": 2.53941,
+              "calls": 751,
+              "compute_calls": 751,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 500.486858,
+              "compute_ms": 500.486858,
+              "calls": 14253,
+              "compute_calls": 14253,
+              "bytes": 1990185651,
+              "compute_bytes": 1990185651
+            },
+            "device_free": {
+              "main_ms": 298.660547,
+              "compute_ms": 293.954897,
+              "calls": 14253,
+              "compute_calls": 14218,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 1602.437034,
+              "compute_ms": 1602.437034,
+              "calls": 15750,
+              "compute_calls": 15750,
+              "bytes": 3039283203,
+              "compute_bytes": 3039283203
+            },
+            "device_to_host": {
+              "main_ms": 979.257668,
+              "compute_ms": 979.257668,
+              "calls": 10500,
+              "compute_calls": 10500,
+              "bytes": 2146234415,
+              "compute_bytes": 2146234415
+            },
+            "status_download": {
+              "main_ms": 39.300168,
+              "compute_ms": 39.300168,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 3000,
+              "compute_bytes": 3000
+            },
+            "stream_management": {
+              "main_ms": 8.162688,
+              "compute_ms": 8.162688,
+              "calls": 1500,
+              "compute_calls": 1500,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 14.641223,
+              "compute_ms": 14.628837,
+              "calls": 6779,
+              "compute_calls": 6776,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 1.629808,
+              "compute_ms": 1.629808,
+              "calls": 1526,
+              "compute_calls": 1526,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 2.567087,
+              "compute_ms": 2.567087,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 16.750799,
+              "compute_ms": 16.750799,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.22477,
+              "compute_ms": 0.22477,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 1229714,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 11.428057342,
+        "exit_code": 0,
+        "rss_kib": 171472,
+        "user_seconds": 10.949097,
+        "system_seconds": 0.558999,
+        "nvcsw": 12962,
+        "nivcsw": 53,
+        "minflt": 43058,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 1,
+        "compute_ms": 11331.110527
+      },
+      {
+        "seconds": 11.150855828,
+        "exit_code": 0,
+        "rss_kib": 171352,
+        "user_seconds": 10.612114,
+        "system_seconds": 0.632159,
+        "nvcsw": 12985,
+        "nivcsw": 18,
+        "minflt": 43052,
+        "majflt": 159,
+        "mode": "baseline",
+        "repeat": 2,
+        "compute_ms": 11057.112656
+      },
+      {
+        "seconds": 11.090124574,
+        "exit_code": 0,
+        "rss_kib": 171444,
+        "user_seconds": 10.671018,
+        "system_seconds": 0.622004,
+        "nvcsw": 12947,
+        "nivcsw": 21,
+        "minflt": 43048,
+        "majflt": 159,
+        "mode": "profile",
+        "repeat": 2,
+        "compute_ms": 10993.118647,
+        "profile": {
+          "main_ms": 11000.560864,
+          "compute_ms": 10993.118647,
+          "timer_calls": 2,
+          "other_thread_entries": 1225544,
+          "first_launch_api_ms": 0.748624,
+          "launches": 750,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 91.049263,
+              "compute_ms": 88.442789,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 6531.572647,
+              "compute_ms": 6531.572647,
+              "calls": 6960,
+              "compute_calls": 6960,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 72.476347,
+              "compute_ms": 72.476347,
+              "calls": 2070,
+              "compute_calls": 2070,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 22.534145,
+              "compute_ms": 22.534145,
+              "calls": 2820,
+              "compute_calls": 2820,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 18.300019,
+              "compute_ms": 18.300019,
+              "calls": 6000,
+              "compute_calls": 6000,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 284.623782,
+              "compute_ms": 284.623782,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 89.16551,
+              "compute_ms": 89.16551,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 21.821857,
+              "compute_ms": 21.799738,
+              "calls": 115520,
+              "compute_calls": 115501,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 4.439293,
+              "compute_ms": 4.439293,
+              "calls": 1035,
+              "compute_calls": 1035,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 150.633875,
+              "compute_ms": 150.633875,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.895508,
+              "compute_ms": 0.895508,
+              "calls": 1511,
+              "compute_calls": 1511,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 234.487975,
+              "compute_ms": 234.487975,
+              "calls": 4,
+              "compute_calls": 4,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 2.627791,
+              "compute_ms": 2.627791,
+              "calls": 751,
+              "compute_calls": 751,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 510.674003,
+              "compute_ms": 510.674003,
+              "calls": 14253,
+              "compute_calls": 14253,
+              "bytes": 1990185651,
+              "compute_bytes": 1990185651
+            },
+            "device_free": {
+              "main_ms": 305.533127,
+              "compute_ms": 300.730648,
+              "calls": 14253,
+              "compute_calls": 14218,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 1593.592594,
+              "compute_ms": 1593.592594,
+              "calls": 15750,
+              "compute_calls": 15750,
+              "bytes": 3039283203,
+              "compute_bytes": 3039283203
+            },
+            "device_to_host": {
+              "main_ms": 981.905193,
+              "compute_ms": 981.905193,
+              "calls": 10500,
+              "compute_calls": 10500,
+              "bytes": 2146234415,
+              "compute_bytes": 2146234415
+            },
+            "status_download": {
+              "main_ms": 40.194801,
+              "compute_ms": 40.194801,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 3000,
+              "compute_bytes": 3000
+            },
+            "stream_management": {
+              "main_ms": 8.448824,
+              "compute_ms": 8.448824,
+              "calls": 1500,
+              "compute_calls": 1500,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 14.263591,
+              "compute_ms": 14.252446,
+              "calls": 6764,
+              "compute_calls": 6761,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 1.781263,
+              "compute_ms": 1.781263,
+              "calls": 1511,
+              "compute_calls": 1511,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 2.516078,
+              "compute_ms": 2.516078,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 16.811019,
+              "compute_ms": 16.811019,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.212359,
+              "compute_ms": 0.212359,
+              "calls": 750,
+              "compute_calls": 750,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 1225544,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      }
+    ],
+    "events": {
+      "main_ms": 10931.891752,
+      "compute_ms": 10923.367654,
+      "timer_calls": 2,
+      "other_thread_entries": 1230686,
+      "first_launch_api_ms": 0.34868,
+      "launches": 750,
+      "event_ms": 36.41398403,
+      "event_compute_ms": 36.41398403,
+      "event_count": 750,
+      "event_collected": 750,
+      "event_errors": 0,
+      "buckets": {
+        "other_host": {
+          "main_ms": 95.72706,
+          "compute_ms": 93.135062,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_preparation": {
+          "main_ms": 6542.288159,
+          "compute_ms": 6542.288159,
+          "calls": 6960,
+          "compute_calls": 6960,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_finalize": {
+          "main_ms": 73.476028,
+          "compute_ms": 73.476028,
+          "calls": 2070,
+          "compute_calls": 2070,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "plan_and_descriptors": {
+          "main_ms": 23.431467,
+          "compute_ms": 23.431467,
+          "calls": 2820,
+          "compute_calls": 2820,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "resident_cache": {
+          "main_ms": 18.440935,
+          "compute_ms": 18.440935,
+          "calls": 6000,
+          "compute_calls": 6000,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "upload_staging": {
+          "main_ms": 296.65692,
+          "compute_ms": 296.65692,
+          "calls": 750,
+          "compute_calls": 750,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "download_publication": {
+          "main_ms": 91.485693,
+          "compute_ms": 91.485693,
+          "calls": 750,
+          "compute_calls": 750,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_coherence": {
+          "main_ms": 22.997987,
+          "compute_ms": 21.093897,
+          "calls": 110378,
+          "compute_calls": 110359,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cleanup": {
+          "main_ms": 4.632385,
+          "compute_ms": 4.632385,
+          "calls": 1035,
+          "compute_calls": 1035,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "execute_wait_and_scheduler": {
+          "main_ms": 153.514565,
+          "compute_ms": 153.514565,
+          "calls": 750,
+          "compute_calls": 750,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "poll_cpu": {
+          "main_ms": 0.962437,
+          "compute_ms": 0.962437,
+          "calls": 1515,
+          "compute_calls": 1515,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_init": {
+          "main_ms": 233.362234,
+          "compute_ms": 233.362234,
+          "calls": 4,
+          "compute_calls": 4,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_module_and_lookup": {
+          "main_ms": 2.469604,
+          "compute_ms": 2.469604,
+          "calls": 751,
+          "compute_calls": 751,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_allocation": {
+          "main_ms": 429.545953,
+          "compute_ms": 429.545953,
+          "calls": 14253,
+          "compute_calls": 14253,
+          "bytes": 1990185651,
+          "compute_bytes": 1990185651
+        },
+        "device_free": {
+          "main_ms": 277.922619,
+          "compute_ms": 273.906706,
+          "calls": 14253,
+          "compute_calls": 14218,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_to_device": {
+          "main_ms": 1597.166057,
+          "compute_ms": 1597.166057,
+          "calls": 15750,
+          "compute_calls": 15750,
+          "bytes": 3039283203,
+          "compute_bytes": 3039283203
+        },
+        "device_to_host": {
+          "main_ms": 965.430146,
+          "compute_ms": 965.430146,
+          "calls": 10500,
+          "compute_calls": 10500,
+          "bytes": 2146234415,
+          "compute_bytes": 2146234415
+        },
+        "status_download": {
+          "main_ms": 40.532905,
+          "compute_ms": 40.532905,
+          "calls": 750,
+          "compute_calls": 750,
+          "bytes": 3000,
+          "compute_bytes": 3000
+        },
+        "stream_management": {
+          "main_ms": 8.046665,
+          "compute_ms": 8.046665,
+          "calls": 1500,
+          "compute_calls": 1500,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "context_set": {
+          "main_ms": 15.631595,
+          "compute_ms": 15.619498,
+          "calls": 6768,
+          "compute_calls": 6765,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_query": {
+          "main_ms": 1.249012,
+          "compute_ms": 1.249012,
+          "calls": 1515,
+          "compute_calls": 1515,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "explicit_sync": {
+          "main_ms": 2.558039,
+          "compute_ms": 2.558039,
+          "calls": 750,
+          "compute_calls": 750,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "launch_api": {
+          "main_ms": 15.022728,
+          "compute_ms": 15.022728,
+          "calls": 750,
+          "compute_calls": 750,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "profiler_events": {
+          "main_ms": 19.340559,
+          "compute_ms": 19.340559,
+          "calls": 1500,
+          "compute_calls": 1500,
+          "bytes": 0,
+          "compute_bytes": 0
+        }
+      },
+      "other_thread_buckets": {
+        "other_host": 0,
+        "cpu_preparation": 0,
+        "cpu_finalize": 0,
+        "plan_and_descriptors": 0,
+        "resident_cache": 0,
+        "upload_staging": 0,
+        "download_publication": 0,
+        "host_coherence": 1230686,
+        "cleanup": 0,
+        "execute_wait_and_scheduler": 0,
+        "poll_cpu": 0,
+        "cuda_init": 0,
+        "cuda_module_and_lookup": 0,
+        "device_allocation": 0,
+        "device_free": 0,
+        "host_to_device": 0,
+        "device_to_host": 0,
+        "status_download": 0,
+        "stream_management": 0,
+        "context_set": 0,
+        "stream_query": 0,
+        "explicit_sync": 0,
+        "launch_api": 0,
+        "profiler_events": 0
+      }
+    },
+    "baseline_sha256": "af448963871362b89a7b3f4897dd67290973047960b97c0e4103588141895c55",
+    "profile_sha256": "d637fc86aaefbda7a169a1f6e15e38d85a198adad037c38e3c3979008d3a2b47"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "validation_passed": true,
+    "samples": [
+      {
+        "seconds": 0.094781879,
+        "exit_code": 0,
+        "rss_kib": 88508,
+        "user_seconds": 0.159701,
+        "system_seconds": 0.119776,
+        "nvcsw": 183,
+        "nivcsw": 0,
+        "minflt": 24931,
+        "majflt": 0,
+        "mode": "baseline",
+        "repeat": 0,
+        "compute_ms": 52.67446199997
+      },
+      {
+        "seconds": 0.097177397,
+        "exit_code": 0,
+        "rss_kib": 88384,
+        "user_seconds": 0.178552,
+        "system_seconds": 0.107131,
+        "nvcsw": 204,
+        "nivcsw": 1,
+        "minflt": 24890,
+        "majflt": 0,
+        "mode": "profile",
+        "repeat": 0,
+        "compute_ms": 53.637574999980004,
+        "profile": {
+          "main_ms": 79.686629,
+          "compute_ms": 53.637575,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.0,
+          "launches": 0,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 45.058472,
+              "compute_ms": 19.009418,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 31.677678,
+              "compute_ms": 31.677678,
+              "calls": 68,
+              "compute_calls": 68,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 2.950479,
+              "compute_ms": 2.950479,
+              "calls": 34,
+              "compute_calls": 34,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_free": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_to_host": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "status_download": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_management": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.09598538,
+        "exit_code": 0,
+        "rss_kib": 88488,
+        "user_seconds": 0.204458,
+        "system_seconds": 0.074706,
+        "nvcsw": 197,
+        "nivcsw": 1,
+        "minflt": 24969,
+        "majflt": 0,
+        "mode": "profile",
+        "repeat": 1,
+        "compute_ms": 52.375208,
+        "profile": {
+          "main_ms": 80.022711,
+          "compute_ms": 52.375208,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.0,
+          "launches": 0,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 46.968974,
+              "compute_ms": 19.321471,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 30.375628,
+              "compute_ms": 30.375628,
+              "calls": 68,
+              "compute_calls": 68,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 2.678109,
+              "compute_ms": 2.678109,
+              "calls": 34,
+              "compute_calls": 34,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_free": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_to_host": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "status_download": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_management": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      },
+      {
+        "seconds": 0.098099948,
+        "exit_code": 0,
+        "rss_kib": 88644,
+        "user_seconds": 0.172822,
+        "system_seconds": 0.103693,
+        "nvcsw": 198,
+        "nivcsw": 0,
+        "minflt": 25086,
+        "majflt": 0,
+        "mode": "baseline",
+        "repeat": 1,
+        "compute_ms": 52.880685999979995
+      },
+      {
+        "seconds": 0.115482407,
+        "exit_code": 0,
+        "rss_kib": 88160,
+        "user_seconds": 0.214647,
+        "system_seconds": 0.103622,
+        "nvcsw": 219,
+        "nivcsw": 1,
+        "minflt": 24580,
+        "majflt": 0,
+        "mode": "baseline",
+        "repeat": 2,
+        "compute_ms": 63.99402499999999
+      },
+      {
+        "seconds": 0.103847584,
+        "exit_code": 0,
+        "rss_kib": 88248,
+        "user_seconds": 0.182065,
+        "system_seconds": 0.118738,
+        "nvcsw": 227,
+        "nivcsw": 3,
+        "minflt": 24881,
+        "majflt": 0,
+        "mode": "profile",
+        "repeat": 2,
+        "compute_ms": 59.42427600002,
+        "profile": {
+          "main_ms": 87.726207,
+          "compute_ms": 59.424276,
+          "timer_calls": 2,
+          "other_thread_entries": 0,
+          "first_launch_api_ms": 0.0,
+          "launches": 0,
+          "event_ms": 0.0,
+          "event_compute_ms": 0.0,
+          "event_count": 0,
+          "event_collected": 0,
+          "event_errors": 0,
+          "buckets": {
+            "other_host": {
+              "main_ms": 50.49139,
+              "compute_ms": 22.189459,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_preparation": {
+              "main_ms": 34.075088,
+              "compute_ms": 34.075088,
+              "calls": 68,
+              "compute_calls": 68,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cpu_finalize": {
+              "main_ms": 3.159729,
+              "compute_ms": 3.159729,
+              "calls": 34,
+              "compute_calls": 34,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "plan_and_descriptors": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "resident_cache": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "upload_staging": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "download_publication": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_coherence": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cleanup": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "execute_wait_and_scheduler": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "poll_cpu": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_init": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "cuda_module_and_lookup": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_allocation": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_free": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "host_to_device": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "device_to_host": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "status_download": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_management": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "context_set": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "stream_query": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "explicit_sync": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "launch_api": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            },
+            "profiler_events": {
+              "main_ms": 0.0,
+              "compute_ms": 0.0,
+              "calls": 0,
+              "compute_calls": 0,
+              "bytes": 0,
+              "compute_bytes": 0
+            }
+          },
+          "other_thread_buckets": {
+            "other_host": 0,
+            "cpu_preparation": 0,
+            "cpu_finalize": 0,
+            "plan_and_descriptors": 0,
+            "resident_cache": 0,
+            "upload_staging": 0,
+            "download_publication": 0,
+            "host_coherence": 0,
+            "cleanup": 0,
+            "execute_wait_and_scheduler": 0,
+            "poll_cpu": 0,
+            "cuda_init": 0,
+            "cuda_module_and_lookup": 0,
+            "device_allocation": 0,
+            "device_free": 0,
+            "host_to_device": 0,
+            "device_to_host": 0,
+            "status_download": 0,
+            "stream_management": 0,
+            "context_set": 0,
+            "stream_query": 0,
+            "explicit_sync": 0,
+            "launch_api": 0,
+            "profiler_events": 0
+          }
+        }
+      }
+    ],
+    "events": {
+      "main_ms": 85.863245,
+      "compute_ms": 56.309073,
+      "timer_calls": 2,
+      "other_thread_entries": 0,
+      "first_launch_api_ms": 0.0,
+      "launches": 0,
+      "event_ms": 0.0,
+      "event_compute_ms": 0.0,
+      "event_count": 0,
+      "event_collected": 0,
+      "event_errors": 0,
+      "buckets": {
+        "other_host": {
+          "main_ms": 48.670177,
+          "compute_ms": 19.116005,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_preparation": {
+          "main_ms": 34.634097,
+          "compute_ms": 34.634097,
+          "calls": 68,
+          "compute_calls": 68,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cpu_finalize": {
+          "main_ms": 2.558971,
+          "compute_ms": 2.558971,
+          "calls": 34,
+          "compute_calls": 34,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "plan_and_descriptors": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "resident_cache": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "upload_staging": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "download_publication": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_coherence": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cleanup": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "execute_wait_and_scheduler": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "poll_cpu": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_init": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "cuda_module_and_lookup": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_allocation": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_free": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "host_to_device": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "device_to_host": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "status_download": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_management": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "context_set": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "stream_query": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "explicit_sync": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "launch_api": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        },
+        "profiler_events": {
+          "main_ms": 0.0,
+          "compute_ms": 0.0,
+          "calls": 0,
+          "compute_calls": 0,
+          "bytes": 0,
+          "compute_bytes": 0
+        }
+      },
+      "other_thread_buckets": {
+        "other_host": 0,
+        "cpu_preparation": 0,
+        "cpu_finalize": 0,
+        "plan_and_descriptors": 0,
+        "resident_cache": 0,
+        "upload_staging": 0,
+        "download_publication": 0,
+        "host_coherence": 0,
+        "cleanup": 0,
+        "execute_wait_and_scheduler": 0,
+        "poll_cpu": 0,
+        "cuda_init": 0,
+        "cuda_module_and_lookup": 0,
+        "device_allocation": 0,
+        "device_free": 0,
+        "host_to_device": 0,
+        "device_to_host": 0,
+        "status_download": 0,
+        "stream_management": 0,
+        "context_set": 0,
+        "stream_query": 0,
+        "explicit_sync": 0,
+        "launch_api": 0,
+        "profiler_events": 0
+      }
+    },
+    "baseline_sha256": "c37cca9e41c0edd556d3ef408d575e5ee7b2d4b0c87309bc9b12fbc3ccda6ba3",
+    "profile_sha256": "5f74e83df0886a409103e1c56eb9176e112682f71ccc516b867044776f9b2841"
+  }
+]

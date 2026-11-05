@@ -1,0 +1,22 @@
+PASS resident iterations, host writes, deferred download, aliases and scope publication
+PASS read-only storage retains distinct pointer identity and true aliases
+PASS changed pointer bindings retain both device versions across 20 iterations
+PASS stack restore expires younger allocations and preserves older and global arrays
+PASS existing DOALL and cooperative GPU launch compatibility
+PASS legacy DAG: device, host, device transfer epochs retain carried values
+PASS device timer: two rounds and two batches overlap in one DAG
+PASS source-phase overlap ignores CPU grants and retains source joins
+PASS GPU dispatch overlaps when called from a CPU scheduler node
+PASS bounded windows and failure without CPU replay
+PASS GPU invocation, alias relocation, and failure propagation
+PASS resident iterations, host writes, deferred download, aliases and scope publication
+PASS read-only storage retains distinct pointer identity and true aliases
+PASS changed pointer bindings retain both device versions across 20 iterations
+PASS stack restore expires younger allocations and preserves older and global arrays
+PASS existing DOALL and cooperative GPU launch compatibility
+PASS legacy DAG: device, host, device transfer epochs retain carried values
+PASS device timer: two rounds and two batches overlap in one DAG
+PASS source-phase overlap ignores CPU grants and retains source joins
+PASS GPU dispatch overlaps when called from a CPU scheduler node
+PASS bounded windows and failure without CPU replay
+PASS GPU invocation, alias relocation, and failure propagation

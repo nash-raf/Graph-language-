@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "expected_cases": 244,
+  "actual_cases": 244,
+  "unique_cases": 244,
+  "timing_records_checked": 1220,
+  "validation_failures": 0,
+  "offload_mismatches": 0,
+  "executable_hashes_checked": 244,
+  "debug_disabled_in_all_timed_samples": true,
+  "harness_sha256": "5555ad988d299991b2d1bf5a108456e612b10088da49662b4bf77030c5e3d37a"
+}

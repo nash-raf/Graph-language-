@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "primary_attempt": "attempt03_o3_native_io",
+  "native_flags": [
+    "-O3",
+    "-g",
+    "-fopenmp",
+    "-pthread"
+  ],
+  "algorithm_graph_cases": 244,
+  "gpu_cases": 165,
+  "cpu_fallback_cases": 79,
+  "main_timed_samples": 2440,
+  "selected_control_timed_samples": 120,
+  "all_timed_exits_successful": true,
+  "offload_counts_unchanged": true,
+  "native_source_and_object_hashes_unchanged": true,
+  "correctness_validation_runs": 488,
+  "focused_correctness_comparisons": 160,
+  "markdown_tables_checked": 6,
+  "report_sha256": "37e123064dcab19ea9297ffa8e6c7ad900f9ad90f623e19304aa22b948319258",
+  "analysis_sha256": "1c1031b7b289b47bcbdcf73a62865d9853643d04cda2b30abcb71d3637bf84ad"
+}

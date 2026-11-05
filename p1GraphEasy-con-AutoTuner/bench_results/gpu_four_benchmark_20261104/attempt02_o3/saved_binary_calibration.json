@@ -1,0 +1,308 @@
+{
+  "purpose": "Re-run untouched saved-sync executables to check historical timing drift",
+  "timed_samples": 20,
+  "repetitions": 5,
+  "rebuilt": false,
+  "cases": [
+    {
+      "algorithm": "pagerank",
+      "graph": "dimacs/hamming8-2.edges",
+      "executable": "/home/kazi/p1_gpu_sync_20261104/attempt02/cases/pagerank/dimacs/hamming8-2/timed",
+      "executable_sha256": "1fb6e082de743a60d1b89d7b6c08ed232ffd8406fbd891b0ad9ce1409109b195",
+      "gpu_tasks": 21,
+      "samples": [
+        {
+          "seconds": 0.340598901,
+          "exit_code": 0,
+          "rss_kib": 110480,
+          "user_seconds": 0.041689,
+          "system_seconds": 0.150081,
+          "nvcsw": 550,
+          "nivcsw": 0,
+          "minflt": 26005,
+          "majflt": 159,
+          "internal_seconds": 0.032671175
+        },
+        {
+          "seconds": 0.343184503,
+          "exit_code": 0,
+          "rss_kib": 110384,
+          "user_seconds": 0.036322,
+          "system_seconds": 0.154371,
+          "nvcsw": 551,
+          "nivcsw": 1,
+          "minflt": 26000,
+          "majflt": 159,
+          "internal_seconds": 0.031881724
+        },
+        {
+          "seconds": 0.337790606,
+          "exit_code": 0,
+          "rss_kib": 110352,
+          "user_seconds": 0.036663,
+          "system_seconds": 0.151236,
+          "nvcsw": 553,
+          "nivcsw": 1,
+          "minflt": 26004,
+          "majflt": 159,
+          "internal_seconds": 0.032131435
+        },
+        {
+          "seconds": 0.404960058,
+          "exit_code": 0,
+          "rss_kib": 110476,
+          "user_seconds": 0.045782,
+          "system_seconds": 0.195616,
+          "nvcsw": 553,
+          "nivcsw": 0,
+          "minflt": 26004,
+          "majflt": 159,
+          "internal_seconds": 0.035560969
+        },
+        {
+          "seconds": 0.346366939,
+          "exit_code": 0,
+          "rss_kib": 110484,
+          "user_seconds": 0.041906,
+          "system_seconds": 0.156196,
+          "nvcsw": 551,
+          "nivcsw": 2,
+          "minflt": 26003,
+          "majflt": 159,
+          "internal_seconds": 0.032043937
+        }
+      ],
+      "now_e2e_ms": 354.58020139999996,
+      "saved_e2e_ms": 658.2278325999999,
+      "now_over_saved_e2e": 0.538689164813053,
+      "now_compute_ms": 32.857848,
+      "saved_compute_ms": 57.05342940005,
+      "now_over_saved_compute": 0.5759136364898549
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "soc/soc-slashdot.edges",
+      "executable": "/home/kazi/p1_gpu_sync_20261104/attempt02/cases/pagerank/soc/soc-slashdot/timed",
+      "executable_sha256": "43a4de0baa8dbe9527285c3d0178fb3e98203d88e043ef41af65a9adff362393",
+      "gpu_tasks": 21,
+      "samples": [
+        {
+          "seconds": 0.841409858,
+          "exit_code": 0,
+          "rss_kib": 163996,
+          "user_seconds": 0.431575,
+          "system_seconds": 0.237971,
+          "nvcsw": 821,
+          "nivcsw": 4,
+          "minflt": 41411,
+          "majflt": 159,
+          "internal_seconds": 0.46186988
+        },
+        {
+          "seconds": 0.927157813,
+          "exit_code": 0,
+          "rss_kib": 163744,
+          "user_seconds": 0.522054,
+          "system_seconds": 0.217174,
+          "nvcsw": 827,
+          "nivcsw": 2,
+          "minflt": 41403,
+          "majflt": 159,
+          "internal_seconds": 0.517904676
+        },
+        {
+          "seconds": 0.985600334,
+          "exit_code": 0,
+          "rss_kib": 163700,
+          "user_seconds": 0.562734,
+          "system_seconds": 0.223438,
+          "nvcsw": 831,
+          "nivcsw": 1,
+          "minflt": 41415,
+          "majflt": 159,
+          "internal_seconds": 0.558980823
+        },
+        {
+          "seconds": 0.95902086,
+          "exit_code": 0,
+          "rss_kib": 163956,
+          "user_seconds": 0.476781,
+          "system_seconds": 0.281178,
+          "nvcsw": 849,
+          "nivcsw": 2,
+          "minflt": 41399,
+          "majflt": 159,
+          "internal_seconds": 0.515327524
+        },
+        {
+          "seconds": 0.991600736,
+          "exit_code": 0,
+          "rss_kib": 163740,
+          "user_seconds": 0.529777,
+          "system_seconds": 0.269093,
+          "nvcsw": 832,
+          "nivcsw": 5,
+          "minflt": 41405,
+          "majflt": 159,
+          "internal_seconds": 0.545291604
+        }
+      ],
+      "now_e2e_ms": 940.9579202,
+      "saved_e2e_ms": 933.8910264,
+      "now_over_saved_e2e": 1.0075671503421997,
+      "now_compute_ms": 519.8749014,
+      "saved_compute_ms": 499.20251159995996,
+      "now_over_saved_compute": 1.0414108289114659
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "soc/soc-slashdot.edges",
+      "executable": "/home/kazi/p1_gpu_sync_20261104/attempt02/cases/bfs/soc/soc-slashdot/timed",
+      "executable_sha256": "23a1b3b022aa02eb8dab9ea8130588899d017e7cce5357290c65f2f753c44c93",
+      "gpu_tasks": 4,
+      "samples": [
+        {
+          "seconds": 0.545730265,
+          "exit_code": 0,
+          "rss_kib": 163620,
+          "user_seconds": 0.131691,
+          "system_seconds": 0.239439,
+          "nvcsw": 630,
+          "nivcsw": 2,
+          "minflt": 42573,
+          "majflt": 159,
+          "internal_seconds": 0.436579272
+        },
+        {
+          "seconds": 0.590589388,
+          "exit_code": 0,
+          "rss_kib": 163616,
+          "user_seconds": 0.134786,
+          "system_seconds": 0.261644,
+          "nvcsw": 631,
+          "nivcsw": 3,
+          "minflt": 42574,
+          "majflt": 159,
+          "internal_seconds": 0.48067461
+        },
+        {
+          "seconds": 0.606257381,
+          "exit_code": 0,
+          "rss_kib": 163592,
+          "user_seconds": 0.146067,
+          "system_seconds": 0.275441,
+          "nvcsw": 636,
+          "nivcsw": 3,
+          "minflt": 42568,
+          "majflt": 159,
+          "internal_seconds": 0.493023477
+        },
+        {
+          "seconds": 0.62388511,
+          "exit_code": 0,
+          "rss_kib": 163744,
+          "user_seconds": 0.149426,
+          "system_seconds": 0.278098,
+          "nvcsw": 629,
+          "nivcsw": 0,
+          "minflt": 42569,
+          "majflt": 159,
+          "internal_seconds": 0.509418319
+        },
+        {
+          "seconds": 0.610346524,
+          "exit_code": 0,
+          "rss_kib": 163708,
+          "user_seconds": 0.159396,
+          "system_seconds": 0.255034,
+          "nvcsw": 637,
+          "nivcsw": 2,
+          "minflt": 42586,
+          "majflt": 159,
+          "internal_seconds": 0.474883496
+        }
+      ],
+      "now_e2e_ms": 595.3617336000001,
+      "saved_e2e_ms": 530.0234266,
+      "now_over_saved_e2e": 1.123274375661342,
+      "now_compute_ms": 478.9158348,
+      "saved_compute_ms": 428.47861720004,
+      "now_over_saved_compute": 1.117712332833666
+    },
+    {
+      "algorithm": "cc",
+      "graph": "dimacs10/fe-4elt2.edges",
+      "executable": "/home/kazi/p1_gpu_sync_20261104/attempt02/cases/cc/dimacs10/fe-4elt2/timed",
+      "executable_sha256": "bff8352ad7165f3c35a7f00226d79e97af304b10ec9298d20d70d5b753e84119",
+      "gpu_tasks": 92,
+      "samples": [
+        {
+          "seconds": 1.199786891,
+          "exit_code": 0,
+          "rss_kib": 122584,
+          "user_seconds": 0.672481,
+          "system_seconds": 0.348694,
+          "nvcsw": 1496,
+          "nivcsw": 1,
+          "minflt": 29671,
+          "majflt": 159,
+          "internal_seconds": 1.07899182
+        },
+        {
+          "seconds": 1.186090449,
+          "exit_code": 0,
+          "rss_kib": 122664,
+          "user_seconds": 0.646163,
+          "system_seconds": 0.368067,
+          "nvcsw": 1490,
+          "nivcsw": 0,
+          "minflt": 29663,
+          "majflt": 159,
+          "internal_seconds": 1.070299402
+        },
+        {
+          "seconds": 1.012611684,
+          "exit_code": 0,
+          "rss_kib": 122780,
+          "user_seconds": 0.585155,
+          "system_seconds": 0.290587,
+          "nvcsw": 1462,
+          "nivcsw": 2,
+          "minflt": 29662,
+          "majflt": 159,
+          "internal_seconds": 0.915040844
+        },
+        {
+          "seconds": 1.126574809,
+          "exit_code": 0,
+          "rss_kib": 122812,
+          "user_seconds": 0.637896,
+          "system_seconds": 0.316916,
+          "nvcsw": 1470,
+          "nivcsw": 2,
+          "minflt": 29689,
+          "majflt": 159,
+          "internal_seconds": 1.019447051
+        },
+        {
+          "seconds": 1.037876086,
+          "exit_code": 0,
+          "rss_kib": 122652,
+          "user_seconds": 0.6398,
+          "system_seconds": 0.267258,
+          "nvcsw": 1521,
+          "nivcsw": 4,
+          "minflt": 29675,
+          "majflt": 159,
+          "internal_seconds": 0.935289978
+        }
+      ],
+      "now_e2e_ms": 1112.5879838,
+      "saved_e2e_ms": 823.1402174,
+      "now_over_saved_e2e": 1.351638469706,
+      "now_compute_ms": 1003.813819,
+      "saved_compute_ms": 733.04463660002,
+      "now_over_saved_compute": 1.3693761182891282
+    }
+  ]
+}

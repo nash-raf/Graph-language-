@@ -1,0 +1,619 @@
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   native weighted CSR prepares direct edge hints
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   rebuild weight hints after same-pointer topology publication
+  ok   mutation invalidates the prior first-match weight index
+  ok   prepare nonempty output prefix
+  ok   pair-only CSR batches use compact records without ordinal side arrays
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   failed device expansion preserves the compact CPU representation
+  ok   CPU execution remains valid after device expansion failure
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   native weighted CSR prepares direct edge hints
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   pair-only CSR batches use compact records without ordinal side arrays
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   failed device expansion preserves the compact CPU representation
+  ok   CPU execution remains valid after device expansion failure
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   CSR hints and duplicate/layout/device fallbacks preserve first-match edge weights
+  ok   fallback grows and copies existing stack buffer
+  ok   failed growth preserves the old allocation and its capacity
+  ok   symbolic traversal bound includes duplicate source occurrences and the existing prefix
+  ok   reservation failure leaves the original buffer before any effect
+  ok   simultaneous contexts have exclusive scratch leases
+  ok   reserve separate live snapshots
+  ok   overlapping context snapshots remain frozen and isolated
+  ok   reuse the returned lease for a later context
+  ok   reused snapshot capacity cannot overwrite another active context
+  ok   failed scratch growth retains the current snapshot
+  ok   transfer lease destruction to another thread
+  ok   thread-exit cleanup preserves other live leases
+  ok   change partition boundaries between invocations
+  ok   prepare array records after repartitioning
+  ok   cached ownership follows changed boundaries and preserves occurrence order
+  ok   change partition boundaries between invocations
+  ok   prepare array records after repartitioning
+  ok   cached ownership follows changed boundaries and preserves occurrence order
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   native weighted CSR prepares direct edge hints
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   rebuild weight hints after same-pointer topology publication
+  ok   mutation invalidates the prior first-match weight index
+  ok   prepare nonempty output prefix
+  ok   pair-only CSR batches use compact records without ordinal side arrays
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   failed device expansion preserves the compact CPU representation
+  ok   CPU execution remains valid after device expansion failure
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   native weighted CSR prepares direct edge hints
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   pair-only CSR batches use compact records without ordinal side arrays
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   failed device expansion preserves the compact CPU representation
+  ok   CPU execution remains valid after device expansion failure
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   CSR hints and duplicate/layout/device fallbacks preserve first-match edge weights
+  ok   fallback grows and copies existing stack buffer
+  ok   failed growth preserves the old allocation and its capacity
+  ok   symbolic traversal bound includes duplicate source occurrences and the existing prefix
+  ok   reservation failure leaves the original buffer before any effect
+  ok   simultaneous contexts have exclusive scratch leases
+  ok   reserve separate live snapshots
+  ok   overlapping context snapshots remain frozen and isolated
+  ok   reuse the returned lease for a later context
+  ok   reused snapshot capacity cannot overwrite another active context
+  ok   failed scratch growth retains the current snapshot
+  ok   transfer lease destruction to another thread
+  ok   thread-exit cleanup preserves other live leases
+  ok   change partition boundaries between invocations
+  ok   prepare array records after repartitioning
+  ok   cached ownership follows changed boundaries and preserves occurrence order
+  ok   change partition boundaries between invocations
+  ok   prepare array records after repartitioning
+  ok   cached ownership follows changed boundaries and preserves occurrence order
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   native weighted CSR prepares direct edge hints
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   rebuild weight hints after same-pointer topology publication
+  ok   mutation invalidates the prior first-match weight index
+  ok   prepare nonempty output prefix
+  ok   pair-only CSR batches use compact records without ordinal side arrays
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   failed device expansion preserves the compact CPU representation
+  ok   CPU execution remains valid after device expansion failure
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   native weighted CSR prepares direct edge hints
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   pair-only CSR batches use compact records without ordinal side arrays
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   failed device expansion preserves the compact CPU representation
+  ok   CPU execution remains valid after device expansion failure
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   prepare array CleanCut topology
+  ok   bind array frontier
+  ok   reserve ordered occurrence log
+  ok   CPU preparation defers device grouping
+  ok   retain duplicate append cardinality
+  ok   duplicate sources and edges execute exactly once per occurrence
+  ok   compact in original source and neighbor order
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   source hooks include zero-neighbor occurrences
+  ok   reused context clears prior append validity without replaying a dispatch
+  ok   device grouping can be prepared lazily on the same context
+  ok   CPU fallback after device grouping preserves every original append occurrence
+  ok   prepare nonempty output prefix
+  ok   growth preserves prefix and every append occurrence
+  ok   occupied groups equal the reference traversal's distinct endpoints
+  ok   context reuse resets group counts and preserves the output prefix
+  ok   device grouping expands compact records and preserves occurrence metadata
+  ok   CPU fallback after expansion retains the prefix, order and duplicate appends
+  ok   CSR hints and duplicate/layout/device fallbacks preserve first-match edge weights
+  ok   fallback grows and copies existing stack buffer
+  ok   failed growth preserves the old allocation and its capacity
+  ok   symbolic traversal bound includes duplicate source occurrences and the existing prefix
+  ok   reservation failure leaves the original buffer before any effect
+  ok   simultaneous contexts have exclusive scratch leases
+  ok   reserve separate live snapshots
+  ok   overlapping context snapshots remain frozen and isolated
+  ok   reuse the returned lease for a later context
+  ok   reused snapshot capacity cannot overwrite another active context
+  ok   failed scratch growth retains the current snapshot
+  ok   transfer lease destruction to another thread
+  ok   thread-exit cleanup preserves other live leases
+  ok   change partition boundaries between invocations
+  ok   prepare array records after repartitioning
+  ok   cached ownership follows changed boundaries and preserves occurrence order
+  ok   change partition boundaries between invocations
+  ok   prepare array records after repartitioning
+  ok   cached ownership follows changed boundaries and preserves occurrence order
+  ok   parent budget restored after graph work
+  ok   parent budget restored after graph work
+  ok   parent budget restored after graph work
+  ok   parent budget restored after graph work

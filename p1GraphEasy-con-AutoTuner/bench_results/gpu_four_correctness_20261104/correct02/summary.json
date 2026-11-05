@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "correctness_only": true,
+  "benchmarks_run": false,
+  "profiling_run": false,
+  "algorithm_graph_cases": 244,
+  "independent_validation_runs": 488,
+  "controls": [
+    "SGPL_GPU_REUSE_RECORDS",
+    "SGPL_GPU_EARLY_REJECT",
+    "SGPL_GPU_TRANSFER_REDUCE",
+    "SGPL_GPU_REUSE_CAPACITY"
+  ],
+  "template_hits": 1102,
+  "early_refusals": 4471,
+  "offload_selection_matches": true,
+  "paired_cases": 244,
+  "by_algorithm": {
+    "bfs": {
+      "cases": 61,
+      "cases_exercising_gpu": 49,
+      "gpu_tasks": 188
+    },
+    "sssp": {
+      "cases": 61,
+      "cases_exercising_gpu": 0,
+      "gpu_tasks": 0
+    },
+    "cc": {
+      "cases": 61,
+      "cases_exercising_gpu": 58,
+      "gpu_tasks": 2582
+    },
+    "pagerank": {
+      "cases": 61,
+      "cases_exercising_gpu": 58,
+      "gpu_tasks": 1218
+    }
+  },
+  "input_integrity": "input_integrity.json",
+  "ancillary_checks": "checks.json"
+}

@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "cases": 244,
+  "independent_output_validation_failures": 0,
+  "offload_selection_changes": 0,
+  "samples_checked": 1220,
+  "gpu_cases": 165,
+  "launch_reduction": 64,
+  "focused_fixtures": 9,
+  "input_files_verified": 305,
+  "old_kernel_new_runtime_compatibility": true,
+  "source_files_changed": [
+    "gpu_invocation.inc",
+    "gpu_callback_lowering.inc"
+  ],
+  "timers_match_saved_cpu": true,
+  "saved_gpu_report_unchanged": true,
+  "same_binary_control_cases": 3
+}

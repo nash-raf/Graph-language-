@@ -1,0 +1,8 @@
+{
+  "reason": "Transient Windows sharing violation during status-file atomic replacement before a timed launch",
+  "preserved_main_cases": 244,
+  "preserved_completed_controls": 3,
+  "preserved_final_control_stamps": 23,
+  "reuse_valid_raw_stamps": true,
+  "bookkeeping_retry_outside_timers": true
+}

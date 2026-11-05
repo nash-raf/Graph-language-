@@ -1,0 +1,30 @@
+RTX 3050 versus saved Ryzen 5 5500 six-core CPU times
+
+Historical, unpaired comparison; CPU was not rebenchmarked.
+R19 plus spatial batching v1 compiler/runtime; identical timed sources and inputs.
+One warmup; five fresh-process repetitions; arithmetic means.
+Times include GPU initialization, transfers and synchronization within each timer region.
+GPU debug disabled in timed samples; validated device execution checked separately.
+Ratios are saved CPU / GPU; greater than 1 means GPU is faster.
+
+bfs: {"attempted": 61, "gpu_validated": 49, "fallback": 12, "failed": 0, "cpu_over_gpu_e2e_geomean": 0.013576285713801477, "cpu_over_gpu_compute_geomean": 0.005941543333385861, "gpu_e2e_wins": 0, "gpu_compute_wins": 0}
+  GPU slowdown versus saved CPU: 73.66x whole-process; 168.31x compute region.
+sssp: {"attempted": 61, "gpu_validated": 0, "fallback": 61, "failed": 0}
+cc: {"attempted": 61, "gpu_validated": 58, "fallback": 3, "failed": 0, "cpu_over_gpu_e2e_geomean": 0.00850536078023001, "cpu_over_gpu_compute_geomean": 0.002581614590417498, "gpu_e2e_wins": 0, "gpu_compute_wins": 0}
+  GPU slowdown versus saved CPU: 117.57x whole-process; 387.35x compute region.
+pagerank: {"attempted": 61, "gpu_validated": 58, "fallback": 3, "failed": 0, "cpu_over_gpu_e2e_geomean": 0.015248804286004827, "cpu_over_gpu_compute_geomean": 0.013406630822790002, "gpu_e2e_wins": 0, "gpu_compute_wins": 0}
+  GPU slowdown versus saved CPU: 65.58x whole-process; 74.59x compute region.
+
+Validated GPU cases: 165; whole-process wins: 0; compute-region wins: 0.
+
+Detailed measurements: per_graph_times.csv and results.json
+Native executables and logs: /home/kazi/p1_gpu_batch_20261104/benchmark
+Run with the existing WSL investigation venv:
+/home/kazi/p1_local_regressions_20261019/venv/bin/python /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/tools/benchmark_gpu_saved_cpu.py
+The GPU also serves the Windows desktop; no other applications were stopped.
+
+Comparison against saved GPU (historical/unpaired):
+bfs: {"paired_gpu_cases": 49, "saved_gpu_over_batch_e2e_geomean": 0.9693069630624865, "saved_gpu_over_batch_compute_geomean": 0.9773952672968317, "cpu_over_gpu_e2e_geomean": 0.013576285713801477, "cpu_over_gpu_compute_geomean": 0.005941543333385861, "wins_vs_saved_gpu": 14, "wins_vs_saved_cpu": 0}
+sssp: {"paired_gpu_cases": 0}
+cc: {"paired_gpu_cases": 58, "saved_gpu_over_batch_e2e_geomean": 0.9996308648171286, "saved_gpu_over_batch_compute_geomean": 1.0116800131048893, "cpu_over_gpu_e2e_geomean": 0.00850536078023001, "cpu_over_gpu_compute_geomean": 0.002581614590417498, "wins_vs_saved_gpu": 22, "wins_vs_saved_cpu": 0}
+pagerank: {"paired_gpu_cases": 58, "saved_gpu_over_batch_e2e_geomean": 1.0790824918777007, "saved_gpu_over_batch_compute_geomean": 1.645945671744711, "cpu_over_gpu_e2e_geomean": 0.015248804286004827, "cpu_over_gpu_compute_geomean": 0.013406630822790002, "wins_vs_saved_gpu": 46, "wins_vs_saved_cpu": 0}

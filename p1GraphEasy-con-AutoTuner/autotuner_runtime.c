@@ -4404,6 +4404,49 @@ int32_t sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx, int32_t partition) {
   else sgpl_exec_partition_body(partition, ctx);
   return ctx->execution_error ? __atomic_load_n(ctx->execution_error, __ATOMIC_ACQUIRE) : ctx->execution_status;
 }
+#include "gpu_record_reuse.inc"
+int32_t sgpl_gpu_spatial_preflight(const sgpl_exec_ctx *c,int64_t *work) {
+  if(!work)return 0;*work=-1;
+  AutoGraphMeta *m=c?find_meta(c->graph):NULL;
+  if(!c||!m||m->partition_count<1||m->csr_n<0)return 0;
+  if(m->partition_count>64||c->op_count>64||c->spatial_snapshot_count>64||
+      (c->dest_seen&&!c->spatial_frontier_lanes&&!c->array_append_sites))return 1;
+  if(sgpl_relax_state(c)||c->array_compact_records==6)return 0;
+  if(c->array_append_sites&&c->gpu_record_offsets) {
+    if(c->gpu_record_count>=0)*work=c->gpu_record_count;return 0;
+  }
+  int begins=sgpl_exec_has_cap(c,SGPL_OP_SOURCE_BEGIN),ends=sgpl_exec_has_cap(c,SGPL_OP_SOURCE_END);
+  int64_t total=0;
+  if(c->array_append_sites) {
+    if(m->current_layout!=LAYOUT_CSR||!m->csr_row_ptr||m->csr_m<0||c->array_source_count<0||
+        (c->array_source_count&&!c->array_sources))return 0;
+    for(int64_t i=0;i<c->array_source_count;++i) {
+      int32_t u=c->array_sources[i];if(u<0||u>=m->csr_n)return 0;
+      int64_t a=m->csr_row_ptr[u],b=m->csr_row_ptr[u+1];
+      if(a<0||b<a||b>m->csr_m||total>INT64_MAX-(b-a))return 0;
+      total+=b-a;
+    }
+    if(c->traversal_kind==SGPL_TRAVERSE_OWNER_U) {
+      int hooks=begins+ends;if(hooks&&c->array_source_count>(INT64_MAX-total)/hooks)return 0;
+      total+=hooks*c->array_source_count;
+    }
+  } else {
+    if(m->cc_cache_valid!=1)return 0;
+    for(int p=0;p<m->partition_count;++p) {
+      int64_t amount;
+      if(c->traversal_kind==SGPL_TRAVERSE_OWNER_U) {
+        if(!m->src_pair_count)return 0;amount=m->src_pair_count[p];
+      } else {
+        if(!m->push_rp||!m->push_row_count||!m->push_rp[p]||m->push_row_count[p]<0)return 0;
+        amount=m->push_rp[p][m->push_row_count[p]];
+      }
+      if(amount<0||total>INT64_MAX-amount)return 0;total+=amount;
+    }
+    int hooks=c->traversal_kind==SGPL_TRAVERSE_OWNER_U?begins+ends:0;
+    if(hooks&&m->csr_n>(INT64_MAX-total)/hooks)return 0;total+=hooks*m->csr_n;
+  }
+  *work=total;return 0;
+}
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
   {int32_t rc=sgpl_relax_refresh(ctx,ctx?find_meta(ctx->graph):NULL,1);if(rc<0)return rc;}
   if(ctx&&ctx->array_compact_records==6)sgpl_fullgraph_release(ctx);
@@ -4421,6 +4464,14 @@ int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
       autograph_build_clean_cut(ctx->graph,m->partition_count)<1)return SGPL_DAG_ERR_NOMEM;
   if(ctx->gpu_record_offsets && ctx->gpu_group_offsets && ctx->gpu_partition_groups) return 0;
   int begins=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN),ends=sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END);
+  ctx->gpu_local_partials=ctx->partition_base && !ctx->gpu_private_targets &&
+      ctx->traversal_kind==SGPL_TRAVERSE_OWNER_U && ctx->partition_stride>0 && ctx->partition_stride<=512 &&
+      sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END) && !sgpl_exec_has_cap(ctx,SGPL_OP_COMBINE);
+  ctx->gpu_parallel_groups=ctx->spatial_group!=SGPL_SPATIAL_NONE &&
+      (!ctx->partition_base||ctx->gpu_local_partials||
+       (ctx->gpu_parallel_fold&&!sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END)));
+  SgplGpuPreparation *reuse=sgpl_gpu_preparation_cache();
+  if(sgpl_gpu_template_load(reuse,ctx,m,begins,ends))return 0;
   int64_t records=0;
   if(ctx->array_append_sites) {
     if(!ctx->gpu_record_offsets) {
@@ -4489,44 +4540,51 @@ records_ready:
       if((uint64_t)records>SIZE_MAX/24) return SGPL_DAG_ERR_NOMEM;
       ctx->gpu_group_times=calloc((size_t)records,24);if(!ctx->gpu_group_times) return SGPL_DAG_ERR_NOMEM;
     }
-    return 0;
+    sgpl_gpu_template_store(reuse,ctx,m,begins,ends);return 0;
   }
-  int64_t *counts=calloc((size_t)m->csr_n+1,sizeof(int64_t));
-  int64_t *positions=calloc((size_t)m->csr_n+1,sizeof(int64_t));
-  int32_t *ordered=malloc(records?records*3*sizeof(int32_t):sizeof(int32_t));
-  if(!ctx->gpu_group_offsets||!ctx->gpu_partition_groups||!counts||!positions||!ordered) {
-    free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;
+  int reusable=sgpl_gpu_group_scratch(reuse,(size_t)m->csr_n+1);
+  int64_t *counts=reusable?reuse->counts:calloc((size_t)m->csr_n+1,sizeof(int64_t));
+  int64_t *positions=reusable?reuse->positions:calloc((size_t)m->csr_n+1,sizeof(int64_t));
+  int32_t *keys=reusable?reuse->keys:NULL;
+  int32_t *ordered=ctx->gpu_parallel_groups?malloc(records?records*3*sizeof(int32_t):sizeof(int32_t)):NULL;
+  if(!ctx->gpu_group_offsets||!ctx->gpu_partition_groups||!counts||!positions||(ctx->gpu_parallel_groups&&!ordered)) {
+    if(!reusable){free(counts);free(positions);}free(ordered);return SGPL_DAG_ERR_NOMEM;
   }
-  int64_t *ordered_sources=ctx->array_append_sites?malloc((size_t)(records?records:1)*8):NULL;
-  int64_t *ordered_work=ctx->array_append_sites?malloc((size_t)(records?records:1)*8):NULL;
-  if(ctx->array_append_sites&&(!ordered_sources||!ordered_work)) {
-    free(ordered_sources);free(ordered_work);free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;
+  int64_t *ordered_sources=ctx->gpu_parallel_groups&&ctx->array_append_sites?malloc((size_t)(records?records:1)*8):NULL;
+  int64_t *ordered_work=ctx->gpu_parallel_groups&&ctx->array_append_sites?malloc((size_t)(records?records:1)*8):NULL;
+  if(ctx->gpu_parallel_groups&&ctx->array_append_sites&&(!ordered_sources||!ordered_work)) {
+    free(ordered_sources);free(ordered_work);if(!reusable){free(counts);free(positions);}free(ordered);return SGPL_DAG_ERR_NOMEM;
   }
   int64_t group=0,at=0;
   for(int p=0;p<m->partition_count;++p) {
     ctx->gpu_partition_groups[p]=group;
     int64_t first=ctx->gpu_record_offsets[p],last=ctx->gpu_record_offsets[p+1];
-    memset(counts,0,((size_t)m->csr_n+1)*sizeof(int64_t));
+    int64_t touched=0;
+    if(!reusable)memset(counts,0,((size_t)m->csr_n+1)*sizeof(int64_t));
     for(int64_t i=first;i<last;++i) {
       int32_t key=ctx->gpu_records[3*i+(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V)];
-      if(key<0||key>=m->csr_n) {free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_INVALID;}
+      if(key<0||key>=m->csr_n) {if(!reusable){free(counts);free(positions);}free(ordered);free(ordered_sources);free(ordered_work);return SGPL_DAG_ERR_INVALID;}
+      if(reusable&&!counts[key])keys[touched++]=key;
       ++counts[key];
     }
-    for(int64_t key=0;key<m->csr_n;++key) if(counts[key]) {
-      ctx->gpu_group_offsets[group++]=at;positions[key]=at;at+=counts[key];
+    if(reusable)qsort(keys,(size_t)touched,sizeof(*keys),cmp_i32);
+    for(int64_t k=0;k<(reusable?touched:m->csr_n);++k) {
+      int64_t key=reusable?keys[k]:k;
+      if(counts[key]){ctx->gpu_group_offsets[group++]=at;positions[key]=at;at+=counts[key];}
     }
-    for(int64_t i=first;i<last;++i) {
+    if(ctx->gpu_parallel_groups)for(int64_t i=first;i<last;++i) {
       int32_t key=ctx->gpu_records[3*i+(ctx->traversal_kind==SGPL_TRAVERSE_OWNER_V)];
       int64_t target=positions[key]++;
       memcpy(ordered+3*target,ctx->gpu_records+3*i,3*sizeof(int32_t));
       if(ordered_sources){ordered_sources[target]=ctx->gpu_record_sources[i];ordered_work[target]=ctx->gpu_record_work[i];}
     }
+    if(reusable)for(int64_t k=0;k<touched;++k)counts[keys[k]]=0;
   }
   ctx->gpu_group_offsets[group]=at;ctx->gpu_partition_groups[m->partition_count]=group;
   ctx->gpu_group_count=group;
   if(getenv("SGPL_GPU_GROUP_TRACE") && group && (uint64_t)group<=SIZE_MAX/24) {
     ctx->gpu_group_times=calloc((size_t)group,24);
-    if(!ctx->gpu_group_times) {free(counts);free(positions);free(ordered);return SGPL_DAG_ERR_NOMEM;}
+    if(!ctx->gpu_group_times) {if(!reusable){free(counts);free(positions);}free(ordered);free(ordered_sources);free(ordered_work);return SGPL_DAG_ERR_NOMEM;}
   }
   /* Private partials and frontier lanes still have one ordered writer per
    * partition. Keep their original record sequence in that storage path. */
@@ -4535,7 +4593,8 @@ records_ready:
     if(ordered_sources){free(ctx->gpu_record_sources);free(ctx->gpu_record_work);
       ctx->gpu_record_sources=ordered_sources;ctx->gpu_record_work=ordered_work;}
   } else {free(ordered);free(ordered_sources);free(ordered_work);}
-  free(counts);free(positions);return 0;
+  if(!reusable){free(counts);free(positions);}
+  sgpl_gpu_template_store(reuse,ctx,m,begins,ends);return 0;
 }
 int32_t sgpl_exec_spatial_publish(sgpl_exec_ctx *ctx) {
   if (!ctx) return SGPL_DAG_ERR_INVALID;

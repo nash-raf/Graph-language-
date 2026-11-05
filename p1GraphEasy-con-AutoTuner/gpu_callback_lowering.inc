@@ -102,15 +102,24 @@ static Function *gpuSpatialComponent(Module *M,Function *Pair,
     IRBuilder<> G(BasicBlock::Create(C,"entry",DispatchGroups));
     Value *Context=G.CreateLoad(Ptr,gpuByteAddress(G,DispatchGroups->getArg(0),ContextOffset));
     Value *Enabled=G.CreateLoad(I32,gpuByteAddress(G,Context,offsetof(sgpl_exec_ctx,gpu_parallel_groups)));
-    Value *Thread=G.CreateZExt(G.CreateAdd(G.CreateMul(gpuReadSreg(G,"ctaid.x"),gpuReadSreg(G,"ntid.x")),gpuReadSreg(G,"tid.x")),I64);
-    Value *Width=G.CreateZExt(G.CreateMul(gpuReadSreg(G,"ntid.x"),gpuReadSreg(G,"nctaid.x")),I64);
+    // The versioned spatial kernel accepts a partition count in the high word.
+    // Each partition retains its original 32-block lane geometry and ordering.
+    Value *EncodedIndex=DispatchGroups->getArg(1);
+    Value *Batched=G.CreateICmpNE(G.CreateLShr(EncodedIndex,G.getInt64(32)),G.getInt64(0));
+    Value *Block=gpuReadSreg(G,"ctaid.x");
+    Value *LocalBlock=G.CreateSelect(Batched,G.CreateURem(Block,G.getInt32(32)),Block);
+    Value *BatchPartition=G.CreateAdd(G.CreateAnd(EncodedIndex,G.getInt64(UINT32_MAX)),
+        G.CreateSelect(Batched,G.CreateZExt(G.CreateUDiv(Block,G.getInt32(32)),I64),G.getInt64(0)));
+    Value *Thread=G.CreateZExt(G.CreateAdd(G.CreateMul(LocalBlock,gpuReadSreg(G,"ntid.x")),gpuReadSreg(G,"tid.x")),I64);
+    Value *Blocks=G.CreateSelect(Batched,G.getInt32(32),gpuReadSreg(G,"nctaid.x"));
+    Value *Width=G.CreateZExt(G.CreateMul(gpuReadSreg(G,"ntid.x"),Blocks),I64);
     BasicBlock *Serial=BasicBlock::Create(C,"ordered.partition",DispatchGroups),*GroupBlock=BasicBlock::Create(C,"groups",DispatchGroups),
         *RunSerial=BasicBlock::Create(C,"lane.zero",DispatchGroups),*Exit=BasicBlock::Create(C,"exit",DispatchGroups);
     G.CreateCondBr(G.CreateICmpNE(Enabled,G.getInt32(0)),GroupBlock,Serial);
     G.SetInsertPoint(Serial);G.CreateCondBr(G.CreateICmpEQ(Thread,G.getInt64(0)),RunSerial,Exit);
-    G.SetInsertPoint(RunSerial);G.CreateRet(G.CreateCall(F,{DispatchGroups->getArg(0),DispatchGroups->getArg(1)}));
+    G.SetInsertPoint(RunSerial);G.CreateRet(G.CreateCall(F,{DispatchGroups->getArg(0),BatchPartition}));
     G.SetInsertPoint(GroupBlock);Value *Ranges=G.CreateLoad(Ptr,gpuByteAddress(G,Context,offsetof(sgpl_exec_ctx,gpu_partition_groups)));
-    Value *P=DispatchGroups->getArg(1),*Start=G.CreateLoad(I64,G.CreateGEP(I64,Ranges,P));
+    Value *P=BatchPartition,*Start=G.CreateLoad(I64,G.CreateGEP(I64,Ranges,P));
     Value *Times=G.CreateLoad(Ptr,gpuByteAddress(G,Context,offsetof(sgpl_exec_ctx,gpu_group_times)));
     Value *End=G.CreateLoad(I64,G.CreateGEP(I64,Ranges,G.CreateAdd(P,G.getInt64(1))));
     BasicBlock *GroupEntry=G.GetInsertBlock(),*Test=BasicBlock::Create(C,"group.check",DispatchGroups),
@@ -394,6 +403,9 @@ static GpuCallback buildGpuCallback(Function *Root,uint64_t FrameBytes) {
     Function *K=Function::Create(FunctionType::get(Type::getVoidTy(C),{Ptr,Type::getInt64Ty(C),Ptr},false),
         GlobalValue::ExternalLinkage,(Root->getName().starts_with("sgpl.gpu.spatial.")?(Result.ConcurrentPrivate?"gpu_spatial_component_f_":"gpu_spatial_component_"):"gpu_component_")+std::to_string(nextParallelSiteId()),M);
     K->setCallingConv(CallingConv::PTX_Kernel);
+    // Only the independent spatial-component dispatcher implements this ABI.
+    // Round-spatial span kernels retain their existing encoded-index contract.
+    if(Root->getName().starts_with("sgpl.gpu.spatial.component")) K->setName(K->getName()+"_batch_v1");
     IRBuilder<> B(BasicBlock::Create(C,"entry",K));
     Value *Status=B.CreateCall(Clones[Root],{K->getArg(0),K->getArg(1),K->getArg(0)});
     BasicBlock *Error=BasicBlock::Create(C,"error",K),*Complete=BasicBlock::Create(C,"complete",K);

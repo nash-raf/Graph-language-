@@ -1,0 +1,24 @@
+RTX 3050 versus saved Ryzen 5 5500 six-core CPU times
+
+Historical, unpaired comparison; CPU was not rebenchmarked.
+Frozen R19 compiler and runtime; identical timed sources and inputs.
+One warmup; five fresh-process repetitions; arithmetic means.
+Times include GPU initialization, transfers and synchronization within each timer region.
+GPU debug disabled in timed samples; validated device execution checked separately.
+Ratios are saved CPU / GPU; greater than 1 means GPU is faster.
+
+bfs: {"attempted": 61, "gpu_validated": 49, "fallback": 12, "failed": 0, "cpu_over_gpu_e2e_geomean": 0.014006177847838565, "cpu_over_gpu_compute_geomean": 0.0060789565206493205, "gpu_e2e_wins": 0, "gpu_compute_wins": 0}
+  GPU slowdown versus saved CPU: 71.40x whole-process; 164.50x compute region.
+sssp: {"attempted": 61, "gpu_validated": 0, "fallback": 61, "failed": 0}
+cc: {"attempted": 61, "gpu_validated": 58, "fallback": 3, "failed": 0, "cpu_over_gpu_e2e_geomean": 0.008508501567512095, "cpu_over_gpu_compute_geomean": 0.0025518094229166504, "gpu_e2e_wins": 0, "gpu_compute_wins": 0}
+  GPU slowdown versus saved CPU: 117.53x whole-process; 391.88x compute region.
+pagerank: {"attempted": 61, "gpu_validated": 58, "fallback": 3, "failed": 0, "cpu_over_gpu_e2e_geomean": 0.01413126836991909, "cpu_over_gpu_compute_geomean": 0.008145245042370628, "gpu_e2e_wins": 0, "gpu_compute_wins": 0}
+  GPU slowdown versus saved CPU: 70.77x whole-process; 122.77x compute region.
+
+Validated GPU cases: 165; whole-process wins: 0; compute-region wins: 0.
+
+Detailed measurements: per_graph_times.csv and results.json
+Native executables and logs: /home/kazi/p1_gpu_vs_saved_cpu_20261104
+Run with the existing WSL investigation venv:
+/home/kazi/p1_local_regressions_20261019/venv/bin/python /mnt/d/sgpl/Graph-language-/p1GraphEasy-con-AutoTuner/tools/benchmark_gpu_saved_cpu.py
+The GPU also serves the Windows desktop; no other applications were stopped.

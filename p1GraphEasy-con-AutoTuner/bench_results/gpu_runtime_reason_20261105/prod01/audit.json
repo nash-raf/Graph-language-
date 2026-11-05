@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "cases": 5,
+  "alternating_pairs_per_case": 3,
+  "instrumented_outputs_independently_validated": true,
+  "expected_gpu_launch_counts": true,
+  "production_source_unchanged": true,
+  "attribution": "Exclusive wall time; device stream intervals overlap and are not isolated kernel arithmetic time",
+  "bfs_profile_delta_requires_caution": true
+}

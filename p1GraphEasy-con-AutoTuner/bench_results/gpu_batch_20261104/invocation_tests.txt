@@ -1,0 +1,24 @@
+GPU intervals: r0 [1793733150743134208,1793733151243134976] [1793733150743180288,1793733151243181056], r1 [1793733150743189504,1793733151243190272] [1793733150743195648,1793733151243196416]
+PASS resident iterations, host writes, deferred download, aliases and scope publication
+PASS read-only storage retains distinct pointer identity and true aliases
+PASS changed pointer bindings retain both device versions across 20 iterations
+PASS stack restore expires younger allocations and preserves older and global arrays
+PASS existing DOALL and cooperative GPU launch compatibility
+PASS legacy DAG: device, host, device transfer epochs retain carried values
+PASS device timer: two rounds and two batches overlap in one DAG
+PASS source-phase overlap ignores CPU grants and retains source joins
+PASS GPU dispatch overlaps when called from a CPU scheduler node
+PASS bounded windows and failure without CPU replay
+PASS GPU invocation, alias relocation, and failure propagation
+GPU intervals: r0 [1793733158123500544,1793733158623501312] [1793733158123503616,1793733158623504384], r1 [1793733158123531264,1793733158623532032] [1793733158123542528,1793733158623543296]
+PASS resident iterations, host writes, deferred download, aliases and scope publication
+PASS read-only storage retains distinct pointer identity and true aliases
+PASS changed pointer bindings retain both device versions across 20 iterations
+PASS stack restore expires younger allocations and preserves older and global arrays
+PASS existing DOALL and cooperative GPU launch compatibility
+PASS legacy DAG: device, host, device transfer epochs retain carried values
+PASS device timer: two rounds and two batches overlap in one DAG
+PASS source-phase overlap ignores CPU grants and retains source joins
+PASS GPU dispatch overlaps when called from a CPU scheduler node
+PASS bounded windows and failure without CPU replay
+PASS GPU invocation, alias relocation, and failure propagation

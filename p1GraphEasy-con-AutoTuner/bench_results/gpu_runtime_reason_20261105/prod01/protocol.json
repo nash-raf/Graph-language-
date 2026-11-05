@@ -1,0 +1,28 @@
+{
+  "native": "/home/kazi/p1_gpu_four_correctness_20261104/correct03_o3/native",
+  "compiler_unchanged": true,
+  "instrumentation_only": true,
+  "input_objects": {
+    "runtime": "e6338fd241bc2c6a6d0235a2e191d727ed86e87f7862883313a070ac530ae47b",
+    "parallel_runtime": "f7111b61b2fcade4dba1826230a890f4a400f86bb5c304fff2bb2674c8f06ace",
+    "gpu_runtime": "8f2fe2561e6269e035c61ab03edf49f9ca7f78d0cad8f32e46114057239a0736",
+    "autotuner_runtime": "927742fb7dac52bc9177a3d31cb1178166a36c1732a60712336958c604f39e1b",
+    "graph_mutation_runtime": "41033da3b13cb511fa501db7702438e1dda2f22afb140f7130c22ecec65f62af",
+    "roaring_bitmap": "493f1d1da2080ba8c0412bf21bec8e864d5bcade00c389f0a24b2a0540a586fa",
+    "graph_loader_runtime": "a09128cea6601825486acece715286309e78d64f525bbf96c69f9881889ba44d",
+    "graph_runtime": "f298039809b7b704692fe250ed0f4e22c63569d9b1c520d73d1c0655f073b46e",
+    "semiring_runtime": "4c805acab1a4110d9d8fe42f7cf3f654ad34ce37782267d1946d120e6ab6a041"
+  },
+  "instrumented_sources": {
+    "gpu_runtime.c": "cd5fcbb1d439dad7671ae527eaac4e99b6803dd740f388760435f4df9b193564",
+    "gpu_invocation.inc": "2b7789679acc933c44dc4ef346ebeb570446983b9b984af6138c8a4817b2e854",
+    "gpu_profile_scope.h": "5b19a2787b75b02332e176607661ac61e87d4f53cc842db6984ec9822a636621",
+    "autotuner_runtime.c": "0844815777d55eeb353367e73dae2fe1cecf78afb81fd573171b738ca738ff12",
+    "gpu_residency.inc": "14c488b040bc69b14b463f37c7900a1c31d39d6209653e8a94786e00a238c503",
+    "gpu_profile_runtime.inc": "0907d45f93c4a8256f4607a30e9eaba66f735f3a44a136d7e923ce9049b7819b"
+  },
+  "attribution": "Main-thread exclusive host wall time. CUDA API times include blocking inside those calls. Device event intervals overlap host times and are not additive.",
+  "timing_source": "CLOCK_MONOTONIC, same algorithm timer boundaries",
+  "device_timing": "Separate event run, no event synchronization; collects after the existing stream completion check. Intervals include stream scheduling/submission gaps.",
+  "event_documentation": "https://docs.nvidia.com/cuda/cuda-driver-api/cuda_driver_api/group__CUDA__EVENT.html"
+}

@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "files_checked": 305,
+  "mismatches": [],
+  "manifest": "/home/kazi/p1_effect_fusion_local_20261022/results/manifest.json",
+  "manifest_sha256": "ea235abf6f64a7a0486fbf48cfd1064988eceb5900aaf43f417fd101ae4419c4",
+  "benchmarks_run": false,
+  "profiling_run": false
+}

@@ -1,0 +1,6 @@
+{
+  "compiler_matches_cpu": true,
+  "objects_match_cpu": true,
+  "internal_timer_matches_cpu": true,
+  "walltime_matches_cpu": true
+}

@@ -1,0 +1,6834 @@
+[
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 1,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "6b73c2012931281eb952e86a050225003bb8c6b74fdd9af9711439e19f57aa3d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 1,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6b73c2012931281eb952e86a050225003bb8c6b74fdd9af9711439e19f57aa3d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b3fea0840506b40a4c26e838d88699d7a8917f5c3785bf15a7c23411364a6dc7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b3fea0840506b40a4c26e838d88699d7a8917f5c3785bf15a7c23411364a6dc7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "8d7a9a64fe3f60ff1f504211852fdbee12de99d9d7b7483fa518d0d106c98329"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8d7a9a64fe3f60ff1f504211852fdbee12de99d9d7b7483fa518d0d106c98329"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "6cdd423250fff998ecd744475087a60cc14fc8e222238b05622f330cbab81f33"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 257,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6cdd423250fff998ecd744475087a60cc14fc8e222238b05622f330cbab81f33"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 107,
+    "executable_sha256": "5326efa28e60bbd4cecf85ae0f6265b60f6b9a9b1d695b9d212a37df3448f4d2"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5326efa28e60bbd4cecf85ae0f6265b60f6b9a9b1d695b9d212a37df3448f4d2"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0fe9c510c3cb203eea006b5f9af20ca60d2ad3aff8966f05e15d961a1cf35267"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0fe9c510c3cb203eea006b5f9af20ca60d2ad3aff8966f05e15d961a1cf35267"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 92,
+    "template_hits": 0,
+    "early_refusals": 15,
+    "executable_sha256": "05f63fad5e80d2f8502e2b07915d82ea061934344f3c44f4f33dd8fc83d98000"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 92,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "05f63fad5e80d2f8502e2b07915d82ea061934344f3c44f4f33dd8fc83d98000"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "c469f7861872b138a765612d973f780f277d7661bea868101e4e6964b3d7954d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11144,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c469f7861872b138a765612d973f780f277d7661bea868101e4e6964b3d7954d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "8f89fda8e70e1c2b96a62e82aa8f1f9de44a075f68b93eef3bf958d920fa3a23"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8f89fda8e70e1c2b96a62e82aa8f1f9de44a075f68b93eef3bf958d920fa3a23"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "252808d2dea8c58a56ea25185383c84172d1f13fded8588ef3b132115fc61048"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "252808d2dea8c58a56ea25185383c84172d1f13fded8588ef3b132115fc61048"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "61b55e0c348a314e826398c509b99907d4404e0b69ec934d745383aaac61ce54"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "61b55e0c348a314e826398c509b99907d4404e0b69ec934d745383aaac61ce54"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "081f50bf819c566ec73366254b39440678668ac977b8c37c86b80d99985b9d34"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1519,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "081f50bf819c566ec73366254b39440678668ac977b8c37c86b80d99985b9d34"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "a6d4f4555f6d357654511c2542fea99daf370d22e1eeb24a200390058e99bdb1"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a6d4f4555f6d357654511c2542fea99daf370d22e1eeb24a200390058e99bdb1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "741d792f18d65efedd9e6d1f7d9c6147af3cc7c2ebad9b3f94d7a4dd26991560"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "741d792f18d65efedd9e6d1f7d9c6147af3cc7c2ebad9b3f94d7a4dd26991560"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e55d52c55bdb3404cb5f099a83acc7418dac75672f2a3e0fda20613ecf9e7682"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e55d52c55bdb3404cb5f099a83acc7418dac75672f2a3e0fda20613ecf9e7682"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "fc2a4a99976ceee177d7a00d967eba55609bbd18bc2d2ef7b94612d3b9018a19"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/p-hat300-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 301,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "fc2a4a99976ceee177d7a00d967eba55609bbd18bc2d2ef7b94612d3b9018a19"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-spam.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 7,
+    "executable_sha256": "f85e5826a23bd2f6f37bb2d4512857fc0fa3c641a9aca06f55dd422a69b56453"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-spam.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f85e5826a23bd2f6f37bb2d4512857fc0fa3c641a9aca06f55dd422a69b56453"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-spam.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ccce028076c2662b3c06bf0a521eacd1ff8e2202a309889507503db5d83fb87f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-spam.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ccce028076c2662b3c06bf0a521eacd1ff8e2202a309889507503db5d83fb87f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-spam.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 5,
+    "executable_sha256": "79525b4e784c0dadac003f133294149370e8461d35bf4c5bfd83d20dafa35509"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-spam.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "79525b4e784c0dadac003f133294149370e8461d35bf4c5bfd83d20dafa35509"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-spam.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "326d9afb174ca4af761722dde50c4c58e8266765592b080fc3bc5ef03917baa2"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-spam.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 4768,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "326d9afb174ca4af761722dde50c4c58e8266765592b080fc3bc5ef03917baa2"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "bd1b822d1f634e2affe22008472dea426eea3b10d6b47af7d0389e2dacee9690"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bd1b822d1f634e2affe22008472dea426eea3b10d6b47af7d0389e2dacee9690"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9cb9be523580026427f0ec50ac3887c7080248addc88111a09dc2bf3bb395a18"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9cb9be523580026427f0ec50ac3887c7080248addc88111a09dc2bf3bb395a18"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "051a4e0073b6cac68c41df7d87651c4939ffb9770c2de52165a20a642214d811"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "051a4e0073b6cac68c41df7d87651c4939ffb9770c2de52165a20a642214d811"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "657b046327072c91b12499fe55dc0bc985cf49cdf59bb5b88ba7ce52c04457de"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "657b046327072c91b12499fe55dc0bc985cf49cdf59bb5b88ba7ce52c04457de"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "ea8c4f85f9ecfe2a4dd1ff1c0a4054dd5c81304d68aa68c0207a35c9a4bdfb9f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ea8c4f85f9ecfe2a4dd1ff1c0a4054dd5c81304d68aa68c0207a35c9a4bdfb9f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9e33bd80e2ffde3228d0f4f90b4a5b09337a93c3ce68c7337b65f07efe937d0a"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9e33bd80e2ffde3228d0f4f90b4a5b09337a93c3ce68c7337b65f07efe937d0a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "63ed97ace43d819a074592abce32443a6e80dd0adf87d4ef80847772535881a1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "63ed97ace43d819a074592abce32443a6e80dd0adf87d4ef80847772535881a1"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "0ed4fc63b77aef5cf6770f06e545570c789ecf154cf479a8525b57a824e5755e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_40k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0ed4fc63b77aef5cf6770f06e545570c789ecf154cf479a8525b57a824e5755e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "dc0f4c4522fbf59cbb5fe5ea6509e59a9c049576b1023792a94c70ec026ed6dc"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "dc0f4c4522fbf59cbb5fe5ea6509e59a9c049576b1023792a94c70ec026ed6dc"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7f5e31c8ccbc3d3a28f173772a84c7b4ee617e341a637d971ab50eceaceb3645"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7f5e31c8ccbc3d3a28f173772a84c7b4ee617e341a637d971ab50eceaceb3645"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "06030732aeaeb05d48e6f8e6abdf1204762da0f391b9e589b2e9b7bb3e59c49e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "06030732aeaeb05d48e6f8e6abdf1204762da0f391b9e589b2e9b7bb3e59c49e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "509599b4301b7050d226591f6ab9a8e00c8c8f4a0a1a87a7c0fbbbb44cb17fac"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/c-fat500-10.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "509599b4301b7050d226591f6ab9a8e00c8c8f4a0a1a87a7c0fbbbb44cb17fac"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 15,
+    "executable_sha256": "682cd2a46ee988dbe409cc48bcab6d828f7338fd05a190204acc858ee47230a3"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "682cd2a46ee988dbe409cc48bcab6d828f7338fd05a190204acc858ee47230a3"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "dadda00bef0929b13ce1e08e76b124d8fd2a3076f7082013ad1aaf1697ce472b"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "dadda00bef0929b13ce1e08e76b124d8fd2a3076f7082013ad1aaf1697ce472b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 8,
+    "template_hits": 0,
+    "early_refusals": 13,
+    "executable_sha256": "83778bc14aeaca75fe76ba111ac96685c78c51239fcbcfe61aae5d9ab958dbb7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 8,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "83778bc14aeaca75fe76ba111ac96685c78c51239fcbcfe61aae5d9ab958dbb7"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "7dc974314d214ed29b6c2f3ecdbadc3e03b62891a11cf90c06888ad04c10eac2"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-indochina-2004.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 11359,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7dc974314d214ed29b6c2f3ecdbadc3e03b62891a11cf90c06888ad04c10eac2"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 129,
+    "executable_sha256": "1c0f6bdaf31ad3fc2db6f5a0c575d4c845eac740c1cc05ecac0798ebad9c629d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1c0f6bdaf31ad3fc2db6f5a0c575d4c845eac740c1cc05ecac0798ebad9c629d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "31a6a52d4cc5f9bf1e18517c2f1cbb07bb2bf87ff01250623aec0816bc66a0cb"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "31a6a52d4cc5f9bf1e18517c2f1cbb07bb2bf87ff01250623aec0816bc66a0cb"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 111,
+    "template_hits": 0,
+    "early_refusals": 18,
+    "executable_sha256": "6e94077d07d5159326e56cb115411daccf9c7f4ca5ad377c6fe9864468e5117d"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 111,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6e94077d07d5159326e56cb115411daccf9c7f4ca5ad377c6fe9864468e5117d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "da0c3d468f1e6b2c94c65620b0d84ad1b2c003c55a4455287d469ea3ae48440d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-sphere.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 16387,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "da0c3d468f1e6b2c94c65620b0d84ad1b2c003c55a4455287d469ea3ae48440d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "7c49545b63bdda5c70222de03a98d799e1ebfa7e50a9778161722022f788d0ef"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7c49545b63bdda5c70222de03a98d799e1ebfa7e50a9778161722022f788d0ef"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "82d85810f20c4d6bb516c9d7f9a167dba54ebd238ad7bad82d88de217a45fef4"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "82d85810f20c4d6bb516c9d7f9a167dba54ebd238ad7bad82d88de217a45fef4"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "59b89583f3da65a43b975bbb4b02b50853e2484ecd5b89b12a0cd212a346e06f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "59b89583f3da65a43b975bbb4b02b50853e2484ecd5b89b12a0cd212a346e06f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "d78d7f86afc03114e5960287c0d2dc2a57605d92cf38dd677d76ab08ecc6bd96"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_50k.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1000,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d78d7f86afc03114e5960287c0d2dc2a57605d92cf38dd677d76ab08ecc6bd96"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 10,
+    "executable_sha256": "1c0882e5e56f3ad9e1a7ec870b5554276ca82be5ee532c3231fc20351acd2b93"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1c0882e5e56f3ad9e1a7ec870b5554276ca82be5ee532c3231fc20351acd2b93"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bbc1100aace8d12f34ed5a430d90d5db439e0900f76cc2974764072743b31e62"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bbc1100aace8d12f34ed5a430d90d5db439e0900f76cc2974764072743b31e62"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 9,
+    "executable_sha256": "22fab39c2c61a14e6b7b956bda65336d60392f0173403824ce435909625f969a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "22fab39c2c61a14e6b7b956bda65336d60392f0173403824ce435909625f969a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "5511d5e958ebbafe2b09e2c3a0ab17c3393f1ba1d52596e20746c106ce9bde60"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-as-caida2007.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26476,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5511d5e958ebbafe2b09e2c3a0ab17c3393f1ba1d52596e20746c106ce9bde60"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "5df2236cea041687404554e41685f20effdb1b06bb9da5200aae3949ca1bf67e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5df2236cea041687404554e41685f20effdb1b06bb9da5200aae3949ca1bf67e"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "74a97a243f7c2b63a185e107288a6ada5160f7caa446c84ecc3408295b751c44"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "74a97a243f7c2b63a185e107288a6ada5160f7caa446c84ecc3408295b751c44"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "7fc2c43e71f96946c39ce63389eda7df286d7423abcdd228f3cb67130dc0f1ae"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7fc2c43e71f96946c39ce63389eda7df286d7423abcdd228f3cb67130dc0f1ae"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "87bb2533d80720a8d4928c606ebefaeb26e7c18f855a69d1847f29778cbb8aa8"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-EU.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 32431,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "87bb2533d80720a8d4928c606ebefaeb26e7c18f855a69d1847f29778cbb8aa8"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "8e67dfd1d15ce349d66868156c34f5677bb09f9fa8de457924852778dbb89d2a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8e67dfd1d15ce349d66868156c34f5677bb09f9fa8de457924852778dbb89d2a"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e77b1a3e9d341ac41f1b35a3685c23e9aff2865bbac4684df725ac1aad2382ec"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e77b1a3e9d341ac41f1b35a3685c23e9aff2865bbac4684df725ac1aad2382ec"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "3e9a7c5354c581fe99938dd1ba83678d7f6afcf93a30316e12949862a370f535"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "3e9a7c5354c581fe99938dd1ba83678d7f6afcf93a30316e12949862a370f535"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "16e83bfcafeb817b6021f8d50b02a2ef8613f134440dc3184419dd74a6624759"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "16e83bfcafeb817b6021f8d50b02a2ef8613f134440dc3184419dd74a6624759"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "1daed41c8d58d206fd0107ac4530cb26b6bfb9e1862e45b331eb31390fb3f9fd"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1daed41c8d58d206fd0107ac4530cb26b6bfb9e1862e45b331eb31390fb3f9fd"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5e934ae7caee14a058699f651184415e21948d77b5f9aa686db011af586163e4"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5e934ae7caee14a058699f651184415e21948d77b5f9aa686db011af586163e4"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "039d9066c622587ad238625e4d25190d71555b2e0ea127e870679c9ba262992d"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "039d9066c622587ad238625e4d25190d71555b2e0ea127e870679c9ba262992d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "1194b62ae75de2bebcb80c900bf6a4ab2e53d54e0e03f1ab6f75068c06eb1abe"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1194b62ae75de2bebcb80c900bf6a4ab2e53d54e0e03f1ab6f75068c06eb1abe"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "22e55a52d1788692f9d86a643fefd3cddbfe2c5512697d6740f59211b3bfa669"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "22e55a52d1788692f9d86a643fefd3cddbfe2c5512697d6740f59211b3bfa669"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f4e8e20dc5cb86f0f6270981d758a1b6bd141f283cd89ccd2ffbcd587b7697ca"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f4e8e20dc5cb86f0f6270981d758a1b6bd141f283cd89ccd2ffbcd587b7697ca"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "03161f682233b19c72bed864dae880dbaf5d92ba06c7e3192c856ecd90d554c1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "03161f682233b19c72bed864dae880dbaf5d92ba06c7e3192c856ecd90d554c1"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "7428a4728899085a6ba7340f1fa4371cf2893c45661dc519ac083eca0812ca9c"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-WHOIS.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 7477,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7428a4728899085a6ba7340f1fa4371cf2893c45661dc519ac083eca0812ca9c"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "0059a92791231f36f6e0fd52a97034de088eb8c306021d4cc5410afc5452d4f7"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0059a92791231f36f6e0fd52a97034de088eb8c306021d4cc5410afc5452d4f7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c39b58710865a65229404be6a84ebd8bdd1ef28b03a63242c1734a03171748c2"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c39b58710865a65229404be6a84ebd8bdd1ef28b03a63242c1734a03171748c2"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "d438c85d46a27850875fab77310d3ce44bf1dc8f5fddfb4abcc5b7482a4a1a8c"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d438c85d46a27850875fab77310d3ce44bf1dc8f5fddfb4abcc5b7482a4a1a8c"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "20256fdffcac78e2fbc96321d173c43126104c8bd5bd406d05550634232a0d7c"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1447,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "20256fdffcac78e2fbc96321d173c43126104c8bd5bd406d05550634232a0d7c"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "e832c98ec28fa47d94666e8034426b319c17cdc6fbdf90ddcd67981a54017e59"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e832c98ec28fa47d94666e8034426b319c17cdc6fbdf90ddcd67981a54017e59"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "765a4cb45eb04520a7353153f0264e327568c64aab14c6dfa5fe06be52a43242"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "765a4cb45eb04520a7353153f0264e327568c64aab14c6dfa5fe06be52a43242"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "80df91c40b6247342de973671bda513e6168674613211914ca595c38e64e0c1f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "80df91c40b6247342de973671bda513e6168674613211914ca595c38e64e0c1f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "61e78f3dd3bab8644b2ac393e5e9a78cdb2abc97144a2655477dab1f58789ff4"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-3.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "61e78f3dd3bab8644b2ac393e5e9a78cdb2abc97144a2655477dab1f58789ff4"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "7b42365a5e8ea005203fba321865f01c3a258bedf13f20359068de8bb9345a95"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7b42365a5e8ea005203fba321865f01c3a258bedf13f20359068de8bb9345a95"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "17984658651132bb170c6378557a58349c9770b7672303ce147ecbd308c9aad3"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "17984658651132bb170c6378557a58349c9770b7672303ce147ecbd308c9aad3"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1cee7d7bb668f763a27b7de14b61133266c278859ff405acd8b4f224addd9063"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1cee7d7bb668f763a27b7de14b61133266c278859ff405acd8b4f224addd9063"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "c4336d3c1ba428583f58d93326da167dd658da37022ec1823cf5860562778179"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-1.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c4336d3c1ba428583f58d93326da167dd658da37022ec1823cf5860562778179"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "f58d78e697dd444928829520ca3adca42d8d59a5640350e0046ab672b0e5da0e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f58d78e697dd444928829520ca3adca42d8d59a5640350e0046ab672b0e5da0e"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "504d60d69d19689b05c37b2949509a56aab65069905335cc357af9efe9e76089"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "504d60d69d19689b05c37b2949509a56aab65069905335cc357af9efe9e76089"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2878fb7c9434133255e0f89c99d860d468d027f77de9605b255726de512d2bab"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2878fb7c9434133255e0f89c99d860d468d027f77de9605b255726de512d2bab"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "eee0498ec56c5d03c420a7f489f1535e719468fc7e102a395a0cc88926542967"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-4.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "eee0498ec56c5d03c420a7f489f1535e719468fc7e102a395a0cc88926542967"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "054f3b71bc8048ff37a1fbea3d095bcf5251e9be80759cd3d62be6a1fe5f0ac0"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "054f3b71bc8048ff37a1fbea3d095bcf5251e9be80759cd3d62be6a1fe5f0ac0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "66b0fedd3ee7362b43bd94c99eb6e3acfeabca92ecf056d33a26d972ae4b903d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "66b0fedd3ee7362b43bd94c99eb6e3acfeabca92ecf056d33a26d972ae4b903d"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "529720cbabb8d27d01c18c2b095cb599bb38090ec85dc194f0314d819149543a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "529720cbabb8d27d01c18c2b095cb599bb38090ec85dc194f0314d819149543a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "31e484b564a68732d5fe7b28e9f0b1bca6962eb2e9dd78681e72541a62b4fe2f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-2.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "31e484b564a68732d5fe7b28e9f0b1bca6962eb2e9dd78681e72541a62b4fe2f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "b393dd66cfb88c138130df8b9817375fa63c3d08e4ec6b3c0b3fd3ba1e30d16b"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b393dd66cfb88c138130df8b9817375fa63c3d08e4ec6b3c0b3fd3ba1e30d16b"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "79f4eaf360d4e1593d3c2573d95442b674a6f7ba45b72cb5e411b2da71cea058"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "79f4eaf360d4e1593d3c2573d95442b674a6f7ba45b72cb5e411b2da71cea058"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "3a49672abad505c38c1853316efd1195dcb9da9ae7e4b5458e6d0fec958059ef"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "3a49672abad505c38c1853316efd1195dcb9da9ae7e4b5458e6d0fec958059ef"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "7dc907b460b1f9a3b1a8d51610ef7ebbad21d52129106b5145678cf032fa197e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1660,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7dc907b460b1f9a3b1a8d51610ef7ebbad21d52129106b5145678cf032fa197e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "82629ce74fa4cab792890ee13d93d65f4c36f90ca6f234eae359188af1693168"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "82629ce74fa4cab792890ee13d93d65f4c36f90ca6f234eae359188af1693168"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "318a7d58050467d52753fdebc86421ca129907dc69a5e8612028c68791ad8738"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "318a7d58050467d52753fdebc86421ca129907dc69a5e8612028c68791ad8738"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0ad55196e86edbedb60c2bd9c72ce55e62eed0c01473f52a79ca4cb957d91269"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0ad55196e86edbedb60c2bd9c72ce55e62eed0c01473f52a79ca4cb957d91269"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "0c6f9d61bc91cc03efdc33154a54e2a3e05e762f54eb3fdea5c084c275d1d9d8"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC500-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0c6f9d61bc91cc03efdc33154a54e2a3e05e762f54eb3fdea5c084c275d1d9d8"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "a12cbc1fd012022706342e64f9968c2b415c4bc5ed7cbeeca76a2da97a8e2b04"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a12cbc1fd012022706342e64f9968c2b415c4bc5ed7cbeeca76a2da97a8e2b04"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "fa9543551b488b4302f771a83f370484f94b3966e127909fcebbf05eef705c0f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "fa9543551b488b4302f771a83f370484f94b3966e127909fcebbf05eef705c0f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "8ac47bf7ee675c0eb79ec4a28bfad93e61ddc879f36c667f5409c7b6b818e0f5"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8ac47bf7ee675c0eb79ec4a28bfad93e61ddc879f36c667f5409c7b6b818e0f5"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "88036e893951804b8fc09f2ee4a573c7f55e3be7e4b728ae29120eb130e36a42"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2683,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "88036e893951804b8fc09f2ee4a573c7f55e3be7e4b728ae29120eb130e36a42"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "110c74c221bfb3fb5894e6c137d94f00896cfe4cf8909b5057e8679a5c92d244"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "110c74c221bfb3fb5894e6c137d94f00896cfe4cf8909b5057e8679a5c92d244"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "380caf47f00caf7ea72dfc407d9492638f1d4b3bcb0cc5fbd157f6eefccdb08f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "380caf47f00caf7ea72dfc407d9492638f1d4b3bcb0cc5fbd157f6eefccdb08f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "33aeeb32bf2405998160bb7387fdeeebf73e9462762b2b9cdcd6487fac7729db"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "33aeeb32bf2405998160bb7387fdeeebf73e9462762b2b9cdcd6487fac7729db"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "88a89062eac63a6a04e22a15649497fc142de8299711b594394c78769e0c3b1b"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_retweet.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 18470,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "88a89062eac63a6a04e22a15649497fc142de8299711b594394c78769e0c3b1b"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "b149df757d0795fb713ae6f55c6c9c537ee41087dec1649e9790557a53d5e8b7"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b149df757d0795fb713ae6f55c6c9c537ee41087dec1649e9790557a53d5e8b7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e56eabda274db9d623a0eb5264e1dd56304c1fe2599028af13690a96eaa6c3d1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e56eabda274db9d623a0eb5264e1dd56304c1fe2599028af13690a96eaa6c3d1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6aada0e4799e133fe09195103b03261cd3c9a922a8a5788ffcfe1334fb1ac27e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6aada0e4799e133fe09195103b03261cd3c9a922a8a5788ffcfe1334fb1ac27e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "9b1e35239ce8065e2268bbb5d19857a4d19c9fc772dec801d7b4c9832237375a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/MANN-a27.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 379,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9b1e35239ce8065e2268bbb5d19857a4d19c9fc772dec801d7b4c9832237375a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 1,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "6113141688d79a5b71b9121e438c44eb1a54168252d767cf8666e33a0b305c85"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 1,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6113141688d79a5b71b9121e438c44eb1a54168252d767cf8666e33a0b305c85"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c8fe25fef0e2154566304b5c094f72d2b016d23f4e4d112dd59e5c4dc75182f9"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c8fe25fef0e2154566304b5c094f72d2b016d23f4e4d112dd59e5c4dc75182f9"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "6046bb7a0f3c0e395e5a37087f2810849095bcb950ff83a46044f3c48e455231"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6046bb7a0f3c0e395e5a37087f2810849095bcb950ff83a46044f3c48e455231"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "a147b6e3f6039b77354c32cf35eeeeabd8c41c9392969f4c0dbd1a97301954ff"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_fb-forum.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 898,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a147b6e3f6039b77354c32cf35eeeeabd8c41c9392969f4c0dbd1a97301954ff"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "8596f5e4acd9ee92c14e0fc0d939826bedca80b8a37af963c294882260e4d092"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8596f5e4acd9ee92c14e0fc0d939826bedca80b8a37af963c294882260e4d092"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "35bedbea2897f6ebb03deee3a06af3310729f15f05885c1af2b6319e1ab222c3"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "35bedbea2897f6ebb03deee3a06af3310729f15f05885c1af2b6319e1ab222c3"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1cdbf5852642f31f423747e52721e0602d63642f220fe1f43b9d4468ed064eb2"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1cdbf5852642f31f423747e52721e0602d63642f220fe1f43b9d4468ed064eb2"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "9f22b6cb0e66642ef33f482be442ab53da098e3ef3de417714d40a9fea0d0b61"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 401,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9f22b6cb0e66642ef33f482be442ab53da098e3ef3de417714d40a9fea0d0b61"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 10,
+    "template_hits": 0,
+    "early_refusals": 13,
+    "executable_sha256": "a21f01fc911d683c71c931f47b54ab7a032c90af31a402fdaad4095803e37a7d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 10,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a21f01fc911d683c71c931f47b54ab7a032c90af31a402fdaad4095803e37a7d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6a896a1d1d9b9633aaa53d2b46b1257ba410f3fc364576c1868bb0a3f2714b4a"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6a896a1d1d9b9633aaa53d2b46b1257ba410f3fc364576c1868bb0a3f2714b4a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "2b55727733ecfb2b032b3885948c24e2e91577f006c2fe08c13ab8d971f2e4ae"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2b55727733ecfb2b032b3885948c24e2e91577f006c2fe08c13ab8d971f2e4ae"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "748bf8b61539be1fbb0c78498325ea6ebbcecbc7f57d253dafc7e2ef570a757c"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing_nodal.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 10938,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "748bf8b61539be1fbb0c78498325ea6ebbcecbc7f57d253dafc7e2ef570a757c"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 7,
+    "executable_sha256": "414aed3292c8a896d8b7a8267fb56d51bfd5a2744e09d42514d36671a9875769"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "414aed3292c8a896d8b7a8267fb56d51bfd5a2744e09d42514d36671a9875769"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "10b9a0ba09efe53b1f4125be9d1da94283776e70e20bf859fc5661abc26c6bb9"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "10b9a0ba09efe53b1f4125be9d1da94283776e70e20bf859fc5661abc26c6bb9"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "82db78e7badff89e8094d65f09410d35e63a722b903d424937cb2ff1854d6f86"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "82db78e7badff89e8094d65f09410d35e63a722b903d424937cb2ff1854d6f86"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "c2abd672d0cc1ad9e359a670d0c1bb8fdca9e37118287b41d1076d9fe9c39e77"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2445,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c2abd672d0cc1ad9e359a670d0c1bb8fdca9e37118287b41d1076d9fe9c39e77"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 15,
+    "executable_sha256": "10fb1a1f44bb4c9254d05fce00e648ebaf5b170cc7f66b626c836fcc142d7457"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "10fb1a1f44bb4c9254d05fce00e648ebaf5b170cc7f66b626c836fcc142d7457"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "89159e21168c3cb8ac5c0937db3cd8990a6ba52221e81768322bee5872a740a0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "89159e21168c3cb8ac5c0937db3cd8990a6ba52221e81768322bee5872a740a0"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 26,
+    "template_hits": 0,
+    "early_refusals": 38,
+    "executable_sha256": "919e57622e67e3505a81f939ce6c00dfab7047703532bfed69b52775d4dfd949"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 26,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "919e57622e67e3505a81f939ce6c00dfab7047703532bfed69b52775d4dfd949"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "5c50933353edf2904c0b8a8385c354cf0391c28ea16f2f2b0e8ed0215db5eb0a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/PROTEINS-full.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 43472,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5c50933353edf2904c0b8a8385c354cf0391c28ea16f2f2b0e8ed0215db5eb0a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "75809e30e3555d07f498e95c38cff4ed5251898b57bbc4d4f324b0847a097f69"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "75809e30e3555d07f498e95c38cff4ed5251898b57bbc4d4f324b0847a097f69"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "025b42ef85aaff0616bc98502f37d3d2dc3b81ae485a10c30ab2b53179859aac"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "025b42ef85aaff0616bc98502f37d3d2dc3b81ae485a10c30ab2b53179859aac"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "b3ef203ffc480222341dd882667b27c0e191b4fffe079cbe4f549833fb4837da"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b3ef203ffc480222341dd882667b27c0e191b4fffe079cbe4f549833fb4837da"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "cbb53d04e3bfc9ca398faf7726bbef9c915be594106ecc1024061060f1388367"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Mich67.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3749,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "cbb53d04e3bfc9ca398faf7726bbef9c915be594106ecc1024061060f1388367"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "f6d43452b156ebf08d829846c69ad9f1787326a7b1a06d93f5aeafc23b4f8641"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f6d43452b156ebf08d829846c69ad9f1787326a7b1a06d93f5aeafc23b4f8641"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "dd861edea45b18dd35d4112a5f2fdda21a9e18b93d016ece2abcd47d77065e58"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "dd861edea45b18dd35d4112a5f2fdda21a9e18b93d016ece2abcd47d77065e58"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "bc185ea3b7741c6c3597931a7ce11b4adec54ec193c51268cee5eb800094a983"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bc185ea3b7741c6c3597931a7ce11b4adec54ec193c51268cee5eb800094a983"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "a6bc0046dd1ac05671289ff7a0a5bbc77292c704f9bbc9f1a48e5895b29cff36"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2253,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a6bc0046dd1ac05671289ff7a0a5bbc77292c704f9bbc9f1a48e5895b29cff36"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "e2385aa9577ae8caaebc716444df6e991af05be4dfbb8c736f7d9921f5e852c3"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e2385aa9577ae8caaebc716444df6e991af05be4dfbb8c736f7d9921f5e852c3"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e5ef9d2f28ad5ea6710a7b887872d3cdab9917aff09bde8078a9d4d9d0ba0265"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e5ef9d2f28ad5ea6710a7b887872d3cdab9917aff09bde8078a9d4d9d0ba0265"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "f22fb9755f715c0154eddff8307d56c5bccf96e4c50f2412e621b04ddb7fba44"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f22fb9755f715c0154eddff8307d56c5bccf96e4c50f2412e621b04ddb7fba44"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "15ed8249438df7b5db731a53cdeb2442a5939b33af538f4e2777d7403a01cdad"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-internet-as.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 40165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "15ed8249438df7b5db731a53cdeb2442a5939b33af538f4e2777d7403a01cdad"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "f58c3f74d8b05dfbe2d1c67ba5ffd55b408a583720fa45ae5225ece4fb67869d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f58c3f74d8b05dfbe2d1c67ba5ffd55b408a583720fa45ae5225ece4fb67869d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f3a449fd46d676e0f0b8b69a7625dee092989760924b47a725b88e544e29c1d1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f3a449fd46d676e0f0b8b69a7625dee092989760924b47a725b88e544e29c1d1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "d667790dd2003dd80a957f43310c3520e486ac634f02ceae1cd9157705714ae1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d667790dd2003dd80a957f43310c3520e486ac634f02ceae1cd9157705714ae1"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "be7221142e977d0a5c28fe6981d671c77f4121d78868d6e226081e3ad7cc553d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2236,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "be7221142e977d0a5c28fe6981d671c77f4121d78868d6e226081e3ad7cc553d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "89d4e6ada49e5d470bc7d16912a574c82bcb889103bd60bd835061ab186be2a0"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "89d4e6ada49e5d470bc7d16912a574c82bcb889103bd60bd835061ab186be2a0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bbea02502cfe74ca76626eaf02a5ee545075964f3dc39fd81412e2f51e9d9ffa"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bbea02502cfe74ca76626eaf02a5ee545075964f3dc39fd81412e2f51e9d9ffa"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "a0a27776e4a624541903132193ec4d5ee506dd976227fe007df5f749aa26cdee"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a0a27776e4a624541903132193ec4d5ee506dd976227fe007df5f749aa26cdee"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "d4ba10ba0c56467702ca97a4426fec4a31e6d03ed00c2b4ec37c1659482da772"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d4ba10ba0c56467702ca97a4426fec4a31e6d03ed00c2b4ec37c1659482da772"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "2c96d76deae53e20c2b36d1ebd864cb59a3e8ed9eb89e5a33f307fd874e9a622"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2c96d76deae53e20c2b36d1ebd864cb59a3e8ed9eb89e5a33f307fd874e9a622"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ef9f620063142174ed640a0dd88769afdaf5de3c64c867f6d460d64ec8840177"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ef9f620063142174ed640a0dd88769afdaf5de3c64c867f6d460d64ec8840177"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "df6c4e34ea138f3114c6a607447f523ab99ecddd0b26a7620167786aaafa9048"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "df6c4e34ea138f3114c6a607447f523ab99ecddd0b26a7620167786aaafa9048"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "020b4373f34283cf9f194aad79a5d7cfafc6beb94f9e6630dd7cad90003b6b45"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2315,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "020b4373f34283cf9f194aad79a5d7cfafc6beb94f9e6630dd7cad90003b6b45"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "d7485478f891e816be1402ea16d78dd7c656f8de56abdb4c6e5134d4544db2f1"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d7485478f891e816be1402ea16d78dd7c656f8de56abdb4c6e5134d4544db2f1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "addc425f5dcfc64e3351836222cc2c13ab8fa9615913b5f8b6c2c92843429a8f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "addc425f5dcfc64e3351836222cc2c13ab8fa9615913b5f8b6c2c92843429a8f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "8e486da69f9d1039d30b791ceef698d7336fa790670dee896a0a13b5d08102df"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8e486da69f9d1039d30b791ceef698d7336fa790670dee896a0a13b5d08102df"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "100eedacf6632bb394cb7b10dfc9ee09c285b34f5763d0aba61cb0a4b410480e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Smith60.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2971,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "100eedacf6632bb394cb7b10dfc9ee09c285b34f5763d0aba61cb0a4b410480e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 6,
+    "executable_sha256": "b581918de633a0e47cea921e32fd92a01b391e0878b6fe192cc0222b783bfd2f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b581918de633a0e47cea921e32fd92a01b391e0878b6fe192cc0222b783bfd2f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "21189b813c5a413f822dc452cd7aa633e3e1478f4d374cc129eeb29ef96905ae"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "21189b813c5a413f822dc452cd7aa633e3e1478f4d374cc129eeb29ef96905ae"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 5,
+    "executable_sha256": "0b33c943d5b42a86c941847e255d8407923fb6a9d4e9521ad750588977a0795b"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 6,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0b33c943d5b42a86c941847e255d8407923fb6a9d4e9521ad750588977a0795b"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "c0ff68dd3c887ca623c61b109c9baaf57006ccc14c09eb8b50d27b5eb6c3b6e4"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-epinions.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 26589,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c0ff68dd3c887ca623c61b109c9baaf57006ccc14c09eb8b50d27b5eb6c3b6e4"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "9e35c0076dfaaaa66bdba3b35d27972aeaf683a7788108cdd11d2a103a189c24"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9e35c0076dfaaaa66bdba3b35d27972aeaf683a7788108cdd11d2a103a189c24"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d55f587f4acc01574f1f49a6423d1d7bfbb22ee21ec241bd4fd022e56961e0fe"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d55f587f4acc01574f1f49a6423d1d7bfbb22ee21ec241bd4fd022e56961e0fe"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "6d69b6610a2aa8f9a6997c7faa0a088803f9a82d4e37d18a48e3f69a6b542caa"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6d69b6610a2aa8f9a6997c7faa0a088803f9a82d4e37d18a48e3f69a6b542caa"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "7dc916a04d809754b9d0cfb19be329010cc35f1dd6ae011784903ee58f883b3f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2614,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7dc916a04d809754b9d0cfb19be329010cc35f1dd6ae011784903ee58f883b3f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "c1aef49c85b506c0162a2fea9a1f3331f49c2731c96eaec79a1ea880e89014ed"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c1aef49c85b506c0162a2fea9a1f3331f49c2731c96eaec79a1ea880e89014ed"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e885b1884dec8775a799a077b6ea6adc13c1f9ed239890949144e369e5859963"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "e885b1884dec8775a799a077b6ea6adc13c1f9ed239890949144e369e5859963"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "387ffa509ce6fe0a4f81e85960dffd09e0d6732168ffaec40f5e4cfca6dbd9e0"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "387ffa509ce6fe0a4f81e85960dffd09e0d6732168ffaec40f5e4cfca6dbd9e0"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "5f438f3351914bbcc5e5363d4fc05a4b4d267877e8b458059cd5c1c6572d9367"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/C500-9.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 501,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5f438f3351914bbcc5e5363d4fc05a4b4d267877e8b458059cd5c1c6572d9367"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "92d8f64975882239721b77812ce19426ea05963a821f39475b8976bcc3d66eb2"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "92d8f64975882239721b77812ce19426ea05963a821f39475b8976bcc3d66eb2"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "af0cea034ef99bb39918ee7aa40c5fbc5c47455d675337800c5df40ba6b61520"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "af0cea034ef99bb39918ee7aa40c5fbc5c47455d675337800c5df40ba6b61520"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "64f1b994925db283068b10ea6cde7d8033ab3280a5bdabc372272bdec7482029"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "64f1b994925db283068b10ea6cde7d8033ab3280a5bdabc372272bdec7482029"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "a22626eb97921d2ad4c11d74e97b06d512a37b282a6a786c87608a21d77ae271"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Williams40.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 2791,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a22626eb97921d2ad4c11d74e97b06d512a37b282a6a786c87608a21d77ae271"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 1035,
+    "executable_sha256": "c03438c4f4b3699c9f7b404647e875a1cfa903e5acca239bc10b3dab071ae04e"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c03438c4f4b3699c9f7b404647e875a1cfa903e5acca239bc10b3dab071ae04e"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9523227e99a94c4b3c67c9035c6cdb68de161dfb5e27fa6da60f9256bd1cd9f7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9523227e99a94c4b3c67c9035c6cdb68de161dfb5e27fa6da60f9256bd1cd9f7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 750,
+    "template_hits": 0,
+    "early_refusals": 285,
+    "executable_sha256": "14e92a18549308a5898e19c2dbc8beb8dc88c63732a0a7196916aa982740a86a"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 750,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "14e92a18549308a5898e19c2dbc8beb8dc88c63732a0a7196916aa982740a86a"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "0661ba2ed88b99923225bc9affe5bf222d42c1967fe126b8b678e66f81beb4a5"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0661ba2ed88b99923225bc9affe5bf222d42c1967fe126b8b678e66f81beb4a5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 1035,
+    "executable_sha256": "c113139406beb4b0a433587b67ab627591caa0d40a85fed7bed5c9005dc3d9f9"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c113139406beb4b0a433587b67ab627591caa0d40a85fed7bed5c9005dc3d9f9"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b879b83706bcf72246af5f00be3d22e3235d8c3a310d30a1aa64ffa23f7e0189"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b879b83706bcf72246af5f00be3d22e3235d8c3a310d30a1aa64ffa23f7e0189"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 750,
+    "template_hits": 0,
+    "early_refusals": 285,
+    "executable_sha256": "864e4bd9ceae19153b5f5fe862ed56015e285232d21c442dc7b86c91c489c2a2"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 750,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "864e4bd9ceae19153b5f5fe862ed56015e285232d21c442dc7b86c91c489c2a2"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "b4d6b0d7076614680fa0b4dc29028851ebb2f01667613d122b9d8fc6dbbc1470"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-luxembourg-osm.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 114600,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b4d6b0d7076614680fa0b4dc29028851ebb2f01667613d122b9d8fc6dbbc1470"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 25,
+    "template_hits": 0,
+    "early_refusals": 66,
+    "executable_sha256": "d1437b0b46d6166ca0daa7316e134a20cb91d91b8413059058232b3086fb2fcd"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 25,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d1437b0b46d6166ca0daa7316e134a20cb91d91b8413059058232b3086fb2fcd"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a239af820d2a0af9c6e15d47420683701e6556467223583887bddacdbb5147f4"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a239af820d2a0af9c6e15d47420683701e6556467223583887bddacdbb5147f4"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 82,
+    "template_hits": 0,
+    "early_refusals": 9,
+    "executable_sha256": "1b2ee7a9945d9b6211beaad9597ae5c1bcce436d30d535199af0384c2b279eca"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 82,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1b2ee7a9945d9b6211beaad9597ae5c1bcce436d30d535199af0384c2b279eca"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "4b576050db2ea9179e6642799b34491e144bd8ebfea840cd055ad5a0d62581fc"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 62033,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "4b576050db2ea9179e6642799b34491e144bd8ebfea840cd055ad5a0d62581fc"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "ddfc8f84847d9159ffac29e03109ff0383613d579f91f18d3088aed6a2c9942a"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ddfc8f84847d9159ffac29e03109ff0383613d579f91f18d3088aed6a2c9942a"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5ab700df2b19f9c005799dd616718a123e1fa4c34b506badd471766c7cee47fa"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5ab700df2b19f9c005799dd616718a123e1fa4c34b506badd471766c7cee47fa"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "6e393e05ff91a2bf37c4404f5b70b31f4dcfdf08bbc45be800ca3a61b8e6a793"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "6e393e05ff91a2bf37c4404f5b70b31f4dcfdf08bbc45be800ca3a61b8e6a793"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "bac55d4d7b5c82f6991efffeade05271fcc2aa9084bed897afbc94b6d718c39f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3076,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "bac55d4d7b5c82f6991efffeade05271fcc2aa9084bed897afbc94b6d718c39f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 26,
+    "template_hits": 0,
+    "early_refusals": 132,
+    "executable_sha256": "fba910c0fc46121aa3b63bddf8871e7e6ba9d9b813aedb84d86bcabe2b88be5b"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 26,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "fba910c0fc46121aa3b63bddf8871e7e6ba9d9b813aedb84d86bcabe2b88be5b"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "4fb417427589d404dc2813465006ea085870b4f64357ec1c6b0b13af3c0f90f8"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "4fb417427589d404dc2813465006ea085870b4f64357ec1c6b0b13af3c0f90f8"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 102,
+    "template_hits": 0,
+    "early_refusals": 56,
+    "executable_sha256": "8c92e0cd158579ef77638182d4441122c26063f73faf6f342cd5ca54e08f900f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 102,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8c92e0cd158579ef77638182d4441122c26063f73faf6f342cd5ca54e08f900f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "92f8660014833fefe3de6c519333f6192654020db7346948db44da8b7cdbafa6"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rec/rec-amazon.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 91814,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "92f8660014833fefe3de6c519333f6192654020db7346948db44da8b7cdbafa6"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 9,
+    "executable_sha256": "82a9f69e2af36c30eaa0dd3b0f53fa247517d9fd7f6532f859c8ee67a22e7c5b"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "82a9f69e2af36c30eaa0dd3b0f53fa247517d9fd7f6532f859c8ee67a22e7c5b"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a67901418e2b6f8fa6f9564476fd22875b6a0305cb470ba3fd545b587d79b391"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a67901418e2b6f8fa6f9564476fd22875b6a0305cb470ba3fd545b587d79b391"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 9,
+    "template_hits": 0,
+    "early_refusals": 5,
+    "executable_sha256": "0dae30a709f497896895f3dd0071eb6144f4b73f6b40659946c359964aa8716e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 9,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0dae30a709f497896895f3dd0071eb6144f4b73f6b40659946c359964aa8716e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "2abf094f116ee770326a90d4d11399e9f15d118c6ab1865ab1fc448f024edba5"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 41773,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2abf094f116ee770326a90d4d11399e9f15d118c6ab1865ab1fc448f024edba5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 10,
+    "executable_sha256": "51820d9e7a68a05eef01c41d4c9a753ba830ab04cd2f452ff27dadf04e39db69"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "51820d9e7a68a05eef01c41d4c9a753ba830ab04cd2f452ff27dadf04e39db69"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a0b9962add8ad706ede18db0eccd7c2545b4e1c55238922bd0dc8a40e398eef1"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a0b9962add8ad706ede18db0eccd7c2545b4e1c55238922bd0dc8a40e398eef1"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 16,
+    "template_hits": 0,
+    "early_refusals": 25,
+    "executable_sha256": "ddb73a5685c6083b4442db6aaab5fb47b88e9094a2fa954042b0af2df808ebdb"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 16,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ddb73a5685c6083b4442db6aaab5fb47b88e9094a2fa954042b0af2df808ebdb"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "cefcd82d341a44aa116bf2562e2b597a760f02d7ac4243872e525c36471180af"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126484,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "cefcd82d341a44aa116bf2562e2b597a760f02d7ac4243872e525c36471180af"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 16,
+    "executable_sha256": "ce9dc99f823cbcc269fb7a54ac90de7fd1ab934291679fce7073a80bd948e017"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ce9dc99f823cbcc269fb7a54ac90de7fd1ab934291679fce7073a80bd948e017"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c79e9da985a6dc0d310342dc326e5b0f8f2188f39b8f38c18c1db1c61f2579e0"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c79e9da985a6dc0d310342dc326e5b0f8f2188f39b8f38c18c1db1c61f2579e0"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 17,
+    "template_hits": 0,
+    "early_refusals": 24,
+    "executable_sha256": "2d147da0d79c70fc5d11b54e0d0539462b103f2f6a1d60f1da12fb1941eea969"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 17,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2d147da0d79c70fc5d11b54e0d0539462b103f2f6a1d60f1da12fb1941eea969"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "0929177952833d0ab511537edf83947a27d3acdd6d2c1afda433d31480123eaa"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-MMP.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 127999,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0929177952833d0ab511537edf83947a27d3acdd6d2c1afda433d31480123eaa"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "protein/DD_g422.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 13,
+    "executable_sha256": "705e0bfabfdc0240963d301dbb3713384007d4ff066a193b75639df601749ba7"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "protein/DD_g422.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "705e0bfabfdc0240963d301dbb3713384007d4ff066a193b75639df601749ba7"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "protein/DD_g422.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "560c7e95e6a3fb7aadf9ab7c53c85c3d6ef4da49fb7e97b2139484c9c9844c3f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "protein/DD_g422.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "560c7e95e6a3fb7aadf9ab7c53c85c3d6ef4da49fb7e97b2139484c9c9844c3f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "protein/DD_g422.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 12,
+    "executable_sha256": "2d0648ed1a7377c30c61ac98ce51566df43c61769dea463d54b11871933c3871"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "protein/DD_g422.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "2d0648ed1a7377c30c61ac98ce51566df43c61769dea463d54b11871933c3871"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "protein/DD_g422.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 21,
+    "executable_sha256": "8bb9c648311cbcf513117f19a77bc46201020ba160016b8ba9ecb7cdbe6ee649"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "protein/DD_g422.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 165,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "8bb9c648311cbcf513117f19a77bc46201020ba160016b8ba9ecb7cdbe6ee649"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "dfea1156e0a98ee05be6a796070ef16fb6c4445811e22411cf4deef1160251b9"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "dfea1156e0a98ee05be6a796070ef16fb6c4445811e22411cf4deef1160251b9"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "433bfc148e9d01ddbf3ded819c89fdba04a6aa123f8bd8d02a528d8c8c5bd552"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "433bfc148e9d01ddbf3ded819c89fdba04a6aa123f8bd8d02a528d8c8c5bd552"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "5e86d1692f20a5036a59e68667adc6afbddba7f8b518b81461ceb765444cc12e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5e86d1692f20a5036a59e68667adc6afbddba7f8b518b81461ceb765444cc12e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 21,
+    "executable_sha256": "b1b3f41d0eeaf523d7ed2757699a73b7654622903f4d8051c23ac9473702cdf5"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3595,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b1b3f41d0eeaf523d7ed2757699a73b7654622903f4d8051c23ac9473702cdf5"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/G12.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 34,
+    "executable_sha256": "d1b32247bf5c25bef2418eb7c8734e80a05ba00598ca805e92d9f9d4996d3d3f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/G12.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "d1b32247bf5c25bef2418eb7c8734e80a05ba00598ca805e92d9f9d4996d3d3f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/G12.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c91acc8e490d65521ef40819c0bb55f1e5015825c376e808747e575ec9f68fde"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/G12.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "c91acc8e490d65521ef40819c0bb55f1e5015825c376e808747e575ec9f68fde"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/G12.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 34,
+    "executable_sha256": "a1fa29466fb7ddc85b01daa8d8a32cb09f910d489dc537b0e0ffd5f0f124910e"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/G12.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "a1fa29466fb7ddc85b01daa8d8a32cb09f910d489dc537b0e0ffd5f0f124910e"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/G12.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 21,
+    "executable_sha256": "0237f2eda4a80932616c529ebc366a4c51103ae486aa85f7f64e22656beb36f3"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/G12.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 801,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0237f2eda4a80932616c529ebc366a4c51103ae486aa85f7f64e22656beb36f3"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "ffe5dd2cb661ef60844f3b87a464a648500c434974274c31ca81ea1868696224"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ffe5dd2cb661ef60844f3b87a464a648500c434974274c31ca81ea1868696224"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "12926bc5ed802e0a97abda74f48c58acbaca666bd0b62ae5516d011d4f9cb7d8"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "12926bc5ed802e0a97abda74f48c58acbaca666bd0b62ae5516d011d4f9cb7d8"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "af2b8b24c26c1d3f21b35edd486e81a63ae650f1fd45b93ad4740805d9840989"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "af2b8b24c26c1d3f21b35edd486e81a63ae650f1fd45b93ad4740805d9840989"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "46320952f99e1851dbcae43848fd66cf916fe6823caf252fad75dab87ed2be4f"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-univ.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1134,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "46320952f99e1851dbcae43848fd66cf916fe6823caf252fad75dab87ed2be4f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 47,
+    "executable_sha256": "ec7f7fa6adcc33cd5797ed2de739647c887943a5dfe3fca19d36942af045db39"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ec7f7fa6adcc33cd5797ed2de739647c887943a5dfe3fca19d36942af045db39"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b8b0fd8b6945f37cee02048e9f52e25b6efc89ccf49ba3204f7c3f77fde0caea"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "b8b0fd8b6945f37cee02048e9f52e25b6efc89ccf49ba3204f7c3f77fde0caea"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 30,
+    "template_hits": 0,
+    "early_refusals": 17,
+    "executable_sha256": "0e0bfabd0d2a60aa83c5dfb3513b67e57bf1caa8af61769780e4c58ff372b4f2"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 30,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0e0bfabd0d2a60aa83c5dfb3513b67e57bf1caa8af61769780e4c58ff372b4f2"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "795bc4f720b840ad927c613b61cc14144cbbb6bad391987a64882599b23a076d"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/delaunay_n13.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 8193,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "795bc4f720b840ad927c613b61cc14144cbbb6bad391987a64882599b23a076d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "0a6bb085917e7dd48cae9692df6bd7322008d883219788fabba5a27dc1159aa3"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0a6bb085917e7dd48cae9692df6bd7322008d883219788fabba5a27dc1159aa3"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "240303b8636367bc2d59010b7831f8e1fd7b3066112be751bae5a6a56dc6ef02"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "240303b8636367bc2d59010b7831f8e1fd7b3066112be751bae5a6a56dc6ef02"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 2,
+    "executable_sha256": "81d3b53910404dc176d6fc528643315daef8962a20b20782b360ed24d9e1adf7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "81d3b53910404dc176d6fc528643315daef8962a20b20782b360ed24d9e1adf7"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "56e11cba1f34b3602fdcea39d6e25872f37bff8f0f012ff19bee67f725ed61d3"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3899,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "56e11cba1f34b3602fdcea39d6e25872f37bff8f0f012ff19bee67f725ed61d3"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 5,
+    "executable_sha256": "632fa8e0d0a745dc9c8fb4170cb8c5ca2cd13fa3859279322001fd6fa15b52e6"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "632fa8e0d0a745dc9c8fb4170cb8c5ca2cd13fa3859279322001fd6fa15b52e6"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1efacf16ae8f1914196f5555864c9d711b4c27793eebcf609b102dc2c0f58343"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1efacf16ae8f1914196f5555864c9d711b4c27793eebcf609b102dc2c0f58343"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "ff65ca97bf601920add07a7e2adc5f697420b7a142554c9c5a0aa6e2b89cd858"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ff65ca97bf601920add07a7e2adc5f697420b7a142554c9c5a0aa6e2b89cd858"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "79d947dc8606d8ed4e33379b4c70736d3d6702f9dffe52fb87eed7ef331b23c8"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 3446,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "79d947dc8606d8ed4e33379b4c70736d3d6702f9dffe52fb87eed7ef331b23c8"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 537,
+    "executable_sha256": "7db0df19dc245eb6c3a38391588a5731fc581fe75d9187648a1ca5cf553af13f"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "7db0df19dc245eb6c3a38391588a5731fc581fe75d9187648a1ca5cf553af13f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "696f32ad9ca70182df504094f4550ed2b37065bb9abc698e55a36909c2ba1db8"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "696f32ad9ca70182df504094f4550ed2b37065bb9abc698e55a36909c2ba1db8"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 391,
+    "template_hits": 0,
+    "early_refusals": 146,
+    "executable_sha256": "1a38d63cc9bc0fcfbe0ffea1a772d5bf2056312f95657ea04fd2917506f101c7"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 391,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1a38d63cc9bc0fcfbe0ffea1a772d5bf2056312f95657ea04fd2917506f101c7"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "022047c399a1c7d1d9f84e3434157c3294422e2826b2c440d591041195c5e563"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-usroads-48.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 126147,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "022047c399a1c7d1d9f84e3434157c3294422e2826b2c440d591041195c5e563"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "email/email-enron-large.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 6,
+    "executable_sha256": "ab7062d2a6c7f8195fc30dce0f0f36428cdb658816b96db6e171bb2f480a95be"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "email/email-enron-large.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "ab7062d2a6c7f8195fc30dce0f0f36428cdb658816b96db6e171bb2f480a95be"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "email/email-enron-large.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "367e7fa648dc594253035c5a2bfb2e7e5596ec4b4005fadd3be6c6781e22413f"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "email/email-enron-large.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "367e7fa648dc594253035c5a2bfb2e7e5596ec4b4005fadd3be6c6781e22413f"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "email/email-enron-large.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 7,
+    "template_hits": 0,
+    "early_refusals": 3,
+    "executable_sha256": "9ab53d9b3dd47012c036ddb0a9ee241591d65e37be730833a472eb8cf7c0dbc6"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "email/email-enron-large.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 7,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9ab53d9b3dd47012c036ddb0a9ee241591d65e37be730833a472eb8cf7c0dbc6"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "email/email-enron-large.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "fb8f1dd5cb3cf89e6124a5a92ea4497f27c7311768b0e1f17f280cd9277f7267"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "email/email-enron-large.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 33697,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "fb8f1dd5cb3cf89e6124a5a92ea4497f27c7311768b0e1f17f280cd9277f7267"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 1,
+    "executable_sha256": "244664f718ebccb05dffa2c8469085d366772f2995db4aae690a2f91ea5626f9"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 2,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "244664f718ebccb05dffa2c8469085d366772f2995db4aae690a2f91ea5626f9"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0289026583909278524c214dda3ae6b4d6f7bc453eeb5eda490604f34381016c"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "0289026583909278524c214dda3ae6b4d6f7bc453eeb5eda490604f34381016c"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "94629915c3b17d73b4abf12ecad2333a5dc1f31dc1fc2cbc7a93fac2d695e568"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 3,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "94629915c3b17d73b4abf12ecad2333a5dc1f31dc1fc2cbc7a93fac2d695e568"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "f60ac4eac92512ee37e6c95a901b1c57e0e47734d21fc25537d0d04547614297"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 1001,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "f60ac4eac92512ee37e6c95a901b1c57e0e47734d21fc25537d0d04547614297"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 5,
+    "executable_sha256": "9163d2d112aa345602da84318b5ebd47ed2570835b9c228b3725d8d3cbda848d"
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 4,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "9163d2d112aa345602da84318b5ebd47ed2570835b9c228b3725d8d3cbda848d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1fe934cee5d16406b9fd86f85c0a5c950aae5a58a918963a190dcb4267ec447d"
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 0,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "1fe934cee5d16406b9fd86f85c0a5c950aae5a58a918963a190dcb4267ec447d"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 4,
+    "executable_sha256": "5f66e78a50f07282709e20cf7e98e94af4a5b3db85759a0a4decb824a4f0b768"
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 5,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "5f66e78a50f07282709e20cf7e98e94af4a5b3db85759a0a4decb824a4f0b768"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "enabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 19,
+    "early_refusals": 0,
+    "executable_sha256": "471e32c437a28d65bd3cf8ff1f5f5386fbd1993c3fe68c3f5349998d5a5c57b4"
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "controls": "disabled",
+    "validation": {
+      "passed": true,
+      "values": 70069,
+      "reference": "independent SciPy/NumPy, full vector"
+    },
+    "gpu_tasks": 21,
+    "template_hits": 0,
+    "early_refusals": 0,
+    "executable_sha256": "471e32c437a28d65bd3cf8ff1f5f5386fbd1993c3fe68c3f5349998d5a5c57b4"
+  }
+]

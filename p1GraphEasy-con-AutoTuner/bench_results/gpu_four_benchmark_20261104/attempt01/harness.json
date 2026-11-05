@@ -1,0 +1,6 @@
+{
+  "benchmark_gpu_four.py": "dd712c516bb07162f042fdb2d6da14a118fcaf9cb9bba08707e035e64e497b27",
+  "benchmark_gpu_saved_cpu.py": "5555ad988d299991b2d1bf5a108456e612b10088da49662b4bf77030c5e3d37a",
+  "summarize_gpu_four.py": "b38277c54511d3ae722d1fe165ef245afb88e2dded502adb73199483ad58874f",
+  "benchmark_gpu_four_recovery.py": "b1da54554dee701215bedd4bd21f9fb55b08ca1b7dc9b7dfb252b959a8ec0490"
+}

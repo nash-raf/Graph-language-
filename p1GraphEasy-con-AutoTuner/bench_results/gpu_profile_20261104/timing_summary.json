@@ -1,0 +1,1436 @@
+[
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "label": "PR / hamming8-2",
+    "baseline_process_ms": 415.0288266666667,
+    "baseline_compute_ms": 41.81177266666667,
+    "profile_process_ms": 428.8140196666667,
+    "profile_main_ms": 339.25734566666665,
+    "profile_compute_ms": 42.857105000000004,
+    "buckets": {
+      "other_host": {
+        "main_ms": 1.579556,
+        "compute_ms": 0.41112,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_preparation": {
+        "main_ms": 14.136470666666666,
+        "compute_ms": 9.965239,
+        "calls": 147,
+        "compute_calls": 140,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_finalize": {
+        "main_ms": 0.196232,
+        "compute_ms": 0.03463633333333333,
+        "calls": 42,
+        "compute_calls": 40,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "plan_and_descriptors": {
+        "main_ms": 2.0042233333333335,
+        "compute_ms": 0.439727,
+        "calls": 63,
+        "compute_calls": 60,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "resident_cache": {
+        "main_ms": 2.516138333333333,
+        "compute_ms": 1.6945536666666667,
+        "calls": 165,
+        "compute_calls": 160,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "upload_staging": {
+        "main_ms": 2.4918823333333333,
+        "compute_ms": 1.9269643333333335,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "download_publication": {
+        "main_ms": 0.029877666666666667,
+        "compute_ms": 0.027278333333333335,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_coherence": {
+        "main_ms": 0.005102666666666667,
+        "compute_ms": 0.000234,
+        "calls": 17,
+        "compute_calls": 1,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cleanup": {
+        "main_ms": 0.03902133333333333,
+        "compute_ms": 0.036761666666666665,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "execute_wait_and_scheduler": {
+        "main_ms": 7.889320333333333,
+        "compute_ms": 7.664677,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "poll_cpu": {
+        "main_ms": 0.03939433333333334,
+        "compute_ms": 0.031963,
+        "calls": 61.666666666666664,
+        "compute_calls": 59.666666666666664,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_init": {
+        "main_ms": 281.0572736666667,
+        "compute_ms": 0.0,
+        "calls": 4,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_module_and_lookup": {
+        "main_ms": 2.31659,
+        "compute_ms": 0.11368433333333333,
+        "calls": 22,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_allocation": {
+        "main_ms": 1.0708776666666666,
+        "compute_ms": 0.5151513333333333,
+        "calls": 198,
+        "compute_calls": 186,
+        "bytes": 1555730,
+        "compute_bytes": 791584
+      },
+      "device_free": {
+        "main_ms": 0.8141286666666666,
+        "compute_ms": 0.405045,
+        "calls": 198,
+        "compute_calls": 180,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_to_device": {
+        "main_ms": 12.502995666666667,
+        "compute_ms": 11.386423,
+        "calls": 237,
+        "compute_calls": 225,
+        "bytes": 1634886,
+        "compute_bytes": 870740
+      },
+      "device_to_host": {
+        "main_ms": 6.525728,
+        "compute_ms": 6.215285,
+        "calls": 147,
+        "compute_calls": 140,
+        "bytes": 70286,
+        "compute_bytes": 68040
+      },
+      "status_download": {
+        "main_ms": 1.35481,
+        "compute_ms": 1.2598023333333332,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 84,
+        "compute_bytes": 80
+      },
+      "stream_management": {
+        "main_ms": 0.5016606666666666,
+        "compute_ms": 0.13013,
+        "calls": 42,
+        "compute_calls": 40,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "context_set": {
+        "main_ms": 0.993667,
+        "compute_ms": 0.18341366666666667,
+        "calls": 188.66666666666666,
+        "compute_calls": 179.66666666666666,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_query": {
+        "main_ms": 0.045767666666666665,
+        "compute_ms": 0.04282066666666667,
+        "calls": 61.666666666666664,
+        "compute_calls": 59.666666666666664,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "explicit_sync": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "launch_api": {
+        "main_ms": 1.1424046666666667,
+        "compute_ms": 0.368526,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "profiler_events": {
+        "main_ms": 0.004223,
+        "compute_ms": 0.0036693333333333335,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      }
+    },
+    "groups": {
+      "CUDA initialization": {
+        "main_ms": 281.0572736666667,
+        "compute_ms": 0.0
+      },
+      "CPU preparation/finalize": {
+        "main_ms": 14.332702666666666,
+        "compute_ms": 9.999875333333334
+      },
+      "Transfer calls": {
+        "main_ms": 20.38353366666667,
+        "compute_ms": 18.861510333333335
+      },
+      "Staging/cache": {
+        "main_ms": 5.043000999999999,
+        "compute_ms": 3.6490303333333336
+      },
+      "Allocation/streams": {
+        "main_ms": 2.386667,
+        "compute_ms": 1.0503263333333333
+      },
+      "Submission/completion": {
+        "main_ms": 9.116887,
+        "compute_ms": 8.107986666666667
+      },
+      "Other host/runtime": {
+        "main_ms": 6.937280666666667,
+        "compute_ms": 1.1883759999999999
+      }
+    },
+    "gpu_event_compute_ms": 4.557248011,
+    "gpu_event_all_ms": 5.087679997,
+    "gpu_launches": 21,
+    "outside_main_ms": 89.55667400000004,
+    "profile_compute_delta_pct": 2.5000909233554136
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "label": "PR / Slashdot",
+    "baseline_process_ms": 867.0460463333334,
+    "baseline_compute_ms": 462.541386,
+    "profile_process_ms": 884.3421266666667,
+    "profile_main_ms": 798.517323,
+    "profile_compute_ms": 477.939214,
+    "buckets": {
+      "other_host": {
+        "main_ms": 84.24097333333334,
+        "compute_ms": 81.067658,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_preparation": {
+        "main_ms": 284.0363013333333,
+        "compute_ms": 254.62288533333333,
+        "calls": 147,
+        "compute_calls": 140,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_finalize": {
+        "main_ms": 2.0624443333333335,
+        "compute_ms": 0.5274966666666667,
+        "calls": 42,
+        "compute_calls": 40,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "plan_and_descriptors": {
+        "main_ms": 2.291076,
+        "compute_ms": 0.8149563333333334,
+        "calls": 63,
+        "compute_calls": 60,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "resident_cache": {
+        "main_ms": 33.142618666666664,
+        "compute_ms": 24.554665333333332,
+        "calls": 165,
+        "compute_calls": 160,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "upload_staging": {
+        "main_ms": 37.778939,
+        "compute_ms": 28.60117,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "download_publication": {
+        "main_ms": 0.31245866666666666,
+        "compute_ms": 0.299542,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_coherence": {
+        "main_ms": 2.925152,
+        "compute_ms": 0.0002576666666666667,
+        "calls": 17,
+        "compute_calls": 1,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cleanup": {
+        "main_ms": 0.081639,
+        "compute_ms": 0.079197,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "execute_wait_and_scheduler": {
+        "main_ms": 53.032382,
+        "compute_ms": 51.971702,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "poll_cpu": {
+        "main_ms": 0.07435366666666667,
+        "compute_ms": 0.07120133333333334,
+        "calls": 312,
+        "compute_calls": 305.6666666666667,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_init": {
+        "main_ms": 252.99546033333334,
+        "compute_ms": 0.0,
+        "calls": 4,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_module_and_lookup": {
+        "main_ms": 1.8643946666666666,
+        "compute_ms": 0.163883,
+        "calls": 22,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_allocation": {
+        "main_ms": 3.1963186666666665,
+        "compute_ms": 2.039237,
+        "calls": 198,
+        "compute_calls": 186,
+        "bytes": 22140058,
+        "compute_bytes": 12549800
+      },
+      "device_free": {
+        "main_ms": 1.897664,
+        "compute_ms": 0.5720633333333334,
+        "calls": 198,
+        "compute_calls": 180,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_to_device": {
+        "main_ms": 23.489960333333332,
+        "compute_ms": 20.297329,
+        "calls": 237,
+        "compute_calls": 225,
+        "bytes": 43721310,
+        "compute_bytes": 34131052
+      },
+      "device_to_host": {
+        "main_ms": 9.054081,
+        "compute_ms": 8.631076333333333,
+        "calls": 147,
+        "compute_calls": 140,
+        "bytes": 14451558,
+        "compute_bytes": 14030440
+      },
+      "status_download": {
+        "main_ms": 1.7101603333333333,
+        "compute_ms": 1.6076736666666667,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 84,
+        "compute_bytes": 80
+      },
+      "stream_management": {
+        "main_ms": 0.7314226666666667,
+        "compute_ms": 0.270456,
+        "calls": 42,
+        "compute_calls": 40,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "context_set": {
+        "main_ms": 1.7634743333333334,
+        "compute_ms": 0.863853,
+        "calls": 439,
+        "compute_calls": 425.6666666666667,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_query": {
+        "main_ms": 0.291911,
+        "compute_ms": 0.28712733333333335,
+        "calls": 312,
+        "compute_calls": 305.6666666666667,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "explicit_sync": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "launch_api": {
+        "main_ms": 1.535423,
+        "compute_ms": 0.587509,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "profiler_events": {
+        "main_ms": 0.008714666666666667,
+        "compute_ms": 0.008274666666666666,
+        "calls": 21,
+        "compute_calls": 20,
+        "bytes": 0,
+        "compute_bytes": 0
+      }
+    },
+    "groups": {
+      "CUDA initialization": {
+        "main_ms": 252.99546033333334,
+        "compute_ms": 0.0
+      },
+      "CPU preparation/finalize": {
+        "main_ms": 286.0987456666667,
+        "compute_ms": 255.150382
+      },
+      "Transfer calls": {
+        "main_ms": 34.25420166666667,
+        "compute_ms": 30.536079
+      },
+      "Staging/cache": {
+        "main_ms": 74.15916833333333,
+        "compute_ms": 53.455635
+      },
+      "Allocation/streams": {
+        "main_ms": 5.825405333333333,
+        "compute_ms": 2.881756333333333
+      },
+      "Submission/completion": {
+        "main_ms": 54.934069666666666,
+        "compute_ms": 52.91753966666667
+      },
+      "Other host/runtime": {
+        "main_ms": 90.25027200000001,
+        "compute_ms": 82.997822
+      }
+    },
+    "gpu_event_compute_ms": 49.164128065,
+    "gpu_event_all_ms": 50.36118412,
+    "gpu_launches": 21,
+    "outside_main_ms": 85.82480366666664,
+    "profile_compute_delta_pct": 3.3289622217718806
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "label": "BFS / Slashdot",
+    "baseline_process_ms": 522.5855533333333,
+    "baseline_compute_ms": 423.7204606666667,
+    "profile_process_ms": 530.9519756666666,
+    "profile_main_ms": 436.286824,
+    "profile_compute_ms": 429.08636366666667,
+    "buckets": {
+      "other_host": {
+        "main_ms": 5.671236,
+        "compute_ms": 2.789826333333333,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_preparation": {
+        "main_ms": 92.984493,
+        "compute_ms": 92.984493,
+        "calls": 49,
+        "compute_calls": 49,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_finalize": {
+        "main_ms": 1.4721576666666667,
+        "compute_ms": 1.4721576666666667,
+        "calls": 18,
+        "compute_calls": 18,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "plan_and_descriptors": {
+        "main_ms": 1.9556110000000002,
+        "compute_ms": 1.9556110000000002,
+        "calls": 22,
+        "compute_calls": 22,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "resident_cache": {
+        "main_ms": 12.406897333333333,
+        "compute_ms": 12.406897333333333,
+        "calls": 36,
+        "compute_calls": 36,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "upload_staging": {
+        "main_ms": 23.087913,
+        "compute_ms": 23.087913,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "download_publication": {
+        "main_ms": 0.8951723333333333,
+        "compute_ms": 0.8951723333333333,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_coherence": {
+        "main_ms": 1.860198,
+        "compute_ms": 0.02304,
+        "calls": 276.3333333333333,
+        "compute_calls": 257.3333333333333,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cleanup": {
+        "main_ms": 0.023632999999999998,
+        "compute_ms": 0.023632999999999998,
+        "calls": 9,
+        "compute_calls": 9,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "execute_wait_and_scheduler": {
+        "main_ms": 2.2979213333333335,
+        "compute_ms": 2.2979213333333335,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "poll_cpu": {
+        "main_ms": 0.007549666666666667,
+        "compute_ms": 0.007549666666666667,
+        "calls": 16.333333333333332,
+        "compute_calls": 16.333333333333332,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_init": {
+        "main_ms": 261.337743,
+        "compute_ms": 261.337743,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_module_and_lookup": {
+        "main_ms": 1.5161120000000001,
+        "compute_ms": 1.5161120000000001,
+        "calls": 5,
+        "compute_calls": 5,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_allocation": {
+        "main_ms": 5.175235666666667,
+        "compute_ms": 5.175235666666667,
+        "calls": 77,
+        "compute_calls": 77,
+        "bytes": 32008490,
+        "compute_bytes": 32008490
+      },
+      "device_free": {
+        "main_ms": 3.3306153333333333,
+        "compute_ms": 0.8625563333333334,
+        "calls": 77,
+        "compute_calls": 49,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_to_device": {
+        "main_ms": 12.160945666666667,
+        "compute_ms": 12.160945666666667,
+        "calls": 84,
+        "compute_calls": 84,
+        "bytes": 35252394,
+        "compute_bytes": 35252394
+      },
+      "device_to_host": {
+        "main_ms": 7.376103333333334,
+        "compute_ms": 7.376103333333334,
+        "calls": 56,
+        "compute_calls": 56,
+        "bytes": 14247434,
+        "compute_bytes": 14247434
+      },
+      "status_download": {
+        "main_ms": 0.26102933333333334,
+        "compute_ms": 0.26102933333333334,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 16,
+        "compute_bytes": 16
+      },
+      "stream_management": {
+        "main_ms": 0.422633,
+        "compute_ms": 0.422633,
+        "calls": 8,
+        "compute_calls": 8,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "context_set": {
+        "main_ms": 1.074924,
+        "compute_ms": 1.0610903333333332,
+        "calls": 52.333333333333336,
+        "compute_calls": 49.333333333333336,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_query": {
+        "main_ms": 0.013230333333333334,
+        "compute_ms": 0.013230333333333334,
+        "calls": 16.333333333333332,
+        "compute_calls": 16.333333333333332,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "explicit_sync": {
+        "main_ms": 0.023498333333333333,
+        "compute_ms": 0.023498333333333333,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "launch_api": {
+        "main_ms": 0.9305386666666667,
+        "compute_ms": 0.9305386666666667,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "profiler_events": {
+        "main_ms": 0.001433,
+        "compute_ms": 0.001433,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      }
+    },
+    "groups": {
+      "CUDA initialization": {
+        "main_ms": 261.337743,
+        "compute_ms": 261.337743
+      },
+      "CPU preparation/finalize": {
+        "main_ms": 94.45665066666666,
+        "compute_ms": 94.45665066666666
+      },
+      "Transfer calls": {
+        "main_ms": 19.798078333333333,
+        "compute_ms": 19.798078333333333
+      },
+      "Staging/cache": {
+        "main_ms": 38.250180666666665,
+        "compute_ms": 36.41302266666667
+      },
+      "Allocation/streams": {
+        "main_ms": 8.928484,
+        "compute_ms": 6.460425
+      },
+      "Submission/completion": {
+        "main_ms": 3.2727383333333337,
+        "compute_ms": 3.2727383333333337
+      },
+      "Other host/runtime": {
+        "main_ms": 10.242949000000001,
+        "compute_ms": 7.347705666666666
+      }
+    },
+    "gpu_event_compute_ms": 2.052096009,
+    "gpu_event_all_ms": 2.052096009,
+    "gpu_launches": 4,
+    "outside_main_ms": 94.66515166666659,
+    "profile_compute_delta_pct": 1.2663780718914053
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "label": "CC / fe-4elt2",
+    "baseline_process_ms": 783.667337,
+    "baseline_compute_ms": 698.452887,
+    "profile_process_ms": 783.4871833333333,
+    "profile_main_ms": 700.9453873333333,
+    "profile_compute_ms": 697.628489,
+    "buckets": {
+      "other_host": {
+        "main_ms": 4.932118,
+        "compute_ms": 3.8228956666666667,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_preparation": {
+        "main_ms": 178.41616733333333,
+        "compute_ms": 178.41616733333333,
+        "calls": 734,
+        "compute_calls": 734,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_finalize": {
+        "main_ms": 5.422125333333334,
+        "compute_ms": 5.422125333333334,
+        "calls": 214,
+        "compute_calls": 214,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "plan_and_descriptors": {
+        "main_ms": 4.050873666666667,
+        "compute_ms": 4.050873666666667,
+        "calls": 306,
+        "compute_calls": 306,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "resident_cache": {
+        "main_ms": 4.606734666666667,
+        "compute_ms": 4.606734666666667,
+        "calls": 736,
+        "compute_calls": 736,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "upload_staging": {
+        "main_ms": 18.427123333333334,
+        "compute_ms": 18.427123333333334,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "download_publication": {
+        "main_ms": 2.92907,
+        "compute_ms": 2.92907,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_coherence": {
+        "main_ms": 1.8139793333333334,
+        "compute_ms": 1.131373,
+        "calls": 6330,
+        "compute_calls": 6311,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cleanup": {
+        "main_ms": 0.41348,
+        "compute_ms": 0.41348,
+        "calls": 107,
+        "compute_calls": 107,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "execute_wait_and_scheduler": {
+        "main_ms": 17.615019333333333,
+        "compute_ms": 17.615019333333333,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "poll_cpu": {
+        "main_ms": 0.09397933333333333,
+        "compute_ms": 0.09397933333333333,
+        "calls": 183.66666666666666,
+        "compute_calls": 183.66666666666666,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_init": {
+        "main_ms": 241.97425566666666,
+        "compute_ms": 241.97425566666666,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_module_and_lookup": {
+        "main_ms": 1.24001,
+        "compute_ms": 1.24001,
+        "calls": 93,
+        "compute_calls": 93,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_allocation": {
+        "main_ms": 17.946283,
+        "compute_ms": 17.946283,
+        "calls": 1750,
+        "compute_calls": 1750,
+        "bytes": 130075216,
+        "compute_bytes": 130075216
+      },
+      "device_free": {
+        "main_ms": 11.582246,
+        "compute_ms": 10.073877666666666,
+        "calls": 1750,
+        "compute_calls": 1715,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_to_device": {
+        "main_ms": 117.65162600000001,
+        "compute_ms": 117.65162600000001,
+        "calls": 1931,
+        "compute_calls": 1931,
+        "bytes": 157074612,
+        "compute_bytes": 157074612
+      },
+      "device_to_host": {
+        "main_ms": 60.35426966666667,
+        "compute_ms": 60.35426966666667,
+        "calls": 1288,
+        "compute_calls": 1288,
+        "bytes": 63754180,
+        "compute_bytes": 63754180
+      },
+      "status_download": {
+        "main_ms": 4.8404549999999995,
+        "compute_ms": 4.8404549999999995,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 368,
+        "compute_bytes": 368
+      },
+      "stream_management": {
+        "main_ms": 1.2644963333333334,
+        "compute_ms": 1.2644963333333334,
+        "calls": 184,
+        "compute_calls": 184,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "context_set": {
+        "main_ms": 2.057537,
+        "compute_ms": 2.0408356666666667,
+        "calls": 830.6666666666666,
+        "compute_calls": 827.6666666666666,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_query": {
+        "main_ms": 0.14788366666666666,
+        "compute_ms": 0.14788366666666666,
+        "calls": 183.66666666666666,
+        "compute_calls": 183.66666666666666,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "explicit_sync": {
+        "main_ms": 0.2732023333333333,
+        "compute_ms": 0.2732023333333333,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "launch_api": {
+        "main_ms": 2.8720266666666667,
+        "compute_ms": 2.8720266666666667,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "profiler_events": {
+        "main_ms": 0.020425666666666665,
+        "compute_ms": 0.020425666666666665,
+        "calls": 92,
+        "compute_calls": 92,
+        "bytes": 0,
+        "compute_bytes": 0
+      }
+    },
+    "groups": {
+      "CUDA initialization": {
+        "main_ms": 241.97425566666666,
+        "compute_ms": 241.97425566666666
+      },
+      "CPU preparation/finalize": {
+        "main_ms": 183.83829266666666,
+        "compute_ms": 183.83829266666666
+      },
+      "Transfer calls": {
+        "main_ms": 182.84635066666667,
+        "compute_ms": 182.84635066666667
+      },
+      "Staging/cache": {
+        "main_ms": 27.776907333333334,
+        "compute_ms": 27.094301
+      },
+      "Allocation/streams": {
+        "main_ms": 30.793025333333333,
+        "compute_ms": 29.284657
+      },
+      "Submission/completion": {
+        "main_ms": 21.002111333333332,
+        "compute_ms": 21.002111333333332
+      },
+      "Other host/runtime": {
+        "main_ms": 12.714444333333333,
+        "compute_ms": 11.588520666666668
+      }
+    },
+    "gpu_event_compute_ms": 3.797951994,
+    "gpu_event_all_ms": 3.797951994,
+    "gpu_launches": 92,
+    "outside_main_ms": 82.54179599999998,
+    "profile_compute_delta_pct": -0.1180320126588752
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "label": "CC / Luxembourg",
+    "baseline_process_ms": 11182.637695666666,
+    "baseline_compute_ms": 11088.049675666667,
+    "profile_process_ms": 11044.273641333333,
+    "profile_main_ms": 10955.958875666667,
+    "profile_compute_ms": 10949.047257333334,
+    "buckets": {
+      "other_host": {
+        "main_ms": 91.756733,
+        "compute_ms": 89.39479333333334,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_preparation": {
+        "main_ms": 6472.158942,
+        "compute_ms": 6472.158942,
+        "calls": 6960,
+        "compute_calls": 6960,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_finalize": {
+        "main_ms": 73.09588333333333,
+        "compute_ms": 73.09588333333333,
+        "calls": 2070,
+        "compute_calls": 2070,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "plan_and_descriptors": {
+        "main_ms": 22.729778666666665,
+        "compute_ms": 22.729778666666665,
+        "calls": 2820,
+        "compute_calls": 2820,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "resident_cache": {
+        "main_ms": 18.267015333333333,
+        "compute_ms": 18.267015333333333,
+        "calls": 6000,
+        "compute_calls": 6000,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "upload_staging": {
+        "main_ms": 280.13361199999997,
+        "compute_ms": 280.13361199999997,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "download_publication": {
+        "main_ms": 89.04009166666667,
+        "compute_ms": 89.04009166666667,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_coherence": {
+        "main_ms": 21.382014,
+        "compute_ms": 21.359360000000002,
+        "calls": 112940.33333333333,
+        "compute_calls": 112921.33333333333,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cleanup": {
+        "main_ms": 4.748333333333333,
+        "compute_ms": 4.748333333333333,
+        "calls": 1035,
+        "compute_calls": 1035,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "execute_wait_and_scheduler": {
+        "main_ms": 151.837638,
+        "compute_ms": 151.837638,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "poll_cpu": {
+        "main_ms": 0.9426093333333333,
+        "compute_ms": 0.9426093333333333,
+        "calls": 1517,
+        "compute_calls": 1517,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_init": {
+        "main_ms": 239.55682566666667,
+        "compute_ms": 239.55682566666667,
+        "calls": 4,
+        "compute_calls": 4,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_module_and_lookup": {
+        "main_ms": 2.605388,
+        "compute_ms": 2.605388,
+        "calls": 751,
+        "compute_calls": 751,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_allocation": {
+        "main_ms": 497.92340966666666,
+        "compute_ms": 497.92340966666666,
+        "calls": 14253,
+        "compute_calls": 14253,
+        "bytes": 1990185651,
+        "compute_bytes": 1990185651
+      },
+      "device_free": {
+        "main_ms": 303.85196133333335,
+        "compute_ms": 299.336613,
+        "calls": 14253,
+        "compute_calls": 14218,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_to_device": {
+        "main_ms": 1615.2871606666668,
+        "compute_ms": 1615.2871606666668,
+        "calls": 15750,
+        "compute_calls": 15750,
+        "bytes": 3039283203,
+        "compute_bytes": 3039283203
+      },
+      "device_to_host": {
+        "main_ms": 985.2187543333333,
+        "compute_ms": 985.2187543333333,
+        "calls": 10500,
+        "compute_calls": 10500,
+        "bytes": 2146234415,
+        "compute_bytes": 2146234415
+      },
+      "status_download": {
+        "main_ms": 39.98454,
+        "compute_ms": 39.98454,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 3000,
+        "compute_bytes": 3000
+      },
+      "stream_management": {
+        "main_ms": 8.664173333333332,
+        "compute_ms": 8.664173333333332,
+        "calls": 1500,
+        "compute_calls": 1500,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "context_set": {
+        "main_ms": 15.303237666666668,
+        "compute_ms": 15.291561333333334,
+        "calls": 6770,
+        "compute_calls": 6767,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_query": {
+        "main_ms": 1.671011,
+        "compute_ms": 1.671011,
+        "calls": 1517,
+        "compute_calls": 1517,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "explicit_sync": {
+        "main_ms": 2.5444086666666665,
+        "compute_ms": 2.5444086666666665,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "launch_api": {
+        "main_ms": 16.881322333333333,
+        "compute_ms": 16.881322333333333,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "profiler_events": {
+        "main_ms": 0.37403233333333336,
+        "compute_ms": 0.37403233333333336,
+        "calls": 750,
+        "compute_calls": 750,
+        "bytes": 0,
+        "compute_bytes": 0
+      }
+    },
+    "groups": {
+      "CUDA initialization": {
+        "main_ms": 239.55682566666667,
+        "compute_ms": 239.55682566666667
+      },
+      "CPU preparation/finalize": {
+        "main_ms": 6545.254825333333,
+        "compute_ms": 6545.254825333333
+      },
+      "Transfer calls": {
+        "main_ms": 2640.490455,
+        "compute_ms": 2640.490455
+      },
+      "Staging/cache": {
+        "main_ms": 408.82273299999997,
+        "compute_ms": 408.800079
+      },
+      "Allocation/streams": {
+        "main_ms": 810.4395443333333,
+        "compute_ms": 805.9241959999999
+      },
+      "Submission/completion": {
+        "main_ms": 173.87698933333334,
+        "compute_ms": 173.87698933333334
+      },
+      "Other host/runtime": {
+        "main_ms": 137.517503,
+        "compute_ms": 135.143887
+      }
+    },
+    "gpu_event_compute_ms": 36.41398403,
+    "gpu_event_all_ms": 36.41398403,
+    "gpu_launches": 750,
+    "outside_main_ms": 88.31476566666606,
+    "profile_compute_delta_pct": -1.2536236975775994
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "label": "SSSP / Slashdot (CPU)",
+    "baseline_process_ms": 102.788078,
+    "baseline_compute_ms": 56.51639099998333,
+    "profile_process_ms": 99.00345366666667,
+    "profile_main_ms": 82.47851566666667,
+    "profile_compute_ms": 55.14568633333333,
+    "buckets": {
+      "other_host": {
+        "main_ms": 47.50627866666667,
+        "compute_ms": 20.173449333333334,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_preparation": {
+        "main_ms": 32.042798,
+        "compute_ms": 32.042798,
+        "calls": 68,
+        "compute_calls": 68,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cpu_finalize": {
+        "main_ms": 2.929439,
+        "compute_ms": 2.929439,
+        "calls": 34,
+        "compute_calls": 34,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "plan_and_descriptors": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "resident_cache": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "upload_staging": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "download_publication": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_coherence": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cleanup": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "execute_wait_and_scheduler": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "poll_cpu": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_init": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "cuda_module_and_lookup": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_allocation": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_free": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "host_to_device": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "device_to_host": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "status_download": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_management": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "context_set": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "stream_query": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "explicit_sync": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "launch_api": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      },
+      "profiler_events": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0,
+        "calls": 0,
+        "compute_calls": 0,
+        "bytes": 0,
+        "compute_bytes": 0
+      }
+    },
+    "groups": {
+      "CUDA initialization": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0
+      },
+      "CPU preparation/finalize": {
+        "main_ms": 34.972237,
+        "compute_ms": 34.972237
+      },
+      "Transfer calls": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0
+      },
+      "Staging/cache": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0
+      },
+      "Allocation/streams": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0
+      },
+      "Submission/completion": {
+        "main_ms": 0.0,
+        "compute_ms": 0.0
+      },
+      "Other host/runtime": {
+        "main_ms": 47.50627866666667,
+        "compute_ms": 20.173449333333334
+      }
+    },
+    "gpu_event_compute_ms": 0.0,
+    "gpu_event_all_ms": 0.0,
+    "gpu_launches": 0,
+    "outside_main_ms": 16.524938000000006,
+    "profile_compute_delta_pct": -2.4253223576332084
+  }
+]

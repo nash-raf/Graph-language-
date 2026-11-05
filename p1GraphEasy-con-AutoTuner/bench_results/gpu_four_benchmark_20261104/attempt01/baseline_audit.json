@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "comparison_ignores_only_line_endings": true,
+  "changed_runtime_sources": [
+    "autotuner_runtime.c",
+    "autotuner_runtime.h",
+    "execution_scratch_runtime.inc",
+    "gpu_invocation.inc",
+    "gpu_record_reuse.inc",
+    "gpu_residency.inc"
+  ],
+  "shared_objects_identical": true,
+  "matching_native_compiler_flags": [
+    "-O2",
+    "-g",
+    "-fopenmp",
+    "-pthread"
+  ],
+  "historical_timer_and_walltime_hashes_match": true
+}

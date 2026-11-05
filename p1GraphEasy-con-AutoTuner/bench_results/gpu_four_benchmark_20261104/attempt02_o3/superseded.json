@@ -1,0 +1,9 @@
+{
+  "reason": "Move per-sample bookkeeping out of watched workspace before primary performance run",
+  "parent_stopped": 439,
+  "active_timed_child_allowed_to_finish": [
+    6831
+  ],
+  "raw_samples_preserved": true,
+  "primary_attempt": "attempt03_o3_native_io"
+}

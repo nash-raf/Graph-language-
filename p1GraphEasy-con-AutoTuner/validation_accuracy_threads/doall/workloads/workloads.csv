@@ -1,0 +1,7 @@
+case,trips,chain_length,streaming
+n20000_chain12_streaming0,20000,12,0
+n200000_chain24_streaming0,200000,24,0
+n200000_chain0_streaming1,200000,0,1
+n8192_chain0_streaming1,8192,0,1
+n65536_chain4_streaming0,65536,4,0
+n1000000_chain12_streaming0,1000000,12,0

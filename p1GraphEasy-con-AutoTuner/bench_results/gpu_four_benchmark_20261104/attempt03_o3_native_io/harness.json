@@ -1,0 +1,8 @@
+{
+  "benchmark_gpu_four.py": "7bcf770d6947ffde3feffd6793e370592c49db8c7ba6d30da55e0d921e16dedd",
+  "benchmark_gpu_four_o3.py": "96d75487f674fa923197c5e6c453263af147a5467d4c45798e95d14f2143091a",
+  "benchmark_gpu_saved_cpu.py": "5555ad988d299991b2d1bf5a108456e612b10088da49662b4bf77030c5e3d37a",
+  "summarize_gpu_four.py": "76586493308f02561b601b9b72b0fdc87cdafb1eec276adbba0f7f8939ff3bae",
+  "check_gpu_four.py": "4091fa7a25f02754367bad71d31d93edd78419ce63c087bdf80a7a81aac9581b",
+  "summarize_gpu_four_final.py": "8796e98f842a38db5b5c17c4fffd27d9aad0009f8e4255b4b332a869b072fcb2"
+}

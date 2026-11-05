@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "native_flags": [
+    "-O3",
+    "-g",
+    "-fopenmp",
+    "-pthread"
+  ],
+  "fixtures": 10,
+  "feature_subsets": 16,
+  "comparisons": 160,
+  "driver_fallbacks": 10,
+  "early_threshold_check": true,
+  "post_setup_failure_no_replay": true
+}

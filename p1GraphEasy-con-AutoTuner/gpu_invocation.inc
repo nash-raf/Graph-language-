@@ -17,6 +17,7 @@ typedef struct gpu_mirror {
     CUdeviceptr device;
     uint8_t *staging;
     gpu_resident *resident;
+    gpu_resident *capacity_owner;
 } gpu_mirror;
 struct sgpl_gpu_invocation {
     sgpl_gpu_plan plan;
@@ -32,10 +33,13 @@ struct sgpl_gpu_invocation {
     CUstream *streams;
     int32_t slots;
     CUdeviceptr status;
+    gpu_resident *status_capacity;
     int32_t *host_status;
     sgpl_stream_destroy_fn stream_destroy;
     sgpl_stream_query_fn stream_query;
     int uploaded, started, joined, failed;
+    int sync_elide, sync_stats;
+    uint64_t poll_waits, poll_elided;
     sgpl_gpu_graph *owned_graphs;
     uint32_t owned_graph_count;
 };
@@ -51,25 +55,37 @@ static CUdeviceptr gpu_buffer_address(sgpl_gpu_invocation *s, uint32_t b) {
     gpu_mirror *m = &s->mirrors[s->mapping[b]];
     return m->device + (uintptr_t)s->buffers[b].host - m->lo;
 }
+static int gpu_transfer_reduce_enabled(void) {
+    const char *v=getenv("SGPL_GPU_TRANSFER_REDUCE");return !v||strcmp(v,"0");
+}
 void sgpl_gpu_release(sgpl_gpu_invocation *s) {
     if (!s) return;
+    uint64_t release_waits=0,release_elided=0;
     if (g_cuda_available) p_cuCtxSetCurrent(g_context);
     if (s->streams) for (int32_t i=0;i<s->slots;++i) if (s->streams[i]) {
-        p_cuStreamSynchronize(s->streams[i]);
+        // An error may have prevented a poll from draining its stream.
+        if(s->sync_elide&&s->joined&&!s->failed) ++release_elided;
+        else {p_cuStreamSynchronize(s->streams[i]);++release_waits;}
         if (s->stream_destroy) s->stream_destroy(s->streams[i]);
     }
     for (uint32_t i=0;i<s->mirror_count;++i) {
-        if (s->mirrors[i].resident) {
+        if(s->mirrors[i].capacity_owner) {
+            gpu_capacity_release(s->mirrors[i].capacity_owner,s->joined&&!s->failed);
+        } else if (s->mirrors[i].resident) {
             if(s->failed) {s->mirrors[i].resident->valid=0;s->mirrors[i].resident->device_dirty=0;}
         } else if (s->mirrors[i].device) p_cuMemFree(s->mirrors[i].device);
-        free(s->mirrors[i].staging);
+        if(!s->mirrors[i].capacity_owner)free(s->mirrors[i].staging);
     }
-    if (s->status) p_cuMemFree(s->status);
+    if(s->status_capacity)gpu_capacity_release(s->status_capacity,s->joined&&!s->failed);
+    else if (s->status) p_cuMemFree(s->status);
     for(uint32_t i=0;i<s->owned_graph_count;++i) {free(s->owned_graphs[i].rows);free(s->owned_graphs[i].columns);}
     free(s->owned_graphs);
     free(s->buffers); free(s->relocations); free(s->original_pointers); free(s->tasks); free(s->relations);
     free(s->mirrors); free(s->mapping); free(s->functions);
     free(s->streams); free(s->host_status);
+    if(s->sync_stats) fprintf(stderr,"[gpu-sync] poll_waits=%llu poll_elided=%llu release_waits=%llu release_elided=%llu failed=%d\n",
+        (unsigned long long)s->poll_waits,(unsigned long long)s->poll_elided,
+        (unsigned long long)release_waits,(unsigned long long)release_elided,s->failed);
     free(s);
 }
 
@@ -96,6 +112,7 @@ int32_t sgpl_gpu_reserve(const sgpl_gpu_plan *p, sgpl_gpu_invocation **out) {
     CUmodule module=gpu_fault("module",0)?NULL:load_module(); if (!module) return SGPL_GPU_UNAVAILABLE;
     sgpl_gpu_invocation *s=calloc(1,sizeof(*s)); if (!s) return SGPL_GPU_ERR_ALLOC;
     s->plan=*p;
+    s->sync_elide=gpu_sync_elide_enabled();s->sync_stats=getenv("SGPL_GPU_SYNC_STATS")!=NULL;
     /* One stream per device task. CUDA controls execution resources. Legacy
      * worker/block budget fields are compatibility data and have no device use. */
     s->slots=p->task_count;
@@ -129,10 +146,15 @@ int32_t sgpl_gpu_reserve(const sgpl_gpu_plan *p, sgpl_gpu_invocation **out) {
      * never used to decide independence. Buffers must describe valid storage. */
     for (uint32_t i=0;i<s->mirror_count;++i) for (uint32_t j=i+1;j<s->mirror_count;) {
         gpu_mirror *a=&s->mirrors[i],*b=&s->mirrors[j];
-        if (a->lo<b->hi && b->lo<a->hi) {
+        int adjacent=(a->hi==b->lo&&((a->hi-a->lo)&255)==0)||
+                     (b->hi==a->lo&&((b->hi-b->lo)&255)==0);
+        int coalesce=gpu_transfer_reduce_enabled()&&adjacent&&a->flags==b->flags&&
+            !gpu_range_has_live_language(a->lo,a->hi)&&!gpu_range_has_live_language(b->lo,b->hi);
+        if ((a->lo<b->hi && b->lo<a->hi)||coalesce) {
             if (b->lo<a->lo) a->lo=b->lo;
             if (b->hi>a->hi) a->hi=b->hi;
-            a->flags|=b->flags; s->mirrors[j]=s->mirrors[--s->mirror_count];
+            a->flags|=b->flags;if(a->flags&SGPL_GPU_BUFFER_WRITE)a->flags&=~SGPL_GPU_BUFFER_LAYOUT;
+            s->mirrors[j]=s->mirrors[--s->mirror_count];
             j=i+1; /* The enlarged range can intersect an earlier candidate. */
         } else ++j;
     }
@@ -163,7 +185,6 @@ int32_t sgpl_gpu_reserve(const sgpl_gpu_plan *p, sgpl_gpu_invocation **out) {
     if(gpu_fault("reserve",0)) goto alloc_fail;
     for (uint32_t i=0;i<s->mirror_count;++i) {
         size_t bytes=s->mirrors[i].hi-s->mirrors[i].lo;
-        s->mirrors[i].staging=malloc(bytes);
         gpu_mirror *m=&s->mirrors[i];int pointers=0;
         for(uint32_t j=0;j<p->relocation_count;++j) if(s->mapping[s->relocations[j].owner]==i) pointers=1;
         uintptr_t base=0,end=0;
@@ -173,9 +194,17 @@ int32_t sgpl_gpu_reserve(const sgpl_gpu_plan *p, sgpl_gpu_invocation **out) {
         if(!pointers&&(read_only||registered))
             m->resident=gpu_resident_acquire(m->lo,m->hi,immutable);
         if(m->resident) m->device=m->resident->device;
-        if(!m->staging||(!m->device&&p_cuMemAlloc(&m->device,bytes)!=CUDA_SUCCESS)) goto alloc_fail;
+        if(!m->resident)m->capacity_owner=gpu_capacity_acquire(bytes);
+        if(m->capacity_owner){m->device=m->capacity_owner->device;m->staging=m->capacity_owner->content;}
+        else m->staging=malloc(bytes);
+        if(!m->staging&&gpu_capacity_purge_idle())m->staging=malloc(bytes);
+        if(!m->staging||(!m->device&&gpu_device_allocate(&m->device,bytes)!=CUDA_SUCCESS)) goto alloc_fail;
     }
-    if(p->task_count && p_cuMemAlloc(&s->status,(size_t)p->task_count*sizeof(int32_t))!=CUDA_SUCCESS) goto alloc_fail;
+    if(p->task_count) {
+        s->status_capacity=gpu_capacity_acquire((size_t)p->task_count*sizeof(int32_t));
+        if(s->status_capacity)s->status=s->status_capacity->device;
+        else if(gpu_device_allocate(&s->status,(size_t)p->task_count*sizeof(int32_t))!=CUDA_SUCCESS)goto alloc_fail;
+    }
     for(int i=0;i<s->slots;++i) if(s->functions[i] &&
         (gpu_fault("stream",i)||p_cuStreamCreate(&s->streams[i],1)!=CUDA_SUCCESS)) goto alloc_fail;
     *out=s; return SGPL_GPU_DONE;
@@ -188,6 +217,9 @@ int32_t sgpl_gpu_upload(sgpl_gpu_invocation *s) {
     if(p_cuCtxSetCurrent(g_context)!=CUDA_SUCCESS||gpu_fault("upload",0)) return SGPL_GPU_ERR_EXEC;
     for(uint32_t i=0;i<s->mirror_count;++i) {
         gpu_mirror *m=&s->mirrors[i];size_t bytes=m->hi-m->lo;
+        // Only pointer-free mirrors can be resident. A valid device version
+        // needs neither a new upload nor a host staging copy/clear.
+        if(gpu_transfer_reduce_enabled()&&m->resident&&m->resident->valid)continue;
         if(m->flags&SGPL_GPU_BUFFER_READ) memcpy(m->staging,(void*)m->lo,bytes); else memset(m->staging,0,bytes);
     }
     for(uint32_t i=0;i<s->plan.relocation_count;++i) {
@@ -222,7 +254,12 @@ static int32_t gpu_invocation_submit(void *state,int64_t instance) {
     int64_t index=t->index;void *args[]={&root,&index,&status};
     if(p_cuCtxSetCurrent(g_context)!=CUDA_SUCCESS||gpu_fault("launch",instance)) return SGPL_GPU_ERR_EXEC;
     int spatial=!strncmp(t->kernel,"gpu_spatial_component_",22);
-    if(p_cuLaunchKernel(s->functions[instance],spatial?32:1,1,1,spatial?128:1,1,1,0,s->streams[instance],args,NULL)!=CUDA_SUCCESS)
+    size_t kernel_len=strlen(t->kernel);
+    int batch=spatial&&kernel_len>=9&&!strcmp(t->kernel+kernel_len-9,"_batch_v1");
+    uint32_t partitions=batch?(uint32_t)((uint64_t)index>>32):0;
+    if(partitions>INT32_MAX/32) return SGPL_GPU_ERR_INVALID;
+    unsigned blocks=partitions?32*partitions:(spatial?32:1);
+    if(p_cuLaunchKernel(s->functions[instance],blocks,1,1,spatial?128:1,1,1,0,s->streams[instance],args,NULL)!=CUDA_SUCCESS)
         return SGPL_GPU_ERR_EXEC;
     return SGPL_DAG_PENDING;
 }
@@ -232,7 +269,11 @@ static int32_t gpu_invocation_poll(void *state,int64_t instance) {
     CUresult sync=s->stream_query?s->stream_query(s->streams[instance]):CUDA_SUCCESS;
     if(sync==600) return SGPL_DAG_PENDING; /* CUDA_ERROR_NOT_READY */
     /* Join before reporting any failure. Pending peers are drained by the DAG. */
-    CUresult joined=p_cuStreamSynchronize(s->streams[instance]);
+    // CUDA_SUCCESS from cuStreamQuery certifies completion. Without a query
+    // function, or after a query error, retain the blocking drain.
+    int wait=!s->sync_elide||!s->stream_query||sync!=CUDA_SUCCESS;
+    if(s->sync_stats) __atomic_fetch_add(wait?&s->poll_waits:&s->poll_elided,1,__ATOMIC_RELAXED);
+    CUresult joined=wait?p_cuStreamSynchronize(s->streams[instance]):CUDA_SUCCESS;
     int rc=SGPL_GPU_DONE;
     CUdeviceptr status=s->status+(size_t)instance*sizeof(int32_t);
     if(sync!=CUDA_SUCCESS||joined!=CUDA_SUCCESS||gpu_fault("sync",instance)) rc=SGPL_GPU_ERR_EXEC;
@@ -246,10 +287,21 @@ int32_t sgpl_gpu_execute(sgpl_gpu_invocation *s) {
     if(!s||s->started) return SGPL_GPU_ERR_INVALID;
     s->started=1;
     if (!s->plan.task_count) { s->joined=1; return SGPL_GPU_DONE; }
+    for(uint32_t i=0;i<s->mirror_count;++i) if(s->mirrors[i].resident) {
+        ++s->mirrors[i].resident->active_uses;s->mirrors[i].resident->quiescent=0;
+    }
     sgpl_dag_template t={0};t.node_count=s->plan.task_count;t.node_fn=gpu_check_noop;
     t.relations=s->relations;t.relation_count=s->plan.relation_count;
     int rc=autograph_execute_dag_async(&t,s,gpu_invocation_submit,gpu_invocation_poll);
-    s->joined=1;s->failed=rc<0;return rc;
+    s->joined=1;s->failed=rc<0;
+    // Resident allocations belong to this thread's invocation cache. Successful
+    // DAG completion joins every device task, including explicit transfer epochs.
+    // Host reads still copy dirty data; only their redundant global wait goes.
+    for(uint32_t i=0;i<s->mirror_count;++i) if(s->mirrors[i].resident) {
+        gpu_resident *r=s->mirrors[i].resident;
+        --r->active_uses;r->quiescent=rc==0&&!r->active_uses;
+    }
+    return rc;
 }
 int32_t sgpl_gpu_download(sgpl_gpu_invocation *s) {
     if(!s||!s->uploaded||s->failed) return SGPL_GPU_ERR_INVALID;
@@ -284,6 +336,7 @@ int32_t sgpl_gpu_execute_plan(const sgpl_gpu_plan *p) {
 
 extern int32_t sgpl_gpu_export_graph(void *,void *) __attribute__((weak));
 extern int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *) __attribute__((weak));
+extern int32_t sgpl_gpu_spatial_preflight(const sgpl_exec_ctx *,int64_t *) __attribute__((weak));
 static int gpu_host_buffer_index(const sgpl_gpu_buffer *b,uint32_t nb,const void *pointer,uint64_t bytes,uint64_t *offset) {
     uintptr_t address=(uintptr_t)pointer;
     for(uint32_t i=0;i<nb;++i) {
@@ -294,51 +347,56 @@ static int gpu_host_buffer_index(const sgpl_gpu_buffer *b,uint32_t nb,const void
     }
     return -1;
 }
-static int gpu_pointer_buffer(sgpl_gpu_buffer *b,uint32_t *nb,sgpl_gpu_relocation *r,uint32_t *nr,
-    uint32_t owner,uint64_t offset,uint64_t bytes) {
+static int gpu_pointer_buffer_access(sgpl_gpu_buffer *b,uint32_t *nb,sgpl_gpu_relocation *r,uint32_t *nr,
+    uint32_t owner,uint64_t offset,uint64_t bytes,uint32_t flags) {
     void *pointer=NULL;memcpy(&pointer,(uint8_t*)b[owner].host+offset,sizeof(pointer));
     if(!pointer) return 0;
     for(uint32_t i=0;i<*nb;++i) {
         uintptr_t base=(uintptr_t)b[i].host,p=(uintptr_t)pointer;
         if(p>=base && p-base<b[i].bytes && (!bytes||bytes<=b[i].bytes-(p-base))) {
-            b[i].flags=(b[i].flags&~SGPL_GPU_BUFFER_LAYOUT)|SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_WRITE;
+            b[i].flags|=flags;if(b[i].flags&SGPL_GPU_BUFFER_WRITE)b[i].flags&=~SGPL_GPU_BUFFER_LAYOUT;
             r[(*nr)++]=(sgpl_gpu_relocation){owner,i,offset,p-base};return 0;
         }
     }
     if(!bytes) bytes=gpu_known_extent(pointer);
     if(!bytes) return -1;
-    uint32_t target=(*nb)++;b[target]=(sgpl_gpu_buffer){pointer,bytes,3};
+    uint32_t target=(*nb)++;b[target]=(sgpl_gpu_buffer){pointer,bytes,flags};
     r[(*nr)++]=(sgpl_gpu_relocation){owner,target,offset,0};return 0;
 }
+static int gpu_pointer_buffer(sgpl_gpu_buffer *b,uint32_t *nb,sgpl_gpu_relocation *r,uint32_t *nr,
+    uint32_t owner,uint64_t offset,uint64_t bytes) {
+    return gpu_pointer_buffer_access(b,nb,r,nr,owner,offset,bytes,3);
+}
 static int gpu_context_buffers(sgpl_exec_ctx *c,uint32_t target,sgpl_gpu_buffer *b,uint32_t *nb,
-    sgpl_gpu_relocation *r,uint32_t *nr) {
-    if(!sgpl_gpu_prepare_spatial_records||sgpl_gpu_prepare_spatial_records(c)<0||c->spatial_snapshot_count>64) return -1;
+    sgpl_gpu_relocation *r,uint32_t *nr,int prepared,int readonly_metadata) {
+    if(!sgpl_gpu_prepare_spatial_records||(!prepared&&sgpl_gpu_prepare_spatial_records(c)<0)||c->spatial_snapshot_count>64) return -1;
     uint64_t n=c->gpu_vertex_count,p=c->gpu_partition_count;
     if(p>64||c->op_count>64) return -1;
     if(c->dest_seen && !c->spatial_frontier_lanes && !c->array_append_sites) return -1;
     if(n>SIZE_MAX/4 || (n && p>SIZE_MAX/(n*4))) return -1;
 #define GPU_CTX(F,BYTES) do {if(gpu_pointer_buffer(b,nb,r,nr,target,offsetof(sgpl_exec_ctx,F),(BYTES))<0) return -1;}while(0)
-    GPU_CTX(gpu_records,c->gpu_record_count?c->gpu_record_count*12:4);
-    GPU_CTX(gpu_record_offsets,(p+1)*8);
-    GPU_CTX(gpu_record_sources,c->gpu_record_count?c->gpu_record_count*8:8);
-    GPU_CTX(gpu_record_work,c->gpu_record_count?c->gpu_record_count*8:8);
+#define GPU_CTX_RO(F,BYTES,FLAGS) do {if(gpu_pointer_buffer_access(b,nb,r,nr,target,offsetof(sgpl_exec_ctx,F),(BYTES),(FLAGS))<0)return -1;}while(0)
+    GPU_CTX_RO(gpu_records,c->gpu_record_count?c->gpu_record_count*12:4,SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT);
+    GPU_CTX_RO(gpu_record_offsets,(p+1)*8,SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT);
+    GPU_CTX_RO(gpu_record_sources,c->gpu_record_count?c->gpu_record_count*8:8,SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT);
+    GPU_CTX_RO(gpu_record_work,c->gpu_record_count?c->gpu_record_count*8:8,SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT);
     GPU_CTX(array_append_log,c->array_append_sites?(c->array_work_count?c->array_work_count:1)*c->array_append_sites*8:0);
-    GPU_CTX(gpu_group_offsets,(c->gpu_group_count+1)*8);
-    GPU_CTX(gpu_partition_groups,(p+1)*8);
+    GPU_CTX_RO(gpu_group_offsets,(c->gpu_group_count+1)*8,SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT);
+    GPU_CTX_RO(gpu_partition_groups,(p+1)*8,SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT);
     GPU_CTX(gpu_group_times,c->gpu_group_count*24);
-    /* These are immutable layout inputs, never device outputs. */
-    for(uint32_t i=0;i<*nb;++i) if(b[i].host==c->gpu_records||b[i].host==c->gpu_record_offsets||
-        b[i].host==c->gpu_record_sources||b[i].host==c->gpu_record_work||b[i].host==c->gpu_group_offsets||b[i].host==c->gpu_partition_groups) b[i].flags=SGPL_GPU_BUFFER_READ|SGPL_GPU_BUFFER_LAYOUT;
-    GPU_CTX(membership,n);GPU_CTX(dest_seen,n*4);GPU_CTX(next_frontier,n*4);
+    // Compiler-owned spatial metadata and private snapshots are read-only;
+    // pointee effects remain separate. Aliased writers upgrade the union.
+    uint32_t metadata_flags=readonly_metadata?SGPL_GPU_BUFFER_READ:3;
+    GPU_CTX_RO(membership,n,metadata_flags);GPU_CTX(dest_seen,n*4);GPU_CTX(next_frontier,n*4);
     GPU_CTX(append_head,4);GPU_CTX(partition_base,p*c->partition_stride);
     GPU_CTX(spatial_source_gate,c->array_append_sites?c->array_source_count+1:n);GPU_CTX(spatial_lane_seen,n*p*4);GPU_CTX(spatial_groups_seen,n);
-    GPU_CTX(execution_error,4);GPU_CTX(spatial_snapshots,c->spatial_snapshot_count*8);
+    GPU_CTX(execution_error,4);GPU_CTX_RO(spatial_snapshots,c->spatial_snapshot_count*8,metadata_flags);
     GPU_CTX(spatial_claims,c->gpu_claim_bytes);
     if(c->gpu_private_targets) {
         uint32_t ns=c->gpu_private_scalars,na=c->gpu_private_arrays;
         if(ns>8||na>8||!c->gpu_private_element_bytes||!c->partition_base||
            c->partition_stride<(int64_t)(8*(ns+na))) return -1;
-        GPU_CTX(gpu_private_targets,8*(ns+2*na));
+        GPU_CTX_RO(gpu_private_targets,8*(ns+2*na),metadata_flags);
         uint64_t targets_offset=0,records_offset=0;
         int targets=gpu_host_buffer_index(b,*nb,c->gpu_private_targets,8*(ns+2*na),&targets_offset);
         int records=gpu_host_buffer_index(b,*nb,c->partition_base,p*c->partition_stride,&records_offset);
@@ -367,19 +425,20 @@ static int gpu_context_buffers(sgpl_exec_ctx *c,uint32_t target,sgpl_gpu_buffer 
     }
     if(c->spatial_snapshots) {
         uint64_t offset=0;int table=gpu_host_buffer_index(b,*nb,c->spatial_snapshots,c->spatial_snapshot_count*8,&offset);if(table<0)return -1;
-        for(int i=0;i<c->spatial_snapshot_count;++i) if(gpu_pointer_buffer(b,nb,r,nr,table,offset+i*8,c->spatial_snapshot_bytes[i])<0) return -1;
+        for(int i=0;i<c->spatial_snapshot_count;++i) if(gpu_pointer_buffer_access(b,nb,r,nr,table,offset+i*8,c->spatial_snapshot_bytes[i],metadata_flags)<0) return -1;
     }
-    GPU_CTX(ops,c->op_count*sizeof(sgpl_runtime_op));uint64_t ops_offset=0;
+    GPU_CTX_RO(ops,c->op_count*sizeof(sgpl_runtime_op),metadata_flags);uint64_t ops_offset=0;
     int ops=gpu_host_buffer_index(b,*nb,c->ops,c->op_count*sizeof(sgpl_runtime_op),&ops_offset);
     if(c->op_count&&ops<0) return -1;
     for(uint32_t i=0;i<c->op_count;++i)
         if(gpu_pointer_buffer(b,nb,r,nr,ops,ops_offset+i*sizeof(sgpl_runtime_op)+offsetof(sgpl_runtime_op,state),0)<0) return -1;
 #undef GPU_CTX
+#undef GPU_CTX_RO
     return 0;
 }
 static int32_t gpu_callback_prepare(const char *kernel,void **frames,uint64_t bytes,uint32_t roots,
     const sgpl_gpu_field *fields,uint32_t count,sgpl_gpu_task *work,int32_t tasks,int32_t budget,
-    const sgpl_dag_relation_desc *edges,int32_t edge_count,uint32_t schedule,uint32_t scope,sgpl_gpu_invocation **out) {
+    const sgpl_dag_relation_desc *edges,int32_t edge_count,uint32_t schedule,uint32_t scope,sgpl_gpu_invocation **out,sgpl_exec_ctx *prepared) {
     *out=NULL;
     if(!frames||!roots||!bytes||(count&&!fields)||tasks<0||count>4096||roots>4096/(count?count:1)) return SGPL_GPU_ERR_INVALID;
     uint32_t capacity=roots*(1+count*1024),nb=0,nr=0;
@@ -407,7 +466,9 @@ static int32_t gpu_callback_prepare(const char *kernel,void **frames,uint64_t by
         if(kind==SGPL_GPU_FIELD_CONTEXT) {
             ((sgpl_exec_ctx*)pointer)->gpu_parallel_fold=!strncmp(kernel,"gpu_spatial_component_f_",24);
             buffers[nb++]=(sgpl_gpu_buffer){pointer,sizeof(sgpl_exec_ctx),3};
-            if(gpu_context_buffers(pointer,target,buffers,&nb,rel,&nr)<0) goto done;
+            size_t len=strlen(kernel);
+            int readonly_metadata=gpu_transfer_reduce_enabled()&&len>=9&&!strcmp(kernel+len-9,"_batch_v1");
+            if(gpu_context_buffers(pointer,target,buffers,&nb,rel,&nr,pointer==prepared,readonly_metadata)<0) goto done;
             int64_t amount=((sgpl_exec_ctx*)pointer)->gpu_record_count;
             estimated_work=amount>INT64_MAX-estimated_work?INT64_MAX:estimated_work+amount;
         } else if(kind==SGPL_GPU_FIELD_GRAPH||kind==SGPL_GPU_FIELD_GRAPH_POINTER) {
@@ -479,7 +540,7 @@ int32_t sgpl_gpu_callback_execute_scope(const char *kernel,void *frame,uint64_t 
     if(tasks==0) return 0;
     sgpl_gpu_task *work=calloc(tasks,sizeof(*work));if(!work) return SGPL_GPU_UNAVAILABLE;
     for(int i=0;i<tasks;++i) work[i]=(sgpl_gpu_task){.index=i};
-    sgpl_gpu_invocation *s=NULL;int rc=gpu_callback_prepare(kernel,&frame,bytes,1,fields,count,work,tasks,budget,NULL,0,schedule,scope,&s);
+    sgpl_gpu_invocation *s=NULL;int rc=gpu_callback_prepare(kernel,&frame,bytes,1,fields,count,work,tasks,budget,NULL,0,schedule,scope,&s,NULL);
     free(work);
     if(rc) return rc==SGPL_GPU_ERR_INVALID?rc:SGPL_GPU_UNAVAILABLE;
     rc=sgpl_gpu_upload(s);
@@ -561,7 +622,7 @@ int32_t sgpl_gpu_round_spatial_execute(const sgpl_round_spatial_plan *p,int32_t 
         }
         if(!batches) GPU_EDGE(upload,download);
 #undef GPU_EDGE
-        if(!rc) rc=gpu_callback_prepare(kernel,frames,bytes,live,field_data,field_count,tasks,ntasks,0,edges,ne,SGPL_GPU_ROUND_SPATIAL,SGPL_TEMPORAL_ROUND,&window.device);
+        if(!rc) rc=gpu_callback_prepare(kernel,frames,bytes,live,field_data,field_count,tasks,ntasks,0,edges,ne,SGPL_GPU_ROUND_SPATIAL,SGPL_TEMPORAL_ROUND,&window.device,NULL);
         if(!rc) {started=1;rc=sgpl_gpu_execute(window.device);}
         sgpl_gpu_release(window.device);
         for(int r=0;r<reserved;++r) p->release(frames[r]);
@@ -601,22 +662,51 @@ int32_t sgpl_gpu_spatial_execute(sgpl_exec_ctx *ctx,const char *kernel,const voi
     if(!ctx||nglobals>4096) return SGPL_GPU_ERR_INVALID;
     ctx->gpu_parallel_fold=!strncmp(kernel,"gpu_spatial_component_f_",24);
     if(!sgpl_exec_spatial_begin||!sgpl_exec_spatial_publish||!sgpl_exec_spatial_finish) return SGPL_GPU_UNAVAILABLE;
+    const char *early=getenv("SGPL_GPU_EARLY_REJECT");
+    if((!early||strcmp(early,"0"))&&sgpl_gpu_spatial_preflight) {
+        const sgpl_gpu_field *descriptors=fields;
+        int64_t work=-1;int refuse=sgpl_gpu_spatial_preflight(ctx,&work),contexts=0,shape=(fields||!count)&&count<=4096;
+        uint64_t frame_bytes=8+(uint64_t)nglobals*8;
+        for(uint32_t i=0;shape&&i<count;++i) {
+            uint32_t kind=descriptors[i].kind&~SGPL_GPU_FIELD_READ_ONLY;
+            if(kind>SGPL_GPU_FIELD_GRAPH_POINTER||descriptors[i].offset>frame_bytes-8||
+               kind==SGPL_GPU_FIELD_GRAPH||kind==SGPL_GPU_FIELD_GRAPH_POINTER)shape=0;
+            if(kind==SGPL_GPU_FIELD_CONTEXT){++contexts;if(descriptors[i].offset!=0)shape=0;}
+        }
+        int64_t minimum=getenv("SGPL_GPU_MIN_TRIPS")?atoll(getenv("SGPL_GPU_MIN_TRIPS")):4096;
+        // A zero count uses the task-count fallback in the retained gate. Leave
+        // that case, unknown counts, and multi-context descriptors to that gate.
+        if(shape&&contexts==1&&(refuse||(work>0&&sgpl_gpu_policy_verdict(work,0,0,minimum,8192)!=SGPL_GPU_OFFLOAD))) {
+            if(getenv("SGPL_GPU_DEBUG"))fprintf(stderr,"[gpu-capability] existing early gate work=%lld; CPU before preparation\n",(long long)work);
+            return SGPL_GPU_UNAVAILABLE;
+        }
+    }
     if(!sgpl_gpu_prepare_spatial_records||sgpl_gpu_prepare_spatial_records(ctx)<0) return SGPL_GPU_UNAVAILABLE;
     int p=ctx->gpu_partition_count;if(p<1) return SGPL_GPU_UNAVAILABLE;
+    // This executor constructs an independent antichain between upload/join.
+    // A versioned compiler kernel is required; old kernels keep their old ABI.
+    size_t kernel_len=strlen(kernel);const char *batch_env=getenv("SGPL_GPU_BATCH");
+    int batch=kernel_len>=9&&!strcmp(kernel+kernel_len-9,"_batch_v1")&&
+        (!batch_env||strcmp(batch_env,"0"))&&p<=INT32_MAX/32;
+    int launches=batch?1:p;
     uint64_t bytes=8+(uint64_t)nglobals*8;void **frame=calloc(nglobals+1,8);
-    sgpl_gpu_task *tasks=calloc(p+4,sizeof(*tasks));sgpl_dag_relation_desc *edges=calloc(2*p+3,sizeof(*edges));
+    sgpl_gpu_task *tasks=calloc(launches+4,sizeof(*tasks));sgpl_dag_relation_desc *edges=calloc(2*launches+3,sizeof(*edges));
     if(!frame||!tasks||!edges) {free(frame);free(tasks);free(edges);return SGPL_GPU_UNAVAILABLE;}
     frame[0]=ctx;for(uint32_t i=0;i<nglobals;++i) frame[i+1]=globals[i];
     gpu_spatial_run run={ctx,NULL,0};int ne=0;
     tasks[0]=(sgpl_gpu_task){.host_fn=gpu_spatial_setup,.host_state=&run};
     tasks[1]=(sgpl_gpu_task){.host_fn=gpu_spatial_upload,.host_state=&run};
-    tasks[p+2]=(sgpl_gpu_task){.host_fn=gpu_spatial_download,.host_state=&run};
-    tasks[p+3]=(sgpl_gpu_task){.host_fn=gpu_spatial_finish,.host_state=&run};
+    tasks[launches+2]=(sgpl_gpu_task){.host_fn=gpu_spatial_download,.host_state=&run};
+    tasks[launches+3]=(sgpl_gpu_task){.host_fn=gpu_spatial_finish,.host_state=&run};
 #define SPATIAL_GPU_EDGE(A,B) do {edges[ne++]=(sgpl_dag_relation_desc){.source_node=(A),.sink_node=(B),.flags=SGPL_DAG_REL_FLAG_REALIZATION,.axis_mask=SGPL_DAG_AXIS_SPATIAL};}while(0)
-    SPATIAL_GPU_EDGE(0,1);SPATIAL_GPU_EDGE(p+2,p+3);
-    for(int i=0;i<p;++i) {tasks[i+2]=(sgpl_gpu_task){.index=i};SPATIAL_GPU_EDGE(1,i+2);SPATIAL_GPU_EDGE(i+2,p+2);}
+    SPATIAL_GPU_EDGE(0,1);SPATIAL_GPU_EDGE(launches+2,launches+3);
+    for(int i=0;i<launches;++i) {
+        tasks[i+2]=(sgpl_gpu_task){.index=batch?(int64_t)((uint64_t)(uint32_t)p<<32):i};
+        SPATIAL_GPU_EDGE(1,i+2);SPATIAL_GPU_EDGE(i+2,launches+2);
+    }
 #undef SPATIAL_GPU_EDGE
-    int rc=gpu_callback_prepare(kernel,(void**)&frame,bytes,1,fields,count,tasks,p+4,budget,edges,ne,SGPL_GPU_SPATIAL,0,&run.device);
+    if(getenv("SGPL_GPU_DEBUG")) fprintf(stderr,"[gpu-batch] partitions=%d launches=%d enabled=%d\n",p,launches,batch);
+    int rc=gpu_callback_prepare(kernel,(void**)&frame,bytes,1,fields,count,tasks,launches+4,budget,edges,ne,SGPL_GPU_SPATIAL,0,&run.device,ctx);
     if(!rc) rc=sgpl_gpu_execute(run.device);else rc=SGPL_GPU_UNAVAILABLE;
     sgpl_gpu_release(run.device);free(frame);free(tasks);free(edges);return rc;
 }

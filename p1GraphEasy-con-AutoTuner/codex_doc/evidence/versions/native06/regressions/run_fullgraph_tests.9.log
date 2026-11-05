@@ -1,0 +1,1878 @@
+In file included from test/fullgraph_test.c:3:
+test/spatial_exec_test.c: In function ‘batch_begin’:
+test/spatial_exec_test.c:101:66: warning: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  101 |     while (atomic_load(&s->arrived) < 2 && time_seconds() < end) usleep(100);
+      |                                                                  ^~~~~~
+      |                                                                  sleep
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=35406 pure_kernel_ms=0.035406
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4111
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=35224 pure_kernel_ms=0.035224
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=3849
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=25760 pure_kernel_ms=0.025760
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=3334
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=137078 pure_kernel_ms=0.137078
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4365
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=164155 pure_kernel_ms=0.164155
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4768
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=197379 pure_kernel_ms=0.197379
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=5768
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1801880 pure_kernel_ms=1.801880
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=5687
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1477198 pure_kernel_ms=1.477198
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=5363
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1612181 pure_kernel_ms=1.612181
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4900
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+In file included from test/fullgraph_test.c:3:
+test/spatial_exec_test.c: In function ‘batch_begin’:
+test/spatial_exec_test.c:101:66: warning: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  101 |     while (atomic_load(&s->arrived) < 2 && time_seconds() < end) usleep(100);
+      |                                                                  ^~~~~~
+      |                                                                  sleep
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=935792 pure_kernel_ms=0.935792
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=289038
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=931487 pure_kernel_ms=0.931487
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=241597
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=892575 pure_kernel_ms=0.892575
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=213592
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1697275 pure_kernel_ms=1.697275
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=286726
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=2269099 pure_kernel_ms=2.269099
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=309731
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1476049 pure_kernel_ms=1.476049
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=265594
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=3647607 pure_kernel_ms=3.647607
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=294057
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=3780763 pure_kernel_ms=3.780763
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=319759
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=3704823 pure_kernel_ms=3.704823
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=330840
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+In file included from test/fullgraph_test.c:3:
+test/spatial_exec_test.c: In function ‘batch_begin’:
+test/spatial_exec_test.c:101:66: warning: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  101 |     while (atomic_load(&s->arrived) < 2 && time_seconds() < end) usleep(100);
+      |                                                                  ^~~~~~
+      |                                                                  sleep
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=25495 pure_kernel_ms=0.025495
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=3564
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=25605 pure_kernel_ms=0.025605
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=3747
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=28672 pure_kernel_ms=0.028672
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4528
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=100401 pure_kernel_ms=0.100401
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4174
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=101406 pure_kernel_ms=0.101406
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=4052
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=127067 pure_kernel_ms=0.127067
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=5725
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1207613 pure_kernel_ms=1.207613
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=6426
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1435448 pure_kernel_ms=1.435448
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=5808
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1498704 pure_kernel_ms=1.498704
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=5299
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   reuse context recomputes stable source values
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   one source map per round
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   bind eligible incoming traversal or transactional allocation fallback
+  ok   complete generic and incoming operations
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   map runs only after source gates and never after invalidation/fallback
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   vertex-span publication fails before touching old context storage
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   unsupported layout retains generic operation
+  ok   execute layout fallback
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   empty graph invokes no map or pair operation
+full graph contracts: 0 failures
+PASS stable incoming occurrences, lifecycle, exact rounding and fallbacks
+PASS fullgraph activation/refusal and differential eligible
+PASS fullgraph activation/refusal and differential alias
+PASS fullgraph activation/refusal and differential source_write
+PASS fullgraph activation/refusal and differential opaque
+PASS fullgraph activation/refusal and differential partial

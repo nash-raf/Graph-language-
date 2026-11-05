@@ -561,7 +561,10 @@ static bool emitRoundSpatial(NeighborLoopInfo &Info, const RoundDomain &R) {
     IRBuilder<> DB(Dispatch); Value *Graph = temporalPrepare(DB, Info);
     Value *RequestedParts = gpuBackendSelected(M) ? static_cast<Value *>(DB.CreateCall(M->getOrInsertFunction(
         "autograph_gpu_clean_cut_partitions", FunctionType::get(I32, false)))) : DB.getInt32(0);
-    Value *PartCount = DB.CreateCall(M->getOrInsertFunction("autograph_build_clean_cut", FunctionType::get(I32, {Ptr, I32}, false)), {Graph, RequestedParts});
+    Value *PartCount = DB.CreateCall(M->getOrInsertFunction(
+        gpuBackendSelected(M) ? "autograph_build_clean_cut" : "autograph_build_layout_batches",
+        FunctionType::get(I32, {Ptr, I32}, false)), {Graph, RequestedParts});
+    if(!gpuBackendSelected(M))cast<CallInst>(PartCount)->setMetadata("sgpl.layout.round",MDNode::get(C,{}));
     Value *First32 = R.Phi ? R.Start : DB.CreateLoad(I32, R.Counter);
     Value *Bound32 = roundExternalValue(DB, R.Bound, R);
     Value *First = DB.CreateSExt(First32, I64), *Bound = DB.CreateSExt(Bound32, I64);

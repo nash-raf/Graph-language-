@@ -99,6 +99,7 @@ namespace
     Value *graphPtr = nullptr;
     double execMultiplier = 1.0;
     Instruction *phase = nullptr;
+    Instruction *executionEnd = nullptr;
   };
 
   struct Region
@@ -110,6 +111,7 @@ namespace
     uint64_t totalOps = 0;
     double execCount = 1.0;
     Instruction *phase = nullptr;
+    Instruction *executionEnd = nullptr;
     unsigned allowedLayouts = (1u << LAYOUT_COUNT) - 1;
   };
 
@@ -1420,6 +1422,8 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
     if (const auto *CB = dyn_cast<CallBase>(I))
       if (const Function *Callee = CB->getCalledFunction())
         if (Callee && (Callee->getName() == "autograph_frontier_execute" ||
+                       Callee->getName() == "autograph_build_layout_batches" ||
+                       Callee->getName() == "autograph_frontier_staged" ||
                        Callee->getName() == "autograph_frontier_fork_join" ||
                        Callee->getName() == "autograph_edgemap"))
           return true;
@@ -1698,7 +1702,23 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         StringRef name = Callee->getName();
         RegionType ty;
         bool usesGraphArg0 = false;
-        if (!classifyCall(name, ty, usesGraphArg0))
+        if(name=="autograph_build_layout_batches"&&CB->getMetadata("sgpl.layout.round")) {
+          Value *G=finalizeGraphPtr(resolveGraphPtr(CB->getArgOperand(0)));
+          CallInst *End=nullptr;
+          for(Instruction *Next=I.getNextNode();Next;Next=Next->getNextNode())
+            if(auto *Call=dyn_cast<CallInst>(Next))if(auto *Fn=Call->getCalledFunction())
+              if(Fn->getName()=="sgpl_exec_dag_round_spatial"){End=Call;break;}
+          if(!G||!End)report_fatal_error("AutoTuner: native round lacks its layout/execution boundary");
+          events.push_back({RegionType::Traverse,CB,G,counts.multiplier(&BB),nullptr,End});
+          continue;
+        }
+        bool NativeStaged=false;
+        if(name=="autograph_frontier_staged"&&CB->arg_size()>1)
+          if(auto *Create=dyn_cast<CallInst>(CB->getArgOperand(1)))
+            for(User *U:Create->users())if(auto *Call=dyn_cast<CallInst>(U))
+              if(auto *Fn=Call->getCalledFunction())NativeStaged|=Fn->getName()=="autograph_exec_ctx_bind_layout";
+        if(NativeStaged){ty=RegionType::Traverse;usesGraphArg0=true;}
+        else if (!classifyCall(name, ty, usesGraphArg0))
           continue;
 
         Value *graphPtr = nullptr;
@@ -1736,7 +1756,27 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         {
           Loop *Phase = counts.traversalPhase(&BB);
           Instruction *Anchor = Phase ? counts.phaseAnchor(Phase) : CB;
-          events.push_back({ty, Anchor, graphPtr, mult, Phase ? Anchor : nullptr});
+          Instruction *ExecutionEnd=nullptr;
+          /* A native executor binds layout-dependent state during preparation.
+           * Convert before the dominating batch construction, and retain the
+           * original execution call as the end of the profiled region. */
+          if(!Phase&&isCleanCutStepCall(CB)&&CB->arg_size()>1) {
+            auto *Create=dyn_cast<CallInst>(CB->getArgOperand(1));
+            bool Native=false;
+            if(Create)for(User *U:Create->users())if(auto *Call=dyn_cast<CallInst>(U))
+              if(auto *Fn=Call->getCalledFunction())
+                Native|=Fn->getName()=="autograph_exec_ctx_prepare_layout"||Fn->getName()=="autograph_exec_ctx_bind_layout";
+            if(Native) {
+              DominatorTree DT(F);CallInst *Build=nullptr;
+              for(BasicBlock &Block:F)for(Instruction &Inst:Block)if(auto *Call=dyn_cast<CallInst>(&Inst))
+                if(auto *Fn=Call->getCalledFunction())if(Fn->getName()=="autograph_build_layout_batches"&&
+                    canonicalize(resolveGraphPtr(Call->getArgOperand(0)))==graphPtr&&DT.dominates(Call,Create)&&
+                    (!Build||DT.dominates(Build,Call)))Build=Call;
+              if(!Build)report_fatal_error("AutoTuner: native execution lacks a dominating layout batch boundary");
+              Anchor=Build;ExecutionEnd=CB;
+            }
+          }
+          events.push_back({ty, Anchor, graphPtr, mult, Phase ? Anchor : nullptr,ExecutionEnd});
         }
       }
     }
@@ -1765,6 +1805,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
         cur.anchor = ev.call;
         cur.graphPtr = ev.graphPtr;
         cur.phase = ev.phase;
+        cur.executionEnd = ev.executionEnd;
         regions.push_back(cur);
         if (ev.phase)
           phases[ev.phase] = index;
@@ -2001,7 +2042,7 @@ total += conversionCost(current, LAYOUT_CSR, estN, estM, hw);
        * (the step executes mid-function, not at a loop exit). */
       if (isCleanCutStepCall(R.anchor))
       {
-        auto *StepCI = cast<CallInst>(R.anchor);
+        auto *StepCI = cast<CallInst>(R.executionEnd ? R.executionEnd : R.anchor);
         IRBuilder<> BAfter(StepCI->getNextNode());
         BAfter.CreateCall(profileExitFn,
                           {ConstantInt::get(i32Ty, regionId)});

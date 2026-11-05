@@ -1,0 +1,6 @@
+{
+  "completed": 244,
+  "total": 244,
+  "algorithm": "pagerank",
+  "graph": "soc/soc-slashdot.edges"
+}

@@ -1,0 +1,12 @@
+PASS spatial_source: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_destination: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_snapshot: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_source_acc: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_d_private: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_claim_destination: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_global_fold: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS spatial_source_frontier: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS gpu_resident_iterations: all 16 feature subsets equal CPU reference; driver fallback equal
+PASS gpu_resident_swap: all 16 feature subsets equal CPU reference; driver fallback equal
+/home/kazi/p1_layout_native_20261105/versions/native06/src/test/run_gpu_four_tests.sh: line 57: 15540 Aborted                 env SGPL_NUM_THREADS=4 SGPL_GPU_MIN_TRIPS=0 SGPL_GPU_FAIL=launch:2 timeout 90 "$TMP/spatial_source.gpu" > "$TMP/failure.out" 2> "$TMP/failure.err"
+PASS early existing threshold and post-setup launch failure without replay

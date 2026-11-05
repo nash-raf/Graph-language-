@@ -1,0 +1,212 @@
+[
+  {
+    "suite": "run_spatial_exec_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 7.849514007568359,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_spatial_exec_tests.0.log"
+  },
+  {
+    "suite": "run_array_frontier_exec_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 18.491254329681396,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_array_frontier_exec_tests.1.log"
+  },
+  {
+    "suite": "run_round_spatial_exec_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 10.401667833328247,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_round_spatial_exec_tests.2.log"
+  },
+  {
+    "suite": "run_spatial_static_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 24.22203254699707,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_spatial_static_tests.3.log"
+  },
+  {
+    "suite": "run_spatial_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 43.04794931411743,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_spatial_tests.4.log"
+  },
+  {
+    "suite": "run_array_frontier_lowering_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 19.296154022216797,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_array_frontier_lowering_tests.5.log"
+  },
+  {
+    "suite": "run_round_spatial_lowering_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 118.81985640525818,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_round_spatial_lowering_tests.6.log"
+  },
+  {
+    "suite": "run_context_copy_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 26.590165376663208,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_context_copy_tests.7.log"
+  },
+  {
+    "suite": "run_execution_simplify_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 41.58763575553894,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_execution_simplify_tests.8.log"
+  },
+  {
+    "suite": "run_fullgraph_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 56.00153613090515,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_fullgraph_tests.9.log"
+  },
+  {
+    "suite": "run_relax_simplify_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 58.91240739822388,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_relax_simplify_tests.10.log"
+  },
+  {
+    "suite": "run_frontier_simplify_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 50.955296754837036,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_frontier_simplify_tests.11.log"
+  },
+  {
+    "suite": "run_array_preparation_exec_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 10.854783058166504,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_array_preparation_exec_tests.12.log"
+  },
+  {
+    "suite": "run_array_frontier_lease_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 28.970999240875244,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_array_frontier_lease_tests.13.log"
+  },
+  {
+    "suite": "run_graph_loader_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 11.554608345031738,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_graph_loader_tests.14.log"
+  },
+  {
+    "suite": "run_parallel_claims_tests",
+    "exit_code": 134,
+    "elapsed_seconds": 10.947357416152954,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_parallel_claims_tests.15.log"
+  },
+  {
+    "suite": "run_round_spatial_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 19.22064185142517,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_round_spatial_tests.16.log"
+  },
+  {
+    "suite": "run_temporal_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 12.824634313583374,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_temporal_tests.17.log"
+  },
+  {
+    "suite": "run_temporal_waw_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 19.043943405151367,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_temporal_waw_tests.18.log"
+  },
+  {
+    "suite": "run_static_schedule_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 29.43996834754944,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_static_schedule_tests.19.log"
+  },
+  {
+    "suite": "run_empty_partition_effects_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 25.795917749404907,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_empty_partition_effects_tests.20.log"
+  },
+  {
+    "suite": "run_effect_fusion_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 235.61579775810242,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_effect_fusion_tests.21.log"
+  },
+  {
+    "suite": "run_general_frontier_optimization_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 85.26576828956604,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_general_frontier_optimization_tests.22.log"
+  },
+  {
+    "suite": "run_program_array_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 14.968734502792358,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_program_array_tests.23.log"
+  },
+  {
+    "suite": "run_gpu_four_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 71.22494220733643,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_four_tests.24.log"
+  },
+  {
+    "suite": "run_gpu_batch_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 60.38858938217163,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_batch_tests.25.log"
+  },
+  {
+    "suite": "run_gpu_sync_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 1.1821033954620361,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_sync_tests.26.log"
+  },
+  {
+    "suite": "run_gpu_storage_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 5.933476686477661,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_storage_tests.27.log"
+  },
+  {
+    "suite": "run_gpu_invocation_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 22.807102918624878,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_invocation_tests.28.log"
+  },
+  {
+    "suite": "run_gpu_ir_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 66.60780644416809,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_ir_tests.29.log"
+  },
+  {
+    "suite": "run_gpu_schedule_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 55.13557004928589,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_schedule_tests.30.log"
+  },
+  {
+    "suite": "run_round_spatial_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 19.657375812530518,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_round_spatial_tests.31.log"
+  },
+  {
+    "suite": "run_parallel_claims_remaining_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 23.48307180404663,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_parallel_claims_remaining_tests.32.log"
+  },
+  {
+    "suite": "run_gpu_batch_tests",
+    "exit_code": 0,
+    "elapsed_seconds": 66.12687969207764,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_gpu_batch_tests.33.log"
+  },
+  {
+    "suite": "run_temporal_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 14.62433409690857,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_temporal_tests.34.log"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "path": "test/round_spatial_generated_probe.c",
+    "original": "9c8cc8475743306eb8601c5b392e177216e40be0f3b78fd50dcb0c2ec1c385ab",
+    "updated": "4267f63841a2420ba96eeae55dcc0ee19c2c31ac8c696114b72a0e3a4dbd5e69",
+    "reason": "Keep the same two-partition overlap probe by wrapping the new batch API too"
+  },
+  {
+    "path": "test/run_round_spatial_tests.sh",
+    "original": "740a5ac7748c0dedc170b6f74ec81d2fcddcff0cf37a3774084429b338e1549f",
+    "updated": "eeddf2bc6621c26eef53c5e4952ee02ba59c1c59b750a1aa398d971f671998e2",
+    "reason": "Keep the same two-partition overlap probe by wrapping the new batch API too"
+  }
+]

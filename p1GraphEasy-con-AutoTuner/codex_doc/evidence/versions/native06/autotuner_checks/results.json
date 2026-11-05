@@ -1,0 +1,26 @@
+[
+  {
+    "test": "test_autotuner_frequency",
+    "exit_code": 1,
+    "seconds": 40.934285402297974,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/autotuner_checks/test_autotuner_frequency.log"
+  },
+  {
+    "test": "test_autotuner_frequency",
+    "exit_code": 0,
+    "seconds": 37.14415740966797,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/autotuner_checks/test_autotuner_frequency.1.log"
+  },
+  {
+    "test": "test_autotuner_iterator_phases",
+    "exit_code": 0,
+    "seconds": 15.185715198516846,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/autotuner_checks/test_autotuner_iterator_phases.2.log"
+  },
+  {
+    "test": "test_layout_cost_model",
+    "exit_code": 0,
+    "seconds": 8.870076417922974,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/autotuner_checks/test_layout_cost_model.3.log"
+  }
+]

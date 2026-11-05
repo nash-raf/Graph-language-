@@ -207,6 +207,7 @@ def main():
             assert all(math.isclose(a, b, rel_tol=1e-9) for a, b in zip(costs, expected)), (name, costs, expected)
             if lower:
                 assert ("call i32 @autograph_build_clean_cut" in ir or
+                        "call i32 @autograph_build_layout_batches" in ir or
                         "call i32 @autograph_exec_ctx_prepare_spatial" in ir), name
                 assert "call i32 @autograph_frontier_execute" in ir, name
                 # Current effect lowering retains serial fallback callbacks.

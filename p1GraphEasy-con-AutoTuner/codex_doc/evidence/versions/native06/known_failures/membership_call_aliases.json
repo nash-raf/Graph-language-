@@ -1,0 +1,14 @@
+[
+  {
+    "version": "baseline",
+    "exit_code": -6,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/known_failures/baseline_membership_call_aliases.log",
+    "fixture_sha256": "e8b7b9f72c8e752ada6b772a6a6ee63734cda9578516ad3f360f046d306e7902"
+  },
+  {
+    "version": "native06",
+    "exit_code": -6,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/native06/known_failures/native06_membership_call_aliases.log",
+    "fixture_sha256": "e8b7b9f72c8e752ada6b772a6a6ee63734cda9578516ad3f360f046d306e7902"
+  }
+]

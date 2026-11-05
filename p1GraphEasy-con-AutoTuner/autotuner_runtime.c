@@ -3139,6 +3139,32 @@ int32_t autograph_build_array_cut(void *graph_ptr,int32_t partitions) {
   pthread_mutex_unlock(&g_cc_views_lock);return result;
 }
 
+/* Range descriptors only. The selected topology stays in its native layout. */
+int32_t autograph_build_layout_batches(void *graph_ptr,int32_t partitions) {
+  pthread_mutex_lock(&g_cc_views_lock);
+  AutoGraphMeta *m=find_meta(graph_ptr);int32_t result=0;
+  if(!m||m->csr_n<0||m->csr_n>INT32_MAX)goto done;
+  if(!m->csr_n){autograph_clean_cut_free(m);goto done;}
+  if(partitions<=0) {
+    int32_t workers=sgpl_configured_worker_count();if(workers<1)workers=1;
+    const char *setting=getenv("SGPL_LAYOUT_PARTITIONS");
+    if(!setting)setting=getenv("SGPL_CLEANCUT_PARTITIONS");
+    partitions=setting?(int32_t)strtol(setting,NULL,10):workers*4;
+    if(partitions<workers)partitions=workers;
+  }
+  if(partitions>m->csr_n)partitions=(int32_t)m->csr_n;
+  if(m->cc_cache_valid==2&&m->cc_ranges_n==m->csr_n&&
+     m->partition_count==partitions&&m->partition_start){result=partitions;goto done;}
+  int64_t *ranges=calloc((size_t)partitions+1,sizeof(*ranges));
+  if(!ranges)goto done;
+  for(int32_t p=0;p<=partitions;++p)ranges[p]=(int64_t)p*m->csr_n/partitions;
+  autograph_clean_cut_free(m);
+  m->partition_start=ranges;m->partition_count=partitions;
+  m->cc_ranges_n=m->csr_n;m->cc_cache_valid=2;result=partitions;
+done:
+  pthread_mutex_unlock(&g_cc_views_lock);return result;
+}
+
 /* ── composable runtime execution (R1) ────────────────────────────
  *
  * One generic executor over a flat operation set.  The engine performs only
@@ -3292,6 +3318,7 @@ static void sgpl_exec_pair_ops(sgpl_exec_ctx *ctx, int32_t u, int32_t v) {
 #include "frontier_buffer_runtime.inc"
 #include "execution_scratch_runtime.inc"
 #include "array_frontier_runtime.inc"
+#include "layout_execution_runtime.inc"
 
 /* CPU pair-only array batches have no source lifecycle outside their
  * records. Source/destination ownership puts all occurrences of a group in
@@ -3307,6 +3334,7 @@ static int sgpl_sparse_group_tracking(const sgpl_exec_ctx *ctx) {
 
 static void sgpl_exec_partition_body(int64_t index, void *opaque) {
   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
+  if(ctx->layout_execution&&!(ctx->array_append_sites&&ctx->gpu_record_offsets)){sgpl_layout_partition(index,ctx);return;}
   sgpl_exec_ctx local = *ctx; /* per-worker copy: partition_state is thread-local */
   AutoGraphMeta *meta = find_meta(ctx->graph);
   int32_t p = (int32_t)index;
@@ -4165,7 +4193,7 @@ static void sgpl_exec_step_dispatch(sgpl_exec_ctx *ctx, AutoGraphMeta *meta) {
    * CPU dispatch below, whose answers are identical by construction. */
   /* Proved spatial contexts keep their dedicated CPU/GPU realization. This
    * legacy device hook cannot replace their gate and source-coverage DAG. */
-  if (ctx->spatial_group == SGPL_SPATIAL_NONE && sgpl_gpu_step_try_device(ctx, meta)) {
+  if (!ctx->layout_execution && ctx->spatial_group == SGPL_SPATIAL_NONE && sgpl_gpu_step_try_device(ctx, meta)) {
     return;
   }
 
@@ -4247,7 +4275,10 @@ int32_t sgpl_exec_spatial_begin(sgpl_exec_ctx *ctx) {
   {int32_t rc=sgpl_relax_refresh(ctx,meta,0);if(rc<0){ctx->execution_status=rc;return rc;}}
   if(ctx->array_compact_records==6){int32_t rc=sgpl_fullgraph_begin(ctx,meta);if(rc<0){ctx->execution_status=rc;return rc;}}
   ctx->graph = graph_ptr;
-  if(!ctx->array_append_sites&&meta&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
+  if(ctx->layout_execution&&!sgpl_layout_execution_matches(ctx)) {
+    ctx->execution_status=SGPL_DAG_ERR_INVALID;return ctx->execution_status;
+  }
+  if(!ctx->layout_execution&&!ctx->array_append_sites&&meta&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
       !autograph_build_clean_cut(graph_ptr,meta->partition_count))return SGPL_DAG_ERR_NOMEM;
   if (ctx->spatial_group != SGPL_SPATIAL_NONE) {
     ctx->execution_status = 0;
@@ -4448,6 +4479,8 @@ int32_t sgpl_gpu_spatial_preflight(const sgpl_exec_ctx *c,int64_t *work) {
   *work=total;return 0;
 }
 int32_t sgpl_gpu_prepare_spatial_records(sgpl_exec_ctx *ctx) {
+  /* Layout-native contexts are CPU-only; the GPU backend retains its ABI. */
+  if(ctx&&ctx->layout_execution)return SGPL_DAG_ERR_INVALID;
   {int32_t rc=sgpl_relax_refresh(ctx,ctx?find_meta(ctx->graph):NULL,1);if(rc<0)return rc;}
   if(ctx&&ctx->array_compact_records==6)sgpl_fullgraph_release(ctx);
   if(ctx)sgpl_execution_scratch_detach(ctx);
@@ -4915,6 +4948,7 @@ void autograph_exec_ctx_destroy(sgpl_exec_ctx *ctx) {
   if (!ctx)
     return;
   sgpl_fullgraph_release(ctx);
+  sgpl_layout_execution_free(ctx);
   int scratch_cacheable=ctx->gpu_group_offsets==NULL;
   /* Sparse CPU execution initializes its live endpoint domain in begin().
    * Do not rescan occurrence records just to clear unused cached bytes. */
@@ -4961,7 +4995,7 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
     return SGPL_DAG_ERR_INVALID;
   AutoGraphMeta *meta = find_meta(ctx->graph);
   if (!meta || meta->csr_n < 0 || meta->csr_n > INT32_MAX) return SGPL_DAG_ERR_INVALID;
-  if(!ctx->array_append_sites&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
+  if(!ctx->layout_execution&&!ctx->array_append_sites&&__atomic_load_n(&meta->cc_cache_valid,__ATOMIC_ACQUIRE)==2&&
       !autograph_build_clean_cut(ctx->graph,meta->partition_count))return SGPL_DAG_ERR_NOMEM;
   int64_t n = meta->csr_n;
   int32_t count = meta->partition_count;
@@ -4993,7 +5027,7 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
     int source_owned = runtime_group == SGPL_SPATIAL_SOURCE;
     int64_t slots = 0;
     for (int32_t p = 0; p < count; ++p) {
-      int64_t capacity = source_owned ? meta->src_pair_count[p] :
+      int64_t capacity = source_owned ? (ctx->layout_execution?n:meta->src_pair_count[p]) :
           ((int64_t)(p+1)*n+count-1)/count - ((int64_t)p*n+count-1)/count;
       if (capacity > n) capacity = n;
       if (capacity < 0 || slots > INT64_MAX-capacity) return SGPL_DAG_ERR_INVALID;
@@ -5015,7 +5049,7 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
     AutoFrontierLane *lanes = ctx->spatial_frontier_lanes;
     int64_t offset = 0;
     for (int32_t p = 0; p < count; ++p) {
-      int64_t capacity = source_owned ? meta->src_pair_count[p] :
+      int64_t capacity = source_owned ? (ctx->layout_execution?n:meta->src_pair_count[p]) :
           ((int64_t)(p+1)*n+count-1)/count - ((int64_t)p*n+count-1)/count;
       if (capacity > n) capacity = n;
       lanes[p].data = ctx->spatial_frontier_storage + offset;
@@ -5030,9 +5064,27 @@ int32_t autograph_exec_ctx_prepare_spatial(sgpl_exec_ctx *ctx, int32_t group,
   ctx->execution_error = &ctx->execution_status;
   /* CPU batches need occurrence records, not the device's second grouping
    * and reordered copy. Device submission prepares those lazily. */
+  if(ctx->layout_execution)return sgpl_layout_prepare_work(ctx);
   if(ctx->array_append_sites)return sgpl_array_records(ctx,meta,
       sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_BEGIN),sgpl_exec_has_cap(ctx,SGPL_OP_SOURCE_END));
   return 0;
+}
+
+int32_t autograph_exec_ctx_prepare_layout(sgpl_exec_ctx *ctx,int32_t group,
+                                         int32_t runtime_group,int32_t private_frontier) {
+  if(!ctx||ctx->layout_execution||ctx->spatial_group!=SGPL_SPATIAL_NONE)
+    return SGPL_DAG_ERR_INVALID;
+  ctx->layout_execution=calloc(1,sizeof(SgplLayoutExecution));
+  if(!ctx->layout_execution)return SGPL_DAG_ERR_NOMEM;
+  int32_t rc=autograph_exec_ctx_prepare_spatial(ctx,group,runtime_group,private_frontier);
+  if(rc<0){sgpl_layout_execution_free(ctx);return rc;}
+  if(getenv("SGPL_LAYOUT_EXEC_DEBUG")) {
+    SgplLayoutExecution *s=ctx->layout_execution;
+    fprintf(stderr,"[layout-execution] layout=%d owner=%d partitions=%d sources=%lld prepared_records=%lld\n",
+            s->layout,runtime_group,s->partitions,(long long)ctx->array_source_count,
+            (long long)ctx->gpu_record_count);
+  }
+  return rc;
 }
 
 /* Each concurrent round owns membership, claims and merged append storage.

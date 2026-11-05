@@ -1,0 +1,20 @@
+{
+  "version": "baseline",
+  "source_hash": "10dfa0f97491b8f09bb27923bc0af99aa117b0e9950b94b2e49261fa0d1f8b0b",
+  "source_commit": "509f7602daa42d4c114c0b80d4b1d0e8a6959f77",
+  "compiler_sha256": "a10c6e8c7affcc637856c251ba38c1bfd36db85083eb1e3289e07cac12b88afd",
+  "objects": {
+    "runtime": "e6338fd241bc2c6a6d0235a2e191d727ed86e87f7862883313a070ac530ae47b",
+    "parallel_runtime": "f7111b61b2fcade4dba1826230a890f4a400f86bb5c304fff2bb2674c8f06ace",
+    "gpu_runtime": "d164bace2424d211e54776ea5aa10e9eea0dfca7b9879826ede8451a649bb9d6",
+    "autotuner_runtime": "e42ae3119da150af2053c53fd88a82505decf8c5b6ca866f99eebd1572457750",
+    "graph_mutation_runtime": "23092b66aa571ca402f466e34bc002aa2a8db66783045031bc7f40e43c995a14",
+    "roaring_bitmap": "493f1d1da2080ba8c0412bf21bec8e864d5bcade00c389f0a24b2a0540a586fa",
+    "graph_loader_runtime": "ba6953eea5fe16701bf324aac4cb730b732ec4afbda2f313b3341dcdb5fc0427",
+    "graph_runtime": "f298039809b7b704692fe250ed0f4e22c63569d9b1c520d73d1c0655f073b46e",
+    "semiring_runtime": "4c805acab1a4110d9d8fe42f7cf3f654ad34ce37782267d1946d120e6ab6a041"
+  },
+  "native_flags": "-O3 -g -fopenmp -pthread; C++ also -mavx2 -march=native",
+  "tests_run": false,
+  "benchmarks_run": false
+}

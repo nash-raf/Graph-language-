@@ -3,6 +3,7 @@
  * and unused so the protected translation unit remains byte-for-byte frozen. */
 static void sgpl_exec_partition_body(int64_t index, void *opaque) {
   sgpl_exec_ctx *ctx = (sgpl_exec_ctx *)opaque;
+  if(ctx->layout_execution&&!(ctx->array_append_sites&&ctx->gpu_record_offsets)){sgpl_layout_partition(index,ctx);return;}
   sgpl_exec_ctx local;sgpl_exec_context_copy(&local,ctx); /* worker-local state */
   AutoGraphMeta *meta = find_meta(ctx->graph);
   int32_t p = (int32_t)index;

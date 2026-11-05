@@ -1,0 +1,1477 @@
+TEST layout=0 source=0
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preseTEST layout=0 source=1
+rves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  TEST layout=1 source=0
+ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected lTEST layout=1 source=1
+ayout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requesteTEST layout=2 source=0
+d native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materializedTEST layout=2 source=1
+ selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok  TEST layout=3 source=0
+ native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  okTEST layout=3 source=1
+   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   requested native layout is active
+  ok   CleanCut materialized selected layout
+  ok   spatial preparation succeeded
+  ok   joined execution and frontier cardinality
+  ok   all seven occurrences, including duplicate edge, executed once
+  ok   dependent owners never overlap and claim state is source-local
+  ok   every batch joined
+  ok   runtime cardinality is based on nonempty proof groups
+  ok   independent nonempty batches overlap
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   batch preserves original source and neighbor order
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source lifecycle occurs once, including zero-neighbor sources
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   source hooks cover full batch range
+  ok   source begin/end order includes empty rows
+  ok   source begin/end order includes empty rows
+  ok   private frontier lanes merge exact destination set
+  ok   claims use invocation-owned storage
+  ok   native array ranges
+  ok   native bind repeated sources
+  ok   native prepare array output
+  ok   native execution allocates no edge records or device groups
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native append cardinality and prefix
+  ok   native output matches original duplicate occurrence order
+  ok   native execution does not materialize CleanCut edge payloads
+  ok   native context reuse executes exact pair count
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native preparation reports allocation failure
+  ok   native preparation executes no pair effects
+  ok   native context prepared before topology publication
+  ok   stale native view fails before callbacks; no stale traversal or replay
+  ok   bind two snapshots on the same graph
+  ok   snapshot storage and values are invocation-local
+  ok   snapshot allocation failure is reported
+  ok   failed snapshot cannot publish a live pointer
+  ok   prepare one occupied group
+  ok   one occurrence does not establish a non-trivial partition
+  ok   empty source domain has no occupied work group
+  ok   prepare one occupied group
+  ok   one occurrence does not establish a non-trivial partition
+  ok   empty source domain has no occupied work group
+  ok   remove one static SET occurrence
+  ok   add a live SET extra occurrence
+  ok   prepare live SET groups
+  ok   live SET batches match serial iterator occurrence count
+  ok   live SET batches match serial iterator order, including extra edges
+  ok   live SET batches match serial iterator order, including extra edges
+  ok   live SET batches match serial iterator order, including extra edges
+  ok   prepare live SET groups
+  ok   live SET batches match serial iterator occurrence count
+  ok   live SET batches match serial iterator order, including extra edges
+  ok   live SET batches match serial iterator order, including extra edges
+  ok   live SET batches match serial iterator order, including extra edges
+  ok   undirected native layout is active
+  ok   undirected duplicate batches prepared
+  ok   prepare undirected groups
+  ok   duplicate undirected self[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=340635273 pure_kernel_ms=340.635273
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 8 layout conversions total, conversion_ns=653677
+-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   undirected native layout is active
+  ok   undirected duplicate batches prepared
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   undirected native layout is active
+  ok   undirected duplicate batches prepared
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   undirected native layout is active
+  ok   undirected duplicate batches prepared
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   undirected native layout is active
+  ok   undirected duplicate batches prepared
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   prepare undirected groups
+  ok   duplicate undirected self-loops preserve all six body occurrences
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected native batches preserve source and neighbor order
+  ok   undirected dependencies stay within one batch
+  ok   zero-edge graph still has source coverage batches
+  ok   prepare empty topology
+  ok   empty topology executes no pair occurrence
+  ok   empty topology preserves each source hook
+  ok   empty topology preserves each source hook
+  ok   empty topology preserves each source hook
+  ok   empty topology preserves each source hook
+  ok   empty topology preserves each source hook
+  ok   empty topology preserves each source hook
+  ok   empty topology preserves each source hook
+  ok   zero vertices have no non-trivial partition
+layout-native executor: 0 failures

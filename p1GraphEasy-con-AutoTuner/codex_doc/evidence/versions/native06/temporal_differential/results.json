@@ -1,0 +1,62 @@
+[
+  {
+    "fixture": "temporal_independent",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_pb_q",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_p_bq",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_connected",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_empty",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_source_order",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_claim",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_rounds",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_round_one",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_guarded",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_round_carried",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "temporal_round_waw",
+    "layout": "AUTO",
+    "passed": true
+  }
+]

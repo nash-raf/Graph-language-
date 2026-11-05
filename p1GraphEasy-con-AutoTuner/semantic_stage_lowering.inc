@@ -220,8 +220,8 @@ static bool semanticFresh(Value *V,Loop *L,DominatorTree &DT,GlobalVariable *Out
 static bool semanticInfrastructure(CallInst *C) {
   auto *F=C->getCalledFunction();if(!F)return false;StringRef N=F->getName();
   if(F->isIntrinsic())return F->getIntrinsicID()==Intrinsic::stacksave||F->getIntrinsicID()==Intrinsic::stackrestore||F->getIntrinsicID()==Intrinsic::assume;
-  return N=="autograph_build_array_cut"||N=="sgpl_exec_require_status"||N=="autograph_exec_op_create"||N=="autograph_exec_ctx_create"||
-    N=="autograph_exec_ctx_set_dag_axes"||N=="autograph_exec_ctx_bind_array_frontier"||N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_reserve_prepared_output"||
+  return (N=="autograph_build_array_cut"||N=="autograph_build_layout_batches")||N=="sgpl_exec_require_status"||N=="autograph_exec_op_create"||N=="autograph_exec_ctx_create"||
+    N=="autograph_exec_ctx_set_dag_axes"||N=="autograph_exec_ctx_bind_array_frontier"||(N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_prepare_layout")||N=="autograph_exec_ctx_reserve_prepared_output"||
     N=="autograph_exec_ctx_bind_source_snapshot_range"||N=="autograph_exec_ctx_bind_snapshot_range"||N=="autograph_frontier_execute"||
     N=="autograph_exec_ctx_destroy"||N=="autograph_profile_region_enter"||N=="autograph_profile_region_exit"||N=="sgpl_exec_bind_append_journal_v1";
 }
@@ -283,8 +283,8 @@ static bool semanticConvergence(CallInst *Bind,Loop *L,CallInst *Execute,GlobalV
     if(auto *C=dyn_cast<CallInst>(&I)) {
       auto *F=C->getCalledFunction();if(!F)return false;StringRef N=F->getName();
       if(F->isIntrinsic()&&(F->getIntrinsicID()==Intrinsic::stacksave||F->getIntrinsicID()==Intrinsic::stackrestore||F->getIntrinsicID()==Intrinsic::assume))continue;
-      if(N=="autograph_build_array_cut"||N=="sgpl_exec_require_status"||N=="autograph_exec_op_create"||N=="autograph_exec_ctx_create"||
-          N=="autograph_exec_ctx_set_dag_axes"||N=="autograph_exec_ctx_bind_array_frontier"||N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_reserve_prepared_output"||
+      if((N=="autograph_build_array_cut"||N=="autograph_build_layout_batches")||N=="sgpl_exec_require_status"||N=="autograph_exec_op_create"||N=="autograph_exec_ctx_create"||
+          N=="autograph_exec_ctx_set_dag_axes"||N=="autograph_exec_ctx_bind_array_frontier"||(N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_prepare_layout")||N=="autograph_exec_ctx_reserve_prepared_output"||
           N=="autograph_exec_ctx_bind_source_snapshot_range"||N=="autograph_exec_ctx_bind_snapshot_range"||N=="autograph_frontier_execute"||
           N=="autograph_exec_ctx_destroy"||N=="autograph_profile_region_enter"||N=="autograph_profile_region_exit"||N=="sgpl_exec_bind_append_journal_v1")continue;
       return false;

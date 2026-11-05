@@ -469,7 +469,7 @@ typedef struct sgpl_runtime_op {
   void (*combine)(void *state, struct sgpl_exec_ctx *);
 } sgpl_runtime_op;
 
-enum { SGPL_EXECUTION_ABI_VERSION = 4 };
+enum { SGPL_EXECUTION_ABI_VERSION = 5 };
 
 /* A symbolic effect-derived schedule. The number of owners remains dynamic;
  * the compiler proves the structure and callback context independence. */
@@ -599,7 +599,12 @@ typedef struct sgpl_exec_ctx {
    * transactionally to the legacy representation before device grouping. */
   int32_t array_compact_records;
   const sgpl_static_schedule_v1 *static_schedule;
+  /* Private layout-native traversal state; no per-edge execution records. */
+  void *layout_execution;
 } sgpl_exec_ctx;
+int32_t autograph_build_layout_batches(void *, int32_t);
+int32_t autograph_exec_ctx_prepare_layout(sgpl_exec_ctx *, int32_t, int32_t, int32_t);
+int32_t autograph_exec_ctx_bind_layout(sgpl_exec_ctx *);
 void autograph_exec_ctx_bind_static_schedule_v1(sgpl_exec_ctx *,
     const sgpl_static_schedule_v1 *, int32_t, uint64_t, uint64_t);
 int32_t autograph_exec_ctx_edge_weight(sgpl_exec_ctx *,void *,int32_t,int32_t);

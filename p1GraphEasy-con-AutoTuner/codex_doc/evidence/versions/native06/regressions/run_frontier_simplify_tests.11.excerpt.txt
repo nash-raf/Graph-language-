@@ -1,0 +1,241 @@
+Full log: /home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_frontier_simplify_tests.11.log
+SHA256: 21b0363d487419244506fb2b1e992c5afa3b2061b091ff773a2b59d6767f1463
+Last 12000 characters:
+k   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+  ok   create frontier simplification context
+  ok   bind order[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1978264 pure_kernel_ms=1.978264
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+ed array
+  ok   prepare existing records
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   original/journal/simplified stable duplicate append output including unused tail
+  ok   occupied group accounting
+  ok   no skipped or replayed pair callbacks
+  ok   descriptor refusal and pre-effect runtime selection
+  ok   create frontier simplification context
+  ok   bind ordered array
+  ok   prepare existing records
+  ok   lease reuse discards prior simplification binding
+frontier simplification runtime: 0 activations, 0 failures

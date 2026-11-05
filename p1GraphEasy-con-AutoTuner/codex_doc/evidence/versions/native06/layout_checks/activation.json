@@ -1,0 +1,282 @@
+[
+  {
+    "fixture": "spatial_source",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "requested": "CSR",
+    "observed": [
+      0
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "requested": "SET",
+    "observed": [
+      3
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "requested": "BCSR",
+    "observed": [
+      2
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "requested": "PCSR",
+    "observed": [
+      1
+    ],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "requested": "CSR",
+    "observed": [],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "requested": "SET",
+    "observed": [],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "requested": "BCSR",
+    "observed": [],
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "requested": "PCSR",
+    "observed": [],
+    "passed": true
+  }
+]

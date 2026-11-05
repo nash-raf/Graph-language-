@@ -1,0 +1,2 @@
+PASS GPU records: baseline equality, duplicates/self edges, independent contexts, generation/layout invalidation, changing frontier and exact preflight
+PASS GPU storage/transfers: exclusive capacity, nested reservations, failure discard, compatible coalescing/alignment, registered boundaries, valid-resident staging, read-only outputs and aliased writers

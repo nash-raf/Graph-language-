@@ -1,0 +1,330 @@
+{
+  "candidate": "native07",
+  "artifacts": [
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/cpu_inputs.json",
+      "copy": "evidence/cpu_inputs.json",
+      "bytes": 66387,
+      "sha256": "56f7d61a1932b8513aa051d177c39edafec726f6888a5d5a095947193eba882b"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/final_audit.json",
+      "copy": "evidence/final_audit.json",
+      "bytes": 10548,
+      "sha256": "ccfda170151f0d426e91874edcd857fa4631ec7739bbe214c1bc607c21eae136"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/walltime.c",
+      "copy": "evidence/walltime.c",
+      "bytes": 1198,
+      "sha256": "0c3c166940f6fb80f6c0fda070cb2cb5aab5ba49e6c3db23cc4bfe7b44a5cda2"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/build.json",
+      "copy": "evidence/versions/baseline/build.json",
+      "bytes": 1229,
+      "sha256": "128435b994bdd605ca199a576855242250ef7dfd931929a89ec1cb99f703e4aa"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/cpu_validation.json",
+      "copy": "evidence/versions/baseline/cpu_validation.json",
+      "bytes": 266573,
+      "sha256": "62fde33fc2040230ba5740557427f5bb1946a6f01981d078e7f9420bcc6f8749"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/regressions/results.json",
+      "copy": "evidence/versions/baseline/regressions/results.json",
+      "bytes": 460,
+      "sha256": "75f561b488ec4f2545274eea87c56cba1e1fdf12e69c641d9e713708dad63057"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/build.json",
+      "copy": "evidence/versions/native07/build.json",
+      "bytes": 1229,
+      "sha256": "3b669abda75402e2e7e9eb5a5f973f9de3bc410f44657e1342e8f70dd428e55a"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/cpu_identity.json",
+      "copy": "evidence/versions/native07/cpu_identity.json",
+      "bytes": 923,
+      "sha256": "19b573b22eb95f4bc7f65ee2060123c44d2b9ecccaf145b95dba7580cfcab23e"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/cpu_build_progress.json",
+      "copy": "evidence/versions/native07/cpu_build_progress.json",
+      "bytes": 102,
+      "sha256": "45f6541078aedab3960d2ddad424108b00d44526338ecc4c928fb6982c749fce"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/cpu_validation.json",
+      "copy": "evidence/versions/native07/cpu_validation.json",
+      "bytes": 266660,
+      "sha256": "8a90067704f73c020831d32d645c7af6ec243106fed42d1b1c06602caa604c93"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/baseline_gpu65_batch1.log",
+      "copy": "evidence/versions/native07/known_failures/baseline_gpu65_batch1.log",
+      "bytes": 777,
+      "sha256": "c8599d69f96426f618c258059cab5ee273e37d3d44e11b8f89cb7a78bcdcd515"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/native07_gpu65_batch1.log",
+      "copy": "evidence/versions/native07/known_failures/native07_gpu65_batch1.log",
+      "bytes": 777,
+      "sha256": "9184d1d2f2f3c88b14492ab64c51a25f6f71128428828c9b802d70be0235cc24"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/baseline_gpu65_batch0.log",
+      "copy": "evidence/versions/native07/known_failures/baseline_gpu65_batch0.log",
+      "bytes": 777,
+      "sha256": "8aeeb2001a2a2c29ddea9594dedeb164cd9962f4519887e1279814e93ae4b9e5"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/native07_gpu65_batch0.log",
+      "copy": "evidence/versions/native07/known_failures/native07_gpu65_batch0.log",
+      "bytes": 777,
+      "sha256": "e83b9112d9e10f4620765c74427605cbbada05a1c560fed59441f43be0384940"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/gpu65_gate.json",
+      "copy": "evidence/versions/native07/known_failures/gpu65_gate.json",
+      "bytes": 650,
+      "sha256": "6dcec90514269ad4af37ee9da936278feda2c853bbc267932962ff51a360e2a3"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/native07_gpu65_batch1.out",
+      "copy": "evidence/versions/native07/known_failures/native07_gpu65_batch1.out",
+      "bytes": 482,
+      "sha256": "efb6b87cb4081ad1faf76b7931bc00e6b417638ce510318c8cf26a0fab7ccda5"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/baseline_gpu65_batch1.out",
+      "copy": "evidence/versions/native07/known_failures/baseline_gpu65_batch1.out",
+      "bytes": 482,
+      "sha256": "efb6b87cb4081ad1faf76b7931bc00e6b417638ce510318c8cf26a0fab7ccda5"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/baseline_gpu65_batch0.out",
+      "copy": "evidence/versions/native07/known_failures/baseline_gpu65_batch0.out",
+      "bytes": 482,
+      "sha256": "efb6b87cb4081ad1faf76b7931bc00e6b417638ce510318c8cf26a0fab7ccda5"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/native07/known_failures/native07_gpu65_batch0.out",
+      "copy": "evidence/versions/native07/known_failures/native07_gpu65_batch0.out",
+      "bytes": 482,
+      "sha256": "efb6b87cb4081ad1faf76b7931bc00e6b417638ce510318c8cf26a0fab7ccda5"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/test_overlays/overlay_run_gpu_batch_tests.json",
+      "copy": "evidence/versions/baseline/test_overlays/overlay_run_gpu_batch_tests.json",
+      "bytes": 234,
+      "sha256": "f935d2a2e6cf80a520faa8d9e89c6265c49a8f3ae9a3c26ac11963478742d611"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/test_overlays/overlay_run_parallel_claims_tests.json",
+      "copy": "evidence/versions/baseline/test_overlays/overlay_run_parallel_claims_tests.json",
+      "bytes": 240,
+      "sha256": "756109b0cc147ebe0234f849a0f71e5e9eccb989da0f170a0584b2bfc6328b0c"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/regressions/run_parallel_claims_remaining_tests.1.log",
+      "copy": "evidence/versions/baseline/regressions/run_parallel_claims_remaining_tests.1.log",
+      "bytes": 29936,
+      "sha256": "db975c8538d6ec8b3233dc0cf6f13b63021becb61cb4ff6672243308f9c935f5"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/versions/baseline/regressions/run_temporal_tests.0.log",
+      "copy": "evidence/versions/baseline/regressions/run_temporal_tests.0.log",
+      "bytes": 5523,
+      "sha256": "7ec52a3e70f9242c10663c2504526f779286501b98718aa1f353766ebb88f8da"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native13_asan/sources.json",
+      "copy": "evidence/tests/native13_asan/sources.json",
+      "bytes": 12247,
+      "sha256": "ecb7fc65d7cf26e47ba7e1f1b35a82988be6dfddba0ebb073180470ffc55ee25"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native13_asan/results.json",
+      "copy": "evidence/tests/native13_asan/results.json",
+      "bytes": 140,
+      "sha256": "017db8446ad31a79c06afb43292917ee5ee11fd1c54968302b02e9e871546fdd"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native13_asan/build.log",
+      "copy": "evidence/tests/native13_asan/build.log",
+      "bytes": 2051,
+      "sha256": "7217a4b1e8c8090b9af26218cda340633d1fb33cd5aed1e3a693e084517288df"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native13_asan/1.log",
+      "copy": "evidence/tests/native13_asan/1.log",
+      "bytes": 78315,
+      "sha256": "85c056dfe5e943f5d3da195136e7fa57cfd9cf38d411c0cb3c25bdf524095c5b"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native13_asan/2.log",
+      "copy": "evidence/tests/native13_asan/2.log",
+      "bytes": 78315,
+      "sha256": "f5f4f289c4e8e8398457f4d74c93917a58c048d1c6aa685badbe7bc2483d50a0"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native13_asan/6.log",
+      "copy": "evidence/tests/native13_asan/6.log",
+      "bytes": 78315,
+      "sha256": "42c12467f43aa15022f8cd397592b97151829664c436d7ec06e139d7ded7ae1e"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/race_results.json",
+      "copy": "evidence/tests/native14_tsan/race_results.json",
+      "bytes": 1269,
+      "sha256": "999646818fb1f6a81773cb6c77f789183dc76c44401f3bb73f86bba1c76d99ca"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/sources.json",
+      "copy": "evidence/tests/native14_tsan/sources.json",
+      "bytes": 12247,
+      "sha256": "aa6efb25a8af51a0b82ee32381423173618933abb961665f0dce7d6359b9aaf8"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/results.json",
+      "copy": "evidence/tests/native14_tsan/results.json",
+      "bytes": 95,
+      "sha256": "58133be8c93045767618c9e55230edc1a703188ff44f0cc6b72031933e315d13"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w6_attempt1.log",
+      "copy": "evidence/tests/native14_tsan/w6_attempt1.log",
+      "bytes": 78315,
+      "sha256": "ca35574a0b63873b7f63dc68f6f02fed05e4b86636c8d6397026f46bfae6b116"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w1_attempt3.log",
+      "copy": "evidence/tests/native14_tsan/w1_attempt3.log",
+      "bytes": 78315,
+      "sha256": "69f3253c0824e32865ac1f32a843c4530b0470409921b82002d00bd00f69b4b8"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/build.log",
+      "copy": "evidence/tests/native14_tsan/build.log",
+      "bytes": 2051,
+      "sha256": "7217a4b1e8c8090b9af26218cda340633d1fb33cd5aed1e3a693e084517288df"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w1_attempt1.log",
+      "copy": "evidence/tests/native14_tsan/w1_attempt1.log",
+      "bytes": 80,
+      "sha256": "b7a6e97a9237f8568bbace3cdefe6d17f51de8e22b125ef8b5e3e5bd4eefa15f"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/1.log",
+      "copy": "evidence/tests/native14_tsan/1.log",
+      "bytes": 78315,
+      "sha256": "405bdcdf0fface3ad6939a83cb45830c2c7e87a37a9bb97b8f2b2bbe017e016e"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w2_attempt0.log",
+      "copy": "evidence/tests/native14_tsan/w2_attempt0.log",
+      "bytes": 78315,
+      "sha256": "682e89b2fde3f1dc36d52ec2ae13a3d28a82f9fe2a52121221341c5e9466307d"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/2.log",
+      "copy": "evidence/tests/native14_tsan/2.log",
+      "bytes": 80,
+      "sha256": "70cfbf0f0c1d605896d98df07a00a5f9856cac06378448ea92498bb21c329f1e"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w6_attempt0.log",
+      "copy": "evidence/tests/native14_tsan/w6_attempt0.log",
+      "bytes": 80,
+      "sha256": "7fe7490045eca94aabd16a7f098204b83880feeff09a1a87f577b736618f429b"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w1_attempt2.log",
+      "copy": "evidence/tests/native14_tsan/w1_attempt2.log",
+      "bytes": 80,
+      "sha256": "e0709572f0de5b94033eb33469f476db33c2c4294d65d51cdf4f1f264577f645"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native14_tsan/w1_attempt0.log",
+      "copy": "evidence/tests/native14_tsan/w1_attempt0.log",
+      "bytes": 80,
+      "sha256": "580af1a4fdb97ef49eec6f03a1e3c6145e1cb0a89395c55087825ec548515582"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native15_asan/sources.json",
+      "copy": "evidence/tests/native15_asan/sources.json",
+      "bytes": 12247,
+      "sha256": "1f5a0422d7bbbec752c7d80db34aab32e3eef04b336c6766ab98b7be67ced329"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native15_asan/results.json",
+      "copy": "evidence/tests/native15_asan/results.json",
+      "bytes": 140,
+      "sha256": "017db8446ad31a79c06afb43292917ee5ee11fd1c54968302b02e9e871546fdd"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native15_asan/build.log",
+      "copy": "evidence/tests/native15_asan/build.log",
+      "bytes": 2051,
+      "sha256": "7217a4b1e8c8090b9af26218cda340633d1fb33cd5aed1e3a693e084517288df"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native15_asan/1.log",
+      "copy": "evidence/tests/native15_asan/1.log",
+      "bytes": 78315,
+      "sha256": "6264e4c62903d991e93bbe431171aaf9aa3d040e452184e18f52d37fc3bb6565"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native15_asan/2.log",
+      "copy": "evidence/tests/native15_asan/2.log",
+      "bytes": 78315,
+      "sha256": "dc82dc3dcd6f946a0d65cc3e965c37a1661e005190810ccf1db907ad93e7dcda"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/tests/native15_asan/6.log",
+      "copy": "evidence/tests/native15_asan/6.log",
+      "bytes": 78315,
+      "sha256": "fff98c4fb9c59f25848e799189cd943eaf6f7391954f8b89559594cd07fc50f4"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/benchmarks/native07/variability.json",
+      "copy": "evidence/benchmarks/native07/variability.json",
+      "bytes": 107309,
+      "sha256": "0593b15300d5ebf48682f11ec1044ecfa185cd3e5df129d8a68f29982c9e6a12"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/benchmarks/native07/samples.json",
+      "copy": "evidence/benchmarks/native07/samples.json",
+      "bytes": 582445,
+      "sha256": "d76ad227d4cf6b9c8ad3baf6d506ef37bb0e27335b3cc9d2bf2f6c221b668679"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/benchmarks/native07/comparison.json",
+      "copy": "evidence/benchmarks/native07/comparison.json",
+      "bytes": 41502,
+      "sha256": "5379d639245bd6c176bacf0935f545759ae327f3f7716363d06730939e0d2e06"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/benchmarks/native07/protocol.json",
+      "copy": "evidence/benchmarks/native07/protocol.json",
+      "bytes": 15865,
+      "sha256": "0581d9d5cbd3bc939c26041d1cc017e5df5ea9618bf0c8b5c4231fbba64632a4"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/benchmarks/native07/summary.json",
+      "copy": "evidence/benchmarks/native07/summary.json",
+      "bytes": 89,
+      "sha256": "0a33b163c837c48752a8ee3123e1f3f5179d577b662ebe9c0828d27de604acb1"
+    },
+    {
+      "native": "/home/kazi/p1_layout_native_20261105/benchmarks/native07/analysis.json",
+      "copy": "evidence/benchmarks/native07/analysis.json",
+      "bytes": 5454,
+      "sha256": "3b835c79ece5f55080924dfd48bf77167dd6f338219db6aa77431aa51dba7c1e"
+    }
+  ],
+  "note": "Retained evidence snapshot. Full native build/test logs remain at the recorded paths."
+}

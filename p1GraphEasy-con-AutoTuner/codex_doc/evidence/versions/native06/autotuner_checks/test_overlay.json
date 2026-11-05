@@ -1,0 +1,6 @@
+{
+  "path": "test/pdg_tdg_verification/test_autotuner_frequency.py",
+  "original_sha256": "0eb3b52f5ed1e3e3016035bdefcdedcbcfa924348a6aa00ee96bc851a3c56b9b",
+  "updated_sha256": "43c6849147c2e7d76a4829bb12dfb0706699c70a1b1c08cb06a812707d0d0b54",
+  "reason": "Accept layout batch construction alongside legacy CleanCut construction; cost/count assertions unchanged"
+}

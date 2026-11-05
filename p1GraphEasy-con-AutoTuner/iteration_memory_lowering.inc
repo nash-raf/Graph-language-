@@ -218,7 +218,7 @@ static void certifyIterationMemory(Module &M) {
         }
         if(N=="autograph_frontier_execute"){++Executes;Safe&=C->getArgOperand(1)==Create;continue;}
         if(N=="autograph_exec_ctx_create"){++Creates;Safe&=C==Create;for(unsigned J:{3u,4u,5u,7u,8u})Safe&=isa<ConstantPointerNull>(C->getArgOperand(J));continue;}
-        if(N=="sgpl_fullgraph_certificate"||N=="sgpl_schedule_certificate"||N=="autograph_build_clean_cut"||N=="autograph_exec_ctx_set_dag_axes"||N=="autograph_exec_ctx_prepare_spatial"||N=="sgpl_exec_require_status"||N=="autograph_exec_ctx_destroy"||N=="autograph_profile_region_enter"||N=="autograph_profile_region_exit"||F->getIntrinsicID()==Intrinsic::stacksave||F->getIntrinsicID()==Intrinsic::stackrestore)continue;
+        if(N=="sgpl_fullgraph_certificate"||N=="sgpl_schedule_certificate"||(N=="autograph_build_clean_cut"||N=="autograph_build_layout_batches")||N=="autograph_exec_ctx_set_dag_axes"||(N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_prepare_layout")||N=="sgpl_exec_require_status"||N=="autograph_exec_ctx_destroy"||N=="autograph_profile_region_enter"||N=="autograph_profile_region_exit"||F->getIntrinsicID()==Intrinsic::stacksave||F->getIntrinsicID()==Intrinsic::stackrestore)continue;
         Safe=false;
       }
       if(auto *Load=dyn_cast<LoadInst>(&I))Safe&=!Load->isAtomic()&&!Load->isVolatile();

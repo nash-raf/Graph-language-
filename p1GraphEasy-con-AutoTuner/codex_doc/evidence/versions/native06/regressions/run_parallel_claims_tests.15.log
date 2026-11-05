@@ -1,0 +1,44 @@
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+/home/kazi/p1_layout_native_20261105/versions/native06/src/test/run_parallel_claims_tests.sh: line 16: 11096 Aborted                 (core dumped) GRAPH_FRONTIER_STATS=1 SGPL_WITNESS_DUMP=1 SGPL_FRONTIER_STRICT=1 FORCE_CPU=1 ./GraphProgram "$graph" --ir-backend=cpu > "$TMP/$name.compile" 2>&1
+claim regression logs: /tmp/tmp.x5c9RPNBT0
+LLVM ERROR: AutoTuner: raw CSR access conflicts with a graph bitmap query
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+Stack dump:
+0.	Program arguments: ./GraphProgram test/membership_call_aliases.graph --ir-backend=cpu
+1.	Running pass "AutoTunerModulePass" on module "my_module"
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.20.1 0x000077885542bc7f llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 63
+1  libLLVM.so.20.1 0x0000778855429989 llvm::sys::RunSignalHandlers() + 89
+2  libLLVM.so.20.1 0x000077885542c390
+3  libc.so.6       0x0000778853c45330
+4  libc.so.6       0x0000778853c9ec0c pthread_kill + 284
+5  libc.so.6       0x0000778853c4527e gsignal + 30
+6  libc.so.6       0x0000778853c288ff abort + 223
+7  libLLVM.so.20.1 0x000077885537e564 llvm::report_fatal_error(llvm::Twine const&, bool) + 452
+8  libLLVM.so.20.1 0x000077885537e39d
+9  GraphProgram    0x0000637b791f155c
+10 GraphProgram    0x0000637b79088d55
+11 libLLVM.so.20.1 0x00007788555c33e5 llvm::PassManager<llvm::Module, llvm::AnalysisManager<llvm::Module>>::run(llvm::Module&, llvm::AnalysisManager<llvm::Module>&) + 533
+12 GraphProgram    0x0000637b7908566f
+13 GraphProgram    0x0000637b7904f1d8
+14 libc.so.6       0x0000778853c2a1ca
+15 libc.so.6       0x0000778853c2a28b __libc_start_main + 139
+16 GraphProgram    0x0000637b79052725

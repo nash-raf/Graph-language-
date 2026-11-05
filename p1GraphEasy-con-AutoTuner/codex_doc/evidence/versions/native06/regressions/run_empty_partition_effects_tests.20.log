@@ -1,0 +1,212 @@
+In file included from test/array_frontier_exec_test.c:2,
+                 from test/empty_partition_effects_test.c:2:
+test/spatial_exec_test.c: In function ‘batch_begin’:
+test/spatial_exec_test.c:101:66: warning: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  101 |     while (atomic_load(&s->arrived) < 2 && time_seconds() < end) usleep(100);
+      |                                                                  ^~~~~~
+      |                                                                  sleep
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=7232 pure_kernel_ms=0.007232
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   array cut
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   all-empty dispatch retains cancellation
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+empty partition effects: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=480190 pure_kernel_ms=0.480190
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   array cut
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   all-empty dispatch retains cancellation
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+empty partition effects: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1663744 pure_kernel_ms=1.663744
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   array cut
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   all-empty dispatch retains cancellation
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+empty partition effects: 0 failures
+In file included from test/array_frontier_exec_test.c:2,
+                 from test/empty_partition_effects_test.c:2:
+test/spatial_exec_test.c: In function ‘batch_begin’:
+test/spatial_exec_test.c:101:66: warning: implicit declaration of function ‘usleep’; did you mean ‘sleep’? [-Wimplicit-function-declaration]
+  101 |     while (atomic_load(&s->arrived) < 2 && time_seconds() < end) usleep(100);
+      |                                                                  ^~~~~~
+      |                                                                  sleep
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=208797 pure_kernel_ms=0.208797
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   array cut
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   all-empty dispatch retains cancellation
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+empty partition effects: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1933042 pure_kernel_ms=1.933042
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   array cut
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   all-empty dispatch retains cancellation
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+empty partition effects: 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=4097887 pure_kernel_ms=4.097887
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+  ok   array cut
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   all-empty dispatch retains cancellation
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+  ok   prepare empty nodes
+  ok   stable output with empty nodes
+  ok   empty partitions retain observable partition lifecycle
+  ok   combine and round lifecycle unchanged
+  ok   only live pairs execute
+empty partition effects: 0 failures

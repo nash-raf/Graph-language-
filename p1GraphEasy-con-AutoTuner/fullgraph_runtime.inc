@@ -118,7 +118,7 @@ static SGPL_FULL_FN int32_t sgpl_fullgraph_begin(sgpl_exec_ctx *c,AutoGraphMeta 
   if(!m||s->index->n!=m->csr_n){sgpl_fullgraph_release(c);return SGPL_DAG_ERR_INVALID;}
   if(c->spatial_group!=SGPL_SPATIAL_DESTINATION||c->spatial_runtime_group!=SGPL_SPATIAL_DESTINATION||!sgpl_incoming_matches(s->index,m)) {
     sgpl_fullgraph_release(c);
-    if(m->partition_count>0&&autograph_build_clean_cut(c->graph,m->partition_count)<1)return SGPL_DAG_ERR_NOMEM;
+    if(!c->layout_execution&&m->partition_count>0&&autograph_build_clean_cut(c->graph,m->partition_count)<1)return SGPL_DAG_ERR_NOMEM;
     return 0;
   }
   s->ready=0;return 0;

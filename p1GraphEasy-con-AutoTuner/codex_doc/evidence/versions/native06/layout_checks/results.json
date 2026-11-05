@@ -1,0 +1,182 @@
+[
+  {
+    "fixture": "spatial_source",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_destination",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_snapshot",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_source_acc",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_d_private",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_global_fold",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "array_frontier_order",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_equal_dual",
+    "layout": "SET",
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "layout": "CSR",
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "layout": "PCSR",
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "layout": "BCSR",
+    "passed": true
+  },
+  {
+    "fixture": "round_spatial_fold",
+    "layout": "SET",
+    "passed": true
+  }
+]

@@ -37,6 +37,8 @@ int32_t __wrap_sgpl_exec_dag_round_spatial(const sgpl_round_spatial_plan *p,int3
 }
 int32_t __real_autograph_build_clean_cut(void *,int32_t);
 int32_t __wrap_autograph_build_clean_cut(void *g,int32_t p){if(atomic_load(&dispatching))atomic_fetch_add(&errors,1);return __real_autograph_build_clean_cut(g,p>0?p:2);}
+int32_t __real_autograph_build_layout_batches(void *,int32_t);
+int32_t __wrap_autograph_build_layout_batches(void *g,int32_t p){if(atomic_load(&dispatching))atomic_fetch_add(&errors,1);return __real_autograph_build_layout_batches(g,p>0?p:2);}
 int32_t __real_sgpl_exec_spatial_partition(sgpl_exec_ctx *,int32_t);
 int32_t __wrap_sgpl_exec_spatial_partition(sgpl_exec_ctx *ctx,int32_t p){
  if(ctx->temporal_scope!=SGPL_TEMPORAL_ROUND||ctx->dag_spatial!=1||ctx->dag_temporal!=1)atomic_fetch_add(&errors,1);

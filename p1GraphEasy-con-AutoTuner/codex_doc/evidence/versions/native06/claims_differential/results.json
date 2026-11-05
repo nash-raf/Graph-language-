@@ -1,0 +1,67 @@
+[
+  {
+    "fixture": "spatial_equal_dual",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_different_dual",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_subset_dual",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_claim_repeat",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "spatial_claim_repeat_other",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "nested_step",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "mutual_deg",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "reduce_plus_write",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "priv_reduce_write_big",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "carried_read_state",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "dual_same_base",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "shadow_snapshot",
+    "layout": "AUTO",
+    "passed": true
+  },
+  {
+    "fixture": "reduce_real_ops",
+    "layout": "AUTO",
+    "passed": true
+  }
+]

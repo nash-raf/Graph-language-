@@ -35,7 +35,7 @@ grep -q 'schedule=round-spatial-dag' "$TMP/overlap.compile"
 mv program.o "$TMP/overlap.o"
 gcc -O2 -std=gnu11 -iquote . -c test/round_spatial_generated_probe.c -o "$TMP/probe.o"
 g++ -fopenmp -no-pie "$TMP/overlap.o" "$TMP/probe.o" "${OBJECTS[@]}" -pthread -ldl -lnlopt \
- -Wl,--wrap=sgpl_exec_dag_round_spatial -Wl,--wrap=autograph_build_clean_cut -Wl,--wrap=sgpl_exec_spatial_partition -o "$TMP/overlap"
+ -Wl,--wrap=sgpl_exec_dag_round_spatial -Wl,--wrap=autograph_build_clean_cut -Wl,--wrap=autograph_build_layout_batches -Wl,--wrap=sgpl_exec_spatial_partition -o "$TMP/overlap"
 for workers in 1 2 4 8; do
  timeout 15 env SGPL_NUM_THREADS="$workers" SGPL_CLEANCUT_PARTITIONS=2 "$TMP/overlap" >"$TMP/overlap.out" 2>"$TMP/overlap.log" || { cat "$TMP/overlap.log"; exit 1; }
  [[ "$(cat "$TMP/overlap.out")" == $'348\n2' ]] || { cat "$TMP/overlap.out"; exit 1; }

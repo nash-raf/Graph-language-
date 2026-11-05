@@ -1,0 +1,76 @@
++ set -euo pipefail
++++ dirname /home/kazi/p1_layout_native_20261105/versions/baseline/src/test/run_temporal_tests.sh
+++ cd /home/kazi/p1_layout_native_20261105/versions/baseline/src/test/..
+++ pwd
++ ROOT=/home/kazi/p1_layout_native_20261105/versions/baseline/src
++ cd /home/kazi/p1_layout_native_20261105/versions/baseline/src
+++ mktemp -d
++ TMP=/tmp/tmp.158yfoqu2C
++ trap 'rm -rf "$TMP"' EXIT
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c autotuner_runtime.c -o /tmp/tmp.158yfoqu2C/autotuner_runtime.o
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c graph_mutation_runtime.c -o /tmp/tmp.158yfoqu2C/graph_mutation_runtime.o
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c parallel_runtime.c -o /tmp/tmp.158yfoqu2C/parallel_runtime.o
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c gpu_runtime.c -o /tmp/tmp.158yfoqu2C/gpu_runtime.o
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c runtime.c -o /tmp/tmp.158yfoqu2C/runtime.o
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c semiring_runtime.c -o /tmp/tmp.158yfoqu2C/semiring_runtime.o
++ g++ -O2 -mavx2 -march=native -fopenmp -c roaring_bitmap.cpp -o /tmp/tmp.158yfoqu2C/roaring_bitmap.o
++ g++ -O2 -fopenmp -c graph_loader_runtime.cpp -o /tmp/tmp.158yfoqu2C/graph_loader_runtime.o
++ g++ -O2 -c graph_runtime.cpp -o /tmp/tmp.158yfoqu2C/graph_runtime.o
++ gcc -O2 -std=gnu11 -pthread -iquote . -c test/temporal_generated_probe.c -o /tmp/tmp.158yfoqu2C/probe.o
++ OBJECTS=("$TMP"/*.o)
++ fixtures=(temporal_independent temporal_pb_q temporal_p_bq temporal_connected temporal_empty temporal_source_order temporal_claim temporal_rounds temporal_round_one temporal_guarded temporal_round_carried temporal_round_waw)
++ expected=('414' '666' '360' '954' '1' '324
+36
+0' '396' '4192
+8' '524
+1' '234' '1137
+3' '36
+3')
++ for i in "${!fixtures[@]}"
++ fixture=temporal_independent
++ FORCE_CPU=1
++ GRAPH_FRONTIER_STATS=1
++ GRAPH_FRONTIER_GRAPHS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ ./GraphProgram test/temporal_independent.graph
++ mv program.o /tmp/tmp.158yfoqu2C/temporal_independent.o
++ g++ -fopenmp -no-pie /tmp/tmp.158yfoqu2C/temporal_independent.o /tmp/tmp.158yfoqu2C/autotuner_runtime.o /tmp/tmp.158yfoqu2C/gpu_runtime.o /tmp/tmp.158yfoqu2C/graph_loader_runtime.o /tmp/tmp.158yfoqu2C/graph_mutation_runtime.o /tmp/tmp.158yfoqu2C/graph_runtime.o /tmp/tmp.158yfoqu2C/parallel_runtime.o /tmp/tmp.158yfoqu2C/probe.o /tmp/tmp.158yfoqu2C/roaring_bitmap.o /tmp/tmp.158yfoqu2C/runtime.o /tmp/tmp.158yfoqu2C/semiring_runtime.o -pthread -ldl -lnlopt -Wl,--wrap=sgpl_exec_temporal_components -Wl,--wrap=autograph_neighbor_iter_next -o /tmp/tmp.158yfoqu2C/temporal_independent
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ ./GraphProgram test/temporal_independent.graph
++ mv program.o /tmp/tmp.158yfoqu2C/serial.o
++ g++ -fopenmp -no-pie /tmp/tmp.158yfoqu2C/serial.o /tmp/tmp.158yfoqu2C/autotuner_runtime.o /tmp/tmp.158yfoqu2C/gpu_runtime.o /tmp/tmp.158yfoqu2C/graph_loader_runtime.o /tmp/tmp.158yfoqu2C/graph_mutation_runtime.o /tmp/tmp.158yfoqu2C/graph_runtime.o /tmp/tmp.158yfoqu2C/parallel_runtime.o /tmp/tmp.158yfoqu2C/probe.o /tmp/tmp.158yfoqu2C/roaring_bitmap.o /tmp/tmp.158yfoqu2C/runtime.o /tmp/tmp.158yfoqu2C/semiring_runtime.o -pthread -ldl -lnlopt -Wl,--wrap=sgpl_exec_temporal_components -Wl,--wrap=autograph_neighbor_iter_next -o /tmp/tmp.158yfoqu2C/serial
+++ SGPL_NUM_THREADS=1
+++ /tmp/tmp.158yfoqu2C/serial
++ reference=414
++ [[ 414 == \4\1\4 ]]
++ EXTRA=()
++ case "$fixture" in
++ grep -q 'separate components members=0,1,2,' /tmp/tmp.158yfoqu2C/temporal_independent.compile
++ rm -rf /tmp/tmp.158yfoqu2C

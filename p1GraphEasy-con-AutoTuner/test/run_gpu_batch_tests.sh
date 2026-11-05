@@ -30,6 +30,15 @@ for fixture in "${fixtures[@]}"; do
    env SGPL_GPU_MIN_TRIPS=0 SGPL_CLEANCUT_PARTITIONS="$partitions" SGPL_NUM_THREADS="$workers" SGPL_GPU_DEBUG=1 SGPL_GPU_BATCH=1 \
     timeout 60 "$TMP/$fixture" >"$TMP/$tag.batch.out" 2>"$TMP/$tag.batch.err"
    cmp "$TMP/$tag.control.out" "$TMP/$tag.batch.out"
+   if grep -q '\[gpu-capability\] existing early gate work=-1; CPU before preparation' "$TMP/$tag.control.err"; then
+    # The existing descriptor limit can reject before grouping/launch logging.
+    ((partitions>64))
+    grep -q '\[gpu-capability\] existing early gate work=-1; CPU before preparation' "$TMP/$tag.batch.err"
+    ! grep -q '\[gpu-task\]' "$TMP/$tag.control.err"
+    ! grep -q '\[gpu-task\]' "$TMP/$tag.batch.err"
+    cmp "$TMP/$fixture.64.$workers.batch.out" "$TMP/$tag.batch.out"
+    continue
+   fi
    effective=$(sed -n 's/.*\[gpu-batch\] partitions=\([0-9]*\) launches=.*enabled=0/\1/p' "$TMP/$tag.control.err" | head -1)
    [[ -n "$effective" ]]
    grep -q "\[gpu-batch\] partitions=$effective launches=1 enabled=1" "$TMP/$tag.batch.err"

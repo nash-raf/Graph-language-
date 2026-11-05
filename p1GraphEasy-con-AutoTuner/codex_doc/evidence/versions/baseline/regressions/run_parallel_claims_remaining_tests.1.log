@@ -1,0 +1,415 @@
++ set -euo pipefail
++++ dirname /home/kazi/p1_layout_native_20261105/versions/baseline/src/test/run_parallel_claims_remaining_tests.sh
+++ cd /home/kazi/p1_layout_native_20261105/versions/baseline/src/test/..
+++ pwd
++ ROOT=/home/kazi/p1_layout_native_20261105/versions/baseline/src
++ cd /home/kazi/p1_layout_native_20261105/versions/baseline/src
+++ mktemp -d
++ TMP=/tmp/tmp.zAxq7y1X6j
++ trap 'status=$?; if ((status)); then echo "claim regression logs: $TMP"; tail -n 45 "$TMP/${name:-none}.compile" 2>/dev/null || true; else rm -rf "$TMP"; fi' EXIT
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c autotuner_runtime.c -o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c graph_mutation_runtime.c -o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c parallel_runtime.c -o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c gpu_runtime.c -o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c runtime.c -o /tmp/tmp.zAxq7y1X6j/runtime.o
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
++ for source in autotuner_runtime graph_mutation_runtime parallel_runtime gpu_runtime runtime semiring_runtime
++ gcc -O2 -fopenmp -iquote . -c semiring_runtime.c -o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o
++ g++ -O2 -fopenmp -mavx2 -c roaring_bitmap.cpp -o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o
++ g++ -O2 -fopenmp -c graph_loader_runtime.cpp -o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o
++ g++ -O2 -c graph_runtime.cpp -o /tmp/tmp.zAxq7y1X6j/graph_runtime.o
++ OBJECTS=("$TMP"/*.o)
++ names=(spatial_equal_dual spatial_different_dual spatial_subset_dual spatial_claim_repeat spatial_claim_repeat_other nested_step mutual_deg reduce_plus_write priv_reduce_write_big carried_read_state dual_same_base shadow_snapshot reduce_real_ops)
++ for name in "${names[@]}"
++ graph=test/spatial_equal_dual.graph
++ [[ -f test/spatial_equal_dual.graph ]]
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram test/spatial_equal_dual.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/spatial_equal_dual.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/spatial_equal_dual.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/spatial_equal_dual
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram test/spatial_equal_dual.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference=7
++ case "$name" in
++ grep -q 'schedule=spatial-staged emitted=1' /tmp/tmp.zAxq7y1X6j/spatial_equal_dual.compile
++ grep -q class=dual-owner /tmp/tmp.zAxq7y1X6j/spatial_equal_dual.compile
++ [[ spatial_equal_dual != spatial_equal_dual ]]
++ [[ 7 == 7 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_equal_dual
++ output=7
++ [[ 7 == \7 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_equal_dual
++ output=7
++ [[ 7 == \7 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_equal_dual
++ output=7
++ [[ 7 == \7 ]]
++ [[ spatial_equal_dual == nested_step ]]
++ echo 'PASS spatial_equal_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS spatial_equal_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/spatial_different_dual.graph
++ [[ -f test/spatial_different_dual.graph ]]
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram test/spatial_different_dual.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/spatial_different_dual.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/spatial_different_dual.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/spatial_different_dual
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram test/spatial_different_dual.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference=10
++ case "$name" in
++ grep -q class=sequential /tmp/tmp.zAxq7y1X6j/spatial_different_dual.compile
++ grep -q schedule=spatial-staged /tmp/tmp.zAxq7y1X6j/spatial_different_dual.compile
++ [[ 10 == 10 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_different_dual
++ output=10
++ [[ 10 == \1\0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_different_dual
++ output=10
++ [[ 10 == \1\0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_different_dual
++ output=10
++ [[ 10 == \1\0 ]]
++ [[ spatial_different_dual == nested_step ]]
++ echo 'PASS spatial_different_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS spatial_different_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/spatial_subset_dual.graph
++ [[ -f test/spatial_subset_dual.graph ]]
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram test/spatial_subset_dual.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/spatial_subset_dual.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/spatial_subset_dual.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/spatial_subset_dual
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram test/spatial_subset_dual.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference=25
++ case "$name" in
++ grep -q schedule=spatial-staged /tmp/tmp.zAxq7y1X6j/spatial_subset_dual.compile
++ [[ 25 == 25 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_subset_dual
++ output=25
++ [[ 25 == \2\5 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_subset_dual
++ output=25
++ [[ 25 == \2\5 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_subset_dual
++ output=25
++ [[ 25 == \2\5 ]]
++ [[ spatial_subset_dual == nested_step ]]
++ echo 'PASS spatial_subset_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS spatial_subset_dual (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/spatial_claim_repeat.graph
++ [[ -f test/spatial_claim_repeat.graph ]]
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram test/spatial_claim_repeat.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram test/spatial_claim_repeat.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference=0
++ case "$name" in
++ grep -q discharge=claim-staging /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat.compile
++ grep -q 'candidate:.*fw=1.*class=source-owner' /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat.compile
++ [[ spatial_claim_repeat != spatial_claim_repeat ]]
++ [[ 0 == 0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat
++ output=0
++ [[ 0 == \0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat
++ output=0
++ [[ 0 == \0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat
++ output=0
++ [[ 0 == \0 ]]
++ [[ spatial_claim_repeat == nested_step ]]
++ echo 'PASS spatial_claim_repeat (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS spatial_claim_repeat (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/spatial_claim_repeat_other.graph
++ [[ -f test/spatial_claim_repeat_other.graph ]]
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram test/spatial_claim_repeat_other.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram test/spatial_claim_repeat_other.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference=35
++ case "$name" in
++ grep -q 'candidate:.*fw=1.*class=sequential' /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other.compile
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other
++ output=35
++ [[ 35 == \3\5 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other
++ output=35
++ [[ 35 == \3\5 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/spatial_claim_repeat_other
++ output=35
++ [[ 35 == \3\5 ]]
++ [[ spatial_claim_repeat_other == nested_step ]]
++ echo 'PASS spatial_claim_repeat_other (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS spatial_claim_repeat_other (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/nested_step.graph
++ [[ -f test/nested_step.graph ]]
++ graph=/home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/nested_step.graph
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram /home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/nested_step.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/nested_step.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/nested_step.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/nested_step
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram /home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/nested_step.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference='checksum
+200'
++ case "$name" in
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/nested_step
++ output='checksum
+200'
++ [[ checksum
+200 == \c\h\e\c\k\s\u\m\
+\2\0\0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/nested_step
++ output='checksum
+200'
++ [[ checksum
+200 == \c\h\e\c\k\s\u\m\
+\2\0\0 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/nested_step
++ output='checksum
+200'
++ [[ checksum
+200 == \c\h\e\c\k\s\u\m\
+\2\0\0 ]]
++ [[ nested_step == nested_step ]]
++ grep -q '\[tdg.single-site\].*site_threads=' /tmp/tmp.zAxq7y1X6j/nested_step.4:3.err
++ echo 'PASS nested_step (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS nested_step (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/mutual_deg.graph
++ [[ -f test/mutual_deg.graph ]]
++ graph=/home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/mutual_deg.graph
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram /home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/mutual_deg.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/mutual_deg.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/mutual_deg.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/mutual_deg
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram /home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/mutual_deg.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference='mutdegsum
+8'
++ case "$name" in
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=1 OMP_NUM_THREADS=1 SGPL_CLEANCUT_PARTITIONS=1 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/mutual_deg
++ output='mutdegsum
+8'
++ [[ mutdegsum
+8 == \m\u\t\d\e\g\s\u\m\
+\8 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=4 OMP_NUM_THREADS=4 SGPL_CLEANCUT_PARTITIONS=3 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/mutual_deg
++ output='mutdegsum
+8'
++ [[ mutdegsum
+8 == \m\u\t\d\e\g\s\u\m\
+\8 ]]
++ for cfg in 1:1 4:3 8:8
+++ timeout 45 env SGPL_NUM_THREADS=8 OMP_NUM_THREADS=8 SGPL_CLEANCUT_PARTITIONS=8 SGPL_TDG_DEBUG=1 SGPL_DAG_DEBUG=1 FORCE_CPU=1 /tmp/tmp.zAxq7y1X6j/mutual_deg
++ output='mutdegsum
+8'
++ [[ mutdegsum
+8 == \m\u\t\d\e\g\s\u\m\
+\8 ]]
++ [[ mutual_deg == nested_step ]]
++ echo 'PASS mutual_deg (classification, serial equality, threads:partitions=1:1,4:3,8:8)'
+PASS mutual_deg (classification, serial equality, threads:partitions=1:1,4:3,8:8)
++ for name in "${names[@]}"
++ graph=test/reduce_plus_write.graph
++ [[ -f test/reduce_plus_write.graph ]]
++ graph=/home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/reduce_plus_write.graph
++ GRAPH_FRONTIER_STATS=1
++ SGPL_WITNESS_DUMP=1
++ SGPL_FRONTIER_STRICT=1
++ FORCE_CPU=1
++ ./GraphProgram /home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/reduce_plus_write.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reduce_plus_write.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reduce_plus_write.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reduce_plus_write
++ FORCE_CPU=1
++ GRAPH_FRONTIER_REWRITE_OFF=1
++ GRAPH_DISABLE_PDG=1
++ GRAPH_DISABLE_POLLY=1
++ ./GraphProgram /home/kazi/p1_layout_native_20261105/versions/baseline/src/../verify/cases/parallel/reduce_plus_write.graph --ir-backend=cpu
++ mv program.o /tmp/tmp.zAxq7y1X6j/reference.o
++ g++ -fopenmp -no-pie /tmp/tmp.zAxq7y1X6j/reference.o /tmp/tmp.zAxq7y1X6j/autotuner_runtime.o /tmp/tmp.zAxq7y1X6j/gpu_runtime.o /tmp/tmp.zAxq7y1X6j/graph_loader_runtime.o /tmp/tmp.zAxq7y1X6j/graph_mutation_runtime.o /tmp/tmp.zAxq7y1X6j/graph_runtime.o /tmp/tmp.zAxq7y1X6j/parallel_runtime.o /tmp/tmp.zAxq7y1X6j/roaring_bitmap.o /tmp/tmp.zAxq7y1X6j/runtime.o /tmp/tmp.zAxq7y1X6j/semiring_runtime.o -ldl -lnlopt -o /tmp/tmp.zAxq7y1X6j/reference
+++ SGPL_NUM_THREADS=1
+++ OMP_NUM_THREADS=1
+++ /tmp/tmp.zAxq7y1X6j/reference
++ reference='acc
+160000
+w0
+1'
++ case "$name" in
++ grep -q 'candidate:.*red=1.*class=source-phase-dag' /tmp/tmp.zAxq7y1X6j/reduce_plus_write.compile
++ status=1
++ (( status ))
++ echo 'claim regression logs: /tmp/tmp.zAxq7y1X6j'
+claim regression logs: /tmp/tmp.zAxq7y1X6j
++ tail -n 45 /tmp/tmp.zAxq7y1X6j/reduce_plus_write.compile
+[spatial] nodes=Pair(u,v,o) lifecycle=Preamble(u),Epilogue(u) status=independent-family group=Source cleancut=Source accesses=7 relations=6 remaining=3 removed=3 nontrivial=occupied-groups>=2 runtime=0 realized=0 reason=every surviving relation stays within the symbolic group
+[spatial-runtime] mutable source guard requires a once-per-source frame value
+[spatial-access] site=0 family=1 mode=R base=w axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=1 family=1 mode=R base=w axis=U scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=2 family=1 mode=R base=w axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=3 family=1 mode=W base=w axis=U scale=1 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=4 family=1 mode=R base=G axis=_ scale=0 offset=0 snapshot=-1 private=0 resource=0 guard=foreach.body
+[spatial-access] site=5 family=0 mode=R base=acc axis=_ scale=0 offset=0 snapshot=-1 private=1 resource=0 guard=foreach_nbr.body
+[spatial-access] site=6 family=0 mode=W base=acc axis=_ scale=0 offset=0 snapshot=-1 private=1 resource=0 guard=foreach_nbr.body
+[spatial-relation] id=0 sites=1,3 kind=WAR original=u=u' removed-condition= condition=u=u' contained=U uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=1 sites=3,1 kind=RAW original=u=u' removed-condition= condition=u=u' contained=U uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=2 sites=3,3 kind=WAW original=u=u' removed-condition= condition=u=u' contained=U uncertain=0 survives=1 removed-by=none order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=3 sites=5,6 kind=WAR original=may overlap for distinct (u,v,o),(u',v',o') removed-condition=all covered collisions after storage/version replacement condition=may overlap for distinct (u,v,o),(u',v',o') contained=Top uncertain=0 survives=0 removed-by=privatization order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=4 sites=6,5 kind=RAW original=may overlap for distinct (u,v,o),(u',v',o') removed-condition=all covered collisions after storage/version replacement condition=may overlap for distinct (u,v,o),(u',v',o') contained=Top uncertain=0 survives=0 removed-by=privatization order=source ordinal, neighbor ordinal, CFG site order
+[spatial-relation] id=5 sites=6,6 kind=WAW original=may overlap for distinct (u,v,o),(u',v',o') removed-condition=all covered collisions after storage/version replacement condition=may overlap for distinct (u,v,o),(u',v',o') contained=Top uncertain=0 survives=0 removed-by=privatization order=source ordinal, neighbor ordinal, CFG site order
+[spatial-contract] kind=privatization premises=privLayout; matched private base; operator/type foldSound; no intermediate observer replacement=private-identity-init -> pair-work -> join -> deterministic-combine removes=3,4,5,
+[temporal] scope=None rounds=not-applicable phases=inconclusive components=1 realized=0 verdict=inconclusive
+[temporal] one traversal cannot form a non-trivial round partition members=
+[temporal] source phase dependencies are incomplete members=0,0,4294967295,
+[temporal-relation] 0->1 basis=RAW uncertain=1 uniform=0
+[frontier-cert] tmpl spatial valid=1 nodes=1 edges=0 reason=- | temporal valid=1 units=1 edges=0 reason=-
+[graph-frontier]   schedule=serial emitted=1 impl_failure=1 reason=mutable source guard requires a once-per-source frame value
+[frontier-cert] hdr=foreach_nbr.cond R_S=0 R_T=0 NI_S=1 NI_T=0 spatial_nontrivial=occupied-groups>=2 spatial=0 temporal=0 impl_guard=none
+[frontier-cert] schedule=serial emitted=1 impl_failure=1 reason=mutable source guard requires a once-per-source frame value
+[witness] iter=1 driver=foreach.cond inner=foreach_nbr.cond
+[witness] writekind=2 hasdata=0 redptr=acc redop=+ firstwins=0 driverclaim=0 append=0 gated=0 needsroundsep=0 priv=1
+[witness] slots=1 privarrays=1 roundsep=0 driverustores=1 driveruclaims=0 accconsume=0 accreset=0
+[witness] eff kind=U op=+ base=acc reg=G scope=2 temp=Independent
+[witness] eff kind=R op= base=w reg=U scope=1 temp=SameRoundRead vsrc=live
+[witness] eff kind=U op=+ base=w reg=U scope=1 temp=Independent
+[graph-frontier]   modelable=1
+[graph-frontier] candidate: main driver=foreach.cond inner=foreach_nbr.cond kind=2 red=1 sep=0 data=0 fw=0 env=0 shadow=0 class=sequential  U+(acc,G) ⊗ R(w,U):SameRoundRead ⊗ U+(w,U)  temporal=SameRoundRead [refused: mutable source guard requires a once-per-source frame value]
+warning: Linking two modules of different target triples: 'bfs_runtime.ll' is 'x86_64-unknown-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'dfs_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'bk_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'floyd_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+
+warning: Linking two modules of different target triples: 'chromacity_runtime.ll' is 'x86_64-redhat-linux-gnu' whereas 'my_module' is 'x86_64-pc-linux-gnu'
+

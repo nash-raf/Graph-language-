@@ -1,0 +1,4394 @@
+[
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "baseline",
+    "min_ms": 4.898186,
+    "median_ms": 5.403137,
+    "max_ms": 6.246244,
+    "relative_mad": 0.0934551539226194
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "native07",
+    "min_ms": 5.304374,
+    "median_ms": 5.455711,
+    "max_ms": 5.947659,
+    "relative_mad": 0.02773918926424072
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "baseline",
+    "min_ms": 6.180797,
+    "median_ms": 6.636584,
+    "max_ms": 6.844722,
+    "relative_mad": 0.03136221887645813
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "native07",
+    "min_ms": 6.142948,
+    "median_ms": 7.333579,
+    "max_ms": 7.514974,
+    "relative_mad": 0.024236188087699062
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "baseline",
+    "min_ms": 5.064136,
+    "median_ms": 5.647866,
+    "max_ms": 5.806658,
+    "relative_mad": 0.01965839841101046
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "native07",
+    "min_ms": 5.387098,
+    "median_ms": 5.987121,
+    "max_ms": 6.650215,
+    "relative_mad": 0.06756035162810306
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "baseline",
+    "min_ms": 5.135743,
+    "median_ms": 5.505934,
+    "max_ms": 5.664968,
+    "relative_mad": 0.02888410939905927
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "native07",
+    "min_ms": 4.755535,
+    "median_ms": 5.955884,
+    "max_ms": 6.745765,
+    "relative_mad": 0.10679724454002126
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-spam.edges",
+    "version": "baseline",
+    "min_ms": 5.661337,
+    "median_ms": 5.829001,
+    "max_ms": 6.33571,
+    "relative_mad": 0.013731340927887987
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-spam.edges",
+    "version": "native07",
+    "min_ms": 6.20213,
+    "median_ms": 6.905703,
+    "max_ms": 7.906056999999999,
+    "relative_mad": 0.09226736220772888
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "baseline",
+    "min_ms": 4.791844,
+    "median_ms": 5.168842,
+    "max_ms": 6.982081,
+    "relative_mad": 0.07293664615788217
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "native07",
+    "min_ms": 5.353636,
+    "median_ms": 5.79747,
+    "max_ms": 7.025229,
+    "relative_mad": 0.0765564979206447
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "baseline",
+    "min_ms": 5.372766,
+    "median_ms": 5.439041,
+    "max_ms": 6.551796,
+    "relative_mad": 0.012185052475243338
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "native07",
+    "min_ms": 6.130515,
+    "median_ms": 6.610787,
+    "max_ms": 7.356188,
+    "relative_mad": 0.03953508107279814
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "baseline",
+    "min_ms": 5.26816,
+    "median_ms": 5.581501,
+    "max_ms": 6.087533,
+    "relative_mad": 0.05613919983172985
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "native07",
+    "min_ms": 5.363496,
+    "median_ms": 5.77015,
+    "max_ms": 6.595856,
+    "relative_mad": 0.07047546424269734
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "baseline",
+    "min_ms": 5.876362,
+    "median_ms": 6.409923,
+    "max_ms": 6.479001,
+    "relative_mad": 0.01077672851920374
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "native07",
+    "min_ms": 6.665201,
+    "median_ms": 7.122198,
+    "max_ms": 8.027018,
+    "relative_mad": 0.037621812816773695
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "baseline",
+    "min_ms": 6.556308,
+    "median_ms": 6.790857,
+    "max_ms": 8.374876,
+    "relative_mad": 0.01482831990130259
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "native07",
+    "min_ms": 7.169326,
+    "median_ms": 7.794154,
+    "max_ms": 9.330602,
+    "relative_mad": 0.08016623741332286
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "baseline",
+    "min_ms": 5.438912,
+    "median_ms": 5.697566,
+    "max_ms": 6.337115,
+    "relative_mad": 0.045397280171919026
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "native07",
+    "min_ms": 6.715114,
+    "median_ms": 6.89184,
+    "max_ms": 7.43258,
+    "relative_mad": 0.025642789153549707
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "baseline",
+    "min_ms": 6.575842,
+    "median_ms": 7.156504,
+    "max_ms": 8.210838,
+    "relative_mad": 0.06764056863518836
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "native07",
+    "min_ms": 8.413773,
+    "median_ms": 9.426758,
+    "max_ms": 10.603094,
+    "relative_mad": 0.10381702808112821
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "baseline",
+    "min_ms": 6.511544,
+    "median_ms": 7.140762,
+    "max_ms": 7.84609,
+    "relative_mad": 0.05203744362296349
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "native07",
+    "min_ms": 8.646502,
+    "median_ms": 9.335334,
+    "max_ms": 9.930743,
+    "relative_mad": 0.031960613299963345
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "baseline",
+    "min_ms": 5.011302,
+    "median_ms": 5.397733,
+    "max_ms": 5.786933,
+    "relative_mad": 0.03411635959022056
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "native07",
+    "min_ms": 5.54616,
+    "median_ms": 6.255796,
+    "max_ms": 7.510139,
+    "relative_mad": 0.0038532266717137198
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "baseline",
+    "min_ms": 5.088446,
+    "median_ms": 5.429068,
+    "max_ms": 6.328415,
+    "relative_mad": 0.06274041879748052
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "native07",
+    "min_ms": 5.241798,
+    "median_ms": 5.73163,
+    "max_ms": 6.331034,
+    "relative_mad": 0.03277584212518952
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "baseline",
+    "min_ms": 6.277484,
+    "median_ms": 6.927301,
+    "max_ms": 9.691117,
+    "relative_mad": 0.02409278880764673
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "native07",
+    "min_ms": 7.412858,
+    "median_ms": 8.112018,
+    "max_ms": 11.716467,
+    "relative_mad": 0.018002178989247806
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "baseline",
+    "min_ms": 6.211333,
+    "median_ms": 6.553517,
+    "max_ms": 6.760763,
+    "relative_mad": 0.015557448008451035
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "native07",
+    "min_ms": 6.340116,
+    "median_ms": 7.730295,
+    "max_ms": 8.952097,
+    "relative_mad": 0.10332632842601738
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "baseline",
+    "min_ms": 5.236433,
+    "median_ms": 6.111454,
+    "max_ms": 6.355021,
+    "relative_mad": 0.03329911343519889
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "native07",
+    "min_ms": 5.665448,
+    "median_ms": 6.178551,
+    "max_ms": 6.795628,
+    "relative_mad": 0.016877096264156434
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "baseline",
+    "min_ms": 5.319005,
+    "median_ms": 5.642671,
+    "max_ms": 6.194473,
+    "relative_mad": 0.026306158909495166
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "native07",
+    "min_ms": 5.846544,
+    "median_ms": 6.006644,
+    "max_ms": 6.316721,
+    "relative_mad": 0.026653818671457805
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "baseline",
+    "min_ms": 5.237148,
+    "median_ms": 5.841237,
+    "max_ms": 6.181043,
+    "relative_mad": 0.05817363685123545
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "native07",
+    "min_ms": 5.692249,
+    "median_ms": 6.555239,
+    "max_ms": 7.408875,
+    "relative_mad": 0.011845182151253372
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "baseline",
+    "min_ms": 5.431252,
+    "median_ms": 5.562936,
+    "max_ms": 6.531687,
+    "relative_mad": 0.023671672656309546
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "native07",
+    "min_ms": 5.653908,
+    "median_ms": 6.321325,
+    "max_ms": 6.801303,
+    "relative_mad": 0.05281313648641701
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "baseline",
+    "min_ms": 5.856554,
+    "median_ms": 6.070429,
+    "max_ms": 6.974269,
+    "relative_mad": 0.035232271063544277
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "native07",
+    "min_ms": 6.212773,
+    "median_ms": 6.40044,
+    "max_ms": 7.112602,
+    "relative_mad": 0.02288202061108299
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "baseline",
+    "min_ms": 5.191837,
+    "median_ms": 5.795063,
+    "max_ms": 6.800813,
+    "relative_mad": 0.024364532361425578
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "native07",
+    "min_ms": 5.878152,
+    "median_ms": 6.058301,
+    "max_ms": 6.376455,
+    "relative_mad": 0.029735894601473252
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "baseline",
+    "min_ms": 5.562319,
+    "median_ms": 6.432583,
+    "max_ms": 6.86938,
+    "relative_mad": 0.059665145401155334
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "native07",
+    "min_ms": 6.670509,
+    "median_ms": 7.288724,
+    "max_ms": 7.864548000000001,
+    "relative_mad": 0.07472981553424166
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "baseline",
+    "min_ms": 6.629488,
+    "median_ms": 6.813588,
+    "max_ms": 8.06346,
+    "relative_mad": 0.027019538017267846
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "native07",
+    "min_ms": 6.609742,
+    "median_ms": 6.756533,
+    "max_ms": 7.219707,
+    "relative_mad": 0.021725787471177895
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "baseline",
+    "min_ms": 5.199953,
+    "median_ms": 5.684891,
+    "max_ms": 6.122777,
+    "relative_mad": 0.02568316613282471
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "native07",
+    "min_ms": 6.167877,
+    "median_ms": 6.482191,
+    "max_ms": 7.865159,
+    "relative_mad": 0.04848885199464194
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "baseline",
+    "min_ms": 5.581044,
+    "median_ms": 5.909741,
+    "max_ms": 6.149643,
+    "relative_mad": 0.03372364372651864
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "native07",
+    "min_ms": 5.755578,
+    "median_ms": 6.377327,
+    "max_ms": 7.813127,
+    "relative_mad": 0.07429131358639757
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "baseline",
+    "min_ms": 5.571142,
+    "median_ms": 6.425819,
+    "max_ms": 7.376421,
+    "relative_mad": 0.10264216903712974
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "native07",
+    "min_ms": 6.255577,
+    "median_ms": 7.095845,
+    "max_ms": 7.277404,
+    "relative_mad": 0.017057165143827126
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "baseline",
+    "min_ms": 7.484028,
+    "median_ms": 8.046543999999999,
+    "max_ms": 9.326166,
+    "relative_mad": 0.0699077765559971
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "native07",
+    "min_ms": 8.958342,
+    "median_ms": 9.964044,
+    "max_ms": 10.437543,
+    "relative_mad": 0.047520765665025166
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "baseline",
+    "min_ms": 6.03124,
+    "median_ms": 6.355272,
+    "max_ms": 6.894138,
+    "relative_mad": 0.0503059507130458
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "native07",
+    "min_ms": 6.733865,
+    "median_ms": 7.046874,
+    "max_ms": 7.81462,
+    "relative_mad": 0.04441813490634287
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "baseline",
+    "min_ms": 5.133414,
+    "median_ms": 5.395486,
+    "max_ms": 5.765745,
+    "relative_mad": 0.03323574558436441
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "native07",
+    "min_ms": 5.351643,
+    "median_ms": 5.782207,
+    "max_ms": 6.582385,
+    "relative_mad": 0.06904128475511168
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "baseline",
+    "min_ms": 6.30857,
+    "median_ms": 6.643835,
+    "max_ms": 6.998778,
+    "relative_mad": 0.02964944192623688
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "native07",
+    "min_ms": 6.66109,
+    "median_ms": 7.615437,
+    "max_ms": 8.380152,
+    "relative_mad": 0.10041643046879647
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "baseline",
+    "min_ms": 6.070529,
+    "median_ms": 6.516514,
+    "max_ms": 7.542804,
+    "relative_mad": 0.038792673506110785
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "native07",
+    "min_ms": 6.44056,
+    "median_ms": 7.3555,
+    "max_ms": 7.797838,
+    "relative_mad": 0.06013704030997213
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "baseline",
+    "min_ms": 7.676719,
+    "median_ms": 8.539132,
+    "max_ms": 9.243482,
+    "relative_mad": 0.046452730792778577
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "native07",
+    "min_ms": 11.734801,
+    "median_ms": 12.481958,
+    "max_ms": 13.834628,
+    "relative_mad": 0.005058821700890197
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "baseline",
+    "min_ms": 5.911179,
+    "median_ms": 6.155459,
+    "max_ms": 6.808663,
+    "relative_mad": 0.010574516051524346
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "native07",
+    "min_ms": 6.477984,
+    "median_ms": 7.153919,
+    "max_ms": 8.010093,
+    "relative_mad": 0.04368109283876432
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "baseline",
+    "min_ms": 5.888355,
+    "median_ms": 6.003767,
+    "max_ms": 7.436277,
+    "relative_mad": 0.019223264327213233
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "native07",
+    "min_ms": 6.94368,
+    "median_ms": 7.858482,
+    "max_ms": 8.190643,
+    "relative_mad": 0.028569130781237514
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "baseline",
+    "min_ms": 5.765599,
+    "median_ms": 5.955365,
+    "max_ms": 6.334265,
+    "relative_mad": 0.021448391492377043
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "native07",
+    "min_ms": 6.488817,
+    "median_ms": 6.87591,
+    "max_ms": 7.767995,
+    "relative_mad": 0.04667687622438339
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "baseline",
+    "min_ms": 6.891709,
+    "median_ms": 7.270563,
+    "max_ms": 7.375729,
+    "relative_mad": 0.014464629492929227
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "native07",
+    "min_ms": 7.070652,
+    "median_ms": 7.479911,
+    "max_ms": 8.795522,
+    "relative_mad": 0.040895540067254814
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-epinions.edges",
+    "version": "baseline",
+    "min_ms": 6.933187,
+    "median_ms": 7.480172,
+    "max_ms": 8.176785,
+    "relative_mad": 0.020711288457003395
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-epinions.edges",
+    "version": "native07",
+    "min_ms": 10.297071,
+    "median_ms": 10.841304,
+    "max_ms": 12.355017,
+    "relative_mad": 0.050199957495887945
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "baseline",
+    "min_ms": 6.497837,
+    "median_ms": 7.029016,
+    "max_ms": 7.399586,
+    "relative_mad": 0.038213030102648794
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "native07",
+    "min_ms": 7.498025,
+    "median_ms": 7.783236,
+    "max_ms": 8.336509000000001,
+    "relative_mad": 0.021780400851265584
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/C500-9.edges",
+    "version": "baseline",
+    "min_ms": 6.075964,
+    "median_ms": 6.239619,
+    "max_ms": 6.70336,
+    "relative_mad": 0.019911151626405395
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/C500-9.edges",
+    "version": "native07",
+    "min_ms": 6.615197,
+    "median_ms": 7.614278,
+    "max_ms": 8.002697,
+    "relative_mad": 0.04046332429680135
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "baseline",
+    "min_ms": 6.36963,
+    "median_ms": 6.517685,
+    "max_ms": 6.773584,
+    "relative_mad": 0.006834021588953747
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "native07",
+    "min_ms": 6.814862,
+    "median_ms": 7.790655,
+    "max_ms": 9.080815,
+    "relative_mad": 0.019153331780190616
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "baseline",
+    "min_ms": 17.222987,
+    "median_ms": 18.87897,
+    "max_ms": 19.758199,
+    "relative_mad": 0.046571873359616545
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "native07",
+    "min_ms": 89.814395,
+    "median_ms": 97.469097,
+    "max_ms": 107.63163,
+    "relative_mad": 0.06702971712152006
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "baseline",
+    "min_ms": 17.778715,
+    "median_ms": 19.075855,
+    "max_ms": 19.500216,
+    "relative_mad": 0.022245975344224414
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "native07",
+    "min_ms": 91.37185,
+    "median_ms": 98.01544,
+    "max_ms": 133.365356,
+    "relative_mad": 0.041239135385200534
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing.edges",
+    "version": "baseline",
+    "min_ms": 10.725564,
+    "median_ms": 12.147731,
+    "max_ms": 12.672445,
+    "relative_mad": 0.04319440395906034
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing.edges",
+    "version": "native07",
+    "min_ms": 19.079288,
+    "median_ms": 22.709502,
+    "max_ms": 24.141043,
+    "relative_mad": 0.06223174775034697
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "baseline",
+    "min_ms": 7.051978,
+    "median_ms": 7.675317,
+    "max_ms": 8.042914,
+    "relative_mad": 0.03807816667376747
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "native07",
+    "min_ms": 7.709815,
+    "median_ms": 9.410849,
+    "max_ms": 9.759746,
+    "relative_mad": 0.03707391331005311
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rec/rec-amazon.edges",
+    "version": "baseline",
+    "min_ms": 17.47498,
+    "median_ms": 22.394657,
+    "max_ms": 29.088381,
+    "relative_mad": 0.2196808372639956
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rec/rec-amazon.edges",
+    "version": "native07",
+    "min_ms": 34.208409,
+    "median_ms": 41.538784,
+    "max_ms": 50.446238,
+    "relative_mad": 0.1336187886482185
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "baseline",
+    "min_ms": 11.154612,
+    "median_ms": 11.534488,
+    "max_ms": 13.235027,
+    "relative_mad": 0.029868512585907583
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "native07",
+    "min_ms": 20.588746,
+    "median_ms": 21.473061,
+    "max_ms": 23.019083,
+    "relative_mad": 0.04118253098615051
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "baseline",
+    "min_ms": 8.52453,
+    "median_ms": 8.958503,
+    "max_ms": 10.051364,
+    "relative_mad": 0.04346797673673827
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "native07",
+    "min_ms": 8.285753,
+    "median_ms": 9.914503,
+    "max_ms": 10.36071,
+    "relative_mad": 0.04439042481504116
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "baseline",
+    "min_ms": 8.826213,
+    "median_ms": 9.561427,
+    "max_ms": 10.456291,
+    "relative_mad": 0.066773191909534
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "native07",
+    "min_ms": 10.47376,
+    "median_ms": 12.317935,
+    "max_ms": 14.017573,
+    "relative_mad": 0.028372206867466016
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "protein/DD_g422.edges",
+    "version": "baseline",
+    "min_ms": 5.325621,
+    "median_ms": 5.503406,
+    "max_ms": 5.839989,
+    "relative_mad": 0.02635477011872284
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "protein/DD_g422.edges",
+    "version": "native07",
+    "min_ms": 4.264867,
+    "median_ms": 5.136907,
+    "max_ms": 5.812491,
+    "relative_mad": 0.08249730820511253
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "baseline",
+    "min_ms": 4.234942,
+    "median_ms": 4.647109,
+    "max_ms": 5.600005,
+    "relative_mad": 0.08869320689486733
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "native07",
+    "min_ms": 4.086226999999999,
+    "median_ms": 4.252777,
+    "max_ms": 5.016245,
+    "relative_mad": 0.039162645960510147
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/G12.edges",
+    "version": "baseline",
+    "min_ms": 3.9680419999999996,
+    "median_ms": 4.399982,
+    "max_ms": 5.072186,
+    "relative_mad": 0.09816858341693227
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/G12.edges",
+    "version": "native07",
+    "min_ms": 3.79591,
+    "median_ms": 3.851088,
+    "max_ms": 4.19761,
+    "relative_mad": 0.014327899024898937
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "baseline",
+    "min_ms": 4.698772,
+    "median_ms": 5.063661,
+    "max_ms": 5.405822,
+    "relative_mad": 0.037418579166338346
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "native07",
+    "min_ms": 4.629627,
+    "median_ms": 5.103488,
+    "max_ms": 6.013367,
+    "relative_mad": 0.09285041916430488
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "baseline",
+    "min_ms": 7.327929,
+    "median_ms": 7.743607,
+    "max_ms": 9.648286,
+    "relative_mad": 0.02545067176058909
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "native07",
+    "min_ms": 7.766132,
+    "median_ms": 8.510005,
+    "max_ms": 8.612962,
+    "relative_mad": 0.012098347768303309
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "baseline",
+    "min_ms": 8.779165,
+    "median_ms": 10.428037,
+    "max_ms": 11.923877,
+    "relative_mad": 0.0784534999252496
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "native07",
+    "min_ms": 12.430466,
+    "median_ms": 13.64576,
+    "max_ms": 14.153003,
+    "relative_mad": 0.010435988907909857
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "baseline",
+    "min_ms": 11.428394,
+    "median_ms": 13.718048,
+    "max_ms": 16.633997,
+    "relative_mad": 0.10025238284630583
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "native07",
+    "min_ms": 12.609341,
+    "median_ms": 14.453303,
+    "max_ms": 15.474287,
+    "relative_mad": 0.016640348576377317
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-usroads-48.edges",
+    "version": "baseline",
+    "min_ms": 33.682841,
+    "median_ms": 53.349394,
+    "max_ms": 63.871234,
+    "relative_mad": 0.1474475979989576
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-usroads-48.edges",
+    "version": "native07",
+    "min_ms": 100.979659,
+    "median_ms": 119.223924,
+    "max_ms": 135.738991,
+    "relative_mad": 0.06922032695384192
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "email/email-enron-large.edges",
+    "version": "baseline",
+    "min_ms": 13.782586,
+    "median_ms": 16.793749,
+    "max_ms": 43.850203,
+    "relative_mad": 0.17930260836934028
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "email/email-enron-large.edges",
+    "version": "native07",
+    "min_ms": 19.068032,
+    "median_ms": 24.647172,
+    "max_ms": 27.282124,
+    "relative_mad": 0.04921108190424443
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "baseline",
+    "min_ms": 8.414389,
+    "median_ms": 10.163529,
+    "max_ms": 10.603263,
+    "relative_mad": 0.03876301233557754
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "native07",
+    "min_ms": 14.367141,
+    "median_ms": 14.734299,
+    "max_ms": 15.674369,
+    "relative_mad": 0.013973925736134443
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "baseline",
+    "min_ms": 17.791575,
+    "median_ms": 19.5766,
+    "max_ms": 21.185071,
+    "relative_mad": 0.07150955732864747
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "native07",
+    "min_ms": 32.608052,
+    "median_ms": 33.737976,
+    "max_ms": 37.679877,
+    "relative_mad": 0.033491161414069416
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "baseline",
+    "min_ms": 6.427491,
+    "median_ms": 6.557991,
+    "max_ms": 6.959967,
+    "relative_mad": 0.019899386870155814
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "native07",
+    "min_ms": 6.789961,
+    "median_ms": 7.026592,
+    "max_ms": 8.456875,
+    "relative_mad": 0.010868995951380129
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "baseline",
+    "min_ms": 13.315036,
+    "median_ms": 15.781086,
+    "max_ms": 28.977622,
+    "relative_mad": 0.055201650887651325
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "native07",
+    "min_ms": 13.759108,
+    "median_ms": 14.154777,
+    "max_ms": 17.247837,
+    "relative_mad": 0.02795303663208541
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "baseline",
+    "min_ms": 6.460993,
+    "median_ms": 7.797465,
+    "max_ms": 8.898588,
+    "relative_mad": 0.14121551042550368
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "native07",
+    "min_ms": 6.195477,
+    "median_ms": 7.519361,
+    "max_ms": 9.264687,
+    "relative_mad": 0.17127200037343598
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "baseline",
+    "min_ms": 6.387216,
+    "median_ms": 7.310787,
+    "max_ms": 7.730861,
+    "relative_mad": 0.04518569615008617
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "native07",
+    "min_ms": 6.067831,
+    "median_ms": 6.642911,
+    "max_ms": 8.831572,
+    "relative_mad": 0.08657048092319768
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-spam.edges",
+    "version": "baseline",
+    "min_ms": 7.263323,
+    "median_ms": 7.937489000000001,
+    "max_ms": 10.272301,
+    "relative_mad": 0.08493441691698733
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-spam.edges",
+    "version": "native07",
+    "min_ms": 7.358949,
+    "median_ms": 7.621833,
+    "max_ms": 9.214263,
+    "relative_mad": 0.03449091576789993
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "baseline",
+    "min_ms": 5.951574,
+    "median_ms": 7.575252,
+    "max_ms": 8.245000000000001,
+    "relative_mad": 0.08841263630569662
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "native07",
+    "min_ms": 6.411587,
+    "median_ms": 6.869166,
+    "max_ms": 8.011317,
+    "relative_mad": 0.021752713502628994
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "baseline",
+    "min_ms": 6.348178,
+    "median_ms": 6.822838,
+    "max_ms": 7.481055,
+    "relative_mad": 0.06956929066760782
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "native07",
+    "min_ms": 6.322725,
+    "median_ms": 6.969738,
+    "max_ms": 7.660856,
+    "relative_mad": 0.061735175698139584
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "baseline",
+    "min_ms": 6.644434,
+    "median_ms": 6.884915,
+    "max_ms": 7.965399999999999,
+    "relative_mad": 0.02516080445437598
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "native07",
+    "min_ms": 6.675885,
+    "median_ms": 7.001322,
+    "max_ms": 7.983621999999999,
+    "relative_mad": 0.04648222150045377
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "baseline",
+    "min_ms": 8.739746,
+    "median_ms": 9.298873,
+    "max_ms": 10.107962,
+    "relative_mad": 0.04733218745970614
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "native07",
+    "min_ms": 8.032393,
+    "median_ms": 9.347714,
+    "max_ms": 10.32101,
+    "relative_mad": 0.057730050363115515
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "baseline",
+    "min_ms": 14.982949,
+    "median_ms": 17.978095,
+    "max_ms": 19.274452,
+    "relative_mad": 0.07210758425739769
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "native07",
+    "min_ms": 16.35126,
+    "median_ms": 18.360326,
+    "max_ms": 20.838697,
+    "relative_mad": 0.10111715881297523
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "baseline",
+    "min_ms": 6.896598,
+    "median_ms": 7.559898,
+    "max_ms": 8.189161,
+    "relative_mad": 0.008462018932001464
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "native07",
+    "min_ms": 6.869381,
+    "median_ms": 7.278693,
+    "max_ms": 7.949276,
+    "relative_mad": 0.056234271729828415
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "baseline",
+    "min_ms": 9.83703,
+    "median_ms": 11.080127,
+    "max_ms": 13.486232,
+    "relative_mad": 0.06612063201080637
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "native07",
+    "min_ms": 9.982267,
+    "median_ms": 10.77497,
+    "max_ms": 14.713149,
+    "relative_mad": 0.05200886870218664
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "baseline",
+    "min_ms": 11.220374,
+    "median_ms": 11.295219,
+    "max_ms": 12.795335,
+    "relative_mad": 0.006626254878280802
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "native07",
+    "min_ms": 10.074472,
+    "median_ms": 11.232893,
+    "max_ms": 11.402557,
+    "relative_mad": 0.015104212245233707
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "baseline",
+    "min_ms": 6.87565,
+    "median_ms": 8.062053,
+    "max_ms": 9.522518,
+    "relative_mad": 0.09783723823199872
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "native07",
+    "min_ms": 6.832941,
+    "median_ms": 8.093813999999998,
+    "max_ms": 9.223396,
+    "relative_mad": 0.0967311578941645
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "baseline",
+    "min_ms": 6.949252,
+    "median_ms": 7.366564,
+    "max_ms": 8.058122,
+    "relative_mad": 0.05260756575250008
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "native07",
+    "min_ms": 7.105941,
+    "median_ms": 7.448624,
+    "max_ms": 7.903724000000001,
+    "relative_mad": 0.0389015474535968
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "baseline",
+    "min_ms": 7.552519,
+    "median_ms": 8.241251,
+    "max_ms": 9.498995,
+    "relative_mad": 0.08357129275640313
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "native07",
+    "min_ms": 7.753525,
+    "median_ms": 9.151672,
+    "max_ms": 9.243341,
+    "relative_mad": 0.010016639582362655
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "baseline",
+    "min_ms": 7.642733,
+    "median_ms": 9.586767,
+    "max_ms": 11.183298,
+    "relative_mad": 0.1272796136591199
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "native07",
+    "min_ms": 8.370763,
+    "median_ms": 9.480375,
+    "max_ms": 10.943413,
+    "relative_mad": 0.026115633611539627
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "baseline",
+    "min_ms": 7.563538,
+    "median_ms": 8.45776,
+    "max_ms": 14.214796,
+    "relative_mad": 0.04826053233953198
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "native07",
+    "min_ms": 7.261632,
+    "median_ms": 7.736934,
+    "max_ms": 9.17699,
+    "relative_mad": 0.05957463253531696
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "baseline",
+    "min_ms": 7.868053999999999,
+    "median_ms": 8.726982,
+    "max_ms": 10.193446,
+    "relative_mad": 0.09842211201994011
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "native07",
+    "min_ms": 7.117379,
+    "median_ms": 7.651138,
+    "max_ms": 9.364592,
+    "relative_mad": 0.06976204062715899
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "baseline",
+    "min_ms": 8.372496,
+    "median_ms": 8.816404,
+    "max_ms": 9.769337,
+    "relative_mad": 0.007992487640085458
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "native07",
+    "min_ms": 7.673244,
+    "median_ms": 8.708627,
+    "max_ms": 11.588346,
+    "relative_mad": 0.04973447593977777
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "baseline",
+    "min_ms": 8.350636999999999,
+    "median_ms": 9.253895,
+    "max_ms": 11.635091,
+    "relative_mad": 0.048604722660025856
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "native07",
+    "min_ms": 8.651524,
+    "median_ms": 10.017736,
+    "max_ms": 12.680031,
+    "relative_mad": 0.09520684114654249
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "baseline",
+    "min_ms": 7.619734,
+    "median_ms": 9.493301,
+    "max_ms": 10.791195,
+    "relative_mad": 0.02823338267690027
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "native07",
+    "min_ms": 7.13213,
+    "median_ms": 8.832079,
+    "max_ms": 10.781561,
+    "relative_mad": 0.1924743879668649
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "baseline",
+    "min_ms": 7.48814,
+    "median_ms": 7.712486,
+    "max_ms": 8.28479,
+    "relative_mad": 0.02908867516907
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "native07",
+    "min_ms": 7.421712,
+    "median_ms": 7.817268000000001,
+    "max_ms": 10.768548,
+    "relative_mad": 0.05060028644278294
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "baseline",
+    "min_ms": 7.583351,
+    "median_ms": 7.883996000000001,
+    "max_ms": 8.908889,
+    "relative_mad": 0.03434844462123026
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "native07",
+    "min_ms": 7.389943,
+    "median_ms": 8.26151,
+    "max_ms": 9.982565,
+    "relative_mad": 0.04665745124075381
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "baseline",
+    "min_ms": 7.310921,
+    "median_ms": 8.20712,
+    "max_ms": 9.024916,
+    "relative_mad": 0.07656681028180409
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "native07",
+    "min_ms": 7.328665,
+    "median_ms": 7.817828000000001,
+    "max_ms": 9.443553,
+    "relative_mad": 0.06257019213009046
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "baseline",
+    "min_ms": 6.925582,
+    "median_ms": 7.16998,
+    "max_ms": 7.870805,
+    "relative_mad": 0.032860482177077203
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "native07",
+    "min_ms": 7.043208,
+    "median_ms": 7.638659,
+    "max_ms": 8.637988,
+    "relative_mad": 0.07795229502979516
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "baseline",
+    "min_ms": 7.634118,
+    "median_ms": 8.013926,
+    "max_ms": 8.037149,
+    "relative_mad": 0.002897830601380763
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "native07",
+    "min_ms": 7.315208,
+    "median_ms": 8.345512,
+    "max_ms": 9.67466,
+    "relative_mad": 0.09106858872169868
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "baseline",
+    "min_ms": 6.973435,
+    "median_ms": 8.08876,
+    "max_ms": 8.173587,
+    "relative_mad": 0.010487021496496258
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "native07",
+    "min_ms": 7.088003,
+    "median_ms": 7.30371,
+    "max_ms": 8.294931,
+    "relative_mad": 0.026252000695536924
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "baseline",
+    "min_ms": 14.22421,
+    "median_ms": 15.044349,
+    "max_ms": 16.557348,
+    "relative_mad": 0.054514755008674684
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "native07",
+    "min_ms": 13.878961,
+    "median_ms": 14.574315,
+    "max_ms": 15.99221,
+    "relative_mad": 0.04771092157676021
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "baseline",
+    "min_ms": 8.442279,
+    "median_ms": 9.145474,
+    "max_ms": 11.381066,
+    "relative_mad": 0.027361840403242084
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "native07",
+    "min_ms": 8.575193,
+    "median_ms": 9.748396,
+    "max_ms": 17.454564,
+    "relative_mad": 0.11272592947598764
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "baseline",
+    "min_ms": 8.193234,
+    "median_ms": 8.826059,
+    "max_ms": 9.470248,
+    "relative_mad": 0.027275027280012517
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "native07",
+    "min_ms": 8.344564,
+    "median_ms": 9.833067,
+    "max_ms": 10.482435,
+    "relative_mad": 0.06603921238409136
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "baseline",
+    "min_ms": 8.099618,
+    "median_ms": 9.157748,
+    "max_ms": 10.852155,
+    "relative_mad": 0.060390283724776006
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "native07",
+    "min_ms": 8.72359,
+    "median_ms": 9.610398,
+    "max_ms": 10.637828,
+    "relative_mad": 0.03915675500640036
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "baseline",
+    "min_ms": 8.261289,
+    "median_ms": 10.006971,
+    "max_ms": 10.051392,
+    "relative_mad": 0.004439005569217698
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "native07",
+    "min_ms": 8.048783,
+    "median_ms": 8.481007,
+    "max_ms": 9.762218,
+    "relative_mad": 0.05096375937432902
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "baseline",
+    "min_ms": 13.689841,
+    "median_ms": 13.927058,
+    "max_ms": 15.409307,
+    "relative_mad": 0.008220472694233054
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "native07",
+    "min_ms": 12.90483,
+    "median_ms": 13.267072,
+    "max_ms": 14.568726,
+    "relative_mad": 0.027303839159084988
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "baseline",
+    "min_ms": 8.995676,
+    "median_ms": 9.979394,
+    "max_ms": 12.447769,
+    "relative_mad": 0.09857492348733801
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "native07",
+    "min_ms": 8.630027,
+    "median_ms": 10.131277,
+    "max_ms": 11.369038,
+    "relative_mad": 0.120667216975708
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "baseline",
+    "min_ms": 8.28126,
+    "median_ms": 10.165492,
+    "max_ms": 11.087718,
+    "relative_mad": 0.09072123611921587
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "native07",
+    "min_ms": 8.118522,
+    "median_ms": 9.490047,
+    "max_ms": 10.221047,
+    "relative_mad": 0.07702806951324899
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "baseline",
+    "min_ms": 8.86776,
+    "median_ms": 10.351956,
+    "max_ms": 11.771091,
+    "relative_mad": 0.09163379365213685
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "native07",
+    "min_ms": 8.864913,
+    "median_ms": 11.018012,
+    "max_ms": 12.290181,
+    "relative_mad": 0.08874885959463467
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "baseline",
+    "min_ms": 9.150319,
+    "median_ms": 9.201062,
+    "max_ms": 10.535425,
+    "relative_mad": 0.005514906866185664
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "native07",
+    "min_ms": 8.253819000000002,
+    "median_ms": 9.048266,
+    "max_ms": 10.123911,
+    "relative_mad": 0.015388473327375654
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-epinions.edges",
+    "version": "baseline",
+    "min_ms": 13.444185,
+    "median_ms": 13.891383,
+    "max_ms": 18.443504,
+    "relative_mad": 0.03199141510964027
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-epinions.edges",
+    "version": "native07",
+    "min_ms": 13.508008,
+    "median_ms": 13.789118,
+    "max_ms": 14.982706,
+    "relative_mad": 0.020386365538390492
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "baseline",
+    "min_ms": 8.922421,
+    "median_ms": 9.674146,
+    "max_ms": 10.28082,
+    "relative_mad": 0.06271085840548613
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "native07",
+    "min_ms": 9.130846,
+    "median_ms": 11.423793,
+    "max_ms": 11.971285,
+    "relative_mad": 0.04577253807032393
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/C500-9.edges",
+    "version": "baseline",
+    "min_ms": 9.005357,
+    "median_ms": 11.273366,
+    "max_ms": 12.394648,
+    "relative_mad": 0.05572195562532078
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/C500-9.edges",
+    "version": "native07",
+    "min_ms": 8.710226,
+    "median_ms": 9.198824,
+    "max_ms": 10.954804,
+    "relative_mad": 0.05311526777770724
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "baseline",
+    "min_ms": 9.627542,
+    "median_ms": 10.198384,
+    "max_ms": 12.214143,
+    "relative_mad": 0.055973769961986136
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "native07",
+    "min_ms": 9.30027,
+    "median_ms": 10.238551,
+    "max_ms": 11.646958,
+    "relative_mad": 0.0916419716032083
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "baseline",
+    "min_ms": 27.654133,
+    "median_ms": 32.18665300000001,
+    "max_ms": 41.201711,
+    "relative_mad": 0.12972401945613904
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "native07",
+    "min_ms": 27.745107,
+    "median_ms": 31.951768999999995,
+    "max_ms": 47.843961,
+    "relative_mad": 0.10393136605362904
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "baseline",
+    "min_ms": 26.103001,
+    "median_ms": 30.694625,
+    "max_ms": 31.526316,
+    "relative_mad": 0.02709565599840363
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "native07",
+    "min_ms": 27.049267,
+    "median_ms": 27.923791,
+    "max_ms": 33.667549,
+    "relative_mad": 0.03131824042086549
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing.edges",
+    "version": "baseline",
+    "min_ms": 44.378548,
+    "median_ms": 49.069787,
+    "max_ms": 61.559029,
+    "relative_mad": 0.08473943447115431
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing.edges",
+    "version": "native07",
+    "min_ms": 43.636667,
+    "median_ms": 46.479356,
+    "max_ms": 50.234831,
+    "relative_mad": 0.037740604667586185
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "baseline",
+    "min_ms": 9.617132,
+    "median_ms": 11.456286,
+    "max_ms": 12.617395,
+    "relative_mad": 0.06555807004119835
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "native07",
+    "min_ms": 9.769543,
+    "median_ms": 10.402174,
+    "max_ms": 11.62931,
+    "relative_mad": 0.06081719071417187
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rec/rec-amazon.edges",
+    "version": "baseline",
+    "min_ms": 29.280725,
+    "median_ms": 38.383148,
+    "max_ms": 40.771117,
+    "relative_mad": 0.062213995579518386
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rec/rec-amazon.edges",
+    "version": "native07",
+    "min_ms": 29.195974,
+    "median_ms": 35.422972,
+    "max_ms": 39.009767,
+    "relative_mad": 0.10125618482830859
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "baseline",
+    "min_ms": 17.175312,
+    "median_ms": 17.956139,
+    "max_ms": 18.584801,
+    "relative_mad": 0.025558445498778996
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "native07",
+    "min_ms": 17.101156,
+    "median_ms": 18.045047,
+    "max_ms": 18.798759,
+    "relative_mad": 0.030250129024324515
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "baseline",
+    "min_ms": 11.31804,
+    "median_ms": 11.613277,
+    "max_ms": 12.709128,
+    "relative_mad": 0.025422367863954333
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "native07",
+    "min_ms": 11.183564,
+    "median_ms": 12.80226,
+    "max_ms": 12.982453,
+    "relative_mad": 0.014075092991393708
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "baseline",
+    "min_ms": 11.422243,
+    "median_ms": 12.461981,
+    "max_ms": 13.049041,
+    "relative_mad": 0.03269464140572835
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "native07",
+    "min_ms": 12.573831,
+    "median_ms": 14.165451,
+    "max_ms": 16.54547,
+    "relative_mad": 0.08779967542155911
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "protein/DD_g422.edges",
+    "version": "baseline",
+    "min_ms": 4.850976,
+    "median_ms": 5.176217,
+    "max_ms": 6.446894,
+    "relative_mad": 0.04668988954674814
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "protein/DD_g422.edges",
+    "version": "native07",
+    "min_ms": 4.239345,
+    "median_ms": 5.164444,
+    "max_ms": 6.405771,
+    "relative_mad": 0.16756866760487674
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "baseline",
+    "min_ms": 4.236124,
+    "median_ms": 4.983589,
+    "max_ms": 5.712733,
+    "relative_mad": 0.11239510320774847
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "native07",
+    "min_ms": 4.671698,
+    "median_ms": 4.707259,
+    "max_ms": 5.400508,
+    "relative_mad": 0.007554502524717676
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/G12.edges",
+    "version": "baseline",
+    "min_ms": 4.803343,
+    "median_ms": 5.550244,
+    "max_ms": 8.030581,
+    "relative_mad": 0.03416336290800909
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/G12.edges",
+    "version": "native07",
+    "min_ms": 4.569841,
+    "median_ms": 5.526967,
+    "max_ms": 5.734798,
+    "relative_mad": 0.03760308321001374
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "baseline",
+    "min_ms": 5.105409,
+    "median_ms": 5.663516,
+    "max_ms": 15.021018,
+    "relative_mad": 0.0711079477836736
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "native07",
+    "min_ms": 5.213396,
+    "median_ms": 5.709264,
+    "max_ms": 7.789785,
+    "relative_mad": 0.08685322661554974
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "baseline",
+    "min_ms": 9.946353,
+    "median_ms": 11.398043,
+    "max_ms": 14.126407,
+    "relative_mad": 0.12027196247636546
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "native07",
+    "min_ms": 9.264925,
+    "median_ms": 10.524918,
+    "max_ms": 11.248181,
+    "relative_mad": 0.06871911021064488
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "baseline",
+    "min_ms": 9.091582,
+    "median_ms": 9.473218,
+    "max_ms": 11.073636,
+    "relative_mad": 0.040285782508119206
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "native07",
+    "min_ms": 9.147984,
+    "median_ms": 9.897784,
+    "max_ms": 11.923619,
+    "relative_mad": 0.06571481050707915
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "baseline",
+    "min_ms": 9.153972,
+    "median_ms": 10.543513,
+    "max_ms": 11.155994,
+    "relative_mad": 0.04560823323307896
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "native07",
+    "min_ms": 10.418497,
+    "median_ms": 11.091522,
+    "max_ms": 11.988123,
+    "relative_mad": 0.036777729873321265
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-usroads-48.edges",
+    "version": "baseline",
+    "min_ms": 86.383372,
+    "median_ms": 91.165481,
+    "max_ms": 144.89538,
+    "relative_mad": 0.05245525990259405
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-usroads-48.edges",
+    "version": "native07",
+    "min_ms": 83.799996,
+    "median_ms": 112.898619,
+    "max_ms": 115.742897,
+    "relative_mad": 0.025193204533352175
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "email/email-enron-large.edges",
+    "version": "baseline",
+    "min_ms": 20.963922,
+    "median_ms": 22.513121,
+    "max_ms": 24.359894,
+    "relative_mad": 0.03738268896613668
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "email/email-enron-large.edges",
+    "version": "native07",
+    "min_ms": 18.835135,
+    "median_ms": 22.564624,
+    "max_ms": 24.68441,
+    "relative_mad": 0.0692908067069941
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "baseline",
+    "min_ms": 12.334422,
+    "median_ms": 13.151993,
+    "max_ms": 14.298667,
+    "relative_mad": 0.05236841290897889
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "native07",
+    "min_ms": 13.863156,
+    "median_ms": 16.894148,
+    "max_ms": 18.307234,
+    "relative_mad": 0.07044433374207447
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "baseline",
+    "min_ms": 30.874124,
+    "median_ms": 31.747802,
+    "max_ms": 44.848965,
+    "relative_mad": 0.027519322440022777
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "native07",
+    "min_ms": 31.979947,
+    "median_ms": 35.847517,
+    "max_ms": 42.45888,
+    "relative_mad": 0.06665499314778214
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "baseline",
+    "min_ms": 5.176845,
+    "median_ms": 5.561081,
+    "max_ms": 6.163024,
+    "relative_mad": 0.024404248023001285
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "native07",
+    "min_ms": 4.672543,
+    "median_ms": 5.75478,
+    "max_ms": 6.322473,
+    "relative_mad": 0.098647211535454
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "baseline",
+    "min_ms": 5.644765,
+    "median_ms": 6.151307,
+    "max_ms": 6.920255,
+    "relative_mad": 0.08234705242316795
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "native07",
+    "min_ms": 6.358592,
+    "median_ms": 6.479265,
+    "max_ms": 7.560493,
+    "relative_mad": 0.01862448904312449
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "baseline",
+    "min_ms": 4.798426,
+    "median_ms": 5.494422,
+    "max_ms": 5.942191,
+    "relative_mad": 0.049403012728181414
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "native07",
+    "min_ms": 4.773622,
+    "median_ms": 5.865119,
+    "max_ms": 6.975809,
+    "relative_mad": 0.07707720849312691
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "baseline",
+    "min_ms": 4.08516,
+    "median_ms": 4.743817,
+    "max_ms": 5.443585,
+    "relative_mad": 0.08608426505491253
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "native07",
+    "min_ms": 4.118064,
+    "median_ms": 4.712193,
+    "max_ms": 7.590774,
+    "relative_mad": 0.12153364686038963
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-spam.edges",
+    "version": "baseline",
+    "min_ms": 4.719236,
+    "median_ms": 4.961546,
+    "max_ms": 5.568325,
+    "relative_mad": 0.048837600215739206
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-spam.edges",
+    "version": "native07",
+    "min_ms": 4.912975,
+    "median_ms": 5.466674,
+    "max_ms": 6.058655,
+    "relative_mad": 0.08108604976261617
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "baseline",
+    "min_ms": 4.262549,
+    "median_ms": 5.881734,
+    "max_ms": 7.307571,
+    "relative_mad": 0.11910399212205108
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "native07",
+    "min_ms": 4.614661,
+    "median_ms": 5.338017,
+    "max_ms": 6.815653,
+    "relative_mad": 0.13551024659531807
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "baseline",
+    "min_ms": 4.593788,
+    "median_ms": 5.021367,
+    "max_ms": 5.971373,
+    "relative_mad": 0.08515191182002829
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "native07",
+    "min_ms": 4.862793,
+    "median_ms": 5.409369,
+    "max_ms": 5.561654,
+    "relative_mad": 0.016805841864365328
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "baseline",
+    "min_ms": 4.623861,
+    "median_ms": 5.208781,
+    "max_ms": 5.432074,
+    "relative_mad": 0.026786689630452883
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "native07",
+    "min_ms": 5.06868,
+    "median_ms": 5.712492,
+    "max_ms": 6.222728,
+    "relative_mad": 0.030154265423916568
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "baseline",
+    "min_ms": 5.898919,
+    "median_ms": 6.359043,
+    "max_ms": 6.675657,
+    "relative_mad": 0.04549505326509036
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "native07",
+    "min_ms": 6.335524,
+    "median_ms": 6.406208,
+    "max_ms": 7.197874,
+    "relative_mad": 0.011033672337832303
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "baseline",
+    "min_ms": 6.400893,
+    "median_ms": 7.220036,
+    "max_ms": 8.591214,
+    "relative_mad": 0.11345414344194406
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "native07",
+    "min_ms": 6.136794,
+    "median_ms": 6.887603,
+    "max_ms": 11.828091,
+    "relative_mad": 0.07261728064175592
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "baseline",
+    "min_ms": 4.600806,
+    "median_ms": 5.178656,
+    "max_ms": 6.282258,
+    "relative_mad": 0.09780935439619855
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "native07",
+    "min_ms": 5.101464,
+    "median_ms": 5.192738,
+    "max_ms": 6.40745,
+    "relative_mad": 0.017577239598839764
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "baseline",
+    "min_ms": 6.998094,
+    "median_ms": 8.153402000000002,
+    "max_ms": 11.036779,
+    "relative_mad": 0.14169643542658644
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "native07",
+    "min_ms": 7.885164,
+    "median_ms": 8.2915,
+    "max_ms": 9.196936,
+    "relative_mad": 0.04900633178556353
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "baseline",
+    "min_ms": 8.044037,
+    "median_ms": 9.080924,
+    "max_ms": 10.476257,
+    "relative_mad": 0.0525415695583401
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "native07",
+    "min_ms": 7.918763000000001,
+    "median_ms": 8.596058,
+    "max_ms": 10.384312,
+    "relative_mad": 0.07879134831337796
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "baseline",
+    "min_ms": 4.42439,
+    "median_ms": 5.412756,
+    "max_ms": 5.48125,
+    "relative_mad": 0.012654182083951318
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "native07",
+    "min_ms": 4.337732,
+    "median_ms": 4.785185,
+    "max_ms": 6.147202,
+    "relative_mad": 0.0719988882352511
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "baseline",
+    "min_ms": 4.326078,
+    "median_ms": 4.455538,
+    "max_ms": 5.495332,
+    "relative_mad": 0.029055974834015556
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "native07",
+    "min_ms": 4.237808,
+    "median_ms": 4.530933,
+    "max_ms": 6.136893,
+    "relative_mad": 0.06469418108808936
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "baseline",
+    "min_ms": 5.500531,
+    "median_ms": 6.229901,
+    "max_ms": 8.714146,
+    "relative_mad": 0.11707569670850307
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "native07",
+    "min_ms": 5.43673,
+    "median_ms": 6.643273,
+    "max_ms": 7.758593,
+    "relative_mad": 0.14836692696506676
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "baseline",
+    "min_ms": 4.619936,
+    "median_ms": 4.946449,
+    "max_ms": 5.051048,
+    "relative_mad": 0.00954058153637084
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "native07",
+    "min_ms": 4.593596,
+    "median_ms": 5.186465,
+    "max_ms": 5.312586,
+    "relative_mad": 0.02431733367524894
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "baseline",
+    "min_ms": 4.39508,
+    "median_ms": 4.634563,
+    "max_ms": 6.028854,
+    "relative_mad": 0.05167326455590311
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "native07",
+    "min_ms": 4.617278,
+    "median_ms": 4.992809,
+    "max_ms": 5.356171,
+    "relative_mad": 0.05883281335216308
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "baseline",
+    "min_ms": 4.421161,
+    "median_ms": 4.701147,
+    "max_ms": 5.616903,
+    "relative_mad": 0.05955695493036061
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "native07",
+    "min_ms": 4.395564,
+    "median_ms": 5.014031,
+    "max_ms": 5.296501,
+    "relative_mad": 0.03408355472872027
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "baseline",
+    "min_ms": 4.302203,
+    "median_ms": 4.816398,
+    "max_ms": 4.902056,
+    "relative_mad": 0.01778465982254789
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "native07",
+    "min_ms": 4.505993,
+    "median_ms": 5.442289,
+    "max_ms": 6.234495,
+    "relative_mad": 0.025255182148540806
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "baseline",
+    "min_ms": 4.454774,
+    "median_ms": 5.461857,
+    "max_ms": 6.763459,
+    "relative_mad": 0.1843847248289364
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "native07",
+    "min_ms": 5.499311,
+    "median_ms": 6.937249,
+    "max_ms": 10.065413,
+    "relative_mad": 0.17212298419733818
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "baseline",
+    "min_ms": 4.397291,
+    "median_ms": 4.657184,
+    "max_ms": 5.191559,
+    "relative_mad": 0.0558047523997334
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "native07",
+    "min_ms": 4.697683,
+    "median_ms": 4.921443,
+    "max_ms": 6.028762,
+    "relative_mad": 0.02443002997291648
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "baseline",
+    "min_ms": 4.639778,
+    "median_ms": 4.785067,
+    "max_ms": 5.250105,
+    "relative_mad": 0.030363002231734687
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "native07",
+    "min_ms": 4.49483,
+    "median_ms": 4.972255,
+    "max_ms": 5.618828,
+    "relative_mad": 0.05934048032532523
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "baseline",
+    "min_ms": 4.422079,
+    "median_ms": 4.761263,
+    "max_ms": 5.109563,
+    "relative_mad": 0.06709648259295906
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "native07",
+    "min_ms": 4.441654,
+    "median_ms": 4.872214,
+    "max_ms": 5.369869,
+    "relative_mad": 0.06405999408071977
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "baseline",
+    "min_ms": 6.62314,
+    "median_ms": 6.694571,
+    "max_ms": 7.360097,
+    "relative_mad": 0.010669989159872977
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "native07",
+    "min_ms": 6.590545,
+    "median_ms": 6.930881,
+    "max_ms": 7.34052,
+    "relative_mad": 0.03531499098022315
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "baseline",
+    "min_ms": 4.6975,
+    "median_ms": 5.774055,
+    "max_ms": 5.982636,
+    "relative_mad": 0.03612383325063582
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "native07",
+    "min_ms": 5.053184,
+    "median_ms": 5.574552,
+    "max_ms": 5.906596,
+    "relative_mad": 0.03372988537913002
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "baseline",
+    "min_ms": 4.542321,
+    "median_ms": 5.378293,
+    "max_ms": 6.514082,
+    "relative_mad": 0.14662049836258456
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "native07",
+    "min_ms": 4.316758,
+    "median_ms": 4.996828,
+    "max_ms": 5.561895,
+    "relative_mad": 0.07652514755360801
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "baseline",
+    "min_ms": 4.634512,
+    "median_ms": 5.08856,
+    "max_ms": 5.775332,
+    "relative_mad": 0.0456748078041725
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "native07",
+    "min_ms": 4.928452,
+    "median_ms": 5.195153,
+    "max_ms": 5.546327,
+    "relative_mad": 0.025466622445960686
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "baseline",
+    "min_ms": 5.413092,
+    "median_ms": 5.981706,
+    "max_ms": 6.32065,
+    "relative_mad": 0.052670759813337534
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "native07",
+    "min_ms": 5.333791,
+    "median_ms": 6.218127,
+    "max_ms": 6.509876,
+    "relative_mad": 0.04691911245942709
+  },
+  {
+    "algorithm": "cc",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "baseline",
+    "min_ms": 4.707868,
+    "median_ms": 5.26681,
+    "max_ms": 6.213796,
+    "relative_mad": 0.10612533962683295
+  },
+  {
+    "algorithm": "cc",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "native07",
+    "min_ms": 4.627569,
+    "median_ms": 5.198066,
+    "max_ms": 6.439614,
+    "relative_mad": 0.06312617038721709
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "baseline",
+    "min_ms": 11.449555,
+    "median_ms": 12.128933,
+    "max_ms": 13.24468,
+    "relative_mad": 0.041007976546659136
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "native07",
+    "min_ms": 11.348007,
+    "median_ms": 12.284804,
+    "max_ms": 13.035976,
+    "relative_mad": 0.006455210844226737
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "baseline",
+    "min_ms": 4.868804,
+    "median_ms": 5.542945,
+    "max_ms": 6.252193,
+    "relative_mad": 0.053549692446885185
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "native07",
+    "min_ms": 4.899497,
+    "median_ms": 5.066061,
+    "max_ms": 6.421402,
+    "relative_mad": 0.032878403951314444
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "baseline",
+    "min_ms": 4.874904,
+    "median_ms": 5.057646,
+    "max_ms": 5.402769,
+    "relative_mad": 0.025192154611058188
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "native07",
+    "min_ms": 5.213263,
+    "median_ms": 5.411365,
+    "max_ms": 6.179419,
+    "relative_mad": 0.030157825243723162
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "baseline",
+    "min_ms": 10.178393,
+    "median_ms": 10.912752,
+    "max_ms": 11.397909,
+    "relative_mad": 0.044457804960655205
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "native07",
+    "min_ms": 10.681444,
+    "median_ms": 11.529194,
+    "max_ms": 11.961983,
+    "relative_mad": 0.03753853044714141
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "baseline",
+    "min_ms": 4.929651,
+    "median_ms": 5.259172,
+    "max_ms": 6.070687,
+    "relative_mad": 0.05163550460034393
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "native07",
+    "min_ms": 4.999485,
+    "median_ms": 5.527321,
+    "max_ms": 6.003228,
+    "relative_mad": 0.04717547614839088
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "baseline",
+    "min_ms": 5.293892,
+    "median_ms": 5.722273,
+    "max_ms": 5.985423,
+    "relative_mad": 0.04598697056222239
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "native07",
+    "min_ms": 4.85765,
+    "median_ms": 4.951146,
+    "max_ms": 6.024026,
+    "relative_mad": 0.008897738018632454
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "baseline",
+    "min_ms": 4.917104,
+    "median_ms": 5.040147,
+    "max_ms": 6.141843,
+    "relative_mad": 0.02441258161716315
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "native07",
+    "min_ms": 5.265516,
+    "median_ms": 5.557744,
+    "max_ms": 6.516219,
+    "relative_mad": 0.02420910354992961
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "baseline",
+    "min_ms": 4.971384,
+    "median_ms": 5.50977,
+    "max_ms": 6.506586,
+    "relative_mad": 0.05738805794071259
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "native07",
+    "min_ms": 4.958539,
+    "median_ms": 5.449174,
+    "max_ms": 5.876374,
+    "relative_mad": 0.060998786238061035
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-epinions.edges",
+    "version": "baseline",
+    "min_ms": 8.086552,
+    "median_ms": 8.696911,
+    "max_ms": 8.83116,
+    "relative_mad": 0.015436400349503405
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-epinions.edges",
+    "version": "native07",
+    "min_ms": 8.323778,
+    "median_ms": 9.089784,
+    "max_ms": 10.24038,
+    "relative_mad": 0.02373367727990016
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "baseline",
+    "min_ms": 4.816275,
+    "median_ms": 4.921638,
+    "max_ms": 5.644721,
+    "relative_mad": 0.021408116566070078
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "native07",
+    "min_ms": 5.253589,
+    "median_ms": 6.208215,
+    "max_ms": 6.599794,
+    "relative_mad": 0.06307432973890241
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/C500-9.edges",
+    "version": "baseline",
+    "min_ms": 4.695941,
+    "median_ms": 5.577587,
+    "max_ms": 5.750285,
+    "relative_mad": 0.030962851856905147
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/C500-9.edges",
+    "version": "native07",
+    "min_ms": 4.750312,
+    "median_ms": 5.181525,
+    "max_ms": 5.521524,
+    "relative_mad": 0.0643395525448589
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "baseline",
+    "min_ms": 4.938837,
+    "median_ms": 5.330908,
+    "max_ms": 6.489881,
+    "relative_mad": 0.07354675788814964
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "native07",
+    "min_ms": 5.114074,
+    "median_ms": 5.491598,
+    "max_ms": 5.845793,
+    "relative_mad": 0.050364757216387654
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "baseline",
+    "min_ms": 24.397909,
+    "median_ms": 27.77156,
+    "max_ms": 28.423364,
+    "relative_mad": 0.008268782884360835
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "native07",
+    "min_ms": 25.996706,
+    "median_ms": 28.15767,
+    "max_ms": 29.621276,
+    "relative_mad": 0.05119450579540139
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "baseline",
+    "min_ms": 25.702271,
+    "median_ms": 27.07126,
+    "max_ms": 27.815878,
+    "relative_mad": 0.02195376203397995
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "native07",
+    "min_ms": 24.807679,
+    "median_ms": 26.416223,
+    "max_ms": 28.756467,
+    "relative_mad": 0.012464613128076637
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing.edges",
+    "version": "baseline",
+    "min_ms": 15.022486,
+    "median_ms": 16.548877,
+    "max_ms": 21.208016,
+    "relative_mad": 0.09223532207049458
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing.edges",
+    "version": "native07",
+    "min_ms": 15.580256,
+    "median_ms": 17.24014,
+    "max_ms": 19.773317,
+    "relative_mad": 0.04819804247529312
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "baseline",
+    "min_ms": 4.955168,
+    "median_ms": 5.256727,
+    "max_ms": 6.393563,
+    "relative_mad": 0.0573663041660714
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "native07",
+    "min_ms": 4.808503,
+    "median_ms": 5.388886,
+    "max_ms": 5.844333,
+    "relative_mad": 0.08451598345186742
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rec/rec-amazon.edges",
+    "version": "baseline",
+    "min_ms": 27.538302,
+    "median_ms": 29.575975,
+    "max_ms": 33.171697,
+    "relative_mad": 0.029967093223469386
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rec/rec-amazon.edges",
+    "version": "native07",
+    "min_ms": 28.28356,
+    "median_ms": 29.030829,
+    "max_ms": 31.579589999999996,
+    "relative_mad": 0.02574053259037143
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "baseline",
+    "min_ms": 10.989166,
+    "median_ms": 12.156709,
+    "max_ms": 13.295189,
+    "relative_mad": 0.07969747404499031
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "native07",
+    "min_ms": 11.226409,
+    "median_ms": 12.333085,
+    "max_ms": 12.865371,
+    "relative_mad": 0.04315919334051456
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "baseline",
+    "min_ms": 21.726116,
+    "median_ms": 22.593941,
+    "max_ms": 23.744117,
+    "relative_mad": 0.033987607562576176
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "native07",
+    "min_ms": 20.861041,
+    "median_ms": 22.357924,
+    "max_ms": 23.540982,
+    "relative_mad": 0.03656846673242113
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "baseline",
+    "min_ms": 21.820985,
+    "median_ms": 22.772549,
+    "max_ms": 23.020254,
+    "relative_mad": 0.010877350620696875
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "native07",
+    "min_ms": 20.532349,
+    "median_ms": 22.204961,
+    "max_ms": 23.886513,
+    "relative_mad": 0.05563923305246967
+  },
+  {
+    "algorithm": "cc",
+    "graph": "protein/DD_g422.edges",
+    "version": "baseline",
+    "min_ms": 3.037521,
+    "median_ms": 3.079516,
+    "max_ms": 3.578533,
+    "relative_mad": 0.0136368831985286
+  },
+  {
+    "algorithm": "cc",
+    "graph": "protein/DD_g422.edges",
+    "version": "native07",
+    "min_ms": 3.180364,
+    "median_ms": 3.667039,
+    "max_ms": 3.917141,
+    "relative_mad": 0.06820271068837828
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "baseline",
+    "min_ms": 3.404576,
+    "median_ms": 3.415537,
+    "max_ms": 4.159946000000001,
+    "relative_mad": 0.0032091586183958776
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "native07",
+    "min_ms": 3.280244,
+    "median_ms": 3.9286800000000004,
+    "max_ms": 4.183859,
+    "relative_mad": 0.06495285948461048
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/G12.edges",
+    "version": "baseline",
+    "min_ms": 2.986549,
+    "median_ms": 3.048418,
+    "max_ms": 3.327069,
+    "relative_mad": 0.020295445047234337
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/G12.edges",
+    "version": "native07",
+    "min_ms": 3.107021,
+    "median_ms": 3.415846,
+    "max_ms": 4.240394,
+    "relative_mad": 0.06970279105088462
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "baseline",
+    "min_ms": 3.226917,
+    "median_ms": 3.316079,
+    "max_ms": 4.353889,
+    "relative_mad": 0.026887779211532657
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "native07",
+    "min_ms": 3.040015,
+    "median_ms": 3.311602,
+    "max_ms": 3.934465,
+    "relative_mad": 0.0360004010143731
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "baseline",
+    "min_ms": 4.830555,
+    "median_ms": 5.294767,
+    "max_ms": 5.789476,
+    "relative_mad": 0.03620537032130026
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "native07",
+    "min_ms": 4.953772,
+    "median_ms": 5.603152,
+    "max_ms": 6.061039,
+    "relative_mad": 0.009786098967152775
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "baseline",
+    "min_ms": 5.958101,
+    "median_ms": 6.105488,
+    "max_ms": 6.590313,
+    "relative_mad": 0.024140085116865353
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "native07",
+    "min_ms": 5.83186,
+    "median_ms": 6.379902,
+    "max_ms": 6.785543,
+    "relative_mad": 0.028166733595594413
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "baseline",
+    "min_ms": 5.274929,
+    "median_ms": 6.16173,
+    "max_ms": 7.788879,
+    "relative_mad": 0.03074883190272862
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "native07",
+    "min_ms": 5.295025,
+    "median_ms": 5.992095,
+    "max_ms": 7.573401,
+    "relative_mad": 0.011473282716645848
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-usroads-48.edges",
+    "version": "baseline",
+    "min_ms": 27.572617,
+    "median_ms": 29.247419,
+    "max_ms": 30.639997,
+    "relative_mad": 0.011540266168443787
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-usroads-48.edges",
+    "version": "native07",
+    "min_ms": 27.125884,
+    "median_ms": 27.948643,
+    "max_ms": 29.636243,
+    "relative_mad": 0.02943824499815608
+  },
+  {
+    "algorithm": "cc",
+    "graph": "email/email-enron-large.edges",
+    "version": "baseline",
+    "min_ms": 9.211911,
+    "median_ms": 10.333776,
+    "max_ms": 11.216779,
+    "relative_mad": 0.017024464242306008
+  },
+  {
+    "algorithm": "cc",
+    "graph": "email/email-enron-large.edges",
+    "version": "native07",
+    "min_ms": 8.823517,
+    "median_ms": 9.893122,
+    "max_ms": 10.952979,
+    "relative_mad": 0.07463943131399775
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "baseline",
+    "min_ms": 5.511473,
+    "median_ms": 5.994234,
+    "max_ms": 6.625027,
+    "relative_mad": 0.027726978960114
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "native07",
+    "min_ms": 5.854585,
+    "median_ms": 6.098792,
+    "max_ms": 7.392279,
+    "relative_mad": 0.040041864028155086
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "baseline",
+    "min_ms": 17.328862,
+    "median_ms": 17.662487,
+    "max_ms": 18.229374,
+    "relative_mad": 0.015012834828979634
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "native07",
+    "min_ms": 18.018121,
+    "median_ms": 20.145168,
+    "max_ms": 20.468064,
+    "relative_mad": 0.0160284590329552
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "baseline",
+    "min_ms": 8.298352,
+    "median_ms": 8.99086,
+    "max_ms": 9.563114,
+    "relative_mad": 0.0251648896768496
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "version": "native07",
+    "min_ms": 5.308184,
+    "median_ms": 6.951378,
+    "max_ms": 7.467846,
+    "relative_mad": 0.07429721128674056
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "baseline",
+    "min_ms": 7.969706999999999,
+    "median_ms": 8.651684,
+    "max_ms": 8.934613,
+    "relative_mad": 0.032702188383209554
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "version": "native07",
+    "min_ms": 6.447366,
+    "median_ms": 6.581677,
+    "max_ms": 7.704736,
+    "relative_mad": 0.0204068051349223
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "baseline",
+    "min_ms": 7.34359,
+    "median_ms": 7.462632,
+    "max_ms": 8.44252,
+    "relative_mad": 0.0159517446391568
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "version": "native07",
+    "min_ms": 5.543639,
+    "median_ms": 6.717076,
+    "max_ms": 6.839814,
+    "relative_mad": 0.01827253406095152
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "baseline",
+    "min_ms": 6.711365,
+    "median_ms": 6.842819,
+    "max_ms": 8.72274,
+    "relative_mad": 0.019210503741221272
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/p-hat300-3.edges",
+    "version": "native07",
+    "min_ms": 5.702465,
+    "median_ms": 6.700656,
+    "max_ms": 7.248995,
+    "relative_mad": 0.08183362942374597
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-spam.edges",
+    "version": "baseline",
+    "min_ms": 8.119204,
+    "median_ms": 8.367368999999998,
+    "max_ms": 9.150276,
+    "relative_mad": 0.020401155966708405
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-spam.edges",
+    "version": "native07",
+    "min_ms": 6.129429,
+    "median_ms": 6.894629,
+    "max_ms": 8.578917,
+    "relative_mad": 0.04807669854317034
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "baseline",
+    "min_ms": 6.951572,
+    "median_ms": 8.55114,
+    "max_ms": 9.194278,
+    "relative_mad": 0.07521079060803589
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "version": "native07",
+    "min_ms": 6.342577,
+    "median_ms": 6.815899,
+    "max_ms": 8.440879,
+    "relative_mad": 0.06944381071374443
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "baseline",
+    "min_ms": 7.435292,
+    "median_ms": 7.685583,
+    "max_ms": 9.625033,
+    "relative_mad": 0.032566299784934985
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_40k.edges",
+    "version": "native07",
+    "min_ms": 5.632774,
+    "median_ms": 5.865007,
+    "max_ms": 6.290415,
+    "relative_mad": 0.039596372178242925
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "baseline",
+    "min_ms": 7.262807,
+    "median_ms": 8.207715,
+    "max_ms": 8.913497,
+    "relative_mad": 0.08599007153635317
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/c-fat500-10.edges",
+    "version": "native07",
+    "min_ms": 6.510794,
+    "median_ms": 6.90273,
+    "max_ms": 7.480964,
+    "relative_mad": 0.053068423652670754
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "baseline",
+    "min_ms": 9.246549,
+    "median_ms": 9.839656,
+    "max_ms": 12.421282,
+    "relative_mad": 0.04968110673787783
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-indochina-2004.edges",
+    "version": "native07",
+    "min_ms": 7.653369,
+    "median_ms": 7.806271,
+    "max_ms": 9.254517,
+    "relative_mad": 0.01958707300835444
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "baseline",
+    "min_ms": 7.353013,
+    "median_ms": 8.321479,
+    "max_ms": 9.074043,
+    "relative_mad": 0.07569856271943966
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-sphere.edges",
+    "version": "native07",
+    "min_ms": 6.859046,
+    "median_ms": 8.96381,
+    "max_ms": 10.440363,
+    "relative_mad": 0.09618934359385127
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "baseline",
+    "min_ms": 6.540497,
+    "median_ms": 6.886204,
+    "max_ms": 7.553445,
+    "relative_mad": 0.023460966303060438
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_50k.edges",
+    "version": "native07",
+    "min_ms": 5.515219,
+    "median_ms": 5.760125,
+    "max_ms": 7.045449,
+    "relative_mad": 0.02242989518456631
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "baseline",
+    "min_ms": 10.861556,
+    "median_ms": 15.829098,
+    "max_ms": 33.192778,
+    "relative_mad": 0.3138234408555686
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-as-caida2007.edges",
+    "version": "native07",
+    "min_ms": 11.869331,
+    "median_ms": 14.394651,
+    "max_ms": 20.463222,
+    "relative_mad": 0.03772255402371339
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "baseline",
+    "min_ms": 24.126854,
+    "median_ms": 24.435794,
+    "max_ms": 29.880666,
+    "relative_mad": 0.012642928648031654
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-EU.edges",
+    "version": "native07",
+    "min_ms": 15.852934999999999,
+    "median_ms": 19.736335,
+    "max_ms": 22.334077,
+    "relative_mad": 0.1316223098158802
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "baseline",
+    "min_ms": 10.078487,
+    "median_ms": 13.741289,
+    "max_ms": 26.00067,
+    "relative_mad": 0.26655446952611217
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "version": "native07",
+    "min_ms": 8.588987,
+    "median_ms": 9.332687,
+    "max_ms": 11.467659,
+    "relative_mad": 0.07968766122768288
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "baseline",
+    "min_ms": 7.130271,
+    "median_ms": 8.001383,
+    "max_ms": 12.703333,
+    "relative_mad": 0.09081417549941065
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "version": "native07",
+    "min_ms": 5.941837,
+    "median_ms": 6.678209,
+    "max_ms": 10.054842,
+    "relative_mad": 0.025973580641156933
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "baseline",
+    "min_ms": 9.002216,
+    "median_ms": 9.760746,
+    "max_ms": 11.734318,
+    "relative_mad": 0.023874199779402108
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-WHOIS.edges",
+    "version": "native07",
+    "min_ms": 8.285170999999998,
+    "median_ms": 8.801526,
+    "max_ms": 9.737321,
+    "relative_mad": 0.0249453333433316
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "baseline",
+    "min_ms": 7.933287000000001,
+    "median_ms": 9.073595,
+    "max_ms": 9.871519,
+    "relative_mad": 0.06928631925934539
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "version": "native07",
+    "min_ms": 6.641496,
+    "median_ms": 7.043299,
+    "max_ms": 8.144053999999999,
+    "relative_mad": 0.057047556833807564
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "baseline",
+    "min_ms": 7.020767,
+    "median_ms": 8.696694,
+    "max_ms": 9.07119,
+    "relative_mad": 0.043061880756066616
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-3.edges",
+    "version": "native07",
+    "min_ms": 6.246497,
+    "median_ms": 6.602238,
+    "max_ms": 6.922773,
+    "relative_mad": 0.047005575988021034
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "baseline",
+    "min_ms": 7.375983,
+    "median_ms": 7.95211,
+    "max_ms": 8.033359,
+    "relative_mad": 0.010217288241737099
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-1.edges",
+    "version": "native07",
+    "min_ms": 6.722926,
+    "median_ms": 6.983921,
+    "max_ms": 8.008157,
+    "relative_mad": 0.03737084082136668
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "baseline",
+    "min_ms": 7.557877,
+    "median_ms": 7.727439,
+    "max_ms": 8.937244,
+    "relative_mad": 0.021942845488654134
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-4.edges",
+    "version": "native07",
+    "min_ms": 6.125411,
+    "median_ms": 6.733111,
+    "max_ms": 7.449849,
+    "relative_mad": 0.09025545546479183
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "baseline",
+    "min_ms": 6.954575,
+    "median_ms": 8.163910999999999,
+    "max_ms": 9.572466,
+    "relative_mad": 0.1481319431336279
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-2.edges",
+    "version": "native07",
+    "min_ms": 6.640099,
+    "median_ms": 8.253714,
+    "max_ms": 10.077646,
+    "relative_mad": 0.06607643540835081
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "baseline",
+    "min_ms": 8.135354,
+    "median_ms": 8.599967,
+    "max_ms": 9.165099,
+    "relative_mad": 0.05402497474699623
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "version": "native07",
+    "min_ms": 6.206902,
+    "median_ms": 7.29987,
+    "max_ms": 8.009165,
+    "relative_mad": 0.08654359598184626
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "baseline",
+    "min_ms": 7.225452,
+    "median_ms": 7.647179,
+    "max_ms": 9.515716,
+    "relative_mad": 0.05514804871181909
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC500-5.edges",
+    "version": "native07",
+    "min_ms": 6.485664,
+    "median_ms": 7.039561,
+    "max_ms": 7.900292999999999,
+    "relative_mad": 0.04613412682978384
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "baseline",
+    "min_ms": 8.511123,
+    "median_ms": 9.68283,
+    "max_ms": 10.265774,
+    "relative_mad": 0.060203886673627444
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "version": "native07",
+    "min_ms": 6.56849,
+    "median_ms": 6.625065,
+    "max_ms": 7.923965999999999,
+    "relative_mad": 0.008539538857354607
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "baseline",
+    "min_ms": 9.418447,
+    "median_ms": 9.523143,
+    "max_ms": 10.205144,
+    "relative_mad": 0.010993849404550577
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_retweet.edges",
+    "version": "native07",
+    "min_ms": 7.734611,
+    "median_ms": 7.943586000000001,
+    "max_ms": 8.792033,
+    "relative_mad": 0.026307388124204977
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "baseline",
+    "min_ms": 7.120523,
+    "median_ms": 8.245338,
+    "max_ms": 8.922848,
+    "relative_mad": 0.08216885711659122
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/MANN-a27.edges",
+    "version": "native07",
+    "min_ms": 6.788242,
+    "median_ms": 7.235639,
+    "max_ms": 8.178932999999999,
+    "relative_mad": 0.03127035497486815
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "baseline",
+    "min_ms": 8.014198,
+    "median_ms": 8.120787000000002,
+    "max_ms": 9.894967,
+    "relative_mad": 0.012515782029500455
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_fb-forum.edges",
+    "version": "native07",
+    "min_ms": 7.121816,
+    "median_ms": 7.481478,
+    "max_ms": 8.940714,
+    "relative_mad": 0.020363222347242083
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "baseline",
+    "min_ms": 7.262786,
+    "median_ms": 8.307515,
+    "max_ms": 8.339623,
+    "relative_mad": 0.0038649343395707465
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "version": "native07",
+    "min_ms": 6.341577,
+    "median_ms": 6.856318,
+    "max_ms": 8.228967,
+    "relative_mad": 0.07425807846135492
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "baseline",
+    "min_ms": 9.843007,
+    "median_ms": 10.554435,
+    "max_ms": 10.802272,
+    "relative_mad": 0.023481787513969246
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing_nodal.edges",
+    "version": "native07",
+    "min_ms": 7.333164,
+    "median_ms": 8.228215,
+    "max_ms": 9.261525,
+    "relative_mad": 0.10877827086433701
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "baseline",
+    "min_ms": 7.851,
+    "median_ms": 8.349129,
+    "max_ms": 11.291586,
+    "relative_mad": 0.05966239113085928
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "version": "native07",
+    "min_ms": 7.018475,
+    "median_ms": 7.445225,
+    "max_ms": 8.826577,
+    "relative_mad": 0.057318616965907676
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "baseline",
+    "min_ms": 11.674686,
+    "median_ms": 12.337243,
+    "max_ms": 12.98131,
+    "relative_mad": 0.03289624756519751
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/PROTEINS-full.edges",
+    "version": "native07",
+    "min_ms": 10.16609,
+    "median_ms": 11.482736,
+    "max_ms": 11.797703,
+    "relative_mad": 0.027429612594071656
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "baseline",
+    "min_ms": 8.651425,
+    "median_ms": 9.399371,
+    "max_ms": 10.459412,
+    "relative_mad": 0.021729007185693597
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Mich67.edges",
+    "version": "native07",
+    "min_ms": 6.749927,
+    "median_ms": 7.060929,
+    "max_ms": 7.986039,
+    "relative_mad": 0.04404547900141752
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "baseline",
+    "min_ms": 8.111646,
+    "median_ms": 8.394513,
+    "max_ms": 10.929558,
+    "relative_mad": 0.015624491855572912
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "version": "native07",
+    "min_ms": 7.551149,
+    "median_ms": 7.901827,
+    "max_ms": 8.473712,
+    "relative_mad": 0.02468138064779196
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "baseline",
+    "min_ms": 11.797999,
+    "median_ms": 12.261053,
+    "max_ms": 13.868164,
+    "relative_mad": 0.03147878081923306
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-internet-as.edges",
+    "version": "native07",
+    "min_ms": 10.824523,
+    "median_ms": 11.415897,
+    "max_ms": 11.907717,
+    "relative_mad": 0.030331037499725162
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "baseline",
+    "min_ms": 8.365268,
+    "median_ms": 9.160625,
+    "max_ms": 9.855989,
+    "relative_mad": 0.07590792112983558
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "version": "native07",
+    "min_ms": 7.524054,
+    "median_ms": 7.8340879999999995,
+    "max_ms": 8.048675,
+    "relative_mad": 0.009532315695202694
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "baseline",
+    "min_ms": 9.869016,
+    "median_ms": 10.753342,
+    "max_ms": 14.830659,
+    "relative_mad": 0.053584829720843996
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "version": "native07",
+    "min_ms": 7.924245999999999,
+    "median_ms": 9.316211,
+    "max_ms": 10.700423,
+    "relative_mad": 0.08719274391702807
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "baseline",
+    "min_ms": 8.353503,
+    "median_ms": 8.857444,
+    "max_ms": 9.590104,
+    "relative_mad": 0.05689463009870568
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "version": "native07",
+    "min_ms": 7.531704,
+    "median_ms": 7.816109,
+    "max_ms": 8.507084,
+    "relative_mad": 0.036387030938284
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "baseline",
+    "min_ms": 8.231509999999998,
+    "median_ms": 9.938347,
+    "max_ms": 10.847341,
+    "relative_mad": 0.07255291045885195
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Smith60.edges",
+    "version": "native07",
+    "min_ms": 7.195642,
+    "median_ms": 7.55938,
+    "max_ms": 8.416292,
+    "relative_mad": 0.04811743820260392
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-epinions.edges",
+    "version": "baseline",
+    "min_ms": 12.3112,
+    "median_ms": 13.402604,
+    "max_ms": 14.805732,
+    "relative_mad": 0.07876133622988488
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-epinions.edges",
+    "version": "native07",
+    "min_ms": 11.077341,
+    "median_ms": 12.495166,
+    "max_ms": 12.893376,
+    "relative_mad": 0.03186912442779872
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "baseline",
+    "min_ms": 8.376708,
+    "median_ms": 10.138295,
+    "max_ms": 10.699506,
+    "relative_mad": 0.05535556027911991
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "version": "native07",
+    "min_ms": 7.507764,
+    "median_ms": 8.306738,
+    "max_ms": 10.2773,
+    "relative_mad": 0.09618384497019157
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/C500-9.edges",
+    "version": "baseline",
+    "min_ms": 8.39978,
+    "median_ms": 9.044569,
+    "max_ms": 9.772736,
+    "relative_mad": 0.05772900842483484
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/C500-9.edges",
+    "version": "native07",
+    "min_ms": 7.173712,
+    "median_ms": 7.874190999999999,
+    "max_ms": 11.455033,
+    "relative_mad": 0.04103837460889645
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "baseline",
+    "min_ms": 8.556986,
+    "median_ms": 9.156162,
+    "max_ms": 10.449216,
+    "relative_mad": 0.06543964600014722
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Williams40.edges",
+    "version": "native07",
+    "min_ms": 7.477838,
+    "median_ms": 7.851393999999999,
+    "max_ms": 8.8468,
+    "relative_mad": 0.01999950582024045
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "baseline",
+    "min_ms": 17.051551,
+    "median_ms": 18.12091,
+    "max_ms": 19.956423,
+    "relative_mad": 0.05901243370228096
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "version": "native07",
+    "min_ms": 16.645409,
+    "median_ms": 17.494172,
+    "max_ms": 18.207078,
+    "relative_mad": 0.029868975793767204
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "baseline",
+    "min_ms": 18.175092,
+    "median_ms": 18.480349,
+    "max_ms": 19.80878,
+    "relative_mad": 0.013854500258626069
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-luxembourg-osm.edges",
+    "version": "native07",
+    "min_ms": 16.487683,
+    "median_ms": 17.523657,
+    "max_ms": 18.127461,
+    "relative_mad": 0.03445650642442956
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing.edges",
+    "version": "baseline",
+    "min_ms": 15.388997,
+    "median_ms": 16.238788,
+    "max_ms": 18.192502,
+    "relative_mad": 0.05233093750592717
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing.edges",
+    "version": "native07",
+    "min_ms": 13.230973,
+    "median_ms": 13.958273,
+    "max_ms": 16.941537,
+    "relative_mad": 0.013241896042583492
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "baseline",
+    "min_ms": 9.672034,
+    "median_ms": 10.426113,
+    "max_ms": 11.557805,
+    "relative_mad": 0.07228993201972778
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "version": "native07",
+    "min_ms": 8.181811000000001,
+    "median_ms": 10.065712,
+    "max_ms": 11.082301,
+    "relative_mad": 0.10099524007839684
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rec/rec-amazon.edges",
+    "version": "baseline",
+    "min_ms": 17.566099,
+    "median_ms": 18.909289,
+    "max_ms": 20.879942,
+    "relative_mad": 0.07103334239589865
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rec/rec-amazon.edges",
+    "version": "native07",
+    "min_ms": 17.302036,
+    "median_ms": 17.908697,
+    "max_ms": 19.795018,
+    "relative_mad": 0.028889706492884436
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "baseline",
+    "min_ms": 13.663528,
+    "median_ms": 14.590482,
+    "max_ms": 17.12571,
+    "relative_mad": 0.049684924733809345
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "version": "native07",
+    "min_ms": 11.750356,
+    "median_ms": 12.752976,
+    "max_ms": 15.071903,
+    "relative_mad": 0.04648805110273869
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "baseline",
+    "min_ms": 19.591484,
+    "median_ms": 20.038565,
+    "max_ms": 21.59341,
+    "relative_mad": 0.022311028758795853
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "version": "native07",
+    "min_ms": 19.483009,
+    "median_ms": 20.054223,
+    "max_ms": 20.855231,
+    "relative_mad": 0.018597429578797443
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "baseline",
+    "min_ms": 19.952948,
+    "median_ms": 21.310482,
+    "max_ms": 23.698096,
+    "relative_mad": 0.043143932643100236
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-MMP.edges",
+    "version": "native07",
+    "min_ms": 19.11973,
+    "median_ms": 19.998013,
+    "max_ms": 22.7502,
+    "relative_mad": 0.04391851330429678
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "protein/DD_g422.edges",
+    "version": "baseline",
+    "min_ms": 4.250535,
+    "median_ms": 4.461998,
+    "max_ms": 4.728158,
+    "relative_mad": 0.0329307633037935
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "protein/DD_g422.edges",
+    "version": "native07",
+    "min_ms": 3.666826,
+    "median_ms": 4.044986000000001,
+    "max_ms": 4.763566,
+    "relative_mad": 0.00906381381789702
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "baseline",
+    "min_ms": 3.903435,
+    "median_ms": 4.132033999999999,
+    "max_ms": 5.046569,
+    "relative_mad": 0.055323600919063
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "version": "native07",
+    "min_ms": 3.841333,
+    "median_ms": 4.097339999999999,
+    "max_ms": 4.840484,
+    "relative_mad": 0.06248126833506606
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/G12.edges",
+    "version": "baseline",
+    "min_ms": 3.632407,
+    "median_ms": 3.84771,
+    "max_ms": 5.339385,
+    "relative_mad": 0.05595614014569705
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/G12.edges",
+    "version": "native07",
+    "min_ms": 3.6524,
+    "median_ms": 3.9265280000000007,
+    "max_ms": 4.019511,
+    "relative_mad": 0.02368071741752498
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "baseline",
+    "min_ms": 4.774163,
+    "median_ms": 5.045202,
+    "max_ms": 5.445885,
+    "relative_mad": 0.04965450342721659
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-univ.edges",
+    "version": "native07",
+    "min_ms": 3.750336,
+    "median_ms": 3.936915,
+    "max_ms": 4.813909,
+    "relative_mad": 0.04739218398162013
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "baseline",
+    "min_ms": 9.152637,
+    "median_ms": 10.65255,
+    "max_ms": 10.768545,
+    "relative_mad": 0.010888942084289676
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/delaunay_n13.edges",
+    "version": "native07",
+    "min_ms": 5.948759,
+    "median_ms": 6.474317,
+    "max_ms": 15.063058,
+    "relative_mad": 0.0789448524068253
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "baseline",
+    "min_ms": 10.836749,
+    "median_ms": 12.540426,
+    "max_ms": 13.991702,
+    "relative_mad": 0.07970741982768369
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "version": "native07",
+    "min_ms": 9.72297,
+    "median_ms": 9.914572,
+    "max_ms": 11.505353,
+    "relative_mad": 0.012330033005963343
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "baseline",
+    "min_ms": 14.044475,
+    "median_ms": 14.609307,
+    "max_ms": 21.354635,
+    "relative_mad": 0.038662477282461104
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "version": "native07",
+    "min_ms": 10.861355,
+    "median_ms": 13.348156,
+    "max_ms": 15.660698,
+    "relative_mad": 0.059425886242264477
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-usroads-48.edges",
+    "version": "baseline",
+    "min_ms": 25.317035,
+    "median_ms": 32.24742199999999,
+    "max_ms": 33.758066,
+    "relative_mad": 0.046845419146994256
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-usroads-48.edges",
+    "version": "native07",
+    "min_ms": 24.283702,
+    "median_ms": 26.504322,
+    "max_ms": 34.588131,
+    "relative_mad": 0.08378331654739178
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "email/email-enron-large.edges",
+    "version": "baseline",
+    "min_ms": 21.349951,
+    "median_ms": 24.654981,
+    "max_ms": 31.383100999999996,
+    "relative_mad": 0.10232394825207937
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "email/email-enron-large.edges",
+    "version": "native07",
+    "min_ms": 17.470383,
+    "median_ms": 20.84966,
+    "max_ms": 21.463646,
+    "relative_mad": 0.02944824999544357
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "baseline",
+    "min_ms": 14.400239,
+    "median_ms": 19.612614,
+    "max_ms": 23.781339,
+    "relative_mad": 0.06418812912954898
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "version": "native07",
+    "min_ms": 14.264354,
+    "median_ms": 16.135838,
+    "max_ms": 17.821927,
+    "relative_mad": 0.06560440182902183
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "baseline",
+    "min_ms": 34.680167,
+    "median_ms": 42.115551,
+    "max_ms": 42.979913,
+    "relative_mad": 0.020523582844731155
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "version": "native07",
+    "min_ms": 35.003888,
+    "median_ms": 37.95013,
+    "max_ms": 41.976903,
+    "relative_mad": 0.06126358460432151
+  }
+]

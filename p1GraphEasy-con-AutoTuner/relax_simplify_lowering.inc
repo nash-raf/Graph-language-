@@ -99,7 +99,7 @@ static bool relaxPrivateContext(Value *Ctx) {
     if(isa<ICmpInst>(U))continue;
     auto *C=dyn_cast<CallBase>(U);auto *F=C?C->getCalledFunction():nullptr;if(!F||C->getNumOperandBundles())return false;
     auto N=F->getName();bool Known=N=="autograph_exec_ctx_set_dag_axes"||N=="autograph_exec_ctx_bind_array_frontier"||
-      N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_reserve_prepared_output"||N=="autograph_exec_ctx_bind_source_snapshot_range"||
+      (N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_prepare_layout")||N=="autograph_exec_ctx_reserve_prepared_output"||N=="autograph_exec_ctx_bind_source_snapshot_range"||
       N=="autograph_exec_ctx_bind_snapshot_range"||N=="autograph_exec_ctx_destroy"||N=="sgpl_exec_bind_append_journal_v1"||N=="sgpl_exec_bind_simplified_frontier_v1"||N=="autograph_frontier_execute";
     unsigned At=N=="autograph_frontier_execute"?1:0;
     if(N=="autograph_frontier_execute")++Executes;
@@ -119,7 +119,7 @@ static bool relaxCaptureWindow(CallInst *Bind) {
     auto *C=dyn_cast<CallInst>(I);if(!C)continue;
     auto *F=C->getCalledFunction();if(!F)return false;auto N=F->getName();
     if(N=="autograph_frontier_execute")return Prepared&&Captured&&C->getArgOperand(1)==Ctx;
-    if(N=="autograph_exec_ctx_prepare_spatial"){if(Prepared||C->getArgOperand(0)!=Ctx)return false;Prepared=true;continue;}
+    if((N=="autograph_exec_ctx_prepare_spatial"||N=="autograph_exec_ctx_prepare_layout")){if(Prepared||C->getArgOperand(0)!=Ctx)return false;Prepared=true;continue;}
     if(N=="autograph_exec_ctx_bind_source_snapshot_range"||N=="autograph_exec_ctx_bind_snapshot_range") {
       if(!Prepared||C->getArgOperand(0)!=Ctx)return false;Captured=true;continue;
     }

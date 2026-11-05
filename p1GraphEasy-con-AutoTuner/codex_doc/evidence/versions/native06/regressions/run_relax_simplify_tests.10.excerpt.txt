@@ -1,0 +1,303 @@
+Full log: /home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_relax_simplify_tests.10.log
+SHA256: bb86749c37ac0f02bdcd78c0b5af6c5f23a93b2120f15c76512fb79098c61fb8
+Last 12000 characters:
+tinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   minimum arrays exact including signed wrap/negative weights
+  ok   occupied destinations retained after filtering
+  ok   R9 omits unobserved group tracking arguments
+  ok   ordered frontier notifications preserved
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   unmatched source-snapshot binding selects baseline before effects
+  ok   refusal restores ordinary group tracking
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   small-work profitability refusal retains the baseline
+  ok   profitability selection preserves values
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   accumulator/weight alias refuses elimination
+  ok   aliased weights retain repeated successful relaxations and notification order
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   original output reservation preserved after private key compaction
+  ok   reserved output retains exact execution result
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   empty topology partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   create relaxation context
+  ok   bind relaxation frontier
+  ok   prepare relaxation records
+  ok   capture immutable round source
+  ok   empty graph and empty partitions
+relaxation runtime: 9810 comparisons, 0 reduced preparations, 0 failures
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=1782298782 pure_kernel_ms=1782.298782
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0

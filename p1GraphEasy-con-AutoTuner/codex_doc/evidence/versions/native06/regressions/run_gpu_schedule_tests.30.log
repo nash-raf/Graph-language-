@@ -1,0 +1,124 @@
+parallel_runtime.c: In function ‘sgpl_tdg_read_core_ids_once’:
+parallel_runtime.c:190:63: warning: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size 232 [-Wformat-truncation=]
+  190 |         snprintf(path, sizeof(path), "/sys/devices/system/cpu/%s/topology/core_id", name);
+      |                                                               ^~
+In file included from /usr/include/stdio.h:980,
+                 from parallel_runtime.c:10:
+In function ‘snprintf’,
+    inlined from ‘sgpl_tdg_read_core_ids_once’ at parallel_runtime.c:190:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:10: note: ‘__builtin___snprintf_chk’ output between 42 and 297 bytes into a destination of size 256
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+runtime.c: In function ‘show_graph_runtime’:
+runtime.c:92:5: warning: ignoring return value of ‘system’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   92 |     system(cmd);
+      |     ^~~~~~~~~~~
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=754.265 measured_ns=86349 predicted_ms=0.000754 measured_ms=0.086349
+[AutoTunerProfile] total kind=Traverse predicted_ns=754.265 measured_ns=86349 predicted_ms=0.000754 measured_ms=0.086349 pure_kernel_ns=1263 pure_kernel_ms=0.001263
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS temporal_independent GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=754.265 measured_ns=86868 predicted_ms=0.000754 measured_ms=0.086868
+[AutoTunerProfile] total kind=Traverse predicted_ns=754.265 measured_ns=86868 predicted_ms=0.000754 measured_ms=0.086868 pure_kernel_ns=1233 pure_kernel_ms=0.001233
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS temporal_p_bq GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=754.265 measured_ns=119863 predicted_ms=0.000754 measured_ms=0.119863
+[AutoTunerProfile] total kind=Traverse predicted_ns=754.265 measured_ns=119863 predicted_ms=0.000754 measured_ms=0.119863 pure_kernel_ns=1233 pure_kernel_ms=0.001233
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS temporal_pb_q GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=8 predicted_ns=754.265 measured_ns=99772 predicted_ms=0.000754 measured_ms=0.099772
+[AutoTunerProfile] total kind=Traverse predicted_ns=754.265 measured_ns=99772 predicted_ms=0.000754 measured_ms=0.099772 pure_kernel_ns=8332 pure_kernel_ms=0.008332
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS temporal_rounds GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=79768 predicted_ms=0.000147 measured_ms=0.079768
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=79768 predicted_ms=0.000147 measured_ms=0.079768 pure_kernel_ns=377 pure_kernel_ms=0.000377
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_source GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=90275 predicted_ms=0.000147 measured_ms=0.090275
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=90275 predicted_ms=0.000147 measured_ms=0.090275 pure_kernel_ns=530 pure_kernel_ms=0.000530
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_destination GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=32984 predicted_ms=0.000147 measured_ms=0.032984
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=32984 predicted_ms=0.000147 measured_ms=0.032984 pure_kernel_ns=551 pure_kernel_ms=0.000551
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_snapshot GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=98991 predicted_ms=0.000147 measured_ms=0.098991
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=98991 predicted_ms=0.000147 measured_ms=0.098991 pure_kernel_ns=366 pure_kernel_ms=0.000366
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_source_acc GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=29283 predicted_ms=0.000147 measured_ms=0.029283
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=29283 predicted_ms=0.000147 measured_ms=0.029283 pure_kernel_ns=376 pure_kernel_ms=0.000376
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_d_private GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=177865 predicted_ms=0.000147 measured_ms=0.177865
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=177865 predicted_ms=0.000147 measured_ms=0.177865 pure_kernel_ns=843 pure_kernel_ms=0.000843
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_claim_destination GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=1 predicted_ns=146.663 measured_ns=127753 predicted_ms=0.000147 measured_ms=0.127753
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=127753 predicted_ms=0.000147 measured_ms=0.127753 pure_kernel_ns=824 pure_kernel_ms=0.000824
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_global_fold GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=7 predicted_ns=146.663 measured_ns=133303 predicted_ms=0.000147 measured_ms=0.133303
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=133303 predicted_ms=0.000147 measured_ms=0.133303 pure_kernel_ns=682 pure_kernel_ms=0.000682
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS spatial_source_frontier GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=9 predicted_ns=146.663 measured_ns=143324 predicted_ms=0.000147 measured_ms=0.143324
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=143324 predicted_ms=0.000147 measured_ms=0.143324 pure_kernel_ns=2809 pure_kernel_ms=0.002809
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS round_spatial_fold GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=8 predicted_ns=146.663 measured_ns=96117 predicted_ms=0.000147 measured_ms=0.096117
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=96117 predicted_ms=0.000147 measured_ms=0.096117 pure_kernel_ns=1913 pure_kernel_ms=0.001913
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS round_spatial_guard GPU execution and sequential equivalence at 1,2,4,8 workers
+[AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] region=0 kind=Traverse layout=CSR visits=9 predicted_ns=146.663 measured_ns=95494 predicted_ms=0.000147 measured_ms=0.095494
+[AutoTunerProfile] total kind=Traverse predicted_ns=146.663 measured_ns=95494 predicted_ms=0.000147 measured_ms=0.095494 pure_kernel_ns=2077 pure_kernel_ms=0.002077
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 0 layout conversions total, conversion_ns=0
+PASS round_spatial_twofold GPU execution and sequential equivalence at 1,2,4,8 workers

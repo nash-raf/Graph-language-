@@ -1,0 +1,1041 @@
+{
+  "dimacs/hamming8-2.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/hamming8-2.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/hamming8-2/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/hamming8-2/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/hamming8-2/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "0430b17a14f6006086556484a2554b8a7b926bc8fcce6784bd243ddbe1b5f6a4",
+      "p1_weighted_file": "19045da204c92b20a811d734bab9e83687f9fe3a9a44fee84208848a2a0f5b79",
+      "bin": "b730f467346f039be9c850ae63d2329113ab5402e2d96391f5961e55a83bac00",
+      "weights_i32": "6ab4fd47fdc7b2718090501d8e474e38a1b7bda1f0a43acb5b2ee5fe9fdc9750"
+    },
+    "source": 1,
+    "vertices": 257,
+    "directed": "false"
+  },
+  "dimacs10/fe-4elt2.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs10/fe-4elt2.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/fe-4elt2/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs10/fe-4elt2/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/fe-4elt2/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "017af71c649a71ab831e1fedae219708a5d275f9dedca68b978e8c3d1f2754a4",
+      "p1_weighted_file": "a2465998119adab6d040637c2018a9e45feef7c2b0488ed975adc9399ca3e5ed",
+      "bin": "1cab29648553c76d7a33276d79f052bbd8eccfe04d047956f8c9d81789299cad",
+      "weights_i32": "c495cf5168a9d63b4c2d3d4394171a9b7e40fab1f3bee1abece0b39b4a2d63c0"
+    },
+    "source": 1,
+    "vertices": 11144,
+    "directed": "false"
+  },
+  "socfb/socfb-Simmons81.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Simmons81.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Simmons81/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Simmons81/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Simmons81/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "8a9dbd551194c8ef81e43e9569e5883269894b0fb5c731520d25f224fd9f213a",
+      "p1_weighted_file": "3a237c486f24488da3490e1a41e2c1a106351a09135cc8cd32ad0dc26e565f58",
+      "bin": "9dad3409457ec6b0ba9fdf4633b2fa00399c2ae633e3dd1ed2b01d7ed250a996",
+      "weights_i32": "31545457c475612cbd9720b1cda60be3e5444745d47abf974b5b436bd315643a"
+    },
+    "source": 1,
+    "vertices": 1519,
+    "directed": "false"
+  },
+  "dimacs/p-hat300-3.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/p-hat300-3.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/p-hat300-3/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/p-hat300-3/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/p-hat300-3/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "f5f3646277b9260486a45bf1cebb74de2a4dbd1b7f36682447aed628a9d595b8",
+      "p1_weighted_file": "e3ae584c420f7bb3cc81df73efaf9bdbb4eeca987a7d40d13349868f5a666cd6",
+      "bin": "47ec0bdfd9c927ffcf5fa512b56a89331f0815d8a0db04f26c45a7bc93ff86cf",
+      "weights_i32": "4289116acc005b1d551459a8e511510ce2326307a3c38d63b631e9605f30bba8"
+    },
+    "source": 1,
+    "vertices": 301,
+    "directed": "false"
+  },
+  "web/web-spam.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/web/web-spam.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/web/web-spam/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/web/web-spam/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/web/web-spam/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "570addc7e851554ada7c2546bb9e9417c7a2547c7d928a68b0b720cf63cbce86",
+      "p1_weighted_file": "d0ca016d50b6a8fa3bdfccb081bb9d1f774bfa754face23c438a35b1aed571fc",
+      "bin": "d3e3959b10ef4c4a0efef57b029596b76d9df557a797c8bec38b211a69f3a574",
+      "weights_i32": "c4e0dee85d1876ce1f2d0722cca4c7ca9b6147fc4b41cf5e79ffa16eff60a318"
+    },
+    "source": 1,
+    "vertices": 4768,
+    "directed": "false"
+  },
+  "dimacs/sanr400-0-5.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/sanr400-0-5.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/sanr400-0-5/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/sanr400-0-5/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/sanr400-0-5/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "2e813b743bcf5895b3bd81e1a6d3cadf956275cb4b03a0e2d0dccc24b3d79c24",
+      "p1_weighted_file": "e206d43d251f43d9dd9b28308463a9b67e6ca4b5620ea44fa00cc915d06a0aca",
+      "bin": "9a8496cb34c29a32182d477f7281bad093c35430c47e0560b78c341482e87654",
+      "weights_i32": "2436d37df66fd4ebdb42b661d5cbdb8f02391c6ca4b521132dcdfa8fdf623025"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "rand/geo1k_40k.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/rand/geo1k_40k.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/rand/geo1k_40k/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/rand/geo1k_40k/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/rand/geo1k_40k/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "0c032d145e8fcaf6976e3b50d5889a203ca01a2fdf2c842c7493dca122652a69",
+      "p1_weighted_file": "a49ad529330601733033fdf7d7e6a48bb8886611f1756470163ecc1f6cdd8581",
+      "bin": "07c4c08b727916c3dabca9b8e72ad7faa463e042f21ed1d4d9a04b5924d6ebed",
+      "weights_i32": "d7202ceed69e91540b8620086eaf3ac6fe0b7c98ec78370b81d0182f915cb38a"
+    },
+    "source": 0,
+    "vertices": 1000,
+    "directed": "false"
+  },
+  "dimacs/c-fat500-10.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/c-fat500-10.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/c-fat500-10/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/c-fat500-10/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/c-fat500-10/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "9e4f08004a699a7a99360df657e4e8c512a21172478e6381290d75145b1456dd",
+      "p1_weighted_file": "329c87db598a9e59695e87ff2d9d3e5784aeb14773c83333a9d9e3f0547887eb",
+      "bin": "b56c0171e65ab11955111845c31f20236732aa2f785be150087eab7ca9803e7f",
+      "weights_i32": "f727af2874e5e7de9394b0d6012643df8ae4a7ef5a30992235572d28946b1cee"
+    },
+    "source": 1,
+    "vertices": 501,
+    "directed": "false"
+  },
+  "web/web-indochina-2004.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/web/web-indochina-2004.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/web/web-indochina-2004/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/web/web-indochina-2004/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/web/web-indochina-2004/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "f0af0da5f32d3cdd4496119e7db899d8df7568bcb031b8236aa06592ef0a02e4",
+      "p1_weighted_file": "d9a6982aa100bea5704507a5ea3597a833579e824105e3957b2a8871cc5385ac",
+      "bin": "78f76f06dc55b2a9096b11ab4f946ac80926b44935d55460c9686904bd4b6d69",
+      "weights_i32": "c5864a69f6f66524e99db06f55ede2a180423b30a1f001fbf2330011cf25ef47"
+    },
+    "source": 1,
+    "vertices": 11359,
+    "directed": "false"
+  },
+  "dimacs10/fe-sphere.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs10/fe-sphere.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/fe-sphere/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs10/fe-sphere/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/fe-sphere/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "05426aa72c7c2732f4af3cd298bb7296c23656d3facbc560c2370972c989a232",
+      "p1_weighted_file": "cc631658e0e3f78ff2604e93db73bd3102151d953245f3ef4a1a2568648def86",
+      "bin": "ca90beaec1904f8ad281b3e75eba2aae344ba81920f5b9a61c196c3e29911928",
+      "weights_i32": "515e417cb3f6d3734cdd80a1f5dc3967304419020ce5184209feb26a26a2c9c3"
+    },
+    "source": 1,
+    "vertices": 16387,
+    "directed": "false"
+  },
+  "rand/geo1k_50k.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/rand/geo1k_50k.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/rand/geo1k_50k/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/rand/geo1k_50k/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/rand/geo1k_50k/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "0ac33a3d4191686320c635153a9341ed2d3ddb5bcb0ee2bd80d5b30744af72ae",
+      "p1_weighted_file": "cad6417d2c35e56b612f97344aeb18c294824aa516e235eea0b6c8fe82b207bc",
+      "bin": "9413b4641940d06cbe8e82e566cccb3e2f8082c6dbd0fff2f86f0dd417ff4b58",
+      "weights_i32": "fd87b1835ab88ff2f34dd3e137ed2265b63ed3dffcb1a3f5fbc6d5a8a327fc1e"
+    },
+    "source": 0,
+    "vertices": 1000,
+    "directed": "false"
+  },
+  "tech/tech-as-caida2007.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/tech/tech-as-caida2007.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tech/tech-as-caida2007/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/tech/tech-as-caida2007/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tech/tech-as-caida2007/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "3103c79df0d51268bfc7e719fd660a21f38abf60dad294a068d03a388c896b88",
+      "p1_weighted_file": "c672b37871ea7f55f5a472b81ba82c7921818270a80a271129bdb4011ed4256c",
+      "bin": "8ab93155deb59b426ab19b2052577cbd5e01a50802a7e0b6b67f492764baf0c5",
+      "weights_i32": "8cfb2d25c755c6f28546d567a730d25e5bfef60c6104cb1d135ca03be65a7c51"
+    },
+    "source": 1,
+    "vertices": 26476,
+    "directed": "false"
+  },
+  "ia/ia-email-EU.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/ia/ia-email-EU.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/ia/ia-email-EU/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/ia/ia-email-EU/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/ia/ia-email-EU/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "77ece0936c85ef0f648edc3500b500f26bb711a904c873fd387f67aff038ef78",
+      "p1_weighted_file": "49a016cf7e94d164a58e94869ffd50125fccbb5ccc53520f5827609f6feb6589",
+      "bin": "d5335d49e315b1027900fe3f64087898331ef5ff659cfeb756bceadc1dbd08fa",
+      "weights_i32": "e9e62b5c016dbc0ff9238d995fb77910ffa360c4d160c98d7bfc30e77f0f3069"
+    },
+    "source": 1,
+    "vertices": 32431,
+    "directed": "false"
+  },
+  "dimacs/san400-0-7-1.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/san400-0-7-1.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/san400-0-7-1/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/san400-0-7-1/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/san400-0-7-1/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "428cbf6e8e79ea8eef1514ef46fc841a85fe2969866bf51e84c85d56cc5ba251",
+      "p1_weighted_file": "cc4e8ae657419287466710f0f632bb636161516fcbd1aa8cf5a56e4aeb526b92",
+      "bin": "aa9db01716115ac105a35b1b2b63003b41595878bfac6bdfb6381a990ce69957",
+      "weights_i32": "9d0add0d707c6558a5ae5470dbdcca41ac70178f02ca9308590bf817eda10e8a"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "dimacs/san400-0-7-3.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/san400-0-7-3.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/san400-0-7-3/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/san400-0-7-3/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/san400-0-7-3/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "9d7723e0bfb5ba5a01e2126f18fecea1a40cc6389af3ff0c67f1f8a6714fff47",
+      "p1_weighted_file": "867ca206d6eede491a4723becec000ca0edb9b4354b676b648b779a8511334b5",
+      "bin": "d972e9a8be53f6f52efb1e87eb79a6b69e0531a79f6bb46583456e665b2989ba",
+      "weights_i32": "2d76d323741e6ccb1e734e4e5be787184f3429e21e378ec2420535e0dd19d4c2"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "tech/tech-WHOIS.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/tech/tech-WHOIS.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tech/tech-WHOIS/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/tech/tech-WHOIS/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tech/tech-WHOIS/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "8baa98cf6518ea7208e10006b96722f26fead78e8ca27281963d39812c5b2488",
+      "p1_weighted_file": "de1ec4d584552d51a5361b9fba3a3558dc594ff89e1e09c875f2ac3e15540f07",
+      "bin": "e943735ea62c3b164a0068ef30353d5590bf0e59aad770b060b3547e1ec7def3",
+      "weights_i32": "e5e402160ebf0ef558884c0b8e6d5a4d2a76f993fe103e6c706744b32a21d21b"
+    },
+    "source": 1,
+    "vertices": 7477,
+    "directed": "false"
+  },
+  "socfb/socfb-Haverford76.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Haverford76.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Haverford76/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Haverford76/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Haverford76/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "6489bb50fb20e2c5c3b9640d3298ec8cf42237f3f110b8ae356c64d84cef8156",
+      "p1_weighted_file": "1562b8b99f78985a83ed70a3a5e96ceb8eb8fb7da5496fa5fe05e5d44b79d490",
+      "bin": "cb41fd885ceb73ec9ac16afb2f6bcdcfcb7212d8b47d3532e9bf522b6fc5ca88",
+      "weights_i32": "fc79aadfbdee02a1fe575a05cb4c1f4288acaf46eb21bb0d79f7ecf09653ae66"
+    },
+    "source": 1,
+    "vertices": 1447,
+    "directed": "false"
+  },
+  "dimacs/brock400-3.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/brock400-3.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-3/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/brock400-3/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-3/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "3e51acea93ac4c9067dd02ce409522e5f35aad2476cc84eda4548a041e4f2c95",
+      "p1_weighted_file": "369077f5a6d47bd2072641e7b698aa22f66d7f99fc00cb53e879785daeed7dbb",
+      "bin": "d9070e68ffff3b22606685e985a046a83a684051361a5693f8cb29cea1581e8f",
+      "weights_i32": "c86e130ebb20dc4a80fc1f3c93fd97ca6370bc8d8067e53fa4a872e4cdd75171"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "dimacs/brock400-1.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/brock400-1.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-1/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/brock400-1/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-1/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "18154a7d00a2406b50798e3d43e23ed23fd2e82d3c2a12c861f6f15c406c7566",
+      "p1_weighted_file": "0a805d2e8a69cf67988bae5b591dcce0006c0f92631a5879dadb90b03f19e4f9",
+      "bin": "271d8525d61bdaa5a63b804a895cd9fe6587368630a58bbb842146854a890d4a",
+      "weights_i32": "3dfcc2fb75c6cb3f35433d76e9a51952bcc3f9d32981dd135203a09907e8f661"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "dimacs/brock400-4.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/brock400-4.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-4/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/brock400-4/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-4/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "b4331fdcf9c92ec4dab01939bb4763bba9204f4f39394fe74ad95df4378f926c",
+      "p1_weighted_file": "676b09e98513b72f06b39c197b1b30f60c81236c315cecfa35402f0efd565436",
+      "bin": "d9a1c7f8b68aab355a533c60c74580934a8ae11a27d4e50b7bee8156cf33677c",
+      "weights_i32": "d78e385a2576f0d0353a2c1bad69599ab0d9e94f3f1861a3d49a47b209a0123e"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "dimacs/brock400-2.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/brock400-2.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-2/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/brock400-2/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/brock400-2/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "45f74e523069317916907ecd98bb09a29d47a97e3c98dd2c63f496473f7c4e5c",
+      "p1_weighted_file": "82f5609082a8b14a7fe63e8ffa2159b814bcd2da8ac3c1c67e516cc838fb91d9",
+      "bin": "ca6a043d334375bd8e31164d7b04a06dc22ce565d3448a59833ea90c6b8965da",
+      "weights_i32": "1db4ba13da5825877b5d7d525f45ab4f4df4013ff2480d4895ab2cd030a45555"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "socfb/socfb-Swarthmore42.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Swarthmore42.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Swarthmore42/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Swarthmore42/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Swarthmore42/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "2aa348c8224906a73b7905b8dfd3c5d7ddcfa94e16ca749913fa593aee9837da",
+      "p1_weighted_file": "708f7c9d7892f2d7f812f28da2522bc1da338d84873b23e17ab6221b2fe6fd59",
+      "bin": "e69055950c8ef958574dcc5001a796df1d83f0317b205cfa1fd0d8640be42498",
+      "weights_i32": "3ab462c274cc6c00214894814075a0b163eb221fe64f7af86a3467309e760de8"
+    },
+    "source": 1,
+    "vertices": 1660,
+    "directed": "false"
+  },
+  "dimacs/DSJC500-5.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/DSJC500-5.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/DSJC500-5/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/DSJC500-5/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/DSJC500-5/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "17947dded8103254b96b1af2c5914abb1502164428ba04bb77e8054014f22bb5",
+      "p1_weighted_file": "ee04b0a30b325ed30dadfb9c44f6f5f3c2b9ac4c8b57ed48c9531cbaca50202e",
+      "bin": "fdb729e0b2f7037c1243081c8484298ed95a9e496a431376281f447b43333363",
+      "weights_i32": "f21f1a30ddf316b28fcdc87b6894130ccdc2b45a22e5c967fd43962d15f202e0"
+    },
+    "source": 1,
+    "vertices": 501,
+    "directed": "false"
+  },
+  "socfb/socfb-USFCA72.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-USFCA72.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-USFCA72/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-USFCA72/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-USFCA72/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "6f8647705f69bfbf99f6ad811c2cb2231e8398fad1eed26a6ec69506e1ee250f",
+      "p1_weighted_file": "409f6fe16e619d1a2eb5717966866c9b24fa41cb5ae8e47f48c142bedb138295",
+      "bin": "ba79b11de94321de74d7698b465980ab16a36bb74a974fcaa07800ec44f4b855",
+      "weights_i32": "61ba2411a76332aa17aaabe401025935141abf3a748d0cf3ca1a2913352f11c1"
+    },
+    "source": 1,
+    "vertices": 2683,
+    "directed": "false"
+  },
+  "tscc/scc_retweet.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/tscc/scc_retweet.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tscc/scc_retweet/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/tscc/scc_retweet/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tscc/scc_retweet/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "4b61c67fe7184c1ca806e5660af9eee87d40fbf6c58ab85e9aab9ece4bb4db13",
+      "p1_weighted_file": "8e61062ced72bbf99de5d62e346c76050d0e93a91c62fd33a5e53f7ecd81ba94",
+      "bin": "6de4d7f743a1fc67c971aaefca5547e7461b2cfe483ac4e3d9119c9f54706e53",
+      "weights_i32": "f7a4a19b80bf12380c3fd1ad3f5081bf7a83d05ece676f26d055373dffe9aed1"
+    },
+    "source": 10,
+    "vertices": 18470,
+    "directed": "false"
+  },
+  "dimacs/MANN-a27.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/MANN-a27.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/MANN-a27/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/MANN-a27/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/MANN-a27/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "42b87d9e0f8c83d69c830e6ed92eabe65392b72c6d18ab55514c1dc1079b89b2",
+      "p1_weighted_file": "b36a0e57c7e671c918abda9eabe4bd2929a712c435ba09b059ef475aa210c82d",
+      "bin": "c94007ee646defdc170a319408ff39b669103a5d7dd21cb578f53f52ba72edf4",
+      "weights_i32": "ee01dec2bef6e656861ae936f4b173e23af4a2f6bfb221ff9dd1d47f2c8bbb51"
+    },
+    "source": 1,
+    "vertices": 379,
+    "directed": "false"
+  },
+  "tscc/scc_fb-forum.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/tscc/scc_fb-forum.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tscc/scc_fb-forum/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/tscc/scc_fb-forum/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tscc/scc_fb-forum/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "9ea250d241711b669c2bfe79ba5ef7ea38f35ef3a5e311517000353a7dc6f6e0",
+      "p1_weighted_file": "2736aaf47b8804bf76179164cdb1e68bf319fd9a84607944bd0c5669c374f216",
+      "bin": "b492de6f6759faf3f4c1c5e4b3484823441f538d86888bd477184846c0de384e",
+      "weights_i32": "29afd049aa9c6c7df283f77c3181272b1d5a5ddca52cdc901b995a4ac4906a85"
+    },
+    "source": 2,
+    "vertices": 898,
+    "directed": "false"
+  },
+  "dimacs/gen400-p0-9-55.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/gen400-p0-9-55.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/gen400-p0-9-55/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/gen400-p0-9-55/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/gen400-p0-9-55/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "0ca2840fba04d19b1ec851ed426348fbf844ca3c4310b2bcfa13bc02d10e0ee2",
+      "p1_weighted_file": "86d28e2eaaa792b7cbb0d2b98c61dc45588dcf88fe07262e0558e162aa806660",
+      "bin": "44b49db122f511b1caa9ce879d149b28181ec0e69e8521822774c85118c6337f",
+      "weights_i32": "f500247eff685561d1b4fc2fc7cac045647f4b29f36c9e7d68ffe88406145f35"
+    },
+    "source": 1,
+    "vertices": 401,
+    "directed": "false"
+  },
+  "dimacs10/wing_nodal.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs10/wing_nodal.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/wing_nodal/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs10/wing_nodal/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/wing_nodal/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "9cb9fa415aaf0aa05427ba407a6d56c084bb7a8709ee4586aa54d43cbf200415",
+      "p1_weighted_file": "ef0dfb8049751843f954ffe1a9a96d58471b9508c1d250a43f5484906777b2bb",
+      "bin": "169e649ab5853a0fb6cd5592a4b85ae3ed28c0ddc15731016d1564518f114f22",
+      "weights_i32": "07f0a628975848d9b72b2a9b8682aa78e841a66da312cc02cd69d9511b88df52"
+    },
+    "source": 1,
+    "vertices": 10938,
+    "directed": "false"
+  },
+  "bio/bio-WormNet-v3-benchmark.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/bio/bio-WormNet-v3-benchmark.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/bio/bio-WormNet-v3-benchmark/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/bio/bio-WormNet-v3-benchmark/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/bio/bio-WormNet-v3-benchmark/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "4935854fb1dfd1a5c97ea90f3ab8b581b2b568c987af2ae64552a86382d1ec6a",
+      "p1_weighted_file": "d1b59525a8c83009a3063f4ecd9429a4a5465e041d6fa14a8b7eb32041e2b284",
+      "bin": "0c9c46087e61ef3686c161869efe1987d19d1171eb47638d3d6627682d8b5afc",
+      "weights_i32": "f73b634b2af0c9bb216a2416c1a3c31b3dabdc75a099a649460ab93dcda02f94"
+    },
+    "source": 0,
+    "vertices": 2445,
+    "directed": "false"
+  },
+  "labeled/PROTEINS-full.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/labeled/PROTEINS-full.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/labeled/PROTEINS-full/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/labeled/PROTEINS-full/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/labeled/PROTEINS-full/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "f2d4b7c6b0c1f52cf0ec5fc109397e00c158353006a72a930e79151659bb14a8",
+      "p1_weighted_file": "872053a48c7f3a7c587aa0ce34f0c8bcf45194119736f9dbeb27cbba3c8e7dbd",
+      "bin": "faa7b69300b0771dbec8cece8d85fc519a8e2aee6cc3981ac4dae447167733a4",
+      "weights_i32": "6202d13dd11878a0208a12f6c8a151bffdcf504cebdf58dd735c424f85dcf6a9"
+    },
+    "source": 12,
+    "vertices": 43472,
+    "directed": "true"
+  },
+  "socfb/socfb-Mich67.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Mich67.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Mich67/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Mich67/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Mich67/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "50950a235c02161c8ba0cfe39cf7ac7595b11ef1de9f5ac7278826ed85acf4d1",
+      "p1_weighted_file": "91425c66b75075884c87cf08f41fc3d5896e51a43f7ca1f500e694e1438e8e72",
+      "bin": "154637661791a0e24ac250756497ae06451906141d6c32b4c5f486637619a9f6",
+      "weights_i32": "5d4f82f5f29b8bf056449aa9f08c688cc07a589d194ed1b349b8842970b96f7f"
+    },
+    "source": 1,
+    "vertices": 3749,
+    "directed": "false"
+  },
+  "socfb/socfb-Bowdoin47.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Bowdoin47.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Bowdoin47/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Bowdoin47/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Bowdoin47/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "5265242f658be53ff1d24020ebc326f842118369a867652f63bda01869131e25",
+      "p1_weighted_file": "bb5ae2bc77c4fb3cbf92b93749bfd7ed3a53b5a96af6b6fd23c00d48ebf66024",
+      "bin": "b4799d55443db6197d42e24f18d0031e3f4ae62c2ce69129d0867fd2bab6a6ad",
+      "weights_i32": "f5c96472c371e9bdd612b5c0f6cc6181b36f14d97eb59583c2efeb1b562b6d92"
+    },
+    "source": 1,
+    "vertices": 2253,
+    "directed": "false"
+  },
+  "tech/tech-internet-as.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/tech/tech-internet-as.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tech/tech-internet-as/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/tech/tech-internet-as/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tech/tech-internet-as/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "8bc99bbfd8f9060d1735373cbb77dfe4786315655427bd6facd435e9fc5bde4a",
+      "p1_weighted_file": "d9a67e513e359e46b0bb6ba8fefa7e988c09902a33d581394babf79cecc6167d",
+      "bin": "9892c51b2c64faa63c7e36d51f213155c56f2233dab01b456f6d5c05aa2f1779",
+      "weights_i32": "69827007240cddf5b7d7ae373bc0c1695689d0e7ac93874f664cf2de1a07d792"
+    },
+    "source": 1,
+    "vertices": 40165,
+    "directed": "false"
+  },
+  "socfb/socfb-Amherst41.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Amherst41.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Amherst41/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Amherst41/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Amherst41/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "bb4f35b4a249128692cc598615a893d5953d9b32e45ee99e589219bd476573ab",
+      "p1_weighted_file": "54af1be6307d8cc7693dcb5bec16ea02a22d43aad29cd82a7bc528e2b8dd72ec",
+      "bin": "5fe2cb4b45292e0fee7763ccf096cd810fb3109afbb3a5dd62662cfe9d79d661",
+      "weights_i32": "dbdedc7256a9977ec78e8a95fa929d99e92fbd2f9b96f752679a89d91f5fd480"
+    },
+    "source": 1,
+    "vertices": 2236,
+    "directed": "false"
+  },
+  "socfb/socfb-Wellesley22.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Wellesley22.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Wellesley22/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Wellesley22/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Wellesley22/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "dca316e6cb5856e8b05ad953bf1f57251198b5efe5d456ca60aa4fccb632865f",
+      "p1_weighted_file": "cda2322578c1597414811fb66a54a6e35385a6ec7551df036b9471455622b282",
+      "bin": "b5e8236fe3510bb1caab4ba85c873cbf069e2367ebad05d424c05b1a27407351",
+      "weights_i32": "2041d4bbfbda7ba5f1d0efa6278c20ce68d6d39159bfc1c235b803f80e25cd01"
+    },
+    "source": 1,
+    "vertices": 2971,
+    "directed": "false"
+  },
+  "socfb/socfb-Hamilton46.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Hamilton46.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Hamilton46/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Hamilton46/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Hamilton46/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "8b899372d76f27271b482676f98b8f7a4111808cc46bb56e7fcf310d93fba208",
+      "p1_weighted_file": "c534a2d07a3565b73c3870ebcb13c19dcb73469545965190e1ba49b5abef77ab",
+      "bin": "a479df41c6db328b0cd2fa62113b5759d07511908a2bd9973ace5bf049720f17",
+      "weights_i32": "bce844f19d760bf702f97757a849765fe4151e14abd7ce580ebcbb0fbe76db2d"
+    },
+    "source": 1,
+    "vertices": 2315,
+    "directed": "false"
+  },
+  "socfb/socfb-Smith60.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Smith60.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Smith60/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Smith60/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Smith60/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "33ac4ee80a8788dd1eed9e9e74bb5b85646ce3ab170f9012db38077b93753d7c",
+      "p1_weighted_file": "46c043b75c4a6b6a4de97c60ea0d607a0ffff4a76a1cf45194a1da28697d4a34",
+      "bin": "aee140ce9da8761b217d917e8d5a1e6aa2259258e0b125e7c526ccaa6e4ded24",
+      "weights_i32": "95dce67d95c6c83f8eaeaee944b93da65245e6d3ef9ab05e6e2e5c1560477721"
+    },
+    "source": 1,
+    "vertices": 2971,
+    "directed": "false"
+  },
+  "soc/soc-epinions.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/soc/soc-epinions.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/soc/soc-epinions/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/soc/soc-epinions/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/soc/soc-epinions/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "b7ee12f824b65c4638f788fae19c597010b954888cfc8416dd9abd109c3281a0",
+      "p1_weighted_file": "12457b5546339e146181eec17a373ba2e2cc7be02e213ba1d6108fee6ccf087e",
+      "bin": "eda0db38ee435d52884e394abed38c6cbd9739aae1b6a73e5132df9d21e9f435",
+      "weights_i32": "d87cf99cb73e7e560873f526ff641a2fade256987c1c2884c7f5e7dd15cc6b55"
+    },
+    "source": 1,
+    "vertices": 26589,
+    "directed": "false"
+  },
+  "socfb/socfb-Trinity100.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Trinity100.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Trinity100/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Trinity100/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Trinity100/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "1e7f3024faca86a98f793a68c548afbc6e4c17c5d7610332cc902b784c2eb0a1",
+      "p1_weighted_file": "f027debb1057d48c46867276b5e641572d6599b679e60aec10063d11f21d7397",
+      "bin": "7da6e83377fcf6dfd6871b98152d576fede28b39ecfb6e9266a380325b19181f",
+      "weights_i32": "ea84a53083aa5df91b67a9966f468eb8dcba6939ac0c7ca8f67f951983473135"
+    },
+    "source": 1,
+    "vertices": 2614,
+    "directed": "false"
+  },
+  "dimacs/C500-9.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs/C500-9.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/C500-9/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/C500-9/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs/C500-9/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "784952e320f5a476473aa2d35740da6612815021c39ccfc840f39df682d324b3",
+      "p1_weighted_file": "2fe490ae6ca6c8a207e51c4b805a3a55b9be12d9f5420a4b6736fed492c3b702",
+      "bin": "b8627d187a1e7d2720f6dd0a92bd1a20467a041cb3e0828be03da0f98ba51144",
+      "weights_i32": "f76363663b86308148d79c5baf6349d4aa2b7c9f3c4e59df1eac92fddcb9243a"
+    },
+    "source": 1,
+    "vertices": 501,
+    "directed": "false"
+  },
+  "socfb/socfb-Williams40.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Williams40.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Williams40/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Williams40/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Williams40/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "efc6348c3f84ba6b2c388f1d24b1084d3b187372aad5a0b2960ec773b8e36d5b",
+      "p1_weighted_file": "76207ae90f37f1842043d4c5e3093c58609a8ecadd3b810b6ea469d5bc6a1473",
+      "bin": "7bf69c8d4388c3f2b62273615b291939e749f8598723ccd788e7c20c8ceea006",
+      "weights_i32": "a7fd0ed0046a3c69cf74b361b272ea6eb9860ca915a64b339f040faa7c3a624b"
+    },
+    "source": 1,
+    "vertices": 2791,
+    "directed": "false"
+  },
+  "dimacs10/inf-luxembourg_osm.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs10/inf-luxembourg_osm.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/inf-luxembourg_osm/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs10/inf-luxembourg_osm/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/inf-luxembourg_osm/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "eb75caea9ccf73b6af18e0f72a885e37eb036c3c450c4575734b3243ae28e9b4",
+      "p1_weighted_file": "c5797d3ca441d2a31f88a037b385345f3a79e953a99d23afa08ab5ca399fb61f",
+      "bin": "2d216549f0edb71bf831ee321aceb006e0825a54fb327211edae425ea461f3a4",
+      "weights_i32": "449147e9eb2559893d9e6516e3709fe3ebb259235c174b24375721d852840b6a"
+    },
+    "source": 1,
+    "vertices": 114600,
+    "directed": "false"
+  },
+  "road/road-luxembourg-osm.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/road/road-luxembourg-osm.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/road/road-luxembourg-osm/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/road/road-luxembourg-osm/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/road/road-luxembourg-osm/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "eb75caea9ccf73b6af18e0f72a885e37eb036c3c450c4575734b3243ae28e9b4",
+      "p1_weighted_file": "d191287befcbdb8d1c57338f29b4c05b55b89151adfbe9970840f8914608f244",
+      "bin": "2d216549f0edb71bf831ee321aceb006e0825a54fb327211edae425ea461f3a4",
+      "weights_i32": "092ced493e13f63731b873c72ff6124c51b35f319994b7bbe3ebe79ea5a0160c"
+    },
+    "source": 1,
+    "vertices": 114600,
+    "directed": "false"
+  },
+  "dimacs10/wing.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/dimacs10/wing.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/wing/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs10/wing/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/dimacs10/wing/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "ca7c28bb057d382d0af00e27d33c901881765f72ebd9a94e857b7a229e5e177a",
+      "p1_weighted_file": "8731d15316e3e86b3baab29c8d1b0ca467d2e99222134a3ddf1c21ec19f61457",
+      "bin": "aeb91abc13716de1a4a7d5daaf3a9102e917fccd2d4ff1e924611bc605f47173",
+      "weights_i32": "cb94653d618ce5114afcfcae85dbbcfef588249b65f5ebed303408e4381d3ac1"
+    },
+    "source": 1,
+    "vertices": 62033,
+    "directed": "false"
+  },
+  "socfb/socfb-Middlebury45.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/socfb/socfb-Middlebury45.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Middlebury45/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Middlebury45/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/socfb/socfb-Middlebury45/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "c8cd05f1e4921d32df6b3388d2cea8f6aa44e8d047d620a9caf64695f543ac2b",
+      "p1_weighted_file": "d8fa3e9bb43e5590840d4559ac5503a3d5696c680e95bdb8b60328dbb11e0a0b",
+      "bin": "ad530c950649350d83968a0b56d2e2836e3d9879fcccdf049acc019c2c4c22b8",
+      "weights_i32": "8110b227c4b1d2736819695609f465c1b7ed8b467f8409fe46722105539a9c54"
+    },
+    "source": 1,
+    "vertices": 3076,
+    "directed": "false"
+  },
+  "rec/rec-amazon.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/rec/rec-amazon.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/rec/rec-amazon/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/rec/rec-amazon/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/rec/rec-amazon/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "5b332451765f5a5c1161c49abdcc0f6eaf56bb07b1c960b019b5fe43605ee4a5",
+      "p1_weighted_file": "7d45ba2a5a22af9d7f98840d80bcea918711ea4743f9fa5a85361576b0264b83",
+      "bin": "aeca914caadd72311581894cdab3ccc892c521069e29c7f248b3472b947e1576",
+      "weights_i32": "24ea0025e40282c0b628472fafea8ff3d9428797f3521991482f9e069073b3ce"
+    },
+    "source": 1,
+    "vertices": 91814,
+    "directed": "false"
+  },
+  "soc/soc-gemsec-RO.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/soc/soc-gemsec-RO.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/soc/soc-gemsec-RO/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/soc/soc-gemsec-RO/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/soc/soc-gemsec-RO/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "5de10ce1b35ba6c5b0c813895e3fcf6ee4acd0a1f01dc353285ac35784569752",
+      "p1_weighted_file": "79a1c7b873c35d2d7513771391e0b21bc49d2807110cfdd995270dc1f0c79390",
+      "bin": "e763ac50767cccfa62b21ed6e21c40628c1cdfb1e213542f44aa257bf2591960",
+      "weights_i32": "cb08e166033c160de72fb81372fe88405a0cb083ef2b04fca8ca7a73ae705a54"
+    },
+    "source": 0,
+    "vertices": 41773,
+    "directed": "false"
+  },
+  "labeled/Tox21-aromatase.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/labeled/Tox21-aromatase.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/labeled/Tox21-aromatase/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/labeled/Tox21-aromatase/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/labeled/Tox21-aromatase/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "a3462bb913de2300c0f45f55c460067d3a52f5ac710832cd497fc6a475f63361",
+      "p1_weighted_file": "96d9475f7bb87031005e9c2e577ddc64b260dfe8a53bf29e022716bf80b0cae8",
+      "bin": "21cc1828a9796a8674dd9859a40301a22ae0158efb7358d8fdd484d82c947c98",
+      "weights_i32": "eccd572ff92b95daaa10b72c721a9306f979243660e0769064f575a0a2ab590c"
+    },
+    "source": 1,
+    "vertices": 126484,
+    "directed": "true"
+  },
+  "labeled/Tox21-MMP.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/local50/labeled/Tox21-MMP.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/labeled/Tox21-MMP/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/labeled/Tox21-MMP/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/labeled/Tox21-MMP/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "83693f1cb182cd686a0e9b1319cdcac890df8f8463c51461c73890431f9d686b",
+      "p1_weighted_file": "d00d56a988bf54823cb0f3daeefbd58ec2d0fab69a429dfa23344e28f95183b0",
+      "bin": "2294ce5d7bb905effeac3a1a0021bccc7c611c19e41bb5529db8e97185eb82f5",
+      "weights_i32": "40ce1b0eb60898b1bcf1f0e1b589e03cc7eb07983d17a052334839d5c84972be"
+    },
+    "source": 1,
+    "vertices": 127999,
+    "directed": "true"
+  },
+  "protein/DD_g422.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/protein/DD_g422.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/protein/DD_g422/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/protein/DD_g422/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/protein/DD_g422/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "2e9e6cc65f5daa10b2db03302b511e2e35e2eb72ce1ffd47ea832df81884ca1f",
+      "p1_weighted_file": "d668fa4835d7bc953548f13bcf96a9067016e11b0ad85474308c6722623464a6",
+      "bin": "e124f7c89a15d2c0ac11e954c2d1bc003d4c9a92b2896e150e313b214746f315",
+      "weights_i32": "6b11ada81c554196d6f018b4f63907beed4ff9648196c9318efcad4dcfad8c54"
+    },
+    "source": 2,
+    "vertices": 165,
+    "directed": "true"
+  },
+  "tscc/scc_rt_occupywallstnyc.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/tscc/scc_rt_occupywallstnyc.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tscc/scc_rt_occupywallstnyc/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/tscc/scc_rt_occupywallstnyc/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/tscc/scc_rt_occupywallstnyc/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "2fd700f7d064be1be174055a96c713d5e3d90ed0d4d934f8d7bf35c611128dab",
+      "p1_weighted_file": "6fe9353e027d7431dd55d1696ef69039ac9e1da1798f846e5013d082b774853f",
+      "bin": "73eafb4c36d7f9e2ed7b68abb0f5644e4bb2f0cf03aed4f635e80d42479b143f",
+      "weights_i32": "3b69d07467b0c3fa0f8973bf4f5669a9f4606953ede34155d208b1c3fb8ee31e"
+    },
+    "source": 1,
+    "vertices": 3595,
+    "directed": "false"
+  },
+  "misc/G12.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/misc/G12.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/misc/G12/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/misc/G12/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/misc/G12/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "a77b92a44e6bf2f1869286eb85005e914aaa4e337c5e58db5a008928fc7a7a07",
+      "p1_weighted_file": "907bde685c9f21383318e1947cbe09ca1618c843b57f1443f038b685ba53d55f",
+      "bin": "1d90e9240ca5d1ed99fa7d8706456078d7a8ab11cfaa004a19842b5d08482e25",
+      "weights_i32": "5f7bc0016fb9e65a91660e59806b3db377f8e2b9f3391bc02efe2adbd29049f3"
+    },
+    "source": 1,
+    "vertices": 801,
+    "directed": "false"
+  },
+  "ia/ia-email-univ.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/ia/ia-email-univ.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/ia/ia-email-univ/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/ia/ia-email-univ/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/ia/ia-email-univ/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "7ce0df1986d55ba6a092d60c50fb09b6460c00abcc6aab3d2fb5969e5111a0c0",
+      "p1_weighted_file": "7909efc9c1aab38f6ca8353470e8730942ca48d81721113e364da177161ac02f",
+      "bin": "554ef0eeb77a533f88909d6f84cc1533a79dc6d21206d1e409a5a91925268d3a",
+      "weights_i32": "a61da7f2c7bf31cc92decd64487bb06240139e5aaa5acdb0fa5cc544d430a44e"
+    },
+    "source": 1,
+    "vertices": 1134,
+    "directed": "false"
+  },
+  "misc/delaunay_n13.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/misc/delaunay_n13.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/misc/delaunay_n13/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/misc/delaunay_n13/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_150/synthetic_weights_seed2358/misc/delaunay_n13/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "0bdad0047a6ac9c33ae17c7032439fbb910a4c9fc0d4ab24c4547b2444e4dc8e",
+      "p1_weighted_file": "476569a91db96644f3a35556d589077fa6fb3cc9ee2116df998e8b9648a52a0e",
+      "bin": "06fc90c033366a8b7ad604166e7ab1cde647863fada26db1e67c0f7014a9d6a2",
+      "weights_i32": "6c8c8d4b4d6cb36a716989eff69623f2f0f78c094f1ba6ff79c5704b4ab420bb"
+    },
+    "source": 1,
+    "vertices": 8193,
+    "directed": "false"
+  },
+  "socfb/socfb-Brandeis99.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/socfb/socfb-Brandeis99.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/socfb/socfb-Brandeis99/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Brandeis99/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/socfb/socfb-Brandeis99/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "9d2f3e5c280101187ad282c919481777cc7b2ff8a2ff92583059c3265a275f82",
+      "p1_weighted_file": "58e1c27d7120e1006e7ab7c2a4c13ca99fcea18676c3e77f3d9593afeb978cb2",
+      "bin": "5693af1fb187f61c1f126fa02ad351d493ce520ece621eb701ab3d0f93eacea7",
+      "weights_i32": "05969e75e213c4c5016563480d54139792606cca285a3d69fe0d5f66bf068af7"
+    },
+    "source": 1,
+    "vertices": 3899,
+    "directed": "false"
+  },
+  "socfb/socfb-Pepperdine86.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/socfb/socfb-Pepperdine86.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/socfb/socfb-Pepperdine86/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/socfb/socfb-Pepperdine86/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/socfb/socfb-Pepperdine86/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "2cf05dadb185775f9ca64f027587fd75653f14dd1e6c97f1ca560ff57370b7a1",
+      "p1_weighted_file": "2845ad55aad60bf2d119cb6b998415a88c8d80407a48f84becc7b395a3648895",
+      "bin": "2ab0143c7fa73938d1d04e42e7e028e72c020efa70cf1477b9a769b42f13a4f6",
+      "weights_i32": "9cce3ae439f55f61ab2ff400f0d4bd9f56bd75645397092ee32be3c11ab67d68"
+    },
+    "source": 1,
+    "vertices": 3446,
+    "directed": "false"
+  },
+  "road/road-usroads-48.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/road/road-usroads-48.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/road/road-usroads-48/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/road/road-usroads-48/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/road/road-usroads-48/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "cfa753702f128145d7d3a299daef71c9a5a46df2d9647c66717766e7a03d074b",
+      "p1_weighted_file": "24a37199a6050640dab5d465f3277b8f6e7efb766eeca178013e2c43f9e79901",
+      "bin": "a5e4aa1707483b4435dfe6d8f7c6b3708d7e09fd36a30f987fc4ca1efe090f61",
+      "weights_i32": "043fcd39588c3d59200e585ca73f9209cc0cce528ba8dc4b849cffa0658260d6"
+    },
+    "source": 1,
+    "vertices": 126147,
+    "directed": "false"
+  },
+  "email/email-enron-large.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/email/email-enron-large.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/email/email-enron-large/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/email/email-enron-large/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/email/email-enron-large/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "ea7deff4c3df5377aa8846503f8b67743a24ba33e8feb2e8b3a2a76fb3e92521",
+      "p1_weighted_file": "002e552f055ca7827a83b247c0d2861f2917ac93b949538e53fad57da2e01223",
+      "bin": "30d4593541622cab4e0d8262a27a150f6f03cb3b18e00b44ae78fe0c8075e487",
+      "weights_i32": "b259c5d963b45067c32409ec062a1d28c4d4647b3a3206d85c2d7334b68adeb2"
+    },
+    "source": 1,
+    "vertices": 33697,
+    "directed": "false"
+  },
+  "dimacs/DSJC1000-5.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/dimacs/DSJC1000-5.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/dimacs/DSJC1000-5/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/dimacs/DSJC1000-5/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/dimacs/DSJC1000-5/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "b9a626bc7a05fca0b7c88b9e03008a67a00f6e6a695f168755ee2a08253571dd",
+      "p1_weighted_file": "128488075fc0936ed7b7608c3007ca8884e2691721677e3333034000f649eddb",
+      "bin": "f922860e53b8e4f7525e6d76e4ba69caccd4555668a6563ef2f980f0dfc90f9c",
+      "weights_i32": "3a3f2d75f4686344eade295264d42966af4e712548421475e88e87a0add44b05"
+    },
+    "source": 1,
+    "vertices": 1001,
+    "directed": "false"
+  },
+  "soc/soc-slashdot.edges": {
+    "paths": {
+      "original_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/soc/soc-slashdot.edges",
+      "p1_weighted_file": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/soc/soc-slashdot/input.original.wel",
+      "bin": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/undirected_inputs/soc/soc-slashdot/graph.bin",
+      "weights_i32": "/home/kazi/p1_local_regressions_20261019/downloaded_inputs/original_graphs_101_200/synthetic_weights_seed2358/soc/soc-slashdot/graph.weights.i32"
+    },
+    "hashes": {
+      "original_file": "9dbc63eb88eab0a5e2f6d6b834a215a13a3270cc98ba2a64be6ccc5fbc801967",
+      "p1_weighted_file": "e00946f13710752441ff43b003aa79c44cd15f88ef4ed30c9a7d6bef88da32f1",
+      "bin": "4f108ace3395792bb220a3a62a022302544a7c191f2da222c78327304d36c487",
+      "weights_i32": "41186fdd36ef49c9266ac9078a89e09992b4cf70243b5ebd0e960ca45947fba8"
+    },
+    "source": 1,
+    "vertices": 70069,
+    "directed": "false"
+  },
+  "source_generator": "e0b80875ee9225924e25473690b24bb759ff11890e198a0ea290bf0a38abfde8",
+  "common_helper": "176e6d992db55740279415f639395cf2660da6eed521c9ba372a5ee4b4dc517e"
+}

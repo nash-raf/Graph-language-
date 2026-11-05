@@ -1,0 +1,14 @@
+[
+  {
+    "workers": 1,
+    "exit_code": 0
+  },
+  {
+    "workers": 2,
+    "exit_code": 0
+  },
+  {
+    "workers": 6,
+    "exit_code": 0
+  }
+]

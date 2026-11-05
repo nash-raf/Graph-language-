@@ -120,7 +120,7 @@ static void certifySourceCounts(Module &M) {
       auto N=F->getName();
       if(N=="autograph_frontier_execute"){++Runs;Safe&=C==Execute;}
       else if(N=="autograph_exec_ctx_destroy")++Destroys;
-      else if(N!="autograph_exec_ctx_set_dag_axes"&&N!="autograph_exec_ctx_prepare_spatial")Safe=false;
+      else if(N!="autograph_exec_ctx_set_dag_axes"&&N!="autograph_exec_ctx_prepare_spatial"&&N!="autograph_exec_ctx_prepare_layout")Safe=false;
     }
     auto *Ops=dyn_cast<AllocaInst>(getUnderlyingObject(Ctx->getArgOperand(10)));CallInst *Op=nullptr;
     if(Ops)for(BasicBlock &BB:*Ctx->getFunction())for(Instruction &I:BB)if(auto *S=dyn_cast<StoreInst>(&I))

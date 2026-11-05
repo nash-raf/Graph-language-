@@ -1,0 +1,7 @@
+{
+  "original": "/home/kazi/p1_layout_native_20261105/versions/native06/src/test/run_parallel_claims_tests.sh",
+  "overlay": "/home/kazi/p1_layout_native_20261105/versions/native06/src/test/run_parallel_claims_remaining_tests.sh",
+  "original_sha256": "fdbea948f2740ce38b8c311e1c638ec403b56f5bc23c41edf6231df752cc4c71",
+  "overlay_sha256": "01202f52ea9f5bb2381cbd84c382a0d1e6b261a5e62926ebd7264507b7420099",
+  "reason": "Skip only the separately reproduced baseline failure; run every remaining assertion unchanged"
+}

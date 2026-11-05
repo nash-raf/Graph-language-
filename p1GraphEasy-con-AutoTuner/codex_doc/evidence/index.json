@@ -1,0 +1,8 @@
+{
+  "status": "completed",
+  "final_production_version": "native07",
+  "core_regression_version": "native06",
+  "manifests": ["index_native06.json", "index_native07.json"],
+  "results": "../RESULTS.md",
+  "note": "native07 differs from native06 production only in runtime diagnostic counts. Full logs and binaries remain at the native WSL paths in the manifests."
+}

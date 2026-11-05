@@ -1,0 +1,200 @@
+{
+  "groups": [
+    {
+      "algorithm": "bfs",
+      "cases": 61,
+      "baseline_sum_medians_ms": 524.768048,
+      "candidate_sum_medians_ms": 863.527133,
+      "aggregate_speedup": 0.6077030216490025,
+      "geomean_speedup": 0.801451731615609,
+      "faster_over_5pct": 3,
+      "slower_over_5pct": 51
+    },
+    {
+      "algorithm": "sssp",
+      "cases": 61,
+      "baseline_sum_medians_ms": 814.992755,
+      "candidate_sum_medians_ms": 832.977811,
+      "aggregate_speedup": 0.9784087213818953,
+      "geomean_speedup": 1.00082702429022,
+      "faster_over_5pct": 16,
+      "slower_over_5pct": 14
+    },
+    {
+      "algorithm": "cc",
+      "cases": 61,
+      "baseline_sum_medians_ms": 505.169965,
+      "candidate_sum_medians_ms": 513.785459,
+      "aggregate_speedup": 0.9832313393672748,
+      "geomean_speedup": 0.9729183758324537,
+      "faster_over_5pct": 7,
+      "slower_over_5pct": 21
+    },
+    {
+      "algorithm": "pagerank",
+      "cases": 61,
+      "baseline_sum_medians_ms": 717.097864,
+      "candidate_sum_medians_ms": 620.527059,
+      "aggregate_speedup": 1.1556270650882283,
+      "geomean_speedup": 1.1645915293792333,
+      "faster_over_5pct": 53,
+      "slower_over_5pct": 1
+    },
+    {
+      "algorithm": "all",
+      "cases": 244,
+      "baseline_sum_medians_ms": 2562.028632,
+      "candidate_sum_medians_ms": 2830.817462,
+      "aggregate_speedup": 0.9050490419788149,
+      "geomean_speedup": 0.9763861426697154,
+      "faster_over_5pct": 79,
+      "slower_over_5pct": 87
+    }
+  ],
+  "largest_slowdowns": [
+    {
+      "algorithm": "bfs",
+      "graph": "dimacs10/inf-luxembourg_osm.edges",
+      "baseline_ms": 18.87897,
+      "candidate_ms": 97.469097,
+      "speedup": 0.19369185291621197
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "road/road-luxembourg-osm.edges",
+      "baseline_ms": 19.075855,
+      "candidate_ms": 98.01544,
+      "speedup": 0.19462091890828628
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "road/road-usroads-48.edges",
+      "baseline_ms": 53.349394,
+      "candidate_ms": 119.223924,
+      "speedup": 0.4474722204244846
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "dimacs10/wing.edges",
+      "baseline_ms": 12.147731,
+      "candidate_ms": 22.709502,
+      "speedup": 0.5349184231340696
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "soc/soc-gemsec-RO.edges",
+      "baseline_ms": 11.534488,
+      "candidate_ms": 21.473061,
+      "speedup": 0.5371608640239973
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "rec/rec-amazon.edges",
+      "baseline_ms": 22.394657,
+      "candidate_ms": 41.538784,
+      "speedup": 0.5391264462628468
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "soc/soc-slashdot.edges",
+      "baseline_ms": 19.5766,
+      "candidate_ms": 33.737976,
+      "speedup": 0.5802541326130529
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "email/email-enron-large.edges",
+      "baseline_ms": 16.793749,
+      "candidate_ms": 24.647172,
+      "speedup": 0.6813661624140894
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "tech/tech-internet-as.edges",
+      "baseline_ms": 8.539132,
+      "candidate_ms": 12.481958,
+      "speedup": 0.684117988539939
+    },
+    {
+      "algorithm": "bfs",
+      "graph": "dimacs/DSJC1000-5.edges",
+      "baseline_ms": 10.163529,
+      "candidate_ms": 14.734299,
+      "speedup": 0.689787074363022
+    }
+  ],
+  "largest_speedups": [
+    {
+      "algorithm": "pagerank",
+      "graph": "misc/delaunay_n13.edges",
+      "baseline_ms": 10.65255,
+      "candidate_ms": 6.474317,
+      "speedup": 1.645355023549202
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "dimacs/san400-0-7-1.edges",
+      "baseline_ms": 13.741289,
+      "candidate_ms": 9.332687,
+      "speedup": 1.4723829268033954
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "socfb/socfb-USFCA72.edges",
+      "baseline_ms": 9.68283,
+      "candidate_ms": 6.625065,
+      "speedup": 1.4615449055971526
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "socfb/socfb-Mich67.edges",
+      "baseline_ms": 9.399371,
+      "candidate_ms": 7.060929,
+      "speedup": 1.3311805004695558
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "dimacs/brock400-3.edges",
+      "baseline_ms": 8.696694,
+      "candidate_ms": 6.602238,
+      "speedup": 1.3172342469326312
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "socfb/socfb-Smith60.edges",
+      "baseline_ms": 9.938347,
+      "candidate_ms": 7.55938,
+      "speedup": 1.3147039836600356
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "dimacs10/fe-4elt2.edges",
+      "baseline_ms": 8.651684,
+      "candidate_ms": 6.581677,
+      "speedup": 1.3145105723055082
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "rand/geo1k_40k.edges",
+      "baseline_ms": 7.685583,
+      "candidate_ms": 5.865007,
+      "speedup": 1.3104132697539832
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "dimacs/hamming8-2.edges",
+      "baseline_ms": 8.99086,
+      "candidate_ms": 6.951378,
+      "speedup": 1.2933924755638377
+    },
+    {
+      "algorithm": "pagerank",
+      "graph": "socfb/socfb-Haverford76.edges",
+      "baseline_ms": 9.073595,
+      "candidate_ms": 7.043299,
+      "speedup": 1.2882592376101027
+    }
+  ],
+  "median_relative_sample_mad": 0.04555164324908466,
+  "caveat": "Five warm process samples per version; small differences are not established significance. No samples excluded."
+}

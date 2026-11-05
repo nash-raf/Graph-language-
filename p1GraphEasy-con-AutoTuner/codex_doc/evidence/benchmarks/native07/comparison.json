@@ -1,0 +1,1710 @@
+[
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/hamming8-2.edges",
+    "baseline_ms": 5.403137,
+    "candidate_ms": 5.455711,
+    "speedup": 0.9903634924943788
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "baseline_ms": 6.636584,
+    "candidate_ms": 7.333579,
+    "speedup": 0.9049584111659532
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "baseline_ms": 5.647866,
+    "candidate_ms": 5.987121,
+    "speedup": 0.943335870445912
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/p-hat300-3.edges",
+    "baseline_ms": 5.505934,
+    "candidate_ms": 5.955884,
+    "speedup": 0.9244528603982213
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-spam.edges",
+    "baseline_ms": 5.829001,
+    "candidate_ms": 6.905703,
+    "speedup": 0.844085098939239
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "baseline_ms": 5.168842,
+    "candidate_ms": 5.79747,
+    "speedup": 0.8915685635285737
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_40k.edges",
+    "baseline_ms": 5.439041,
+    "candidate_ms": 6.610787,
+    "speedup": 0.8227524196438335
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/c-fat500-10.edges",
+    "baseline_ms": 5.581501,
+    "candidate_ms": 5.77015,
+    "speedup": 0.967306049236155
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "web/web-indochina-2004.edges",
+    "baseline_ms": 6.409923,
+    "candidate_ms": 7.122198,
+    "speedup": 0.8999922495836258
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/fe-sphere.edges",
+    "baseline_ms": 6.790857,
+    "candidate_ms": 7.794154,
+    "speedup": 0.8712757022763471
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rand/geo1k_50k.edges",
+    "baseline_ms": 5.697566,
+    "candidate_ms": 6.89184,
+    "speedup": 0.8267118795561127
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-as-caida2007.edges",
+    "baseline_ms": 7.156504,
+    "candidate_ms": 9.426758,
+    "speedup": 0.7591691650512298
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-EU.edges",
+    "baseline_ms": 7.140762,
+    "candidate_ms": 9.335334,
+    "speedup": 0.7649176772893181
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "baseline_ms": 5.397733,
+    "candidate_ms": 6.255796,
+    "speedup": 0.8628371193689819
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "baseline_ms": 5.429068,
+    "candidate_ms": 5.73163,
+    "speedup": 0.947211875155933
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-WHOIS.edges",
+    "baseline_ms": 6.927301,
+    "candidate_ms": 8.112018,
+    "speedup": 0.8539553289945855
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "baseline_ms": 6.553517,
+    "candidate_ms": 7.730295,
+    "speedup": 0.8477706219490977
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-3.edges",
+    "baseline_ms": 6.111454,
+    "candidate_ms": 6.178551,
+    "speedup": 0.989140334036249
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-1.edges",
+    "baseline_ms": 5.642671,
+    "candidate_ms": 6.006644,
+    "speedup": 0.9394049322716646
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-4.edges",
+    "baseline_ms": 5.841237,
+    "candidate_ms": 6.555239,
+    "speedup": 0.8910791810946938
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/brock400-2.edges",
+    "baseline_ms": 5.562936,
+    "candidate_ms": 6.321325,
+    "speedup": 0.8800268930959886
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "baseline_ms": 6.070429,
+    "candidate_ms": 6.40044,
+    "speedup": 0.9484393260463343
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC500-5.edges",
+    "baseline_ms": 5.795063,
+    "candidate_ms": 6.058301,
+    "speedup": 0.9565492041415571
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "baseline_ms": 6.432583,
+    "candidate_ms": 7.288724,
+    "speedup": 0.8825389738999584
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_retweet.edges",
+    "baseline_ms": 6.813588,
+    "candidate_ms": 6.756533,
+    "speedup": 1.008444419645401
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/MANN-a27.edges",
+    "baseline_ms": 5.684891,
+    "candidate_ms": 6.482191,
+    "speedup": 0.8770014644739719
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_fb-forum.edges",
+    "baseline_ms": 5.909741,
+    "candidate_ms": 6.377327,
+    "speedup": 0.926679939730235
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "baseline_ms": 6.425819,
+    "candidate_ms": 7.095845,
+    "speedup": 0.9055748822021902
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing_nodal.edges",
+    "baseline_ms": 8.046543999999999,
+    "candidate_ms": 9.964044,
+    "speedup": 0.8075580557452375
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "baseline_ms": 6.355272,
+    "candidate_ms": 7.046874,
+    "speedup": 0.9018569084674992
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/PROTEINS-full.edges",
+    "baseline_ms": 5.395486,
+    "candidate_ms": 5.782207,
+    "speedup": 0.9331187901090363
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Mich67.edges",
+    "baseline_ms": 6.643835,
+    "candidate_ms": 7.615437,
+    "speedup": 0.8724167766078296
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "baseline_ms": 6.516514,
+    "candidate_ms": 7.3555,
+    "speedup": 0.8859375977159948
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tech/tech-internet-as.edges",
+    "baseline_ms": 8.539132,
+    "candidate_ms": 12.481958,
+    "speedup": 0.684117988539939
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "baseline_ms": 6.155459,
+    "candidate_ms": 7.153919,
+    "speedup": 0.8604317437756843
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "baseline_ms": 6.003767,
+    "candidate_ms": 7.858482,
+    "speedup": 0.7639855890743276
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "baseline_ms": 5.955365,
+    "candidate_ms": 6.87591,
+    "speedup": 0.8661202662629383
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Smith60.edges",
+    "baseline_ms": 7.270563,
+    "candidate_ms": 7.479911,
+    "speedup": 0.972011966452542
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-epinions.edges",
+    "baseline_ms": 7.480172,
+    "candidate_ms": 10.841304,
+    "speedup": 0.6899697674744661
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "baseline_ms": 7.029016,
+    "candidate_ms": 7.783236,
+    "speedup": 0.9030968609971484
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/C500-9.edges",
+    "baseline_ms": 6.239619,
+    "candidate_ms": 7.614278,
+    "speedup": 0.819462987823665
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Williams40.edges",
+    "baseline_ms": 6.517685,
+    "candidate_ms": 7.790655,
+    "speedup": 0.8366029557206679
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "baseline_ms": 18.87897,
+    "candidate_ms": 97.469097,
+    "speedup": 0.19369185291621197
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-luxembourg-osm.edges",
+    "baseline_ms": 19.075855,
+    "candidate_ms": 98.01544,
+    "speedup": 0.19462091890828628
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs10/wing.edges",
+    "baseline_ms": 12.147731,
+    "candidate_ms": 22.709502,
+    "speedup": 0.5349184231340696
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "baseline_ms": 7.675317,
+    "candidate_ms": 9.410849,
+    "speedup": 0.8155817822600276
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "rec/rec-amazon.edges",
+    "baseline_ms": 22.394657,
+    "candidate_ms": 41.538784,
+    "speedup": 0.5391264462628468
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "baseline_ms": 11.534488,
+    "candidate_ms": 21.473061,
+    "speedup": 0.5371608640239973
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "baseline_ms": 8.958503,
+    "candidate_ms": 9.914503,
+    "speedup": 0.9035756003099702
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "labeled/Tox21-MMP.edges",
+    "baseline_ms": 9.561427,
+    "candidate_ms": 12.317935,
+    "speedup": 0.7762199589460409
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "protein/DD_g422.edges",
+    "baseline_ms": 5.503406,
+    "candidate_ms": 5.136907,
+    "speedup": 1.0713462400623566
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "baseline_ms": 4.647109,
+    "candidate_ms": 4.252777,
+    "speedup": 1.0927234134308008
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/G12.edges",
+    "baseline_ms": 4.399982,
+    "candidate_ms": 3.851088,
+    "speedup": 1.14252959163748
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "ia/ia-email-univ.edges",
+    "baseline_ms": 5.063661,
+    "candidate_ms": 5.103488,
+    "speedup": 0.9921961215545133
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "misc/delaunay_n13.edges",
+    "baseline_ms": 7.743607,
+    "candidate_ms": 8.510005,
+    "speedup": 0.9099415335243635
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "baseline_ms": 10.428037,
+    "candidate_ms": 13.64576,
+    "speedup": 0.7641961312524916
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "baseline_ms": 13.718048,
+    "candidate_ms": 14.453303,
+    "speedup": 0.9491289292143117
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "road/road-usroads-48.edges",
+    "baseline_ms": 53.349394,
+    "candidate_ms": 119.223924,
+    "speedup": 0.4474722204244846
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "email/email-enron-large.edges",
+    "baseline_ms": 16.793749,
+    "candidate_ms": 24.647172,
+    "speedup": 0.6813661624140894
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "baseline_ms": 10.163529,
+    "candidate_ms": 14.734299,
+    "speedup": 0.689787074363022
+  },
+  {
+    "algorithm": "bfs",
+    "graph": "soc/soc-slashdot.edges",
+    "baseline_ms": 19.5766,
+    "candidate_ms": 33.737976,
+    "speedup": 0.5802541326130529
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/hamming8-2.edges",
+    "baseline_ms": 6.557991,
+    "candidate_ms": 7.026592,
+    "speedup": 0.9333103444742488
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "baseline_ms": 15.781086,
+    "candidate_ms": 14.154777,
+    "speedup": 1.1148947101038753
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "baseline_ms": 7.797465,
+    "candidate_ms": 7.519361,
+    "speedup": 1.0369850576398711
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/p-hat300-3.edges",
+    "baseline_ms": 7.310787,
+    "candidate_ms": 6.642911,
+    "speedup": 1.1005396579902997
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-spam.edges",
+    "baseline_ms": 7.937489000000001,
+    "candidate_ms": 7.621833,
+    "speedup": 1.0414147095587114
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "baseline_ms": 7.575252,
+    "candidate_ms": 6.869166,
+    "speedup": 1.102790644453781
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_40k.edges",
+    "baseline_ms": 6.822838,
+    "candidate_ms": 6.969738,
+    "speedup": 0.978923167556657
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/c-fat500-10.edges",
+    "baseline_ms": 6.884915,
+    "candidate_ms": 7.001322,
+    "speedup": 0.9833735685917603
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "web/web-indochina-2004.edges",
+    "baseline_ms": 9.298873,
+    "candidate_ms": 9.347714,
+    "speedup": 0.9947750861868474
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/fe-sphere.edges",
+    "baseline_ms": 17.978095,
+    "candidate_ms": 18.360326,
+    "speedup": 0.9791816877325599
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rand/geo1k_50k.edges",
+    "baseline_ms": 7.559898,
+    "candidate_ms": 7.278693,
+    "speedup": 1.0386339965155833
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-as-caida2007.edges",
+    "baseline_ms": 11.080127,
+    "candidate_ms": 10.77497,
+    "speedup": 1.0283209141185543
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-EU.edges",
+    "baseline_ms": 11.295219,
+    "candidate_ms": 11.232893,
+    "speedup": 1.0055485261009784
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "baseline_ms": 8.062053,
+    "candidate_ms": 8.093813999999998,
+    "speedup": 0.9960758920331011
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "baseline_ms": 7.366564,
+    "candidate_ms": 7.448624,
+    "speedup": 0.9889832001185723
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-WHOIS.edges",
+    "baseline_ms": 8.241251,
+    "candidate_ms": 9.151672,
+    "speedup": 0.9005186156147205
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "baseline_ms": 9.586767,
+    "candidate_ms": 9.480375,
+    "speedup": 1.0112223408884142
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-3.edges",
+    "baseline_ms": 8.45776,
+    "candidate_ms": 7.736934,
+    "speedup": 1.0931668798001897
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-1.edges",
+    "baseline_ms": 8.726982,
+    "candidate_ms": 7.651138,
+    "speedup": 1.1406122853881342
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-4.edges",
+    "baseline_ms": 8.816404,
+    "candidate_ms": 8.708627,
+    "speedup": 1.0123758888743313
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/brock400-2.edges",
+    "baseline_ms": 9.253895,
+    "candidate_ms": 10.017736,
+    "speedup": 0.9237511349869871
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "baseline_ms": 9.493301,
+    "candidate_ms": 8.832079,
+    "speedup": 1.0748659517198613
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC500-5.edges",
+    "baseline_ms": 7.712486,
+    "candidate_ms": 7.817268000000001,
+    "speedup": 0.9865960844632676
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "baseline_ms": 7.883996000000001,
+    "candidate_ms": 8.26151,
+    "speedup": 0.9543044794474619
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_retweet.edges",
+    "baseline_ms": 8.20712,
+    "candidate_ms": 7.817828000000001,
+    "speedup": 1.0497954163227943
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/MANN-a27.edges",
+    "baseline_ms": 7.16998,
+    "candidate_ms": 7.638659,
+    "speedup": 0.9386438116952204
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_fb-forum.edges",
+    "baseline_ms": 8.013926,
+    "candidate_ms": 8.345512,
+    "speedup": 0.9602677463048402
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "baseline_ms": 8.08876,
+    "candidate_ms": 7.30371,
+    "speedup": 1.1074864692053765
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing_nodal.edges",
+    "baseline_ms": 15.044349,
+    "candidate_ms": 14.574315,
+    "speedup": 1.032250846780792
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "baseline_ms": 9.145474,
+    "candidate_ms": 9.748396,
+    "speedup": 0.9381516713108495
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/PROTEINS-full.edges",
+    "baseline_ms": 8.826059,
+    "candidate_ms": 9.833067,
+    "speedup": 0.897589633020908
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Mich67.edges",
+    "baseline_ms": 9.157748,
+    "candidate_ms": 9.610398,
+    "speedup": 0.9528999735494825
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "baseline_ms": 10.006971,
+    "candidate_ms": 8.481007,
+    "speedup": 1.1799272185484577
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tech/tech-internet-as.edges",
+    "baseline_ms": 13.927058,
+    "candidate_ms": 13.267072,
+    "speedup": 1.0497461685592722
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "baseline_ms": 9.979394,
+    "candidate_ms": 10.131277,
+    "speedup": 0.9850085038638267
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "baseline_ms": 10.165492,
+    "candidate_ms": 9.490047,
+    "speedup": 1.0711740416037983
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "baseline_ms": 10.351956,
+    "candidate_ms": 11.018012,
+    "speedup": 0.9395484412251501
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Smith60.edges",
+    "baseline_ms": 9.201062,
+    "candidate_ms": 9.048266,
+    "speedup": 1.0168867714543317
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-epinions.edges",
+    "baseline_ms": 13.891383,
+    "candidate_ms": 13.789118,
+    "speedup": 1.0074163554188165
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "baseline_ms": 9.674146,
+    "candidate_ms": 11.423793,
+    "speedup": 0.8468418501630763
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/C500-9.edges",
+    "baseline_ms": 11.273366,
+    "candidate_ms": 9.198824,
+    "speedup": 1.2255225233138496
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Williams40.edges",
+    "baseline_ms": 10.198384,
+    "candidate_ms": 10.238551,
+    "speedup": 0.9960768862703328
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "baseline_ms": 32.18665300000001,
+    "candidate_ms": 31.951768999999995,
+    "speedup": 1.0073512048738213
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-luxembourg-osm.edges",
+    "baseline_ms": 30.694625,
+    "candidate_ms": 27.923791,
+    "speedup": 1.0992284321280015
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs10/wing.edges",
+    "baseline_ms": 49.069787,
+    "candidate_ms": 46.479356,
+    "speedup": 1.0557329365751107
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "baseline_ms": 11.456286,
+    "candidate_ms": 10.402174,
+    "speedup": 1.1013357400097326
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "rec/rec-amazon.edges",
+    "baseline_ms": 38.383148,
+    "candidate_ms": 35.422972,
+    "speedup": 1.083566562399112
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "baseline_ms": 17.956139,
+    "candidate_ms": 18.045047,
+    "speedup": 0.9950729970390213
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "baseline_ms": 11.613277,
+    "candidate_ms": 12.80226,
+    "speedup": 0.9071271009962303
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "labeled/Tox21-MMP.edges",
+    "baseline_ms": 12.461981,
+    "candidate_ms": 14.165451,
+    "speedup": 0.8797447395074114
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "protein/DD_g422.edges",
+    "baseline_ms": 5.176217,
+    "candidate_ms": 5.164444,
+    "speedup": 1.0022796258416202
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "baseline_ms": 4.983589,
+    "candidate_ms": 4.707259,
+    "speedup": 1.0587029521851252
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/G12.edges",
+    "baseline_ms": 5.550244,
+    "candidate_ms": 5.526967,
+    "speedup": 1.0042115322924852
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "ia/ia-email-univ.edges",
+    "baseline_ms": 5.663516,
+    "candidate_ms": 5.709264,
+    "speedup": 0.9919870582267697
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "misc/delaunay_n13.edges",
+    "baseline_ms": 11.398043,
+    "candidate_ms": 10.524918,
+    "speedup": 1.082957890978343
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "baseline_ms": 9.473218,
+    "candidate_ms": 9.897784,
+    "speedup": 0.9571049438945121
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "baseline_ms": 10.543513,
+    "candidate_ms": 11.091522,
+    "speedup": 0.9505920828539133
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "road/road-usroads-48.edges",
+    "baseline_ms": 91.165481,
+    "candidate_ms": 112.898619,
+    "speedup": 0.8074986373393992
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "email/email-enron-large.edges",
+    "baseline_ms": 22.513121,
+    "candidate_ms": 22.564624,
+    "speedup": 0.9977175334275459
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "baseline_ms": 13.151993,
+    "candidate_ms": 16.894148,
+    "speedup": 0.7784940086946083
+  },
+  {
+    "algorithm": "sssp",
+    "graph": "soc/soc-slashdot.edges",
+    "baseline_ms": 31.747802,
+    "candidate_ms": 35.847517,
+    "speedup": 0.8856346173153359
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/hamming8-2.edges",
+    "baseline_ms": 5.561081,
+    "candidate_ms": 5.75478,
+    "speedup": 0.9663411980996667
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "baseline_ms": 6.151307,
+    "candidate_ms": 6.479265,
+    "speedup": 0.9493834563025282
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "baseline_ms": 5.494422,
+    "candidate_ms": 5.865119,
+    "speedup": 0.9367963378066158
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/p-hat300-3.edges",
+    "baseline_ms": 4.743817,
+    "candidate_ms": 4.712193,
+    "speedup": 1.006711100330568
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-spam.edges",
+    "baseline_ms": 4.961546,
+    "candidate_ms": 5.466674,
+    "speedup": 0.9075986605383822
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "baseline_ms": 5.881734,
+    "candidate_ms": 5.338017,
+    "speedup": 1.1018574875276719
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_40k.edges",
+    "baseline_ms": 5.021367,
+    "candidate_ms": 5.409369,
+    "speedup": 0.9282722254665932
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/c-fat500-10.edges",
+    "baseline_ms": 5.208781,
+    "candidate_ms": 5.712492,
+    "speedup": 0.9118228962071194
+  },
+  {
+    "algorithm": "cc",
+    "graph": "web/web-indochina-2004.edges",
+    "baseline_ms": 6.359043,
+    "candidate_ms": 6.406208,
+    "speedup": 0.9926376102680399
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/fe-sphere.edges",
+    "baseline_ms": 7.220036,
+    "candidate_ms": 6.887603,
+    "speedup": 1.0482654125099835
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rand/geo1k_50k.edges",
+    "baseline_ms": 5.178656,
+    "candidate_ms": 5.192738,
+    "speedup": 0.9972881358543412
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-as-caida2007.edges",
+    "baseline_ms": 8.153402000000002,
+    "candidate_ms": 8.2915,
+    "speedup": 0.9833446300428152
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-EU.edges",
+    "baseline_ms": 9.080924,
+    "candidate_ms": 8.596058,
+    "speedup": 1.056405622204969
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "baseline_ms": 5.412756,
+    "candidate_ms": 4.785185,
+    "speedup": 1.1311487434655085
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "baseline_ms": 4.455538,
+    "candidate_ms": 4.530933,
+    "speedup": 0.9833599393325833
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-WHOIS.edges",
+    "baseline_ms": 6.229901,
+    "candidate_ms": 6.643273,
+    "speedup": 0.9377758523547053
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "baseline_ms": 4.946449,
+    "candidate_ms": 5.186465,
+    "speedup": 0.9537226222484873
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-3.edges",
+    "baseline_ms": 4.634563,
+    "candidate_ms": 4.992809,
+    "speedup": 0.9282476057065271
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-1.edges",
+    "baseline_ms": 4.701147,
+    "candidate_ms": 5.014031,
+    "speedup": 0.9375983116179377
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-4.edges",
+    "baseline_ms": 4.816398,
+    "candidate_ms": 5.442289,
+    "speedup": 0.8849948982863646
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/brock400-2.edges",
+    "baseline_ms": 5.461857,
+    "candidate_ms": 6.937249,
+    "speedup": 0.7873231881975117
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "baseline_ms": 4.657184,
+    "candidate_ms": 4.921443,
+    "speedup": 0.9463045696150499
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC500-5.edges",
+    "baseline_ms": 4.785067,
+    "candidate_ms": 4.972255,
+    "speedup": 0.962353499569109
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "baseline_ms": 4.761263,
+    "candidate_ms": 4.872214,
+    "speedup": 0.9772278064961842
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_retweet.edges",
+    "baseline_ms": 6.694571,
+    "candidate_ms": 6.930881,
+    "speedup": 0.9659047673737292
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/MANN-a27.edges",
+    "baseline_ms": 5.774055,
+    "candidate_ms": 5.574552,
+    "speedup": 1.0357881673720148
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_fb-forum.edges",
+    "baseline_ms": 5.378293,
+    "candidate_ms": 4.996828,
+    "speedup": 1.0763414310038288
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "baseline_ms": 5.08856,
+    "candidate_ms": 5.195153,
+    "speedup": 0.979482221216584
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing_nodal.edges",
+    "baseline_ms": 5.981706,
+    "candidate_ms": 6.218127,
+    "speedup": 0.9619787437599779
+  },
+  {
+    "algorithm": "cc",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "baseline_ms": 5.26681,
+    "candidate_ms": 5.198066,
+    "speedup": 1.0132249186524374
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/PROTEINS-full.edges",
+    "baseline_ms": 12.128933,
+    "candidate_ms": 12.284804,
+    "speedup": 0.9873118854806312
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Mich67.edges",
+    "baseline_ms": 5.542945,
+    "candidate_ms": 5.066061,
+    "speedup": 1.0941330947258627
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "baseline_ms": 5.057646,
+    "candidate_ms": 5.411365,
+    "speedup": 0.9346340525911669
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tech/tech-internet-as.edges",
+    "baseline_ms": 10.912752,
+    "candidate_ms": 11.529194,
+    "speedup": 0.9465320819477926
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "baseline_ms": 5.259172,
+    "candidate_ms": 5.527321,
+    "speedup": 0.9514866243520144
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "baseline_ms": 5.722273,
+    "candidate_ms": 4.951146,
+    "speedup": 1.1557471744925318
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "baseline_ms": 5.040147,
+    "candidate_ms": 5.557744,
+    "speedup": 0.9068692260744649
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Smith60.edges",
+    "baseline_ms": 5.50977,
+    "candidate_ms": 5.449174,
+    "speedup": 1.011120217486173
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-epinions.edges",
+    "baseline_ms": 8.696911,
+    "candidate_ms": 9.089784,
+    "speedup": 0.9567786209221253
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "baseline_ms": 4.921638,
+    "candidate_ms": 6.208215,
+    "speedup": 0.7927621707688924
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/C500-9.edges",
+    "baseline_ms": 5.577587,
+    "candidate_ms": 5.181525,
+    "speedup": 1.076437342288226
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Williams40.edges",
+    "baseline_ms": 5.330908,
+    "candidate_ms": 5.491598,
+    "speedup": 0.9707389360983816
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "baseline_ms": 27.77156,
+    "candidate_ms": 28.15767,
+    "speedup": 0.9862875727998801
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-luxembourg-osm.edges",
+    "baseline_ms": 27.07126,
+    "candidate_ms": 26.416223,
+    "speedup": 1.024796769772878
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs10/wing.edges",
+    "baseline_ms": 16.548877,
+    "candidate_ms": 17.24014,
+    "speedup": 0.9599038638897365
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "baseline_ms": 5.256727,
+    "candidate_ms": 5.388886,
+    "speedup": 0.9754756363374544
+  },
+  {
+    "algorithm": "cc",
+    "graph": "rec/rec-amazon.edges",
+    "baseline_ms": 29.575975,
+    "candidate_ms": 29.030829,
+    "speedup": 1.0187781754354999
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "baseline_ms": 12.156709,
+    "candidate_ms": 12.333085,
+    "speedup": 0.9856989552897754
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "baseline_ms": 22.593941,
+    "candidate_ms": 22.357924,
+    "speedup": 1.010556302096742
+  },
+  {
+    "algorithm": "cc",
+    "graph": "labeled/Tox21-MMP.edges",
+    "baseline_ms": 22.772549,
+    "candidate_ms": 22.204961,
+    "speedup": 1.025561314879139
+  },
+  {
+    "algorithm": "cc",
+    "graph": "protein/DD_g422.edges",
+    "baseline_ms": 3.079516,
+    "candidate_ms": 3.667039,
+    "speedup": 0.839782723881584
+  },
+  {
+    "algorithm": "cc",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "baseline_ms": 3.415537,
+    "candidate_ms": 3.9286800000000004,
+    "speedup": 0.8693853915309976
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/G12.edges",
+    "baseline_ms": 3.048418,
+    "candidate_ms": 3.415846,
+    "speedup": 0.8924342607951294
+  },
+  {
+    "algorithm": "cc",
+    "graph": "ia/ia-email-univ.edges",
+    "baseline_ms": 3.316079,
+    "candidate_ms": 3.311602,
+    "speedup": 1.0013519136659539
+  },
+  {
+    "algorithm": "cc",
+    "graph": "misc/delaunay_n13.edges",
+    "baseline_ms": 5.294767,
+    "candidate_ms": 5.603152,
+    "speedup": 0.9449622284028705
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "baseline_ms": 6.105488,
+    "candidate_ms": 6.379902,
+    "speedup": 0.95698774056404
+  },
+  {
+    "algorithm": "cc",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "baseline_ms": 6.16173,
+    "candidate_ms": 5.992095,
+    "speedup": 1.0283097981590748
+  },
+  {
+    "algorithm": "cc",
+    "graph": "road/road-usroads-48.edges",
+    "baseline_ms": 29.247419,
+    "candidate_ms": 27.948643,
+    "speedup": 1.0464700915890621
+  },
+  {
+    "algorithm": "cc",
+    "graph": "email/email-enron-large.edges",
+    "baseline_ms": 10.333776,
+    "candidate_ms": 9.893122,
+    "speedup": 1.044541450110491
+  },
+  {
+    "algorithm": "cc",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "baseline_ms": 5.994234,
+    "candidate_ms": 6.098792,
+    "speedup": 0.9828559491781322
+  },
+  {
+    "algorithm": "cc",
+    "graph": "soc/soc-slashdot.edges",
+    "baseline_ms": 17.662487,
+    "candidate_ms": 20.145168,
+    "speedup": 0.876760471791548
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/hamming8-2.edges",
+    "baseline_ms": 8.99086,
+    "candidate_ms": 6.951378,
+    "speedup": 1.2933924755638377
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-4elt2.edges",
+    "baseline_ms": 8.651684,
+    "candidate_ms": 6.581677,
+    "speedup": 1.3145105723055082
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Simmons81.edges",
+    "baseline_ms": 7.462632,
+    "candidate_ms": 6.717076,
+    "speedup": 1.110994128993032
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/p-hat300-3.edges",
+    "baseline_ms": 6.842819,
+    "candidate_ms": 6.700656,
+    "speedup": 1.0212162809133911
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-spam.edges",
+    "baseline_ms": 8.367368999999998,
+    "candidate_ms": 6.894629,
+    "speedup": 1.2136068525224488
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/sanr400-0-5.edges",
+    "baseline_ms": 8.55114,
+    "candidate_ms": 6.815899,
+    "speedup": 1.2545872525399804
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_40k.edges",
+    "baseline_ms": 7.685583,
+    "candidate_ms": 5.865007,
+    "speedup": 1.3104132697539832
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/c-fat500-10.edges",
+    "baseline_ms": 8.207715,
+    "candidate_ms": 6.90273,
+    "speedup": 1.1890534614565542
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "web/web-indochina-2004.edges",
+    "baseline_ms": 9.839656,
+    "candidate_ms": 7.806271,
+    "speedup": 1.2604809645988462
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/fe-sphere.edges",
+    "baseline_ms": 8.321479,
+    "candidate_ms": 8.96381,
+    "speedup": 0.928341743075768
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rand/geo1k_50k.edges",
+    "baseline_ms": 6.886204,
+    "candidate_ms": 5.760125,
+    "speedup": 1.1954955838631973
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-as-caida2007.edges",
+    "baseline_ms": 15.829098,
+    "candidate_ms": 14.394651,
+    "speedup": 1.0996513913397414
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-EU.edges",
+    "baseline_ms": 24.435794,
+    "candidate_ms": 19.736335,
+    "speedup": 1.2381120405586954
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-1.edges",
+    "baseline_ms": 13.741289,
+    "candidate_ms": 9.332687,
+    "speedup": 1.4723829268033954
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/san400-0-7-3.edges",
+    "baseline_ms": 8.001383,
+    "candidate_ms": 6.678209,
+    "speedup": 1.198133062322548
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-WHOIS.edges",
+    "baseline_ms": 9.760746,
+    "candidate_ms": 8.801526,
+    "speedup": 1.1089833740194597
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Haverford76.edges",
+    "baseline_ms": 9.073595,
+    "candidate_ms": 7.043299,
+    "speedup": 1.2882592376101027
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-3.edges",
+    "baseline_ms": 8.696694,
+    "candidate_ms": 6.602238,
+    "speedup": 1.3172342469326312
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-1.edges",
+    "baseline_ms": 7.95211,
+    "candidate_ms": 6.983921,
+    "speedup": 1.1386311500373503
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-4.edges",
+    "baseline_ms": 7.727439,
+    "candidate_ms": 6.733111,
+    "speedup": 1.1476773515244292
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/brock400-2.edges",
+    "baseline_ms": 8.163910999999999,
+    "candidate_ms": 8.253714,
+    "speedup": 0.9891196859983273
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Swarthmore42.edges",
+    "baseline_ms": 8.599967,
+    "candidate_ms": 7.29987,
+    "speedup": 1.1780986510718683
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC500-5.edges",
+    "baseline_ms": 7.647179,
+    "candidate_ms": 7.039561,
+    "speedup": 1.0863147574117193
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-USFCA72.edges",
+    "baseline_ms": 9.68283,
+    "candidate_ms": 6.625065,
+    "speedup": 1.4615449055971526
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_retweet.edges",
+    "baseline_ms": 9.523143,
+    "candidate_ms": 7.943586000000001,
+    "speedup": 1.1988468432267239
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/MANN-a27.edges",
+    "baseline_ms": 8.245338,
+    "candidate_ms": 7.235639,
+    "speedup": 1.1395452426523767
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_fb-forum.edges",
+    "baseline_ms": 8.120787000000002,
+    "candidate_ms": 7.481478,
+    "speedup": 1.0854522328342076
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/gen400-p0-9-55.edges",
+    "baseline_ms": 8.307515,
+    "candidate_ms": 6.856318,
+    "speedup": 1.2116583565698091
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing_nodal.edges",
+    "baseline_ms": 10.554435,
+    "candidate_ms": 8.228215,
+    "speedup": 1.2827125931930556
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "bio/bio-WormNet-v3-benchmark.edges",
+    "baseline_ms": 8.349129,
+    "candidate_ms": 7.445225,
+    "speedup": 1.121407210661867
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/PROTEINS-full.edges",
+    "baseline_ms": 12.337243,
+    "candidate_ms": 11.482736,
+    "speedup": 1.074416672124135
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Mich67.edges",
+    "baseline_ms": 9.399371,
+    "candidate_ms": 7.060929,
+    "speedup": 1.3311805004695558
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Bowdoin47.edges",
+    "baseline_ms": 8.394513,
+    "candidate_ms": 7.901827,
+    "speedup": 1.0623508968242408
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tech/tech-internet-as.edges",
+    "baseline_ms": 12.261053,
+    "candidate_ms": 11.415897,
+    "speedup": 1.0740332538038844
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Amherst41.edges",
+    "baseline_ms": 9.160625,
+    "candidate_ms": 7.8340879999999995,
+    "speedup": 1.1693288357240819
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Wellesley22.edges",
+    "baseline_ms": 10.753342,
+    "candidate_ms": 9.316211,
+    "speedup": 1.154261319328212
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Hamilton46.edges",
+    "baseline_ms": 8.857444,
+    "candidate_ms": 7.816109,
+    "speedup": 1.1332293344424955
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Smith60.edges",
+    "baseline_ms": 9.938347,
+    "candidate_ms": 7.55938,
+    "speedup": 1.3147039836600356
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-epinions.edges",
+    "baseline_ms": 13.402604,
+    "candidate_ms": 12.495166,
+    "speedup": 1.0726231248148284
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Trinity100.edges",
+    "baseline_ms": 10.138295,
+    "candidate_ms": 8.306738,
+    "speedup": 1.220490522272401
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/C500-9.edges",
+    "baseline_ms": 9.044569,
+    "candidate_ms": 7.874190999999999,
+    "speedup": 1.1486346978375304
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Williams40.edges",
+    "baseline_ms": 9.156162,
+    "candidate_ms": 7.851393999999999,
+    "speedup": 1.1661829733675322
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/inf-luxembourg_osm.edges",
+    "baseline_ms": 18.12091,
+    "candidate_ms": 17.494172,
+    "speedup": 1.0358255309253848
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-luxembourg-osm.edges",
+    "baseline_ms": 18.480349,
+    "candidate_ms": 17.523657,
+    "speedup": 1.054594312134733
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs10/wing.edges",
+    "baseline_ms": 16.238788,
+    "candidate_ms": 13.958273,
+    "speedup": 1.1633808853000653
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Middlebury45.edges",
+    "baseline_ms": 10.426113,
+    "candidate_ms": 10.065712,
+    "speedup": 1.0358048193709497
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "rec/rec-amazon.edges",
+    "baseline_ms": 18.909289,
+    "candidate_ms": 17.908697,
+    "speedup": 1.055871848186387
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-gemsec-RO.edges",
+    "baseline_ms": 14.590482,
+    "candidate_ms": 12.752976,
+    "speedup": 1.144084486632767
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-aromatase.edges",
+    "baseline_ms": 20.038565,
+    "candidate_ms": 20.054223,
+    "speedup": 0.9992192168203174
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "labeled/Tox21-MMP.edges",
+    "baseline_ms": 21.310482,
+    "candidate_ms": 19.998013,
+    "speedup": 1.0656299703375531
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "protein/DD_g422.edges",
+    "baseline_ms": 4.461998,
+    "candidate_ms": 4.044986000000001,
+    "speedup": 1.103093558296617
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "tscc/scc_rt_occupywallstnyc.edges",
+    "baseline_ms": 4.132033999999999,
+    "candidate_ms": 4.097339999999999,
+    "speedup": 1.0084674447324362
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/G12.edges",
+    "baseline_ms": 3.84771,
+    "candidate_ms": 3.9265280000000007,
+    "speedup": 0.9799267953774937
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "ia/ia-email-univ.edges",
+    "baseline_ms": 5.045202,
+    "candidate_ms": 3.936915,
+    "speedup": 1.2815115388572016
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "misc/delaunay_n13.edges",
+    "baseline_ms": 10.65255,
+    "candidate_ms": 6.474317,
+    "speedup": 1.645355023549202
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Brandeis99.edges",
+    "baseline_ms": 12.540426,
+    "candidate_ms": 9.914572,
+    "speedup": 1.2648479430075248
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "socfb/socfb-Pepperdine86.edges",
+    "baseline_ms": 14.609307,
+    "candidate_ms": 13.348156,
+    "speedup": 1.0944812901497405
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "road/road-usroads-48.edges",
+    "baseline_ms": 32.24742199999999,
+    "candidate_ms": 26.504322,
+    "speedup": 1.2166854145523887
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "email/email-enron-large.edges",
+    "baseline_ms": 24.654981,
+    "candidate_ms": 20.84966,
+    "speedup": 1.1825123767006271
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "dimacs/DSJC1000-5.edges",
+    "baseline_ms": 19.612614,
+    "candidate_ms": 16.135838,
+    "speedup": 1.2154691934809956
+  },
+  {
+    "algorithm": "pagerank",
+    "graph": "soc/soc-slashdot.edges",
+    "baseline_ms": 42.115551,
+    "candidate_ms": 37.95013,
+    "speedup": 1.1097603881725835
+  }
+]

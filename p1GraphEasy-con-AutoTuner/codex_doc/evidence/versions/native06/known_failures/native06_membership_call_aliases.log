@@ -1,0 +1,23 @@
+LLVM ERROR: AutoTuner: raw CSR access conflicts with a graph bitmap query
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /home/kazi/p1_layout_native_20261105/versions/native06/GraphProgram /home/kazi/p1_layout_native_20261105/versions/native06/src/test/membership_call_aliases.graph --ir-backend=cpu
+1.	Running pass "AutoTunerModulePass" on module "my_module"
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.20.1 0x0000746d7302bc7f llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 63
+1  libLLVM.so.20.1 0x0000746d73029989 llvm::sys::RunSignalHandlers() + 89
+2  libLLVM.so.20.1 0x0000746d7302c390
+3  libc.so.6       0x0000746d71845330
+4  libc.so.6       0x0000746d7189ec0c pthread_kill + 284
+5  libc.so.6       0x0000746d7184527e gsignal + 30
+6  libc.so.6       0x0000746d718288ff abort + 223
+7  libLLVM.so.20.1 0x0000746d72f7e564 llvm::report_fatal_error(llvm::Twine const&, bool) + 452
+8  libLLVM.so.20.1 0x0000746d72f7e39d
+9  GraphProgram    0x00005b31c81a855c
+10 GraphProgram    0x00005b31c803fd55
+11 libLLVM.so.20.1 0x0000746d731c33e5 llvm::PassManager<llvm::Module, llvm::AnalysisManager<llvm::Module>>::run(llvm::Module&, llvm::AnalysisManager<llvm::Module>&) + 533
+12 GraphProgram    0x00005b31c803c66f
+13 GraphProgram    0x00005b31c80061d8
+14 libc.so.6       0x0000746d7182a1ca
+15 libc.so.6       0x0000746d7182a28b __libc_start_main + 139
+16 GraphProgram    0x00005b31c8009725

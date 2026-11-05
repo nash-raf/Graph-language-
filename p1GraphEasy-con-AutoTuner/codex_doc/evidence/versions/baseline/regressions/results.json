@@ -1,0 +1,14 @@
+[
+  {
+    "suite": "run_temporal_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 15.788031339645386,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/baseline/regressions/run_temporal_tests.0.log"
+  },
+  {
+    "suite": "run_parallel_claims_remaining_tests",
+    "exit_code": 1,
+    "elapsed_seconds": 23.847819566726685,
+    "log": "/home/kazi/p1_layout_native_20261105/versions/baseline/regressions/run_parallel_claims_remaining_tests.1.log"
+  }
+]

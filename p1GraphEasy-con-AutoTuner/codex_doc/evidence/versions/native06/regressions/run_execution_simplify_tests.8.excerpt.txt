@@ -1,0 +1,222 @@
+Full log: /home/kazi/p1_layout_native_20261105/versions/native06/regressions/run_execution_simplify_tests.8.log
+SHA256: f26c39e39c2e7ef5c8459eb95a71950f61756bf4e2892d004678b4c127c73544
+Last 12000 characters:
+dle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   R13 drops persistent gate storage before dispatch
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   gate reference bundle executes
+  ok   invalid gate extension retains working baseline bundle
+  ok   R13 exact bits, FP cancellation/NaN/infinity/signed zero and restored arrays
+  ok   R13 witness, compatibility, identity and disable gates selection
+  ok   R13 evaluates immutable gate only once when entailed
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok  [AutoTunerProfile] predicted_vs_measured_region_times
+[AutoTunerProfile] total kind=Traverse predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=10874624 pure_kernel_ms=10.874624
+[AutoTunerProfile] total kind=Insert predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] total kind=Query predicted_ns=0.000 measured_ns=0 predicted_ms=0.000000 measured_ms=0.000000 pure_kernel_ns=0 pure_kernel_ms=0.000000
+[AutoTunerProfile] injected 3 layout conversions total, conversion_ns=313089
+ prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   create full-domain callback context
+  ok   prepare destination ownership
+  ok   extension baseline/candidate execution
+  ok   exact cancellation, NaN/Inf and signed-zero contribution order
+  ok   duplicate native incoming occurrence order
+  ok   descriptor activation/refusal/runtime disable
+  ok   map selection before effects
+  ok   invalidation keeps generic execution
+  ok   invalidation discards extension
+execution simplification runtime: 0 failures

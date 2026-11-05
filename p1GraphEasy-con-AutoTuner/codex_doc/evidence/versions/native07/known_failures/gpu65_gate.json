@@ -1,0 +1,26 @@
+[
+  {
+    "version": "baseline",
+    "batch": "0",
+    "passed": true,
+    "source_sha256": "1412725e01584cab9d464b21b3ed245377048d459cb85d0b428a35f519b0a897"
+  },
+  {
+    "version": "baseline",
+    "batch": "1",
+    "passed": true,
+    "source_sha256": "1412725e01584cab9d464b21b3ed245377048d459cb85d0b428a35f519b0a897"
+  },
+  {
+    "version": "native07",
+    "batch": "0",
+    "passed": true,
+    "source_sha256": "1412725e01584cab9d464b21b3ed245377048d459cb85d0b428a35f519b0a897"
+  },
+  {
+    "version": "native07",
+    "batch": "1",
+    "passed": true,
+    "source_sha256": "1412725e01584cab9d464b21b3ed245377048d459cb85d0b428a35f519b0a897"
+  }
+]

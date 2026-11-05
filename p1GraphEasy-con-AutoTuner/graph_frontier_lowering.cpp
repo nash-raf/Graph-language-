@@ -5752,6 +5752,7 @@ static bool buildPrivSetup(const NeighborLoopInfo &Info, PrivSetup &S,
         if (GL->getPointerOperand())
             S.GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        !gpuBackendSelected(Mod) ? "autograph_build_layout_batches" :
         Info.OrderedArrayFrontier && Info.SpatialResult.Status == SpatialProofStatus::IndependentFamily &&
         Info.Schedule.Kind == ScheduleKind::SpatialDag ? "autograph_build_array_cut" : "autograph_build_clean_cut",
         FunctionType::get(I32, {I8P, I32}, false));
@@ -8071,6 +8072,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         if (GL->getPointerOperand())
             GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
+        !gpuBackendSelected(Mod) ? "autograph_build_layout_batches" :
         Info.OrderedArrayFrontier && ScopedSpatial ? "autograph_build_array_cut" : "autograph_build_clean_cut",
         FunctionType::get(I32, {I8P, I32}, false));
     Value *PartCount = Info.CombinedStage ? EB.CreateCall(Mod->getOrInsertFunction(
@@ -8404,6 +8406,11 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
         HeadSlot /* append_head */, PartBase, PartStride, OpsSlot,
         ConstantInt::get(I32, NOps), ConstantInt::get(I32, StepId)};
     Value *ExecCtx = EB.CreateCall(CtxCreate, CtxArgs);
+    if(!PairPartition&&!gpuBackendSelected(Mod)) {
+        auto Bind=Mod->getOrInsertFunction("autograph_exec_ctx_bind_layout",FunctionType::get(I32,{I8P},false));
+        auto Require=Mod->getOrInsertFunction("sgpl_exec_require_status",FunctionType::get(Type::getVoidTy(Ctx),{I32},false));
+        EB.CreateCall(Require,{EB.CreateCall(Bind,{ExecCtx})});
+    }
     const bool FullCertified=PairPartition&&Traversal==SGPL_TRAVERSE_OWNER_V&&
         Info.SpatialResult.Group==SpatialGroup::Destination&&
         !gpuBackendSelected(Mod)&&spatialAllVerticesDomain(Info)&&
@@ -8451,7 +8458,7 @@ static bool emitSingleStage(NeighborLoopInfo &Info, bool IsRed,
     }
     if (PairPartition) {
         FunctionCallee Prepare = Mod->getOrInsertFunction(
-            "autograph_exec_ctx_prepare_spatial",
+            gpuBackendSelected(Mod) ? "autograph_exec_ctx_prepare_spatial" : "autograph_exec_ctx_prepare_layout",
             FunctionType::get(I32, {I8P, I32, I32, I32}, false));
         FunctionCallee Require = Mod->getOrInsertFunction(
             "sgpl_exec_require_status", FunctionType::get(Type::getVoidTy(Ctx), {I32}, false));
@@ -8705,7 +8712,7 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info, bool Concurrent)
         if (GL->getPointerOperand())
             GraphArg = EB.CreateLoad(GL->getType(), GL->getPointerOperand());
     FunctionCallee BuildCC = Mod->getOrInsertFunction(
-        "autograph_build_clean_cut", FunctionType::get(I32, {I8P, I32}, false));
+        gpuBackendSelected(Mod) ? "autograph_build_clean_cut" : "autograph_build_layout_batches", FunctionType::get(I32, {I8P, I32}, false));
     EB.CreateCall(BuildCC, {GraphArg, gpuBackendSelected(Mod) ?
         static_cast<Value *>(EB.CreateCall(Mod->getOrInsertFunction("autograph_gpu_clean_cut_partitions",FunctionType::get(I32,false)))) : ConstantInt::get(I32, 0)});
 
@@ -8862,6 +8869,11 @@ static bool emitDualForkJoin(NeighborLoopInfo &Info, bool Concurrent)
         K == ScheduleKind::SpatialStaged;
     const bool TemporalPar = false; /* whole-domain spatial composition */
     Value *ChildCtxs[2] = {CtxU, CtxV};
+    if(!gpuBackendSelected(Mod)) {
+    auto BindLayout=Mod->getOrInsertFunction("autograph_exec_ctx_bind_layout",FunctionType::get(I32,{I8P},false));
+    auto RequireLayout=Mod->getOrInsertFunction("sgpl_exec_require_status",FunctionType::get(Type::getVoidTy(Ctx),{I32},false));
+    for(Value *C : {CtxOwner,CtxU,CtxV})EB.CreateCall(RequireLayout,{EB.CreateCall(BindLayout,{C})});
+    }
     for (Value *C : ChildCtxs)
         EB.CreateCall(SetAxes, {C, ConstantInt::get(I32, SpatialPar ? 1 : -1),
                                 ConstantInt::get(I32, TemporalPar ? 1 : -1)});

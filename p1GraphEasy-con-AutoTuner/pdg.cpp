@@ -1,4 +1,5 @@
 #include "pdg.h"
+#include "pdg_memory_dependence.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/CFG.h"
@@ -350,18 +351,7 @@ namespace
     static bool isLoopMemoryDerived(const llvm::Value *V, const llvm::Loop *L,
                                     llvm::SmallPtrSetImpl<const llvm::Value *> &Seen)
     {
-        using namespace llvm;
-        if (!V || !Seen.insert(V).second)
-            return false;
-        const auto *I = dyn_cast<Instruction>(V);
-        if (!I || !L->contains(I->getParent()))
-            return false;
-        if (isa<LoadInst>(I) || isa<CallBase>(I))
-            return true;
-        for (const Use &U : I->operands())
-            if (isLoopMemoryDerived(U.get(), L, Seen))
-                return true;
-        return false;
+        return llvm::pdgIsLoopMemoryDerived(V, L, Seen);
     }
 
     static bool zeroDistanceOnLoopMemorySubscript(const llvm::Dependence &Dep,
@@ -1799,26 +1789,7 @@ void buildGraph(llvm::Function &F,
             createEdge(From, From, G, "WAW_LOOP_MAY");
         for (llvm::Instruction *To : memoryOps)
         {
-            if (From == To ||
-                (llvm::isa<llvm::LoadInst>(From) &&
-                 llvm::isa<llvm::LoadInst>(To)) ||
-                !llvm::isPotentiallyReachable(From, To, nullptr, &DT, &LI))
-                continue;
-            // A NoAlias answer for two instructions in one dynamic iteration
-            // does not rule out their addresses meeting in later iterations.
-            // Leave every pair in a common loop to DependenceInfo below.
-            bool MayMeetAcrossIterations = false;
-            for (llvm::Loop *L = LI.getLoopFor(From->getParent()); L;
-                 L = L->getParentLoop())
-                if (L->contains(To->getParent()))
-                {
-                    MayMeetAcrossIterations = true;
-                    break;
-                }
-            if (MayMeetAcrossIterations ||
-                AA.alias(llvm::MemoryLocation::get(From),
-                         llvm::MemoryLocation::get(To)) !=
-                    llvm::AliasResult::NoAlias)
+            if (llvm::pdgMemoryPairCandidate(From, To, LI, AA, DT))
                 createEdge(From, To, G, "MEM_MAY");
         }
     }

@@ -172,7 +172,10 @@ outer_latch:
     }
 }
 
+#include "buffer_round_read_cases.inc"
+
 int main() {
+    bufferCases();
     fixture("ordinary", 1, true);
     fixture("ordinary", 3, true);
     fixture("ordinary", 0, false);

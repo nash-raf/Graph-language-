@@ -995,6 +995,7 @@ struct NeighborLoopInfo
      * counter is not a reduction; the append is chained through the runtime
      * frontier envelope (dest_seen/next_frontier) — see emit's frontier path. */
     bool HasFrontierAppend = false;
+    bool UnprovenFrontierLifecycle = false; /* preserve ordinary append IR */
     bool OrderedArrayFrontier = false; /* checked occurrence-preserving append contract */
     unsigned ArrayAppendSites = 0;
     Value *AppendArrayPtr = nullptr;  /* base slot of next_frontier */
@@ -1780,6 +1781,8 @@ static void markImplSerial(Loop *L)
     }
 }
 
+#include "frontier_lifecycle.inc"
+
 static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
 {
     BasicBlock *Header = L->getHeader();
@@ -1967,6 +1970,17 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
 
     Info.MembershipGated = Info.FrontierSetPtr || Info.FrontierArrayPtr;
 
+    // An append is only an Activate after reset, collection, publication, and
+    // next-round consumption have been connected in the original CFG.
+    if (Info.HasFrontierAppend || !IndexSlots.empty()) {
+        Info.UnprovenFrontierLifecycle = IndexSlots.size() > 1 ||
+                                        !recognizeFrontierLifecycle(Info);
+        if (Info.UnprovenFrontierLifecycle) {
+            Info.HasFrontierAppend = false;
+            IndexSlots.clear();
+        }
+    }
+
     auto classifyStore = [&](StoreInst *SI, Value *Ptr, Region R,
                              const Value *Base, Value *Index) -> Effect
     {
@@ -2048,7 +2062,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                             if (IndexSlots.count(LI->getPointerOperand()) ||
                                 LI->getPointerOperand() == Info.AppendCountPtr)
                                 AppendStore = true;
-                    if (AppendStore)
+                    if (AppendStore && Info.HasFrontierAppend)
                         continue;
                     Region R = IX ? Prov.regionOf(IX) : Region::Bottom;
                     noteWritten(R, Base);
@@ -2180,7 +2194,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             }
             if (auto *CI = dyn_cast<CallInst>(&I))
                 if (Function *CF = CI->getCalledFunction())
-                    if (CF->getName() == "roaring_bitmap_add" &&
+                    if (Info.HasFrontierAppend && CF->getName() == "roaring_bitmap_add" &&
                         CI->arg_size() >= 2)
                     {
                         Effect E;
@@ -9075,6 +9089,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
     for(Loop *L:LI.getLoopsInPreorder()) {
         NeighborLoopInfo Original;
         if(!analyzeNeighborLoop(L,Original))continue;
+        if(Original.UnprovenFrontierLifecycle)continue;
         bool Private=privLayout(Original);
         if(!Private){Original.Slots.clear();Original.PrivArrays.clear();}
         Original.UsePrivLayout=Private&&privLayoutNeeded(Original);
@@ -9092,6 +9107,13 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         /* A loop is a graph-construct loop if it has the iterator shape OR any
          * write whose subscript is load-derived from a graph data array. */
         bool IsIter = analyzeNeighborLoop(L, Info);
+        if (IsIter && Info.UnprovenFrontierLifecycle) {
+            if (getenv("GRAPH_FRONTIER_STATS"))
+                errs() << "[graph-frontier] sequential: unproven frontier lifecycle\n";
+            markSequential(Info.NeighborLoop);
+            ++detected;
+            continue;
+        }
         bool HasData = IsIter ? Info.HasDataWrite : loopHasGraphDataWrite(L);
         if (!IsIter && !HasData)
             continue;

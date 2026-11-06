@@ -1,0 +1,21 @@
+graph G { directed: true; edges: file "test/spatial_pairs.txt"; };
+int n = numVertices(G);
+int results[128];
+int count = 0;
+set collected;
+
+for u in G.nodes {
+  for v in G.neighbors(u) {
+    results[count] = v;
+    count = count + 1;
+  }
+}
+for u in G.nodes {
+  for v in G.neighbors(u) {
+    collected.add(v);
+  }
+}
+print count;
+int i = 0;
+while (i < count) { print results[i]; i = i + 1; }
+print setSize(collected);

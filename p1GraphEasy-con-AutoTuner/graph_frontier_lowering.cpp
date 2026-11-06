@@ -62,6 +62,7 @@
 #include "gpu_runtime.h"
 
 #include "graph_frontier_lowering.h"
+#include "pdg_memory_dependence.h"
 
 using namespace llvm;
 
@@ -201,10 +202,10 @@ enum class Temporal : uint8_t
 {
     Independent = 0,
     SameRoundRead,
-    PreviousRoundRead,
+    PreviousRoundRead, /* proven earlier round; exact distance is not implied */
     Carried,
-    /* §4.2 relation-level extensions.  Effect::Temp keeps using the four
-     * legacy values; the additions appear only on AccessRelation::TemporalClass
+    /* §4.2 relation-level extensions. Effect::Temp also uses Unknown when an
+     * earlier-round read cannot be proved. The other additions appear on AccessRelation::TemporalClass
      * (WAR/WAW need a write-side and an ordered name the read projection never
      * produced). */
     SameRoundWrite,
@@ -377,6 +378,7 @@ struct Effect
     Value *ClaimTransition = nullptr;
     Value *Index = nullptr;
     Instruction *Origin = nullptr;
+    bool RequiresRoundProof = false; /* additional non-endpoint read atom */
     /* §3.1: one footprint per access mode the effect performs (an RMW owns a
      * Read and a Write).  Filled by buildFootprints() once σ, round separation
      * and the privatization decision are final. */
@@ -509,7 +511,9 @@ struct InstanceRelation
         Unknown = 0,
         SameInstance,
         FixedOffset,
-        Affine
+        Affine,
+        EarlierInstance, /* source is strictly earlier than sink; no distance */
+        LaterInstance    /* source is strictly later than sink; no distance */
     } K = Unknown;
     int64_t Offset = 0;
 };
@@ -576,6 +580,7 @@ struct AccessRelation
     Temporal TemporalClass = Temporal::Independent; /* §4.2 projection */
     PhaseRelation PhaseRel = PhaseRelation::SamePhase;
     int RoundOffset = 0;
+    bool CrossRound = false; /* independent of whether a distance is known */
     OwnerClass Spatial = OwnerClass::UnknownOwner;  /* §5 projection */
     uint32_t WitnessId = 0;
 };
@@ -1015,6 +1020,9 @@ struct NeighborLoopInfo
     EffectExpr Expr;                  /* E_t as a segmented expression */
     ICmpInst *DriverUGuard = nullptr; /* optional if (pred(u)) wrapping U-stores */
     bool MembershipGated = false;     /* driver is a frontier / F_t iteration */
+    // Original-IR proof: a read maps only to stores proved strictly earlier at
+    // the round loop. No entry means no proof, not independence.
+    DenseMap<const Instruction *, SmallVector<const Instruction *, 4>> EarlierRoundReads;
 
     /* Two-axis theorem certificate: unresolved R1-R7 witnesses per axis. */
     AxisCertificate Cert;
@@ -2178,13 +2186,18 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
                 {
                     Value *IX = primaryIndex(GEP);
                     Region R = IX ? Prov.regionOf(IX) : Region::Bottom;
-                    if (R == Region::V || R == Region::U)
+                    // Round-indexed reads must also be visible to the temporal
+                    // proof. Their index need not be a U/V endpoint.
+                    if (R == Region::V || R == Region::U ||
+                        Info.DriverLoop->getParentLoop())
                     {
                         const Value *Base = canonicalArrayBase(GEP);
-                        ReadBases.insert(Base);
+                        if (R == Region::U || R == Region::V)
+                            ReadBases.insert(Base);
                         Effect E;
                         E.Kind = EffectKind::R;
                         E.Reg = R;
+                        E.RequiresRoundProof = R != Region::U && R != Region::V;
                         E.Base = Base;
                         E.Index = IX;
                         E.Origin = LI;
@@ -2372,8 +2385,8 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         }
     }
 
-    /* Temporal: derived from the expression tree (segment identity + round
-     * domain), independent of σ and RoundSepBases. */
+    /* Build the initial projection. Earlier-round labels require the PDG proof
+     * collected by the pass on original IR; until then they remain Unknown. */
     buildEffectExpr(Info);
     deriveAllTemporal(Info);
 
@@ -2393,8 +2406,11 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
         {
             if (!E.Base)
                 continue;
-            if (E.Kind == EffectKind::R)
-                ReadBases.insert(E.Base);
+            if (E.Kind == EffectKind::R) {
+                // Additional reads expose temporal evidence without widening
+                // the legacy endpoint snapshot transformation's eligibility.
+                if (!E.RequiresRoundProof) ReadBases.insert(E.Base);
+            }
             else if (E.Kind != EffectKind::Activate)
                 MutBases.insert(E.Base);
         }
@@ -2440,7 +2456,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
             bool BadRead = false;
             for (const Effect &Rd : Info.Effects)
             {
-                if (Rd.Kind != EffectKind::R || Rd.Base != Base)
+                if (Rd.Kind != EffectKind::R || Rd.Base != Base || Rd.RequiresRoundProof)
                     continue;
                 if (Rd.Reg != WReg)
                     HasCross = true;
@@ -2517,21 +2533,10 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
 }
 
 /* ── expression construction and temporal derivation ─────────────
- * buildEffectExpr partitions the primitive set into the preamble/pair/
- * epilogue segments by occurrence scope (the driver preamble carries
- * PerSource effects; the consume store is the per-source epilogue).  The
- * temporal relation of every read is then derived from segment and round
- * structure:
- *
- *   R,W in the same segment (same round, concurrent)   → SameRoundRead
- *   W precedes R across segments (preamble→pair/consume) → SameRoundRead
- *   R(A,U) in the pair with a V write to A             → PreviousRoundRead
- *                                                         (membership-gated
- *                                                          round boundary) or
- *                                                         Carried (ungated)
- *
- * The pairwise scan was retired at the Phase-3 cutover (the differential
- * harness reported zero disagreements); deriveTemporalWorst is the sole τ. */
+ * buildEffectExpr preserves preamble/pair/epilogue occurrence scope. The
+ * structural read projection retains the legacy Carried rule. Earlier-round
+ * direction requires a separate PDG proof on the original whole-round IR;
+ * neither membership gating nor a snapshot decision supplies that proof. */
 /* ── expression construction ─────────────────────────────────────
  * The tree is built from the (already classified) primitive effects:
  *
@@ -2674,29 +2679,45 @@ static void buildEffectExpr(NeighborLoopInfo &Info)
     (void)Flat;
 }
 
-/* Structural temporal relation τ of one read against one mutating primitive,
- * with the oracle-exact five-case table:
- *   same base, same region                      → SameRoundRead
- *   R(A,U)×W(A,V), W in the pair phase, Frontier→ PreviousRoundRead
- *   R(A,U)×W(A,V), W in the pair phase, AllVerts→ Carried
- *   R(A,U)×W(A,V), W not in the pair phase      → SameRoundRead
- *   R(A,V)×W(A,U)                               → SameRoundRead
- *   all remaining cross-region pairs            → Independent
- *
- * The decisive condition is the WRITE's phase: a pair-phase (round-concurrent)
- * dest write is exactly what a frontier-gated U read observes from the previous
- * round.  The read's own segment never weakens the frontier rule: P(u);B(u,·)
- * ;Q(u) is a per-source sequence, not a per-round barrier, so other sources'
- * pair work is concurrent with every phase and sssp's driver read R(dist,U) in
- * the preamble is PreviousRoundRead.  (Errata: the segment-equality variant
- * `Seg(e_r) ≠ Seg(e_w) → SameRoundRead` is incorrect — it was a misreading of
- * the pre-v7 write-side SameSegment boolean.  See proof/EFFECT_ALGEBRA_DESIGN.md
- * §4.) */
+static bool provedEarlierRound(const NeighborLoopInfo *Info,
+                               const Instruction *Read, const Instruction *Write)
+{
+    if (!Info || !Read || !Write) return false;
+    auto It = Info->EarlierRoundReads.find(Read);
+    return It != Info->EarlierRoundReads.end() &&
+           llvm::is_contained(It->second, Write);
+}
+
+/* EarlierRoundReads is collected before any lowering changes the function.
+ * The shared PDG analysis considers every write/call in the enclosing round,
+ * including instructions outside the effect expression. It never uses frontier
+ * membership, provenance or a snapshot decision to infer temporal direction. */
+static void provePreviousRoundReads(NeighborLoopInfo &Info, DependenceInfo &DI,
+                                   LoopInfo &LI, AAResults &AA, DominatorTree &DT)
+{
+    Info.EarlierRoundReads.clear();
+    Loop *Round = Info.DriverLoop ? Info.DriverLoop->getParentLoop() : nullptr;
+    if (!Round) return;
+    for (const Effect &E : Info.Effects) {
+        if (E.Kind != EffectKind::R) continue;
+        auto *Read = dyn_cast_or_null<LoadInst>(E.Origin);
+        if (!Read) continue;
+        SmallVector<const Instruction *, 4> Writers;
+        if (pdgProveEarlierRoundRead(*Read, *Round, DI, LI, AA, DT, Writers))
+            Info.EarlierRoundReads[Read] = std::move(Writers);
+    }
+}
+
+/* The existing Carried classifier is deliberately unchanged. A frontier is
+ * not evidence of an earlier-round read: that label requires the PDG proof. */
 static Temporal relateReadWrite(const Effect &Rd, const Effect &M,
-                                PhaseSegment MSeg, DomainKind RoundDomain)
+                                PhaseSegment MSeg, DomainKind RoundDomain,
+                                const NeighborLoopInfo *Info = nullptr)
 {
     if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
         return Temporal::Independent;
+    if (provedEarlierRound(Info, Rd.Origin, M.Origin))
+        return Temporal::PreviousRoundRead;
     if (M.Base != Rd.Base)
         return Temporal::Independent;
     if (M.Reg == Rd.Reg)
@@ -2705,7 +2726,7 @@ static Temporal relateReadWrite(const Effect &Rd, const Effect &M,
     {
         if (MSeg != PhaseSegment::Pair)
             return Temporal::SameRoundRead; /* per-source write: sequenced */
-        return RoundDomain == DomainKind::Frontier ? Temporal::PreviousRoundRead
+        return RoundDomain == DomainKind::Frontier ? Temporal::Unknown
                                                    : Temporal::Carried;
     }
     if (Rd.Reg == Region::V && M.Reg == Region::U)
@@ -2713,9 +2734,8 @@ static Temporal relateReadWrite(const Effect &Rd, const Effect &M,
     return Temporal::Independent; /* other cross-region pairs are unrelated */
 }
 
-/* Derive τ for every read from the tree: each read is related against every
- * mutating primitive with the write's phase-segment identity and the
- * round-domain kind.  No σ or RoundSepBases information is consulted. */
+/* Derive the read projection using original-IR proofs where available. The
+ * remaining structural rules are legacy rules; σ is not temporal evidence. */
 static void deriveAllTemporal(NeighborLoopInfo &Info)
 {
     SmallVector<std::pair<const Effect *, PhaseSegment>, 32> Prims;
@@ -2724,11 +2744,20 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
     {
         if (Rd.Kind != EffectKind::R || !Rd.Base)
             continue;
+        if (Info.EarlierRoundReads.count(Rd.Origin)) {
+            // The proof includes stores outside the modeled expression too.
+            Rd.Temp = Temporal::PreviousRoundRead;
+            continue;
+        }
+        if (Rd.RequiresRoundProof) {
+            Rd.Temp = Temporal::Unknown;
+            continue;
+        }
         Temporal Worst = Temporal::Independent;
         for (const auto &P : Prims)
         {
             Temporal T = relateReadWrite(Rd, *P.first, P.second,
-                                         Info.Expr.RoundDomain);
+                                         Info.Expr.RoundDomain, &Info);
             if (temporalRank(T) > temporalRank(Worst))
                 Worst = T;
         }
@@ -2745,7 +2774,8 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
  * A traversal with no enclosing loop has only same-round write relations.
  * PreviousRoundWrite requires an established offset, not an endpoint heuristic. */
 static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDomain,
-                                     bool MayRepeatRounds)
+                                     bool MayRepeatRounds,
+                                     const NeighborLoopInfo *Info = nullptr)
 {
     if (R.Kind == AccessRelKind::WAW) {
         if (MayRepeatRounds) return Temporal::Unknown;
@@ -2757,6 +2787,11 @@ static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDo
     const Footprint *RFP = R.Kind == AccessRelKind::WAR ? R.SourceFootprint
                            : R.Kind == AccessRelKind::RAW ? R.SinkFootprint
                                                           : nullptr;
+    if (RFP && WFP && provedEarlierRound(Info, RFP->Origin, WFP->Origin))
+        return Temporal::PreviousRoundRead;
+    const Effect *ReadEffect = SrcWrites ? R.Sink : R.Source;
+    if (ReadEffect && ReadEffect->Kind == EffectKind::R && ReadEffect->RequiresRoundProof)
+        return Temporal::Unknown;
     if (R.SourceRegion == R.SinkRegion)
         return Temporal::SameRoundRead;
     if (RFP && WFP &&
@@ -2766,7 +2801,7 @@ static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDo
         if (WFP->Seg != PhaseSegment::Pair)
             return Temporal::SameRoundRead;
         if (RoundDomain == DomainKind::Frontier)
-            return Temporal::PreviousRoundRead;
+            return Temporal::Unknown;
         return Temporal::Carried;
     }
     if (R.SourceSegment != R.SinkSegment)
@@ -3051,19 +3086,24 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
                 if (SameOp && SameElement && (!OtherWrites || OtherPartial))
                     R.DischargedBy = DischargeKind::AlgebraicFold;
             }
-            R.TemporalClass = relateAccessTemporal(R, Info.Expr.RoundDomain, MayRepeatRounds);
-            R.RoundOffset = (R.TemporalClass == Temporal::PreviousRoundRead ||
-                             R.TemporalClass == Temporal::PreviousRoundWrite ||
-                             R.TemporalClass == Temporal::Carried)
-                                ? 1
-                                : 0;
+            R.TemporalClass = relateAccessTemporal(R, Info.Expr.RoundDomain, MayRepeatRounds, &Info);
+            const bool EarlierRound = R.TemporalClass == Temporal::PreviousRoundRead ||
+                                      R.TemporalClass == Temporal::PreviousRoundWrite;
+            R.CrossRound = EarlierRound || R.TemporalClass == Temporal::Carried;
+            // Carried's legacy representation is unchanged pending its own
+            // proof strategy. Earlier-round evidence supplies direction only.
+            R.RoundOffset = R.TemporalClass == Temporal::Carried ? 1 : 0;
             R.PhaseRel = R.TemporalClass == Temporal::Unknown ? PhaseRelation::Unknown
+                         : EarlierRound ? PhaseRelation::PhaseAcross
                          : R.SourceSegment == R.SinkSegment
-                             ? (R.RoundOffset ? PhaseRelation::PhaseAcross
+                             ? (R.CrossRound ? PhaseRelation::PhaseAcross
                                               : PhaseRelation::SamePhase)
                              : PhaseRelation::PhaseBefore;
             R.Spatial = relateAccessSpatial(Info, R);
             R.Relation.K = R.TemporalClass == Temporal::Unknown ? InstanceRelation::Unknown
+                         : EarlierRound ? (R.Kind == AccessRelKind::WAR
+                                               ? InstanceRelation::LaterInstance
+                                               : InstanceRelation::EarlierInstance)
                          : R.RoundOffset ? InstanceRelation::FixedOffset
                                          : InstanceRelation::SameInstance;
             R.Relation.Offset = R.RoundOffset;
@@ -7231,7 +7271,8 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         E.TemporalClass = R.TemporalClass;
         E.Spatial = R.Spatial;
         const bool UnknownRound = R.TemporalClass == Temporal::Unknown;
-        E.CrossRound = UnknownRound || R.RoundOffset != 0 || R.TemporalClass == Temporal::Carried;
+        E.CrossRound = UnknownRound || R.CrossRound || R.RoundOffset != 0 ||
+                       R.TemporalClass == Temporal::Carried;
         /* An unknown relation remains in both projections when ownership can
          * cross. A zero offset does not establish a same-round relation.
          * A known cross-round relation orders the round sequence (temporal axis); it
@@ -7240,7 +7281,7 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
          * therefore only sees same-round relations (R4 = the carried read is
          * exactly the case the certificate routes to the temporal axis while
          * the spatial axis stays parallel). */
-        E.CrossPartition = R.RoundOffset == 0 &&
+        E.CrossPartition = !R.CrossRound && R.RoundOffset == 0 &&
                            (R.Spatial == OwnerClass::CrossOwner ||
                             R.Spatial == OwnerClass::MayCrossOwner ||
                             R.Spatial == OwnerClass::UnknownOwner ||
@@ -9094,19 +9135,28 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
     auto &LI = FAM.getResult<LoopAnalysis>(F);
     auto &AA = FAM.getResult<AAManager>(F);
     auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    auto &DI = FAM.getResult<DependenceAnalysis>(F);
     /* Freeze every candidate before emission creates device capture tables or
      * changes sibling loops. Backend infrastructure is not a proof input. */
-    struct FrozenSpatial { SpatialDecision Result; bool Array; unsigned Sites; };
+    struct FrozenSpatial {
+        SpatialDecision Result;
+        bool Array;
+        unsigned Sites;
+        DenseMap<const Instruction *, SmallVector<const Instruction *, 4>> EarlierRoundReads;
+    };
     DenseMap<Loop *,FrozenSpatial> OriginalSpatial;
     for(Loop *L:LI.getLoopsInPreorder()) {
         NeighborLoopInfo Original;
         if(!analyzeNeighborLoop(L,Original))continue;
         if(Original.UnprovenFrontierLifecycle)continue;
+        provePreviousRoundReads(Original,DI,LI,AA,DT);
+        deriveAllTemporal(Original);
         bool Private=privLayout(Original);
         if(!Private){Original.Slots.clear();Original.PrivArrays.clear();}
         Original.UsePrivLayout=Private&&privLayoutNeeded(Original);
         proveSpatialPartition(Original,AA,DT);
-        OriginalSpatial[L]={Original.SpatialResult,Original.OrderedArrayFrontier,Original.ArrayAppendSites};
+        OriginalSpatial[L]={Original.SpatialResult,Original.OrderedArrayFrontier,Original.ArrayAppendSites,
+                            std::move(Original.EarlierRoundReads)};
     }
     SmallPtrSet<Loop *, 16> TemporalOwned;
     for (Loop *L : LI.getLoopsInPreorder())
@@ -9129,6 +9179,13 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         bool HasData = IsIter ? Info.HasDataWrite : loopHasGraphDataWrite(L);
         if (!IsIter && !HasData)
             continue;
+        if (IsIter) {
+            auto Frozen = OriginalSpatial.find(L);
+            if (Frozen == OriginalSpatial.end())
+                report_fatal_error("missing original temporal proof input");
+            Info.EarlierRoundReads = Frozen->second.EarlierRoundReads;
+            deriveAllTemporal(Info);
+        }
         /* Derive the execution class from the loop's effect set. Iterator-less
          * hand-rolled loops have no per-pair structure to rewrite → sequential. */
         /* R7: no classification.  privLayout + supportedByAlgebra is the

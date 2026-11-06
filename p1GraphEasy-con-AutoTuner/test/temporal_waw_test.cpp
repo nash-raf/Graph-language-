@@ -56,8 +56,8 @@ static void labelsAndProjection() {
     AccessRelation r;
     r.Kind = AccessRelKind::RAW; r.SourceRegion = Region::V; r.SinkRegion = Region::U;
     r.SourceFootprint = &write; r.SinkFootprint = &read;
-    check(relateAccessTemporal(r, DomainKind::Frontier, true) == Temporal::PreviousRoundRead,
-          "legacy RAW read projection remains available");
+    check(relateAccessTemporal(r, DomainKind::Frontier, true) == Temporal::Unknown,
+          "frontier membership without a PDG direction proof remains unknown");
     r.Kind = AccessRelKind::WAR; r.SourceFootprint = &read; r.SinkFootprint = &write;
     check(relateAccessTemporal(r, DomainKind::AllVertices, true) == Temporal::Carried,
           "legacy WAR read projection remains available");

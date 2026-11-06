@@ -63,6 +63,7 @@
 
 #include "graph_frontier_lowering.h"
 #include "pdg_memory_dependence.h"
+#include "pdg_buffer_lifecycle.h"
 
 using namespace llvm;
 
@@ -1023,6 +1024,9 @@ struct NeighborLoopInfo
     // Original-IR proof: a read maps only to stores proved strictly earlier at
     // the round loop. No entry means no proof, not independence.
     DenseMap<const Instruction *, SmallVector<const Instruction *, 4>> EarlierRoundReads;
+    // Buffer lifecycle proves the version read, not the direction of every
+    // access pair. In particular, suffix publication retains same-round WAR.
+    DenseMap<const Instruction *, PDGBufferRoundProof> BufferRoundReads;
 
     /* Two-axis theorem certificate: unresolved R1-R7 witnesses per axis. */
     AxisCertificate Cert;
@@ -2696,6 +2700,7 @@ static void provePreviousRoundReads(NeighborLoopInfo &Info, DependenceInfo &DI,
                                    LoopInfo &LI, AAResults &AA, DominatorTree &DT)
 {
     Info.EarlierRoundReads.clear();
+    Info.BufferRoundReads.clear();
     Loop *Round = Info.DriverLoop ? Info.DriverLoop->getParentLoop() : nullptr;
     if (!Round) return;
     for (const Effect &E : Info.Effects) {
@@ -2705,6 +2710,11 @@ static void provePreviousRoundReads(NeighborLoopInfo &Info, DependenceInfo &DI,
         SmallVector<const Instruction *, 4> Writers;
         if (pdgProveEarlierRoundRead(*Read, *Round, DI, LI, AA, DT, Writers))
             Info.EarlierRoundReads[Read] = std::move(Writers);
+        else {
+            PDGBufferRoundProof Proof;
+            if (pdgProveBufferRoundRead(*Read, *Round, *Info.DriverLoop, LI, AA, DT, Proof))
+                Info.BufferRoundReads[Read] = std::move(Proof);
+        }
     }
 }
 
@@ -2744,8 +2754,10 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
     {
         if (Rd.Kind != EffectKind::R || !Rd.Base)
             continue;
-        if (Info.EarlierRoundReads.count(Rd.Origin)) {
+        if (Info.EarlierRoundReads.count(Rd.Origin) || Info.BufferRoundReads.count(Rd.Origin)) {
             // The proof includes stores outside the modeled expression too.
+            // Buffer certificates describe state versions only. They must not
+            // erase same-round WAR edges or manufacture a dependence distance.
             Rd.Temp = Temporal::PreviousRoundRead;
             continue;
         }
@@ -9131,6 +9143,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         bool Array;
         unsigned Sites;
         DenseMap<const Instruction *, SmallVector<const Instruction *, 4>> EarlierRoundReads;
+        DenseMap<const Instruction *, PDGBufferRoundProof> BufferRoundReads;
     };
     DenseMap<Loop *,FrozenSpatial> OriginalSpatial;
     for(Loop *L:LI.getLoopsInPreorder()) {
@@ -9144,7 +9157,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         Original.UsePrivLayout=Private&&privLayoutNeeded(Original);
         proveSpatialPartition(Original,AA,DT);
         OriginalSpatial[L]={Original.SpatialResult,Original.OrderedArrayFrontier,Original.ArrayAppendSites,
-                            std::move(Original.EarlierRoundReads)};
+                            std::move(Original.EarlierRoundReads), std::move(Original.BufferRoundReads)};
     }
     SmallPtrSet<Loop *, 16> TemporalOwned;
     for (Loop *L : LI.getLoopsInPreorder())
@@ -9172,6 +9185,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
             if (Frozen == OriginalSpatial.end())
                 report_fatal_error("missing original temporal proof input");
             Info.EarlierRoundReads = Frozen->second.EarlierRoundReads;
+            Info.BufferRoundReads = Frozen->second.BufferRoundReads;
             deriveAllTemporal(Info);
         }
         /* Derive the execution class from the loop's effect set. Iterator-less

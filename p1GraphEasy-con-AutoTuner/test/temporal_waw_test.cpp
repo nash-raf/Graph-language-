@@ -23,11 +23,11 @@ static void labelsAndProjection() {
                         r.SourceRegion = a; r.SinkRegion = b;
                         r.SourceSegment = sa; r.SinkSegment = sb;
                         r.SourceFootprint = &source; r.SinkFootprint = &sink;
-                        check(relateAccessTemporal(r, domain, true) == Temporal::Unknown,
-                              "repeated writes require a round proof for every region and phase");
+                        check(relateAccessTemporal(r, domain, true) == Temporal::Carried,
+                              "unproved repeated writes are conservatively carried");
                         check(relateAccessTemporal(r, domain, false) ==
-                              (sa == sb ? Temporal::SameRoundWrite : Temporal::SameRoundOrdered),
-                              "one traversal retains write conflicts and phase order");
+                              Temporal::Carried,
+                              "one traversal can still carry writes across sources and neighbors");
                         NeighborLoopInfo info;
                         r.TemporalClass = Temporal::Unknown;
                         r.Spatial = OwnerClass::CrossOwner;
@@ -56,11 +56,11 @@ static void labelsAndProjection() {
     AccessRelation r;
     r.Kind = AccessRelKind::RAW; r.SourceRegion = Region::V; r.SinkRegion = Region::U;
     r.SourceFootprint = &write; r.SinkFootprint = &read;
-    check(relateAccessTemporal(r, DomainKind::Frontier, true) == Temporal::Unknown,
-          "frontier membership without a PDG direction proof remains unknown");
+    check(relateAccessTemporal(r, DomainKind::Frontier, true) == Temporal::Carried,
+          "frontier endpoint conflicts are conservatively carried");
     r.Kind = AccessRelKind::WAR; r.SourceFootprint = &read; r.SinkFootprint = &write;
     check(relateAccessTemporal(r, DomainKind::AllVertices, true) == Temporal::Carried,
-          "legacy WAR read projection remains available");
+          "all-vertices endpoint conflicts are conservatively carried");
 }
 
 static void completeRounds(StringRef mode) {
@@ -154,7 +154,8 @@ exit:
     check(info.AccessRelations.size() == 1, "one repeated write generates a self-site WAW relation");
     if (!info.AccessRelations.empty()) {
         const auto &r = info.AccessRelations.front();
-        check(r.Kind == AccessRelKind::WAW && r.TemporalClass == Temporal::Unknown &&
+        check(r.Kind == AccessRelKind::WAW && r.TemporalClass == Temporal::Carried &&
+              r.MayCarrySource && r.MayCarryNeighbor && r.RoundUncertain && !r.CrossRound &&
               r.Relation.K == InstanceRelation::Unknown && r.RoundOffset == 0 &&
               r.PhaseRel == PhaseRelation::Unknown && !r.SourcedFromOrder,
               "self-site WAW has no invented offset or instruction order");

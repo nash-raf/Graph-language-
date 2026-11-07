@@ -23,7 +23,8 @@ copy coverage, a unique reaching writer, or an exact distance of one.
 Buffer certificates are stored separately from direction certificates. They
 set the read atom's `PreviousRoundRead` label but do not change its snapshot
 status or discharge access relations. A suffix copy retains its same-round
-write-after-read dependency. Existing Carried rules remain unchanged.
+write-after-read dependency. Source and neighbor carrying remain separate
+from the buffer certificate.
 
 Run `test/run_previous_round_read_tests.sh` for direction and buffer tests.
 The fixtures cover stack and heap buffers, local and global slots, SSA swaps,

@@ -64,6 +64,7 @@
 #include "graph_frontier_lowering.h"
 #include "pdg_memory_dependence.h"
 #include "pdg_buffer_lifecycle.h"
+#include "carried_access_proof.h"
 
 using namespace llvm;
 
@@ -204,7 +205,7 @@ enum class Temporal : uint8_t
     Independent = 0,
     SameRoundRead,
     PreviousRoundRead, /* proven earlier round; exact distance is not implied */
-    Carried,
+    Carried, /* conservative conflict across source/neighbor iterations */
     /* §4.2 relation-level extensions. Effect::Temp also uses Unknown when an
      * earlier-round read cannot be proved. The other additions appear on AccessRelation::TemporalClass
      * (WAR/WAW need a write-side and an ordered name the read projection never
@@ -582,6 +583,9 @@ struct AccessRelation
     PhaseRelation PhaseRel = PhaseRelation::SamePhase;
     int RoundOffset = 0;
     bool CrossRound = false; /* independent of whether a distance is known */
+    bool MayCarrySource = false;
+    bool MayCarryNeighbor = false;
+    bool RoundUncertain = false;
     OwnerClass Spatial = OwnerClass::UnknownOwner;  /* §5 projection */
     uint32_t WitnessId = 0;
 };
@@ -643,8 +647,7 @@ struct TemporalGraphTemplate
 /* ── §4.3/§6 proof graphs ─────────────────────────────────────────────────
  * Three graphs are built from the same complete relation list:
  *   Phase   within-round phase occurrences (Preamble -> Pair -> Epilogue);
- *   Round   the round sequence (a carried/previous-round relation is a
- *           self-edge on the round node);
+ *   Round   proven earlier-round relations and unresolved round conflicts;
  *   Spatial owner domains (U-owned, V-owned, scalar/global, data-derived).
  * An edge is "surviving" when no recorded transformation removes it.  The
  * axis verdicts use the crossing test rather than raw connectivity: an owner
@@ -1027,6 +1030,7 @@ struct NeighborLoopInfo
     // Buffer lifecycle proves the version read, not the direction of every
     // access pair. In particular, suffix publication retains same-round WAR.
     DenseMap<const Instruction *, PDGBufferRoundProof> BufferRoundReads;
+    CarriedAccessProof CarriedProof;
 
     /* Two-axis theorem certificate: unresolved R1-R7 witnesses per axis. */
     AxisCertificate Cert;
@@ -2538,7 +2542,7 @@ static bool analyzeNeighborLoop(Loop *L, NeighborLoopInfo &Info)
 
 /* ── expression construction and temporal derivation ─────────────
  * buildEffectExpr preserves preamble/pair/epilogue occurrence scope. The
- * structural read projection retains the legacy Carried rule. Earlier-round
+ * read projection uses exact-source separation or conservative carrying. Earlier-round
  * direction requires a separate PDG proof on the original whole-round IR;
  * neither membership gating nor a snapshot decision supplies that proof. */
 /* ── expression construction ─────────────────────────────────────
@@ -2718,8 +2722,33 @@ static void provePreviousRoundReads(NeighborLoopInfo &Info, DependenceInfo &DI,
     }
 }
 
-/* The existing Carried classifier is deliberately unchanged. A frontier is
- * not evidence of an earlier-round read: that label requires the PDG proof. */
+// Freeze address evidence before rewriting. Source uniqueness is a language
+// guarantee, not a new analysis check. No same-iteration element AA query excludes a
+// conflict between iterations: disjointness uses stable whole objects.
+static void proveCarriedAccesses(NeighborLoopInfo &Info, AAResults &AA)
+{
+    Info.CarriedProof = CarriedAccessProof();
+    if (!Info.DriverLoop) return;
+    Value *Source = carriedSourceIndex(Info.UVal);
+    SmallVector<Instruction *, 16> Sites;
+    for (const Effect &E : Info.Effects) {
+        if (!E.Origin || !carriedPointer(E.Origin) || llvm::is_contained(Sites, E.Origin)) continue;
+        Sites.push_back(E.Origin);
+        SourceAddressProof P;
+        if (carriedExactSourceAddress(E.Origin, Source, *Info.DriverLoop, AA, P))
+            Info.CarriedProof.SourceAddresses[E.Origin] = std::move(P);
+    }
+    for (Instruction *A : Sites) for (Instruction *B : Sites) {
+        if (A == B) continue;
+        Value *X = getUnderlyingObject(carriedPointer(A)), *Y = getUnderlyingObject(carriedPointer(B));
+        if (!carriedStableBase(X, *Info.DriverLoop, AA) || !carriedStableBase(Y, *Info.DriverLoop, AA)) continue;
+        if (AA.alias(MemoryLocation::getBeforeOrAfter(X), MemoryLocation::getBeforeOrAfter(Y)) == AliasResult::NoAlias)
+            Info.CarriedProof.Disjoint[A].push_back(B);
+    }
+}
+
+/* Carried is a conservative ordering obligation. It does not assert graph
+ * connectivity, an exact distance, or that the conflict crosses a round. */
 static Temporal relateReadWrite(const Effect &Rd, const Effect &M,
                                 PhaseSegment MSeg, DomainKind RoundDomain,
                                 const NeighborLoopInfo *Info = nullptr)
@@ -2728,20 +2757,12 @@ static Temporal relateReadWrite(const Effect &Rd, const Effect &M,
         return Temporal::Independent;
     if (provedEarlierRound(Info, Rd.Origin, M.Origin))
         return Temporal::PreviousRoundRead;
-    if (M.Base != Rd.Base)
+    if (Info && carriedDisjoint(Info->CarriedProof, Rd.Origin, M.Origin))
         return Temporal::Independent;
-    if (M.Reg == Rd.Reg)
+    if (Info && carriedSourceSeparated(Info->CarriedProof, Rd.Origin, M.Origin) &&
+        (Rd.Scope != OccurrenceScope::PerPair || M.Scope != OccurrenceScope::PerPair))
         return Temporal::SameRoundRead;
-    if (Rd.Reg == Region::U && M.Reg == Region::V)
-    {
-        if (MSeg != PhaseSegment::Pair)
-            return Temporal::SameRoundRead; /* per-source write: sequenced */
-        return RoundDomain == DomainKind::Frontier ? Temporal::Unknown
-                                                   : Temporal::Carried;
-    }
-    if (Rd.Reg == Region::V && M.Reg == Region::U)
-        return Temporal::SameRoundRead; /* staged owner control */
-    return Temporal::Independent; /* other cross-region pairs are unrelated */
+    return Temporal::Carried;
 }
 
 /* Derive the read projection using original-IR proofs where available. The
@@ -2780,45 +2801,28 @@ static void deriveAllTemporal(NeighborLoopInfo &Info)
      * final; deriving it here would see none of them. */
 }
 
-/* RAW/WAR retain the legacy read projection. WAW has no read endpoint.
- * Neither matching provenance nor different phases proves separation across
- * repeated rounds. Without a complete round proof, retain an unknown relation.
- * A traversal with no enclosing loop has only same-round write relations.
- * PreviousRoundWrite requires an established offset, not an endpoint heuristic. */
+/* Classify conflicts conservatively within the traversal. Exact source
+ * addresses can exclude source carrying, but repeated pair occurrences still
+ * conflict. Round uncertainty is retained separately on AccessRelation. */
 static Temporal relateAccessTemporal(const AccessRelation &R, DomainKind RoundDomain,
                                      bool MayRepeatRounds,
                                      const NeighborLoopInfo *Info = nullptr)
 {
-    if (R.Kind == AccessRelKind::WAW) {
-        if (MayRepeatRounds) return Temporal::Unknown;
-        return R.SourceSegment != R.SinkSegment ? Temporal::SameRoundOrdered
-                                                : Temporal::SameRoundWrite;
-    }
     const bool SrcWrites = R.Kind != AccessRelKind::WAR;
     const Footprint *WFP = SrcWrites ? R.SourceFootprint : R.SinkFootprint;
     const Footprint *RFP = R.Kind == AccessRelKind::WAR ? R.SourceFootprint
                            : R.Kind == AccessRelKind::RAW ? R.SinkFootprint
                                                           : nullptr;
-    if (RFP && WFP && provedEarlierRound(Info, RFP->Origin, WFP->Origin))
+    if (R.Kind != AccessRelKind::WAW && RFP && WFP && provedEarlierRound(Info, RFP->Origin, WFP->Origin))
         return Temporal::PreviousRoundRead;
-    const Effect *ReadEffect = SrcWrites ? R.Sink : R.Source;
-    if (ReadEffect && ReadEffect->Kind == EffectKind::R && ReadEffect->RequiresRoundProof)
-        return Temporal::Unknown;
-    if (R.SourceRegion == R.SinkRegion)
-        return Temporal::SameRoundRead;
-    if (RFP && WFP &&
-        ((RFP->Reg == Region::U && WFP->Reg == Region::V) ||
-         (RFP->Reg == Region::V && WFP->Reg == Region::U)))
-    {
-        if (WFP->Seg != PhaseSegment::Pair)
-            return Temporal::SameRoundRead;
-        if (RoundDomain == DomainKind::Frontier)
-            return Temporal::Unknown;
+    const auto *A = R.SourceFootprint, *B = R.SinkFootprint;
+    if (!Info || !A || !B || R.ResourceMask || !carriedSourceSeparated(Info->CarriedProof, A->Origin, B->Origin) ||
+        (A->Scope == OccurrenceScope::PerPair && B->Scope == OccurrenceScope::PerPair))
         return Temporal::Carried;
-    }
+    if (MayRepeatRounds) return Temporal::Unknown; // source separation says nothing about rounds
     if (R.SourceSegment != R.SinkSegment)
         return Temporal::SameRoundOrdered;
-    return Temporal::Independent;
+    return R.Kind == AccessRelKind::WAW ? Temporal::SameRoundWrite : Temporal::SameRoundRead;
 }
 
 /* §5 owner resolution, conservative base: region is provenance, not ownership,
@@ -2973,17 +2977,26 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
     for (size_t i = 0; i < Items.size(); ++i)
     {
         const Footprint &A = *Items[i].F;
-        for (size_t j = i; j < Items.size(); ++j)
+        for (size_t j = 0; j < Items.size(); ++j)
         {
-            /* One write site can conflict with itself in another round.
+            /* One write site can conflict with itself in another iteration.
              * This is not instruction order within a single occurrence. */
-            if (i == j && (!MayRepeatRounds || !WritesOf(A))) continue;
+            if (i == j && !WritesOf(A)) continue;
             const Footprint &B = *Items[j].F;
+            // A read-before-write recurrence has both same-occurrence WAR and
+            // write-to-next-occurrence RAW. Static instruction order must not
+            // suppress the latter. Keep one representative for symmetric WAW.
+            if (j < i && WritesOf(A) == WritesOf(B)) continue;
             const bool SameBase = A.Base && B.Base && A.Base == B.Base;
             const uint32_t Shared = SharedResources(A, B);
-            if (!SameBase && !Shared)
+            const bool MayAlias = A.Base && B.Base &&
+                !carriedDisjoint(Info.CarriedProof, A.Origin, B.Origin);
+            if (!MayAlias && !Shared)
                 continue;
-            if (!SameBase)
+            if (j < i && !MayRepeatRounds && !Shared &&
+                carriedSourceSeparated(Info.CarriedProof, A.Origin, B.Origin) &&
+                (A.Scope != OccurrenceScope::PerPair || B.Scope != OccurrenceScope::PerPair)) continue;
+            if (!MayAlias)
             {
                 /* A loop-scoped resource footprint that repeats a *binding*
                  * resource an effect already holds adds no information: the
@@ -3030,9 +3043,9 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
             R.SourceScope = A.Scope;
             R.SinkScope = B.Scope;
             R.ResourceMask = Shared;
-            const bool OrderedPair = Items[i].E != Items[j].E &&
+            const bool OrderedPair = i < j && Items[i].E != Items[j].E &&
                                      R.SourceSegment != R.SinkSegment;
-            const bool InternalOrder = i != j && Items[i].E != nullptr &&
+            const bool InternalOrder = i < j && Items[i].E != nullptr &&
                                        Items[i].E == Items[j].E;
             if (OrderedPair || InternalOrder)
             {
@@ -3098,27 +3111,32 @@ static void deriveAccessRelations(NeighborLoopInfo &Info)
                 if (SameOp && SameElement && (!OtherWrites || OtherPartial))
                     R.DischargedBy = DischargeKind::AlgebraicFold;
             }
+            if (MayAlias && !SameBase) R.DischargedBy = DischargeKind::None;
             R.TemporalClass = relateAccessTemporal(R, Info.Expr.RoundDomain, MayRepeatRounds, &Info);
             const bool EarlierRound = R.TemporalClass == Temporal::PreviousRoundRead ||
                                       R.TemporalClass == Temporal::PreviousRoundWrite;
-            R.CrossRound = EarlierRound || R.TemporalClass == Temporal::Carried;
-            // Carried's legacy representation is unchanged pending its own
-            // proof strategy. Earlier-round evidence supplies direction only.
-            R.RoundOffset = R.TemporalClass == Temporal::Carried ? 1 : 0;
-            R.PhaseRel = R.TemporalClass == Temporal::Unknown ? PhaseRelation::Unknown
+            R.CrossRound = EarlierRound;
+            R.RoundUncertain = MayRepeatRounds && !EarlierRound;
+            R.MayCarrySource = !EarlierRound &&
+                (Shared || !carriedSourceSeparated(Info.CarriedProof, A.Origin, B.Origin));
+            R.MayCarryNeighbor = !EarlierRound && A.Scope == OccurrenceScope::PerPair && B.Scope == OccurrenceScope::PerPair;
+            R.RoundOffset = 0;
+            R.PhaseRel = R.RoundUncertain || R.TemporalClass == Temporal::Unknown ? PhaseRelation::Unknown
                          : EarlierRound ? PhaseRelation::PhaseAcross
                          : R.SourceSegment == R.SinkSegment
                              ? (R.CrossRound ? PhaseRelation::PhaseAcross
                                               : PhaseRelation::SamePhase)
                              : PhaseRelation::PhaseBefore;
             R.Spatial = relateAccessSpatial(Info, R);
-            R.Relation.K = R.TemporalClass == Temporal::Unknown ? InstanceRelation::Unknown
+            if (MayAlias && !SameBase) R.Spatial = OwnerClass::UnknownOwner;
+            R.Relation.K = R.RoundUncertain || R.TemporalClass == Temporal::Unknown ? InstanceRelation::Unknown
                          : EarlierRound ? (R.Kind == AccessRelKind::WAR
                                                ? InstanceRelation::LaterInstance
                                                : InstanceRelation::EarlierInstance)
-                         : R.RoundOffset ? InstanceRelation::FixedOffset
+                         : R.MayCarrySource || R.MayCarryNeighbor ? InstanceRelation::Unknown
                                          : InstanceRelation::SameInstance;
             R.Relation.Offset = R.RoundOffset;
+            if (j < i && !EarlierRound) R.PhaseRel = PhaseRelation::Unknown;
             if (!R.Base)
             {
                 /* §3.1 resource relation: the discharge is the mechanism that
@@ -3938,7 +3956,9 @@ static void summarizeEffects(const NeighborLoopInfo &Info, EffectSummary &S)
                 (void)MSeg;
                 if (!effectIsMutating(M) || M.Kind == EffectKind::Activate)
                     return;
-                if (M.Base == E.Base && M.Reg != E.Reg)
+                if (!carriedDisjoint(Info.CarriedProof, E.Origin, M.Origin) &&
+                    (!carriedSourceSeparated(Info.CarriedProof, E.Origin, M.Origin) ||
+                     (E.Scope == OccurrenceScope::PerPair && M.Scope == OccurrenceScope::PerPair)))
                     S.HasCarriedOnMut = true;
             });
             return;
@@ -6352,11 +6372,10 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
         R.K = InstanceRelation::SameInstance;
         return R;
     };
-    auto prevInstance = []()
+    auto unknownInstance = []()
     {
         InstanceRelation R;
-        R.K = InstanceRelation::FixedOffset;
-        R.Offset = 1; /* preceding round -> current round */
+        R.K = InstanceRelation::Unknown;
         return R;
     };
 
@@ -6407,13 +6426,14 @@ static bool supportedByAlgebra(NeighborLoopInfo &Info, const EffectSummary &S,
                 sameInstance(), DischargeKind::None, "unknown index provenance (Top)");
         RecordRefusal("unknown index provenance (Top)");
     }
-    /* R4 -- temporal: a carried read observes a base mutated across the round. */
+    /* R4 -- temporal: an unresolved read/write conflict across occurrences.
+     * The legacy witness does not identify a carrier or a numerical distance. */
     if (S.HasCarriedOnMut)
     {
         const DischargeKind D = Priv ? DischargeKind::Privatization : DischargeKind::None;
         witness(WitnessAxis::Temporal, RejectionId::R4, nullptr, Region::Bottom, Region::Bottom,
                 AccessMode::Read, AccessMode::Write, PhaseSegment::Preamble, PhaseSegment::Preamble,
-                prevInstance(), D, "carried read on a mutated base");
+                unknownInstance(), D, "carried read on a mutated base");
         if (!Priv)
             RecordRefusal("carried read on a mutated base");
     }
@@ -7281,17 +7301,15 @@ static void buildProofGraphs(NeighborLoopInfo &Info)
         E.WitnessId = R.WitnessId;
         E.TemporalClass = R.TemporalClass;
         E.Spatial = R.Spatial;
-        const bool UnknownRound = R.TemporalClass == Temporal::Unknown;
-        E.CrossRound = UnknownRound || R.CrossRound || R.RoundOffset != 0 ||
-                       R.TemporalClass == Temporal::Carried;
+        const bool UnknownRound = R.RoundUncertain || R.TemporalClass == Temporal::Unknown;
+        E.CrossRound = UnknownRound || R.CrossRound || R.RoundOffset != 0;
         /* An unknown relation remains in both projections when ownership can
          * cross. A zero offset does not establish a same-round relation.
          * A known cross-round relation orders the round sequence (temporal axis); it
          * never blocks the spatial axis, because inside one round its two
          * accesses are separated by the phase order.  The spatial crossing test
-         * therefore only sees same-round relations (R4 = the carried read is
-         * exactly the case the certificate routes to the temporal axis while
-         * the spatial axis stays parallel). */
+         * therefore retains possible source/neighbor conflicts. Carried alone
+         * never removes a conflict from the spatial projection. */
         E.CrossPartition = !R.CrossRound && R.RoundOffset == 0 &&
                            (R.Spatial == OwnerClass::CrossOwner ||
                             R.Spatial == OwnerClass::MayCrossOwner ||
@@ -7646,7 +7664,7 @@ static void proofGraphReport(const NeighborLoopInfo &Info)
             fprintf(stderr,
                     "[legacy-owner-graphcheck]   edge rel=%u kind=%s base=%s src=%s sink=%s "
                     "spatial=%s temporal=%s constraint=%s discharge=%s "
-                    "realizable=%d witness=%u\n",
+                    "realizable=%d witness=%u may-source=%d may-neighbor=%d round-unknown=%d\n",
                     E.Relation,
                     R.Kind == AccessRelKind::RAW ? "RAW"
                     : R.Kind == AccessRelKind::WAR ? "WAR" : "WAW",
@@ -7656,7 +7674,8 @@ static void proofGraphReport(const NeighborLoopInfo &Info)
                     E.Constraint == ConstraintKind::Precedence ? "precedence"
                                                                : "mutex",
                     dischargeName(E.DischargedBy), E.Realizable ? 1 : 0,
-                    E.WitnessId);
+                    E.WitnessId, R.MayCarrySource ? 1 : 0, R.MayCarryNeighbor ? 1 : 0,
+                    R.RoundUncertain ? 1 : 0);
         }
     for (const ProofEdge &E : Info.Graphs.Round.Edges)
         if (E.Survives)
@@ -9144,6 +9163,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         unsigned Sites;
         DenseMap<const Instruction *, SmallVector<const Instruction *, 4>> EarlierRoundReads;
         DenseMap<const Instruction *, PDGBufferRoundProof> BufferRoundReads;
+        CarriedAccessProof CarriedProof;
     };
     DenseMap<Loop *,FrozenSpatial> OriginalSpatial;
     for(Loop *L:LI.getLoopsInPreorder()) {
@@ -9151,13 +9171,15 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
         if(!analyzeNeighborLoop(L,Original))continue;
         if(Original.UnprovenFrontierLifecycle)continue;
         provePreviousRoundReads(Original,DI,LI,AA,DT);
+        proveCarriedAccesses(Original,AA);
         deriveAllTemporal(Original);
         bool Private=privLayout(Original);
         if(!Private){Original.Slots.clear();Original.PrivArrays.clear();}
         Original.UsePrivLayout=Private&&privLayoutNeeded(Original);
         proveSpatialPartition(Original,AA,DT);
         OriginalSpatial[L]={Original.SpatialResult,Original.OrderedArrayFrontier,Original.ArrayAppendSites,
-                            std::move(Original.EarlierRoundReads), std::move(Original.BufferRoundReads)};
+                            std::move(Original.EarlierRoundReads), std::move(Original.BufferRoundReads),
+                            std::move(Original.CarriedProof)};
     }
     SmallPtrSet<Loop *, 16> TemporalOwned;
     for (Loop *L : LI.getLoopsInPreorder())
@@ -9186,6 +9208,7 @@ PreservedAnalyses GraphFrontierLoweringPass::run(Function &F,
                 report_fatal_error("missing original temporal proof input");
             Info.EarlierRoundReads = Frozen->second.EarlierRoundReads;
             Info.BufferRoundReads = Frozen->second.BufferRoundReads;
+            Info.CarriedProof = Frozen->second.CarriedProof;
             deriveAllTemporal(Info);
         }
         /* Derive the execution class from the loop's effect set. Iterator-less

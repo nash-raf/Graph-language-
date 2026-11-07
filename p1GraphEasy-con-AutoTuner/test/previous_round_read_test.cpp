@@ -136,7 +136,7 @@ outer_latch:
               "unproved non-endpoint read remains unknown: " + mode.str());
 
     // Membership has no role in the proof, and changing endpoint labels must
-    // not manufacture one. The Carried rule itself remains outside this change.
+    // not manufacture an earlier-round proof.
     info.Expr.RoundDomain = DomainKind::Frontier;
     read->Reg = Region::U;
     for (Effect &e : info.Effects)
@@ -173,8 +173,10 @@ outer_latch:
 }
 
 #include "buffer_round_read_cases.inc"
+#include "carried_access_cases.inc"
 
 int main() {
+    carriedCases();
     bufferCases();
     fixture("ordinary", 1, true);
     fixture("ordinary", 3, true);

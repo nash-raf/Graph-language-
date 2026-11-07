@@ -171,8 +171,8 @@ suffix:
         AccessRelation war;
         war.Kind = AccessRelKind::WAR; war.Source = read; war.Sink = &write;
         war.SourceRegion = war.SinkRegion = read->Reg;
-        check(relateAccessTemporal(war, DomainKind::AllVertices, true, &info) == Temporal::SameRoundRead,
-              "buffer certificate preserves same-round WAR");
+        check(relateAccessTemporal(war, DomainKind::AllVertices, true, &info) == Temporal::Carried,
+              "buffer certificate preserves unproved WAR conflicts");
     }
     info.DriverLoop = info.DriverLoop->getParentLoop();
     provePreviousRoundReads(info, di, li, aa, dt);
